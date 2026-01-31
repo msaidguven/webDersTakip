@@ -186,9 +186,9 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         return;
       }
       
-      // DB'den dersleri çek
+      // DB'den dersleri çek - p_grade_id parametresi kullan
       const { data, error } = await supabase.rpc('get_lessons_by_grade', {
-        grade_id: parseInt(grade.id)
+        p_grade_id: parseInt(grade.id)
       });
       
       console.log('[selectGrade] Lessons response:', { data, error });
@@ -205,7 +205,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           icon: item.icon || '📚',
           color: getLessonColor(item.order_no || 0),
           unitCount: 0, // TODO: DB'den çek
-          questionCount: 0, // TODO: DB'den çek
+          questionCount: item.question_count || 0,
         }));
         setAvailableLessons(transformedLessons);
       } else {
