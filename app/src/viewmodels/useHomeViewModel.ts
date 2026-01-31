@@ -17,22 +17,15 @@ const mockGrades: Grade[] = [
 ];
 
 interface UseHomeViewModelReturn {
-  // Data
   grades: Grade[];
   availableLessons: Lesson[];
   availableUnits: Unit[];
   selection: HomeSelectionState;
-  
-  // Loading states
   isLoadingGrades: boolean;
   gradesError: string | null;
-  
-  // Computed
   totalQuestions: number;
   totalTime: number;
   canStartTest: boolean;
-  
-  // Actions
   selectGrade: (grade: Grade) => void;
   selectLesson: (lesson: Lesson) => void;
   selectUnit: (unit: Unit) => void;
@@ -45,16 +38,12 @@ interface UseHomeViewModelReturn {
 }
 
 export function useHomeViewModel(): UseHomeViewModelReturn {
-  // Data states
   const [grades, setGrades] = useState<Grade[]>([]);
   const [availableLessons, setAvailableLessons] = useState<Lesson[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
-  
-  // Loading states
   const [isLoadingGrades, setIsLoadingGrades] = useState(true);
   const [gradesError, setGradesError] = useState<string | null>(null);
   
-  // Selection state
   const [selection, setSelection] = useState<HomeSelectionState>({
     step: 'grade',
     selectedGrade: null,
@@ -63,29 +52,39 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     selectedTopics: [],
   });
 
-  // Fetch grades from Supabase on mount
   useEffect(() => {
     async function fetchGrades() {
+      console.log('[fetchGrades] Starting...');
       try {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        // Check if Supabase is configured
-        if (!isSupabaseConfigured()) {
-          console.log('Supabase not configured, using mock data');
+        const configured = isSupabaseConfigured();
+        console.log('[fetchGrades] Supabase configured:', configured);
+        
+        if (!configured) {
+          console.log('[fetchGrades] Using mock data (Supabase not configured)');
           setGrades(mockGrades);
           setIsLoadingGrades(false);
           return;
         }
         
+        console.log('[fetchGrades] Calling RPC get_active_grades...');
         const { data, error } = await supabase!.rpc('get_active_grades');
+        
+        console.log('[fetchGrades] RPC response:', { data, error });
         
         if (error) {
           throw error;
         }
         
-        // Transform database data to Grade type
-        const transformedGrades: Grade[] = (data || []).map((item: any) => ({
+        if (!data || data.length === 0) {
+          console.log('[fetchGrades] No data from DB, using mock data');
+          setGrades(mockGrades);
+          return;
+        }
+        
+        const transformedGrades: Grade[] = data.map((item: any) => ({
           id: item.id.toString(),
           level: item.order_no,
           name: item.name,
@@ -94,11 +93,11 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           color: getGradeColor(item.order_no),
         }));
         
+        console.log('[fetchGrades] Transformed grades:', transformedGrades);
         setGrades(transformedGrades);
       } catch (err: any) {
-        console.error('Error fetching grades:', err);
+        console.error('[fetchGrades] Error:', err);
         setGradesError(err.message);
-        // Fallback to mock data on error
         setGrades(mockGrades);
       } finally {
         setIsLoadingGrades(false);
@@ -108,7 +107,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     fetchGrades();
   }, []);
 
-  // Helper functions for grade transformation
   function getGradeDescription(level: number): string {
     const descriptions: Record<number, string> = {
       6: 'Ortaokul 1. seviye',
@@ -124,13 +122,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
 
   function getGradeIcon(level: number): string {
     const icons: Record<number, string> = {
-      6: '📚',
-      7: '📖',
-      8: '🎯',
-      9: '🎓',
-      10: '🔬',
-      11: '⚡',
-      12: '🚀',
+      6: '📚', 7: '📖', 8: '🎯', 9: '🎓', 10: '🔬', 11: '⚡', 12: '🚀',
     };
     return icons[level] || '📖';
   }
@@ -148,7 +140,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     return colors[level] || 'from-indigo-500 to-purple-500';
   }
 
-  // Select Grade
   const selectGrade = useCallback((grade: Grade) => {
     const lessons = getLessonsByGrade(grade.id);
     setAvailableLessons(lessons);
@@ -162,7 +153,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Select Lesson
   const selectLesson = useCallback((lesson: Lesson) => {
     const units = getUnitsByLesson(lesson.id);
     setAvailableUnits(units);
@@ -175,7 +165,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Select Unit
   const selectUnit = useCallback((unit: Unit) => {
     setSelection(prev => ({
       ...prev,
@@ -185,7 +174,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Toggle Topic Selection
   const toggleTopic = useCallback((topic: Topic) => {
     setSelection(prev => {
       const isSelected = prev.selectedTopics.some(t => t.id === topic.id);
@@ -203,7 +191,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     });
   }, []);
 
-  // Select All Topics in Unit
   const selectAllTopics = useCallback((topics: Topic[]) => {
     setSelection(prev => ({
       ...prev,
@@ -211,7 +198,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Clear All Topics
   const clearTopics = useCallback(() => {
     setSelection(prev => ({
       ...prev,
@@ -219,7 +205,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Go Back
   const goBack = useCallback(() => {
     setSelection(prev => {
       switch (prev.step) {
@@ -237,7 +222,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     });
   }, []);
 
-  // Go to Confirmation
   const goToConfirm = useCallback(() => {
     setSelection(prev => ({
       ...prev,
@@ -245,17 +229,14 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
   }, []);
 
-  // Get Total Question Count
   const getTotalQuestions = useCallback(() => {
     return selection.selectedTopics.reduce((sum, topic) => sum + topic.questionCount, 0);
   }, [selection.selectedTopics]);
 
-  // Get Total Estimated Time
   const getTotalTime = useCallback(() => {
     return selection.selectedTopics.reduce((sum, topic) => sum + topic.estimatedTime, 0);
   }, [selection.selectedTopics]);
 
-  // Reset All
   const reset = useCallback(() => {
     setSelection({
       step: 'grade',
@@ -269,22 +250,15 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
   }, []);
 
   return {
-    // Data
     grades,
     availableLessons,
     availableUnits,
     selection,
-    
-    // Loading states
     isLoadingGrades,
     gradesError,
-    
-    // Computed
     totalQuestions: getTotalQuestions(),
     totalTime: getTotalTime(),
     canStartTest: selection.selectedTopics.length > 0,
-    
-    // Actions
     selectGrade,
     selectLesson,
     selectUnit,
