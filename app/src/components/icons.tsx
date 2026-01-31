@@ -140,6 +140,18 @@ const icons: Record<string, React.FC<{ className?: string; size?: number }>> = {
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
+  'bookmark': ({ className, size = 24 }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  'download': ({ className, size = 24 }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  ),
 };
 
 export function Icon({ name, className = '', size = 24 }: IconProps) {
