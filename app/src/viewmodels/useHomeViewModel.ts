@@ -187,7 +187,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       }
       
       // DB'den dersleri çek - p_grade_id parametresi kullan
-      const { data, error } = await supabase.rpc('get_lessons_by_grade', {
+      const { data, error } = await supabase.rpc('get_lessons_for_grade', {
         p_grade_id: parseInt(grade.id)
       });
       

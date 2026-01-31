@@ -1,4 +1,6 @@
-CREATE OR REPLACE FUNCTION get_lessons_by_grade(p_grade_id bigint)
+DROP FUNCTION IF EXISTS get_lessons_by_grade(bigint);
+
+CREATE OR REPLACE FUNCTION get_lessons_for_grade(p_grade_id bigint)
 RETURNS TABLE (
     id bigint,
     name text,
@@ -29,5 +31,5 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_lessons_by_grade(bigint) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_lessons_by_grade(bigint) TO anon;
+GRANT EXECUTE ON FUNCTION get_lessons_for_grade(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_lessons_for_grade(bigint) TO anon;
