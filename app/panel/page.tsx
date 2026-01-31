@@ -23,24 +23,9 @@ export default function PanelPage() {
   } = useDashboardViewModel();
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{ 
-        backgroundColor: '#0f0f11',
-        backgroundImage: `
-          linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)
-        `,
-        backgroundSize: '60px 60px'
-      }}
-    >
+    <div className="min-h-screen bg-background bg-grid">
       {/* Glow Effects */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse at top, rgba(99, 102, 241, 0.1) 0%, transparent 60%)'
-        }}
-      />
+      <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
       
       {/* Sidebar */}
       <Sidebar items={navItems} activeItem="home" />
@@ -59,12 +44,7 @@ export default function PanelPage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">
-              Tekrar Hoşgeldin, <span style={{ 
-                background: 'linear-gradient(135deg, #6366f1, #a855f7, #ec4899)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>Ali</span>! 👋
+              Tekrar Hoşgeldin, <span className="gradient-text">Ali</span>! 👋
             </h1>
             <p className="text-zinc-400 text-lg">
               Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
@@ -132,13 +112,7 @@ export default function PanelPage() {
           </div>
 
           {/* Quote/Footer Section */}
-          <div 
-            className="rounded-2xl p-6 text-center"
-            style={{
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
-            }}
-          >
+          <div className="rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-white/5 p-6 text-center">
             <p className="text-zinc-400 italic">
               "Öğrenme bir yolculuktur, bir varış noktası değil."
             </p>

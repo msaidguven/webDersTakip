@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" className="dark">
-      <body className={`${inter.variable} font-sans antialiased`} style={{ backgroundColor: '#0f0f11' }}>
+      <body className={`${inter.variable} font-sans antialiased bg-[#0f0f11] text-white`}>
         {children}
       </body>
     </html>

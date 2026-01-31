@@ -12,25 +12,11 @@ interface SidebarProps {
 
 export function Sidebar({ items, activeItem }: SidebarProps) {
   return (
-    <aside 
-      className="fixed left-0 top-0 h-screen w-[280px] z-50 flex flex-col"
-      style={{ 
-        backgroundColor: 'rgba(15, 15, 17, 0.95)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-      }}
-    >
+    <aside className="fixed left-0 top-0 h-screen w-[280px] bg-surface/95 backdrop-blur-xl border-r border-white/5 z-50 flex flex-col">
       {/* Logo Area */}
-      <div className="p-6" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+      <div className="p-6 border-b border-white/5">
         <Link href="/" className="flex items-center gap-3 group">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-shadow"
-            style={{ 
-              background: 'linear-gradient(135deg, #6366f1, #a855f7, #ec4899)',
-              boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.5)'
-            }}
-          >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-shadow">
             <span className="text-xl font-bold text-white">E</span>
           </div>
           <div>
@@ -54,14 +40,10 @@ export function Sidebar({ items, activeItem }: SidebarProps) {
               className={`
                 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                 ${isActive 
-                  ? 'text-indigo-400' 
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-primary/10 text-indigo-400 border border-primary/20' 
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }
               `}
-              style={{
-                backgroundColor: isActive ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                border: isActive ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid transparent'
-              }}
             >
               <Icon 
                 name={item.icon} 
@@ -70,13 +52,7 @@ export function Sidebar({ items, activeItem }: SidebarProps) {
               />
               <span className="font-medium">{item.label}</span>
               {isActive && (
-                <div 
-                  className="ml-auto w-1.5 h-1.5 rounded-full"
-                  style={{ 
-                    backgroundColor: '#818cf8',
-                    boxShadow: '0 0 8px rgba(99, 102, 241, 0.6)'
-                  }}
-                />
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
               )}
             </Link>
           );
@@ -87,7 +63,7 @@ export function Sidebar({ items, activeItem }: SidebarProps) {
       <div className="px-4 py-2">
         <Link
           href="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-400 hover:text-white transition-all"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
         >
           <Icon name="home" size={20} />
           <span className="font-medium">Ana Sayfa</span>
@@ -95,21 +71,9 @@ export function Sidebar({ items, activeItem }: SidebarProps) {
       </div>
 
       {/* User Profile */}
-      <div className="p-4" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <button 
-          className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors group"
-          style={{ backgroundColor: 'transparent' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }}
-        >
-          <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}
-          >
+      <div className="p-4 border-t border-white/5">
+        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold">
             AY
           </div>
           <div className="flex-1 text-left">
