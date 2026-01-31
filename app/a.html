@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduSmart - Ana Sayfa</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #14b8a6;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+            --radius: 16px;
+            --radius-sm: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-content {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info h1 {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+
+        .user-info p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--bg);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .icon-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: var(--error);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        /* Streak Card */
+        .streak-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: var(--radius);
+            padding: 24px;
+            color: white;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .streak-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+
+        .streak-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .streak-title {
+            font-size: 14px;
+            opacity: 0.9;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .streak-icon {
+            font-size: 32px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .streak-count {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .streak-label {
+            font-size: 16px;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .daily-goal {
+            margin-top: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .goal-text {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .goal-progress {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        /* Week Selector */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .view-all {
+            color: var(--primary);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .week-scroll {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 24px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .week-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .week-chip {
+            flex-shrink: 0;
+            padding: 12px 20px;
+            background: var(--surface);
+            border: 2px solid transparent;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            min-width: 80px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .week-chip.active {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+        }
+
+        .week-chip:not(.active):hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .week-number {
+            font-weight: 700;
+            font-size: 16px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .week-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.3s;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon.purple { background: #ede9fe; color: var(--primary); }
+        .stat-icon.pink { background: #fce7f3; color: var(--secondary); }
+        .stat-icon.teal { background: #ccfbf1; color: var(--accent); }
+        .stat-icon.orange { background: #ffedd5; color: var(--warning); }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Units Section */
+        .units-section {
+            margin-bottom: 24px;
+        }
+
+        .unit-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .unit-card:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow);
+        }
+
+        .unit-card.locked {
+            opacity: 0.6;
+            border-left-color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
+        .unit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .unit-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .unit-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .unit-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .unit-progress {
+            margin-top: 16px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+
+        /* SRS Alert */
+        .srs-alert {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid #f59e0b;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .srs-icon {
+            width: 56px;
+            height: 56px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: var(--shadow);
+            flex-shrink: 0;
+        }
+
+        .srs-content h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #92400e;
+        }
+
+        .srs-content p {
+            font-size: 14px;
+            color: #a16207;
+            margin-bottom: 12px;
+        }
+
+        .srs-btn {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .srs-btn:hover {
+            background: #d97706;
+            transform: scale(1.05);
+        }
+
+        /* Recent Activity */
+        .activity-list {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+            border-radius: var(--radius-sm);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-item:hover {
+            background: #f8fafc;
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            background: #ede9fe;
+            color: var(--primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            font-size: 18px;
+        }
+
+        .activity-details {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .activity-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .activity-score {
+            font-weight: 800;
+            font-size: 18px;
+            color: var(--success);
+        }
+
+        /* Bottom Nav Placeholder */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            padding: 16px 20px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item i {
+            font-size: 24px;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            
+            .streak-count {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="user-info">
+                <h1>Tekrar Hoşgeldin! 👋</h1>
+                <p>Bugün 3. Hafta konularına devam edelim</p>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge">2</span>
+                </button>
+                <button class="icon-btn">
+                    <img src="https://ui-avatars.com/api/?name=Ali+Y&background=6366f1&color=fff" 
+                         style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" 
+                         alt="Profile">
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <!-- Streak & Daily Goal -->
+        <div class="streak-card">
+            <div class="streak-header">
+                <div>
+                    <div class="streak-title">Günlük Seri</div>
+                    <div class="streak-count">12 🔥</div>
+                    <div class="streak-label">Gün üst üste çalışma</div>
+                </div>
+                <div class="streak-icon">
+                    <i class="fas fa-fire"></i>
+                </div>
+            </div>
+            <div class="daily-goal">
+                <span class="goal-text">Günlük Hedef: 20 Soru</span>
+                <span class="goal-progress">15/20</span>
+            </div>
+        </div>
+
+        <!-- Week Selector (Curriculum Week) -->
+        <div class="section-header">
+            <h2 class="section-title">Müfredat Haftası</h2>
+            <a href="#" class="view-all">Takvim <i class="fas fa-chevron-right"></i></a>
+        </div>
+
+        <div class="week-scroll">
+            <div class="week-chip">
+                <span class="week-number">2</span>
+                <span class="week-label">Geçen</span>
+            </div>
+            <div class="week-chip active">
+                <span class="week-number">3</span>
+                <span class="week-label">Şimdi</span>
+            </div>
+            <div class="week-chip">
+                <span class="week-number">4</span>
+                <span class="week-label">Gelecek</span>
+            </div>
+            <div class="week-chip">
+                <span class="week-number">5</span>
+                <span class="week-label">Gelecek</span>
+            </div>
+            <div class="week-chip locked">
+                <span class="week-number">6</span>
+                <span class="week-label">Kilitli</span>
+            </div>
+        </div>
+
+        <!-- Quick Stats (user_time_based_stats) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value">48</div>
+                <div class="stat-label">Doğru Cevap</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pink">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-value">124</div>
+                <div class="stat-label">Dakika</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon teal">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-value">85%</div>
+                <div class="stat-label">Başarı Oranı</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <i class="fas fa-redo"></i>
+                </div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Tekrar Gerekli</div>
+            </div>
+        </div>
+
+        <!-- SRS Alert (user_question_stats.next_review_at) -->
+        <div class="srs-alert">
+            <div class="srs-icon">🧠</div>
+            <div class="srs-content">
+                <h3>Zamanı Gelen Tekrarlar</h3>
+                <p>5 soru için tekrar zamanı geldi. Bu soruları çözerek öğrenmeni pekiştir.</p>
+                <button class="srs-btn">Şimdi Tekrar Et</button>
+            </div>
+        </div>
+
+        <!-- Units Section (units + user_unit_summary) -->
+        <div class="units-section">
+            <div class="section-header">
+                <h2 class="section-title">Üniteler</h2>
+                <a href="#" class="view-all">Tümü <i class="fas fa-chevron-right"></i></a>
+            </div>
+
+            <!-- Unit 1 (Active) -->
+            <div class="unit-card">
+                <div class="unit-header">
+                    <div>
+                        <div class="unit-title">Sayı Sistemi ve İşlemler</div>
+                        <div class="unit-subtitle">3. Hafta • 12 Konu • 45 Soru</div>
+                    </div>
+                    <span class="unit-badge">Devam Ediyor</span>
+                </div>
+                <div class="unit-progress">
+                    <div class="progress-header">
+                        <span>İlerleme</span>
+                        <span>%65</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 65%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unit 2 (Completed) -->
+            <div class="unit-card" style="border-left-color: var(--success);">
+                <div class="unit-header">
+                    <div>
+                        <div class="unit-title">Geometrik Şekiller</div>
+                        <div class="unit-subtitle">2. Hafta • Tamamlandı</div>
+                    </div>
+                    <span class="unit-badge" style="background: var(--success);">
+                        <i class="fas fa-check"></i> Bitti
+                    </span>
+                </div>
+                <div class="unit-progress">
+                    <div class="progress-header">
+                        <span>Başarı Oranı</span>
+                        <span style="color: var(--success);">92%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 100%; background: var(--success);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unit 3 (Locked) -->
+            <div class="unit-card locked">
+                <div class="unit-header">
+                    <div>
+                        <div class="unit-title">Olasılık</div>
+                        <div class="unit-subtitle">4. Hafta • Kilitli</div>
+                    </div>
+                    <span class="unit-badge" style="background: var(--text-secondary);">
+                        <i class="fas fa-lock"></i> Kilitli
+                    </span>
+                </div>
+                <div class="unit-progress">
+                    <div class="progress-header">
+                        <span>Önceki üniteyi tamamla</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity (test_sessions) -->
+        <div class="section-header">
+            <h2 class="section-title">Son Aktiviteler</h2>
+            <a href="#" class="view-all">Geçmiş <i class="fas fa-chevron-right"></i></a>
+        </div>
+
+        <div class="activity-list">
+            <div class="activity-item">
+                <div class="activity-icon">
+                    <i class="fas fa-calculator"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Haftalık Değerlendirme #3</div>
+                    <div class="activity-meta">Bugün, 14:30 • 15 Soru • 12 Dakika</div>
+                </div>
+                <div class="activity-score">80%</div>
+            </div>
+            
+            <div class="activity-item">
+                <div class="activity-icon" style="background: #fce7f3; color: #ec4899;">
+                    <i class="fas fa-shapes"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Konu Sonu Testi: Üçgenler</div>
+                    <div class="activity-meta">Dün, 16:45 • 10 Soru • 8 Dakika</div>
+                </div>
+                <div class="activity-score" style="color: var(--success);">100%</div>
+            </div>
+
+            <div class="activity-item">
+                <div class="activity-icon" style="background: #ccfbf1; color: #14b8a6;">
+                    <i class="fas fa-redo"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Tekrar Seti: 2. Hafta</div>
+                    <div class="activity-meta">2 gün önce • SRS Algoritması</div>
+                </div>
+                <div class="activity-score" style="color: var(--warning);">60%</div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation (Flutter'a BottomNavigationBar olarak) -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active">
+            <i class="fas fa-home"></i>
+            <span>Ana Sayfa</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-book"></i>
+            <span>Üniteler</span>
+        </a>
+        <a href="#" class="nav-item" style="position: relative; top: -20px;">
+            <div style="background: var(--primary); width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5);">
+                <i class="fas fa-play"></i>
+            </div>
+            <span>Başla</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-chart-line"></i>
+            <span>İstatistik</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script>
+        // Hafta seçici interaktivitesi
+        document.querySelectorAll('.week-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                if (!this.classList.contains('locked')) {
+                    document.querySelectorAll('.week-chip').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+
+        // Unit kartlarına tıklama
+        document.querySelectorAll('.unit-card').forEach(card => {
+            card.addEventListener('click', function() {
+                if (!this.classList.contains('locked')) {
+                    this.style.transform = 'scale(0.98)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 200);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
