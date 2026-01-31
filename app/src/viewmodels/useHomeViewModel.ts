@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
-import { getLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
+import { getLessonsByGrade as getMockLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
 
 // Fallback mock grades when Supabase is not configured
 const mockGrades: Grade[] = [
@@ -25,13 +25,30 @@ function cleanEnvValue(value: string | undefined): string {
     .trim();
 }
 
+// Supabase client oluştur
+function createSupabaseClient() {
+  const supabaseUrl = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  
+  if (!supabaseUrl || !supabaseKey) return null;
+  
+  try {
+    new URL(supabaseUrl);
+    return createClient(supabaseUrl, supabaseKey);
+  } catch {
+    return null;
+  }
+}
+
 interface UseHomeViewModelReturn {
   grades: Grade[];
   availableLessons: Lesson[];
   availableUnits: Unit[];
   selection: HomeSelectionState;
   isLoadingGrades: boolean;
+  isLoadingLessons: boolean;
   gradesError: string | null;
+  lessonsError: string | null;
   totalQuestions: number;
   totalTime: number;
   canStartTest: boolean;
@@ -51,7 +68,9 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
   const [availableLessons, setAvailableLessons] = useState<Lesson[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const [isLoadingGrades, setIsLoadingGrades] = useState(true);
+  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
   const [gradesError, setGradesError] = useState<string | null>(null);
+  const [lessonsError, setLessonsError] = useState<string | null>(null);
   
   const [selection, setSelection] = useState<HomeSelectionState>({
     step: 'grade',
@@ -61,64 +80,29 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     selectedTopics: [],
   });
 
+  // Sınıfları çek
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      console.log('[fetchGrades] Server-side, skipping...');
-      return;
-    }
+    if (typeof window === 'undefined') return;
 
     async function fetchGrades() {
-      console.log('[fetchGrades] Starting client-side fetch...');
-      
       try {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        // Environment variables'ı temizle
-        const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabase = createSupabaseClient();
         
-        const supabaseUrl = cleanEnvValue(rawUrl);
-        const supabaseKey = cleanEnvValue(rawKey);
-        
-        console.log('[fetchGrades] Cleaned URL:', supabaseUrl);
-        console.log('[fetchGrades] Cleaned Key exists:', !!supabaseKey);
-        
-        if (!supabaseUrl || !supabaseKey) {
-          console.log('[fetchGrades] Using mock data (Supabase not configured)');
-          setTimeout(() => {
-            setGrades(mockGrades);
-            setIsLoadingGrades(false);
-          }, 500);
+        if (!supabase) {
+          setGrades(mockGrades);
+          setIsLoadingGrades(false);
           return;
         }
         
-        // URL validasyonu
-        try {
-          new URL(supabaseUrl);
-          console.log('[fetchGrades] URL is valid');
-        } catch (e) {
-          console.error('[fetchGrades] Invalid URL:', supabaseUrl);
-          throw new Error(`Invalid URL: ${supabaseUrl}`);
-        }
-        
-        console.log('[fetchGrades] Creating Supabase client...');
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        
-        console.log('[fetchGrades] Calling RPC get_active_grades...');
         const { data, error } = await supabase.rpc('get_active_grades');
         
-        console.log('[fetchGrades] RPC response:', { data, error });
-        
-        if (error) {
-          console.error('[fetchGrades] RPC Error:', error);
-          throw error;
-        }
+        if (error) throw error;
         
         if (!data || data.length === 0) {
-          console.log('[fetchGrades] No data from DB, using mock data');
           setGrades(mockGrades);
-          setIsLoadingGrades(false);
           return;
         }
         
@@ -131,7 +115,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           color: getGradeColor(item.order_no),
         }));
         
-        console.log('[fetchGrades] Transformed grades:', transformedGrades);
         setGrades(transformedGrades);
       } catch (err: any) {
         console.error('[fetchGrades] Error:', err);
@@ -178,18 +161,96 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     return colors[level] || 'from-indigo-500 to-purple-500';
   }
 
-  const selectGrade = useCallback((grade: Grade) => {
-    const lessons = getLessonsByGrade(grade.id);
-    setAvailableLessons(lessons);
-    setSelection(prev => ({
-      ...prev,
-      step: 'lesson',
-      selectedGrade: grade,
-      selectedLesson: null,
-      selectedUnit: null,
-      selectedTopics: [],
-    }));
+  // Sınıfa tıklayınca dersleri çek
+  const selectGrade = useCallback(async (grade: Grade) => {
+    console.log('[selectGrade] Fetching lessons for grade:', grade.id);
+    
+    try {
+      setIsLoadingLessons(true);
+      setLessonsError(null);
+      
+      const supabase = createSupabaseClient();
+      
+      if (!supabase) {
+        // Fallback to mock data
+        const mockLessons = getMockLessonsByGrade(grade.id);
+        setAvailableLessons(mockLessons);
+        setSelection(prev => ({
+          ...prev,
+          step: 'lesson',
+          selectedGrade: grade,
+          selectedLesson: null,
+          selectedUnit: null,
+          selectedTopics: [],
+        }));
+        return;
+      }
+      
+      // DB'den dersleri çek
+      const { data, error } = await supabase.rpc('get_lessons_by_grade', {
+        grade_id: parseInt(grade.id)
+      });
+      
+      console.log('[selectGrade] Lessons response:', { data, error });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // DB'den gelen dersleri transform et
+        const transformedLessons: Lesson[] = data.map((item: any) => ({
+          id: item.id.toString(),
+          gradeId: grade.id,
+          name: item.name,
+          description: item.description || '',
+          icon: item.icon || '📚',
+          color: getLessonColor(item.order_no || 0),
+          unitCount: 0, // TODO: DB'den çek
+          questionCount: 0, // TODO: DB'den çek
+        }));
+        setAvailableLessons(transformedLessons);
+      } else {
+        // DB'de yoksa mock data kullan
+        const mockLessons = getMockLessonsByGrade(grade.id);
+        setAvailableLessons(mockLessons);
+      }
+      
+      setSelection(prev => ({
+        ...prev,
+        step: 'lesson',
+        selectedGrade: grade,
+        selectedLesson: null,
+        selectedUnit: null,
+        selectedTopics: [],
+      }));
+    } catch (err: any) {
+      console.error('[selectGrade] Error:', err);
+      setLessonsError(err.message);
+      // Hata durumunda mock data
+      const mockLessons = getMockLessonsByGrade(grade.id);
+      setAvailableLessons(mockLessons);
+      setSelection(prev => ({
+        ...prev,
+        step: 'lesson',
+        selectedGrade: grade,
+        selectedLesson: null,
+        selectedUnit: null,
+        selectedTopics: [],
+      }));
+    } finally {
+      setIsLoadingLessons(false);
+    }
   }, []);
+
+  function getLessonColor(orderNo: number): string {
+    const colors = [
+      'from-indigo-500 to-purple-500',
+      'from-emerald-500 to-teal-500',
+      'from-orange-500 to-amber-500',
+      'from-blue-500 to-cyan-500',
+      'from-pink-500 to-rose-500',
+    ];
+    return colors[orderNo % colors.length];
+  }
 
   const selectLesson = useCallback((lesson: Lesson) => {
     const units = getUnitsByLesson(lesson.id);
@@ -293,7 +354,9 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     availableUnits,
     selection,
     isLoadingGrades,
+    isLoadingLessons,
     gradesError,
+    lessonsError,
     totalQuestions: getTotalQuestions(),
     totalTime: getTotalTime(),
     canStartTest: selection.selectedTopics.length > 0,

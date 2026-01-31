@@ -16,7 +16,9 @@ export default function HomePage() {
     availableUnits,
     selection,
     isLoadingGrades,
+    isLoadingLessons,
     gradesError,
+    lessonsError,
     totalQuestions,
     totalTime,
     selectGrade,
@@ -127,6 +129,8 @@ export default function HomePage() {
           <LessonSelector
             grade={selection.selectedGrade}
             lessons={availableLessons}
+            isLoading={isLoadingLessons}
+            error={lessonsError}
             onSelect={selectLesson}
             onBack={goBack}
           />
