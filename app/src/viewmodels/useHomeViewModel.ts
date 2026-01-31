@@ -16,6 +16,15 @@ const mockGrades: Grade[] = [
   { id: '12', level: 12, name: '12. Sınıf', description: 'Lise 4. sınıf - YKS', icon: '🚀', color: 'from-orange-500 to-amber-500' },
 ];
 
+// URL'i temizle (tırnaklar ve noktalı virgül kaldır)
+function cleanEnvValue(value: string | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/^['"]+/, '') // Baştaki tırnakları kaldır
+    .replace(/['";]+$/, '') // Sondaki tırnak ve noktalı virgülü kaldır
+    .trim();
+}
+
 interface UseHomeViewModelReturn {
   grades: Grade[];
   availableLessons: Lesson[];
@@ -65,14 +74,15 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Environment variables'ı temizle
+        const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         
-        // DEBUG: URL'i detaylı göster
-        console.log('[fetchGrades] Raw URL:', supabaseUrl);
-        console.log('[fetchGrades] URL type:', typeof supabaseUrl);
-        console.log('[fetchGrades] URL length:', supabaseUrl?.length);
-        console.log('[fetchGrades] URL trimmed:', supabaseUrl?.trim());
+        const supabaseUrl = cleanEnvValue(rawUrl);
+        const supabaseKey = cleanEnvValue(rawKey);
+        
+        console.log('[fetchGrades] Cleaned URL:', supabaseUrl);
+        console.log('[fetchGrades] Cleaned Key exists:', !!supabaseKey);
         
         if (!supabaseUrl || !supabaseKey) {
           console.log('[fetchGrades] Using mock data (Supabase not configured)');
@@ -83,20 +93,17 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           return;
         }
         
-        // URL'i temizle (trim yap)
-        const cleanUrl = supabaseUrl.trim();
-        
         // URL validasyonu
         try {
-          new URL(cleanUrl);
+          new URL(supabaseUrl);
           console.log('[fetchGrades] URL is valid');
         } catch (e) {
-          console.error('[fetchGrades] Invalid URL:', cleanUrl);
-          throw new Error(`Invalid URL: ${cleanUrl}`);
+          console.error('[fetchGrades] Invalid URL:', supabaseUrl);
+          throw new Error(`Invalid URL: ${supabaseUrl}`);
         }
         
-        console.log('[fetchGrades] Creating Supabase client with URL:', cleanUrl);
-        const supabase = createClient(cleanUrl, supabaseKey.trim());
+        console.log('[fetchGrades] Creating Supabase client...');
+        const supabase = createClient(supabaseUrl, supabaseKey);
         
         console.log('[fetchGrades] Calling RPC get_active_grades...');
         const { data, error } = await supabase.rpc('get_active_grades');
