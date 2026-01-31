@@ -52,9 +52,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     selectedTopics: [],
   });
 
-  // Client-side only fetch
   useEffect(() => {
-    // Browser kontrolü - sadece client-side çalış
     if (typeof window === 'undefined') {
       console.log('[fetchGrades] Server-side, skipping...');
       return;
@@ -67,12 +65,14 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        // Environment variables'ı client-side'dan oku
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         
-        console.log('[fetchGrades] URL exists:', !!supabaseUrl);
-        console.log('[fetchGrades] Key exists:', !!supabaseKey);
+        // DEBUG: URL'i detaylı göster
+        console.log('[fetchGrades] Raw URL:', supabaseUrl);
+        console.log('[fetchGrades] URL type:', typeof supabaseUrl);
+        console.log('[fetchGrades] URL length:', supabaseUrl?.length);
+        console.log('[fetchGrades] URL trimmed:', supabaseUrl?.trim());
         
         if (!supabaseUrl || !supabaseKey) {
           console.log('[fetchGrades] Using mock data (Supabase not configured)');
@@ -83,8 +83,20 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           return;
         }
         
-        // Client-side Supabase client oluştur
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        // URL'i temizle (trim yap)
+        const cleanUrl = supabaseUrl.trim();
+        
+        // URL validasyonu
+        try {
+          new URL(cleanUrl);
+          console.log('[fetchGrades] URL is valid');
+        } catch (e) {
+          console.error('[fetchGrades] Invalid URL:', cleanUrl);
+          throw new Error(`Invalid URL: ${cleanUrl}`);
+        }
+        
+        console.log('[fetchGrades] Creating Supabase client with URL:', cleanUrl);
+        const supabase = createClient(cleanUrl, supabaseKey.trim());
         
         console.log('[fetchGrades] Calling RPC get_active_grades...');
         const { data, error } = await supabase.rpc('get_active_grades');
