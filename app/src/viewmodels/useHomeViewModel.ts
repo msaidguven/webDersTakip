@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
 import { getLessonsByGrade as getMockLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
@@ -20,8 +21,8 @@ const mockGrades: Grade[] = [
 function cleanEnvValue(value: string | undefined): string {
   if (!value) return '';
   return value
-    .replace(/^['"]+/, '') // Baştaki tırnakları kaldır
-    .replace(/['";]+$/, '') // Sondaki tırnak ve noktalı virgülü kaldır
+    .replace(/^['"]+/, '')
+    .replace(/['";]+$/, '')
     .trim();
 }
 
@@ -64,6 +65,7 @@ interface UseHomeViewModelReturn {
 }
 
 export function useHomeViewModel(): UseHomeViewModelReturn {
+  const router = useRouter();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [availableLessons, setAvailableLessons] = useState<Lesson[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
@@ -172,7 +174,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       const supabase = createSupabaseClient();
       
       if (!supabase) {
-        // Fallback to mock data
         const mockLessons = getMockLessonsByGrade(grade.id);
         setAvailableLessons(mockLessons);
         setSelection(prev => ({
@@ -186,7 +187,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         return;
       }
       
-      // DB'den dersleri çek - p_grade_id parametresi kullan
       const { data, error } = await supabase.rpc('get_lessons_for_grade', {
         p_grade_id: parseInt(grade.id)
       });
@@ -196,7 +196,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // DB'den gelen dersleri transform et
         const transformedLessons: Lesson[] = data.map((item: any) => ({
           id: item.id.toString(),
           gradeId: grade.id,
@@ -204,12 +203,11 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           description: item.description || '',
           icon: item.icon || '📚',
           color: getLessonColor(item.order_no || 0),
-          unitCount: 0, // TODO: DB'den çek
+          unitCount: 0,
           questionCount: item.question_count || 0,
         }));
         setAvailableLessons(transformedLessons);
       } else {
-        // DB'de yoksa mock data kullan
         const mockLessons = getMockLessonsByGrade(grade.id);
         setAvailableLessons(mockLessons);
       }
@@ -225,7 +223,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     } catch (err: any) {
       console.error('[selectGrade] Error:', err);
       setLessonsError(err.message);
-      // Hata durumunda mock data
       const mockLessons = getMockLessonsByGrade(grade.id);
       setAvailableLessons(mockLessons);
       setSelection(prev => ({
@@ -252,9 +249,11 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     return colors[orderNo % colors.length];
   }
 
+  // Ders seçildiğinde /ders sayfasına git
   const selectLesson = useCallback((lesson: Lesson) => {
-    const units = getUnitsByLesson(lesson.id);
-    setAvailableUnits(units);
+    console.log('[selectLesson] Selected lesson:', lesson);
+    
+    // Seçimi state'e kaydet
     setSelection(prev => ({
       ...prev,
       step: 'unit',
@@ -262,7 +261,13 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       selectedUnit: null,
       selectedTopics: [],
     }));
-  }, []);
+    
+    // /ders sayfasına yönlendir - grade_id ve lesson_id parametreleri ile
+    const gradeId = selection.selectedGrade?.id;
+    if (gradeId) {
+      router.push(`/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`);
+    }
+  }, [router, selection.selectedGrade]);
 
   const selectUnit = useCallback((unit: Unit) => {
     setSelection(prev => ({
