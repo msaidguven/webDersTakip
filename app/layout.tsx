@@ -6,6 +6,7 @@ const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" className="dark">
-      <body className={`${inter.variable} font-sans antialiased bg-[#0f0f11]`}>
+      <body className={`${inter.variable} font-sans antialiased`} style={{ backgroundColor: '#0f0f11' }}>
         {children}
       </body>
     </html>
