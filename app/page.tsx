@@ -15,6 +15,8 @@ export default function HomePage() {
     availableLessons,
     availableUnits,
     selection,
+    isLoadingGrades,
+    gradesError,
     totalQuestions,
     totalTime,
     selectGrade,
@@ -28,12 +30,12 @@ export default function HomePage() {
   } = useHomeViewModel();
 
   return (
-    <div className="min-h-screen bg-[#0f0f11] bg-grid">
+    <div className="min-h-screen bg-background bg-grid">
       {/* Glow Effects */}
       <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-background/95 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
@@ -66,7 +68,7 @@ export default function HomePage() {
         {/* Progress Steps */}
         {selection.step !== 'grade' && (
           <div className="max-w-6xl mx-auto mb-12">
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               {['grade', 'lesson', 'unit', 'topic', 'confirm'].map((step, index) => {
                 const stepNames = ['Sınıf', 'Ders', 'Ünite', 'Konu', 'Onay'];
                 const isActive = selection.step === step;
@@ -114,7 +116,9 @@ export default function HomePage() {
         {/* Step Content */}
         {selection.step === 'grade' && (
           <GradeSelector 
-            grades={grades} 
+            grades={grades}
+            isLoading={isLoadingGrades}
+            error={gradesError}
             onSelect={selectGrade} 
           />
         )}
