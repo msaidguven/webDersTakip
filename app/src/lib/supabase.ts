@@ -1,15 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Client-side only - window kontrolü
+const getSupabase = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.log('[Supabase] Missing credentials');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
+};
 
-console.log('[Supabase] URL:', supabaseUrl ? '✓ configured' : '✗ missing');
-console.log('[Supabase] Key:', supabaseKey ? '✓ configured' : '✗ missing');
+// Lazy initialization - only when needed
+let supabaseInstance: ReturnType<typeof getSupabase> = null;
 
-// Only create client if environment variables are available
-export const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+export const getSupabaseClient = () => {
+  if (!supabaseInstance && typeof window !== 'undefined') {
+    supabaseInstance = getSupabase();
+  }
+  return supabaseInstance;
+};
 
-// Helper to check if supabase is configured
-export const isSupabaseConfigured = () => !!supabase;
+export const supabase = getSupabaseClient();
+
+export const isSupabaseConfigured = () => {
+  if (typeof window === 'undefined') return false;
+  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+};

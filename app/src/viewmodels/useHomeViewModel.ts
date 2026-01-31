@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
 import { getLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Fallback mock grades when Supabase is not configured
 const mockGrades: Grade[] = [
@@ -52,35 +52,54 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     selectedTopics: [],
   });
 
+  // Client-side only fetch
   useEffect(() => {
+    // Browser kontrolü - sadece client-side çalış
+    if (typeof window === 'undefined') {
+      console.log('[fetchGrades] Server-side, skipping...');
+      return;
+    }
+
     async function fetchGrades() {
-      console.log('[fetchGrades] Starting...');
+      console.log('[fetchGrades] Starting client-side fetch...');
+      
       try {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        const configured = isSupabaseConfigured();
-        console.log('[fetchGrades] Supabase configured:', configured);
+        // Environment variables'ı client-side'dan oku
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         
-        if (!configured) {
+        console.log('[fetchGrades] URL exists:', !!supabaseUrl);
+        console.log('[fetchGrades] Key exists:', !!supabaseKey);
+        
+        if (!supabaseUrl || !supabaseKey) {
           console.log('[fetchGrades] Using mock data (Supabase not configured)');
-          setGrades(mockGrades);
-          setIsLoadingGrades(false);
+          setTimeout(() => {
+            setGrades(mockGrades);
+            setIsLoadingGrades(false);
+          }, 500);
           return;
         }
         
+        // Client-side Supabase client oluştur
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
         console.log('[fetchGrades] Calling RPC get_active_grades...');
-        const { data, error } = await supabase!.rpc('get_active_grades');
+        const { data, error } = await supabase.rpc('get_active_grades');
         
         console.log('[fetchGrades] RPC response:', { data, error });
         
         if (error) {
+          console.error('[fetchGrades] RPC Error:', error);
           throw error;
         }
         
         if (!data || data.length === 0) {
           console.log('[fetchGrades] No data from DB, using mock data');
           setGrades(mockGrades);
+          setIsLoadingGrades(false);
           return;
         }
         
