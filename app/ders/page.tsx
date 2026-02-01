@@ -115,7 +115,7 @@ function DersContent() {
   const [isLoadingContents, setIsLoadingContents] = useState(true);
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
-  const [unitId, setUnitId] = useState<number | null>(null);
+  const [unitId, setUnitId] = useState<number | null>(1); // Mock: Her zaman unit_id=1 varsay
   const [selectedWeek, setSelectedWeek] = useState<number>(1); // Hafta seçimi için state
 
   // Sınıf ve ders bilgilerini çek
