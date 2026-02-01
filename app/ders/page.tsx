@@ -116,7 +116,7 @@ function DersContent() {
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
   const [unitId, setUnitId] = useState<number | null>(null);
-  const [selectedWeek, setSelectedWeek] = useState<number>(1); // Hafta seçimi için state
+  const [selectedWeek] = useState<number>(19); // Şimdilik statik 19. hafta
 
   // Sınıf ve ders bilgilerini çek
   useEffect(() => {
@@ -155,6 +155,7 @@ function DersContent() {
   }, [gradeId, lessonId]);
 
   // unit_id'yi seçilen haftaya göre çek
+  // 19. hafta için üniteyi çek (unit_grades join units)
   useEffect(() => {
     async function fetchUnitId() {
       if (!gradeId || !lessonId) return;
@@ -162,83 +163,42 @@ function DersContent() {
       try {
         const supabase = createSupabaseClient();
         if (!supabase) {
-          setUnitId(1); // Mock
-          return;
-        }
-        
-        // 1. Önce seçilen haftaya ait ünite ID'lerini çek
-        const { data: unitGradesData, error: unitGradesError } = await supabase
-          .from('unit_grades')
-          .select('unit_id')
-          .eq('grade_id', parseInt(gradeId))
-          .lte('start_week', selectedWeek)
-          .gte('end_week', selectedWeek);
-        
-        if (unitGradesError) throw unitGradesError;
-        
-        let unitIds: number[] = [];
-        
-        if (unitGradesData && unitGradesData.length > 0) {
-          unitIds = unitGradesData.map(ug => ug.unit_id);
-        }
-        
-        // 2. Haftaya göre bulamazsa, bu grade'e ait tüm üniteleri getir
-        if (unitIds.length === 0) {
-          const { data: allUnitGrades } = await supabase
-            .from('unit_grades')
-            .select('unit_id')
-            .eq('grade_id', parseInt(gradeId));
-          
-          if (allUnitGrades && allUnitGrades.length > 0) {
-            unitIds = allUnitGrades.map(ug => ug.unit_id);
-          }
-        }
-        
-        // 3. Hala yoksa bu dersin tüm ünitelerini getir
-        if (unitIds.length === 0) {
-          const { data: lessonUnits } = await supabase
-            .from('units')
-            .select('id')
-            .eq('lesson_id', parseInt(lessonId))
-            .limit(1);
-          
-          if (lessonUnits && lessonUnits.length > 0) {
-            unitIds = lessonUnits.map(u => u.id);
-          }
-        }
-        
-        if (unitIds.length === 0) {
           setUnitId(null);
-          setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
           return;
         }
         
-        // 4. Ünite bilgilerini çek (ders filtresi ile)
+        // 19. haftaya ait üniteyi bul (unit_grades + units join)
         const { data, error } = await supabase
-          .from('units')
-          .select('id, title')
-          .eq('lesson_id', parseInt(lessonId))
-          .in('id', unitIds)
+          .from('unit_grades')
+          .select(`
+            unit_id,
+            units!inner(id, title, lesson_id)
+          `)
+          .eq('grade_id', parseInt(gradeId))
+          .eq('units.lesson_id', parseInt(lessonId))
+          .lte('start_week', selectedWeek)
+          .gte('end_week', selectedWeek)
           .limit(1)
           .maybeSingle();
         
         if (error) throw error;
         
         if (data) {
-          setUnitId(data.id);
-          setWeekInfo(prev => ({ ...prev, unit_title: data.title }));
+          setUnitId(data.unit_id);
+          setWeekInfo(prev => ({ ...prev, unit_title: data.units.title }));
         } else {
-          // Ders filtresiyle bulunamazsa, filtresiz dene
-          const { data: anyUnit } = await supabase
+          // 19. haftaya ait ünite yoksa, bu dersin ilk ünitesini al
+          const { data: firstUnit } = await supabase
             .from('units')
             .select('id, title')
-            .in('id', unitIds)
+            .eq('lesson_id', parseInt(lessonId))
+            .order('order_no')
             .limit(1)
             .maybeSingle();
           
-          if (anyUnit) {
-            setUnitId(anyUnit.id);
-            setWeekInfo(prev => ({ ...prev, unit_title: anyUnit.title }));
+          if (firstUnit) {
+            setUnitId(firstUnit.id);
+            setWeekInfo(prev => ({ ...prev, unit_title: firstUnit.title }));
           } else {
             setUnitId(null);
             setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
@@ -251,7 +211,7 @@ function DersContent() {
     }
     
     fetchUnitId();
-  }, [gradeId, lessonId, selectedWeek]);
+  }, [gradeId, lessonId]);
 
   // Seçilen hafta için kazanımları çek
   useEffect(() => {
