@@ -1,6 +1,7 @@
-import type { Metadata, Viewport } from "next";
+import type { Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { metadata } from "./metadata";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,10 +10,7 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "EduSmart - Ders Takip",
-  description: "Modern eğitim takip ve öğrenme platformu",
-};
+export { metadata };
 
 export const viewport: Viewport = {
   width: "device-width",

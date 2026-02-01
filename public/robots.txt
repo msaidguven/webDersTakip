@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /panel/
+Disallow: /dashboard/
+
+Sitemap: https://edusmart.vercel.app/sitemap.xml
