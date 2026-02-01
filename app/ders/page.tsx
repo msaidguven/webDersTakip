@@ -115,6 +115,7 @@ function DersContent() {
   const [isLoadingContents, setIsLoadingContents] = useState(true);
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
+  const [unitId, setUnitId] = useState<number | null>(null);
 
   // Sınıf ve ders bilgilerini çek
   useEffect(() => {
@@ -150,6 +151,48 @@ function DersContent() {
     }
     
     fetchGradeAndLesson();
+  }, [gradeId, lessonId]);
+
+  // unit_id'yi çek
+  useEffect(() => {
+    async function fetchUnitId() {
+      if (!gradeId || !lessonId) return;
+      
+      try {
+        const supabase = createSupabaseClient();
+        if (!supabase) {
+          setUnitId(1); // Mock
+          return;
+        }
+        
+        // 19. haftaya ait üniteyi bul
+        const { data, error } = await supabase
+          .from('units')
+          .select('id')
+          .eq('lesson_id', parseInt(lessonId))
+          .in('id', (
+            supabase
+              .from('unit_grades')
+              .select('unit_id')
+              .eq('grade_id', parseInt(gradeId))
+              .lte('start_week', 19)
+              .gte('end_week', 19)
+          ))
+          .limit(1)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+          setUnitId(data.id);
+        }
+      } catch (err) {
+        console.error('[fetchUnitId] Error:', err);
+        setUnitId(1); // Mock fallback
+      }
+    }
+    
+    fetchUnitId();
   }, [gradeId, lessonId]);
 
   // 19. hafta için kazanımları çek
@@ -507,9 +550,21 @@ function DersContent() {
                       <p className="text-xs sm:text-sm text-zinc-500">Dakika</p>
                     </div>
                   </div>
-                  <button className="w-full py-3 sm:py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg sm:rounded-xl hover:shadow-lg transition-all text-sm sm:text-base">
-                    Teste Başla →
-                  </button>
+                  {unitId ? (
+                    <Link 
+                      href={`/haftalik-test?unit_id=${unitId}&week=19`}
+                      className="block w-full py-3 sm:py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg sm:rounded-xl hover:shadow-lg transition-all text-sm sm:text-base text-center"
+                    >
+                      Teste Başla →
+                    </Link>
+                  ) : (
+                    <button 
+                      disabled
+                      className="w-full py-3 sm:py-4 bg-zinc-700 text-zinc-400 font-semibold rounded-lg sm:rounded-xl cursor-not-allowed text-sm sm:text-base"
+                    >
+                      Yükleniyor...
+                    </button>
+                  )}
                 </div>
               )}
             </div>

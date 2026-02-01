@@ -91,15 +91,24 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
+        console.log('[fetchGrades] Starting...');
+        
         const supabase = createSupabaseClient();
         
+        console.log('[fetchGrades] Supabase client:', supabase ? 'created' : 'null');
+        console.log('[fetchGrades] ENV URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing');
+        
         if (!supabase) {
+          console.log('[fetchGrades] Using mock grades');
           setGrades(mockGrades);
           setIsLoadingGrades(false);
           return;
         }
         
+        console.log('[fetchGrades] Calling web_get_active_grades...');
         const { data, error } = await supabase.rpc('web_get_active_grades');
+        
+        console.log('[fetchGrades] Response:', { data, error });
         
         if (error) throw error;
         

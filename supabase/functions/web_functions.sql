@@ -11,7 +11,6 @@ RETURNS TABLE (
     id bigint,
     name text,
     order_no integer,
-    icon text,
     is_active boolean
 )
 LANGUAGE plpgsql
@@ -23,7 +22,6 @@ BEGIN
         g.id,
         g.name,
         g.order_no,
-        g.icon,
         g.is_active
     FROM 
         public.grades AS g
