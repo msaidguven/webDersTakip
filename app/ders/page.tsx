@@ -37,30 +37,15 @@ interface PageData {
 // ============================================
 // SUPABASE CLIENT
 // ============================================
+// Hardcoded for testing - move to env vars in production
+const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+
 function createSupabaseClient(): SupabaseClient | null {
-  // Environment variables - must be set in Vercel dashboard
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  
-  console.log('[Supabase] URL exists:', !!url);
-  console.log('[Supabase] KEY exists:', !!key);
-  
-  if (!url) {
-    console.error('[Supabase] NEXT_PUBLIC_SUPABASE_URL is missing');
-    return null;
-  }
-  
-  if (!key) {
-    console.error('[Supabase] NEXT_PUBLIC_SUPABASE_ANON_KEY is missing');
-    return null;
-  }
-  
   try {
-    new URL(url);
-    console.log('[Supabase] Client created successfully');
-    return createClient(url, key);
-  } catch (err) {
-    console.error('[Supabase] Invalid URL:', url);
+    return createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch {
+    console.error('[Supabase] Failed to create client');
     return null;
   }
 }
