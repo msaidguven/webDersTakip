@@ -99,7 +99,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
           return;
         }
         
-        const { data, error } = await supabase.rpc('get_active_grades');
+        const { data, error } = await supabase.rpc('web_get_active_grades');
         
         if (error) throw error;
         
@@ -187,7 +187,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         return;
       }
       
-      const { data, error } = await supabase.rpc('get_lessons_for_grade', {
+      const { data, error } = await supabase.rpc('web_get_lessons_for_grade', {
         p_grade_id: parseInt(grade.id)
       });
       

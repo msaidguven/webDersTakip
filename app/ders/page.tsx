@@ -90,6 +90,16 @@ interface Outcome {
   topic_title: string;
 }
 
+interface TopicContent {
+  id: number;
+  topic_id: number;
+  title: string;
+  content: string;
+  order_no: number;
+  topic_title: string;
+  unit_title: string;
+}
+
 // Ana içerik komponenti
 function DersContent() {
   const searchParams = useSearchParams();
@@ -101,6 +111,9 @@ function DersContent() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [isLoadingOutcomes, setIsLoadingOutcomes] = useState(true);
   const [outcomesError, setOutcomesError] = useState<string | null>(null);
+  const [topicContents, setTopicContents] = useState<TopicContent[]>([]);
+  const [isLoadingContents, setIsLoadingContents] = useState(true);
+  const [contentsError, setContentsError] = useState<string | null>(null);
 
   // 19. hafta için kazanımları çek
   useEffect(() => {
@@ -131,7 +144,7 @@ function DersContent() {
           return;
         }
         
-        const { data, error } = await supabase.rpc('get_outcomes_for_week', {
+        const { data, error } = await supabase.rpc('get_week_view_web', {
           p_lesson_id: parseInt(lessonId),
           p_grade_id: parseInt(gradeId),
           p_week_number: 19
@@ -168,6 +181,44 @@ function DersContent() {
     }
     
     fetchOutcomes();
+    
+    // Topic contents çek
+    async function fetchTopicContents() {
+      if (!gradeId || !lessonId) {
+        setIsLoadingContents(false);
+        return;
+      }
+      
+      try {
+        setIsLoadingContents(true);
+        setContentsError(null);
+        
+        const supabase = createSupabaseClient();
+        
+        if (!supabase) {
+          setTopicContents([]);
+          return;
+        }
+        
+        const { data, error } = await supabase.rpc('web_get_topic_contents_for_week', {
+          p_lesson_id: parseInt(lessonId),
+          p_grade_id: parseInt(gradeId),
+          p_week_number: 19
+        });
+        
+        if (error) throw error;
+        
+        setTopicContents(data || []);
+      } catch (err: any) {
+        console.error('[fetchTopicContents] Error:', err);
+        setContentsError(err.message);
+        setTopicContents([]);
+      } finally {
+        setIsLoadingContents(false);
+      }
+    }
+    
+    fetchTopicContents();
   }, [gradeId, lessonId]);
 
   const lesson = mockLessonContent;
@@ -302,58 +353,43 @@ function DersContent() {
 
               {activeTab === 'icerik' && (
                 <>
-                  <div className="rounded-2xl overflow-hidden bg-zinc-900/50 border border-white/5">
-                    <div className="aspect-video relative">
-                      {!isVideoPlaying ? (
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center bg-zinc-900 cursor-pointer group"
-                          onClick={() => setIsVideoPlaying(true)}
-                        >
-                          <div className="w-20 h-20 rounded-full bg-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500/40 transition-all">
-                            <div className="w-16 h-16 rounded-full bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/50">
-                              <Icon name="play" size={32} className="text-white ml-1" />
-                            </div>
+                  {isLoadingContents ? (
+                    <div className="space-y-6">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 animate-pulse">
+                          <div className="h-8 bg-zinc-800 rounded mb-4 w-1/3" />
+                          <div className="space-y-2">
+                            <div className="h-4 bg-zinc-800 rounded w-full" />
+                            <div className="h-4 bg-zinc-800 rounded w-full" />
+                            <div className="h-4 bg-zinc-800 rounded w-2/3" />
                           </div>
-                          <p className="absolute bottom-4 left-4 text-zinc-400">Videoyu başlat</p>
                         </div>
-                      ) : (
-                        <iframe
-                          src={lesson.icerik.video}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      )}
+                      ))}
                     </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
-                    <h3 className="text-xl font-semibold text-white mb-6">📖 Konu Anlatımı</h3>
-                    <div className="text-zinc-300 leading-relaxed whitespace-pre-line">
-                      {lesson.icerik.metin}
+                  ) : contentsError ? (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                      Hata: {contentsError}
                     </div>
-                  </div>
-
-                  {lesson.icerik.dosyalar.length > 0 && (
-                    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6">
-                      <h3 className="text-lg font-semibold text-white mb-4">📎 Ek Materyaller</h3>
-                      <div className="space-y-3">
-                        {lesson.icerik.dosyalar.map((dosya, index) => (
-                          <div 
-                            key={index}
-                            className="flex items-center gap-4 p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors cursor-pointer group"
-                          >
-                            <div className="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-2xl">
-                              {dosya.type === 'pdf' ? '📄' : '📝'}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-white font-medium group-hover:text-indigo-400 transition-colors">{dosya.name}</p>
-                              <p className="text-sm text-zinc-500">{dosya.size}</p>
-                            </div>
-                            <Icon name="download" size={20} className="text-zinc-500 group-hover:text-white" />
+                  ) : topicContents.length === 0 ? (
+                    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 text-center">
+                      <p className="text-zinc-400">Bu hafta için konu içeriği bulunmuyor.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {topicContents.map((content) => (
+                        <div key={content.id} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
+                          <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
+                            <span>{content.unit_title}</span>
+                            <span>→</span>
+                            <span>{content.topic_title}</span>
                           </div>
-                        ))}
-                      </div>
+                          <h3 className="text-xl font-semibold text-white mb-4">{content.title}</h3>
+                          <div 
+                            className="prose prose-invert prose-zinc max-w-none"
+                            dangerouslySetInnerHTML={{ __html: content.content }}
+                          />
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>
