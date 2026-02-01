@@ -244,22 +244,63 @@ function DersContent() {
           return;
         }
         
-        const { data, error } = await supabase.rpc('get_week_view_web', {
-          p_lesson_id: parseInt(lessonId),
-          p_grade_id: parseInt(gradeId),
-          p_week_number: selectedWeek
-        });
+        // 1. Önce 19. haftaya ait outcome_id'leri outcome_weeks'ten çek
+        const { data: weekOutcomes, error: weekError } = await supabase
+          .from('outcome_weeks')
+          .select('outcome_id')
+          .lte('start_week', selectedWeek)
+          .gte('end_week', selectedWeek);
         
-        console.log('[fetchOutcomes] Response:', { data, error });
+        if (weekError) throw weekError;
+        
+        if (!weekOutcomes || weekOutcomes.length === 0) {
+          setOutcomes([]);
+          return;
+        }
+        
+        const outcomeIds = weekOutcomes.map(wo => wo.outcome_id);
+        
+        // 2. Şimdi outcomes + topics + units join yap
+        const { data, error } = await supabase
+          .from('outcomes')
+          .select(`
+            id,
+            description,
+            topic_id,
+            topics!inner (
+              id,
+              title,
+              unit_id,
+              units!inner (
+                id,
+                title,
+                lesson_id
+              )
+            )
+          `)
+          .in('id', outcomeIds);
         
         if (error) throw error;
         
-        if (data && data.length > 0) {
-          setOutcomes(data);
-          // Sadece ünite bilgisini al (sınıf/ders ayrı çekiliyor)
+        // 3. Ders filtresi uygula (JavaScript'te çünkü join'de filtre karmaşık)
+        const filteredData = data?.filter((o: any) => 
+          o.topics?.units?.lesson_id === parseInt(lessonId)
+        ) || [];
+        
+        // 4. Formatla
+        const formattedOutcomes = filteredData.map((o: any) => ({
+          id: o.id,
+          topic_id: o.topic_id,
+          description: o.description,
+          unit_title: o.topics?.units?.title || '',
+          topic_title: o.topics?.title || '',
+        }));
+        
+        if (formattedOutcomes.length > 0) {
+          setOutcomes(formattedOutcomes);
           setWeekInfo(prev => ({
             ...prev,
-            unit_title: data[0].unit_title,
+            unit_title: formattedOutcomes[0].unit_title,
           }));
         } else {
           setOutcomes(mockLessonContent.kazanimlar.map((desc, index) => ({
@@ -311,15 +352,63 @@ function DersContent() {
           return;
         }
         
-        const { data, error } = await supabase.rpc('web_get_topic_contents_for_week', {
-          p_lesson_id: parseInt(lessonId),
-          p_grade_id: parseInt(gradeId),
-          p_week_number: selectedWeek
-        });
+        // 1. Önce 19. haftaya ait topic_content_id'leri çek
+        const { data: weekContents, error: weekError } = await supabase
+          .from('topic_content_weeks')
+          .select('topic_content_id')
+          .eq('curriculum_week', selectedWeek);
+        
+        if (weekError) throw weekError;
+        
+        if (!weekContents || weekContents.length === 0) {
+          setTopicContents([]);
+          return;
+        }
+        
+        const contentIds = weekContents.map(wc => wc.topic_content_id);
+        
+        // 2. Şimdi topic_contents + topics + units join yap
+        const { data, error } = await supabase
+          .from('topic_contents')
+          .select(`
+            id,
+            title,
+            content,
+            order_no,
+            topic_id,
+            topics!inner (
+              id,
+              title,
+              unit_id,
+              units!inner (
+                id,
+                title,
+                lesson_id
+              )
+            )
+          `)
+          .in('id', contentIds)
+          .order('order_no');
         
         if (error) throw error;
         
-        setTopicContents(data || []);
+        // 3. Ders filtresi uygula
+        const filteredData = data?.filter((tc: any) => 
+          tc.topics?.units?.lesson_id === parseInt(lessonId)
+        ) || [];
+        
+        // 4. Formatla
+        const formattedContents = filteredData.map((tc: any) => ({
+          id: tc.id,
+          topic_id: tc.topic_id,
+          title: tc.title,
+          content: tc.content,
+          order_no: tc.order_no,
+          topic_title: tc.topics?.title || '',
+          unit_title: tc.topics?.units?.title || '',
+        }));
+        
+        setTopicContents(formattedContents);
       } catch (err: any) {
         console.error('[fetchTopicContents] Error:', err);
         setContentsError(err.message);
