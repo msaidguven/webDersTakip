@@ -388,8 +388,8 @@ function DersContent() {
                           </div>
                           <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">{content.title}</h3>
                           <div 
-                            className="prose prose-invert prose-zinc max-w-none prose-sm sm:prose-base"
-                            dangerouslySetInnerHTML={{ __html: content.content }}
+                            className="prose prose-invert prose-zinc max-w-none prose-sm sm:prose-base [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mb-2 [&_a]:text-indigo-400 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-zinc-800 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-zinc-700 [&_th]:p-2 [&_td]:border [&_td]:border-zinc-700 [&_td]:p-2 [&_img]:max-w-full [&_img]:rounded-lg"
+                            dangerouslySetInnerHTML={{ __html: content.content.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'") }}
                           />
                         </div>
                       ))}
