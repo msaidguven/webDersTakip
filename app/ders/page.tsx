@@ -235,58 +235,60 @@ function DersContent() {
       <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
 
       <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-background/95 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-8">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
-                <span className="text-xl font-bold text-white">E</span>
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+                <span className="text-lg sm:text-xl font-bold text-white">E</span>
               </div>
-              <span className="text-xl font-bold text-white hidden sm:block">EduSmart</span>
+              <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">EduSmart</span>
             </Link>
-            <div className="h-6 w-px bg-white/10 mx-2" />
-            <Link href="/" className="text-zinc-400 hover:text-white transition-colors">
+            <div className="h-6 w-px bg-white/10 mx-1 sm:mx-2" />
+            <Link href="/" className="text-zinc-400 hover:text-white transition-colors text-sm sm:text-base">
               ← Geri
             </Link>
           </div>
 
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-500">19. Hafta</span>
-            <button className="px-4 py-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
-              <Icon name="bookmark" size={20} />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm text-zinc-500">19. Hafta</span>
+            <button className="p-2 sm:px-4 sm:py-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+              <Icon name="bookmark" size={18} className="sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="pt-[120px] pb-20 px-4 sm:px-8">
+      <main className="pt-[100px] sm:pt-[120px] pb-16 sm:pb-20 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto">
           {/* Header Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-white/10 p-8 mb-8">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-white/10 p-5 sm:p-8 mb-6 sm:mb-8">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/20 to-transparent rounded-full blur-3xl" />
             
             <div className="relative">
-              <div className="flex items-center gap-2 text-sm text-zinc-500 mb-4 flex-wrap">
+              <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-zinc-500 mb-3 sm:mb-4 flex-wrap">
                 <span className="flex items-center gap-1">{lesson.sinif.icon} {lesson.sinif.name}</span>
-                <span>→</span>
+                <span className="hidden sm:inline">→</span>
+                <span className="sm:hidden">›</span>
                 <span className="flex items-center gap-1">{lesson.ders.icon} {lesson.ders.name}</span>
-                <span>→</span>
+                <span className="hidden sm:inline">→</span>
+                <span className="sm:hidden">›</span>
                 <span>19. Hafta</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4">
                 {outcomes.length > 0 ? outcomes[0].unit_title : lesson.unite.name}
               </h1>
-              <p className="text-zinc-400 text-lg max-w-2xl">
+              <p className="text-zinc-400 text-sm sm:text-base lg:text-lg max-w-2xl">
                 {outcomes.length > 0 ? `${outcomes.length} kazanım listeleniyor` : lesson.konu.description}
               </p>
 
-              <div className="flex gap-6 mt-6">
-                <div className="flex items-center gap-2 text-zinc-400">
-                  <Icon name="book" size={18} />
+              <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="flex items-center gap-1.5 sm:gap-2 text-zinc-400 text-sm sm:text-base">
+                  <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
                   <span>{outcomes.length} Kazanım</span>
                 </div>
-                <div className="flex items-center gap-2 text-zinc-400">
-                  <Icon name="clock" size={18} />
+                <div className="flex items-center gap-1.5 sm:gap-2 text-zinc-400 text-sm sm:text-base">
+                  <Icon name="clock" size={16} className="sm:w-[18px] sm:h-[18px]" />
                   <span>19. Hafta</span>
                 </div>
               </div>
@@ -294,12 +296,12 @@ function DersContent() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+          <div className="flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all
+                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium whitespace-nowrap transition-all text-sm sm:text-base
                   ${activeTab === tab.id
                     ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
                     : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800'
@@ -311,38 +313,38 @@ function DersContent() {
           </div>
 
           {/* Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="lg:col-span-2 space-y-6 sm:space-y-8">
               {activeTab === 'kazanimlar' && (
-                <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
-                  <h3 className="text-xl font-semibold text-white mb-6">🎯 Bu Haftanın Kazanımları (19. Hafta)</h3>
+                <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-5 sm:p-8">
+                  <h3 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">🎯 Bu Haftanın Kazanımları (19. Hafta)</h3>
                   
                   {isLoadingOutcomes ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-zinc-800/30 animate-pulse">
-                          <div className="w-8 h-8 rounded-full bg-zinc-700 flex-shrink-0" />
-                          <div className="flex-1 h-6 bg-zinc-700 rounded" />
+                        <div key={i} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-800/30 animate-pulse">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-700 flex-shrink-0" />
+                          <div className="flex-1 h-5 sm:h-6 bg-zinc-700 rounded" />
                         </div>
                       ))}
                     </div>
                   ) : outcomesError ? (
-                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <div className="p-3 sm:p-4 rounded-lg sm:rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm sm:text-base">
                       Hata: {outcomesError}
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {outcomes.map((outcome, index) => (
                         <div 
                           key={outcome.id}
-                          className="flex items-start gap-4 p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                          className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-xs sm:text-sm">
                             {index + 1}
                           </div>
-                          <div className="flex-1">
-                            <p className="text-zinc-300">{outcome.description}</p>
-                            <p className="text-sm text-zinc-500 mt-1">{outcome.topic_title}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-zinc-300 text-sm sm:text-base">{outcome.description}</p>
+                            <p className="text-xs sm:text-sm text-zinc-500 mt-1">{outcome.topic_title}</p>
                           </div>
                         </div>
                       ))}
@@ -354,38 +356,39 @@ function DersContent() {
               {activeTab === 'icerik' && (
                 <>
                   {isLoadingContents ? (
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                       {[1, 2].map((i) => (
-                        <div key={i} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 animate-pulse">
-                          <div className="h-8 bg-zinc-800 rounded mb-4 w-1/3" />
+                        <div key={i} className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-5 sm:p-8 animate-pulse">
+                          <div className="h-6 sm:h-8 bg-zinc-800 rounded mb-3 sm:mb-4 w-1/2 sm:w-1/3" />
                           <div className="space-y-2">
-                            <div className="h-4 bg-zinc-800 rounded w-full" />
-                            <div className="h-4 bg-zinc-800 rounded w-full" />
-                            <div className="h-4 bg-zinc-800 rounded w-2/3" />
+                            <div className="h-3 sm:h-4 bg-zinc-800 rounded w-full" />
+                            <div className="h-3 sm:h-4 bg-zinc-800 rounded w-full" />
+                            <div className="h-3 sm:h-4 bg-zinc-800 rounded w-2/3" />
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : contentsError ? (
-                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <div className="p-3 sm:p-4 rounded-lg sm:rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm sm:text-base">
                       Hata: {contentsError}
                     </div>
                   ) : topicContents.length === 0 ? (
-                    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 text-center">
-                      <p className="text-zinc-400">Bu hafta için konu içeriği bulunmuyor.</p>
+                    <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-6 sm:p-8 text-center">
+                      <p className="text-zinc-400 text-sm sm:text-base">Bu hafta için konu içeriği bulunmuyor.</p>
                     </div>
                   ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                       {topicContents.map((content) => (
-                        <div key={content.id} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
-                          <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
-                            <span>{content.unit_title}</span>
-                            <span>→</span>
-                            <span>{content.topic_title}</span>
+                        <div key={content.id} className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-5 sm:p-8">
+                          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-zinc-500 mb-2 flex-wrap">
+                            <span className="truncate max-w-[120px] sm:max-w-none">{content.unit_title}</span>
+                            <span className="hidden sm:inline">→</span>
+                            <span className="sm:hidden">›</span>
+                            <span className="truncate max-w-[120px] sm:max-w-none">{content.topic_title}</span>
                           </div>
-                          <h3 className="text-xl font-semibold text-white mb-4">{content.title}</h3>
+                          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">{content.title}</h3>
                           <div 
-                            className="prose prose-invert prose-zinc max-w-none"
+                            className="prose prose-invert prose-zinc max-w-none prose-sm sm:prose-base"
                             dangerouslySetInnerHTML={{ __html: content.content }}
                           />
                         </div>
@@ -396,73 +399,73 @@ function DersContent() {
               )}
 
               {activeTab === 'quiz' && (
-                <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-indigo-500/20 p-8">
-                  <div className="text-center mb-8">
-                    <div className="w-20 h-20 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-4xl mx-auto mb-4">❓</div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{lesson.quiz.name}</h3>
+                <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-indigo-500/20 p-5 sm:p-8">
+                  <div className="text-center mb-6 sm:mb-8">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-3xl sm:text-4xl mx-auto mb-3 sm:mb-4">❓</div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{lesson.quiz.name}</h3>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="text-center p-4 rounded-xl bg-zinc-900/50">
-                      <p className="text-2xl font-bold text-white">{lesson.quiz.questionCount}</p>
-                      <p className="text-sm text-zinc-500">Soru</p>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+                    <div className="text-center p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-900/50">
+                      <p className="text-xl sm:text-2xl font-bold text-white">{lesson.quiz.questionCount}</p>
+                      <p className="text-xs sm:text-sm text-zinc-500">Soru</p>
                     </div>
-                    <div className="text-center p-4 rounded-xl bg-zinc-900/50">
-                      <p className="text-2xl font-bold text-white">{lesson.quiz.estimatedTime}</p>
-                      <p className="text-sm text-zinc-500">Dakika</p>
+                    <div className="text-center p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-900/50">
+                      <p className="text-xl sm:text-2xl font-bold text-white">{lesson.quiz.estimatedTime}</p>
+                      <p className="text-xs sm:text-sm text-zinc-500">Dakika</p>
                     </div>
-                    <div className="text-center p-4 rounded-xl bg-zinc-900/50">
-                      <p className="text-2xl font-bold text-white">{lesson.quiz.difficulty}</p>
-                      <p className="text-sm text-zinc-500">Zorluk</p>
+                    <div className="text-center p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-900/50">
+                      <p className="text-xl sm:text-2xl font-bold text-white">{lesson.quiz.difficulty}</p>
+                      <p className="text-xs sm:text-sm text-zinc-500">Zorluk</p>
                     </div>
                   </div>
-                  <button className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all">
+                  <button className="w-full py-3 sm:py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg sm:rounded-xl hover:shadow-lg transition-all text-sm sm:text-base">
                     Teste Başla →
                   </button>
                 </div>
               )}
 
               {activeTab === 'test' && (
-                <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-8">
-                  <div className="text-center mb-8">
-                    <div className="w-20 h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-4xl mx-auto mb-4">📝</div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{lesson.haftalikTest.name}</h3>
+                <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-5 sm:p-8">
+                  <div className="text-center mb-6 sm:mb-8">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl sm:text-4xl mx-auto mb-3 sm:mb-4">📝</div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{lesson.haftalikTest.name}</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="text-center p-4 rounded-xl bg-zinc-900/50">
-                      <p className="text-2xl font-bold text-white">{lesson.haftalikTest.questionCount}</p>
-                      <p className="text-sm text-zinc-500">Soru</p>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-6 sm:mb-8">
+                    <div className="text-center p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-900/50">
+                      <p className="text-xl sm:text-2xl font-bold text-white">{lesson.haftalikTest.questionCount}</p>
+                      <p className="text-xs sm:text-sm text-zinc-500">Soru</p>
                     </div>
-                    <div className="text-center p-4 rounded-xl bg-zinc-900/50">
-                      <p className="text-2xl font-bold text-white">{lesson.haftalikTest.estimatedTime}</p>
-                      <p className="text-sm text-zinc-500">Dakika</p>
+                    <div className="text-center p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-900/50">
+                      <p className="text-xl sm:text-2xl font-bold text-white">{lesson.haftalikTest.estimatedTime}</p>
+                      <p className="text-xs sm:text-sm text-zinc-500">Dakika</p>
                     </div>
                   </div>
-                  <button className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all">
+                  <button className="w-full py-3 sm:py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg sm:rounded-xl hover:shadow-lg transition-all text-sm sm:text-base">
                     Teste Başla →
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6">
-                <h4 className="text-white font-semibold mb-4">📊 İlerleme (19. Hafta)</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
+            <div className="space-y-4 sm:space-y-6 order-first lg:order-last">
+              <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-4 sm:p-6">
+                <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">📊 İlerleme (19. Hafta)</h4>
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-zinc-500">Kazanımlar</span>
                     <span className="text-emerald-400">{outcomes.length} adet</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-zinc-500">Konu Anlatımı</span>
                     <span className="text-zinc-500">Başlanmadı</span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-white/5 p-6">
-                <h4 className="text-white font-semibold mb-2">💡 Yardım mı lazım?</h4>
-                <p className="text-zinc-400 text-sm mb-4">Bu konuyu anlamakta zorlanıyorsan AI asistanımızdan yardım alabilirsin.</p>
-                <button className="w-full py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">
+              <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-white/5 p-4 sm:p-6">
+                <h4 className="text-white font-semibold mb-2 text-sm sm:text-base">💡 Yardım mı lazım?</h4>
+                <p className="text-zinc-400 text-xs sm:text-sm mb-3 sm:mb-4">Bu konuyu anlamakta zorlanıyorsan AI asistanımızdan yardım alabilirsin.</p>
+                <button className="w-full py-2.5 sm:py-3 bg-white/10 text-white rounded-lg sm:rounded-xl hover:bg-white/20 transition-colors text-sm sm:text-base">
                   🤖 AI Asistana Sor
                 </button>
               </div>
@@ -477,10 +480,10 @@ function DersContent() {
 // Loading fallback
 function LoadingFallback() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="text-center">
-        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-zinc-400">Yükleniyor...</p>
+        <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3 sm:mb-4" />
+        <p className="text-zinc-400 text-sm sm:text-base">Yükleniyor...</p>
       </div>
     </div>
   );

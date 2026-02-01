@@ -38,7 +38,7 @@ export default function HomePage() {
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-background/95 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-8">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -48,29 +48,30 @@ export default function HomePage() {
           </Link>
 
           {/* Right Side */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
             <Link 
               href="/panel" 
-              className="text-zinc-400 hover:text-white transition-colors"
+              className="text-zinc-400 hover:text-white transition-colors hidden sm:block"
             >
               Giriş Yap
             </Link>
             <Link 
               href="/panel"
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
+              className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-sm sm:text-base"
             >
-              Panele Git
+              <span className="sm:hidden">Panel</span>
+              <span className="hidden sm:inline">Panele Git</span>
             </Link>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="pt-[120px] pb-20 px-8">
+      <main className="pt-[100px] sm:pt-[120px] pb-20 px-4 sm:px-8">
         {/* Progress Steps */}
         {selection.step !== 'grade' && (
-          <div className="max-w-6xl mx-auto mb-12">
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+          <div className="max-w-6xl mx-auto mb-8 sm:mb-12">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
               {['grade', 'lesson', 'unit', 'topic', 'confirm'].map((step, index) => {
                 const stepNames = ['Sınıf', 'Ders', 'Ünite', 'Konu', 'Onay'];
                 const isActive = selection.step === step;
@@ -84,7 +85,7 @@ export default function HomePage() {
                 return (
                   <React.Fragment key={step}>
                     <div className={`
-                      flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
+                      flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all
                       ${isActive 
                         ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
                         : isPast 
@@ -93,7 +94,7 @@ export default function HomePage() {
                       }
                     `}>
                       <span className={`
-                        w-6 h-6 rounded-full flex items-center justify-center text-xs
+                        w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs
                         ${isActive 
                           ? 'bg-indigo-500 text-white' 
                           : isPast 
@@ -103,10 +104,10 @@ export default function HomePage() {
                       `}>
                         {index + 1}
                       </span>
-                      <span>{stepNames[index]}</span>
+                      <span className="hidden sm:inline">{stepNames[index]}</span>
                     </div>
                     {index < 4 && (
-                      <div className={`w-8 h-px ${isPast ? 'bg-zinc-700' : 'bg-zinc-800'}`} />
+                      <div className={`w-4 sm:w-8 h-px ${isPast ? 'bg-zinc-700' : 'bg-zinc-800'}`} />
                     )}
                   </React.Fragment>
                 );
@@ -174,8 +175,8 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <footer className="border-t border-white/5 py-6 sm:py-8 px-4 sm:px-8">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
           <p className="text-zinc-500 text-sm">
             © 2026 EduSmart. Tüm hakları saklıdır.
           </p>
