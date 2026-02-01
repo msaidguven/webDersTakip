@@ -187,22 +187,9 @@ function DersContent() {
           setUnitId(data.unit_id);
           setWeekInfo(prev => ({ ...prev, unit_title: data.units.title }));
         } else {
-          // 19. haftaya ait ünite yoksa, bu dersin ilk ünitesini al
-          const { data: firstUnit } = await supabase
-            .from('units')
-            .select('id, title')
-            .eq('lesson_id', parseInt(lessonId))
-            .order('order_no')
-            .limit(1)
-            .maybeSingle();
-          
-          if (firstUnit) {
-            setUnitId(firstUnit.id);
-            setWeekInfo(prev => ({ ...prev, unit_title: firstUnit.title }));
-          } else {
-            setUnitId(null);
-            setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
-          }
+          // 19. haftaya ait ünite yok
+          setUnitId(null);
+          setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
         }
       } catch (err) {
         console.error('[fetchUnitId] Error:', err);
