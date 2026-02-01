@@ -114,6 +114,7 @@ function DersContent() {
   const [topicContents, setTopicContents] = useState<TopicContent[]>([]);
   const [isLoadingContents, setIsLoadingContents] = useState(true);
   const [contentsError, setContentsError] = useState<string | null>(null);
+  const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
 
   // 19. hafta için kazanımları çek
   useEffect(() => {
@@ -141,6 +142,11 @@ function DersContent() {
             unit_title: mockLessonContent.unite.name,
             topic_title: mockLessonContent.konu.name,
           })));
+          setWeekInfo({
+            grade_name: mockLessonContent.sinif.name,
+            lesson_name: mockLessonContent.ders.name,
+            unit_title: mockLessonContent.unite.name,
+          });
           return;
         }
         
@@ -156,6 +162,12 @@ function DersContent() {
         
         if (data && data.length > 0) {
           setOutcomes(data);
+          // İlk kayıttan sınıf, ders, ünite bilgilerini al
+          setWeekInfo({
+            grade_name: data[0].grade_name || data[0].sinif_name,
+            lesson_name: data[0].lesson_name || data[0].ders_name,
+            unit_title: data[0].unit_title,
+          });
         } else {
           setOutcomes(mockLessonContent.kazanimlar.map((desc, index) => ({
             id: index + 1,
@@ -175,6 +187,11 @@ function DersContent() {
           unit_title: mockLessonContent.unite.name,
           topic_title: mockLessonContent.konu.name,
         })));
+        setWeekInfo({
+          grade_name: mockLessonContent.sinif.name,
+          lesson_name: mockLessonContent.ders.name,
+          unit_title: mockLessonContent.unite.name,
+        });
       } finally {
         setIsLoadingOutcomes(false);
       }
@@ -265,19 +282,33 @@ function DersContent() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/20 to-transparent rounded-full blur-3xl" />
             
             <div className="relative">
+              {/* Hiyerarşi: Sınıf → Ders → Ünite */}
               <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-zinc-500 mb-3 sm:mb-4 flex-wrap">
-                <span className="flex items-center gap-1">{lesson.sinif.icon} {lesson.sinif.name}</span>
+                <span className="flex items-center gap-1">🎓 {weekInfo?.grade_name || lesson.sinif.name}</span>
                 <span className="hidden sm:inline">→</span>
                 <span className="sm:hidden">›</span>
-                <span className="flex items-center gap-1">{lesson.ders.icon} {lesson.ders.name}</span>
+                <span className="flex items-center gap-1">📚 {weekInfo?.lesson_name || lesson.ders.name}</span>
                 <span className="hidden sm:inline">→</span>
                 <span className="sm:hidden">›</span>
                 <span>19. Hafta</span>
               </div>
 
+              {/* Ünite Başlığı - BÜYÜK */}
               <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4">
-                {outcomes.length > 0 ? outcomes[0].unit_title : lesson.unite.name}
+                {weekInfo?.unit_title || lesson.unite.name}
               </h1>
+              
+              {/* Konu Başlıkları - Ünite altında */}
+              {outcomes.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
+                  {Array.from(new Set(outcomes.map(o => o.topic_title))).map((topicTitle, idx) => (
+                    <span key={idx} className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs sm:text-sm">
+                      {topicTitle}
+                    </span>
+                  ))}
+                </div>
+              )}
+              
               <p className="text-zinc-400 text-sm sm:text-base lg:text-lg max-w-2xl">
                 {outcomes.length > 0 ? `${outcomes.length} kazanım listeleniyor` : lesson.konu.description}
               </p>
@@ -344,7 +375,6 @@ function DersContent() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-zinc-300 text-sm sm:text-base">{outcome.description}</p>
-                            <p className="text-xs sm:text-sm text-zinc-500 mt-1">{outcome.topic_title}</p>
                           </div>
                         </div>
                       ))}
@@ -447,7 +477,7 @@ function DersContent() {
               )}
             </div>
 
-            <div className="space-y-4 sm:space-y-6 order-first lg:order-last">
+            <div className="space-y-4 sm:space-y-6 order-last lg:order-last">
               <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-4 sm:p-6">
                 <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">📊 İlerleme (19. Hafta)</h4>
                 <div className="space-y-2 sm:space-y-3">
@@ -462,6 +492,8 @@ function DersContent() {
                 </div>
               </div>
 
+              {/* AI Asistan - Aktif değil, mobilde en altta */}
+              {/*
               <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-white/5 p-4 sm:p-6">
                 <h4 className="text-white font-semibold mb-2 text-sm sm:text-base">💡 Yardım mı lazım?</h4>
                 <p className="text-zinc-400 text-xs sm:text-sm mb-3 sm:mb-4">Bu konuyu anlamakta zorlanıyorsan AI asistanımızdan yardım alabilirsin.</p>
@@ -469,6 +501,7 @@ function DersContent() {
                   🤖 AI Asistana Sor
                 </button>
               </div>
+              */}
             </div>
           </div>
         </div>
