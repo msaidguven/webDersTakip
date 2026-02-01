@@ -263,11 +263,13 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     }));
     
     // /ders sayfasına yönlendir - grade_id ve lesson_id parametreleri ile
-    const gradeId = selection.selectedGrade?.id;
+    // lesson.gradeId kullan (state'den almak yerine)
+    const gradeId = lesson.gradeId;
+    console.log('[selectLesson] Navigating with gradeId:', gradeId, 'lessonId:', lesson.id);
     if (gradeId) {
       router.push(`/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`);
     }
-  }, [router, selection.selectedGrade]);
+  }, [router]);
 
   const selectUnit = useCallback((unit: Unit) => {
     setSelection(prev => ({
