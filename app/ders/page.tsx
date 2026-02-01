@@ -183,9 +183,9 @@ function DersContent() {
         
         if (error) throw error;
         
-        if (data) {
+        if (data && data.units && data.units.length > 0) {
           setUnitId(data.unit_id);
-          setWeekInfo(prev => ({ ...prev, unit_title: data.units.title }));
+          setWeekInfo(prev => ({ ...prev, unit_title: data.units[0].title }));
         } else {
           // 19. haftaya ait ünite yok
           setUnitId(null);
@@ -352,16 +352,10 @@ function DersContent() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Hafta Seçici */}
-            <select
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-              className="bg-zinc-800 text-white text-xs sm:text-sm rounded-lg px-2 sm:px-3 py-2 border border-zinc-700 focus:outline-none focus:border-indigo-500"
-            >
-              {Array.from({ length: 40 }, (_, i) => i + 1).map((week) => (
-                <option key={week} value={week}>{week}. Hafta</option>
-              ))}
-            </select>
+            {/* Hafta 19 (Statik) */}
+            <div className="bg-zinc-800 text-white text-xs sm:text-sm rounded-lg px-2 sm:px-3 py-2 border border-zinc-700">
+              19. Hafta
+            </div>
             <button className="p-2 sm:px-4 sm:py-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
               <Icon name="bookmark" size={18} className="sm:w-5 sm:h-5" />
             </button>
