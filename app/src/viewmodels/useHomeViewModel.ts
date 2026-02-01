@@ -251,7 +251,11 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
 
   // Ders seçildiğinde /ders sayfasına git
   const selectLesson = useCallback((lesson: Lesson) => {
+    console.log('[selectLesson] ==========================================');
     console.log('[selectLesson] Selected lesson:', lesson);
+    console.log('[selectLesson] lesson.gradeId:', lesson.gradeId);
+    console.log('[selectLesson] lesson.id:', lesson.id);
+    console.log('[selectLesson] ==========================================');
     
     // Seçimi state'e kaydet
     setSelection(prev => ({
@@ -262,12 +266,14 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       selectedTopics: [],
     }));
     
-    // /ders sayfasına yönlendir - grade_id ve lesson_id parametreleri ile
-    // lesson.gradeId kullan (state'den almak yerine)
+    // /ders sayfasına yönlendir
     const gradeId = lesson.gradeId;
-    console.log('[selectLesson] Navigating with gradeId:', gradeId, 'lessonId:', lesson.id);
     if (gradeId) {
-      router.push(`/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`);
+      const url = `/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`;
+      console.log('[selectLesson] Navigating to:', url);
+      router.push(url);
+    } else {
+      console.error('[selectLesson] gradeId is undefined!');
     }
   }, [router]);
 
