@@ -115,7 +115,7 @@ function DersContent() {
   const [isLoadingContents, setIsLoadingContents] = useState(true);
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
-  const [unitId, setUnitId] = useState<number | null>(1); // Mock: Her zaman unit_id=1 varsay
+  const [unitId, setUnitId] = useState<number | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(1); // Hafta seçimi için state
 
   // Sınıf ve ders bilgilerini çek
@@ -166,7 +166,7 @@ function DersContent() {
           return;
         }
         
-        // Önce seçilen haftaya ait ünite ID'lerini çek
+        // 1. Önce seçilen haftaya ait ünite ID'lerini çek
         const { data: unitGradesData, error: unitGradesError } = await supabase
           .from('unit_grades')
           .select('unit_id')
@@ -176,22 +176,51 @@ function DersContent() {
         
         if (unitGradesError) throw unitGradesError;
         
-        if (!unitGradesData || unitGradesData.length === 0) {
+        let unitIds: number[] = [];
+        
+        if (unitGradesData && unitGradesData.length > 0) {
+          unitIds = unitGradesData.map(ug => ug.unit_id);
+        }
+        
+        // 2. Haftaya göre bulamazsa, bu grade'e ait tüm üniteleri getir
+        if (unitIds.length === 0) {
+          const { data: allUnitGrades } = await supabase
+            .from('unit_grades')
+            .select('unit_id')
+            .eq('grade_id', parseInt(gradeId));
+          
+          if (allUnitGrades && allUnitGrades.length > 0) {
+            unitIds = allUnitGrades.map(ug => ug.unit_id);
+          }
+        }
+        
+        // 3. Hala yoksa bu dersin tüm ünitelerini getir
+        if (unitIds.length === 0) {
+          const { data: lessonUnits } = await supabase
+            .from('units')
+            .select('id')
+            .eq('lesson_id', parseInt(lessonId))
+            .limit(1);
+          
+          if (lessonUnits && lessonUnits.length > 0) {
+            unitIds = lessonUnits.map(u => u.id);
+          }
+        }
+        
+        if (unitIds.length === 0) {
           setUnitId(null);
           setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
           return;
         }
         
-        const unitIds = unitGradesData.map(ug => ug.unit_id);
-        
-        // Şimdi ünite bilgilerini çek
+        // 4. Ünite bilgilerini çek (ders filtresi ile)
         const { data, error } = await supabase
           .from('units')
           .select('id, title')
           .eq('lesson_id', parseInt(lessonId))
           .in('id', unitIds)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (error) throw error;
         
@@ -199,12 +228,25 @@ function DersContent() {
           setUnitId(data.id);
           setWeekInfo(prev => ({ ...prev, unit_title: data.title }));
         } else {
-          setUnitId(null);
-          setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
+          // Ders filtresiyle bulunamazsa, filtresiz dene
+          const { data: anyUnit } = await supabase
+            .from('units')
+            .select('id, title')
+            .in('id', unitIds)
+            .limit(1)
+            .maybeSingle();
+          
+          if (anyUnit) {
+            setUnitId(anyUnit.id);
+            setWeekInfo(prev => ({ ...prev, unit_title: anyUnit.title }));
+          } else {
+            setUnitId(null);
+            setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
+          }
         }
       } catch (err) {
         console.error('[fetchUnitId] Error:', err);
-        setUnitId(1); // Mock fallback
+        setUnitId(null);
       }
     }
     
