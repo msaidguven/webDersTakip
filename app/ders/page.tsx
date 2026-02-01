@@ -187,9 +187,9 @@ function DersContent() {
           return weekMatch && lessonMatch;
         });
         
-        if (matching && matching.units) {
+        if (matching && matching.units && matching.units.length > 0) {
           setUnitId(matching.unit_id);
-          setWeekInfo(prev => ({ ...prev, unit_title: matching.units.title }));
+          setWeekInfo(prev => ({ ...prev, unit_title: matching.units[0].title }));
         } else {
           setUnitId(null);
           setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
