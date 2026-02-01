@@ -8,14 +8,29 @@ import { Icon } from './icons';
 interface SidebarProps {
   items: NavItem[];
   activeItem: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ items, activeItem }: SidebarProps) {
+export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[280px] bg-surface/95 backdrop-blur-xl border-r border-white/5 z-50 flex flex-col">
+    <aside className={`
+      fixed left-0 top-0 h-screen w-[280px] bg-surface/95 backdrop-blur-xl border-r border-white/5 z-50 flex flex-col
+      transition-transform duration-300 ease-in-out
+      lg:translate-x-0
+      ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+    `}>
+      {/* Close Button for Mobile */}
+      <button
+        onClick={onClose}
+        className="lg:hidden absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/20 transition-colors z-50"
+      >
+        ✕
+      </button>
+
       {/* Logo Area */}
       <div className="p-6 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-3 group">
+        <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-shadow">
             <span className="text-xl font-bold text-white">E</span>
           </div>

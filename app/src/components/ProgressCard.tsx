@@ -27,11 +27,11 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
       </div>
 
       {/* Content */}
-      <div className="relative p-6">
+      <div className="relative p-4 sm:p-6">
         {/* Header */}
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-3 sm:mb-4">
           <div className={`
-            w-14 h-14 rounded-2xl flex items-center justify-center text-2xl
+            w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl
             ${isCompleted 
               ? 'bg-emerald-500/10 text-emerald-400' 
               : isLocked 
@@ -40,35 +40,35 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
             }
           `}>
             {isCompleted ? (
-              <Icon name="check" size={28} />
+              <Icon name="check" size={24} className="sm:w-7 sm:h-7" />
             ) : isLocked ? (
-              <Icon name="lock" size={24} />
+              <Icon name="lock" size={20} className="sm:w-6 sm:h-6" />
             ) : (
               <span>📚</span>
             )}
           </div>
           
           {isCompleted && (
-            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
+            <span className="px-2 sm:px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] sm:text-xs font-semibold rounded-full border border-emerald-500/20">
               Tamamlandı
             </span>
           )}
           {!isCompleted && !isLocked && (
-            <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-semibold rounded-full border border-indigo-500/20 animate-pulse">
+            <span className="px-2 sm:px-3 py-1 bg-indigo-500/10 text-indigo-400 text-[10px] sm:text-xs font-semibold rounded-full border border-indigo-500/20 animate-pulse">
               Devam Ediyor
             </span>
           )}
         </div>
 
         {/* Title & Info */}
-        <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-indigo-400 transition-colors">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2 group-hover:text-indigo-400 transition-colors">
           {unit.title}
         </h3>
-        <p className="text-sm text-zinc-500 mb-4">{unit.subtitle}</p>
+        <p className="text-xs sm:text-sm text-zinc-500 mb-3 sm:mb-4">{unit.subtitle}</p>
 
         {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
+        <div className="space-y-1.5 sm:space-y-2">
+          <div className="flex justify-between text-xs sm:text-sm">
             <span className="text-zinc-500">
               {isCompleted ? 'Başarı Oranı' : 'İlerleme'}
             </span>
@@ -76,7 +76,7 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
               {isCompleted ? `%${unit.successRate}` : `%${unit.progress}`}
             </span>
           </div>
-          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
             <div 
               className={`
                 h-full rounded-full transition-all duration-1000
@@ -91,11 +91,11 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
         </div>
 
         {/* Topics Preview */}
-        <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-sm text-zinc-500">
-          <Icon name="book" size={14} />
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/5 flex items-center gap-2 text-xs sm:text-sm text-zinc-500">
+          <Icon name="book" size={12} className="sm:w-3.5 sm:h-3.5" />
           <span>{unit.totalTopics} Konu</span>
           <span className="mx-1">•</span>
-          <Icon name="calculator" size={14} />
+          <Icon name="calculator" size={12} className="sm:w-3.5 sm:h-3.5" />
           <span>{unit.totalQuestions} Soru</span>
         </div>
       </div>

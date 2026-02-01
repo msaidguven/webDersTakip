@@ -33,18 +33,18 @@ function ActivityItem({ activity }: ActivityItemProps) {
   const scoreClass = getScoreColor(activity.score);
 
   return (
-    <div className="group flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
+    <div className="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
       {/* Icon */}
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${getIconColorClasses(activity.iconColor)}`}>
-        <Icon name={activity.icon} size={22} />
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${getIconColorClasses(activity.iconColor)}`}>
+        <Icon name={activity.icon} size={18} className="sm:w-[22px] sm:h-[22px]" />
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <h4 className="font-medium text-white group-hover:text-indigo-400 transition-colors truncate">
+        <h4 className="font-medium text-white group-hover:text-indigo-400 transition-colors truncate text-sm sm:text-base">
           {activity.title}
         </h4>
-        <div className="flex items-center gap-2 text-sm text-zinc-500 mt-0.5">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-zinc-500 mt-0.5">
           <span>{formatRelativeTime(activity.timestamp)}</span>
           <span>•</span>
           <span>{activity.questionCount} soru</span>
@@ -54,7 +54,7 @@ function ActivityItem({ activity }: ActivityItemProps) {
       </div>
 
       {/* Score Badge */}
-      <div className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${scoreClass}`}>
+      <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold border ${scoreClass}`}>
         %{activity.score}
       </div>
     </div>
@@ -67,11 +67,11 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   return (
-    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
+    <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-        <h3 className="font-semibold text-white">Son Aktiviteler</h3>
-        <button className="text-sm text-zinc-500 hover:text-indigo-400 transition-colors">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/5 flex items-center justify-between">
+        <h3 className="font-semibold text-white text-sm sm:text-base">Son Aktiviteler</h3>
+        <button className="text-xs sm:text-sm text-zinc-500 hover:text-indigo-400 transition-colors">
           Tümünü Gör →
         </button>
       </div>
@@ -85,11 +85,11 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
 
       {/* Empty State (hidden when there are activities) */}
       {activities.length === 0 && (
-        <div className="p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📋</span>
+        <div className="p-6 sm:p-8 text-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <span className="text-xl sm:text-2xl">📋</span>
           </div>
-          <p className="text-zinc-500">Henüz bir aktivite yok</p>
+          <p className="text-zinc-500 text-sm sm:text-base">Henüz bir aktivite yok</p>
         </div>
       )}
     </div>
