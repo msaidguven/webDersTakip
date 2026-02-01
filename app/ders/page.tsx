@@ -180,12 +180,18 @@ function DersContent() {
         
         if (gradesError) throw gradesError;
         
+        console.log('[DEBUG] gradeId:', gradeId, 'lessonId:', lessonId, 'week:', selectedWeek);
+        console.log('[DEBUG] allGrades:', allGrades);
+        
         // 2. JavaScript'te filtrele: 19. hafta içinde mi ve ders eşleşiyor mu?
         const matching = allGrades?.find((ug: any) => {
           const weekMatch = selectedWeek >= (ug.start_week || 0) && selectedWeek <= (ug.end_week || 999);
-          const lessonMatch = ug.units?.lesson_id === parseInt(lessonId);
+          const lessonMatch = ug.units?.[0]?.lesson_id === parseInt(lessonId);
+          console.log('[DEBUG] Check unit:', ug.unit_id, 'start:', ug.start_week, 'end:', ug.end_week, 'weekMatch:', weekMatch, 'lessonMatch:', lessonMatch, 'units:', ug.units);
           return weekMatch && lessonMatch;
         });
+        
+        console.log('[DEBUG] matching:', matching);
         
         if (matching && matching.units && matching.units.length > 0) {
           setUnitId(matching.unit_id);
