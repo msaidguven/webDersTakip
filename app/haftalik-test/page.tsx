@@ -227,7 +227,7 @@ function MultipleChoiceQuestion({ question, answer, onAnswer }: MultipleChoicePr
             `}>
               {String.fromCharCode(65 + index)}
             </div>
-            <span className={`text-base sm:text-lg ${answer === optionId ? "text-white" : "text-zinc-300"}`}>
+            <span className={`text-base sm:text-lg ${answer === option.id ? "text-white" : "text-zinc-300"}`}>
               {option.text}
             </span>
           </div>
