@@ -167,27 +167,30 @@ function DersContent() {
           return;
         }
         
-        // 19. haftaya ait üniteyi bul (unit_grades + units join)
-        const { data, error } = await supabase
+        // 1. Önce bu grade+ders için tüm unit_grades kayıtlarını çek
+        const { data: allGrades, error: gradesError } = await supabase
           .from('unit_grades')
           .select(`
             unit_id,
-            units!inner(id, title, lesson_id)
+            start_week,
+            end_week,
+            units:unit_id (id, title, lesson_id)
           `)
-          .eq('grade_id', parseInt(gradeId))
-          .eq('units.lesson_id', parseInt(lessonId))
-          .lte('start_week', selectedWeek)
-          .gte('end_week', selectedWeek)
-          .limit(1)
-          .maybeSingle();
+          .eq('grade_id', parseInt(gradeId));
         
-        if (error) throw error;
+        if (gradesError) throw gradesError;
         
-        if (data && data.units && data.units.length > 0) {
-          setUnitId(data.unit_id);
-          setWeekInfo(prev => ({ ...prev, unit_title: data.units[0].title }));
+        // 2. JavaScript'te filtrele: 19. hafta içinde mi ve ders eşleşiyor mu?
+        const matching = allGrades?.find((ug: any) => {
+          const weekMatch = selectedWeek >= (ug.start_week || 0) && selectedWeek <= (ug.end_week || 999);
+          const lessonMatch = ug.units?.lesson_id === parseInt(lessonId);
+          return weekMatch && lessonMatch;
+        });
+        
+        if (matching && matching.units) {
+          setUnitId(matching.unit_id);
+          setWeekInfo(prev => ({ ...prev, unit_title: matching.units.title }));
         } else {
-          // 19. haftaya ait ünite yok
           setUnitId(null);
           setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
         }
