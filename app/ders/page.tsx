@@ -570,7 +570,7 @@ function DersContent() {
                       disabled
                       className="w-full py-3 sm:py-4 bg-zinc-700 text-zinc-400 font-semibold rounded-lg sm:rounded-xl cursor-not-allowed text-sm sm:text-base"
                     >
-                      Bu haftada ünite yok
+                      19. hafta için içerik bulunamadı
                     </button>
                   )}
                 </div>
