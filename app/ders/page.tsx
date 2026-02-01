@@ -116,6 +116,7 @@ function DersContent() {
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
   const [unitId, setUnitId] = useState<number | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number>(1); // Hafta seçimi için state
 
   // Sınıf ve ders bilgilerini çek
   useEffect(() => {
@@ -153,7 +154,7 @@ function DersContent() {
     fetchGradeAndLesson();
   }, [gradeId, lessonId]);
 
-  // unit_id'yi çek
+  // unit_id'yi seçilen haftaya göre çek
   useEffect(() => {
     async function fetchUnitId() {
       if (!gradeId || !lessonId) return;
@@ -165,19 +166,30 @@ function DersContent() {
           return;
         }
         
-        // 19. haftaya ait üniteyi bul
+        // Önce seçilen haftaya ait ünite ID'lerini çek
+        const { data: unitGradesData, error: unitGradesError } = await supabase
+          .from('unit_grades')
+          .select('unit_id')
+          .eq('grade_id', parseInt(gradeId))
+          .lte('start_week', selectedWeek)
+          .gte('end_week', selectedWeek);
+        
+        if (unitGradesError) throw unitGradesError;
+        
+        if (!unitGradesData || unitGradesData.length === 0) {
+          setUnitId(null);
+          setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
+          return;
+        }
+        
+        const unitIds = unitGradesData.map(ug => ug.unit_id);
+        
+        // Şimdi ünite bilgilerini çek
         const { data, error } = await supabase
           .from('units')
-          .select('id')
+          .select('id, title')
           .eq('lesson_id', parseInt(lessonId))
-          .in('id', (
-            supabase
-              .from('unit_grades')
-              .select('unit_id')
-              .eq('grade_id', parseInt(gradeId))
-              .lte('start_week', 19)
-              .gte('end_week', 19)
-          ))
+          .in('id', unitIds)
           .limit(1)
           .single();
         
@@ -185,6 +197,10 @@ function DersContent() {
         
         if (data) {
           setUnitId(data.id);
+          setWeekInfo(prev => ({ ...prev, unit_title: data.title }));
+        } else {
+          setUnitId(null);
+          setWeekInfo(prev => ({ ...prev, unit_title: undefined }));
         }
       } catch (err) {
         console.error('[fetchUnitId] Error:', err);
@@ -193,9 +209,9 @@ function DersContent() {
     }
     
     fetchUnitId();
-  }, [gradeId, lessonId]);
+  }, [gradeId, lessonId, selectedWeek]);
 
-  // 19. hafta için kazanımları çek
+  // Seçilen hafta için kazanımları çek
   useEffect(() => {
     async function fetchOutcomes() {
       if (!gradeId || !lessonId) {
@@ -233,7 +249,7 @@ function DersContent() {
         const { data, error } = await supabase.rpc('get_week_view_web', {
           p_lesson_id: parseInt(lessonId),
           p_grade_id: parseInt(gradeId),
-          p_week_number: 19
+          p_week_number: selectedWeek
         });
         
         console.log('[fetchOutcomes] Response:', { data, error });
@@ -300,7 +316,7 @@ function DersContent() {
         const { data, error } = await supabase.rpc('web_get_topic_contents_for_week', {
           p_lesson_id: parseInt(lessonId),
           p_grade_id: parseInt(gradeId),
-          p_week_number: 19
+          p_week_number: selectedWeek
         });
         
         if (error) throw error;
@@ -316,7 +332,7 @@ function DersContent() {
     }
     
     fetchTopicContents();
-  }, [gradeId, lessonId]);
+  }, [gradeId, lessonId, selectedWeek]);
 
   const lesson = mockLessonContent;
 
@@ -347,7 +363,16 @@ function DersContent() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <span className="text-xs sm:text-sm text-zinc-500">19. Hafta</span>
+            {/* Hafta Seçici */}
+            <select
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+              className="bg-zinc-800 text-white text-xs sm:text-sm rounded-lg px-2 sm:px-3 py-2 border border-zinc-700 focus:outline-none focus:border-indigo-500"
+            >
+              {Array.from({ length: 40 }, (_, i) => i + 1).map((week) => (
+                <option key={week} value={week}>{week}. Hafta</option>
+              ))}
+            </select>
             <button className="p-2 sm:px-4 sm:py-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
               <Icon name="bookmark" size={18} className="sm:w-5 sm:h-5" />
             </button>
@@ -370,7 +395,7 @@ function DersContent() {
                 <span className="flex items-center gap-1">📚 {weekInfo?.lesson_name || lesson.ders.name}</span>
                 <span className="hidden sm:inline">→</span>
                 <span className="sm:hidden">›</span>
-                <span>19. Hafta</span>
+                <span>{selectedWeek}. Hafta</span>
               </div>
 
               {/* Ünite Başlığı - BÜYÜK */}
@@ -400,7 +425,7 @@ function DersContent() {
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2 text-zinc-400 text-sm sm:text-base">
                   <Icon name="clock" size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span>19. Hafta</span>
+                  <span>{selectedWeek}. Hafta</span>
                 </div>
               </div>
             </div>
@@ -428,7 +453,7 @@ function DersContent() {
             <div className="lg:col-span-2 space-y-6 sm:space-y-8">
               {activeTab === 'kazanimlar' && (
                 <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-5 sm:p-8">
-                  <h3 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">🎯 Bu Haftanın Kazanımları (19. Hafta)</h3>
+                  <h3 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">🎯 Bu Haftanın Kazanımları ({selectedWeek}. Hafta)</h3>
                   
                   {isLoadingOutcomes ? (
                     <div className="space-y-3 sm:space-y-4">
@@ -552,7 +577,7 @@ function DersContent() {
                   </div>
                   {unitId ? (
                     <Link 
-                      href={`/haftalik-test?unit_id=${unitId}&week=19`}
+                      href={`/haftalik-test?unit_id=${unitId}&week=${selectedWeek}`}
                       className="block w-full py-3 sm:py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg sm:rounded-xl hover:shadow-lg transition-all text-sm sm:text-base text-center"
                     >
                       Teste Başla →
@@ -562,7 +587,7 @@ function DersContent() {
                       disabled
                       className="w-full py-3 sm:py-4 bg-zinc-700 text-zinc-400 font-semibold rounded-lg sm:rounded-xl cursor-not-allowed text-sm sm:text-base"
                     >
-                      Yükleniyor...
+                      Bu haftada ünite yok
                     </button>
                   )}
                 </div>
@@ -571,7 +596,7 @@ function DersContent() {
 
             <div className="space-y-4 sm:space-y-6 order-last lg:order-last">
               <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 p-4 sm:p-6">
-                <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">📊 İlerleme (19. Hafta)</h4>
+                <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">📊 İlerleme ({selectedWeek}. Hafta)</h4>
                 <div className="space-y-2 sm:space-y-3">
                   <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-zinc-500">Kazanımlar</span>
