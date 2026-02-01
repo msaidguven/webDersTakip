@@ -2,6 +2,137 @@
 -- HAFTALIK TEST FONKSİYONLARI
 -- ============================================
 
+-- 0. MİSAFİR TEST BAŞLAT (WEB İÇİN) - user_id gerektirmez
+DROP FUNCTION IF EXISTS start_guest_test(bigint, text, integer);
+
+CREATE OR REPLACE FUNCTION start_guest_test(
+    p_unit_id bigint,
+    p_type text,
+    p_curriculum_week integer
+)
+RETURNS TABLE (
+    id bigint,
+    question_text text,
+    difficulty smallint,
+    score smallint,
+    question_type jsonb,
+    question_choices jsonb,
+    question_blank_options jsonb,
+    question_matching_pairs jsonb,
+    question_classical jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_question_ids BIGINT[];
+BEGIN
+    -- 1. O haftaya ait rastgele 10 soru seç
+    SELECT
+        ARRAY_AGG(sub.id)
+    INTO
+        v_question_ids
+    FROM (
+        SELECT
+            q.id
+        FROM
+            public.questions AS q
+        JOIN
+            public.question_usages AS qu ON q.id = qu.question_id
+        JOIN
+            public.topics AS t ON qu.topic_id = t.id
+        WHERE
+            t.unit_id = p_unit_id
+            AND qu.curriculum_week = p_curriculum_week
+        ORDER BY
+            RANDOM()
+        LIMIT 10
+    ) AS sub;
+
+    -- Eğer soru bulunamazsa boş döndür
+    IF v_question_ids IS NULL OR array_length(v_question_ids, 1) = 0 THEN
+        RETURN;
+    END IF;
+
+    -- 2. Soruları ve ilişkili verileri döndür
+    RETURN QUERY
+    SELECT 
+        q.id,
+        q.question_text,
+        q.difficulty,
+        q.score,
+        jsonb_build_object('code', qt.code) as question_type,
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', qc.id,
+                        'question_id', qc.question_id,
+                        'choice_text', qc.choice_text,
+                        'is_correct', qc.is_correct
+                    ) ORDER BY qc.id
+                )
+                FROM public.question_choices qc
+                WHERE qc.question_id = q.id
+            ),
+            '[]'::jsonb
+        ) as question_choices,
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', qbo.id,
+                        'question_id', qbo.question_id,
+                        'option_text', qbo.option_text,
+                        'is_correct', qbo.is_correct,
+                        'order_no', qbo.order_no
+                    ) ORDER BY qbo.order_no
+                )
+                FROM public.question_blank_options qbo
+                WHERE qbo.question_id = q.id
+            ),
+            '[]'::jsonb
+        ) as question_blank_options,
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', qmp.id,
+                        'question_id', qmp.question_id,
+                        'left_item', qmp.left_item,
+                        'right_item', qmp.right_item,
+                        'order_no', qmp.order_no
+                    ) ORDER BY qmp.order_no
+                )
+                FROM public.question_matching_pairs qmp
+                WHERE qmp.question_id = q.id
+            ),
+            '[]'::jsonb
+        ) as question_matching_pairs,
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'question_id', qc2.question_id,
+                        'model_answer', qc2.model_answer
+                    )
+                )
+                FROM public.question_classical qc2
+                WHERE qc2.question_id = q.id
+            ),
+            '[]'::jsonb
+        ) as question_classical
+    FROM public.questions q
+    JOIN public.question_types qt ON q.question_type_id = qt.id
+    WHERE q.id = ANY(v_question_ids)
+    ORDER BY RANDOM();
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION start_guest_test(bigint, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION start_guest_test(bigint, text, integer) TO anon;
+
+
 -- 1. HAFTALIK TEST OTURUMU BAŞLAT
 DROP FUNCTION IF EXISTS start_weekly_test_session(uuid, bigint, integer, uuid);
 
