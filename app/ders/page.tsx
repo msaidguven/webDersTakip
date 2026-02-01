@@ -116,6 +116,42 @@ function DersContent() {
   const [contentsError, setContentsError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{grade_name?: string; lesson_name?: string; unit_title?: string} | null>(null);
 
+  // Sınıf ve ders bilgilerini çek
+  useEffect(() => {
+    async function fetchGradeAndLesson() {
+      if (!gradeId || !lessonId) return;
+      
+      try {
+        const supabase = createSupabaseClient();
+        if (!supabase) return;
+        
+        // Sınıf bilgisini çek
+        const { data: gradeData } = await supabase
+          .from('grades')
+          .select('name')
+          .eq('id', parseInt(gradeId))
+          .single();
+        
+        // Ders bilgisini çek
+        const { data: lessonData } = await supabase
+          .from('lessons')
+          .select('name')
+          .eq('id', parseInt(lessonId))
+          .single();
+        
+        setWeekInfo(prev => ({
+          ...prev,
+          grade_name: gradeData?.name,
+          lesson_name: lessonData?.name,
+        }));
+      } catch (err) {
+        console.error('[fetchGradeAndLesson] Error:', err);
+      }
+    }
+    
+    fetchGradeAndLesson();
+  }, [gradeId, lessonId]);
+
   // 19. hafta için kazanımları çek
   useEffect(() => {
     async function fetchOutcomes() {
@@ -142,11 +178,12 @@ function DersContent() {
             unit_title: mockLessonContent.unite.name,
             topic_title: mockLessonContent.konu.name,
           })));
-          setWeekInfo({
+          setWeekInfo(prev => ({
+            ...prev,
             grade_name: mockLessonContent.sinif.name,
             lesson_name: mockLessonContent.ders.name,
             unit_title: mockLessonContent.unite.name,
-          });
+          }));
           return;
         }
         
@@ -162,12 +199,11 @@ function DersContent() {
         
         if (data && data.length > 0) {
           setOutcomes(data);
-          // İlk kayıttan sınıf, ders, ünite bilgilerini al
-          setWeekInfo({
-            grade_name: data[0].grade_name || data[0].sinif_name,
-            lesson_name: data[0].lesson_name || data[0].ders_name,
+          // Sadece ünite bilgisini al (sınıf/ders ayrı çekiliyor)
+          setWeekInfo(prev => ({
+            ...prev,
             unit_title: data[0].unit_title,
-          });
+          }));
         } else {
           setOutcomes(mockLessonContent.kazanimlar.map((desc, index) => ({
             id: index + 1,
@@ -187,11 +223,12 @@ function DersContent() {
           unit_title: mockLessonContent.unite.name,
           topic_title: mockLessonContent.konu.name,
         })));
-        setWeekInfo({
+        setWeekInfo(prev => ({
+          ...prev,
           grade_name: mockLessonContent.sinif.name,
           lesson_name: mockLessonContent.ders.name,
           unit_title: mockLessonContent.unite.name,
-        });
+        }));
       } finally {
         setIsLoadingOutcomes(false);
       }
