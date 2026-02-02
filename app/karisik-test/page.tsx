@@ -183,6 +183,7 @@ function MixedTestContent() {
   const { user, isAuthenticated, supabase: authSupabase } = useAuth();
 
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [allQuestionsLoaded, setAllQuestionsLoaded] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [matchingState, setMatchingState] = useState<Record<number, Record<string, string>>>({});
@@ -194,6 +195,7 @@ function MixedTestContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // İlk soruyu hemen çek, arka planda tümünü çek
   useEffect(() => {
     if (!lessonId || !week) {
       setError('Ders veya hafta bilgisi eksik');
@@ -208,15 +210,40 @@ function MixedTestContent() {
       return;
     }
 
-    fetchMixedQuestions(supabase, parseInt(lessonId), parseInt(week))
-      .then(data => {
-        setQuestions(data);
+    const lId = parseInt(lessonId);
+    const w = parseInt(week);
+
+    async function loadQuestions() {
+      try {
+        // Önce tüm soruları çek ama hemen gösterme
+        const allQuestions = await fetchMixedQuestions(supabase!, lId, w);
+        
+        if (allQuestions.length === 0) {
+          setError('Bu ders ve hafta için soru bulunamadı');
+          setLoading(false);
+          return;
+        }
+
+        // İlk soruyu hemen göster
+        setQuestions([allQuestions[0]]);
         setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
+
+        // Kalan soruları arka planda yükle (eğer varsa)
+        if (allQuestions.length > 1) {
+          setTimeout(() => {
+            setQuestions(allQuestions);
+            setAllQuestionsLoaded(true);
+          }, 100); // Kısa bir gecikmeyle diğer soruları ekle
+        } else {
+          setAllQuestionsLoaded(true);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Sorular yüklenirken bir hata oluştu');
         setLoading(false);
-      });
+      }
+    }
+
+    loadQuestions();
   }, [lessonId, week]);
 
   useEffect(() => {
@@ -413,7 +440,7 @@ function MixedTestContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Sorular yükleniyor...</p>
+          <p className="text-zinc-400">İlk soru hazırlanıyor...</p>
         </div>
       </div>
     );
@@ -499,7 +526,6 @@ function MixedTestContent() {
   }
 
   const q = questions[currentIndex];
-  const progress = ((currentIndex + 1) / questions.length) * 100;
 
   return (
     <div className="min-h-screen bg-[#0f0f11]">
@@ -515,10 +541,17 @@ function MixedTestContent() {
 
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-xs sm:text-sm text-zinc-500">
-              {currentIndex + 1}/{questions.length}
+              {currentIndex + 1}/{allQuestionsLoaded ? questions.length : '?'}
             </span>
             <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
+              <div 
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" 
+                style={{ 
+                  width: allQuestionsLoaded 
+                    ? `${((currentIndex + 1) / questions.length) * 100}%` 
+                    : '10%' 
+                }} 
+              />
             </div>
             <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl bg-zinc-900 border border-white/10 font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
               {formatTime(timeLeft)}
@@ -854,9 +887,18 @@ function MixedTestContent() {
 
             <button
               onClick={handleNext}
-              className="flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm sm:text-base"
+              disabled={!allQuestionsLoaded && currentIndex >= questions.length - 1}
+              className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base ${
+                !allQuestionsLoaded && currentIndex >= questions.length - 1
+                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+              }`}
             >
-              {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
+              {!allQuestionsLoaded && currentIndex >= questions.length - 1 
+                ? 'Yükleniyor...' 
+                : currentIndex === questions.length - 1 
+                  ? 'Testi Bitir' 
+                  : 'Sonraki →'}
             </button>
           </div>
         </div>
