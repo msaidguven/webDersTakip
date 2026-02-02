@@ -8,64 +8,6 @@ import { LessonSelector } from './src/components/home/LessonSelector';
 import { UnitSelector } from './src/components/home/UnitSelector';
 import { TopicSelector } from './src/components/home/TopicSelector';
 import { TestConfirm } from './src/components/home/TestConfirm';
-import { useAuth } from './src/context/AuthContext';
-
-function Header() {
-  const { isAuthenticated, user, signOut } = useAuth();
-
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-background/95 backdrop-blur-xl border-b border-white/5">
-      <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <span className="text-xl font-bold text-white">📚</span>
-          </div>
-          <span className="text-xl font-bold text-white">Ders Takip</span>
-        </Link>
-
-        {/* Right Side - Auth Based */}
-        <div className="flex items-center gap-3 sm:gap-6">
-          {isAuthenticated ? (
-            <>
-              <span className="text-zinc-400 hidden sm:block">
-                👋 {user?.email?.split('@')[0]}
-              </span>
-              <Link 
-                href="/profil" 
-                className="text-zinc-400 hover:text-white transition-colors"
-              >
-                Profil
-              </Link>
-              <button 
-                onClick={signOut}
-                className="text-zinc-400 hover:text-red-400 transition-colors text-sm"
-              >
-                Çıkış
-              </button>
-            </>
-          ) : (
-            <>
-              <Link 
-                href="/login" 
-                className="text-zinc-400 hover:text-white transition-colors hidden sm:block"
-              >
-                Giriş Yap
-              </Link>
-              <Link 
-                href="/register"
-                className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-sm sm:text-base"
-              >
-                <span className="sm:hidden">Kayıt Ol</span>
-                <span className="hidden sm:inline">Kayıt Ol</span>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
-}
 
 // Hafta Seçici Komponenti
 function WeekSelector() {
@@ -138,15 +80,9 @@ export default function HomePage() {
   } = useHomeViewModel();
 
   return (
-    <div className="min-h-screen bg-background bg-grid">
-      {/* Glow Effects */}
-      <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
-
-      {/* Navigation */}
-      <Header />
-
+    <div className="min-h-screen">
       {/* Main Content */}
-      <main className="pt-[100px] sm:pt-[120px] pb-20 px-4 sm:px-8">
+      <main className="py-6 sm:py-8 px-4 sm:px-8">
         {/* Week Selector - Ana sayfada her zaman göster */}
         {selection.step === 'grade' && <WeekSelector />}
 

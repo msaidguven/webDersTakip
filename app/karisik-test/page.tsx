@@ -529,39 +529,38 @@ function MixedTestContent() {
 
   return (
     <div className="min-h-screen bg-[#0f0f11]">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-lg sm:text-xl">📚</span>
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">Ders Takip</span>
-          </Link>
-
-          <div className="flex items-center gap-2 sm:gap-4">
-            <span className="text-xs sm:text-sm text-zinc-500">
-              {currentIndex + 1}/{allQuestionsLoaded ? questions.length : '?'}
-            </span>
-            <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" 
-                style={{ 
-                  width: allQuestionsLoaded 
-                    ? `${((currentIndex + 1) / questions.length) * 100}%` 
-                    : '10%' 
-                }} 
-              />
-            </div>
-            <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl bg-zinc-900 border border-white/10 font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
-              {formatTime(timeLeft)}
+      {/* Test Info Bar */}
+      <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-white/5 bg-[#0f0f11]/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-8 py-3">
+          <div className="flex items-center justify-between">
+            <Link href="/ders" className="text-sm text-zinc-400 hover:text-white flex items-center gap-1">
+              ← Testten Çık
+            </Link>
+            
+            <div className="flex items-center gap-2 sm:gap-4">
+              <span className="text-xs sm:text-sm text-zinc-500">
+                {currentIndex + 1}/{allQuestionsLoaded ? questions.length : '?'}
+              </span>
+              <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" 
+                  style={{ 
+                    width: allQuestionsLoaded 
+                      ? `${((currentIndex + 1) / questions.length) * 100}%` 
+                      : '10%' 
+                  }} 
+                />
+              </div>
+              <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg bg-zinc-900 border border-white/10 font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
+                {formatTime(timeLeft)}
+              </div>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <main className="pt-[80px] sm:pt-[100px] pb-24 sm:pb-20 px-3 sm:px-8">
+      <main className="pt-[120px] sm:pt-[140px] pb-24 sm:pb-20 px-3 sm:px-8">
         <div className="max-w-3xl mx-auto">
           {/* Question Card */}
           <div className="rounded-xl sm:rounded-2xl bg-zinc-900/80 border border-white/10 p-4 sm:p-8 mb-4 sm:mb-6">

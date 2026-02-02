@@ -78,29 +78,6 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   );
 }
 
-function Header({ gradeName, lessonName }: { gradeName: string; lessonName: string }) {
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
-      <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-lg sm:text-xl">📚</span>
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">Ders Takip</span>
-          </Link>
-          <div className="h-6 w-px bg-white/10 hidden sm:block" />
-          <Link href="/" className="text-zinc-400 hover:text-white text-sm sm:text-base">{'<-'} Geri</Link>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-4">
-          <span className="text-zinc-400 text-xs sm:text-sm hidden md:block">{gradeName} {'->'} {lessonName}</span>
-          <div className="bg-zinc-800 text-white text-xs sm:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-zinc-700">{CURRENT_WEEK}. Hafta</div>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
 function PageHeader({ gradeName, lessonName, outcomeCount }: { 
   gradeName: string; 
   lessonName: string; 
@@ -245,7 +222,7 @@ function DersContent() {
   if (state.isLoading) return <LoadingState />;
   if (state.error) return <ErrorState error={state.error} onRetry={refreshData} />;
   if (!state.data) return (
-    <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <p className="text-zinc-400">Veriler yuklenemedi</p>
     </div>
   );
@@ -253,10 +230,23 @@ function DersContent() {
   const { data } = state;
 
   return (
-    <div className="min-h-screen bg-[#0f0f11]">
-      <Header gradeName={data.gradeName} lessonName={data.lessonName} />
+    <div className="min-h-screen">
+      {/* Breadcrumb Nav */}
+      <div className="border-b border-white/5 bg-[#0f0f11]/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4">
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <Link href="/" className="hover:text-white transition-colors">Ana Sayfa</Link>
+            <span>→</span>
+            <span className="text-white">{data.gradeName}</span>
+            <span>→</span>
+            <span className="text-white">{data.lessonName}</span>
+            <span>→</span>
+            <span className="text-indigo-400">{CURRENT_WEEK}. Hafta</span>
+          </div>
+        </div>
+      </div>
 
-      <main className="pt-[100px] pb-20 px-4 sm:px-8">
+      <main className="pt-6 sm:pt-8 pb-20 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto">
           <PageHeader 
             gradeName={data.gradeName} 
