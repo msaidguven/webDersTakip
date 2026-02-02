@@ -2,62 +2,29 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { state, register, clearError } = useRegisterViewModel();
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    if (password !== confirmPassword) {
-      setError('Şifreler eşleşmiyor');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-      
-      // 1. Sign up user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password
-      });
-
-      if (authError) throw authError;
-
-      // 2. Create profile
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            full_name: fullName,
-            role: 'student'
-          });
-
-        if (profileError) throw profileError;
-      }
-
-      router.push('/login?registered=true');
-    } catch (err: any) {
-      setError(err.message || 'Kayıt yapılamadı');
-    } finally {
-      setLoading(false);
-    }
+    await register({
+      fullName: formData.fullName,
+      email: formData.email,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    });
   };
 
   return (
@@ -69,28 +36,34 @@ export default function RegisterPage() {
             <span className="text-2xl">📚</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Ders Takip</h1>
-          <p className="text-zinc-500 mt-2">Hemen ücretsiz kaydol</p>
+          <p className="text-zinc-500 mt-2">Hemen ucretsiz kaydol</p>
         </div>
 
         {/* Form */}
         <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
-          <h2 className="text-xl font-semibold text-white mb-6">Kayıt Ol</h2>
+          <h2 className="text-xl font-semibold text-white mb-6">Kayit Ol</h2>
 
-          {error && (
+          {state.error && (
             <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
+              {state.error}
+              <button 
+                onClick={clearError}
+                className="ml-2 text-red-300 hover:text-red-200"
+              >
+                ✕
+              </button>
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Ad Soyad</label>
               <input
                 type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                value={formData.fullName}
+                onChange={(e) => handleChange('fullName', e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-                placeholder="Ahmet Yılmaz"
+                placeholder="Ahmet Yilmaz"
                 required
               />
             </div>
@@ -99,8 +72,8 @@ export default function RegisterPage() {
               <label className="block text-sm text-zinc-400 mb-2">E-posta</label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
                 placeholder="ornek@email.com"
                 required
@@ -108,11 +81,11 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Şifre</label>
+              <label className="block text-sm text-zinc-400 mb-2">Sifre</label>
               <input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={(e) => handleChange('password', e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
                 placeholder="••••••••"
                 required
@@ -121,11 +94,11 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Şifre Tekrar</label>
+              <label className="block text-sm text-zinc-400 mb-2">Sifre Tekrar</label>
               <input
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                value={formData.confirmPassword}
+                onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
                 placeholder="••••••••"
                 required
@@ -134,18 +107,18 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={state.isLoading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
             >
-              {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
+              {state.isLoading ? 'Kayit yapiliyor...' : 'Kayit Ol'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-500 text-sm">
-              Zaten hesabın var mı?{' '}
+              Zaten hesabin var mi?{' '}
               <Link href="/login" className="text-indigo-400 hover:text-indigo-300">
-                Giriş Yap
+                Giris Yap
               </Link>
             </p>
           </div>
@@ -153,7 +126,7 @@ export default function RegisterPage() {
 
         <div className="mt-8 text-center">
           <Link href="/" className="text-zinc-500 hover:text-white text-sm">
-            ← Ana Sayfaya Dön
+            ← Ana Sayfaya Don
           </Link>
         </div>
       </div>

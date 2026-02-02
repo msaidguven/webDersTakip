@@ -2,38 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-      router.push('/panel');
-    } catch (err: any) {
-      setError(err.message || 'Giriş yapılamadı');
-    } finally {
-      setLoading(false);
-    }
+    await login({ email, password });
   };
 
   return (
@@ -45,20 +23,26 @@ export default function LoginPage() {
             <span className="text-2xl">📚</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Ders Takip</h1>
-          <p className="text-zinc-500 mt-2">Öğrenmeye devam et</p>
+          <p className="text-zinc-500 mt-2">Ogrenmeye devam et</p>
         </div>
 
         {/* Form */}
         <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8">
-          <h2 className="text-xl font-semibold text-white mb-6">Giriş Yap</h2>
+          <h2 className="text-xl font-semibold text-white mb-6">Giris Yap</h2>
 
-          {error && (
+          {state.error && (
             <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
+              {state.error}
+              <button 
+                onClick={clearError}
+                className="ml-2 text-red-300 hover:text-red-200"
+              >
+                ✕
+              </button>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm text-zinc-400 mb-2">E-posta</label>
               <input
@@ -72,7 +56,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Şifre</label>
+              <label className="block text-sm text-zinc-400 mb-2">Sifre</label>
               <input
                 type="password"
                 value={password}
@@ -85,18 +69,18 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={state.isLoading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
             >
-              {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+              {state.isLoading ? 'Giris yapiliyor...' : 'Giris Yap'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-500 text-sm">
-              Hesabın yok mu?{' '}
+              Hesabin yok mu?{' '}
               <Link href="/register" className="text-indigo-400 hover:text-indigo-300">
-                Kayıt Ol
+                Kayit Ol
               </Link>
             </p>
           </div>
@@ -104,7 +88,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <Link href="/" className="text-zinc-500 hover:text-white text-sm">
-            ← Ana Sayfaya Dön
+            ← Ana Sayfaya Don
           </Link>
         </div>
       </div>
