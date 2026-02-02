@@ -44,7 +44,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl font-bold text-white">E</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">EduSmart</h1>
+          <h1 className="text-2xl font-bold text-white">Ders Takip</h1>
           <p className="text-zinc-500 mt-2">Öğrenmeye devam et</p>
         </div>
 

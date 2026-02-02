@@ -32,10 +32,10 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
       <div className="p-6 border-b border-white/5">
         <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-shadow">
-            <span className="text-xl font-bold text-white">E</span>
+            <span className="text-xl font-bold text-white">📚</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">EduSmart</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Ders Takip</h1>
             <p className="text-xs text-zinc-500">Öğrenme Yolculuğu</p>
           </div>
         </Link>

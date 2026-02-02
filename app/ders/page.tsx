@@ -242,7 +242,7 @@ function DersContent() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
                 <span className="text-xl font-bold text-white">E</span>
               </div>
-              <span className="text-xl font-bold text-white hidden sm:block">EduSmart</span>
+              <span className="text-xl font-bold text-white hidden sm:block">Ders Takip</span>
             </Link>
             <div className="h-6 w-px bg-white/10" />
             <Link href="/" className="text-zinc-400 hover:text-white">{'<-'} Geri</Link>

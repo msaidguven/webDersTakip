@@ -409,9 +409,9 @@ function MixedTestContent() {
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">E</span>
+              <span className="text-xl">📚</span>
             </div>
-            <span className="text-xl font-bold text-white hidden sm:block">Karışık Test</span>
+            <span className="text-xl font-bold text-white hidden sm:block">Ders Takip</span>
           </Link>
 
           <div className="flex items-center gap-4">

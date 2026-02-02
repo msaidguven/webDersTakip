@@ -42,9 +42,9 @@ export default function HomePage() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <span className="text-xl font-bold text-white">E</span>
+              <span className="text-xl font-bold text-white">📚</span>
             </div>
-            <span className="text-xl font-bold text-white">EduSmart</span>
+            <span className="text-xl font-bold text-white">Ders Takip</span>
           </Link>
 
           {/* Right Side */}
@@ -178,7 +178,7 @@ export default function HomePage() {
       <footer className="border-t border-white/5 py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
           <p className="text-zinc-500 text-sm">
-            © 2026 EduSmart. Tüm hakları saklıdır.
+            © 2026 Ders Takip. Tüm hakları saklıdır.
           </p>
           <div className="flex gap-6 text-sm text-zinc-500">
             <a href="#" className="hover:text-white transition-colors">Hakkımızda</a>

@@ -150,7 +150,7 @@ export default function ProfilePage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
               <span className="text-xl font-bold text-white">E</span>
             </div>
-            <span className="text-xl font-bold text-white">EduSmart</span>
+            <span className="text-xl font-bold text-white">Ders Takip</span>
           </Link>
           <button
             onClick={handleLogout}
