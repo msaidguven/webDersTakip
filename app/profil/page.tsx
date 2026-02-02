@@ -1,262 +1,188 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+// Supabase istemcisini oluştur
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_KEY!
+);
 
-interface Profile {
-  id: string;
-  full_name: string;
-  username: string | null;
-  avatar_url: string | null;
-  grade_id: number | null;
-  school_name: string | null;
-  city_id: number | null;
-}
-
-interface Grade {
-  id: number;
-  name: string;
-}
-
-interface City {
-  id: number;
-  name: string;
+interface UserStats {
+  totalTests: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  averageScore: number;
 }
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-  // Form state
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [schoolName, setSchoolName] = useState('');
-  const [gradeId, setGradeId] = useState('');
-  const [cityId, setCityId] = useState('');
+  const [stats, setStats] = useState<UserStats>({
+    totalTests: 0,
+    totalQuestions: 0,
+    correctAnswers: 0,
+    averageScore: 0,
+  });
 
   useEffect(() => {
-    loadProfile();
-    loadGrades();
-    loadCities();
-  }, []);
-
-  async function loadProfile() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (data) {
-      setProfile(data);
-      setFullName(data.full_name || '');
-      setUsername(data.username || '');
-      setSchoolName(data.school_name || '');
-      setGradeId(data.grade_id?.toString() || '');
-      setCityId(data.city_id?.toString() || '');
-    }
-    setLoading(false);
-  }
-
-  async function loadGrades() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data } = await supabase
-      .from('grades')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('order_no');
-    setGrades(data || []);
-  }
-
-  async function loadCities() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data } = await supabase
-      .from('cities')
-      .select('id, name')
-      .order('name');
-    setCities(data || []);
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setMessage('');
-
-    try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-      const { data: { user } } = await supabase.auth.getUser();
+    const getUserData = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
       
-      if (!user) throw new Error('Oturum bulunamadı');
+      if (error || !user) {
+        router.push('/login');
+        return;
+      }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          username: username || null,
-          school_name: schoolName || null,
-          grade_id: gradeId ? parseInt(gradeId) : null,
-          city_id: cityId ? parseInt(cityId) : null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
+      setUser(user);
+      
+      // Burada normalde 'test_results' veya 'question_usages' tablosundan
+      // kullanıcının istatistiklerini çekmemiz gerekir.
+      // Şimdilik örnek veri (mock data) ile gösteriyorum:
+      setStats({
+        totalTests: 12,
+        totalQuestions: 150,
+        correctAnswers: 120,
+        averageScore: 80,
+      });
 
-      if (error) throw error;
-      setMessage('Profil güncellendi!');
-    } catch (err: any) {
-      setMessage('Hata: ' + err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+      setLoading(false);
+    };
 
-  async function handleLogout() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    getUserData();
+  }, [router]);
+
+  const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/');
-  }
+    router.push('/login');
+    router.refresh();
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0f11]">
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">E</span>
+    <div className="min-h-screen bg-[#0f0f11] pb-20">
+      {/* Header */}
+      <header className="h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5 flex items-center px-4 sm:px-8 sticky top-0 z-50">
+        <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+          <span>←</span>
+          <span>Ana Sayfa</span>
+        </Link>
+        <h1 className="ml-4 text-xl font-bold text-white">Profilim</h1>
+      </header>
+
+      <main className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6">
+        
+        {/* Kullanıcı Kartı */}
+        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
+            {user?.email?.[0].toUpperCase() || 'U'}
+          </div>
+          <div className="text-center sm:text-left flex-1">
+            <h2 className="text-2xl font-bold text-white mb-1">
+              {user?.user_metadata?.full_name || 'Öğrenci'}
+            </h2>
+            <p className="text-zinc-400 mb-4">{user?.email}</p>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+              <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-sm border border-indigo-500/20">
+                8. Sınıf
+              </span>
+              <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-sm border border-emerald-500/20">
+                Aktif Üye
+              </span>
             </div>
-            <span className="text-xl font-bold text-white">Ders Takip</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          </div>
+          <button 
+            onClick={handleSignOut}
+            className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-all border border-white/5 hover:border-red-500/20"
           >
             Çıkış Yap
           </button>
         </div>
-      </nav>
 
-      <main className="pt-[100px] pb-20 px-4 sm:px-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6 sm:p-8">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-3xl">
-                {fullName.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">{fullName}</h1>
-                <p className="text-zinc-500">@{username || 'kullanıcı'}</p>
-              </div>
-            </div>
+        {/* İstatistikler Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center hover:bg-zinc-800/50 transition-colors">
+            <div className="text-3xl mb-2">📝</div>
+            <div className="text-2xl font-bold text-white mb-1">{stats.totalTests}</div>
+            <div className="text-xs text-zinc-500">Tamamlanan Test</div>
+          </div>
+          <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center hover:bg-zinc-800/50 transition-colors">
+            <div className="text-3xl mb-2">🎯</div>
+            <div className="text-2xl font-bold text-white mb-1">{stats.totalQuestions}</div>
+            <div className="text-xs text-zinc-500">Çözülen Soru</div>
+          </div>
+          <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center hover:bg-zinc-800/50 transition-colors">
+            <div className="text-3xl mb-2">✅</div>
+            <div className="text-2xl font-bold text-emerald-400 mb-1">{stats.correctAnswers}</div>
+            <div className="text-xs text-zinc-500">Doğru Cevap</div>
+          </div>
+          <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center hover:bg-zinc-800/50 transition-colors">
+            <div className="text-3xl mb-2">🏆</div>
+            <div className="text-2xl font-bold text-amber-400 mb-1">%{stats.averageScore}</div>
+            <div className="text-xs text-zinc-500">Başarı Oranı</div>
+          </div>
+        </div>
 
-            {message && (
-              <div className={`mb-6 p-4 rounded-xl ${message.includes('Hata') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                {message}
+        {/* Ders İlerlemeleri (Örnek) */}
+        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <span>📊</span> Ders İlerlemeleri
+          </h3>
+          <div className="space-y-6">
+            {[
+              { name: 'Matematik', progress: 75, color: 'from-blue-500 to-indigo-500', icon: '🔢' },
+              { name: 'Fen Bilimleri', progress: 60, color: 'from-emerald-500 to-teal-500', icon: '🔬' },
+              { name: 'Türkçe', progress: 85, color: 'from-rose-500 to-pink-500', icon: '📝' },
+            ].map((lesson) => (
+              <div key={lesson.name}>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-white flex items-center gap-2">
+                    <span>{lesson.icon}</span> {lesson.name}
+                  </span>
+                  <span className="text-zinc-400">%{lesson.progress}</span>
+                </div>
+                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full bg-gradient-to-r ${lesson.color}`} 
+                    style={{ width: `${lesson.progress}%` }}
+                  />
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
 
-            <form onSubmit={handleSave} className="space-y-6">
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Ad Soyad</label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
-                />
+        {/* Son Aktiviteler */}
+        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <span>🕒</span> Son Aktiviteler
+          </h3>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30 border border-white/5">
+                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">
+                  📝
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Haftalık Test {19 - i}</h4>
+                  <p className="text-xs text-zinc-500">Matematik • 2 gün önce</p>
+                </div>
+                <div className="ml-auto text-emerald-400 font-bold text-sm">
+                  85 Puan
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Kullanıcı Adı</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
-                  placeholder="@kullaniciadi"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Sınıf</label>
-                <select
-                  value={gradeId}
-                  onChange={(e) => setGradeId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="">Sınıf Seç</option>
-                  {grades.map((grade) => (
-                    <option key={grade.id} value={grade.id}>{grade.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Okul</label>
-                <input
-                  type="text"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
-                  placeholder="Okul adı"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Şehir</label>
-                <select
-                  value={cityId}
-                  onChange={(e) => setCityId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="">Şehir Seç</option>
-                  {cities.map((city) => (
-                    <option key={city.id} value={city.id}>{city.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <Link
-                  href="/"
-                  className="flex-1 py-3 rounded-xl bg-zinc-800 text-white font-medium text-center hover:bg-zinc-700 transition-colors"
-                >
-                  İptal
-                </Link>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
-                >
-                  {saving ? 'Kaydediliyor...' : 'Kaydet'}
-                </button>
-              </div>
-            </form>
+            ))}
           </div>
         </div>
       </main>
