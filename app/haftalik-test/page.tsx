@@ -2,11 +2,9 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation'; 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { useTimer } from '../src/viewmodels/useTimer';
 
 interface Choice {
   id: number;
@@ -23,8 +21,16 @@ interface Question {
 }
 
 const createSupabaseClient = (): SupabaseClient | null => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase URL or Key is missing in environment variables.');
+    return null;
+  }
+
   try {
-    return createClient(SUPABASE_URL, SUPABASE_KEY);
+    return createClient(supabaseUrl, supabaseKey);
   } catch {
     return null;
   }
@@ -108,10 +114,13 @@ function TestContent() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(1800);
   const [isFinished, setIsFinished] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { timeLeft, resetTimer, formatTime } = useTimer(1800, !isFinished && !loading, () => {
+    setIsFinished(true);
+  });
 
   useEffect(() => {
     if (!lessonId || !week) {
@@ -132,21 +141,6 @@ function TestContent() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [lessonId, week]);
-
-  // Timer
-  useEffect(() => {
-    if (isFinished || loading) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setIsFinished(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isFinished, loading]);
 
   const handleAnswer = useCallback((qId: number, cId: number) => {
     setAnswers((prev) => ({ ...prev, [qId]: cId }));
@@ -177,12 +171,6 @@ function TestContent() {
       percentage: Math.round((correct / questions.length) * 100)
     };
   }, [questions, answers]);
-
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
 
   if (loading) {
     return (
@@ -252,7 +240,7 @@ function TestContent() {
                 setAnswers({});
                 setIsFinished(false);
                 setCurrentIndex(0);
-                setTimeLeft(1800);
+                resetTimer();
               }}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white"
             >

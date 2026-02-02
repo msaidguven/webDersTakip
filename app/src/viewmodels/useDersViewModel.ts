@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js'; 
 import { DersState, Outcome, TopicContent } from '../models/dersTypes';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 const CURRENT_WEEK = 19;
 
 export function useDersViewModel(gradeId: string | null, lessonId: string | null) {
@@ -22,13 +19,29 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
   const [contentsLoaded, setContentsLoaded] = useState(false);
 
   // Supabase client'ı sadece bir kez oluştur
-  const supabase = useMemo(() => createClient(SUPABASE_URL, SUPABASE_KEY), []);
+  const supabase = useMemo(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      return createClient(supabaseUrl, supabaseKey);
+    }
+    console.error('Supabase URL or Key is missing in environment variables.');
+    return null;
+  }, []);
 
   // Kazanımlar ve temel bilgiler - sayfa açılırken yüklensin
   useEffect(() => {
     let isCancelled = false;
 
     async function loadOutcomes() {
+      if (!supabase) {
+        if (!isCancelled) {
+          setState(prev => ({ ...prev, isLoading: false, error: 'Veritabanı yapılandırması eksik.' }));
+        }
+        return;
+      }
+
       if (!gradeId || !lessonId) {
         if (!isCancelled) {
           setState(prev => ({
@@ -105,6 +118,8 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
     }
 
     async function loadContentsInBackground(lId: number) {
+      if (!supabase) return;
+
       try {
         const { data: weekContents } = await supabase
           .from('topic_content_weeks')
@@ -150,7 +165,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
 
   // İçerikleri ayrı yükle (lazy loading)
   const loadContents = useCallback(async () => {
-    if (!lessonId || contentsLoaded || contentsLoading) return;
+    if (!lessonId || contentsLoaded || contentsLoading || !supabase) return;
 
     setContentsLoading(true);
 

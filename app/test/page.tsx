@@ -4,9 +4,6 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
 interface QuestionTypeInfo {
   type: string;
   count: number;
@@ -31,7 +28,15 @@ function TestRouterContent() {
         return;
       }
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        setError('Veritabanı yapılandırması eksik.');
+        setLoading(false);
+        return;
+      }
+      const supabase = createClient(supabaseUrl, supabaseKey);
       
       // 1. Bu dersin unit'lerini bul
       const { data: units } = await supabase
