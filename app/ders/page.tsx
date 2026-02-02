@@ -223,6 +223,7 @@ function DersContent() {
 
   return (
     <div className="min-h-screen bg-[#0f0f11]">
+      <style dangerouslySetInnerHTML={{ __html: topicContentStyles.replace(/<style>|<\/style>/g, '') }} />
       <Navbar gradeName={data.gradeName} lessonName={data.lessonName} />
       
       <main className="pt-[100px] pb-20 px-4 sm:px-8">
@@ -395,7 +396,7 @@ function ContentList({ contents }: { contents: TopicContent[] }) {
         >
           <h2 className="text-xl font-semibold text-white mb-4">{content.title}</h2>
           <div 
-            className="prose prose-invert prose-zinc max-w-none"
+            className="topic-content"
             dangerouslySetInnerHTML={{ __html: content.content }}
           />
         </article>
@@ -463,3 +464,228 @@ export default function DersPage() {
     </Suspense>
   );
 }
+
+// ============================================
+// TOPIC CONTENT STYLES
+// ============================================
+const topicContentStyles = `
+  <style>
+  .topic-content {
+    color: #d4d4d8;
+    line-height: 1.75;
+  }
+  
+  .topic-content h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #3f3f46;
+  }
+  
+  .topic-content h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .topic-content h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #818cf8;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .topic-content h4 {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: #e4e4e7;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .topic-content p {
+    margin-bottom: 1rem;
+    color: #d4d4d8;
+  }
+  
+  .topic-content ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .topic-content ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .topic-content li {
+    margin-bottom: 0.5rem;
+    color: #d4d4d8;
+  }
+  
+  .topic-content li::marker {
+    color: #818cf8;
+  }
+  
+  .topic-content strong {
+    color: #ffffff;
+    font-weight: 600;
+  }
+  
+  .topic-content em {
+    color: #a5b4fc;
+    font-style: italic;
+  }
+  
+  .topic-content blockquote {
+    border-left: 4px solid #6366f1;
+    padding-left: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    margin: 1rem 0;
+    background: rgba(39, 39, 42, 0.5);
+    border-radius: 0 0.5rem 0.5rem 0;
+    font-style: italic;
+    color: #a1a1aa;
+  }
+  
+  .topic-content code {
+    background: #27272a;
+    color: #34d399;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, monospace;
+  }
+  
+  .topic-content pre {
+    background: #18181b;
+    border: 1px solid #27272a;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+  
+  .topic-content pre code {
+    background: transparent;
+    padding: 0;
+    font-size: 0.875rem;
+  }
+  
+  .topic-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  
+  .topic-content th {
+    background: #27272a;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0.75rem;
+    border: 1px solid #3f3f46;
+    text-align: left;
+  }
+  
+  .topic-content td {
+    padding: 0.75rem;
+    border: 1px solid #27272a;
+    color: #d4d4d8;
+  }
+  
+  .topic-content tr:nth-child(even) {
+    background: rgba(39, 39, 42, 0.3);
+  }
+  
+  .topic-content a {
+    color: #818cf8;
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+  
+  .topic-content a:hover {
+    color: #a5b4fc;
+  }
+  
+  .topic-content img {
+    max-width: 100%;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .topic-content hr {
+    border: none;
+    border-top: 1px solid #27272a;
+    margin: 2rem 0;
+  }
+  
+  .topic-content .formula {
+    background: rgba(39, 39, 42, 0.8);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    display: inline-block;
+    font-size: 1.125rem;
+    font-family: ui-monospace, monospace;
+    margin: 0.5rem 0;
+  }
+  
+  .topic-content .highlight {
+    background: rgba(250, 204, 21, 0.2);
+    color: #fef08a;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+  }
+  
+  .topic-content .note {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+  }
+  
+  .topic-content .note::before {
+    content: "💡 Not: ";
+    font-weight: 600;
+    color: #60a5fa;
+  }
+  
+  .topic-content .warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+  }
+  
+  .topic-content .warning::before {
+    content: "⚠️ Uyarı: ";
+    font-weight: 600;
+    color: #fbbf24;
+  }
+  
+  .topic-content .tip {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+  }
+  
+  .topic-content .tip::before {
+    content: "✅ İpucu: ";
+    font-weight: 600;
+    color: #34d399;
+  }
+  </style>
+`;
