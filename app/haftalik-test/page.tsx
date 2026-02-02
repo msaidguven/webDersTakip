@@ -309,125 +309,80 @@ function TestContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-            {/* Question Area */}
-            <div className="lg:col-span-3">
-              {/* Question Card */}
-              <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
-                {/* Question Header */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
-                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-sm font-medium">
-                    {getDifficultyLabel(currentQuestion.difficulty)}
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">
-                    {currentQuestion.score || 1} Puan
-                  </span>
-                </div>
-
-                {/* Question Text */}
-                <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
-                  {currentIndex + 1}. {currentQuestion.question_text}
-                </h2>
-
-                {/* Answer Options */}
-                <div className="space-y-3">
-                  {currentQuestion.choices.map((choice, index) => (
-                    <button
-                      key={choice.id}
-                      onClick={() => handleAnswer(currentQuestion.id, choice.id)}
-                      className={`w-full p-4 sm:p-5 rounded-xl border-2 text-left transition-all duration-200 ${
-                        answers[currentQuestion.id] === choice.id
-                          ? 'border-indigo-500 bg-indigo-500/10'
-                          : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold transition-all flex-shrink-0 ${
-                          answers[currentQuestion.id] === choice.id
-                            ? 'border-indigo-500 bg-indigo-500 text-white'
-                            : 'border-zinc-700 text-zinc-500'
-                        }`}>
-                          {String.fromCharCode(65 + index)}
-                        </div>
-                        <span className={`text-lg ${answers[currentQuestion.id] === choice.id ? 'text-white' : 'text-zinc-300'}`}>
-                          {choice.choice_text}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+          <div className="max-w-3xl mx-auto">
+            {/* Question Card */}
+            <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
+              {/* Question Header */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
+                <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-sm font-medium">
+                  {getDifficultyLabel(currentQuestion.difficulty)}
+                </span>
+                <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">
+                  {currentQuestion.score || 1} Puan
+                </span>
               </div>
 
-              {/* Navigation */}
-              <div className="flex justify-between">
-                <button
-                  onClick={handlePrevious}
-                  disabled={currentIndex === 0}
-                  className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                    currentIndex === 0
-                      ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
-                      : 'bg-zinc-900 text-white hover:bg-zinc-800'
-                  }`}
-                >
-                  ← Önceki
-                </button>
+              {/* Question Text */}
+              <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
+                {currentIndex + 1}. {currentQuestion.question_text}
+              </h2>
 
-                <button
-                  onClick={handleNext}
-                  className="px-8 py-3 rounded-xl font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
-                >
-                  {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
-                </button>
+              {/* Answer Options */}
+              <div className="space-y-3">
+                {currentQuestion.choices.map((choice, index) => (
+                  <button
+                    key={choice.id}
+                    onClick={() => handleAnswer(currentQuestion.id, choice.id)}
+                    className={`w-full p-4 sm:p-5 rounded-xl border-2 text-left transition-all duration-200 ${
+                      answers[currentQuestion.id] === choice.id
+                        ? 'border-indigo-500 bg-indigo-500/10'
+                        : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold transition-all flex-shrink-0 ${
+                        answers[currentQuestion.id] === choice.id
+                          ? 'border-indigo-500 bg-indigo-500 text-white'
+                          : 'border-zinc-700 text-zinc-500'
+                      }`}>
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                      <span className={`text-lg ${answers[currentQuestion.id] === choice.id ? 'text-white' : 'text-zinc-300'}`}>
+                        {choice.choice_text}
+                      </span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Sidebar - Question Navigator */}
-            <div className="lg:col-span-1 order-first lg:order-last">
-              <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-4 sm:p-6 sticky top-[100px]">
-                <h3 className="text-white font-semibold mb-4">Soru Navigasyonu</h3>
+            {/* Navigation */}
+            <div className="flex justify-between">
+              <button
+                onClick={handlePrevious}
+                disabled={currentIndex === 0}
+                className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                  currentIndex === 0
+                    ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                    : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                }`}
+              >
+                ← Önceki
+              </button>
 
-                <div className="grid grid-cols-5 sm:grid-cols-4 lg:grid-cols-4 gap-2">
-                  {questions.map((q, i) => (
-                    <button
-                      key={q.id}
-                      onClick={() => setCurrentIndex(i)}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-sm font-bold transition-all ${
-                        i === currentIndex
-                          ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                          : answers[q.id]
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
+              <button
+                onClick={() => setIsFinished(true)}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium hover:shadow-lg transition-all"
+              >
+                Testi Bitir
+              </button>
 
-                <div className="mt-6 pt-6 border-t border-zinc-800">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded bg-indigo-500" />
-                      <span className="text-zinc-400">Mevcut</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/30" />
-                      <span className="text-zinc-400">Cevaplandı</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded bg-zinc-800" />
-                      <span className="text-zinc-400">Boş</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsFinished(true)}
-                  className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
-                >
-                  Testi Bitir
-                </button>
-              </div>
+              <button
+                onClick={handleNext}
+                className="px-6 py-3 rounded-xl font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg transition-all"
+              >
+                {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
+              </button>
             </div>
           </div>
         </div>
