@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation'; 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { useSearchParams } from 'next/navigation';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { useTimer } from '../src/viewmodels/useTimer';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 interface Choice {
   id: number;
@@ -19,22 +20,6 @@ interface Question {
   score: number;
   choices: Choice[];
 }
-
-const createSupabaseClient = (): SupabaseClient | null => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Supabase URL or Key is missing in environment variables.');
-    return null;
-  }
-
-  try {
-    return createClient(supabaseUrl, supabaseKey);
-  } catch {
-    return null;
-  }
-};
 
 // Ders ve haftaya gore sorulari cek
 const fetchQuestionsByLesson = async (
@@ -129,7 +114,7 @@ function TestContent() {
       return;
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createSupabaseBrowserClient();
     if (!supabase) {
       setError('Veritabani baglantisi kurulamadi');
       setLoading(false);
@@ -184,9 +169,9 @@ function TestContent() {
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-default mb-4">Hata</h1>
-          <p className="text-muted mb-6">{error}</p>
-          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">
+          <h1 className="text-2xl font-bold text-white mb-4">Hata</h1>
+          <p className="text-zinc-400 mb-6">{error}</p>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
             Ana Sayfaya Don
           </Link>
         </div>
@@ -198,9 +183,9 @@ function TestContent() {
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-default mb-4">Soru Bulunamadi</h1>
-          <p className="text-muted mb-6">Bu ders ve hafta icin soru eklenmemis.</p>
-          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">
+          <h1 className="text-2xl font-bold text-white mb-4">Soru Bulunamadi</h1>
+          <p className="text-zinc-400 mb-6">Bu ders ve hafta icin soru eklenmemis.</p>
+          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
             Derse Don
           </Link>
         </div>
@@ -212,27 +197,27 @@ function TestContent() {
     const result = calculateResult();
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full rounded-2xl bg-surface-elevated border border-default p-8 text-center">
+        <div className="max-w-2xl w-full rounded-2xl bg-zinc-900/80 border border-white/10 p-8 text-center">
           <div className="text-4xl mb-4">🏆</div>
-          <h1 className="text-3xl font-bold text-default mb-4">Test Tamamlandi!</h1>
+          <h1 className="text-3xl font-bold text-white mb-4">Test Tamamlandi!</h1>
           
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-zinc-800">
               <p className="text-2xl font-bold text-emerald-400">{result.correct}</p>
-              <p className="text-sm text-muted">Dogru</p>
+              <p className="text-sm text-zinc-500">Dogru</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800">
               <p className="text-2xl font-bold text-red-400">{result.wrong}</p>
-              <p className="text-sm text-muted">Yanlis</p>
+              <p className="text-sm text-zinc-500">Yanlis</p>
             </div>
             <div className="p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/30">
-              <p className="text-2xl font-bold text-default">%{result.percentage}</p>
-              <p className="text-sm text-muted">Basari</p>
+              <p className="text-2xl font-bold text-white">%{result.percentage}</p>
+              <p className="text-sm text-zinc-400">Basari</p>
             </div>
           </div>
 
           <div className="flex justify-center gap-4">
-            <Link href="/ders" className="px-6 py-3 rounded-xl bg-zinc-800 text-default">
+            <Link href="/ders" className="px-6 py-3 rounded-xl bg-zinc-800 text-white">
               Derse Don
             </Link>
             <button
@@ -242,7 +227,7 @@ function TestContent() {
                 setCurrentIndex(0);
                 resetTimer();
               }}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white"
             >
               Tekrar Dene
             </button>
@@ -258,17 +243,17 @@ function TestContent() {
   return (
     <div className="min-h-screen bg-[#0f0f11]">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-default">
+      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-default">E</span>
+              <span className="text-xl font-bold text-white">E</span>
             </div>
-            <span className="text-xl font-bold text-default hidden sm:block">Test</span>
+            <span className="text-xl font-bold text-white hidden sm:block">Test</span>
           </Link>
 
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted">
+            <span className="text-sm text-zinc-500">
               Soru {currentIndex + 1} / {questions.length}
             </span>
             <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden">
@@ -277,7 +262,7 @@ function TestContent() {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className={`px-4 py-2 rounded-xl bg-surface-elevated border border-default font-mono ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-muted'}`}>
+            <div className={`px-4 py-2 rounded-xl bg-zinc-900 border border-white/10 font-mono ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
               {formatTime(timeLeft)}
             </div>
           </div>
@@ -288,17 +273,17 @@ function TestContent() {
       <main className="pt-[100px] pb-20 px-4 sm:px-8">
         <div className="max-w-3xl mx-auto">
           {/* Question */}
-          <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 mb-6">
+          <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
             <div className="flex items-center gap-2 mb-6">
               <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-sm">
                 {q.difficulty === 1 ? 'Kolay' : q.difficulty === 2 ? 'Orta' : 'Zor'}
               </span>
-              <span className="px-3 py-1 rounded-full bg-zinc-800 text-muted text-sm">
+              <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">
                 {q.score || 1} Puan
               </span>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-medium text-default mb-8">
+            <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
               {currentIndex + 1}. {q.question_text}
             </h2>
 
@@ -311,20 +296,20 @@ function TestContent() {
                   className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                     answers[q.id] === choice.id
                       ? 'border-indigo-500 bg-indigo-500/10'
-                      : 'border-zinc-800 bg-surface-elevated hover:border-zinc-700'
+                      : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
                       className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold ${
                         answers[q.id] === choice.id
-                          ? 'border-indigo-500 bg-indigo-500 text-default'
-                          : 'border-zinc-700 text-muted'
+                          ? 'border-indigo-500 bg-indigo-500 text-white'
+                          : 'border-zinc-700 text-zinc-500'
                       }`}
                     >
                       {String.fromCharCode(65 + idx)}
                     </div>
-                    <span className={answers[q.id] === choice.id ? 'text-default' : 'text-muted'}>
+                    <span className={answers[q.id] === choice.id ? 'text-white' : 'text-zinc-300'}>
                       {choice.choice_text}
                     </span>
                   </div>
@@ -340,8 +325,8 @@ function TestContent() {
               disabled={currentIndex === 0}
               className={`px-6 py-3 rounded-xl font-medium ${
                 currentIndex === 0
-                  ? 'bg-surface-elevated text-muted cursor-not-allowed'
-                  : 'bg-surface-elevated text-default hover:bg-zinc-800'
+                  ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                  : 'bg-zinc-900 text-white hover:bg-zinc-800'
               }`}
             >
               ← Onceki
@@ -349,14 +334,14 @@ function TestContent() {
 
             <button
               onClick={() => setIsFinished(true)}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-default font-medium"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium"
             >
               Testi Bitir
             </button>
 
             <button
               onClick={handleNext}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium"
             >
               {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
             </button>

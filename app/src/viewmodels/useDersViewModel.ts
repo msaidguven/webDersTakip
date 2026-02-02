@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js'; 
 import { DersState, Outcome, TopicContent } from '../models/dersTypes';
+import { createSupabaseBrowserClient } from '../lib/supabaseClient';
 const CURRENT_WEEK = 19;
 
 export function useDersViewModel(gradeId: string | null, lessonId: string | null) {
@@ -19,16 +19,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
   const [contentsLoaded, setContentsLoaded] = useState(false);
 
   // Supabase client'ı sadece bir kez oluştur
-  const supabase = useMemo(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
-    if (supabaseUrl && supabaseKey) {
-      return createClient(supabaseUrl, supabaseKey);
-    }
-    console.error('Supabase URL or Key is missing in environment variables.');
-    return null;
-  }, []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   // Kazanımlar ve temel bilgiler - sayfa açılırken yüklensin
   useEffect(() => {
