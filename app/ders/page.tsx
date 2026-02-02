@@ -277,19 +277,19 @@ function DersContent() {
                       <div className="text-4xl mb-4">📝</div>
                       <h3 className="text-xl font-bold text-white mb-2">Coktan Secmeli</h3>
                       <p className="text-zinc-400 mb-4">Test coz</p>
-                      <Link href={`/haftalik-test?unit_id=1&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-amber-500 text-white">Basla</Link>
+                      <Link href={`/haftalik-test?lesson_id=${lessonId}&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-amber-500 text-white">Basla</Link>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/5 border border-purple-500/20 p-6 text-center">
                       <div className="text-4xl mb-4">🔗</div>
                       <h3 className="text-xl font-bold text-white mb-2">Eslestirme</h3>
                       <p className="text-zinc-400 mb-4">Surukle birak</p>
-                      <Link href={`/eslestirme?unit_id=1&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-purple-500 text-white">Basla</Link>
+                      <Link href={`/eslestirme?lesson_id=${lessonId}&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-purple-500 text-white">Basla</Link>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border border-blue-500/20 p-6 text-center">
                       <div className="text-4xl mb-4">✏️</div>
                       <h3 className="text-xl font-bold text-white mb-2">Klasik</h3>
                       <p className="text-zinc-400 mb-4">Yazili cevap</p>
-                      <Link href={`/klasik-test?unit_id=1&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-blue-500 text-white">Basla</Link>
+                      <Link href={`/klasik-test?lesson_id=${lessonId}&week=${CURRENT_WEEK}`} className="inline-block px-6 py-2 rounded-xl bg-blue-500 text-white">Basla</Link>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-500/20 p-6 text-center">
                       <div className="text-4xl mb-4">📝</div>
