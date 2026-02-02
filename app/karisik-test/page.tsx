@@ -184,6 +184,7 @@ function MixedTestContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [matchingState, setMatchingState] = useState<Record<number, Record<string, string>>>({});
+  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(3600);
   const [isFinished, setIsFinished] = useState(false);
@@ -548,9 +549,14 @@ function MixedTestContent() {
               </div>
             )}
 
-            {/* Matching - Drag Drop */}
+            {/* Matching - Click to Match */}
             {q.type === 'matching' && q.matchingPairs && (
               <div className="space-y-6">
+                {/* Instructions */}
+                <p className="text-zinc-400 text-sm text-center">
+                  Soldaki öğeleri sağdaki kutularla eşleştirmek için tıklayın
+                </p>
+
                 {/* Check Button */}
                 {Object.keys(matchingState[q.id] || {}).length === q.matchingPairs.length && !showFeedback[q.id] && (
                   <button
@@ -577,25 +583,28 @@ function MixedTestContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Left Items */}
                   <div className="space-y-3">
-                    <p className="text-zinc-400 text-sm mb-2">Sürüklenecekler:</p>
+                    <p className="text-zinc-400 text-sm mb-2">Seçilecekler (tıklayın):</p>
                     {q.matchingPairs.map((pair) => {
                       const isMatched = matchingState[q.id]?.[pair.left_text];
                       const showResult = showFeedback[q.id];
                       const isCorrect = isMatched === pair.right_text;
+                      const isSelected = selectedLeft === pair.left_text;
                       
                       return (
-                        <div
+                        <button
                           key={pair.id}
-                          draggable={!isMatched && !showResult}
-                          onDragStart={(e) => e.dataTransfer.setData('text/plain', pair.left_text)}
-                          className={`p-4 rounded-xl border-2 transition-all ${
+                          onClick={() => setSelectedLeft(pair.left_text)}
+                          disabled={!!isMatched || showResult}
+                          className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
                             showResult
                               ? isCorrect
                                 ? 'bg-emerald-500/20 border-emerald-500/50'
                                 : 'bg-red-500/20 border-red-500/50'
                               : isMatched
                                 ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
-                                : 'bg-zinc-800 border-zinc-700 cursor-move hover:border-purple-500'
+                                : isSelected
+                                  ? 'bg-amber-500/20 border-amber-500'
+                                  : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -606,23 +615,24 @@ function MixedTestContent() {
                                   : 'text-red-400'
                                 : isMatched
                                   ? 'text-purple-400'
-                                  : 'text-white'
+                                  : isSelected
+                                    ? 'text-amber-400 font-bold'
+                                    : 'text-white'
                             }>
                               {showResult && (isCorrect ? '✓ ' : '✗ ')}
                               {pair.left_text}
                             </span>
-                            {isMatched && !showResult && (
-                              <span className="text-purple-400 text-sm">→ {isMatched}</span>
-                            )}
+                            {isSelected && <span className="text-amber-400 text-sm">Seçildi</span>}
+                            {isMatched && <span className="text-purple-400 text-sm">→ {isMatched}</span>}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
 
                   {/* Right Drop Zones */}
                   <div className="space-y-3">
-                    <p className="text-zinc-400 text-sm mb-2">Buraya bırak:</p>
+                    <p className="text-zinc-400 text-sm mb-2">Buraya eşleştirin:</p>
                     {q.matchingPairs.map((pair, idx) => {
                       const matchedLeft = Object.entries(matchingState[q.id] || {}).find(
                         ([_, right]) => right === pair.right_text
@@ -631,15 +641,16 @@ function MixedTestContent() {
                       const isCorrect = matchedLeft?.[0] && q.matchingPairs.find(p => p.left_text === matchedLeft[0])?.right_text === pair.right_text;
 
                       return (
-                        <div
+                        <button
                           key={idx}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            const leftText = e.dataTransfer.getData('text/plain');
-                            handleMatching(q.id, leftText, pair.right_text);
+                          onClick={() => {
+                            if (selectedLeft && !matchedLeft) {
+                              handleMatching(q.id, selectedLeft, pair.right_text);
+                              setSelectedLeft(null);
+                            }
                           }}
-                          className={`p-4 rounded-xl border-2 border-dashed transition-all min-h-[60px] flex items-center ${
+                          disabled={!!matchedLeft || showResult || !selectedLeft}
+                          className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
                             showResult
                               ? isCorrect
                                 ? 'bg-emerald-500/20 border-emerald-500'
@@ -648,7 +659,9 @@ function MixedTestContent() {
                                   : 'bg-zinc-900/50 border-zinc-700'
                               : matchedLeft
                                 ? 'bg-indigo-500/20 border-indigo-500'
-                                : 'bg-zinc-900/50 border-zinc-700'
+                                : selectedLeft
+                                  ? 'bg-zinc-800 border-zinc-600 hover:border-amber-500 cursor-pointer'
+                                  : 'bg-zinc-900/50 border-zinc-700 opacity-50'
                           }`}
                         >
                           {matchedLeft ? (
@@ -662,7 +675,7 @@ function MixedTestContent() {
                           ) : (
                             <span className="text-zinc-600">{pair.right_text}</span>
                           )}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -674,6 +687,7 @@ function MixedTestContent() {
                     setMatchingState(prev => ({ ...prev, [q.id]: {} }));
                     setAnswers(prev => ({ ...prev, [q.id]: {} }));
                     setShowFeedback(prev => ({ ...prev, [q.id]: false }));
+                    setSelectedLeft(null);
                   }}
                   className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm"
                 >
