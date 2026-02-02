@@ -175,11 +175,22 @@ function OutcomesList({ outcomes }: { outcomes: Array<{ id: number; description:
 
 function ContentList({ 
   contents, 
-  lessonId 
+  lessonId,
+  isLoading 
 }: { 
   contents: Array<{ id: number; title: string; content: string; orderNo: number }>;
   lessonId: string;
+  isLoading: boolean;
 }) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-zinc-400">Konu anlatimlari yukleniyor...</p>
+      </div>
+    );
+  }
+
   if (contents.length === 0) {
     return <p className="text-zinc-400">Bu hafta icin icerik bulunmuyor.</p>;
   }
@@ -229,7 +240,7 @@ function DersContent() {
   const gradeId = searchParams.get('grade_id');
   const lessonId = searchParams.get('lesson_id');
 
-  const { state, setActiveTab, refreshData } = useDersViewModel(gradeId, lessonId);
+  const { state, contentsLoading, setActiveTab, refreshData } = useDersViewModel(gradeId, lessonId);
 
   if (state.isLoading) return <LoadingState />;
   if (state.error) return <ErrorState error={state.error} onRetry={refreshData} />;
@@ -263,7 +274,7 @@ function DersContent() {
           )}
 
           {state.activeTab === 'content' && lessonId && (
-            <ContentList contents={data.contents} lessonId={lessonId} />
+            <ContentList contents={data.contents} lessonId={lessonId} isLoading={contentsLoading} />
           )}
         </div>
       </main>

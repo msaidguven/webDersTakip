@@ -16,14 +16,19 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
     activeTab: 'outcomes',
   });
 
+  // İçerik ayrı yüklenecek
+  const [contents, setContents] = useState<TopicContent[]>([]);
+  const [contentsLoading, setContentsLoading] = useState(false);
+  const [contentsLoaded, setContentsLoaded] = useState(false);
+
   // Supabase client'ı sadece bir kez oluştur
   const supabase = useMemo(() => createClient(SUPABASE_URL, SUPABASE_KEY), []);
 
-  // Veri yükleme - sadece gradeId/lessonId değişince çalışır
+  // Kazanımlar ve temel bilgiler - sayfa açılırken yüklensin
   useEffect(() => {
     let isCancelled = false;
 
-    async function loadData() {
+    async function loadOutcomes() {
       if (!gradeId || !lessonId) {
         if (!isCancelled) {
           setState(prev => ({
@@ -43,7 +48,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
         const gId = parseInt(gradeId);
         const lId = parseInt(lessonId);
 
-        // Doğrudan veri çek, fonksiyon referanslarına bağımlı olma
+        // Temel bilgiler
         const [{ data: grade }, { data: lesson }] = await Promise.all([
           supabase.from('grades').select('name').eq('id', gId).single(),
           supabase.from('lessons').select('name').eq('id', lId).single(),
@@ -54,7 +59,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
           lessonName: lesson?.name || '',
         };
 
-        // Kazanımları çek
+        // Kazanımları çek (hızlı)
         const { data: weekOutcomes } = await supabase
           .from('outcome_weeks')
           .select('outcome_id')
@@ -77,34 +82,9 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
             }));
         }
 
-        // İçerikleri çek
-        const { data: weekContents } = await supabase
-          .from('topic_content_weeks')
-          .select('topic_content_id')
-          .eq('curriculum_week', CURRENT_WEEK);
-
-        let contents: TopicContent[] = [];
-        if (weekContents?.length) {
-          const contentIds = weekContents.map((w: any) => w.topic_content_id);
-          const { data: contentsData } = await supabase
-            .from('topic_contents')
-            .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
-            .in('id', contentIds)
-            .order('order_no');
-
-          contents = (contentsData || [])
-            .filter((c: any) => c.topics?.units?.lesson_id === lId)
-            .map((c: any) => ({
-              id: c.id,
-              title: c.title,
-              content: c.content,
-              orderNo: c.order_no,
-            }));
-        }
-
         if (!isCancelled) {
           setState({
-            data: { ...names, outcomes, contents },
+            data: { ...names, outcomes, contents: [] },
             isLoading: false,
             error: null,
             activeTab: 'outcomes',
@@ -121,25 +101,85 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
       }
     }
 
-    loadData();
+    loadOutcomes();
 
     return () => { isCancelled = true; };
   }, [gradeId, lessonId, supabase]);
 
+  // İçerikleri ayrı yükle (lazy loading)
+  const loadContents = useCallback(async () => {
+    if (!lessonId || contentsLoaded || contentsLoading) return;
+
+    setContentsLoading(true);
+
+    try {
+      const lId = parseInt(lessonId);
+
+      const { data: weekContents } = await supabase
+        .from('topic_content_weeks')
+        .select('topic_content_id')
+        .eq('curriculum_week', CURRENT_WEEK);
+
+      let loadedContents: TopicContent[] = [];
+      if (weekContents?.length) {
+        const contentIds = weekContents.map((w: any) => w.topic_content_id);
+        const { data: contentsData } = await supabase
+          .from('topic_contents')
+          .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
+          .in('id', contentIds)
+          .order('order_no');
+
+        loadedContents = (contentsData || [])
+          .filter((c: any) => c.topics?.units?.lesson_id === lId)
+          .map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            content: c.content,
+            orderNo: c.order_no,
+          }));
+      }
+
+      setContents(loadedContents);
+      setContentsLoaded(true);
+      
+      // State'i güncelle
+      setState(prev => ({
+        ...prev,
+        data: prev.data ? { ...prev.data, contents: loadedContents } : null,
+      }));
+    } catch (err) {
+      console.error('İçerikler yüklenirken hata:', err);
+    } finally {
+      setContentsLoading(false);
+    }
+  }, [lessonId, supabase, contentsLoaded, contentsLoading]);
+
   const setActiveTab = useCallback((tab: 'outcomes' | 'content') => {
     setState(prev => ({ ...prev, activeTab: tab }));
-  }, []);
+    
+    // Konu anlatımı tab'ına geçince içerikleri yükle
+    if (tab === 'content') {
+      loadContents();
+    }
+  }, [loadContents]);
 
   const refreshData = useCallback(async () => {
-    // Force re-trigger useEffect by setting loading state
-    setState(prev => ({ ...prev, isLoading: true }));
-    // Small delay to ensure state update propagates
+    setContentsLoaded(false);
+    setContents([]);
+    setState(prev => ({ 
+      ...prev, 
+      isLoading: true,
+      data: prev.data ? { ...prev.data, contents: [] } : null 
+    }));
+    
+    // useEffect'i tetiklemek için state değiştir
     await new Promise(resolve => setTimeout(resolve, 10));
     setState(prev => ({ ...prev, isLoading: false }));
   }, []);
 
   return {
     state,
+    contentsLoading,
     setActiveTab,
     refreshData,
   };
