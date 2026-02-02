@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
 import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from './ThemeToggle';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,9 +13,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-[#0f0f11]">
+    <div className="min-h-screen">
       {/* Sabit Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] app-nav">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           <div className="flex items-center gap-2 sm:gap-4">
             <Link href="/" className="flex items-center gap-2">
@@ -26,6 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-6">
+            <ThemeToggle />
             {isAuthenticated ? (
               <>
                 <span className="text-zinc-400 text-sm hidden sm:block">

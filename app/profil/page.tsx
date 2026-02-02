@@ -4,12 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useMemo } from 'react';
 
-// Supabase istemcisini oluştur
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY!
-);
+const createSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseKey);
+};
 
 interface UserStats {
   totalTests: number;
@@ -22,6 +27,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<UserStats>({
     totalTests: 0,
     totalQuestions: 0,
@@ -29,8 +35,16 @@ export default function ProfilePage() {
     averageScore: 0,
   });
 
+  const supabase = useMemo(() => createSupabaseClient(), []);
+
   useEffect(() => {
     const getUserData = async () => {
+      if (!supabase) {
+        setError('Veritabanı yapılandırması eksik. Lütfen .env.local dosyasını kontrol edin.');
+        setLoading(false);
+        return;
+      }
+
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error || !user) {
@@ -54,9 +68,10 @@ export default function ProfilePage() {
     };
 
     getUserData();
-  }, [router]);
+  }, [router, supabase]);
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.push('/login');
     router.refresh();
@@ -66,6 +81,20 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Yapılandırma Hatası</h1>
+          <p className="text-zinc-400 mb-6">{error}</p>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
+            Ana Sayfaya Dön
+          </Link>
+        </div>
       </div>
     );
   }

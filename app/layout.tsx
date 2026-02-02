@@ -21,12 +21,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const setThemeScript = `(function(){try{const t=localStorage.getItem('theme');const prefersDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; if(t==='dark' || (!t && prefersDark)){document.documentElement.classList.add('dark')} else {document.documentElement.classList.remove('dark')} }catch(e){} })()`;
+
   return (
-    <html lang="tr" className="dark">
+    <html lang="tr">
       <head>
         <StructuredData />
+        <script dangerouslySetInnerHTML={{ __html: setThemeScript }} />
       </head>
-      <body className={`${inter.variable} font-sans antialiased bg-[#0f0f11] text-white`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           <MainLayout>
             {children}
