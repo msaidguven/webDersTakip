@@ -1,8 +1,23 @@
+# robots.txt - Ders Takip
+# https://derstakip.vercel.app/robots.txt
+
 User-agent: *
 Allow: /
 
+# Özel sayfalar
 Disallow: /api/
 Disallow: /panel/
+Disallow: /admin/
 Disallow: /dashboard/
 
-Sitemap: https://edusmart.vercel.app/sitemap.xml
+# Dinamik URL parametreleri
+Disallow: /*?*
+Allow: /*?lesson_id=
+Allow: /*?week=
+Allow: /*?grade_id=
+
+# Sitemap
+Sitemap: https://derstakip.vercel.app/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1

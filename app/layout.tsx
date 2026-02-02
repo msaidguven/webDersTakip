@@ -1,9 +1,10 @@
 import type { Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { metadata } from "./metadata";
+import { metadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";
+import { StructuredData } from "./src/components/StructuredData";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -13,12 +14,7 @@ const inter = Inter({
 });
 
 export { metadata };
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-};
+export const viewport: Viewport = customViewport;
 
 export default function RootLayout({
   children,
@@ -27,6 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" className="dark">
+      <head>
+        <StructuredData />
+      </head>
       <body className={`${inter.variable} font-sans antialiased bg-[#0f0f11] text-white`}>
         <AuthProvider>
           <MainLayout>
