@@ -402,19 +402,35 @@ function ContentList({ contents, lessonId }: { contents: TopicContent[]; lessonI
         </article>
       ))}
       
-      {/* Test Button */}
-      <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-6 sm:p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl mx-auto mb-4">
-          📝
+      {/* Test Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-6 sm:p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl mx-auto mb-4">
+            📝
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Haftalık Test</h3>
+          <p className="text-zinc-400 mb-6">Öğrendiklerini pekiştirmek için test çöz</p>
+          <Link
+            href={`/haftalik-test?unit_id=1&week=${CURRENT_WEEK}`}
+            className="inline-block px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
+          >
+            Teste Başla →
+          </Link>
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">Haftalık Test</h3>
-        <p className="text-zinc-400 mb-6">Öğrendiklerini pekiştirmek için test çöz</p>
-        <Link
-          href={`/haftalik-test?unit_id=1&week=${CURRENT_WEEK}`}
-          className="inline-block px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
-        >
-          Teste Başla →
-        </Link>
+
+        <div className="rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/5 border border-purple-500/20 p-6 sm:p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-3xl mx-auto mb-4">
+            🔗
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Eşleştirme</h3>
+          <p className="text-zinc-400 mb-6">Sürükle-bırak ile kavramları eşleştir</p>
+          <Link
+            href={`/eslestirme?unit_id=1&week=${CURRENT_WEEK}`}
+            className="inline-block px-8 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 text-white font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+          >
+            Eşleştirme Yap →
+          </Link>
+        </div>
       </div>
     </div>
   );
