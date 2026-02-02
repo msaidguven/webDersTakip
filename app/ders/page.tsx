@@ -278,11 +278,10 @@ function DersContent() {
                     </div>
                     <h3 className="text-2xl font-bold text-white mb-3">Haftalik Test</h3>
                     <p className="text-zinc-400 mb-6 max-w-md mx-auto">
-                      Bu haftanin kazanimlarini pekistirmek icin test coz. 
-                      Sistem otomatik olarak uygun soru turunu sececek.
+                      Coktan secmeli, bosluk doldurma, eslestirme ve klasik sorularin karistigi test.
                     </p>
                     <Link 
-                      href={`/test?lesson_id=${lessonId}&week=${CURRENT_WEEK}`} 
+                      href={`/karisik-test?lesson_id=${lessonId}&week=${CURRENT_WEEK}`} 
                       className="inline-block px-10 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
                     >
                       Teste Basla →

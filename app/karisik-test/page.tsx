@@ -1,0 +1,618 @@
+'use client';
+
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+
+type QuestionType = 'multiple_choice' | 'blank' | 'matching' | 'classical';
+
+interface Choice {
+  id: number;
+  choice_text: string;
+  is_correct: boolean;
+}
+
+interface MatchingPair {
+  id: number;
+  left_text: string;
+  right_text: string;
+}
+
+interface BlankOption {
+  id: number;
+  option_text: string;
+  is_correct: boolean;
+}
+
+interface Question {
+  id: number;
+  question_text: string;
+  difficulty: number;
+  score: number;
+  type: QuestionType;
+  // Çoktan seçmeli
+  choices?: Choice[];
+  // Boşluk
+  blankOptions?: BlankOption[];
+  // Eşleştirme
+  matchingPairs?: MatchingPair[];
+  // Klasik
+  modelAnswer?: string;
+}
+
+function createSupabaseClient(): SupabaseClient | null {
+  try {
+    return createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMixedQuestions(
+  supabase: SupabaseClient,
+  lessonId: number,
+  week: number
+): Promise<Question[]> {
+  // 1. Dersin unit'lerini bul
+  const { data: units } = await supabase
+    .from('units')
+    .select('id')
+    .eq('lesson_id', lessonId);
+
+  if (!units?.length) return [];
+  const unitIds = units.map(u => u.id);
+
+  // 2. Topic'leri bul
+  const { data: topics } = await supabase
+    .from('topics')
+    .select('id')
+    .in('unit_id', unitIds);
+
+  if (!topics?.length) return [];
+  const topicIds = topics.map(t => t.id);
+
+  // 3. Haftaya göre soru kullanımlarını bul
+  const { data: usages } = await supabase
+    .from('question_usages')
+    .select('question_id, topic_id')
+    .in('topic_id', topicIds)
+    .eq('curriculum_week', week)
+    .eq('usage_type', 'weekly');
+
+  if (!usages?.length) return [];
+  const questionIds = usages.map(u => u.question_id);
+
+  // 4. Soruları ve tiplerini çek
+  const { data: questions } = await supabase
+    .from('questions')
+    .select('id, question_text, difficulty, score, question_type_id')
+    .in('id', questionIds);
+
+  if (!questions?.length) return [];
+
+  const result: Question[] = [];
+
+  for (const q of questions) {
+    const baseQuestion = {
+      id: q.id,
+      question_text: q.question_text,
+      difficulty: q.difficulty,
+      score: q.score,
+    };
+
+    // Tip ID'ye göre soru detaylarını çek
+    if (q.question_type_id === 1) {
+      // Çoktan seçmeli
+      const { data: choices } = await supabase
+        .from('question_choices')
+        .select('id, choice_text, is_correct')
+        .eq('question_id', q.id);
+      
+      result.push({
+        ...baseQuestion,
+        type: 'multiple_choice',
+        choices: choices || []
+      });
+    } else if (q.question_type_id === 2) {
+      // Klasik
+      const { data: classical } = await supabase
+        .from('question_classical')
+        .select('model_answer')
+        .eq('question_id', q.id)
+        .single();
+      
+      result.push({
+        ...baseQuestion,
+        type: 'classical',
+        modelAnswer: classical?.model_answer || ''
+      });
+    } else if (q.question_type_id === 3) {
+      // Boşluk
+      const { data: options } = await supabase
+        .from('question_blank_options')
+        .select('id, option_text, is_correct')
+        .eq('question_id', q.id);
+      
+      result.push({
+        ...baseQuestion,
+        type: 'blank',
+        blankOptions: options || []
+      });
+    } else if (q.question_type_id === 4) {
+      // Eşleştirme
+      const { data: pairs } = await supabase
+        .from('question_matching_pairs')
+        .select('id, left_text, right_text')
+        .eq('question_id', q.id);
+      
+      result.push({
+        ...baseQuestion,
+        type: 'matching',
+        matchingPairs: pairs || []
+      });
+    }
+  }
+
+  // Karıştır
+  return result.sort(() => Math.random() - 0.5);
+}
+
+function MixedTestContent() {
+  const searchParams = useSearchParams();
+  const lessonId = searchParams.get('lesson_id');
+  const week = searchParams.get('week');
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [matchingState, setMatchingState] = useState<Record<number, Record<string, string>>>({});
+  const [timeLeft, setTimeLeft] = useState(3600);
+  const [isFinished, setIsFinished] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!lessonId || !week) {
+      setError('Ders veya hafta bilgisi eksik');
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createSupabaseClient();
+    if (!supabase) {
+      setError('Veritabanı bağlantısı kurulamadı');
+      setLoading(false);
+      return;
+    }
+
+    fetchMixedQuestions(supabase, parseInt(lessonId), parseInt(week))
+      .then(data => {
+        setQuestions(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [lessonId, week]);
+
+  useEffect(() => {
+    if (isFinished || loading) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          setIsFinished(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isFinished, loading]);
+
+  const handleAnswer = useCallback((questionId: number, answer: any) => {
+    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+  }, []);
+
+  const handleMatching = useCallback((questionId: number, left: string, right: string) => {
+    setMatchingState(prev => ({
+      ...prev,
+      [questionId]: { ...prev[questionId], [left]: right }
+    }));
+    setAnswers(prev => ({ ...prev, [questionId]: { ...prev[questionId], [left]: right } }));
+  }, []);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
+    }
+  }, [currentIndex, questions.length]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  }, [currentIndex]);
+
+  const calculateResult = useCallback(() => {
+    let correct = 0;
+    let totalScore = 0;
+    let earnedScore = 0;
+
+    questions.forEach(q => {
+      totalScore += q.score || 1;
+      const answer = answers[q.id];
+
+      if (q.type === 'multiple_choice' && q.choices) {
+        const selectedChoice = q.choices.find(c => c.id === answer);
+        if (selectedChoice?.is_correct) {
+          correct++;
+          earnedScore += q.score || 1;
+        }
+      } else if (q.type === 'blank' && q.blankOptions) {
+        const selectedOption = q.blankOptions.find(o => o.id === answer);
+        if (selectedOption?.is_correct) {
+          correct++;
+          earnedScore += q.score || 1;
+        }
+      } else if (q.type === 'matching' && q.matchingPairs) {
+        const userMatches = answer || {};
+        let allCorrect = true;
+        q.matchingPairs.forEach(pair => {
+          if (userMatches[pair.left_text] !== pair.right_text) {
+            allCorrect = false;
+          }
+        });
+        if (allCorrect && q.matchingPairs.length > 0) {
+          correct++;
+          earnedScore += q.score || 1;
+        }
+      }
+    });
+
+    return {
+      correct,
+      wrong: questions.length - correct,
+      total: questions.length,
+      percentage: Math.round((earnedScore / totalScore) * 100),
+      score: earnedScore,
+      totalPossible: totalScore
+    };
+  }, [questions, answers]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTypeLabel = (type: QuestionType) => {
+    const labels: Record<QuestionType, string> = {
+      multiple_choice: 'Çoktan Seçmeli',
+      blank: 'Boşluk Doldurma',
+      matching: 'Eşleştirme',
+      classical: 'Klasik'
+    };
+    return labels[type];
+  };
+
+  const getTypeColor = (type: QuestionType) => {
+    const colors: Record<QuestionType, string> = {
+      multiple_choice: 'bg-amber-500/20 text-amber-400',
+      blank: 'bg-emerald-500/20 text-emerald-400',
+      matching: 'bg-purple-500/20 text-purple-400',
+      classical: 'bg-blue-500/20 text-blue-400'
+    };
+    return colors[type];
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-zinc-400">Sorular yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
+          <h1 className="text-2xl font-bold text-white mb-4">Hata</h1>
+          <p className="text-zinc-400 mb-6">{error}</p>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">Ana Sayfaya Dön</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-4xl mx-auto mb-6">📝</div>
+          <h1 className="text-2xl font-bold text-white mb-4">Soru Bulunamadı</h1>
+          <p className="text-zinc-400 mb-6">Bu ders ve hafta için soru eklenmemiş.</p>
+          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">Derse Dön</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFinished) {
+    const result = calculateResult();
+    return (
+      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full rounded-2xl bg-zinc-900/80 border border-white/10 p-8 text-center">
+          <div className="text-4xl mb-4">🏆</div>
+          <h1 className="text-3xl font-bold text-white mb-4">Test Tamamlandı!</h1>
+          
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="p-4 rounded-xl bg-zinc-800">
+              <p className="text-2xl font-bold text-emerald-400">{result.correct}</p>
+              <p className="text-sm text-zinc-500">Doğru</p>
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-800">
+              <p className="text-2xl font-bold text-red-400">{result.wrong}</p>
+              <p className="text-sm text-zinc-500">Yanlış</p>
+            </div>
+            <div className="p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/30">
+              <p className="text-2xl font-bold text-white">%{result.percentage}</p>
+              <p className="text-sm text-zinc-400">Başarı</p>
+            </div>
+          </div>
+
+          <p className="text-zinc-400 mb-6">Puan: {result.score} / {result.totalPossible}</p>
+
+          <div className="flex justify-center gap-4">
+            <Link href="/ders" className="px-6 py-3 rounded-xl bg-zinc-800 text-white">Derse Dön</Link>
+            <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white">Tekrar Dene</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const q = questions[currentIndex];
+  const progress = ((currentIndex + 1) / questions.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-[#0f0f11]">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+              <span className="text-xl font-bold text-white">E</span>
+            </div>
+            <span className="text-xl font-bold text-white hidden sm:block">Karışık Test</span>
+          </Link>
+
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-zinc-500">
+              Soru {currentIndex + 1} / {questions.length}
+            </span>
+            <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <div className={`px-4 py-2 rounded-xl bg-zinc-900 border border-white/10 font-mono ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
+              {formatTime(timeLeft)}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="pt-[100px] pb-20 px-4 sm:px-8">
+        <div className="max-w-3xl mx-auto">
+          {/* Question Card */}
+          <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
+            {/* Type Badge */}
+            <div className="flex items-center gap-2 mb-6">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(q.type)}`}>
+                {getTypeLabel(q.type)}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">
+                {q.score || 1} Puan
+              </span>
+            </div>
+
+            {/* Question Text */}
+            <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
+              {currentIndex + 1}. {q.question_text}
+            </h2>
+
+            {/* Multiple Choice */}
+            {q.type === 'multiple_choice' && q.choices && (
+              <div className="space-y-3">
+                {q.choices.map((choice, idx) => (
+                  <button
+                    key={choice.id}
+                    onClick={() => handleAnswer(q.id, choice.id)}
+                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                      answers[q.id] === choice.id
+                        ? 'border-indigo-500 bg-indigo-500/10'
+                        : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold ${
+                        answers[q.id] === choice.id
+                          ? 'border-indigo-500 bg-indigo-500 text-white'
+                          : 'border-zinc-700 text-zinc-500'
+                      }`}>
+                        {String.fromCharCode(65 + idx)}
+                      </div>
+                      <span className={answers[q.id] === choice.id ? 'text-white' : 'text-zinc-300'}>
+                        {choice.choice_text}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Blank */}
+            {q.type === 'blank' && q.blankOptions && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {q.blankOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => handleAnswer(q.id, option.id)}
+                    className={`p-4 rounded-xl border-2 text-center font-medium transition-all ${
+                      answers[q.id] === option.id
+                        ? 'border-emerald-500 bg-emerald-500/10 text-white'
+                        : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
+                    }`}
+                  >
+                    {option.option_text}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Matching - Drag Drop */}
+            {q.type === 'matching' && q.matchingPairs && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left Items */}
+                  <div className="space-y-3">
+                    <p className="text-zinc-400 text-sm mb-2">Sürüklenecekler:</p>
+                    {q.matchingPairs.map((pair) => {
+                      const isMatched = matchingState[q.id]?.[pair.left_text];
+                      return (
+                        <div
+                          key={pair.id}
+                          draggable={!isMatched}
+                          onDragStart={(e) => e.dataTransfer.setData('text/plain', pair.left_text)}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            isMatched
+                              ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
+                              : 'bg-zinc-800 border-zinc-700 cursor-move hover:border-purple-500'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={isMatched ? 'text-purple-400' : 'text-white'}>
+                              {pair.left_text}
+                            </span>
+                            {isMatched && (
+                              <span className="text-purple-400 text-sm">→ {isMatched}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right Drop Zones */}
+                  <div className="space-y-3">
+                    <p className="text-zinc-400 text-sm mb-2">Buraya bırak:</p>
+                    {q.matchingPairs.map((pair, idx) => {
+                      const matchedLeft = Object.entries(matchingState[q.id] || {}).find(
+                        ([_, right]) => right === pair.right_text
+                      );
+
+                      return (
+                        <div
+                          key={idx}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const leftText = e.dataTransfer.getData('text/plain');
+                            handleMatching(q.id, leftText, pair.right_text);
+                          }}
+                          className={`p-4 rounded-xl border-2 border-dashed transition-all min-h-[60px] flex items-center ${
+                            matchedLeft
+                              ? 'bg-indigo-500/20 border-indigo-500'
+                              : 'bg-zinc-900/50 border-zinc-700'
+                          }`}
+                        >
+                          {matchedLeft ? (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-indigo-400">{matchedLeft[0]}</span>
+                              <span className="text-zinc-400">=</span>
+                              <span className="text-white">{pair.right_text}</span>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-600">{pair.right_text}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Reset Matching Button */}
+                <button
+                  onClick={() => {
+                    setMatchingState(prev => ({ ...prev, [q.id]: {} }));
+                    setAnswers(prev => ({ ...prev, [q.id]: {} }));
+                  }}
+                  className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm"
+                >
+                  Eşleştirmeleri Sıfırla
+                </button>
+              </div>
+            )}
+
+            {/* Classical */}
+            {q.type === 'classical' && (
+              <div className="space-y-4">
+                <textarea
+                  value={answers[q.id] || ''}
+                  onChange={(e) => handleAnswer(q.id, e.target.value)}
+                  className="w-full h-40 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none"
+                  placeholder="Cevabınızı buraya yazın..."
+                />
+                <p className="text-zinc-500 text-sm">{(answers[q.id] || '').length} karakter</p>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation */}
+          <div className="flex justify-between">
+            <button
+              onClick={handlePrevious}
+              disabled={currentIndex === 0}
+              className={`px-6 py-3 rounded-xl font-medium ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+            >
+              ← Önceki
+            </button>
+
+            <button
+              onClick={() => setIsFinished(true)}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium"
+            >
+              Testi Bitir
+            </button>
+
+            <button
+              onClick={handleNext}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium"
+            >
+              {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function MixedTestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0f0f11]" />}>
+      <MixedTestContent />
+    </Suspense>
+  );
+}
