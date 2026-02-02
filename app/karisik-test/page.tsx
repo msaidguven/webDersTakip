@@ -504,23 +504,23 @@ function MixedTestContent() {
   return (
     <div className="min-h-screen bg-[#0f0f11]">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
+      <header className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl">📚</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+              <span className="text-lg sm:text-xl">📚</span>
             </div>
-            <span className="text-xl font-bold text-white hidden sm:block">Ders Takip</span>
+            <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">Ders Takip</span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-500">
-              Soru {currentIndex + 1} / {questions.length}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm text-zinc-500">
+              {currentIndex + 1}/{questions.length}
             </span>
-            <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
             </div>
-            <div className={`px-4 py-2 rounded-xl bg-zinc-900 border border-white/10 font-mono ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
+            <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl bg-zinc-900 border border-white/10 font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
               {formatTime(timeLeft)}
             </div>
           </div>
@@ -528,28 +528,28 @@ function MixedTestContent() {
       </header>
 
       {/* Main Content */}
-      <main className="pt-[100px] pb-20 px-4 sm:px-8">
+      <main className="pt-[80px] sm:pt-[100px] pb-24 sm:pb-20 px-3 sm:px-8">
         <div className="max-w-3xl mx-auto">
           {/* Question Card */}
-          <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
+          <div className="rounded-xl sm:rounded-2xl bg-zinc-900/80 border border-white/10 p-4 sm:p-8 mb-4 sm:mb-6">
             {/* Type Badge */}
-            <div className="flex items-center gap-2 mb-6">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(q.type)}`}>
+            <div className="flex items-center gap-2 mb-4 sm:mb-6">
+              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getTypeColor(q.type)}`}>
                 {getTypeLabel(q.type)}
               </span>
-              <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">
+              <span className="px-2 sm:px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs sm:text-sm">
                 {q.score || 1} Puan
               </span>
             </div>
 
             {/* Question Text */}
-            <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-medium text-white mb-6 sm:mb-8 leading-relaxed">
               {currentIndex + 1}. {q.question_text}
             </h2>
 
             {/* Multiple Choice */}
             {q.type === 'multiple_choice' && q.choices && (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {q.choices.map((choice, idx) => {
                   const isSelected = answers[q.id] === choice.id;
                   const showResult = showFeedback[q.id];
@@ -563,7 +563,7 @@ function MixedTestContent() {
                         setShowFeedback(prev => ({ ...prev, [q.id]: true }));
                       }}
                       disabled={showResult}
-                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`w-full p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 text-left transition-all min-h-[56px] sm:min-h-[64px] ${
                         showResult
                           ? isCorrect
                             ? 'border-emerald-500 bg-emerald-500/10'
@@ -572,11 +572,11 @@ function MixedTestContent() {
                               : 'border-zinc-800 bg-zinc-900'
                           : isSelected
                             ? 'border-indigo-500 bg-indigo-500/10'
-                            : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                            : 'border-zinc-800 bg-zinc-900 active:border-zinc-600'
                       }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold ${
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border-2 flex items-center justify-center font-semibold text-sm sm:text-base flex-shrink-0 ${
                           showResult
                             ? isCorrect
                               ? 'border-emerald-500 bg-emerald-500 text-white'
@@ -591,7 +591,7 @@ function MixedTestContent() {
                           {showResult && !isCorrect && isSelected && '✗'}
                           {!showResult && String.fromCharCode(65 + idx)}
                         </div>
-                        <span className={
+                        <span className={`text-sm sm:text-base leading-snug ${
                           showResult
                             ? isCorrect
                               ? 'text-emerald-400'
@@ -601,7 +601,7 @@ function MixedTestContent() {
                             : isSelected
                               ? 'text-white'
                               : 'text-zinc-300'
-                        }>
+                        }`}>
                           {choice.choice_text}
                         </span>
                       </div>
@@ -613,7 +613,7 @@ function MixedTestContent() {
 
             {/* Blank */}
             {q.type === 'blank' && q.blankOptions && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                 {q.blankOptions.map((option) => {
                   const isSelected = answers[q.id] === option.id;
                   const showResult = showFeedback[q.id];
@@ -627,7 +627,7 @@ function MixedTestContent() {
                         setShowFeedback(prev => ({ ...prev, [q.id]: true }));
                       }}
                       disabled={showResult}
-                      className={`p-4 rounded-xl border-2 text-center font-medium transition-all ${
+                      className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 text-center font-medium transition-all text-sm sm:text-base min-h-[48px] sm:min-h-[56px] ${
                         showResult
                           ? isCorrect
                             ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
@@ -636,7 +636,7 @@ function MixedTestContent() {
                               : 'border-zinc-800 bg-zinc-900 text-zinc-500'
                           : isSelected
                             ? 'border-emerald-500 bg-emerald-500/10 text-white'
-                            : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
+                            : 'border-zinc-800 bg-zinc-900 text-zinc-300 active:border-zinc-600'
                       }`}
                     >
                       {showResult && isCorrect && '✓ '}
@@ -650,17 +650,25 @@ function MixedTestContent() {
 
             {/* Matching - Click to Match */}
             {q.type === 'matching' && q.matchingPairs && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Instructions */}
-                <p className="text-zinc-400 text-sm text-center">
-                  Soldaki öğeleri sağdaki kutularla eşleştirmek için tıklayın
+                <p className="text-zinc-400 text-xs sm:text-sm text-center px-2">
+                  Soldakini seç, sağdakine tıkla
                 </p>
+
+                {/* Selected indicator */}
+                {selectedLeft && (
+                  <div className="p-2 sm:p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+                    <span className="text-amber-400 text-xs sm:text-sm">Seçilen: </span>
+                    <span className="text-white font-medium text-sm sm:text-base">{selectedLeft}</span>
+                  </div>
+                )}
 
                 {/* Check Button */}
                 {Object.keys(matchingState[q.id] || {}).length === q.matchingPairs.length && !showFeedback[q.id] && (
                   <button
                     onClick={() => setShowFeedback(prev => ({ ...prev, [q.id]: true }))}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium"
+                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm sm:text-base"
                   >
                     Eşleştirmeleri Kontrol Et
                   </button>
@@ -668,7 +676,7 @@ function MixedTestContent() {
 
                 {/* Feedback */}
                 {showFeedback[q.id] && (
-                  <div className={`p-4 rounded-xl text-center ${
+                  <div className={`p-3 sm:p-4 rounded-lg sm:rounded-xl text-center text-sm sm:text-base ${
                     q.matchingPairs.every(p => matchingState[q.id]?.[p.left_text] === p.right_text)
                       ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
                       : 'bg-red-500/20 border border-red-500/30 text-red-400'
@@ -679,10 +687,11 @@ function MixedTestContent() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Mobile: Horizontal scroll layout, Desktop: Grid */}
+                <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4">
                   {/* Left Items */}
-                  <div className="space-y-3">
-                    <p className="text-zinc-400 text-sm mb-2">Seçilecekler (tıklayın):</p>
+                  <div className="space-y-2 sm:space-y-3">
+                    <p className="text-zinc-400 text-xs sm:text-sm mb-2">Seçilecekler:</p>
                     {q.matchingPairs.map((pair) => {
                       const isMatched = matchingState[q.id]?.[pair.left_text];
                       const showResult = showFeedback[q.id];
@@ -694,7 +703,7 @@ function MixedTestContent() {
                           key={pair.id}
                           onClick={() => setSelectedLeft(pair.left_text)}
                           disabled={!!isMatched || showResult}
-                          className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                          className={`w-full p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left min-h-[44px] sm:min-h-[56px] ${
                             showResult
                               ? isCorrect
                                 ? 'bg-emerald-500/20 border-emerald-500/50'
@@ -703,11 +712,11 @@ function MixedTestContent() {
                                 ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
                                 : isSelected
                                   ? 'bg-amber-500/20 border-amber-500'
-                                  : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
+                                  : 'bg-zinc-800 border-zinc-700 active:border-zinc-600'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className={
+                            <span className={`text-sm sm:text-base ${
                               showResult
                                 ? isCorrect
                                   ? 'text-emerald-400'
@@ -717,12 +726,11 @@ function MixedTestContent() {
                                   : isSelected
                                     ? 'text-amber-400 font-bold'
                                     : 'text-white'
-                            }>
+                            }`}>
                               {showResult && (isCorrect ? '✓ ' : '✗ ')}
                               {pair.left_text}
                             </span>
-                            {isSelected && <span className="text-amber-400 text-sm">Seçildi</span>}
-                            {isMatched && <span className="text-purple-400 text-sm">→ {isMatched}</span>}
+                            {isMatched && <span className="text-purple-400 text-xs sm:text-sm">→ {isMatched}</span>}
                           </div>
                         </button>
                       );
@@ -730,8 +738,8 @@ function MixedTestContent() {
                   </div>
 
                   {/* Right Drop Zones */}
-                  <div className="space-y-3">
-                    <p className="text-zinc-400 text-sm mb-2">Buraya eşleştirin:</p>
+                  <div className="space-y-2 sm:space-y-3">
+                    <p className="text-zinc-400 text-xs sm:text-sm mb-2">Buraya eşleştir:</p>
                     {q.matchingPairs.map((pair, idx) => {
                       const matchedLeft = Object.entries(matchingState[q.id] || {}).find(
                         ([_, right]) => right === pair.right_text
@@ -749,7 +757,7 @@ function MixedTestContent() {
                             }
                           }}
                           disabled={!!matchedLeft || showResult || !selectedLeft}
-                          className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                          className={`w-full p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left min-h-[44px] sm:min-h-[56px] ${
                             showResult
                               ? isCorrect
                                 ? 'bg-emerald-500/20 border-emerald-500'
@@ -759,20 +767,20 @@ function MixedTestContent() {
                               : matchedLeft
                                 ? 'bg-indigo-500/20 border-indigo-500'
                                 : selectedLeft
-                                  ? 'bg-zinc-800 border-zinc-600 hover:border-amber-500 cursor-pointer'
+                                  ? 'bg-zinc-800 border-amber-500/50 cursor-pointer active:bg-zinc-700'
                                   : 'bg-zinc-900/50 border-zinc-700 opacity-50'
                           }`}
                         >
                           {matchedLeft ? (
                             <div className="flex items-center justify-between w-full">
-                              <span className={showResult ? (isCorrect ? 'text-emerald-400' : 'text-red-400') : 'text-indigo-400'}>
+                              <span className={`text-xs sm:text-sm truncate max-w-[40%] ${showResult ? (isCorrect ? 'text-emerald-400' : 'text-red-400') : 'text-indigo-400'}`}>
                                 {matchedLeft[0]}
                               </span>
-                              <span className="text-zinc-400">=</span>
-                              <span className="text-white">{pair.right_text}</span>
+                              <span className="text-zinc-400 text-xs sm:text-sm">=</span>
+                              <span className="text-white text-xs sm:text-sm truncate max-w-[40%]">{pair.right_text}</span>
                             </div>
                           ) : (
-                            <span className="text-zinc-600">{pair.right_text}</span>
+                            <span className="text-zinc-500 text-sm sm:text-base">{pair.right_text}</span>
                           )}
                         </button>
                       );
@@ -788,7 +796,7 @@ function MixedTestContent() {
                     setShowFeedback(prev => ({ ...prev, [q.id]: false }));
                     setSelectedLeft(null);
                   }}
-                  className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm"
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-xs sm:text-sm"
                 >
                   Eşleştirmeleri Sıfırla
                 </button>
@@ -797,20 +805,20 @@ function MixedTestContent() {
 
             {/* Classical */}
             {q.type === 'classical' && (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <textarea
                   value={answers[q.id] || ''}
                   onChange={(e) => handleAnswer(q.id, e.target.value)}
-                  className="w-full h-40 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none"
+                  className="w-full h-32 sm:h-40 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none text-sm sm:text-base"
                   placeholder="Cevabınızı buraya yazın..."
                 />
-                <p className="text-zinc-500 text-sm">{(answers[q.id] || '').length} karakter</p>
+                <p className="text-zinc-500 text-xs sm:text-sm">{(answers[q.id] || '').length} karakter</p>
                 
                 {/* Check Button */}
                 {(answers[q.id] || '').length > 10 && !showFeedback[q.id] && (
                   <button
                     onClick={() => setShowFeedback(prev => ({ ...prev, [q.id]: true }))}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium"
+                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium text-sm sm:text-base"
                   >
                     Cevabımı Kontrol Et
                   </button>
@@ -818,9 +826,9 @@ function MixedTestContent() {
                 
                 {/* Model Answer */}
                 {showFeedback[q.id] && (
-                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                    <p className="text-blue-400 font-medium mb-2">Model Cevap:</p>
-                    <p className="text-zinc-300">{q.modelAnswer}</p>
+                  <div className="p-3 sm:p-4 rounded-lg sm:rounded-xl bg-blue-500/10 border border-blue-500/30">
+                    <p className="text-blue-400 font-medium mb-1 sm:mb-2 text-sm sm:text-base">Model Cevap:</p>
+                    <p className="text-zinc-300 text-sm sm:text-base">{q.modelAnswer}</p>
                   </div>
                 )}
               </div>
@@ -828,25 +836,25 @@ function MixedTestContent() {
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between">
+          <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4">
             <button
               onClick={handlePrevious}
               disabled={currentIndex === 0}
-              className={`px-6 py-3 rounded-xl font-medium ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white active:bg-zinc-800'}`}
             >
               ← Önceki
             </button>
 
             <button
               onClick={() => setIsFinished(true)}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium text-sm sm:text-base order-first sm:order-none"
             >
               Testi Bitir
             </button>
 
             <button
               onClick={handleNext}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm sm:text-base"
             >
               {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
             </button>

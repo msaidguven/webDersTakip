@@ -80,21 +80,21 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 
 function Header({ gradeName, lessonName }: { gradeName: string; lessonName: string }) {
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
-      <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
-        <div className="flex items-center gap-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">📚</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+              <span className="text-lg sm:text-xl">📚</span>
             </div>
-            <span className="text-xl font-bold text-white hidden sm:block">Ders Takip</span>
+            <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">Ders Takip</span>
           </Link>
-          <div className="h-6 w-px bg-white/10" />
-          <Link href="/" className="text-zinc-400 hover:text-white">{'<-'} Geri</Link>
+          <div className="h-6 w-px bg-white/10 hidden sm:block" />
+          <Link href="/" className="text-zinc-400 hover:text-white text-sm sm:text-base">{'<-'} Geri</Link>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-zinc-400 text-sm hidden sm:block">{gradeName} {'->'} {lessonName}</span>
-          <div className="bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700">{CURRENT_WEEK}. Hafta</div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="text-zinc-400 text-xs sm:text-sm hidden md:block">{gradeName} {'->'} {lessonName}</span>
+          <div className="bg-zinc-800 text-white text-xs sm:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-zinc-700">{CURRENT_WEEK}. Hafta</div>
         </div>
       </div>
     </nav>
@@ -107,18 +107,18 @@ function PageHeader({ gradeName, lessonName, outcomeCount }: {
   outcomeCount: number;
 }) {
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-white/10 p-6 sm:p-8 mb-8">
-      <div className="flex items-center gap-2 text-sm text-zinc-500 mb-4">
+    <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-white/10 p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-zinc-500 mb-3 sm:mb-4">
         <span>🎓 {gradeName}</span>
         <span>{'->'}</span>
         <span>📚 {lessonName}</span>
-        <span>{'->'}</span>
-        <span>{CURRENT_WEEK}. Hafta</span>
+        <span className="hidden sm:inline">{'->'}</span>
+        <span className="hidden sm:inline">{CURRENT_WEEK}. Hafta</span>
       </div>
-      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">{CURRENT_WEEK}. Hafta Konulari</h1>
-      <div className="flex items-center gap-6 text-zinc-400">
-        <span className="flex items-center gap-2">
-          <Icon name="book" size={18} />
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4">{CURRENT_WEEK}. Hafta Konulari</h1>
+      <div className="flex items-center gap-4 sm:gap-6 text-zinc-400">
+        <span className="flex items-center gap-2 text-sm">
+          <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
           {outcomeCount} Kazanim
         </span>
       </div>
@@ -134,18 +134,20 @@ function TabButtons({
   onTabChange: (tab: 'outcomes' | 'content') => void;
 }) {
   return (
-    <div className="flex gap-2 mb-8">
+    <div className="flex gap-2 mb-6 sm:mb-8">
       <button
         onClick={() => onTabChange('outcomes')}
-        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'outcomes' ? 'bg-indigo-500 text-white' : 'bg-zinc-900/50 text-zinc-400 hover:text-white'}`}
+        className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${activeTab === 'outcomes' ? 'bg-indigo-500 text-white' : 'bg-zinc-900/50 text-zinc-400 hover:text-white'}`}
       >
-        🎯 Kazanimlar
+        <span className="sm:hidden">🎯 Kazanımlar</span>
+        <span className="hidden sm:inline">🎯 Kazanimlar</span>
       </button>
       <button
         onClick={() => onTabChange('content')}
-        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'content' ? 'bg-indigo-500 text-white' : 'bg-zinc-900/50 text-zinc-400 hover:text-white'}`}
+        className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${activeTab === 'content' ? 'bg-indigo-500 text-white' : 'bg-zinc-900/50 text-zinc-400 hover:text-white'}`}
       >
-        📚 Konu Anlatimi
+        <span className="sm:hidden">📚 Konu</span>
+        <span className="hidden sm:inline">📚 Konu Anlatimi</span>
       </button>
     </div>
   );
@@ -153,17 +155,17 @@ function TabButtons({
 
 function OutcomesList({ outcomes }: { outcomes: Array<{ id: number; description: string; topicTitle: string }> }) {
   if (outcomes.length === 0) {
-    return <p className="text-zinc-400">Bu hafta icin kazanim bulunmuyor.</p>;
+    return <p className="text-zinc-400 text-sm sm:text-base">Bu hafta icin kazanim bulunmuyor.</p>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {outcomes.map((outcome, index) => (
-        <div key={outcome.id} className="flex items-start gap-4 p-4 rounded-xl bg-zinc-800/30">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold">{index + 1}</div>
-          <div className="flex-1">
-            <p className="text-zinc-200">{outcome.description}</p>
-            {outcome.topicTitle && <p className="text-zinc-500 text-sm mt-2">{outcome.topicTitle}</p>}
+        <div key={outcome.id} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-800/30">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-sm sm:text-base">{index + 1}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-zinc-200 text-sm sm:text-base leading-relaxed">{outcome.description}</p>
+            {outcome.topicTitle && <p className="text-zinc-500 text-xs sm:text-sm mt-1.5 sm:mt-2">{outcome.topicTitle}</p>}
           </div>
         </div>
       ))}

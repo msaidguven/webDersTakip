@@ -17,25 +17,14 @@ const mockGrades: Grade[] = [
   { id: '12', level: 12, name: '12. Sınıf', description: 'Lise 4. sınıf - YKS', icon: '🚀', color: 'from-orange-500 to-amber-500' },
 ];
 
-// URL'i temizle (tırnaklar ve noktalı virgül kaldır)
-function cleanEnvValue(value: string | undefined): string {
-  if (!value) return '';
-  return value
-    .replace(/^['"]+/, '')
-    .replace(/['";]+$/, '')
-    .trim();
-}
+// Sabit Supabase credentials
+const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
 // Supabase client oluştur
 function createSupabaseClient() {
-  const supabaseUrl = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const supabaseKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  
-  if (!supabaseUrl || !supabaseKey) return null;
-  
   try {
-    new URL(supabaseUrl);
-    return createClient(supabaseUrl, supabaseKey);
+    return createClient(SUPABASE_URL, SUPABASE_KEY);
   } catch {
     return null;
   }
@@ -91,24 +80,15 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        console.log('[fetchGrades] Starting...');
-        
         const supabase = createSupabaseClient();
         
-        console.log('[fetchGrades] Supabase client:', supabase ? 'created' : 'null');
-        console.log('[fetchGrades] ENV URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing');
-        
         if (!supabase) {
-          console.log('[fetchGrades] Using mock grades');
           setGrades(mockGrades);
           setIsLoadingGrades(false);
           return;
         }
         
-        console.log('[fetchGrades] Calling web_get_active_grades...');
         const { data, error } = await supabase.rpc('web_get_active_grades');
-        
-        console.log('[fetchGrades] Response:', { data, error });
         
         if (error) throw error;
         
@@ -128,8 +108,8 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         
         setGrades(transformedGrades);
       } catch (err: any) {
-        console.error('[fetchGrades] Error:', err);
-        setGradesError(err.message);
+        console.error('Sınıflar yüklenirken hata:', err);
+        setGradesError('Sınıflar yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
         setGrades(mockGrades);
       } finally {
         setIsLoadingGrades(false);
@@ -174,8 +154,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
 
   // Sınıfa tıklayınca dersleri çek
   const selectGrade = useCallback(async (grade: Grade) => {
-    console.log('[selectGrade] Fetching lessons for grade:', grade.id);
-    
     try {
       setIsLoadingLessons(true);
       setLessonsError(null);
@@ -199,8 +177,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       const { data, error } = await supabase.rpc('web_get_lessons_for_grade', {
         p_grade_id: parseInt(grade.id)
       });
-      
-      console.log('[selectGrade] Lessons response:', { data, error });
       
       if (error) throw error;
       
@@ -230,8 +206,8 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         selectedTopics: [],
       }));
     } catch (err: any) {
-      console.error('[selectGrade] Error:', err);
-      setLessonsError(err.message);
+      console.error('Dersler yüklenirken hata:', err);
+      setLessonsError('Dersler yüklenirken bir hata oluştu.');
       const mockLessons = getMockLessonsByGrade(grade.id);
       setAvailableLessons(mockLessons);
       setSelection(prev => ({
@@ -260,12 +236,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
 
   // Ders seçildiğinde /ders sayfasına git
   const selectLesson = useCallback((lesson: Lesson) => {
-    console.log('[selectLesson] ==========================================');
-    console.log('[selectLesson] Selected lesson:', lesson);
-    console.log('[selectLesson] lesson.gradeId:', lesson.gradeId);
-    console.log('[selectLesson] lesson.id:', lesson.id);
-    console.log('[selectLesson] ==========================================');
-    
     // Seçimi state'e kaydet
     setSelection(prev => ({
       ...prev,
@@ -279,10 +249,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     const gradeId = lesson.gradeId;
     if (gradeId) {
       const url = `/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`;
-      console.log('[selectLesson] Navigating to:', url);
       router.push(url);
-    } else {
-      console.error('[selectLesson] gradeId is undefined!');
     }
   }, [router]);
 
