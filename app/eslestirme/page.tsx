@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -21,7 +21,7 @@ interface MatchingQuestion {
   pairs: MatchingPair[];
 }
 
-export default function DragDropTestPage() {
+function DragDropContent() {
   const searchParams = useSearchParams();
   const unitId = searchParams.get('unit_id');
   const week = searchParams.get('week');
@@ -363,5 +363,13 @@ function ResultScreen({
         </button>
       </div>
     </div>
+  );
+}
+
+export default function DragDropTestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0f0f11]" />}>
+      <DragDropContent />
+    </Suspense>
   );
 }
