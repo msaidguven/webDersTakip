@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface BlankOption {
   id: number;

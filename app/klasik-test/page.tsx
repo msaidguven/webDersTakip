@@ -3,6 +3,10 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+interface ClassicalQuestion {
   id: number;
   question_text: string;
   difficulty: number;
@@ -17,8 +21,6 @@ interface TestResult {
   total: number;
   percentage: number;
 }
-
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 async function fetchClassicalQuestions(
   supabase: SupabaseClient,

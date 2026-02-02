@@ -142,8 +142,8 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       setIsLoadingLessons(true);
       setLessonsError(null);
       
-      const supabase = createSupabaseClient();
-      
+      const supabase = createSupabaseBrowserClient();
+
       if (!supabase) {
         const mockLessons = getMockLessonsByGrade(grade.id);
         setAvailableLessons(mockLessons);
