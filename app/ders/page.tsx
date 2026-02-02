@@ -104,6 +104,57 @@ async function fetchNames(supabase: SupabaseClient, gradeId: number, lessonId: n
   };
 }
 
+// HTML içeriği güvenli ve güzel şekilde render et
+function HtmlContent({ html }: { html: string }) {
+  if (!html) return null;
+  
+  // Temel HTML temizleme ve düzeltme
+  const cleanHtml = html
+    // Boş paragrafları kaldır
+    .replace(/<p>\s*<\/p>/g, '')
+    // Fazla boşlukları temizle
+    .replace(/\n\s*\n/g, '\n')
+    // Tablolar için wrapper ekle (responsive için)
+    .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
+    .replace(/<\/table>/g, '</table></div>')
+    // Tablo hücrelerini stilize et
+    .replace(/<td/g, '<td class="border border-zinc-700 px-4 py-2 text-zinc-300"')
+    .replace(/<th/g, '<th class="border border-zinc-700 px-4 py-2 bg-zinc-800 text-white font-semibold"')
+    // Listeleri stilize et
+    .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-zinc-300"')
+    .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-zinc-300"')
+    // Başlıkları stilize et
+    .replace(/<h1/g, '<h1 class="text-3xl font-bold text-white my-6"')
+    .replace(/<h2/g, '<h2 class="text-2xl font-bold text-white my-5"')
+    .replace(/<h3/g, '<h3 class="text-xl font-bold text-white my-4"')
+    .replace(/<h4/g, '<h4 class="text-lg font-bold text-white my-3"')
+    // Paragrafları stilize et
+    .replace(/<p(?![^>]*class)/g, '<p class="text-zinc-300 leading-relaxed my-3"')
+    // Kalın metinleri stilize et
+    .replace(/<strong/g, '<strong class="text-white font-semibold"')
+    .replace(/<b(?![^>]*class)/g, '<b class="text-white"')
+    // İtalik metinleri stilize et
+    .replace(/<em/g, '<em class="text-zinc-300 italic"')
+    // Linkleri stilize et
+    .replace(/<a(?![^>]*class)/g, '<a class="text-indigo-400 hover:text-indigo-300 underline transition-colors"')
+    // Görselleri stilize et
+    .replace(/<img/g, '<img class="max-w-full h-auto rounded-xl my-4 shadow-lg"')
+    // Blok alıntıları stilize et
+    .replace(/<blockquote/g, '<blockquote class="border-l-4 border-indigo-500 pl-4 my-4 italic text-zinc-400 bg-zinc-800/50 py-2 pr-4 rounded-r-lg"')
+    // Kod bloklarını stilize et
+    .replace(/<code(?![^>]*class)/g, '<code class="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded text-sm font-mono"')
+    .replace(/<pre/g, '<pre class="bg-zinc-800 p-4 rounded-xl overflow-x-auto my-4 text-sm"')
+    // Çizgileri stilize et
+    .replace(/<hr/g, '<hr class="border-zinc-700 my-6"');
+
+  return (
+    <div 
+      className="html-content"
+      dangerouslySetInnerHTML={{ __html: cleanHtml }} 
+    />
+  );
+}
+
 function DersContent() {
   const searchParams = useSearchParams();
   const gradeId = searchParams.get('grade_id');
@@ -267,7 +318,7 @@ function DersContent() {
                   {data.contents.map((content) => (
                     <article key={content.id} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6 sm:p-8">
                       <h2 className="text-xl font-semibold text-white mb-4">{content.title}</h2>
-                      <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: content.content }} />
+                      <HtmlContent html={content.content} />
                     </article>
                   ))}
                   
