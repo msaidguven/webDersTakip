@@ -117,19 +117,19 @@ function HtmlContent({ html }: { html: string }) {
     // Tablolar için wrapper ekle (responsive için)
     .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
     .replace(/<\/table>/g, '</table></div>')
-    // Tablo hücrelerini stilize et
-    .replace(/<td/g, '<td class="border border-zinc-700 px-4 py-2 text-zinc-300"')
-    .replace(/<th/g, '<th class="border border-zinc-700 px-4 py-2 bg-zinc-800 text-white font-semibold"')
-    // Listeleri stilize et
-    .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-zinc-300"')
-    .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-zinc-300"')
+    // Tablo hücrelerini stilize et (daha büyük font)
+    .replace(/<td/g, '<td class="border border-zinc-700 px-4 py-2 text-zinc-300 text-lg"')
+    .replace(/<th/g, '<th class="border border-zinc-700 px-4 py-2 bg-zinc-800 text-white font-semibold text-lg"')
+    // Listeleri stilize et (daha büyük font)
+    .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-zinc-300 text-lg"')
+    .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-zinc-300 text-lg"')
     // Başlıkları stilize et
     .replace(/<h1/g, '<h1 class="text-3xl font-bold text-white my-6"')
     .replace(/<h2/g, '<h2 class="text-2xl font-bold text-white my-5"')
     .replace(/<h3/g, '<h3 class="text-xl font-bold text-white my-4"')
     .replace(/<h4/g, '<h4 class="text-lg font-bold text-white my-3"')
-    // Paragrafları stilize et
-    .replace(/<p(?![^>]*class)/g, '<p class="text-zinc-300 leading-relaxed my-3"')
+    // Paragrafları stilize et (daha büyük font)
+    .replace(/<p(?![^>]*class)/g, '<p class="text-zinc-300 leading-relaxed my-3 text-lg"')
     // Kalın metinleri stilize et
     .replace(/<strong/g, '<strong class="text-white font-semibold"')
     .replace(/<b(?![^>]*class)/g, '<b class="text-white"')
