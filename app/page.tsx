@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useHomeViewModel } from './src/viewmodels/useHomeViewModel';
 import { GradeSelector } from './src/components/home/GradeSelector';
@@ -67,6 +67,54 @@ function Header() {
   );
 }
 
+// Hafta Seçici Komponenti
+function WeekSelector() {
+  const [currentWeek, setCurrentWeek] = useState(19);
+  const weeks = [
+    { number: 17, label: 'Geçen' },
+    { number: 18, label: 'Geçen' },
+    { number: 19, label: 'Şimdi', active: true },
+    { number: 20, label: 'Gelecek' },
+    { number: 21, label: 'Gelecek' },
+    { number: 22, label: 'Kilitli', locked: true },
+  ];
+
+  return (
+    <div className="max-w-6xl mx-auto mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-white">Müfredat Haftası</h2>
+        <Link href="#" className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+          Takvim <span>→</span>
+        </Link>
+      </div>
+
+      {/* Week Scroll */}
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        {weeks.map((week) => (
+          <button
+            key={week.number}
+            onClick={() => !week.locked && setCurrentWeek(week.number)}
+            disabled={week.locked}
+            className={`
+              flex flex-col items-center min-w-[72px] py-3 px-4 rounded-xl transition-all
+              ${week.active 
+                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
+                : week.locked
+                  ? 'bg-zinc-900/50 text-zinc-600 cursor-not-allowed'
+                  : 'bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+              }
+            `}
+          >
+            <span className="text-2xl font-bold">{week.number}</span>
+            <span className="text-xs mt-1">{week.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const {
     grades,
@@ -99,6 +147,9 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="pt-[100px] sm:pt-[120px] pb-20 px-4 sm:px-8">
+        {/* Week Selector - Ana sayfada her zaman göster */}
+        {selection.step === 'grade' && <WeekSelector />}
+
         {/* Progress Steps */}
         {selection.step !== 'grade' && (
           <div className="max-w-6xl mx-auto mb-8 sm:mb-12">
