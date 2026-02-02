@@ -315,10 +315,28 @@ function DersContent() {
                 <p className="text-zinc-400">Bu hafta icin icerik bulunmuyor.</p>
               ) : (
                 <>
-                  {data.contents.map((content) => (
-                    <article key={content.id} className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6 sm:p-8">
-                      <h2 className="text-xl font-semibold text-white mb-4">{content.title}</h2>
-                      <HtmlContent html={content.content} />
+                  {data.contents.map((content, idx) => (
+                    <article key={content.id} className="rounded-2xl bg-gradient-to-br from-zinc-900/80 to-zinc-900/50 border border-white/10 overflow-hidden">
+                      {/* Title Header */}
+                      <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-white/5 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+                            <span className="text-xl font-bold text-white">{idx + 1}</span>
+                          </div>
+                          <div className="flex-1 pt-1">
+                            <h2 className="text-xl sm:text-2xl font-bold text-white leading-tight">
+                              {content.title}
+                            </h2>
+                            <p className="text-zinc-500 text-sm mt-1">
+                              Konu {idx + 1} / {data.contents.length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Content Body */}
+                      <div className="p-6 sm:p-8">
+                        <HtmlContent html={content.content} />
+                      </div>
                     </article>
                   ))}
                   
