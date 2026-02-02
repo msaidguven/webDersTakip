@@ -5,18 +5,22 @@ const fallbackKey = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
 export const createSupabaseBrowserClient = (): SupabaseClient | null => {
   let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  let supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+  // some files use NEXT_PUBLIC_SUPABASE_KEY, others NEXT_PUBLIC_SUPABASE_ANON_KEY — accept both
+  let supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   let usedFallback = false;
 
-  // URL kontrolü: Tanımsızsa, string değilse veya http ile başlamıyorsa yedeği kullan
-  if (!supabaseUrl || typeof supabaseUrl !== 'string' || !supabaseUrl.startsWith('http')) {
+  // URL kontrolü: Tanımsızsa, string değilse veya geçerli bir URL değilse yedeği kullan
+  try {
+    if (!supabaseUrl || typeof supabaseUrl !== 'string') throw new Error('missing');
+    new URL(supabaseUrl);
+  } catch (e) {
     supabaseUrl = fallbackUrl;
     usedFallback = true;
   }
 
   if (!supabaseKey) {
-      supabaseKey = fallbackKey;
-      usedFallback = true;
+    supabaseKey = fallbackKey;
+    usedFallback = true;
   }
   
   if (usedFallback && typeof window === 'undefined') {
