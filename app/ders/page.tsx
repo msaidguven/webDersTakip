@@ -41,6 +41,9 @@ interface PageData {
 const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
+console.log('[Supabase] Using URL:', SUPABASE_URL);
+console.log('[Supabase] Key starts with:', SUPABASE_KEY.substring(0, 20));
+
 function createSupabaseClient(): SupabaseClient | null {
   try {
     return createClient(SUPABASE_URL, SUPABASE_KEY);
