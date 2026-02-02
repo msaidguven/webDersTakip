@@ -179,5 +179,5 @@ export function getIconColorClasses(color: string): string {
     'teal': 'bg-cyan-500/10 text-cyan-400',
     'orange': 'bg-amber-500/10 text-amber-400',
   };
-  return colorMap[color] || 'bg-zinc-800 text-zinc-400';
+  return colorMap[color] || 'bg-zinc-800 text-muted';
 }

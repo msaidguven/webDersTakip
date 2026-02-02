@@ -133,8 +133,8 @@ function DragDropContent() {
     return (
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Eşleştirme Sorusu Bulunamadı</h1>
-          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
+          <h1 className="text-2xl font-bold text-default mb-4">Eşleştirme Sorusu Bulunamadı</h1>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">
             Ana Sayfaya Dön
           </Link>
         </div>
@@ -151,26 +151,26 @@ function DragDropContent() {
   return (
     <div className="min-h-screen bg-[#0f0f11]">
       {/* Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-default">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">E</span>
+              <span className="text-xl font-bold text-default">E</span>
             </div>
-            <span className="text-xl font-bold text-white">Eşleştirme Testi</span>
+            <span className="text-xl font-bold text-default">Eşleştirme Testi</span>
           </Link>
-          <Link href="/ders" className="text-zinc-400 hover:text-white">← Geri</Link>
+          <Link href="/ders" className="text-muted hover:text-default">← Geri</Link>
         </div>
       </nav>
 
       <main className="pt-[100px] pb-20 px-4 sm:px-8">
         <div className="max-w-4xl mx-auto">
           {/* Question */}
-          <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6 sm:p-8 mb-8">
-            <h1 className="text-xl sm:text-2xl font-semibold text-white mb-2">
+          <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 mb-8">
+            <h1 className="text-xl sm:text-2xl font-semibold text-default mb-2">
               {question.question_text}
             </h1>
-            <p className="text-zinc-500">Öğeleri sürükleyip eşleştirin</p>
+            <p className="text-muted">Öğeleri sürükleyip eşleştirin</p>
           </div>
 
           {showResult ? (
@@ -187,7 +187,7 @@ function DragDropContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left Column - Draggable Items */}
                 <div className="space-y-3">
-                  <h3 className="text-lg font-medium text-white mb-4">Sürüklenecekler</h3>
+                  <h3 className="text-lg font-medium text-default mb-4">Sürüklenecekler</h3>
                   {question.pairs.map((pair) => {
                     const isMatched = matches[pair.left_text];
                     return (
@@ -202,7 +202,7 @@ function DragDropContent() {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={isMatched ? 'text-emerald-400' : 'text-white'}>
+                          <span className={isMatched ? 'text-emerald-400' : 'text-default'}>
                             {pair.left_text}
                           </span>
                           {isMatched && (
@@ -218,7 +218,7 @@ function DragDropContent() {
 
                 {/* Right Column - Drop Zones */}
                 <div className="space-y-3">
-                  <h3 className="text-lg font-medium text-white mb-4">Buraya Bırak</h3>
+                  <h3 className="text-lg font-medium text-default mb-4">Buraya Bırak</h3>
                   {question.pairs.map((pair, index) => {
                     const matchedLeft = Object.entries(matches).find(
                       ([_, right]) => right === pair.right_text
@@ -232,14 +232,14 @@ function DragDropContent() {
                         className={`p-4 rounded-xl border-2 border-dashed transition-all min-h-[60px] flex items-center ${
                           matchedLeft
                             ? 'bg-indigo-500/20 border-indigo-500'
-                            : 'bg-zinc-900/50 border-zinc-700 hover:border-zinc-600'
+                            : 'bg-surface-elevated border-zinc-700 hover:border-zinc-600'
                         }`}
                       >
                         {matchedLeft ? (
                           <div className="flex items-center justify-between w-full">
                             <span className="text-indigo-400">{matchedLeft[0]}</span>
-                            <span className="text-zinc-400">=</span>
-                            <span className="text-white">{pair.right_text}</span>
+                            <span className="text-muted">=</span>
+                            <span className="text-default">{pair.right_text}</span>
                             <button
                               onClick={() => {
                                 const newMatches = { ...matches };
@@ -252,7 +252,7 @@ function DragDropContent() {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-zinc-600">{pair.right_text}</span>
+                          <span className="text-muted">{pair.right_text}</span>
                         )}
                       </div>
                     );
@@ -264,21 +264,21 @@ function DragDropContent() {
               <div className="mt-8 flex justify-center gap-4">
                 <button
                   onClick={reset}
-                  className="px-6 py-3 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 transition-colors"
+                  className="px-6 py-3 rounded-xl bg-zinc-800 text-default hover:bg-zinc-700 transition-colors"
                 >
                   Sıfırla
                 </button>
                 <button
                   onClick={checkAnswers}
                   disabled={Object.keys(matches).length !== question.pairs.length}
-                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Kontrol Et
                 </button>
               </div>
 
               {/* Progress */}
-              <div className="mt-6 text-center text-zinc-500">
+              <div className="mt-6 text-center text-muted">
                 {Object.keys(matches).length} / {question.pairs.length} eşleştirme tamamlandı
               </div>
             </>
@@ -305,7 +305,7 @@ function ResultScreen({
   const percentage = Math.round((score / total) * 100);
 
   return (
-    <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-8 text-center">
+    <div className="rounded-2xl bg-surface-elevated border border-default p-8 text-center">
       <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 ${
         percentage >= 80 ? 'bg-emerald-500/20 text-emerald-400' :
         percentage >= 50 ? 'bg-amber-500/20 text-amber-400' :
@@ -314,10 +314,10 @@ function ResultScreen({
         {percentage >= 80 ? '🎉' : percentage >= 50 ? '👍' : '💪'}
       </div>
 
-      <h2 className="text-3xl font-bold text-white mb-2">
+      <h2 className="text-3xl font-bold text-default mb-2">
         {score} / {total} Doğru
       </h2>
-      <p className="text-zinc-400 mb-6">%{percentage} Başarı</p>
+      <p className="text-muted mb-6">%{percentage} Başarı</p>
 
       {/* Detailed Results */}
       <div className="text-left space-y-3 mb-8">
@@ -333,7 +333,7 @@ function ResultScreen({
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-white">{pair.left_text}</span>
+                <span className="text-default">{pair.left_text}</span>
                 <span className={isCorrect ? 'text-emerald-400' : 'text-red-400'}>
                   {isCorrect ? '✓' : '✗'} {userMatch}
                 </span>
@@ -351,13 +351,13 @@ function ResultScreen({
       <div className="flex justify-center gap-4">
         <Link
           href="/ders"
-          className="px-6 py-3 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 transition-colors"
+          className="px-6 py-3 rounded-xl bg-zinc-800 text-default hover:bg-zinc-700 transition-colors"
         >
           Derse Dön
         </Link>
         <button
           onClick={onRetry}
-          className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg"
+          className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium hover:shadow-lg"
         >
           Tekrar Dene
         </button>

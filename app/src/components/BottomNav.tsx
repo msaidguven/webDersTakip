@@ -24,7 +24,7 @@ export function BottomNav({ items, activeItem }: BottomNavProps) {
                 href={item.href}
                 className="flex flex-col items-center gap-1 -mt-5"
               >
-                <div className="bg-indigo-500 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-500/50 hover:scale-105 transition-transform">
+                <div className="bg-indigo-500 w-14 h-14 rounded-full flex items-center justify-center text-default shadow-lg shadow-indigo-500/50 hover:scale-105 transition-transform">
                   <Icon name={item.icon} size={24} />
                 </div>
                 <span className="text-xs font-semibold text-slate-600">{item.label}</span>

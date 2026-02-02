@@ -27,11 +27,11 @@ export function Header({ user, notificationCount, onNotificationClick, onProfile
         <div className="flex gap-3">
           <button 
             onClick={onNotificationClick}
-            className="w-11 h-11 rounded-full bg-slate-50 flex items-center justify-center text-slate-700 hover:bg-indigo-500 hover:text-white transition-all duration-300 hover:-translate-y-0.5 relative"
+            className="w-11 h-11 rounded-full bg-slate-50 flex items-center justify-center text-slate-700 hover:bg-indigo-500 hover:text-default transition-all duration-300 hover:-translate-y-0.5 relative"
           >
             <Icon name="bell" size={20} />
             {notificationCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full flex items-center justify-center border-2 border-white">
+              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-default text-[10px] font-bold w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full flex items-center justify-center border-2 border-default">
                 {notificationCount}
               </span>
             )}

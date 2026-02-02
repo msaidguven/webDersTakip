@@ -23,7 +23,7 @@ function getDifficultyColor(difficulty: string): string {
     case 'hard':
       return 'text-red-400 bg-red-500/10 border-red-500/20';
     default:
-      return 'text-zinc-400 bg-zinc-800';
+      return 'text-muted bg-zinc-800';
   }
 }
 
@@ -59,35 +59,35 @@ export function TopicSelector({
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-xl bg-zinc-900/50 border border-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all"
+          className="w-10 h-10 rounded-xl bg-surface-elevated border border-default flex items-center justify-center text-muted hover:text-default hover:border-default/20 transition-all"
         >
           ←
         </button>
         <div>
-          <p className="text-sm text-zinc-500 mb-1">Seçilen Ünite</p>
-          <h2 className="text-xl font-bold text-white">{unit.name}</h2>
+          <p className="text-sm text-muted mb-1">Seçilen Ünite</p>
+          <h2 className="text-xl font-bold text-default">{unit.name}</h2>
         </div>
       </div>
 
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">
+        <h1 className="text-3xl font-bold text-default mb-2">
           Hangi <span className="gradient-text">Konuları</span> Çalışmak İstiyorsun?
         </h1>
-        <p className="text-zinc-400">Konuları seç ve teste başla</p>
+        <p className="text-muted">Konuları seç ve teste başla</p>
       </div>
 
       {/* Select All / Clear */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => allSelected ? onClear() : onSelectAll(unit.topics)}
-          className="px-4 py-2 rounded-xl bg-zinc-900/50 border border-white/10 text-sm text-zinc-400 hover:text-white hover:border-white/20 transition-all"
+          className="px-4 py-2 rounded-xl bg-surface-elevated border border-default text-sm text-muted hover:text-default hover:border-default/20 transition-all"
         >
           {allSelected ? 'Seçimi Kaldır' : 'Tümünü Seç'}
         </button>
         {selectedTopics.length > 0 && (
           <button
             onClick={onClear}
-            className="px-4 py-2 rounded-xl bg-zinc-900/50 border border-white/10 text-sm text-zinc-400 hover:text-red-400 hover:border-red-500/20 transition-all"
+            className="px-4 py-2 rounded-xl bg-surface-elevated border border-default text-sm text-muted hover:text-red-400 hover:border-red-500/20 transition-all"
           >
             Temizle
           </button>
@@ -107,7 +107,7 @@ export function TopicSelector({
                 group p-5 rounded-2xl border transition-all duration-200 text-left
                 ${isSelected 
                   ? 'bg-indigo-500/10 border-indigo-500/50' 
-                  : 'bg-zinc-900/50 border-white/5 hover:border-white/20'
+                  : 'bg-surface-elevated border-default hover:border-default/20'
                 }
               `}
             >
@@ -120,24 +120,24 @@ export function TopicSelector({
                     : 'border-zinc-600 group-hover:border-zinc-500'
                   }
                 `}>
-                  {isSelected && <Icon name="check" size={14} className="text-white" />}
+                  {isSelected && <Icon name="check" size={14} className="text-default" />}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <h3 className={`font-semibold ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+                    <h3 className={`font-semibold ${isSelected ? 'text-default' : 'text-muted'}`}>
                       {topic.name}
                     </h3>
                     <span className={`px-2 py-0.5 text-xs rounded-full border ${getDifficultyColor(topic.difficulty)}`}>
                       {getDifficultyLabel(topic.difficulty)}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-500">{topic.description}</p>
+                  <p className="text-sm text-muted">{topic.description}</p>
                 </div>
 
                 {/* Stats */}
-                <div className="text-right text-sm text-zinc-500">
+                <div className="text-right text-sm text-muted">
                   <div className="flex items-center gap-1 mb-1">
                     <Icon name="check-circle" size={14} />
                     <span>{topic.questionCount} soru</span>
@@ -155,26 +155,26 @@ export function TopicSelector({
 
       {/* Bottom Bar - Summary */}
       {selectedTopics.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0f0f11]/95 backdrop-blur-xl border-t border-white/5 z-50">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0f0f11]/95 backdrop-blur-xl border-t border-default z-50">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-sm text-zinc-500">Seçilen Konu</p>
-                <p className="text-xl font-bold text-white">{selectedTopics.length}</p>
+                <p className="text-sm text-muted">Seçilen Konu</p>
+                <p className="text-xl font-bold text-default">{selectedTopics.length}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Toplam Soru</p>
-                <p className="text-xl font-bold text-white">{totalQuestions}</p>
+                <p className="text-sm text-muted">Toplam Soru</p>
+                <p className="text-xl font-bold text-default">{totalQuestions}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Tahmini Süre</p>
-                <p className="text-xl font-bold text-white">~{totalTime} dk</p>
+                <p className="text-sm text-muted">Tahmini Süre</p>
+                <p className="text-xl font-bold text-default">~{totalTime} dk</p>
               </div>
             </div>
 
             <button
               onClick={onContinue}
-              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5"
+              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-semibold rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5"
             >
               <span>Teste Başla</span>
               <span>→</span>

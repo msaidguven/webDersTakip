@@ -75,7 +75,7 @@ export function UnitCard({ unit, onClick }: UnitCardProps) {
           <h3 className="text-lg font-bold text-slate-800 mb-1">{unit.title}</h3>
           <p className="text-sm text-slate-500">{unit.subtitle}</p>
         </div>
-        <span className={`${getBadgeColor()} text-white px-3 py-1 rounded-full text-xs font-bold`}>
+        <span className={`${getBadgeColor()} text-default px-3 py-1 rounded-full text-xs font-bold`}>
           {getBadgeText()}
         </span>
       </div>

@@ -37,10 +37,10 @@ function StatCard({ stat, index }: StatCardProps) {
           <Icon name={stat.icon} size={20} className="sm:w-6 sm:h-6" />
         </div>
         
-        <div className="text-xl sm:text-3xl font-bold text-white mb-0.5 sm:mb-1">
+        <div className="text-xl sm:text-3xl font-bold text-default mb-0.5 sm:mb-1">
           {stat.value}
         </div>
-        <div className="text-xs sm:text-sm text-zinc-400">
+        <div className="text-xs sm:text-sm text-muted">
           {stat.label}
         </div>
       </div>
@@ -53,7 +53,7 @@ function StatCard({ stat, index }: StatCardProps) {
             stroke="currentColor" 
             strokeWidth="2" 
             fill="none"
-            className="text-white"
+            className="text-default"
           />
         </svg>
       </div>

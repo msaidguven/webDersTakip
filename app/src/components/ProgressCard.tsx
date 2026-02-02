@@ -35,7 +35,7 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
             ${isCompleted 
               ? 'bg-emerald-500/10 text-emerald-400' 
               : isLocked 
-                ? 'bg-zinc-800 text-zinc-500'
+                ? 'bg-zinc-800 text-muted'
                 : 'bg-indigo-500/10 text-indigo-400'
             }
           `}>
@@ -61,18 +61,18 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
         </div>
 
         {/* Title & Info */}
-        <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2 group-hover:text-indigo-400 transition-colors">
+        <h3 className="text-base sm:text-lg font-semibold text-default mb-1 sm:mb-2 group-hover:text-indigo-400 transition-colors">
           {unit.title}
         </h3>
-        <p className="text-xs sm:text-sm text-zinc-500 mb-3 sm:mb-4">{unit.subtitle}</p>
+        <p className="text-xs sm:text-sm text-muted mb-3 sm:mb-4">{unit.subtitle}</p>
 
         {/* Progress Bar */}
         <div className="space-y-1.5 sm:space-y-2">
           <div className="flex justify-between text-xs sm:text-sm">
-            <span className="text-zinc-500">
+            <span className="text-muted">
               {isCompleted ? 'Başarı Oranı' : 'İlerleme'}
             </span>
-            <span className={`font-semibold ${isCompleted ? 'text-emerald-400' : 'text-white'}`}>
+            <span className={`font-semibold ${isCompleted ? 'text-emerald-400' : 'text-default'}`}>
               {isCompleted ? `%${unit.successRate}` : `%${unit.progress}`}
             </span>
           </div>
@@ -91,7 +91,7 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
         </div>
 
         {/* Topics Preview */}
-        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/5 flex items-center gap-2 text-xs sm:text-sm text-zinc-500">
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-default flex items-center gap-2 text-xs sm:text-sm text-muted">
           <Icon name="book" size={12} className="sm:w-3.5 sm:h-3.5" />
           <span>{unit.totalTopics} Konu</span>
           <span className="mx-1">•</span>

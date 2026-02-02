@@ -23,10 +23,10 @@ export function SRSWidget({ review, onReview }: SRSWidgetProps) {
 
         {/* Content */}
         <div className="flex-1 w-full">
-          <h3 className="text-lg sm:text-xl font-semibold text-white mb-1.5 sm:mb-2">
+          <h3 className="text-lg sm:text-xl font-semibold text-default mb-1.5 sm:mb-2">
             {review.title}
           </h3>
-          <p className="text-zinc-400 text-sm sm:text-base mb-3 sm:mb-4 leading-relaxed">
+          <p className="text-muted text-sm sm:text-base mb-3 sm:mb-4 leading-relaxed">
             {review.description}
           </p>
 
@@ -34,18 +34,18 @@ export function SRSWidget({ review, onReview }: SRSWidgetProps) {
           <div className="flex items-center gap-4 sm:gap-6 mb-3 sm:mb-4">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xl sm:text-2xl font-bold text-amber-400">{review.questionCount}</span>
-              <span className="text-xs sm:text-sm text-zinc-500">Soru</span>
+              <span className="text-xs sm:text-sm text-muted">Soru</span>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xl sm:text-2xl font-bold text-orange-400">~{Math.round(review.questionCount * 1.5)}</span>
-              <span className="text-xs sm:text-sm text-zinc-500">Dakika</span>
+              <span className="text-xs sm:text-sm text-muted">Dakika</span>
             </div>
           </div>
 
           {/* Action Button */}
           <button 
             onClick={onReview}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all hover:-translate-y-0.5 text-sm sm:text-base"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-default font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all hover:-translate-y-0.5 text-sm sm:text-base"
           >
             <span>Şimdi Tekrar Et</span>
             <span>→</span>

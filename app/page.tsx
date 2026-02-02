@@ -43,8 +43,8 @@ function WeekSelector() {
                 ${week.active 
                 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-default shadow-lg shadow-indigo-500/30' 
                  : week.locked
-                   ? 'bg-zinc-900/50 text-muted cursor-not-allowed'
-                   : 'bg-zinc-900/80 text-muted hover:bg-zinc-800 hover:text-default'
+                   ? 'bg-surface-elevated text-muted cursor-not-allowed'
+                   : 'bg-surface-elevated text-muted hover:bg-zinc-800 hover:text-default'
               }
             `}
           >
@@ -109,7 +109,7 @@ export default function HomePage() {
                         ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
                         : isPast 
                             ? 'text-muted' 
-                          : 'text-zinc-600'
+                          : 'text-muted'
                       }
                     `}>
                       <span className={`
@@ -117,8 +117,8 @@ export default function HomePage() {
                         ${isActive 
                           ? 'bg-indigo-500 text-default' 
                           : isPast 
-                            ? 'bg-zinc-800 text-zinc-400' 
-                              : 'bg-zinc-900 text-muted'
+                            ? 'bg-zinc-800 text-muted' 
+                              : 'bg-surface-elevated text-muted'
                         }
                       `}>
                         {index + 1}
@@ -194,7 +194,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-6 sm:py-8 px-4 sm:px-8">
+      <footer className="border-t border-default py-6 sm:py-8 px-4 sm:px-8">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
           <p className="text-muted text-sm">
             © 2026 Ders Takip. Tüm hakları saklıdır.

@@ -41,10 +41,10 @@ function ActivityItem({ activity }: ActivityItemProps) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <h4 className="font-medium text-white group-hover:text-indigo-400 transition-colors truncate text-sm sm:text-base">
+        <h4 className="font-medium text-default group-hover:text-indigo-400 transition-colors truncate text-sm sm:text-base">
           {activity.title}
         </h4>
-        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-zinc-500 mt-0.5">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted mt-0.5">
           <span>{formatRelativeTime(activity.timestamp)}</span>
           <span>•</span>
           <span>{activity.questionCount} soru</span>
@@ -67,11 +67,11 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   return (
-    <div className="rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
+    <div className="rounded-xl sm:rounded-2xl bg-surface-elevated border border-default overflow-hidden">
       {/* Header */}
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/5 flex items-center justify-between">
-        <h3 className="font-semibold text-white text-sm sm:text-base">Son Aktiviteler</h3>
-        <button className="text-xs sm:text-sm text-zinc-500 hover:text-indigo-400 transition-colors">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-default flex items-center justify-between">
+        <h3 className="font-semibold text-default text-sm sm:text-base">Son Aktiviteler</h3>
+        <button className="text-xs sm:text-sm text-muted hover:text-indigo-400 transition-colors">
           Tümünü Gör →
         </button>
       </div>
@@ -89,7 +89,7 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-3 sm:mb-4">
             <span className="text-xl sm:text-2xl">📋</span>
           </div>
-          <p className="text-zinc-500 text-sm sm:text-base">Henüz bir aktivite yok</p>
+          <p className="text-muted text-sm sm:text-base">Henüz bir aktivite yok</p>
         </div>
       )}
     </div>

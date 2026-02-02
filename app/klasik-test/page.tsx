@@ -161,7 +161,7 @@ function ClassicalTestContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Sorular yükleniyor...</p>
+          <p className="text-muted">Sorular yükleniyor...</p>
         </div>
       </div>
     );
@@ -172,9 +172,9 @@ function ClassicalTestContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
-          <h1 className="text-2xl font-bold text-white mb-4">Hata</h1>
-          <p className="text-zinc-400 mb-6">{error}</p>
-          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">Ana Sayfaya Dön</Link>
+          <h1 className="text-2xl font-bold text-default mb-4">Hata</h1>
+          <p className="text-muted mb-6">{error}</p>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">Ana Sayfaya Dön</Link>
         </div>
       </div>
     );
@@ -185,9 +185,9 @@ function ClassicalTestContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-4xl mx-auto mb-6">✏️</div>
-          <h1 className="text-2xl font-bold text-white mb-4">Klasik Soru Bulunamadı</h1>
-          <p className="text-zinc-400 mb-6">Bu hafta için klasik soru eklenmemiş.</p>
-          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-white">Derse Dön</Link>
+          <h1 className="text-2xl font-bold text-default mb-4">Klasik Soru Bulunamadı</h1>
+          <p className="text-muted mb-6">Bu hafta için klasik soru eklenmemiş.</p>
+          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">Derse Dön</Link>
         </div>
       </div>
     );
@@ -213,23 +213,23 @@ function ClassicalTestContent() {
   return (
     <div className="min-h-screen bg-[#0f0f11]">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-default">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">E</span>
+              <span className="text-xl font-bold text-default">E</span>
             </div>
-            <span className="text-xl font-bold text-white hidden sm:block">Klasik Test</span>
+            <span className="text-xl font-bold text-default hidden sm:block">Klasik Test</span>
           </Link>
 
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="hidden sm:flex items-center gap-3">
-              <span className="text-sm text-zinc-500">Soru {currentIndex + 1} / {questions.length}</span>
+              <span className="text-sm text-muted">Soru {currentIndex + 1} / {questions.length}</span>
               <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
               </div>
             </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 border border-white/10 ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-zinc-400'}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-elevated border border-default ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-muted'}`}>
               <span className="font-mono font-medium">{formatTime(timeLeft)}</span>
             </div>
           </div>
@@ -240,26 +240,26 @@ function ClassicalTestContent() {
       <main className="pt-[100px] pb-20 px-4 sm:px-8">
         <div className="max-w-3xl mx-auto">
           {/* Question Card */}
-          <div className="rounded-2xl bg-zinc-900/80 border border-white/10 p-6 sm:p-8 mb-6">
+          <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 mb-6">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
               <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-sm font-medium">Klasik</span>
-              <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-sm">{currentQuestion.score || 1} Puan</span>
+              <span className="px-3 py-1 rounded-full bg-zinc-800 text-muted text-sm">{currentQuestion.score || 1} Puan</span>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-medium text-white mb-8">
+            <h2 className="text-xl sm:text-2xl font-medium text-default mb-8">
               {currentIndex + 1}. {currentQuestion.question_text}
             </h2>
 
             {/* Answer Input */}
             <div className="space-y-4">
-              <label className="block text-sm text-zinc-400">Cevabınızı yazın:</label>
+              <label className="block text-sm text-muted">Cevabınızı yazın:</label>
               <textarea
                 value={answers[currentQuestion.id] || ''}
                 onChange={(e) => handleAnswer(currentQuestion.id, e.target.value)}
-                className="w-full h-40 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none"
+                className="w-full h-40 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none"
                 placeholder="Cevabınızı buraya yazın..."
               />
-              <p className="text-zinc-500 text-sm">{answers[currentQuestion.id]?.length || 0} karakter</p>
+              <p className="text-muted text-sm">{answers[currentQuestion.id]?.length || 0} karakter</p>
             </div>
           </div>
 
@@ -268,21 +268,21 @@ function ClassicalTestContent() {
             <button
               onClick={handlePrevious}
               disabled={currentIndex === 0}
-              className={`px-6 py-3 rounded-xl font-medium transition-all ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+              className={`px-6 py-3 rounded-xl font-medium transition-all ${currentIndex === 0 ? 'bg-surface-elevated text-muted cursor-not-allowed' : 'bg-surface-elevated text-default hover:bg-zinc-800'}`}
             >
               ← Önceki
             </button>
 
             <button
               onClick={() => setIsFinished(true)}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium hover:shadow-lg transition-all"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-default font-medium hover:shadow-lg transition-all"
             >
               Testi Bitir
             </button>
 
             <button
               onClick={handleNext}
-              className="px-6 py-3 rounded-xl font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg transition-all"
+              className="px-6 py-3 rounded-xl font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-default hover:shadow-lg transition-all"
             >
               {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
             </button>
@@ -310,15 +310,15 @@ function ResultScreen({
       <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
 
       <div className="relative max-w-3xl w-full">
-        <div className="rounded-2xl sm:rounded-3xl bg-zinc-900/80 border border-white/10 p-6 sm:p-12">
+        <div className="rounded-2xl sm:rounded-3xl bg-surface-elevated border border-default p-6 sm:p-12">
           <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl sm:text-4xl mx-auto mb-6 sm:mb-8 shadow-2xl shadow-orange-500/30">
             ✏️
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-3 sm:mb-4 text-center">
+          <h1 className="text-2xl sm:text-4xl font-bold text-default mb-3 sm:mb-4 text-center">
             Test <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Tamamlandı</span>!
           </h1>
-          <p className="text-zinc-400 text-sm sm:text-base mb-6 sm:mb-8 text-center">
+          <p className="text-muted text-sm sm:text-base mb-6 sm:mb-8 text-center">
             Cevaplarınız kaydedildi. Öğretmeniniz değerlendirecek.
           </p>
 
@@ -326,15 +326,15 @@ function ResultScreen({
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
             <div className="p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-zinc-800/50 text-center">
               <p className="text-lg sm:text-3xl font-bold text-emerald-400">{answered}</p>
-              <p className="text-xs sm:text-sm text-zinc-500">Cevaplanan</p>
+              <p className="text-xs sm:text-sm text-muted">Cevaplanan</p>
             </div>
             <div className="p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-zinc-800/50 text-center">
-              <p className="text-lg sm:text-3xl font-bold text-zinc-400">{empty}</p>
-              <p className="text-xs sm:text-sm text-zinc-500">Boş</p>
+              <p className="text-lg sm:text-3xl font-bold text-muted">{empty}</p>
+              <p className="text-xs sm:text-sm text-muted">Boş</p>
             </div>
             <div className="p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-center">
-              <p className="text-lg sm:text-3xl font-bold text-white">{questions.length}</p>
-              <p className="text-xs sm:text-sm text-zinc-400">Toplam</p>
+              <p className="text-lg sm:text-3xl font-bold text-default">{questions.length}</p>
+              <p className="text-xs sm:text-sm text-muted">Toplam</p>
             </div>
           </div>
 
@@ -342,8 +342,8 @@ function ResultScreen({
           <div className="space-y-4 mb-6 sm:mb-8 max-h-96 overflow-y-auto">
             {questions.map((q, i) => (
               <div key={q.id} className="p-4 rounded-xl bg-zinc-800/30 text-left">
-                <p className="text-white font-medium mb-2">{i + 1}. {q.question_text}</p>
-                <p className="text-zinc-400 text-sm mb-2">Senin cevabın: {answers[q.id] || '(Boş)'}</p>
+                <p className="text-default font-medium mb-2">{i + 1}. {q.question_text}</p>
+                <p className="text-muted text-sm mb-2">Senin cevabın: {answers[q.id] || '(Boş)'}</p>
                 <p className="text-emerald-400 text-sm">Model cevap: {q.model_answer}</p>
               </div>
             ))}
@@ -353,13 +353,13 @@ function ResultScreen({
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link
               href="/ders"
-              className="px-6 sm:px-8 py-3 rounded-xl bg-zinc-800 text-white font-medium hover:bg-zinc-700 transition-all text-sm sm:text-base text-center"
+              className="px-6 sm:px-8 py-3 rounded-xl bg-zinc-800 text-default font-medium hover:bg-zinc-700 transition-all text-sm sm:text-base text-center"
             >
               Derse Dön
             </Link>
             <button
               onClick={onRetry}
-              className="px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-sm sm:text-base"
+              className="px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-sm sm:text-base"
             >
               Tekrar Dene
             </button>

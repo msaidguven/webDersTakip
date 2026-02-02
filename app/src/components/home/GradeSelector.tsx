@@ -24,7 +24,7 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div
               key={i}
-              className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-white/5 animate-pulse"
+              className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default animate-pulse"
             >
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-800 mb-3 sm:mb-4" />
               <div className="h-5 sm:h-6 bg-zinc-800 rounded mb-2 w-20 sm:w-24" />
@@ -50,7 +50,7 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
   if (grades.length === 0) {
     return (
       <div className="max-w-6xl mx-auto text-center px-4">
-        <div className="p-6 sm:p-8 rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-default">
+        <div className="p-6 sm:p-8 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default">
           <p className="text-muted text-sm sm:text-base">Henüz sınıf bulunmamaktadır.</p>
         </div>
       </div>
@@ -73,7 +73,7 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
           <button
             key={grade.id}
             onClick={() => onSelect(grade)}
-            className="group relative p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-zinc-900/50 border border-default hover:border-white/20 transition-all duration-300 card-hover text-left"
+            className="group relative p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover text-left"
           >
             {/* Gradient Border on Hover */}
             <div className={`absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br ${grade.color} opacity-0 group-hover:opacity-10 transition-opacity`} />

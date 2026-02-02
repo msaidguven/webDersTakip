@@ -30,15 +30,15 @@ export function MainLayout({ children }: MainLayoutProps) {
             <ThemeToggle />
             {isAuthenticated ? (
               <>
-                <span className="text-zinc-400 text-sm hidden sm:block">
+                <span className="text-muted text-sm hidden sm:block">
                   👋 {user?.email?.split('@')[0]}
                 </span>
-                <Link href="/profil" className="text-zinc-400 hover:text-white transition-colors text-sm">
+                <Link href="/profil" className="text-muted hover:text-default transition-colors text-sm">
                   Profil
                 </Link>
                 <button 
                   onClick={signOut}
-                  className="text-zinc-400 hover:text-red-400 transition-colors text-sm"
+                  className="text-muted hover:text-red-400 transition-colors text-sm"
                 >
                   Çıkış
                 </button>
@@ -47,13 +47,13 @@ export function MainLayout({ children }: MainLayoutProps) {
               <>
                 <Link 
                   href="/login" 
-                  className="text-zinc-400 hover:text-white transition-colors hidden sm:block text-sm"
+                  className="text-muted hover:text-default transition-colors hidden sm:block text-sm"
                 >
                   Giriş Yap
                 </Link>
                 <Link 
                   href="/register"
-                  className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
+                  className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
                 >
                   Kayıt Ol
                 </Link>

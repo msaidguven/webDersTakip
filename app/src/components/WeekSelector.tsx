@@ -37,7 +37,7 @@ export function WeekSelector({ weeks, selectedWeekId, onSelectWeek, onViewCalend
               ${week.status === 'locked' 
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' 
                 : selectedWeekId === week.id
-                  ? 'bg-indigo-500 text-white scale-105 shadow-lg shadow-indigo-500/40'
+                  ? 'bg-indigo-500 text-default scale-105 shadow-lg shadow-indigo-500/40'
                   : 'bg-white text-slate-700 border-2 border-transparent hover:border-indigo-500 hover:-translate-y-0.5 shadow-sm'
               }
             `}

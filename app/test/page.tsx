@@ -155,7 +155,7 @@ function TestRouterContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Test turleri kontrol ediliyor...</p>
+          <p className="text-muted">Test turleri kontrol ediliyor...</p>
         </div>
       </div>
     );
@@ -166,9 +166,9 @@ function TestRouterContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
-          <h1 className="text-2xl font-bold text-white mb-4">Hata</h1>
-          <p className="text-zinc-400 mb-6">{error}</p>
-          <button onClick={() => window.history.back()} className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
+          <h1 className="text-2xl font-bold text-default mb-4">Hata</h1>
+          <p className="text-muted mb-6">{error}</p>
+          <button onClick={() => window.history.back()} className="px-6 py-3 rounded-xl bg-indigo-500 text-default">
             Geri Don
           </button>
         </div>
@@ -181,9 +181,9 @@ function TestRouterContent() {
       <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-4xl mx-auto mb-6">📝</div>
-          <h1 className="text-2xl font-bold text-white mb-4">Test Bulunamadi</h1>
-          <p className="text-zinc-400 mb-6">Bu ders ve hafta icin hicbir soru tipi bulunmuyor.</p>
-          <button onClick={() => window.history.back()} className="px-6 py-3 rounded-xl bg-indigo-500 text-white">
+          <h1 className="text-2xl font-bold text-default mb-4">Test Bulunamadi</h1>
+          <p className="text-muted mb-6">Bu ders ve hafta icin hicbir soru tipi bulunmuyor.</p>
+          <button onClick={() => window.history.back()} className="px-6 py-3 rounded-xl bg-indigo-500 text-default">
             Derse Don
           </button>
         </div>
@@ -199,8 +199,8 @@ function TestRouterContent() {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-4xl mx-auto mb-6">
             🎯
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Test Secimi</h1>
-          <p className="text-zinc-400">Bu hafta icin {availableTypes.length} farkli test turu mevcut</p>
+          <h1 className="text-3xl font-bold text-default mb-2">Test Secimi</h1>
+          <p className="text-muted">Bu hafta icin {availableTypes.length} farkli test turu mevcut</p>
         </div>
 
         <div className="grid gap-4">
@@ -208,7 +208,7 @@ function TestRouterContent() {
             <a
               key={type.page}
               href={`/${type.page}?lesson_id=${lessonId}&week=${week}`}
-              className="block rounded-2xl bg-zinc-900/50 border border-white/5 p-6 hover:bg-zinc-800/50 transition-all group"
+              className="block rounded-2xl bg-surface-elevated border border-default p-6 hover:bg-zinc-800/50 transition-all group"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -219,13 +219,13 @@ function TestRouterContent() {
                     {type.page === 'bosluk-test' && '📝'}
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-white group-hover:text-indigo-400 transition-colors">
+                    <h3 className="text-xl font-semibold text-default group-hover:text-indigo-400 transition-colors">
                       {type.type}
                     </h3>
-                    <p className="text-zinc-500">{type.count} soru</p>
+                    <p className="text-muted">{type.count} soru</p>
                   </div>
                 </div>
-                <div className="text-zinc-600 group-hover:text-white transition-colors">
+                <div className="text-muted group-hover:text-default transition-colors">
                   →
                 </div>
               </div>
@@ -235,7 +235,7 @@ function TestRouterContent() {
 
         <button 
           onClick={() => window.history.back()}
-          className="w-full mt-6 py-3 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          className="w-full mt-6 py-3 rounded-xl bg-zinc-800 text-muted hover:text-default transition-colors"
         >
           ← Vazgec
         </button>

@@ -73,15 +73,15 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#0f0f11]">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-default">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-xl font-bold text-white">E</span>
+              <span className="text-xl font-bold text-default">E</span>
             </div>
-            <span className="text-xl font-bold text-white">Admin Panel</span>
+            <span className="text-xl font-bold text-default">Admin Panel</span>
           </Link>
-          <Link href="/" className="text-zinc-400 hover:text-white">
+          <Link href="/" className="text-muted hover:text-default">
             Siteye Dön →
           </Link>
         </div>
@@ -123,8 +123,8 @@ export default function AdminPage() {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-6 py-3 rounded-xl font-medium transition-all ${
                   activeTab === tab.id
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-zinc-900/50 text-zinc-400 hover:text-white'
+                    ? 'bg-indigo-500 text-default'
+                    : 'bg-surface-elevated text-muted hover:text-default'
                 }`}
               >
                 {tab.label}
@@ -144,20 +144,20 @@ export default function AdminPage() {
 
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) {
   return (
-    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6">
+    <div className="rounded-2xl bg-surface-elevated border border-default p-6">
       <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-xl mb-4`}>
         {icon}
       </div>
-      <p className="text-3xl font-bold text-white">{value.toLocaleString()}</p>
-      <p className="text-zinc-500">{title}</p>
+      <p className="text-3xl font-bold text-default">{value.toLocaleString()}</p>
+      <p className="text-muted">{title}</p>
     </div>
   );
 }
 
 function OverviewTab() {
   return (
-    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-6">
-      <h2 className="text-xl font-semibold text-white mb-4">Hızlı İşlemler</h2>
+    <div className="rounded-2xl bg-surface-elevated border border-default p-6">
+      <h2 className="text-xl font-semibold text-default mb-4">Hızlı İşlemler</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Yeni Soru Ekle', href: '/admin/questions/new', color: 'from-blue-500 to-cyan-500' },
@@ -168,7 +168,7 @@ function OverviewTab() {
           <Link
             key={item.label}
             href={item.href}
-            className={`p-4 rounded-xl bg-gradient-to-r ${item.color} text-white font-medium hover:shadow-lg transition-all`}
+            className={`p-4 rounded-xl bg-gradient-to-r ${item.color} text-default font-medium hover:shadow-lg transition-all`}
           >
             {item.label}
           </Link>
@@ -198,15 +198,15 @@ function QuestionsTab() {
     setLoading(false);
   }
 
-  if (loading) return <div className="text-zinc-400">Yükleniyor...</div>;
+  if (loading) return <div className="text-muted">Yükleniyor...</div>;
 
   return (
-    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
-      <div className="p-4 border-b border-white/5 flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-white">Son Sorular</h2>
+    <div className="rounded-2xl bg-surface-elevated border border-default overflow-hidden">
+      <div className="p-4 border-b border-default flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-default">Son Sorular</h2>
         <Link
           href="/admin/questions/new"
-          className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-sm hover:bg-indigo-600"
+          className="px-4 py-2 rounded-lg bg-indigo-500 text-default text-sm hover:bg-indigo-600"
         >
           + Yeni Soru
         </Link>
@@ -216,12 +216,12 @@ function QuestionsTab() {
         {questions.map((q) => (
           <div key={q.id} className="p-4 flex items-center justify-between hover:bg-white/5">
             <div className="flex-1">
-              <p className="text-white truncate">{q.question_text}</p>
-              <p className="text-zinc-500 text-sm">Zorluk: {q.difficulty}</p>
+              <p className="text-default truncate">{q.question_text}</p>
+              <p className="text-muted text-sm">Zorluk: {q.difficulty}</p>
             </div>
             <Link
               href={`/admin/questions/${q.id}`}
-              className="px-3 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:text-white"
+              className="px-3 py-1 rounded-lg bg-zinc-800 text-muted text-sm hover:text-default"
             >
               Düzenle
             </Link>
@@ -252,15 +252,15 @@ function ContentsTab() {
     setLoading(false);
   }
 
-  if (loading) return <div className="text-zinc-400">Yükleniyor...</div>;
+  if (loading) return <div className="text-muted">Yükleniyor...</div>;
 
   return (
-    <div className="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
-      <div className="p-4 border-b border-white/5 flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-white">Son İçerikler</h2>
+    <div className="rounded-2xl bg-surface-elevated border border-default overflow-hidden">
+      <div className="p-4 border-b border-default flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-default">Son İçerikler</h2>
         <Link
           href="/admin/contents/new"
-          className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm hover:bg-emerald-600"
+          className="px-4 py-2 rounded-lg bg-emerald-500 text-default text-sm hover:bg-emerald-600"
         >
           + Yeni İçerik
         </Link>
@@ -270,12 +270,12 @@ function ContentsTab() {
         {contents.map((c) => (
           <div key={c.id} className="p-4 flex items-center justify-between hover:bg-white/5">
             <div className="flex-1">
-              <p className="text-white">{c.title}</p>
-              <p className="text-zinc-500 text-sm">{c.topics?.title}</p>
+              <p className="text-default">{c.title}</p>
+              <p className="text-muted text-sm">{c.topics?.title}</p>
             </div>
             <Link
               href={`/admin/contents/${c.id}`}
-              className="px-3 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:text-white"
+              className="px-3 py-1 rounded-lg bg-zinc-800 text-muted text-sm hover:text-default"
             >
               Düzenle
             </Link>

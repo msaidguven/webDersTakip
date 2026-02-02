@@ -58,10 +58,10 @@ export default function PanelPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 relative">
           {/* Welcome Section */}
           <div className="mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-default mb-2">
               Tekrar Hoşgeldin, <span className="gradient-text">Ali</span>! 👋
             </h1>
-            <p className="text-zinc-400 text-sm sm:text-base lg:text-lg">
+            <p className="text-muted text-sm sm:text-base lg:text-lg">
               Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
             </p>
           </div>
@@ -86,15 +86,15 @@ export default function PanelPage() {
               {/* Units Section */}
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-                  <h2 className="text-lg sm:text-xl font-semibold text-white">Üniteler</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-default">Üniteler</h2>
                   <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-1 px-1 sm:mx-0 sm:px-0">
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
+                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
                       Tümü
                     </button>
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
+                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
                       Devam Edenler
                     </button>
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
+                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
                       Tamamlananlar
                     </button>
                   </div>
@@ -127,11 +127,11 @@ export default function PanelPage() {
           </div>
 
           {/* Quote/Footer Section */}
-          <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-white/5 p-4 sm:p-6 text-center">
-            <p className="text-zinc-400 text-sm sm:text-base italic">
+          <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-default p-4 sm:p-6 text-center">
+            <p className="text-muted text-sm sm:text-base italic">
               "Öğrenme bir yolculuktur, bir varış noktası değil."
             </p>
-            <p className="text-zinc-500 text-xs sm:text-sm mt-2">— Benjamin Franklin</p>
+            <p className="text-muted text-xs sm:text-sm mt-2">— Benjamin Franklin</p>
           </div>
         </main>
       </div>

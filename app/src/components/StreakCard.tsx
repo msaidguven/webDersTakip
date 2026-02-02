@@ -12,7 +12,7 @@ export function StreakCard({ user }: StreakCardProps) {
   const progressPercent = (user.dailyProgress / user.dailyGoal) * 100;
   
   return (
-    <div className="relative bg-gradient-to-br from-indigo-500 via-violet-600 to-purple-700 rounded-2xl p-6 text-white shadow-xl overflow-hidden">
+    <div className="relative bg-gradient-to-br from-indigo-500 via-violet-600 to-purple-700 rounded-2xl p-6 text-default shadow-xl overflow-hidden">
       {/* Decorative circle */}
       <div className="absolute -top-1/2 -right-20 w-48 h-48 bg-white/10 rounded-full" />
       
@@ -29,7 +29,7 @@ export function StreakCard({ user }: StreakCardProps) {
           </div>
         </div>
         <div className="text-3xl animate-pulse">
-          <Icon name="fire" className="text-white" size={40} />
+          <Icon name="fire" className="text-default" size={40} />
         </div>
       </div>
       
