@@ -90,6 +90,9 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
             activeTab: 'outcomes',
           });
         }
+
+        // Kazanımlar yüklendikten sonra içerikleri arka planda yükle
+        loadContentsInBackground(lId);
       } catch (err: any) {
         if (!isCancelled) {
           setState(prev => ({
@@ -98,6 +101,45 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
             error: err.message || 'Veriler yuklenirken bir hata olustu',
           }));
         }
+      }
+    }
+
+    async function loadContentsInBackground(lId: number) {
+      try {
+        const { data: weekContents } = await supabase
+          .from('topic_content_weeks')
+          .select('topic_content_id')
+          .eq('curriculum_week', CURRENT_WEEK);
+
+        let loadedContents: TopicContent[] = [];
+        if (weekContents?.length) {
+          const contentIds = weekContents.map((w: any) => w.topic_content_id);
+          const { data: contentsData } = await supabase
+            .from('topic_contents')
+            .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
+            .in('id', contentIds)
+            .order('order_no');
+
+          loadedContents = (contentsData || [])
+            .filter((c: any) => c.topics?.units?.lesson_id === lId)
+            .map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              content: c.content,
+              orderNo: c.order_no,
+            }));
+        }
+
+        setContents(loadedContents);
+        setContentsLoaded(true);
+        
+        // State'i güncelle (arka planda)
+        setState(prev => ({
+          ...prev,
+          data: prev.data ? { ...prev.data, contents: loadedContents } : null,
+        }));
+      } catch (err) {
+        console.error('Arka plan içerik yükleme hatası:', err);
       }
     }
 
