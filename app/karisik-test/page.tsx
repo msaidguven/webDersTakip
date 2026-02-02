@@ -86,16 +86,55 @@ async function fetchMixedQuestions(
   if (!usages?.length) return [];
   const questionIds = usages.map(u => u.question_id);
 
-  // 4. Soruları ve tiplerini çek
+  // 4. Soruları çek (tip ID'si önemli değil, ilişkili tabloya göre belirleyeceğiz)
   const { data: questions } = await supabase
     .from('questions')
-    .select('id, question_text, difficulty, score, question_type_id')
+    .select('id, question_text, difficulty, score')
     .in('id', questionIds);
 
   if (!questions?.length) return [];
 
+  // Tüm soruların detaylarını paralel çek
   const result: Question[] = [];
 
+  // Her tip için toplu sorgu yap
+  const [
+    { data: allChoices },
+    { data: allClassical },
+    { data: allBlankOptions },
+    { data: allMatchingPairs }
+  ] = await Promise.all([
+    supabase.from('question_choices').select('*').in('question_id', questionIds),
+    supabase.from('question_classical').select('*').in('question_id', questionIds),
+    supabase.from('question_blank_options').select('*').in('question_id', questionIds),
+    supabase.from('question_matching_pairs').select('*').in('question_id', questionIds)
+  ]);
+
+  // Soruları grupla
+  const choicesByQuestion: Record<number, Choice[]> = {};
+  allChoices?.forEach((c: any) => {
+    if (!choicesByQuestion[c.question_id]) choicesByQuestion[c.question_id] = [];
+    choicesByQuestion[c.question_id].push(c);
+  });
+
+  const classicalByQuestion: Record<number, string> = {};
+  allClassical?.forEach((c: any) => {
+    classicalByQuestion[c.question_id] = c.model_answer;
+  });
+
+  const blankByQuestion: Record<number, BlankOption[]> = {};
+  allBlankOptions?.forEach((o: any) => {
+    if (!blankByQuestion[o.question_id]) blankByQuestion[o.question_id] = [];
+    blankByQuestion[o.question_id].push(o);
+  });
+
+  const matchingByQuestion: Record<number, MatchingPair[]> = {};
+  allMatchingPairs?.forEach((p: any) => {
+    if (!matchingByQuestion[p.question_id]) matchingByQuestion[p.question_id] = [];
+    matchingByQuestion[p.question_id].push(p);
+  });
+
+  // Her soru için tipini belirle (hangi tabloya bağlıysa)
   for (const q of questions) {
     const baseQuestion = {
       id: q.id,
@@ -104,55 +143,30 @@ async function fetchMixedQuestions(
       score: q.score,
     };
 
-    // Tip ID'ye göre soru detaylarını çek
-    if (q.question_type_id === 1) {
-      // Çoktan seçmeli
-      const { data: choices } = await supabase
-        .from('question_choices')
-        .select('id, choice_text, is_correct')
-        .eq('question_id', q.id);
-      
+    // Hangi tabloda varsa o tip
+    if (choicesByQuestion[q.id]) {
       result.push({
         ...baseQuestion,
-        type: 'multiple_choice',
-        choices: choices || []
+        type: 'multiple_choice' as const,
+        choices: choicesByQuestion[q.id]
       });
-    } else if (q.question_type_id === 2) {
-      // Klasik
-      const { data: classical } = await supabase
-        .from('question_classical')
-        .select('model_answer')
-        .eq('question_id', q.id)
-        .single();
-      
+    } else if (blankByQuestion[q.id]) {
       result.push({
         ...baseQuestion,
-        type: 'classical',
-        modelAnswer: classical?.model_answer || ''
+        type: 'blank' as const,
+        blankOptions: blankByQuestion[q.id]
       });
-    } else if (q.question_type_id === 3) {
-      // Boşluk
-      const { data: options } = await supabase
-        .from('question_blank_options')
-        .select('id, option_text, is_correct')
-        .eq('question_id', q.id);
-      
+    } else if (matchingByQuestion[q.id]) {
       result.push({
         ...baseQuestion,
-        type: 'blank',
-        blankOptions: options || []
+        type: 'matching' as const,
+        matchingPairs: matchingByQuestion[q.id]
       });
-    } else if (q.question_type_id === 4) {
-      // Eşleştirme
-      const { data: pairs } = await supabase
-        .from('question_matching_pairs')
-        .select('id, left_text, right_text')
-        .eq('question_id', q.id);
-      
+    } else if (classicalByQuestion[q.id]) {
       result.push({
         ...baseQuestion,
-        type: 'matching',
-        matchingPairs: pairs || []
+        type: 'classical' as const,
+        modelAnswer: classicalByQuestion[q.id]
       });
     }
   }
