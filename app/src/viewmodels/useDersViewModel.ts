@@ -66,30 +66,57 @@ export function useDersViewModel(
   }, [supabase]);
 
   const fetchContents = useCallback(async (lId: number): Promise<TopicContent[]> => {
-    const { data: weekContents } = await supabase
+    console.log('[fetchContents] lessonId:', lId, 'week:', CURRENT_WEEK);
+    
+    const { data: weekContents, error: weekError } = await supabase
       .from('topic_content_weeks')
       .select('topic_content_id')
       .eq('curriculum_week', CURRENT_WEEK);
 
-    if (!weekContents?.length) return [];
+    console.log('[fetchContents] weekContents:', weekContents, 'error:', weekError);
 
-    const { data } = await supabase
+    if (weekError) {
+      console.error('[fetchContents] weekError:', weekError);
+      return [];
+    }
+
+    if (!weekContents?.length) {
+      console.log('[fetchContents] No week contents found');
+      return [];
+    }
+
+    const contentIds = weekContents.map((w: any) => w.topic_content_id);
+    console.log('[fetchContents] contentIds:', contentIds);
+
+    const { data, error } = await supabase
       .from('topic_contents')
       .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
-      .in('id', weekContents.map((w: any) => w.topic_content_id))
+      .in('id', contentIds)
       .order('order_no');
 
-    return (data || [])
-      .filter((c: any) => c.topics?.units?.lesson_id === lId)
-      .map((c: any) => ({
-        id: c.id,
-        title: c.title,
-        content: c.content,
-        orderNo: c.order_no,
-      }));
+    console.log('[fetchContents] topic_contents data:', data, 'error:', error);
+
+    if (error) {
+      console.error('[fetchContents] contentError:', error);
+      return [];
+    }
+
+    const filtered = (data || [])
+      .filter((c: any) => c.topics?.units?.lesson_id === lId);
+    
+    console.log('[fetchContents] filtered for lesson:', filtered);
+
+    return filtered.map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      content: c.content,
+      orderNo: c.order_no,
+    }));
   }, [supabase]);
 
   const loadData = useCallback(async () => {
+    console.log('[loadData] gradeId:', gradeId, 'lessonId:', lessonId);
+    
     if (!gradeId || !lessonId) {
       setState(prev => ({
         ...prev,
@@ -108,12 +135,17 @@ export function useDersViewModel(
         fetchContents(parseInt(lessonId)),
       ]);
 
+      console.log('[loadData] names:', names);
+      console.log('[loadData] outcomes:', outcomes);
+      console.log('[loadData] contents:', contents);
+
       setState(prev => ({
         ...prev,
         data: { ...names, outcomes, contents },
         isLoading: false,
       }));
     } catch (err: any) {
+      console.error('[loadData] Error:', err);
       setState(prev => ({
         ...prev,
         isLoading: false,
