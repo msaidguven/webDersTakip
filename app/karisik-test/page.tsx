@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { useAuth } from '../src/context/AuthContext';
 
 const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
@@ -179,6 +180,7 @@ function MixedTestContent() {
   const searchParams = useSearchParams();
   const lessonId = searchParams.get('lesson_id');
   const week = searchParams.get('week');
+  const { user, isAuthenticated, supabase: authSupabase } = useAuth();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -186,6 +188,7 @@ function MixedTestContent() {
   const [matchingState, setMatchingState] = useState<Record<number, Record<string, string>>>({});
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState<Record<number, boolean>>({});
+  const [resultsSaved, setResultsSaved] = useState(false);
   const [timeLeft, setTimeLeft] = useState(3600);
   const [isFinished, setIsFinished] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -302,6 +305,83 @@ function MixedTestContent() {
     };
   }, [questions, answers]);
 
+  // Test sonuçlarını kaydet (sadece giriş yapmış kullanıcılar için)
+  useEffect(() => {
+    if (!isFinished || !isAuthenticated || resultsSaved || !user) return;
+
+    const saveResults = async () => {
+      try {
+        const result = calculateResult();
+        
+        // test_sessions tablosuna kaydet
+        const { data: sessionData, error: sessionError } = await authSupabase
+          .from('test_sessions')
+          .insert({
+            user_id: user.id,
+            lesson_id: lessonId ? parseInt(lessonId) : null,
+            grade_id: null, // Gerekirse URL'den alınabilir
+            completed_at: new Date().toISOString(),
+            settings: {
+              week: week ? parseInt(week) : null,
+              test_type: 'mixed',
+              total_questions: result.total,
+              correct_count: result.correct,
+              wrong_count: result.wrong,
+              percentage: result.percentage,
+              score: result.score,
+              total_possible: result.totalPossible
+            }
+          })
+          .select('id')
+          .single();
+
+        if (sessionError) {
+          console.error('Test session kaydetme hatası:', sessionError);
+          return;
+        }
+
+        // Her sorunun cevabını kaydet
+        const sessionAnswers = questions.map((q, idx) => {
+          let isCorrect = false;
+          const answer = answers[q.id];
+
+          if (q.type === 'multiple_choice' && q.choices) {
+            isCorrect = q.choices.find(c => c.id === answer)?.is_correct || false;
+          } else if (q.type === 'blank' && q.blankOptions) {
+            isCorrect = q.blankOptions.find(o => o.id === answer)?.is_correct || false;
+          } else if (q.type === 'matching' && q.matchingPairs) {
+            const userMatches = answer || {};
+            isCorrect = q.matchingPairs.every(p => userMatches[p.left_text] === p.right_text);
+          }
+
+          return {
+            test_session_id: sessionData.id,
+            question_id: q.id,
+            user_id: user.id,
+            selected_option_id: q.type === 'multiple_choice' || q.type === 'blank' ? answer : null,
+            user_answer_text: q.type === 'classical' ? answer : q.type === 'matching' ? JSON.stringify(answer) : null,
+            is_correct: isCorrect,
+            order_no: idx + 1
+          };
+        });
+
+        const { error: answersError } = await authSupabase
+          .from('test_session_answers')
+          .insert(sessionAnswers);
+
+        if (answersError) {
+          console.error('Test answers kaydetme hatası:', answersError);
+        } else {
+          setResultsSaved(true);
+        }
+      } catch (err) {
+        console.error('Sonuç kaydetme hatası:', err);
+      }
+    };
+
+    saveResults();
+  }, [isFinished, isAuthenticated, resultsSaved, user, lessonId, week, questions, answers, calculateResult, authSupabase]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -389,6 +469,25 @@ function MixedTestContent() {
           </div>
 
           <p className="text-zinc-400 mb-6">Puan: {result.score} / {result.totalPossible}</p>
+
+          {/* Anonim kullanıcı bilgisi */}
+          {!isAuthenticated && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <p className="text-amber-400 text-sm mb-2">💡 İstatistiklerini kaydetmek için giriş yap</p>
+              <p className="text-zinc-500 text-xs">Test sonuçların sadece senin için kaydedilsin ve ilerlemeni takip et.</p>
+              <div className="flex justify-center gap-3 mt-3">
+                <Link href="/login" className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-sm hover:bg-amber-500/30 transition-colors">Giriş Yap</Link>
+                <Link href="/register" className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:text-white transition-colors">Kayıt Ol</Link>
+              </div>
+            </div>
+          )}
+
+          {/* Kaydedildi bilgisi */}
+          {isAuthenticated && resultsSaved && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-emerald-400 text-sm">✓ Sonuçların başarıyla kaydedildi!</p>
+            </div>
+          )}
 
           <div className="flex justify-center gap-4">
             <Link href="/ders" className="px-6 py-3 rounded-xl bg-zinc-800 text-white">Derse Dön</Link>
