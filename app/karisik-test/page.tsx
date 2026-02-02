@@ -836,25 +836,25 @@ function MixedTestContent() {
           </div>
 
           {/* Navigation */}
-          <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4">
+          <div className="flex flex-row justify-between gap-2 sm:gap-4">
             <button
               onClick={handlePrevious}
               disabled={currentIndex === 0}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white active:bg-zinc-800'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base ${currentIndex === 0 ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed' : 'bg-zinc-900 text-white active:bg-zinc-800'}`}
             >
               ← Önceki
             </button>
 
             <button
               onClick={() => setIsFinished(true)}
-              className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium text-sm sm:text-base order-first sm:order-none"
+              className="flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium text-sm sm:text-base"
             >
               Testi Bitir
             </button>
 
             <button
               onClick={handleNext}
-              className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm sm:text-base"
+              className="flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm sm:text-base"
             >
               {currentIndex === questions.length - 1 ? 'Testi Bitir' : 'Sonraki →'}
             </button>
