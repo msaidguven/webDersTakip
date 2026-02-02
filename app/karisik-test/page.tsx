@@ -184,6 +184,7 @@ function MixedTestContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [matchingState, setMatchingState] = useState<Record<number, Record<string, string>>>({});
+  const [showFeedback, setShowFeedback] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(3600);
   const [isFinished, setIsFinished] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -449,77 +450,168 @@ function MixedTestContent() {
             {/* Multiple Choice */}
             {q.type === 'multiple_choice' && q.choices && (
               <div className="space-y-3">
-                {q.choices.map((choice, idx) => (
-                  <button
-                    key={choice.id}
-                    onClick={() => handleAnswer(q.id, choice.id)}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                      answers[q.id] === choice.id
-                        ? 'border-indigo-500 bg-indigo-500/10'
-                        : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold ${
-                        answers[q.id] === choice.id
-                          ? 'border-indigo-500 bg-indigo-500 text-white'
-                          : 'border-zinc-700 text-zinc-500'
-                      }`}>
-                        {String.fromCharCode(65 + idx)}
+                {q.choices.map((choice, idx) => {
+                  const isSelected = answers[q.id] === choice.id;
+                  const showResult = showFeedback[q.id];
+                  const isCorrect = choice.is_correct;
+                  
+                  return (
+                    <button
+                      key={choice.id}
+                      onClick={() => {
+                        handleAnswer(q.id, choice.id);
+                        setShowFeedback(prev => ({ ...prev, [q.id]: true }));
+                      }}
+                      disabled={showResult}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                        showResult
+                          ? isCorrect
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : isSelected
+                              ? 'border-red-500 bg-red-500/10'
+                              : 'border-zinc-800 bg-zinc-900'
+                          : isSelected
+                            ? 'border-indigo-500 bg-indigo-500/10'
+                            : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-semibold ${
+                          showResult
+                            ? isCorrect
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
+                              : isSelected
+                                ? 'border-red-500 bg-red-500 text-white'
+                                : 'border-zinc-700 text-zinc-500'
+                            : isSelected
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-zinc-700 text-zinc-500'
+                        }`}>
+                          {showResult && isCorrect && '✓'}
+                          {showResult && !isCorrect && isSelected && '✗'}
+                          {!showResult && String.fromCharCode(65 + idx)}
+                        </div>
+                        <span className={
+                          showResult
+                            ? isCorrect
+                              ? 'text-emerald-400'
+                              : isSelected
+                                ? 'text-red-400'
+                                : 'text-zinc-500'
+                            : isSelected
+                              ? 'text-white'
+                              : 'text-zinc-300'
+                        }>
+                          {choice.choice_text}
+                        </span>
                       </div>
-                      <span className={answers[q.id] === choice.id ? 'text-white' : 'text-zinc-300'}>
-                        {choice.choice_text}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             {/* Blank */}
             {q.type === 'blank' && q.blankOptions && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {q.blankOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => handleAnswer(q.id, option.id)}
-                    className={`p-4 rounded-xl border-2 text-center font-medium transition-all ${
-                      answers[q.id] === option.id
-                        ? 'border-emerald-500 bg-emerald-500/10 text-white'
-                        : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
-                    }`}
-                  >
-                    {option.option_text}
-                  </button>
-                ))}
+                {q.blankOptions.map((option) => {
+                  const isSelected = answers[q.id] === option.id;
+                  const showResult = showFeedback[q.id];
+                  const isCorrect = option.is_correct;
+                  
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        handleAnswer(q.id, option.id);
+                        setShowFeedback(prev => ({ ...prev, [q.id]: true }));
+                      }}
+                      disabled={showResult}
+                      className={`p-4 rounded-xl border-2 text-center font-medium transition-all ${
+                        showResult
+                          ? isCorrect
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                            : isSelected
+                              ? 'border-red-500 bg-red-500/10 text-red-400'
+                              : 'border-zinc-800 bg-zinc-900 text-zinc-500'
+                          : isSelected
+                            ? 'border-emerald-500 bg-emerald-500/10 text-white'
+                            : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
+                      }`}
+                    >
+                      {showResult && isCorrect && '✓ '}
+                      {showResult && !isCorrect && isSelected && '✗ '}
+                      {option.option_text}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             {/* Matching - Drag Drop */}
             {q.type === 'matching' && q.matchingPairs && (
               <div className="space-y-6">
+                {/* Check Button */}
+                {Object.keys(matchingState[q.id] || {}).length === q.matchingPairs.length && !showFeedback[q.id] && (
+                  <button
+                    onClick={() => setShowFeedback(prev => ({ ...prev, [q.id]: true }))}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium"
+                  >
+                    Eşleştirmeleri Kontrol Et
+                  </button>
+                )}
+
+                {/* Feedback */}
+                {showFeedback[q.id] && (
+                  <div className={`p-4 rounded-xl text-center ${
+                    q.matchingPairs.every(p => matchingState[q.id]?.[p.left_text] === p.right_text)
+                      ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
+                      : 'bg-red-500/20 border border-red-500/30 text-red-400'
+                  }`}>
+                    {q.matchingPairs.every(p => matchingState[q.id]?.[p.left_text] === p.right_text)
+                      ? '✓ Tüm eşleştirmeler doğru!'
+                      : '✗ Bazı eşleştirmeler yanlış'}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Left Items */}
                   <div className="space-y-3">
                     <p className="text-zinc-400 text-sm mb-2">Sürüklenecekler:</p>
                     {q.matchingPairs.map((pair) => {
                       const isMatched = matchingState[q.id]?.[pair.left_text];
+                      const showResult = showFeedback[q.id];
+                      const isCorrect = isMatched === pair.right_text;
+                      
                       return (
                         <div
                           key={pair.id}
-                          draggable={!isMatched}
+                          draggable={!isMatched && !showResult}
                           onDragStart={(e) => e.dataTransfer.setData('text/plain', pair.left_text)}
                           className={`p-4 rounded-xl border-2 transition-all ${
-                            isMatched
-                              ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
-                              : 'bg-zinc-800 border-zinc-700 cursor-move hover:border-purple-500'
+                            showResult
+                              ? isCorrect
+                                ? 'bg-emerald-500/20 border-emerald-500/50'
+                                : 'bg-red-500/20 border-red-500/50'
+                              : isMatched
+                                ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
+                                : 'bg-zinc-800 border-zinc-700 cursor-move hover:border-purple-500'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className={isMatched ? 'text-purple-400' : 'text-white'}>
+                            <span className={
+                              showResult
+                                ? isCorrect
+                                  ? 'text-emerald-400'
+                                  : 'text-red-400'
+                                : isMatched
+                                  ? 'text-purple-400'
+                                  : 'text-white'
+                            }>
+                              {showResult && (isCorrect ? '✓ ' : '✗ ')}
                               {pair.left_text}
                             </span>
-                            {isMatched && (
+                            {isMatched && !showResult && (
                               <span className="text-purple-400 text-sm">→ {isMatched}</span>
                             )}
                           </div>
@@ -535,6 +627,8 @@ function MixedTestContent() {
                       const matchedLeft = Object.entries(matchingState[q.id] || {}).find(
                         ([_, right]) => right === pair.right_text
                       );
+                      const showResult = showFeedback[q.id];
+                      const isCorrect = matchedLeft?.[0] && q.matchingPairs.find(p => p.left_text === matchedLeft[0])?.right_text === pair.right_text;
 
                       return (
                         <div
@@ -546,14 +640,22 @@ function MixedTestContent() {
                             handleMatching(q.id, leftText, pair.right_text);
                           }}
                           className={`p-4 rounded-xl border-2 border-dashed transition-all min-h-[60px] flex items-center ${
-                            matchedLeft
-                              ? 'bg-indigo-500/20 border-indigo-500'
-                              : 'bg-zinc-900/50 border-zinc-700'
+                            showResult
+                              ? isCorrect
+                                ? 'bg-emerald-500/20 border-emerald-500'
+                                : matchedLeft
+                                  ? 'bg-red-500/20 border-red-500'
+                                  : 'bg-zinc-900/50 border-zinc-700'
+                              : matchedLeft
+                                ? 'bg-indigo-500/20 border-indigo-500'
+                                : 'bg-zinc-900/50 border-zinc-700'
                           }`}
                         >
                           {matchedLeft ? (
                             <div className="flex items-center justify-between w-full">
-                              <span className="text-indigo-400">{matchedLeft[0]}</span>
+                              <span className={showResult ? (isCorrect ? 'text-emerald-400' : 'text-red-400') : 'text-indigo-400'}>
+                                {matchedLeft[0]}
+                              </span>
                               <span className="text-zinc-400">=</span>
                               <span className="text-white">{pair.right_text}</span>
                             </div>
@@ -571,6 +673,7 @@ function MixedTestContent() {
                   onClick={() => {
                     setMatchingState(prev => ({ ...prev, [q.id]: {} }));
                     setAnswers(prev => ({ ...prev, [q.id]: {} }));
+                    setShowFeedback(prev => ({ ...prev, [q.id]: false }));
                   }}
                   className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm"
                 >
@@ -589,6 +692,24 @@ function MixedTestContent() {
                   placeholder="Cevabınızı buraya yazın..."
                 />
                 <p className="text-zinc-500 text-sm">{(answers[q.id] || '').length} karakter</p>
+                
+                {/* Check Button */}
+                {(answers[q.id] || '').length > 10 && !showFeedback[q.id] && (
+                  <button
+                    onClick={() => setShowFeedback(prev => ({ ...prev, [q.id]: true }))}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium"
+                  >
+                    Cevabımı Kontrol Et
+                  </button>
+                )}
+                
+                {/* Model Answer */}
+                {showFeedback[q.id] && (
+                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                    <p className="text-blue-400 font-medium mb-2">Model Cevap:</p>
+                    <p className="text-zinc-300">{q.modelAnswer}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
