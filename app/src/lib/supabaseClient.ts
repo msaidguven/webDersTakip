@@ -8,15 +8,8 @@ export const createSupabaseBrowserClient = (): SupabaseClient | null => {
   let supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
   let usedFallback = false;
 
-  // Ortam değişkeninden gelen URL'nin geçerli olup olmadığını kontrol et
-  try {
-    if (supabaseUrl) {
-      new URL(supabaseUrl);
-    } else {
-      // URL tanımsız, null veya boş ise hatayı yakalayıp yedeği kullan
-      throw new Error("URL is falsy");
-    }
-  } catch (e) {
+  // URL kontrolü: Tanımsızsa, string değilse veya http ile başlamıyorsa yedeği kullan
+  if (!supabaseUrl || typeof supabaseUrl !== 'string' || !supabaseUrl.startsWith('http')) {
     supabaseUrl = fallbackUrl;
     usedFallback = true;
   }
@@ -31,5 +24,10 @@ export const createSupabaseBrowserClient = (): SupabaseClient | null => {
       console.warn("Warning: Using fallback Supabase credentials. For production builds, ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_KEY are set correctly in your environment variables.");
   }
 
-  return createClient(supabaseUrl, supabaseKey);
+  try {
+    return createClient(supabaseUrl, supabaseKey);
+  } catch (error) {
+    console.warn("Supabase client creation failed:", error);
+    return null;
+  }
 };
