@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 const createSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
   if (!supabaseUrl || !supabaseKey) {
     return null;

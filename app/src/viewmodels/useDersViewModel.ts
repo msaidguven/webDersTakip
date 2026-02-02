@@ -20,8 +20,8 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
 
   // Supabase client'ı sadece bir kez oluştur
   const supabase = useMemo(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
     if (supabaseUrl && supabaseKey) {
       return createClient(supabaseUrl, supabaseKey);

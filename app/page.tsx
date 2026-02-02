@@ -25,7 +25,7 @@ function WeekSelector() {
     <div className="max-w-6xl mx-auto mb-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Müfredat Haftası</h2>
+          <h2 className="text-lg font-semibold text-default">Müfredat Haftası</h2>
         <Link href="#" className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
           Takvim <span>→</span>
         </Link>
@@ -40,14 +40,15 @@ function WeekSelector() {
             disabled={week.locked}
             className={`
               flex flex-col items-center min-w-[72px] py-3 px-4 rounded-xl transition-all
-              ${week.active 
-                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
-                : week.locked
-                  ? 'bg-zinc-900/50 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                ${week.active 
+                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-default shadow-lg shadow-indigo-500/30' 
+                 : week.locked
+                   ? 'bg-zinc-900/50 text-muted cursor-not-allowed'
+                   : 'bg-zinc-900/80 text-muted hover:bg-zinc-800 hover:text-default'
               }
             `}
           >
+                            <h2 className="text-lg font-semibold text-default">Üniteler</h2>
             <span className="text-2xl font-bold">{week.number}</span>
             <span className="text-xs mt-1">{week.label}</span>
           </button>
@@ -107,17 +108,17 @@ export default function HomePage() {
                       ${isActive 
                         ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
                         : isPast 
-                          ? 'text-zinc-400' 
+                            ? 'text-muted' 
                           : 'text-zinc-600'
                       }
                     `}>
                       <span className={`
                         w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs
                         ${isActive 
-                          ? 'bg-indigo-500 text-white' 
+                          ? 'bg-indigo-500 text-default' 
                           : isPast 
                             ? 'bg-zinc-800 text-zinc-400' 
-                            : 'bg-zinc-900 text-zinc-600'
+                              : 'bg-zinc-900 text-muted'
                         }
                       `}>
                         {index + 1}
@@ -194,14 +195,14 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-6 sm:py-8 px-4 sm:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
-          <p className="text-zinc-500 text-sm">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
+          <p className="text-muted text-sm">
             © 2026 Ders Takip. Tüm hakları saklıdır.
           </p>
-          <div className="flex gap-6 text-sm text-zinc-500">
-            <a href="#" className="hover:text-white transition-colors">Hakkımızda</a>
-            <a href="#" className="hover:text-white transition-colors">İletişim</a>
-            <a href="#" className="hover:text-white transition-colors">Gizlilik</a>
+          <div className="flex gap-6 text-sm text-muted">
+            <a href="#" className="hover:text-default transition-colors">Hakkımızda</a>
+            <a href="#" className="hover:text-default transition-colors">İletişim</a>
+            <a href="#" className="hover:text-default transition-colors">Gizlilik</a>
           </div>
         </div>
       </footer>
