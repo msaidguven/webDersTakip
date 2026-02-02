@@ -3,12 +3,6 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
-interface ClassicalQuestion {
   id: number;
   question_text: string;
   difficulty: number;
@@ -24,13 +18,7 @@ interface TestResult {
   percentage: number;
 }
 
-function createSupabaseClient(): SupabaseClient | null {
-  try {
-    return createClient(SUPABASE_URL, SUPABASE_KEY);
-  } catch {
-    return null;
-  }
-}
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 async function fetchClassicalQuestions(
   supabase: SupabaseClient,
@@ -95,7 +83,7 @@ function ClassicalTestContent() {
         return;
       }
 
-      const supabase = createSupabaseClient();
+      const supabase = createSupabaseBrowserClient();
       if (!supabase) {
         setError('Veritabanı bağlantısı kurulamadı');
         setLoading(false);

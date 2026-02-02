@@ -3,11 +3,9 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 import { useAuth } from '../src/context/AuthContext';
 
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
 
 type QuestionType = 'multiple_choice' | 'blank' | 'matching' | 'classical';
 
@@ -45,13 +43,7 @@ interface Question {
   modelAnswer?: string;
 }
 
-function createSupabaseClient(): SupabaseClient | null {
-  try {
-    return createClient(SUPABASE_URL, SUPABASE_KEY);
-  } catch {
-    return null;
-  }
-}
+// Use central wrapper
 
 async function fetchMixedQuestions(
   supabase: SupabaseClient,
@@ -203,12 +195,7 @@ function MixedTestContent() {
       return;
     }
 
-    const supabase = createSupabaseClient();
-    if (!supabase) {
-      setError('Veritabanı bağlantısı kurulamadı');
-      setLoading(false);
-      return;
-    }
+    const supabase = createSupabaseBrowserClient();
 
     const lId = parseInt(lessonId);
     const w = parseInt(week);

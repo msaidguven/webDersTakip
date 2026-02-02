@@ -3,10 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 interface MatchingPair {
   id: number;
@@ -38,7 +35,7 @@ function DragDropContent() {
   }, [unitId, week]);
 
   async function loadQuestion() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createSupabaseBrowserClient();
     
     // Get a matching question for this week
     const { data: usages } = await supabase

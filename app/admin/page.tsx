@@ -3,10 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -23,7 +20,7 @@ export default function AdminPage() {
   }, []);
 
   async function loadStats() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createSupabaseBrowserClient();
     
     // Check if user is admin
     const { data: { user } } = await supabase.auth.getUser();
@@ -187,7 +184,7 @@ function QuestionsTab() {
   }, []);
 
   async function loadQuestions() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createSupabaseBrowserClient();
     const { data } = await supabase
       .from('questions')
       .select('id, question_text, difficulty, created_at')
@@ -241,7 +238,7 @@ function ContentsTab() {
   }, []);
 
   async function loadContents() {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createSupabaseBrowserClient();
     const { data } = await supabase
       .from('topic_contents')
       .select('id, title, created_at, topics(title)')

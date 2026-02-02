@@ -3,10 +3,7 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
 
 interface BlankOption {
   id: number;
@@ -23,13 +20,7 @@ interface BlankQuestion {
   options: BlankOption[];
 }
 
-function createSupabaseClient(): SupabaseClient | null {
-  try {
-    return createClient(SUPABASE_URL, SUPABASE_KEY);
-  } catch {
-    return null;
-  }
-}
+// Use central wrapper
 
 async function fetchBlankQuestions(
   supabase: SupabaseClient,
@@ -109,12 +100,7 @@ function BlankTestContent() {
         return;
       }
 
-      const supabase = createSupabaseClient();
-      if (!supabase) {
-        setError('Veritabanı bağlantısı kurulamadı');
-        setLoading(false);
-        return;
-      }
+      const supabase = createSupabaseBrowserClient();
 
       try {
         setLoading(true);

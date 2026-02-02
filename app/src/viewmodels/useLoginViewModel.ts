@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseBrowserClient } from '../lib/supabaseClient';
 import { LoginCredentials, AuthState } from '../models/authTypes';
 
 const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
@@ -27,7 +27,7 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,

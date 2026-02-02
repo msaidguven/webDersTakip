@@ -1,10 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+import { SupabaseClient, User } from '@supabase/supabase-js';
+import { createSupabaseBrowserClient } from '../lib/supabaseClient';
 
 interface AuthContextType {
   user: User | null;
@@ -20,7 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [supabase] = useState(() => createClient(SUPABASE_URL, SUPABASE_KEY));
+  const [supabase] = useState(() => createSupabaseBrowserClient());
 
   const refreshUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();

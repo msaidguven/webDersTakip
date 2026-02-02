@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseBrowserClient } from '../lib/supabaseClient';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
 import { getLessonsByGrade as getMockLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
 
@@ -17,18 +17,7 @@ const mockGrades: Grade[] = [
   { id: '12', level: 12, name: '12. Sınıf', description: 'Lise 4. sınıf - YKS', icon: '🚀', color: 'from-orange-500 to-amber-500' },
 ];
 
-// Sabit Supabase credentials
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
-// Supabase client oluştur
-function createSupabaseClient() {
-  try {
-    return createClient(SUPABASE_URL, SUPABASE_KEY);
-  } catch {
-    return null;
-  }
-}
+// Use the central Supabase wrapper (`createSupabaseBrowserClient`) for client-safe access
 
 interface UseHomeViewModelReturn {
   grades: Grade[];
@@ -80,13 +69,8 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        const supabase = createSupabaseClient();
+            const supabase = createSupabaseBrowserClient();
         
-        if (!supabase) {
-          setGrades(mockGrades);
-          setIsLoadingGrades(false);
-          return;
-        }
         
         const { data, error } = await supabase.rpc('web_get_active_grades');
         
