@@ -638,7 +638,7 @@ function MixedTestContent() {
                         ([_, right]) => right === pair.right_text
                       );
                       const showResult = showFeedback[q.id];
-                      const isCorrect = matchedLeft?.[0] && q.matchingPairs.find(p => p.left_text === matchedLeft[0])?.right_text === pair.right_text;
+                      const isCorrect = matchedLeft?.[0] && q.matchingPairs?.find(p => p.left_text === matchedLeft[0])?.right_text === pair.right_text;
 
                       return (
                         <button
