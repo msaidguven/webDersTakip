@@ -108,10 +108,17 @@ function PageHeader({ gradeName, lessonName, outcomeCount, unitName }: {
       </div>
       
       <div className="flex items-center gap-4 sm:gap-6 text-muted">
-        <span className="flex items-center gap-2 text-sm">
-          <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
-          {outcomeCount} Kazanim
-        </span>
+        {unitName ? (
+          <span className="flex items-center gap-2 text-sm text-default font-medium">
+            <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
+            {unitName}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-sm">
+            <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
+            {outcomeCount} Kazanim
+          </span>
+        )}
       </div>
     </div>
   );
