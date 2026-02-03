@@ -8,7 +8,7 @@ interface LessonSelectorProps {
   grade: Grade;
   lessons: Lesson[];
   isLoading: boolean;
-  error: string | null;
+  error?: string | null;
   onSelect: (lesson: Lesson) => void;
   onBack: () => void;
 }
