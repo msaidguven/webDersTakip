@@ -425,7 +425,7 @@ function MixedTestContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
+      <div className="min-h-screen bg-default flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted">İlk soru hazırlanıyor...</p>
@@ -436,12 +436,12 @@ function MixedTestContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-default flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
           <h1 className="text-2xl font-bold text-default mb-4">Hata</h1>
           <p className="text-muted mb-6">{error}</p>
-          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">Ana Sayfaya Dön</Link>
+          <Link href="/" className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-medium">Ana Sayfaya Dön</Link>
         </div>
       </div>
     );
@@ -449,12 +449,12 @@ function MixedTestContent() {
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-default flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-4xl mx-auto mb-6">📝</div>
+          <div className="w-20 h-20 rounded-full bg-surface-elevated flex items-center justify-center text-4xl mx-auto mb-6">📝</div>
           <h1 className="text-2xl font-bold text-default mb-4">Soru Bulunamadı</h1>
           <p className="text-muted mb-6">Bu ders ve hafta için soru eklenmemiş.</p>
-          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-default">Derse Dön</Link>
+          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-medium">Derse Dön</Link>
         </div>
       </div>
     );
@@ -463,18 +463,18 @@ function MixedTestContent() {
   if (isFinished) {
     const result = calculateResult();
     return (
-      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-default flex items-center justify-center p-4">
         <div className="max-w-2xl w-full rounded-2xl bg-surface-elevated border border-default p-8 text-center">
           <div className="text-4xl mb-4">🏆</div>
           <h1 className="text-3xl font-bold text-default mb-4">Test Tamamlandı!</h1>
           
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="p-4 rounded-xl bg-zinc-800">
-              <p className="text-2xl font-bold text-emerald-400">{result.correct}</p>
+            <div className="p-4 rounded-xl bg-surface border border-default">
+              <p className="text-2xl font-bold text-emerald-500">{result.correct}</p>
               <p className="text-sm text-muted">Doğru</p>
             </div>
-            <div className="p-4 rounded-xl bg-zinc-800">
-              <p className="text-2xl font-bold text-red-400">{result.wrong}</p>
+            <div className="p-4 rounded-xl bg-surface border border-default">
+              <p className="text-2xl font-bold text-red-500">{result.wrong}</p>
               <p className="text-sm text-muted">Yanlış</p>
             </div>
             <div className="p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/30">
@@ -488,11 +488,11 @@ function MixedTestContent() {
           {/* Anonim kullanıcı bilgisi */}
           {!isAuthenticated && (
             <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <p className="text-amber-400 text-sm mb-2">💡 İstatistiklerini kaydetmek için giriş yap</p>
+              <p className="text-amber-500 text-sm mb-2">💡 İstatistiklerini kaydetmek için giriş yap</p>
               <p className="text-muted text-xs">Test sonuçların sadece senin için kaydedilsin ve ilerlemeni takip et.</p>
               <div className="flex justify-center gap-3 mt-3">
-                <Link href="/login" className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-sm hover:bg-amber-500/30 transition-colors">Giriş Yap</Link>
-                <Link href="/register" className="px-4 py-2 rounded-lg bg-zinc-800 text-muted text-sm hover:text-default transition-colors">Kayıt Ol</Link>
+                <Link href="/login" className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-500 text-sm hover:bg-amber-500/30 transition-colors">Giriş Yap</Link>
+                <Link href="/register" className="px-4 py-2 rounded-lg bg-surface text-muted text-sm hover:text-default transition-colors border border-default">Kayıt Ol</Link>
               </div>
             </div>
           )}
@@ -505,8 +505,8 @@ function MixedTestContent() {
           )}
 
           <div className="flex justify-center gap-4">
-            <Link href="/ders" className="px-6 py-3 rounded-xl bg-zinc-800 text-default">Derse Dön</Link>
-            <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default">Tekrar Dene</button>
+            <Link href="/ders" className="px-6 py-3 rounded-xl bg-surface text-default border border-default">Derse Dön</Link>
+            <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium">Tekrar Dene</button>
           </div>
         </div>
       </div>
@@ -516,9 +516,9 @@ function MixedTestContent() {
   const q = questions[currentIndex];
 
   return (
-    <div className="min-h-screen bg-[#0f0f11]">
+    <div className="min-h-screen bg-default">
       {/* Test Info Bar */}
-      <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-default bg-[#0f0f11]/80 backdrop-blur-sm">
+      <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-default bg-surface/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-8 py-3">
           <div className="flex items-center justify-between">
             <Link href="/ders" className="text-sm text-muted hover:text-default flex items-center gap-1">
@@ -529,7 +529,7 @@ function MixedTestContent() {
               <span className="text-xs sm:text-sm text-muted">
                 {currentIndex + 1}/{allQuestionsLoaded ? questions.length : '?'}
               </span>
-              <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-surface rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" 
                   style={{ 
@@ -557,7 +557,7 @@ function MixedTestContent() {
               <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getTypeColor(q.type)}`}>
                 {getTypeLabel(q.type)}
               </span>
-              <span className="px-2 sm:px-3 py-1 rounded-full bg-zinc-800 text-muted text-xs sm:text-sm">
+              <span className="px-2 sm:px-3 py-1 rounded-full bg-surface text-muted text-xs sm:text-sm border border-default">
                 {q.score || 1} Puan
               </span>
             </div>
@@ -589,23 +589,23 @@ function MixedTestContent() {
                             ? 'border-emerald-500 bg-emerald-500/10'
                             : isSelected
                               ? 'border-red-500 bg-red-500/10'
-                              : 'border-zinc-800 bg-surface-elevated'
+                              : 'border-default bg-surface-elevated'
                           : isSelected
                             ? 'border-indigo-500 bg-indigo-500/10'
-                            : 'border-zinc-800 bg-surface-elevated active:border-zinc-600'
+                            : 'border-default bg-surface-elevated active:border-muted'
                       }`}
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border-2 flex items-center justify-center font-semibold text-sm sm:text-base flex-shrink-0 ${
                           showResult
                             ? isCorrect
-                              ? 'border-emerald-500 bg-emerald-500 text-default'
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
                               : isSelected
-                                ? 'border-red-500 bg-red-500 text-default'
-                                : 'border-zinc-700 text-muted'
+                                ? 'border-red-500 bg-red-500 text-white'
+                                : 'border-default text-muted'
                             : isSelected
-                              ? 'border-indigo-500 bg-indigo-500 text-default'
-                              : 'border-zinc-700 text-muted'
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-default text-muted'
                         }`}>
                           {showResult && isCorrect && '✓'}
                           {showResult && !isCorrect && isSelected && '✗'}
@@ -650,13 +650,13 @@ function MixedTestContent() {
                       className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 text-center font-medium transition-all text-sm sm:text-base min-h-[48px] sm:min-h-[56px] ${
                         showResult
                           ? isCorrect
-                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
                             : isSelected
-                              ? 'border-red-500 bg-red-500/10 text-red-400'
-                              : 'border-zinc-800 bg-surface-elevated text-muted'
+                              ? 'border-red-500 bg-red-500/10 text-red-500'
+                              : 'border-default bg-surface-elevated text-muted'
                           : isSelected
                             ? 'border-emerald-500 bg-emerald-500/10 text-default'
-                            : 'border-zinc-800 bg-surface-elevated text-muted active:border-zinc-600'
+                            : 'border-default bg-surface-elevated text-muted active:border-muted'
                       }`}
                     >
                       {showResult && isCorrect && '✓ '}
@@ -732,7 +732,7 @@ function MixedTestContent() {
                                 ? 'bg-purple-500/20 border-purple-500/50 opacity-50'
                                 : isSelected
                                   ? 'bg-amber-500/20 border-amber-500'
-                                  : 'bg-zinc-800 border-zinc-700 active:border-zinc-600'
+                                  : 'bg-surface border-default active:border-muted'
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -787,8 +787,8 @@ function MixedTestContent() {
                               : matchedLeft
                                 ? 'bg-indigo-500/20 border-indigo-500'
                                 : selectedLeft
-                                  ? 'bg-zinc-800 border-amber-500/50 cursor-pointer active:bg-zinc-700'
-                                  : 'bg-surface-elevated border-zinc-700 opacity-50'
+                                  ? 'bg-surface border-amber-500/50 cursor-pointer active:bg-surface-elevated'
+                                  : 'bg-surface-elevated border-default opacity-50'
                           }`}
                         >
                           {matchedLeft ? (
@@ -816,7 +816,7 @@ function MixedTestContent() {
                     setShowFeedback(prev => ({ ...prev, [q.id]: false }));
                     setSelectedLeft(null);
                   }}
-                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-800 text-muted hover:text-default text-xs sm:text-sm"
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-surface text-muted hover:text-default text-xs sm:text-sm border border-default"
                 >
                   Eşleştirmeleri Sıfırla
                 </button>
@@ -829,7 +829,7 @@ function MixedTestContent() {
                 <textarea
                   value={answers[q.id] || ''}
                   onChange={(e) => handleAnswer(q.id, e.target.value)}
-                  className="w-full h-32 sm:h-40 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none text-sm sm:text-base"
+                  className="w-full h-32 sm:h-40 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500 resize-none text-sm sm:text-base"
                   placeholder="Cevabınızı buraya yazın..."
                 />
                 <p className="text-muted text-xs sm:text-sm">{(answers[q.id] || '').length} karakter</p>
@@ -877,8 +877,8 @@ function MixedTestContent() {
               disabled={!allQuestionsLoaded && currentIndex >= questions.length - 1}
               className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base ${
                 !allQuestionsLoaded && currentIndex >= questions.length - 1
-                  ? 'bg-zinc-800 text-muted cursor-not-allowed'
-                  : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-default'
+                  ? 'bg-surface text-muted cursor-not-allowed border border-default'
+                  : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
               }`}
             >
               {!allQuestionsLoaded && currentIndex >= questions.length - 1 
@@ -896,7 +896,7 @@ function MixedTestContent() {
 
 export default function MixedTestPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0f0f11]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-default" />}>
       <MixedTestContent />
     </Suspense>
   );
