@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -11,16 +11,48 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, signOut } = useAuth();
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const controlNavbar = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Sayfa en üstteyse her zaman göster
+      if (currentScrollY < 10) {
+        setIsVisible(true);
+        return;
+      }
+      
+      // Aşağı scroll edince gizle, yukarı scroll edince göster
+      if (currentScrollY > lastScrollY) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', controlNavbar, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', controlNavbar);
+    };
+  }, [lastScrollY]);
 
   return (
     <div className="min-h-screen bg-default">
-      {/* Sabit Header - Light/Dark uyumlu */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] 
-        bg-white/80 dark:bg-surface/95 
-        backdrop-blur-xl 
-        border-b border-zinc-200 dark:border-default
-        shadow-sm dark:shadow-none
-        transition-colors duration-300">
+      {/* Auto-hide Header */}
+      <nav 
+        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] 
+          bg-white/80 dark:bg-surface/95 
+          backdrop-blur-xl 
+          border-b border-zinc-200 dark:border-default
+          shadow-sm dark:shadow-none
+          transition-all duration-300 ease-in-out
+          ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+      >
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           
           {/* Logo ve Site Adı */}
