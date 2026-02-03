@@ -2,23 +2,26 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 import { useAuth } from '../src/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirectTo') || '/';
+  
   const { isAuthenticated, loading } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Giriş yapmış kullanıcıyı ana sayfaya yönlendir
+  // Giriş yapmış kullanıcıyı yönlendir
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/');
+      router.push(redirectTo);
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, router, redirectTo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -7,12 +7,43 @@ const protectedRoutes = ['/profil', '/panel', '/admin'];
 // Auth rotaları - giriş yapmış kullanıcılar erişemez (login/register)
 const authRoutes = ['/login', '/register'];
 
+// Supabase auth cookie'lerini kontrol et
+function hasAuthCookie(request: NextRequest): boolean {
+  const cookies = request.cookies;
+  
+  // Proje-specific cookie'ler (sb-<project-ref>-auth-token formatı)
+  const projectRef = 'pwzbjhgrhkcdyowknmhe';
+  const possibleAuthCookies = [
+    `sb-${projectRef}-auth-token`,
+    'sb-auth-token',
+    'sb-access-token',
+    'sb-refresh-token',
+    'supabase-auth-token',
+  ];
+  
+  // Tüm cookie'leri kontrol et
+  for (const cookie of cookies.getAll()) {
+    // Supabase auth cookie'lerini tespit et
+    if (cookie.name.startsWith('sb-') && cookie.name.includes('auth-token')) {
+      return true;
+    }
+    if (possibleAuthCookies.includes(cookie.name) && cookie.value) {
+      return true;
+    }
+    // Supabase session cookie'leri
+    if (cookie.name.includes('supabase') && cookie.value) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Token cookie'den al
-  const token = request.cookies.get('sb-auth-token')?.value;
-  const isAuthenticated = !!token;
+  // Auth durumunu kontrol et
+  const isAuthenticated = hasAuthCookie(request);
 
   // Korumalı sayfaya erişmeye çalışıyor ve giriş yapmamış
   const isProtectedRoute = protectedRoutes.some(route => 
