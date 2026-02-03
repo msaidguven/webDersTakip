@@ -23,10 +23,10 @@ function HtmlContent({ html }: { html: string }) {
     // Theme-aware lists
     .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-muted text-lg"')
     .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-muted text-lg"')
-    // Theme-aware headings
+    // Theme-aware headings - h2 ve h3 kırmızı
     .replace(/<h1/g, '<h1 class="text-3xl font-bold text-default my-6"')
-    .replace(/<h2/g, '<h2 class="text-2xl font-bold text-default my-5"')
-    .replace(/<h3/g, '<h3 class="text-xl font-bold text-default my-4"')
+    .replace(/<h2/g, '<h2 class="text-2xl font-bold text-red-500 my-5"')
+    .replace(/<h3/g, '<h3 class="text-xl font-bold text-red-400 my-4"')
     .replace(/<h4/g, '<h4 class="text-lg font-bold text-default my-3"')
     // Theme-aware paragraphs and text
     .replace(/<p(?![^>]*class)/g, '<p class="text-muted leading-relaxed my-3 text-lg"')
