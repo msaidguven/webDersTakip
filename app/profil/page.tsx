@@ -11,28 +11,27 @@ interface UserStats {
   totalQuestions: number;
   correctAnswers: number;
   averageScore: number;
-  // Golden Triangle Metrikleri
-  accuracy: number; // Doğruluk oranı
-  coverage: number; // Müfredat kapsama oranı
-  mastery: number; // Ustalık oranı
-  streakDays: number; // Ard arda çalışma günü
+  accuracy: number;
+  coverage: number;
+  mastery: number;
+  streakDays: number;
 }
 
 export default function ProfilePage() {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<UserStats>({
-    totalTests: 0,
-    totalQuestions: 0,
-    correctAnswers: 0,
-    averageScore: 0,
-    accuracy: 0,
-    coverage: 0,
-    mastery: 0,
-    streakDays: 0,
+    totalTests: 15,
+    totalQuestions: 230,
+    correctAnswers: 195,
+    averageScore: 85,
+    accuracy: 83,
+    coverage: 65,
+    mastery: 42,
+    streakDays: 7,
   });
 
   const supabase = createSupabaseBrowserClient();
@@ -62,17 +61,8 @@ export default function ProfilePage() {
 
         setUser(fetchedUser);
 
-        // Gerçek veriler burada çekilecek (şimdilik mock)
-        setStats({
-          totalTests: 15,
-          totalQuestions: 230,
-          correctAnswers: 195,
-          averageScore: 85,
-          accuracy: 83, // %83 doğruluk
-          coverage: 65, // %65 müfredat tamamlama
-          mastery: 42,  // %42 ustalık
-          streakDays: 7, // 7 gün streak
-        });
+        // TODO: Gerçek istatistikler DB'den çekilecek
+        // Şimdilik mock veri
       } catch (e: any) {
         setError(e?.message || 'Bir hata oluştu');
       } finally {
@@ -80,33 +70,48 @@ export default function ProfilePage() {
       }
     };
 
-    getUserData();
-  }, [supabase]);
+    if (authUser) {
+      getUserData();
+    }
+  }, [supabase, authUser]);
 
   const handleSignOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    router.push('/login');
+    await signOut();
+    router.push('/');
   };
 
-  if (loading || !user) {
+  if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-default flex items-center justify-center pt-[72px]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted">Yükleniyor...</p>
+        </div>
       </div>
     );
   }
 
+  if (!user) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0f0f11] pb-20">
-      {/* Header */}
-      <header className="h-[72px] bg-[#0f0f11]/95 backdrop-blur-xl border-b border-white/5 flex items-center px-4 sm:px-8 sticky top-0 z-50">
-        <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-          <span>←</span>
-          <span>Ana Sayfa</span>
-        </Link>
-        <h1 className="ml-4 text-xl font-bold text-white">Profilim</h1>
-      </header>
+    <div className="min-h-screen bg-default pb-20">
+      {/* Page Header */}
+      <div className="pt-[72px] pb-6 px-4 sm:px-8 border-b border-default bg-gradient-to-b from-surface to-default">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/" 
+              className="flex items-center gap-2 text-muted hover:text-default transition-colors"
+            >
+              <span className="text-lg">←</span>
+              <span className="hidden sm:inline">Ana Sayfa</span>
+            </Link>
+            <h1 className="text-xl sm:text-2xl font-bold text-default">Profilim</h1>
+          </div>
+        </div>
+      </div>
 
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
         {/* Golden Triangle Metrikleri */}
@@ -135,25 +140,26 @@ export default function ProfilePage() {
         </div>
 
         {/* Kullanıcı Kartı */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row items-center gap-6">
+            {/* Avatar */}
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
                 {user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
-              {/* Streak Badge */}
               {stats.streakDays > 0 && (
-                <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
                   🔥 {stats.streakDays}
                 </div>
               )}
             </div>
 
+            {/* Kullanıcı Bilgileri */}
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-white mb-1">
+              <h2 className="text-2xl font-bold text-default mb-1">
                 {user?.user_metadata?.full_name || 'Öğrenci'}
               </h2>
-              <p className="text-zinc-400 mb-3">{user?.email}</p>
+              <p className="text-muted mb-3">{user?.email}</p>
               
               <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                 <Badge text="8. Sınıf" color="indigo" />
@@ -162,9 +168,10 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Çıkış Butonu */}
             <button 
               onClick={handleSignOut}
-              className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-all border border-white/5"
+              className="px-5 py-2.5 rounded-xl bg-surface border border-default text-muted hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-all"
             >
               Çıkış Yap
             </button>
@@ -174,35 +181,35 @@ export default function ProfilePage() {
         {/* Genel İstatistikler */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <StatCard icon="📝" value={stats.totalTests} label="Test" />
-          <StatCard icon="🎯" value={stats.totalQuestions} label="Soru" />
+          <StatCard icon="❓" value={stats.totalQuestions} label="Soru" />
           <StatCard icon="✅" value={stats.correctAnswers} label="Doğru" color="text-emerald-400" />
           <StatCard icon="🏆" value={`%${stats.averageScore}`} label="Başarı" color="text-amber-400" />
         </div>
 
         {/* Ders İlerlemesi */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-default mb-6 flex items-center gap-2">
             <span>📚</span> Ders İlerlemesi
           </h3>
           <div className="space-y-5">
             {[
-              { name: 'Matematik', progress: 75, total: 120, solved: 90, color: 'bg-blue-500' },
-              { name: 'Fen Bilimleri', progress: 60, total: 80, solved: 48, color: 'bg-emerald-500' },
-              { name: 'Türkçe', progress: 85, total: 100, solved: 85, color: 'bg-rose-500' },
+              { name: 'Matematik', progress: 75, total: 120, solved: 90, color: 'from-blue-500 to-indigo-500' },
+              { name: 'Fen Bilimleri', progress: 60, total: 80, solved: 48, color: 'from-emerald-500 to-teal-500' },
+              { name: 'Türkçe', progress: 85, total: 100, solved: 85, color: 'from-rose-500 to-pink-500' },
             ].map((lesson) => (
               <div key={lesson.name}>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-white font-medium flex items-center gap-2">
+                  <span className="text-default font-medium flex items-center gap-2">
                     {lesson.name}
-                    <span className="text-zinc-500 text-xs">
+                    <span className="text-muted text-xs">
                       ({lesson.solved}/{lesson.total} soru)
                     </span>
                   </span>
-                  <span className="text-zinc-400 text-sm">%{lesson.progress}</span>
+                  <span className="text-muted text-sm font-medium">%{lesson.progress}</span>
                 </div>
-                <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-3 bg-surface rounded-full overflow-hidden">
                   <div 
-                    className={`h-full ${lesson.color} rounded-full transition-all`} 
+                    className={`h-full bg-gradient-to-r ${lesson.color} rounded-full transition-all duration-500`} 
                     style={{ width: `${lesson.progress}%` }} 
                   />
                 </div>
@@ -211,12 +218,12 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Rozetler / Başarımlar */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        {/* Rozetler */}
+        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-default mb-4 flex items-center gap-2">
             <span>🏅</span> Rozetlerim
           </h3>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Rozet emoji="🔥" name="7 Gün Streak" description="Ard arda 7 gün çalıştın" />
             <Rozet emoji="🎯" name="İsabetli" description="%80+ doğruluk oranı" />
             <Rozet emoji="📚" name="Çalışkan" description="100+ soru çözdün" />
@@ -226,8 +233,8 @@ export default function ProfilePage() {
         </div>
 
         {/* Son Aktiviteler */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-default mb-4 flex items-center gap-2">
             <span>🕒</span> Son Aktiviteler
           </h3>
           <div className="space-y-3">
@@ -236,16 +243,21 @@ export default function ProfilePage() {
               { test: 'Haftalık Test 18', subject: 'Fen Bilimleri', score: 92, date: '4 gün önce' },
               { test: 'Haftalık Test 17', subject: 'Matematik', score: 78, date: '1 hafta önce' },
             ].map((activity, i) => (
-              <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30 border border-white/5 hover:bg-zinc-800/50 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">📝</div>
-                <div className="flex-1">
-                  <h4 className="text-white font-medium">{activity.test}</h4>
-                  <p className="text-xs text-zinc-500">{activity.subject} • {activity.date}</p>
+              <div 
+                key={i} 
+                className="flex items-center gap-4 p-4 rounded-xl bg-surface border border-default hover:border-indigo-500/30 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-surface-elevated border border-default flex items-center justify-center text-2xl">
+                  📝
                 </div>
-                <div className={`font-bold text-sm ${
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-default font-medium truncate">{activity.test}</h4>
+                  <p className="text-xs text-muted">{activity.subject} • {activity.date}</p>
+                </div>
+                <div className={`font-bold $[
                   activity.score >= 90 ? 'text-emerald-400' : 
                   activity.score >= 70 ? 'text-amber-400' : 'text-rose-400'
-                }`}>
+                ]`}>
                   {activity.score} Puan
                 </div>
               </div>
@@ -258,61 +270,78 @@ export default function ProfilePage() {
 }
 
 // Golden Triangle Metric Card
-function GoldenMetricCard({ title, value, label, color, icon }: any) {
+function GoldenMetricCard({ title, value, label, color, icon }: { 
+  title: string; 
+  value: number; 
+  label: string; 
+  color: string; 
+  icon: string;
+}) {
   return (
-    <div className={`relative overflow-hidden bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center group hover:border-white/10 transition-all`}>
+    <div className={`relative overflow-hidden bg-surface-elevated border border-default rounded-2xl p-4 text-center group hover:border-indigo-500/30 transition-all`}>
       <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-5 group-hover:opacity-10 transition-opacity`} />
       <div className="relative">
-        <div className="text-2xl mb-1">{icon}</div>
-        <div className={`text-3xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
+        <div className="text-2xl mb-2">{icon}</div>
+        <div className={`text-3xl font-black bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
           %{value}
         </div>
-        <div className="text-white font-medium text-sm mt-1">{title}</div>
-        <div className="text-zinc-500 text-xs">{label}</div>
+        <div className="text-default font-bold text-sm mt-1">{title}</div>
+        <div className="text-muted text-xs">{label}</div>
       </div>
     </div>
   );
 }
 
 // Badge Component
-function Badge({ text, color }: { text: string; color: 'indigo' | 'emerald' | 'amber' | 'rose' }) {
+function Badge({ text, color }: { text: string; color: 'indigo' | 'emerald' | 'amber' | 'rose' | 'purple' }) {
   const colors = {
     indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
     emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   };
   
   return (
-    <span className={`px-3 py-1 rounded-full text-sm border ${colors[color]}`}>
+    <span className={`px-3 py-1 rounded-full text-sm border font-medium ${colors[color]}`}>
       {text}
     </span>
   );
 }
 
 // Stat Card
-function StatCard({ icon, value, label, color = 'text-white' }: any) {
+function StatCard({ icon, value, label, color = 'text-default' }: { 
+  icon: string; 
+  value: string | number; 
+  label: string; 
+  color?: string;
+}) {
   return (
-    <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center hover:bg-zinc-800/50 transition-colors">
-      <div className="text-2xl mb-1">{icon}</div>
-      <div className={`text-2xl font-bold ${color} mb-1`}>{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="bg-surface-elevated border border-default rounded-2xl p-4 text-center hover:border-indigo-500/30 transition-colors">
+      <div className="text-2xl mb-2">{icon}</div>
+      <div className={`text-2xl font-black ${color} mb-1`}>{value}</div>
+      <div className="text-xs text-muted font-medium">{label}</div>
     </div>
   );
 }
 
 // Rozet Component
-function Rozet({ emoji, name, description, locked }: any) {
+function Rozet({ emoji, name, description, locked }: { 
+  emoji: string; 
+  name: string; 
+  description: string; 
+  locked?: boolean;
+}) {
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+    <div className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${
       locked 
-        ? 'bg-zinc-900/30 border-white/5 opacity-50' 
-        : 'bg-zinc-900/50 border-white/10 hover:bg-zinc-800/50'
-    } transition-colors`}>
+        ? 'bg-surface/50 border-default opacity-50' 
+        : 'bg-surface border-default hover:border-indigo-500/30'
+    }`}>
       <div className="text-2xl">{locked ? '🔒' : emoji}</div>
-      <div>
-        <div className="text-white font-medium text-sm">{name}</div>
-        <div className="text-zinc-500 text-xs">{locked ? 'Kilitli' : description}</div>
+      <div className="min-w-0">
+        <div className="text-default font-bold text-sm truncate">{name}</div>
+        <div className="text-muted text-xs">{locked ? 'Kilitli' : description}</div>
       </div>
     </div>
   );
