@@ -26,7 +26,7 @@ function WeekSelector() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-default">Müfredat Haftası</h2>
-        <Link href="#" className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+        <Link href="#" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 flex items-center gap-1">
           Takvim <span>→</span>
         </Link>
       </div>
@@ -44,7 +44,7 @@ function WeekSelector() {
                 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-default shadow-lg shadow-indigo-500/30' 
                  : week.locked
                    ? 'bg-surface-elevated text-muted cursor-not-allowed'
-                   : 'bg-surface-elevated text-muted hover:bg-zinc-800 hover:text-default'
+                   : 'bg-surface-elevated text-muted hover:bg-surface hover:text-default border border-default'
               }
             `}
           >
@@ -106,7 +106,7 @@ export default function HomePage() {
                     <div className={`
                       flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all
                       ${isActive 
-                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
+                        ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' 
                         : isPast 
                             ? 'text-muted' 
                           : 'text-muted'
@@ -117,7 +117,7 @@ export default function HomePage() {
                         ${isActive 
                           ? 'bg-indigo-500 text-default' 
                           : isPast 
-                            ? 'bg-zinc-800 text-muted' 
+                            ? 'bg-surface text-muted border border-default' 
                               : 'bg-surface-elevated text-muted'
                         }
                       `}>

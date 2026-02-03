@@ -26,9 +26,9 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
               key={i}
               className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default animate-pulse"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-800 mb-3 sm:mb-4" />
-              <div className="h-5 sm:h-6 bg-zinc-800 rounded mb-2 w-20 sm:w-24" />
-              <div className="h-3 sm:h-4 bg-zinc-800 rounded w-28 sm:w-32" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-surface mb-3 sm:mb-4 border border-default" />
+              <div className="h-5 sm:h-6 bg-surface rounded mb-2 w-20 sm:w-24 border border-default" />
+              <div className="h-3 sm:h-4 bg-surface rounded w-28 sm:w-32 border border-default" />
             </div>
           ))}
         </div>
@@ -40,7 +40,7 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
     return (
       <div className="max-w-6xl mx-auto text-center px-4">
         <div className="p-6 sm:p-8 rounded-xl sm:rounded-2xl bg-red-500/10 border border-red-500/20">
-          <p className="text-red-400 mb-3 sm:mb-4 text-sm sm:text-base">Sınıflar yüklenirken bir hata oluştu:</p>
+          <p className="text-red-500 mb-3 sm:mb-4 text-sm sm:text-base">Sınıflar yüklenirken bir hata oluştu:</p>
           <p className="text-muted text-sm sm:text-base">{error}</p>
         </div>
       </div>

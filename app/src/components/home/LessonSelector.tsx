@@ -48,10 +48,10 @@ export function LessonSelector({ grade, lessons, isLoading, error, onSelect, onB
               className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default animate-pulse"
             >
               <div className="flex items-center gap-4 sm:gap-5">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-zinc-800 flex-shrink-0" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-surface border border-default flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="h-5 sm:h-6 bg-zinc-800 rounded mb-2 w-24 sm:w-32" />
-                  <div className="h-3 sm:h-4 bg-zinc-800 rounded w-32 sm:w-48" />
+                  <div className="h-5 sm:h-6 bg-surface border border-default rounded mb-2 w-24 sm:w-32" />
+                  <div className="h-3 sm:h-4 bg-surface border border-default rounded w-32 sm:w-48" />
                 </div>
               </div>
             </div>
@@ -83,11 +83,11 @@ export function LessonSelector({ grade, lessons, isLoading, error, onSelect, onB
 
         <div className="text-center">
           <div className="p-6 sm:p-8 rounded-xl sm:rounded-2xl bg-red-500/10 border border-red-500/20">
-            <p className="text-red-400 mb-3 sm:mb-4 text-sm sm:text-base">Dersler yüklenirken bir hata oluştu:</p>
+            <p className="text-red-500 mb-3 sm:mb-4 text-sm sm:text-base">Dersler yüklenirken bir hata oluştu:</p>
             <p className="text-muted text-sm sm:text-base">{error}</p>
             <button
               onClick={onBack}
-              className="mt-4 sm:mt-6 px-5 sm:px-6 py-2.5 sm:py-3 bg-zinc-800 text-default rounded-xl hover:bg-zinc-700 transition-all text-sm sm:text-base"
+              className="mt-4 sm:mt-6 px-5 sm:px-6 py-2.5 sm:py-3 bg-surface text-default border border-default rounded-xl hover:bg-surface-elevated transition-all text-sm sm:text-base"
             >
               Geri Dön
             </button>
