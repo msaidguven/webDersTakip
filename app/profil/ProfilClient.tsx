@@ -33,7 +33,6 @@ export default function ProfilClient({ user }: ProfilClientProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock stats - replace with real data fetch
   const stats: UserStats = {
     totalTests: 15,
     totalQuestions: 230,
@@ -50,7 +49,7 @@ export default function ProfilClient({ user }: ProfilClientProps) {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert('Dosya boyutu 2MB\'dan küçük olmalıdır.');
+      alert('Dosya boyutu 2MB dan kucuk olmalidir.');
       return;
     }
 
@@ -77,7 +76,7 @@ export default function ProfilClient({ user }: ProfilClientProps) {
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {
-      alert('Fotoğraf yüklenirken hata: ' + err.message);
+      alert('Fotograf yuklenirken hata: ' + err.message);
     } finally {
       setUploading(false);
     }
@@ -106,16 +105,16 @@ export default function ProfilClient({ user }: ProfilClientProps) {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {[
-            { title: 'Accuracy', value: stats.accuracy, label: 'Doğruluk', color: 'from-emerald-500 to-teal-500', icon: '🎯' },
-            { title: 'Coverage', value: stats.coverage, label: 'Kapsama', color: 'from-blue-500 to-indigo-500', icon: '📊' },
-            { title: 'Mastery', value: stats.mastery, label: 'Ustalık', color: 'from-purple-500 to-pink-500', icon: '👑' },
+            { title: 'Accuracy', value: stats.accuracy, color: 'from-emerald-500 to-teal-500', icon: '🎯' },
+            { title: 'Coverage', value: stats.coverage, color: 'from-blue-500 to-indigo-500', icon: '📊' },
+            { title: 'Mastery', value: stats.mastery, color: 'from-purple-500 to-pink-500', icon: '👑' },
           ].map((stat) => (
             <div key={stat.title} className="relative overflow-hidden bg-surface-elevated border border-default rounded-2xl p-4 text-center">
               <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-5`} />
               <div className="relative">
                 <div className="text-2xl mb-2">{stat.icon}</div>
-                <div className={`text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`>
-                  {'%'}{stat.value}
+                <div className={`text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+                  {stat.value}%
                 </div>
                 <div className="text-default font-bold text-sm mt-1">{stat.title}</div>
               </div>
@@ -153,13 +152,13 @@ export default function ProfilClient({ user }: ProfilClientProps) {
               <h2 className="text-2xl font-bold text-default mb-1">{user.fullName}</h2>
               <p className="text-muted mb-3">{user.email}</p>
               <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">8. Sınıf</span>
-                <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Aktif Üye</span>
+                <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">8. Sinif</span>
+                <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Aktif Uye</span>
               </div>
             </div>
 
             <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl bg-surface border border-default text-muted hover:bg-red-500/10 hover:text-red-400 transition-all">
-              Çıkış Yap
+              Cikis Yap
             </button>
           </div>
         </div>
