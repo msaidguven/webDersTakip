@@ -15,6 +15,7 @@ export interface TopicContent {
 export interface LessonData {
   gradeName: string;
   lessonName: string;
+  unitName?: string;
   outcomes: Outcome[];
   contents: TopicContent[];
 }

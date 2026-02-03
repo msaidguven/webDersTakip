@@ -58,9 +58,19 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
           supabase.from('lessons').select('name').eq('id', lId).single(),
         ]);
 
+        // Ünite adını çek (bu haftaya ait)
+        const { data: weekUnit } = await supabase
+          .from('curriculum_weeks')
+          .select('units!inner(name)')
+          .eq('week_no', CURRENT_WEEK)
+          .eq('lesson_id', lId)
+          .eq('grade_id', gId)
+          .single();
+
         const names = {
           gradeName: grade?.name || '',
           lessonName: lesson?.name || '',
+          unitName: weekUnit?.units?.name || '',
         };
 
         // Kazanımları çek (hızlı)
@@ -88,7 +98,13 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
 
         if (!isCancelled) {
           setState({
-            data: { ...names, outcomes, contents: [] },
+            data: { 
+              gradeName: names.gradeName, 
+              lessonName: names.lessonName,
+              unitName: names.unitName,
+              outcomes, 
+              contents: [] 
+            },
             isLoading: false,
             error: null,
             activeTab: 'outcomes',
