@@ -6,10 +6,11 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { GradeSelector } from './src/components/home/GradeSelector';
 import { LessonSelector } from './src/components/home/LessonSelector';
+import { Grade } from './src/models/homeTypes';
 
 const CURRENT_WEEK = 19;
 
-const fetcher = async () => {
+const fetcher = async (): Promise<Grade[]> => {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('grades')
@@ -18,8 +19,50 @@ const fetcher = async () => {
     .order('order_no', { ascending: true });
   
   if (error) throw error;
-  return data || [];
+  
+  // Map database fields to Grade type
+  return (data || []).map((g: any) => ({
+    id: g.id.toString(),
+    level: g.order_no,
+    name: g.name,
+    description: getGradeDescription(g.order_no),
+    icon: getGradeIcon(g.order_no),
+    color: getGradeColor(g.order_no),
+  }));
 };
+
+function getGradeDescription(level: number): string {
+  const descriptions: Record<number, string> = {
+    6: 'Ortaokul 1. seviye',
+    7: 'Ortaokul 2. seviye',
+    8: 'Ortaokul 3. seviye - LGS',
+    9: 'Lise 1. sınıf',
+    10: 'Lise 2. sınıf',
+    11: 'Lise 3. sınıf - YKS hazırlık',
+    12: 'Lise 4. sınıf - YKS',
+  };
+  return descriptions[level] || `${level}. Sınıf`;
+}
+
+function getGradeIcon(level: number): string {
+  const icons: Record<number, string> = {
+    6: '📚', 7: '📖', 8: '🎯', 9: '🎓', 10: '🔬', 11: '⚡', 12: '🚀',
+  };
+  return icons[level] || '📖';
+}
+
+function getGradeColor(level: number): string {
+  const colors: Record<number, string> = {
+    6: 'from-emerald-500 to-teal-500',
+    7: 'from-cyan-500 to-blue-500',
+    8: 'from-blue-500 to-indigo-500',
+    9: 'from-indigo-500 to-purple-500',
+    10: 'from-purple-500 to-pink-500',
+    11: 'from-pink-500 to-rose-500',
+    12: 'from-orange-500 to-amber-500',
+  };
+  return colors[level] || 'from-indigo-500 to-purple-500';
+}
 
 interface HomeClientProps {
   initialGrades: any[];
