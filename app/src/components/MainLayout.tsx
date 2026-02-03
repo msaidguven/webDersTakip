@@ -22,7 +22,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
                 <span className="text-lg sm:text-xl">📚</span>
               </div>
-              <span className="text-lg sm:text-xl font-bold text-default hidden sm:block">Ders Takip</span>
+              <span className="text-lg sm:text-xl font-extrabold text-default hidden sm:block tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Ders Takip</span>
             </Link>
           </div>
 
