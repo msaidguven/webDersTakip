@@ -115,7 +115,7 @@ export default function ProfilClient({ user }: ProfilClientProps) {
               <div className="relative">
                 <div className="text-2xl mb-2">{stat.icon}</div>
                 <div className={`text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`>
-                  %{stat.value}
+                  {'%'}{stat.value}
                 </div>
                 <div className="text-default font-bold text-sm mt-1">{stat.title}</div>
               </div>
