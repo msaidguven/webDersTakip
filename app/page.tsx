@@ -40,15 +40,14 @@ function WeekSelector() {
             disabled={week.locked}
             className={`
               flex flex-col items-center min-w-[72px] py-3 px-4 rounded-xl transition-all
-                ${week.active 
-                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-default shadow-lg shadow-indigo-500/30' 
-                 : week.locked
-                   ? 'bg-surface-elevated text-muted cursor-not-allowed'
-                   : 'bg-surface-elevated text-muted hover:bg-surface hover:text-default border border-default'
+              ${week.active 
+                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
+                : week.locked
+                  ? 'bg-surface-elevated text-muted cursor-not-allowed'
+                  : 'bg-surface-elevated text-muted hover:bg-surface hover:text-default border border-default'
               }
             `}
           >
-                            <h2 className="text-lg font-semibold text-default">Üniteler</h2>
             <span className="text-2xl font-bold">{week.number}</span>
             <span className="text-xs mt-1">{week.label}</span>
           </button>

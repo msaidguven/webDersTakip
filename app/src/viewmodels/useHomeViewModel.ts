@@ -4,20 +4,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../lib/supabaseClient';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
-import { getLessonsByGrade as getMockLessonsByGrade, getUnitsByLesson } from '../data/homeMockData';
-
-// Fallback mock grades when Supabase is not configured
-const mockGrades: Grade[] = [
-  { id: '6', level: 6, name: '6. Sınıf', description: 'Ortaokul 1. seviye', icon: '📚', color: 'from-emerald-500 to-teal-500' },
-  { id: '7', level: 7, name: '7. Sınıf', description: 'Ortaokul 2. seviye', icon: '📖', color: 'from-cyan-500 to-blue-500' },
-  { id: '8', level: 8, name: '8. Sınıf', description: 'Ortaokul 3. seviye - LGS', icon: '🎯', color: 'from-blue-500 to-indigo-500' },
-  { id: '9', level: 9, name: '9. Sınıf', description: 'Lise 1. sınıf', icon: '🎓', color: 'from-indigo-500 to-purple-500' },
-  { id: '10', level: 10, name: '10. Sınıf', description: 'Lise 2. sınıf', icon: '🔬', color: 'from-purple-500 to-pink-500' },
-  { id: '11', level: 11, name: '11. Sınıf', description: 'Lise 3. sınıf - YKS hazırlık', icon: '⚡', color: 'from-pink-500 to-rose-500' },
-  { id: '12', level: 12, name: '12. Sınıf', description: 'Lise 4. sınıf - YKS', icon: '🚀', color: 'from-orange-500 to-amber-500' },
-];
-
-// Use the central Supabase wrapper (`createSupabaseBrowserClient`) for client-safe access
 
 interface UseHomeViewModelReturn {
   grades: Grade[];
@@ -60,7 +46,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     selectedTopics: [],
   });
 
-  // Sınıfları çek
+  // Sınıfları çek - SADECE DB'den
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -69,15 +55,19 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-            const supabase = createSupabaseBrowserClient();
+        const supabase = createSupabaseBrowserClient();
         
+        if (!supabase) {
+          setGradesError('Bağlantı hatası. Lütfen daha sonra tekrar deneyin.');
+          return;
+        }
         
         const { data, error } = await supabase.rpc('web_get_active_grades');
         
         if (error) throw error;
         
         if (!data || data.length === 0) {
-          setGrades(mockGrades);
+          setGradesError('Aktif sınıf bulunamadı.');
           return;
         }
         
@@ -94,7 +84,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       } catch (err: any) {
         console.error('Sınıflar yüklenirken hata:', err);
         setGradesError('Sınıflar yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
-        setGrades(mockGrades);
       } finally {
         setIsLoadingGrades(false);
       }
@@ -136,7 +125,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     return colors[level] || 'from-indigo-500 to-purple-500';
   }
 
-  // Sınıfa tıklayınca dersleri çek
+  // Sınıfa tıklayınca dersleri çek - SADECE DB'den
   const selectGrade = useCallback(async (grade: Grade) => {
     try {
       setIsLoadingLessons(true);
@@ -145,16 +134,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       const supabase = createSupabaseBrowserClient();
 
       if (!supabase) {
-        const mockLessons = getMockLessonsByGrade(grade.id);
-        setAvailableLessons(mockLessons);
-        setSelection(prev => ({
-          ...prev,
-          step: 'lesson',
-          selectedGrade: grade,
-          selectedLesson: null,
-          selectedUnit: null,
-          selectedTopics: [],
-        }));
+        setLessonsError('Bağlantı hatası. Lütfen daha sonra tekrar deneyin.');
         return;
       }
       
@@ -177,8 +157,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         }));
         setAvailableLessons(transformedLessons);
       } else {
-        const mockLessons = getMockLessonsByGrade(grade.id);
-        setAvailableLessons(mockLessons);
+        setAvailableLessons([]);
       }
       
       setSelection(prev => ({
@@ -192,16 +171,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
     } catch (err: any) {
       console.error('Dersler yüklenirken hata:', err);
       setLessonsError('Dersler yüklenirken bir hata oluştu.');
-      const mockLessons = getMockLessonsByGrade(grade.id);
-      setAvailableLessons(mockLessons);
-      setSelection(prev => ({
-        ...prev,
-        step: 'lesson',
-        selectedGrade: grade,
-        selectedLesson: null,
-        selectedUnit: null,
-        selectedTopics: [],
-      }));
     } finally {
       setIsLoadingLessons(false);
     }
@@ -220,7 +189,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
 
   // Ders seçildiğinde /ders sayfasına git
   const selectLesson = useCallback((lesson: Lesson) => {
-    // Seçimi state'e kaydet
     setSelection(prev => ({
       ...prev,
       step: 'unit',
@@ -229,7 +197,6 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       selectedTopics: [],
     }));
     
-    // /ders sayfasına yönlendir
     const gradeId = lesson.gradeId;
     if (gradeId) {
       const url = `/ders?grade_id=${gradeId}&lesson_id=${lesson.id}`;

@@ -1,29 +1,59 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Giriş yapmış kullanıcıyı ana sayfaya yönlendir
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push('/');
+    }
+  }, [isAuthenticated, loading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login({ email, password });
   };
 
+  // Yükleniyor veya giriş yapmışsa formu gösterme
+  if (loading || isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-default flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted">Yonlendiriliyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-default flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📚</span>
-          </div>
-          <h1 className="text-2xl font-bold text-default">Ders Takip</h1>
-          <p className="text-muted mt-2">Ogrenmeye devam et</p>
+          <Link href="/" className="inline-block">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/25">
+              <span className="text-3xl">🎓</span>
+            </div>
+            <div className="flex items-baseline justify-center gap-0.5">
+              <span className="text-2xl font-black bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                Ders Takip
+              </span>
+              <span className="text-sm font-bold text-indigo-400/80">.net</span>
+            </div>
+          </Link>
+          <p className="text-muted mt-2">Öğrenmeye devam et</p>
         </div>
 
         {/* Form */}

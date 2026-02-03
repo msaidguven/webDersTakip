@@ -25,11 +25,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Auth sayfasına erişmeye çalışıyor ve giriş yapmış
+  // Auth sayfasına erişmeye çalışıyor ve giriş yapmış - anasayfaya yönlendir
   const isAuthRoute = authRoutes.some(route => pathname === route);
   
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/profil', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
