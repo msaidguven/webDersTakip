@@ -24,7 +24,7 @@ async function getDersData(gradeId: string, lessonId: string) {
     { data: lesson, error: lessonError },
   ] = await Promise.all([
     supabase.from('grades').select('name').eq('id', gId).single(),
-    supabase.from('lessons').select('name').eq('id', lId).single(),
+    supabase.from('lesson_grades').select('lessons(name)').eq('grade_id', gId).eq('lesson_id', lId).single(),
   ]);
 
   if (gradeError) console.error('[getDersData] Grade sorgu hatasi:', gradeError);
@@ -111,7 +111,7 @@ async function getDersData(gradeId: string, lessonId: string) {
 
   const result = {
     gradeName: grade?.name || '',
-    lessonName: lesson?.name || '',
+    lessonName: (lesson as any)?.lessons?.name || '',
     unitName,
     outcomes,
     contents,
