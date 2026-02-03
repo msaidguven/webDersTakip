@@ -172,7 +172,19 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
               lessons={lessons}
               isLoading={loadingLessons}
               onSelect={(lesson: any) => {
-                window.location.href = `/ders?grade_id=${selectedGrade.id}&lesson_id=${lesson.id}`;
+                console.log('[HomeClient onSelect] Ders secildi:', lesson);
+                console.log('[HomeClient onSelect] selectedGrade:', selectedGrade);
+                const gradeId = selectedGrade?.id;
+                const lessonId = lesson?.id;
+                console.log('[HomeClient onSelect] gradeId:', gradeId, 'lessonId:', lessonId);
+                if (!gradeId || !lessonId) {
+                  console.error('[HomeClient onSelect] HATA: gradeId veya lessonId eksik!');
+                  alert('Hata: Sinif veya ders ID bilgisi eksik!');
+                  return;
+                }
+                const url = `/ders?grade_id=${gradeId}&lesson_id=${lessonId}`;
+                console.log('[HomeClient onSelect] Yonlendiriliyor:', url);
+                window.location.href = url;
               }}
               onBack={() => {
                 setSelectedGrade(null);

@@ -1,8 +1,9 @@
 import { createClient } from '@/utils/supabase/server';
 import DersClient from './DersClient';
 
-// ISR for public lesson data
-export const revalidate = 60;
+// Bu sayfa query parametrelerine bagli oldugu icin dinamik render edilmeli
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface PageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -121,12 +122,19 @@ async function getDersData(gradeId: string, lessonId: string) {
 }
 
 export default async function DersPage({ searchParams }: PageProps) {
+  console.log('[DersPage] searchParams:', JSON.stringify(searchParams));
+  
   // Array kontrolü - searchParams değerleri string veya string[] olabilir
   const rawGradeId = searchParams.grade_id;
   const rawLessonId = searchParams.lesson_id;
   
+  console.log('[DersPage] rawGradeId:', rawGradeId, 'type:', typeof rawGradeId);
+  console.log('[DersPage] rawLessonId:', rawLessonId, 'type:', typeof rawLessonId);
+  
   const gradeId = Array.isArray(rawGradeId) ? rawGradeId[0] : rawGradeId;
   const lessonId = Array.isArray(rawLessonId) ? rawLessonId[0] : rawLessonId;
+  
+  console.log('[DersPage] islenmis gradeId:', gradeId, 'lessonId:', lessonId);
 
   if (!gradeId || !lessonId) {
     return (
