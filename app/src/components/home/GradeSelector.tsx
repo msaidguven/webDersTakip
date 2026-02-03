@@ -6,7 +6,7 @@ import { Grade } from '../../models/homeTypes';
 interface GradeSelectorProps {
   grades: Grade[];
   isLoading: boolean;
-  error: string | null;
+  error?: string | null;
   onSelect: (grade: Grade) => void;
 }
 
