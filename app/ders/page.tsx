@@ -39,7 +39,7 @@ async function getDersData(gradeId: string, lessonId: string) {
     const { data: outcomesData } = await supabase
       .from('outcomes')
       .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id))')
-      .in('id', outcomeIds);
+      .in('id', outcomeIds) as any;
 
     outcomes = (outcomesData || [])
       .filter((o: any) => o.topics?.units?.lesson_id === lId)
@@ -50,8 +50,9 @@ async function getDersData(gradeId: string, lessonId: string) {
       }));
 
     // Ünite adını ilk kayıttan al
-    if (outcomesData?.[0]?.topics?.units?.title) {
-      unitName = outcomesData[0].topics.units.title;
+    const firstOutcome = outcomesData?.[0] as any;
+    if (firstOutcome?.topics?.units?.title) {
+      unitName = firstOutcome.topics.units.title;
     }
   }
 
@@ -68,7 +69,7 @@ async function getDersData(gradeId: string, lessonId: string) {
       .from('topic_contents')
       .select('id, title, content, order_no, topic_id, topics!inner(unit_id, units!inner(lesson_id))')
       .in('id', contentIds)
-      .order('order_no');
+      .order('order_no') as any;
 
     contents = (contentsData || [])
       .filter((c: any) => c.topics?.units?.lesson_id === lId)
