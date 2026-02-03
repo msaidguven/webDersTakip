@@ -58,50 +58,34 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
           supabase.from('lessons').select('name').eq('id', lId).single(),
         ]);
 
-        // Ünite adını çek (bu haftaya ait)
-        const { data: weekUnit } = await supabase
-          .from('curriculum_weeks')
-          .select('units!inner(name)')
-          .eq('week_no', CURRENT_WEEK)
-          .eq('lesson_id', lId)
-          .eq('grade_id', gId)
-          .single();
+        // Kazanımları ve ünite adını çek (RPC fonksiyonu kullan)
+        const { data: weekOutcomes, error: outcomesError } = await supabase.rpc(
+          'get_week_view_web',
+          {
+            p_lesson_id: lId,
+            p_grade_id: gId,
+            p_week_number: CURRENT_WEEK,
+          }
+        );
 
-        const names = {
-          gradeName: grade?.name || '',
-          lessonName: lesson?.name || '',
-          unitName: weekUnit?.units?.name || '',
-        };
+        if (outcomesError) throw outcomesError;
 
-        // Kazanımları çek (hızlı)
-        const { data: weekOutcomes } = await supabase
-          .from('outcome_weeks')
-          .select('outcome_id')
-          .lte('start_week', CURRENT_WEEK)
-          .gte('end_week', CURRENT_WEEK);
+        // Ünite adını ilk kayıttan al (tüm kayıtlar aynı üniteye ait)
+        const unitName = weekOutcomes?.[0]?.unit_title || '';
 
-        let outcomes: Outcome[] = [];
-        if (weekOutcomes?.length) {
-          const { data: outcomesData } = await supabase
-            .from('outcomes')
-            .select('id, description, topics!inner(title, units!inner(lesson_id))')
-            .in('id', weekOutcomes.map((w: any) => w.outcome_id));
-
-          outcomes = (outcomesData || [])
-            .filter((o: any) => o.topics?.units?.lesson_id === lId)
-            .map((o: any) => ({
-              id: o.id,
-              description: o.description,
-              topicTitle: o.topics?.title || '',
-            }));
-        }
+        // Kazanımları map'le
+        const outcomes: Outcome[] = (weekOutcomes || []).map((o: any) => ({
+          id: o.id,
+          description: o.description,
+          topicTitle: o.topic_title || '',
+        }));
 
         if (!isCancelled) {
           setState({
             data: { 
-              gradeName: names.gradeName, 
-              lessonName: names.lessonName,
-              unitName: names.unitName,
+              gradeName: grade?.name || '', 
+              lessonName: lesson?.name || '',
+              unitName: unitName,
               outcomes, 
               contents: [] 
             },
@@ -112,7 +96,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
         }
 
         // Kazanımlar yüklendikten sonra içerikleri arka planda yükle
-        loadContentsInBackground(lId);
+        loadContentsInBackground(lId, gId);
       } catch (err: any) {
         if (!isCancelled) {
           setState(prev => ({
@@ -124,33 +108,28 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
       }
     }
 
-    async function loadContentsInBackground(lId: number) {
+    async function loadContentsInBackground(lId: number, gId: number) {
       if (!supabase) return;
 
       try {
-        const { data: weekContents } = await supabase
-          .from('topic_content_weeks')
-          .select('topic_content_id')
-          .eq('curriculum_week', CURRENT_WEEK);
+        // Konu içeriklerini RPC fonksiyonu ile çek
+        const { data: weekContents, error: contentsError } = await supabase.rpc(
+          'web_get_topic_contents_for_week',
+          {
+            p_lesson_id: lId,
+            p_grade_id: gId,
+            p_week_number: CURRENT_WEEK,
+          }
+        );
 
-        let loadedContents: TopicContent[] = [];
-        if (weekContents?.length) {
-          const contentIds = weekContents.map((w: any) => w.topic_content_id);
-          const { data: contentsData } = await supabase
-            .from('topic_contents')
-            .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
-            .in('id', contentIds)
-            .order('order_no');
+        if (contentsError) throw contentsError;
 
-          loadedContents = (contentsData || [])
-            .filter((c: any) => c.topics?.units?.lesson_id === lId)
-            .map((c: any) => ({
-              id: c.id,
-              title: c.title,
-              content: c.content,
-              orderNo: c.order_no,
-            }));
-        }
+        const loadedContents: TopicContent[] = (weekContents || []).map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          content: c.content,
+          orderNo: c.order_no,
+        }));
 
         setContents(loadedContents);
         setContentsLoaded(true);
@@ -172,36 +151,32 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
 
   // İçerikleri ayrı yükle (lazy loading)
   const loadContents = useCallback(async () => {
-    if (!lessonId || contentsLoaded || contentsLoading || !supabase) return;
+    if (!lessonId || !gradeId || contentsLoaded || contentsLoading || !supabase) return;
 
     setContentsLoading(true);
 
     try {
       const lId = parseInt(lessonId);
+      const gId = parseInt(gradeId);
 
-      const { data: weekContents } = await supabase
-        .from('topic_content_weeks')
-        .select('topic_content_id')
-        .eq('curriculum_week', CURRENT_WEEK);
+      // Konu içeriklerini RPC fonksiyonu ile çek
+      const { data: weekContents, error: contentsError } = await supabase.rpc(
+        'web_get_topic_contents_for_week',
+        {
+          p_lesson_id: lId,
+          p_grade_id: gId,
+          p_week_number: CURRENT_WEEK,
+        }
+      );
 
-      let loadedContents: TopicContent[] = [];
-      if (weekContents?.length) {
-        const contentIds = weekContents.map((w: any) => w.topic_content_id);
-        const { data: contentsData } = await supabase
-          .from('topic_contents')
-          .select('id, title, content, order_no, topics!inner(units!inner(lesson_id))')
-          .in('id', contentIds)
-          .order('order_no');
+      if (contentsError) throw contentsError;
 
-        loadedContents = (contentsData || [])
-          .filter((c: any) => c.topics?.units?.lesson_id === lId)
-          .map((c: any) => ({
-            id: c.id,
-            title: c.title,
-            content: c.content,
-            orderNo: c.order_no,
-          }));
-      }
+      const loadedContents: TopicContent[] = (weekContents || []).map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        content: c.content,
+        orderNo: c.order_no,
+      }));
 
       setContents(loadedContents);
       setContentsLoaded(true);
@@ -216,7 +191,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
     } finally {
       setContentsLoading(false);
     }
-  }, [lessonId, supabase, contentsLoaded, contentsLoading]);
+  }, [lessonId, gradeId, supabase, contentsLoaded, contentsLoading]);
 
   const setActiveTab = useCallback((tab: 'outcomes' | 'content') => {
     setState(prev => ({ ...prev, activeTab: tab }));
