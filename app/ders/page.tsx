@@ -197,15 +197,7 @@ function ContentList({
       {contents.map((content, idx) => (
         <article key={content.id} className="rounded-2xl bg-surface-elevated border border-default overflow-hidden">
           <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-default bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
-                <span className="text-xl font-bold text-white">{idx + 1}</span>
-              </div>
-              <div className="flex-1 pt-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-default leading-tight">{content.title}</h2>
-                <p className="text-muted text-sm mt-1">Konu {idx + 1} / {contents.length}</p>
-              </div>
-            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-red-500 leading-tight">{content.title}</h2>
           </div>
           <div className="p-6 sm:p-8">
             <HtmlContent html={content.content} />
