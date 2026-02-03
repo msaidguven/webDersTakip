@@ -57,9 +57,12 @@ async function getDersData(gradeId: string, lessonId: string) {
     if (outcomesError) console.error('[getDersData] outcomes sorgu hatasi:', outcomesError);
     console.log('[getDersData] outcomesData:', outcomesData?.length || 0, 'kayit');
 
-    outcomes = (outcomesData || [])
-      .filter((o: any) => o.topics?.units?.lesson_id === lId && o.topics?.units?.unit_grades?.some((ug: any) => ug.grade_id === gId))
-      .map((o: any) => ({
+    const filteredOutcomesData = (outcomesData || []).filter((o: any) => 
+      o.topics?.units?.lesson_id === lId && 
+      o.topics?.units?.unit_grades?.some((ug: any) => ug.grade_id === gId)
+    );
+
+    outcomes = filteredOutcomesData.map((o: any) => ({
         id: o.id,
         description: o.description,
         topicTitle: o.topics?.title || '',
@@ -68,7 +71,7 @@ async function getDersData(gradeId: string, lessonId: string) {
     console.log('[getDersData] filtered outcomes:', outcomes.length, 'kayit');
 
     // Ünite adını ilk kayıttan al
-    const firstOutcome = outcomesData?.[0] as any;
+    const firstOutcome = filteredOutcomesData?.[0] as any;
     if (firstOutcome?.topics?.units?.title) {
       unitName = firstOutcome.topics.units.title;
     }
