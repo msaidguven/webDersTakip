@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const CURRENT_WEEK = 19;
@@ -18,7 +18,18 @@ interface DersClientProps {
 }
 
 function HtmlContent({ html }: { html: string }) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   if (!html) return null;
+  
+  // Sunucu tarafında boş render et, hydration sorununu önle
+  if (!mounted) {
+    return <div className="html-content" suppressHydrationWarning />;
+  }
   
   const cleanHtml = html
     .replace(/<p>\s*<\/p>/g, '')
@@ -48,6 +59,7 @@ function HtmlContent({ html }: { html: string }) {
     <div 
       className="html-content"
       dangerouslySetInnerHTML={{ __html: cleanHtml }} 
+      suppressHydrationWarning
     />
   );
 }
