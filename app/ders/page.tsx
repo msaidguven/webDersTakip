@@ -238,16 +238,16 @@ function DersContent() {
   return (
     <div className="min-h-screen bg-default">
       {/* Breadcrumb Nav */}
-      <div className="border-b border-default bg-surface/50 backdrop-blur-sm">
+      <div className="border-b border-default bg-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <Link href="/" className="hover:text-default transition-colors">Ana Sayfa</Link>
-            <span>→</span>
+            <span className="text-default">→</span>
             <span className="text-default">{data.gradeName}</span>
-            <span>→</span>
+            <span className="text-default">→</span>
             <span className="text-default">{data.lessonName}</span>
-            <span>→</span>
-            <span className="text-indigo-500">{CURRENT_WEEK}. Hafta</span>
+            <span className="text-default">→</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-medium">{CURRENT_WEEK}. Hafta</span>
           </div>
         </div>
       </div>

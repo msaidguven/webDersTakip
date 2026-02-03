@@ -518,7 +518,7 @@ function MixedTestContent() {
   return (
     <div className="min-h-screen bg-default">
       {/* Test Info Bar */}
-      <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-default bg-surface/80 backdrop-blur-sm">
+      <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-default bg-surface">
         <div className="max-w-7xl mx-auto px-3 sm:px-8 py-3">
           <div className="flex items-center justify-between">
             <Link href="/ders" className="text-sm text-muted hover:text-default flex items-center gap-1">
@@ -529,7 +529,7 @@ function MixedTestContent() {
               <span className="text-xs sm:text-sm text-muted">
                 {currentIndex + 1}/{allQuestionsLoaded ? questions.length : '?'}
               </span>
-              <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-surface rounded-full overflow-hidden">
+              <div className="w-16 sm:w-32 h-1.5 sm:h-2 bg-surface-elevated border border-default rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" 
                   style={{ 
@@ -539,7 +539,7 @@ function MixedTestContent() {
                   }} 
                 />
               </div>
-              <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg bg-surface-elevated border border-default font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-400 border-red-500/30' : 'text-muted'}`}>
+              <div className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg bg-surface-elevated border border-default font-mono text-xs sm:text-sm ${timeLeft < 300 ? 'text-red-500 border-red-500/30' : 'text-default'}`}>
                 {formatTime(timeLeft)}
               </div>
             </div>
