@@ -51,9 +51,10 @@ export default function ProfilePage() {
 
   const supabase = createSupabaseBrowserClient();
 
+  // Auth kontrolü - giriş yapmamışsa login'e yönlendir
   useEffect(() => {
     if (!authLoading && !authUser) {
-      router.replace('/login');
+      router.replace('/login?redirectTo=/profil');
     }
   }, [authUser, authLoading, router]);
 
