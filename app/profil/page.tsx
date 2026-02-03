@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../src/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -34,6 +34,21 @@ export default function ProfilePage() {
     streakDays: 7,
   });
 
+  // Şifre değiştirme state'leri
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Avatar upload state'leri
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const supabase = createSupabaseBrowserClient();
 
   useEffect(() => {
@@ -60,9 +75,7 @@ export default function ProfilePage() {
         }
 
         setUser(fetchedUser);
-
-        // TODO: Gerçek istatistikler DB'den çekilecek
-        // Şimdilik mock veri
+        setAvatarUrl(fetchedUser.user_metadata?.avatar_url || null);
       } catch (e: any) {
         setError(e?.message || 'Bir hata oluştu');
       } finally {
@@ -74,6 +87,90 @@ export default function ProfilePage() {
       getUserData();
     }
   }, [supabase, authUser]);
+
+  // Şifre değiştirme
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Yeni şifreler eşleşmiyor.');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('Yeni şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccess(true);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      setPasswordError(err.message || 'Şifre değiştirme başarısız.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Avatar yükleme
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Dosya kontrolü
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Dosya boyutu 2MB\'dan küçük olmalıdır.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Sadece resim dosyaları yüklenebilir.');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Storage'a yükle
+      const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Public URL al
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+
+      // Kullanıcı metadata'sını güncelle
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
+      });
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+    } catch (err: any) {
+      alert('Fotoğraf yüklenirken hata: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -139,14 +236,46 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* Kullanıcı Kartı */}
+        {/* Kullanıcı Kartı + Profil Fotoğrafı */}
         <div className="bg-surface-elevated border border-default rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Avatar */}
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
-                {user?.email?.[0]?.toUpperCase() || 'U'}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
+                {avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.email?.[0]?.toUpperCase() || 'U'
+                )}
               </div>
+              
+              {/* Fotoğraf değiştirme overlay */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <span className="text-white text-2xl">📷</span>
+              </button>
+              
+              {uploading && (
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              
               {stats.streakDays > 0 && (
                 <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
                   🔥 {stats.streakDays}
@@ -184,6 +313,61 @@ export default function ProfilePage() {
           <StatCard icon="❓" value={stats.totalQuestions} label="Soru" />
           <StatCard icon="✅" value={stats.correctAnswers} label="Doğru" color="text-emerald-400" />
           <StatCard icon="🏆" value={`%${stats.averageScore}`} label="Başarı" color="text-amber-400" />
+        </div>
+
+        {/* Şifre Değiştirme */}
+        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-default mb-6 flex items-center gap-2">
+            <span>🔐</span> Şifre Değiştir
+          </h3>
+
+          {passwordError && (
+            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {passwordError}
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+              ✅ Şifreniz başarıyla değiştirildi!
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm text-muted mb-2">Yeni Şifre</label>
+              <input
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="••••••••"
+                minLength={6}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-muted mb-2">Yeni Şifre (Tekrar)</label>
+              <input
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="••••••••"
+                minLength={6}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Değiştir'}
+            </button>
+          </form>
         </div>
 
         {/* Ders İlerlemesi */}
@@ -254,10 +438,10 @@ export default function ProfilePage() {
                   <h4 className="text-default font-medium truncate">{activity.test}</h4>
                   <p className="text-xs text-muted">{activity.subject} • {activity.date}</p>
                 </div>
-                <div className={`font-bold $[
+                <div className={`font-bold ${
                   activity.score >= 90 ? 'text-emerald-400' : 
                   activity.score >= 70 ? 'text-amber-400' : 'text-rose-400'
-                ]`}>
+                }`}>
                   {activity.score} Puan
                 </div>
               </div>
@@ -337,7 +521,8 @@ function Rozet({ emoji, name, description, locked }: {
       locked 
         ? 'bg-surface/50 border-default opacity-50' 
         : 'bg-surface border-default hover:border-indigo-500/30'
-    }`}>
+    }`}
+    >
       <div className="text-2xl">{locked ? '🔒' : emoji}</div>
       <div className="min-w-0">
         <div className="text-default font-bold text-sm truncate">{name}</div>
