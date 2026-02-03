@@ -27,7 +27,7 @@ interface UserStats {
 
 export default function ProfilClient({ user }: ProfilClientProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [uploading, setUploading] = useState(false);

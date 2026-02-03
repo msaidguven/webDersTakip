@@ -51,14 +51,14 @@ async function getDersData(gradeId: string, lessonId: string) {
     
     const { data: outcomesData, error: outcomesError } = await supabase
       .from('outcomes')
-      .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id))')
+      .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
       .in('id', outcomeIds) as any;
 
     if (outcomesError) console.error('[getDersData] outcomes sorgu hatasi:', outcomesError);
     console.log('[getDersData] outcomesData:', outcomesData?.length || 0, 'kayit');
 
     outcomes = (outcomesData || [])
-      .filter((o: any) => o.topics?.units?.lesson_id === lId)
+      .filter((o: any) => o.topics?.units?.lesson_id === lId && o.topics?.units?.grade_id === gId)
       .map((o: any) => ({
         id: o.id,
         description: o.description,
@@ -90,7 +90,7 @@ async function getDersData(gradeId: string, lessonId: string) {
     
     const { data: contentsData, error: contentsError } = await supabase
       .from('topic_contents')
-      .select('id, title, content, order_no, topic_id, topics!inner(unit_id, units!inner(lesson_id))')
+      .select('id, title, content, order_no, topic_id, topics!inner(unit_id, units!inner(lesson_id, grade_id))')
       .in('id', contentIds)
       .order('order_no') as any;
 
@@ -98,7 +98,7 @@ async function getDersData(gradeId: string, lessonId: string) {
     console.log('[getDersData] contentsData:', contentsData?.length || 0, 'kayit');
 
     contents = (contentsData || [])
-      .filter((c: any) => c.topics?.units?.lesson_id === lId)
+      .filter((c: any) => c.topics?.units?.lesson_id === lId && c.topics?.units?.grade_id === gId)
       .map((c: any) => ({
         id: c.id,
         title: c.title,

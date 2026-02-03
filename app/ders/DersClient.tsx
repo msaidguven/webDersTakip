@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 const CURRENT_WEEK = 19;
@@ -31,29 +31,31 @@ function HtmlContent({ html }: { html: string }) {
     return <div className="html-content" suppressHydrationWarning />;
   }
   
-  const cleanHtml = html
-    .replace(/<p>\s*<\/p>/g, '')
-    .replace(/\n\s*\n/g, '\n')
-    .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
-    .replace(/<\/table>/g, '</table></div>')
-    .replace(/<td/g, '<td class="border border-default px-4 py-2 text-muted text-lg"')
-    .replace(/<th/g, '<th class="border border-default px-4 py-2 bg-surface-elevated text-default font-semibold text-lg"')
-    .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-muted text-lg"')
-    .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-muted text-lg"')
-    .replace(/<h1/g, '<h1 class="text-3xl font-bold text-default my-6"')
-    .replace(/<h2/g, '<h2 class="text-2xl font-bold text-red-500 my-5"')
-    .replace(/<h3/g, '<h3 class="text-xl font-bold text-red-400 my-4"')
-    .replace(/<h4/g, '<h4 class="text-lg font-bold text-default my-3"')
-    .replace(/<p(?![^>]*class)/g, '<p class="text-muted leading-relaxed my-3 text-lg"')
-    .replace(/<strong/g, '<strong class="text-default font-semibold"')
-    .replace(/<b(?![^>]*class)/g, '<b class="text-default"')
-    .replace(/<em/g, '<em class="text-muted italic"')
-    .replace(/<a(?![^>]*class)/g, '<a class="text-indigo-500 hover:text-indigo-400 underline transition-colors"')
-    .replace(/<img/g, '<img class="max-w-full h-auto rounded-xl my-4 shadow-lg"')
-    .replace(/<blockquote/g, '<blockquote class="border-l-4 border-indigo-500 pl-4 my-4 italic text-muted bg-surface py-2 pr-4 rounded-r-lg"')
-    .replace(/<code(?![^>]*class)/g, '<code class="bg-surface text-emerald-500 px-1.5 py-0.5 rounded text-sm font-mono"')
-    .replace(/<pre/g, '<pre class="bg-surface p-4 rounded-xl overflow-x-auto my-4 text-sm"')
-    .replace(/<hr/g, '<hr class="border-default my-6"');
+  const cleanHtml = useMemo(() => {
+    return html
+      .replace(/<p>\s*<\/p>/g, '')
+      .replace(/\n\s*\n/g, '\n')
+      .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
+      .replace(/<\/table>/g, '</table></div>')
+      .replace(/<td/g, '<td class="border border-default px-4 py-2 text-muted text-lg"')
+      .replace(/<th/g, '<th class="border border-default px-4 py-2 bg-surface-elevated text-default font-semibold text-lg"')
+      .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-muted text-lg"')
+      .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-muted text-lg"')
+      .replace(/<h1/g, '<h1 class="text-3xl font-bold text-default my-6"')
+      .replace(/<h2/g, '<h2 class="text-2xl font-bold text-red-500 my-5"')
+      .replace(/<h3/g, '<h3 class="text-xl font-bold text-red-400 my-4"')
+      .replace(/<h4/g, '<h4 class="text-lg font-bold text-default my-3"')
+      .replace(/<p(?![^>]*class)/g, '<p class="text-muted leading-relaxed my-3 text-lg"')
+      .replace(/<strong/g, '<strong class="text-default font-semibold"')
+      .replace(/<b(?![^>]*class)/g, '<b class="text-default"')
+      .replace(/<em/g, '<em class="text-muted italic"')
+      .replace(/<a(?![^>]*class)/g, '<a class="text-indigo-500 hover:text-indigo-400 underline transition-colors"')
+      .replace(/<img/g, '<img class="max-w-full h-auto rounded-xl my-4 shadow-lg"')
+      .replace(/<blockquote/g, '<blockquote class="border-l-4 border-indigo-500 pl-4 my-4 italic text-muted bg-surface py-2 pr-4 rounded-r-lg"')
+      .replace(/<code(?![^>]*class)/g, '<code class="bg-surface text-emerald-500 px-1.5 py-0.5 rounded text-sm font-mono"')
+      .replace(/<pre/g, '<pre class="bg-surface p-4 rounded-xl overflow-x-auto my-4 text-sm"')
+      .replace(/<hr/g, '<hr class="border-default my-6"');
+  }, [html]);
 
   return (
     <div 
