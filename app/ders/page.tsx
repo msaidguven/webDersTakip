@@ -84,21 +84,29 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   );
 }
 
-function PageHeader({ gradeName, lessonName, outcomeCount }: { 
+function PageHeader({ gradeName, lessonName, outcomeCount, unitName }: { 
   gradeName: string; 
   lessonName: string; 
   outcomeCount: number;
+  unitName?: string;
 }) {
   return (
     <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-default p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted mb-3 sm:mb-4">
-        <span>🎓 {gradeName}</span>
-        <span>{'->'}</span>
-        <span>📚 {lessonName}</span>
-        <span className="hidden sm:inline">{'->'}</span>
-        <span className="hidden sm:inline">{CURRENT_WEEK}. Hafta</span>
+      {/* Navigasyon: 19. Hafta -> 5. Sınıf -> Ders */}
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-4">
+        <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{CURRENT_WEEK}. Hafta</span>
+        <span className="text-muted">→</span>
+        <span className="text-default">{gradeName}</span>
+        <span className="text-muted">→</span>
+        <span className="text-default">{lessonName}</span>
+        {unitName && (
+          <>
+            <span className="text-muted">→</span>
+            <span className="text-default">{unitName}</span>
+          </>
+        )}
       </div>
-      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-default mb-3 sm:mb-4">{CURRENT_WEEK}. Hafta Konulari</h1>
+      
       <div className="flex items-center gap-4 sm:gap-6 text-muted">
         <span className="flex items-center gap-2 text-sm">
           <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -148,7 +156,6 @@ function OutcomesList({ outcomes }: { outcomes: Array<{ id: number; description:
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0 font-bold text-sm sm:text-base">{index + 1}</div>
           <div className="flex-1 min-w-0">
             <p className="text-default text-sm sm:text-base leading-relaxed">{outcome.description}</p>
-            {outcome.topicTitle && <p className="text-muted text-xs sm:text-sm mt-1.5 sm:mt-2">{outcome.topicTitle}</p>}
           </div>
         </div>
       ))}
@@ -237,21 +244,6 @@ function DersContent() {
 
   return (
     <div className="min-h-screen bg-default">
-      {/* Breadcrumb Nav */}
-      <div className="border-b border-default bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <Link href="/" className="hover:text-default transition-colors">Ana Sayfa</Link>
-            <span className="text-default">→</span>
-            <span className="text-default">{data.gradeName}</span>
-            <span className="text-default">→</span>
-            <span className="text-default">{data.lessonName}</span>
-            <span className="text-default">→</span>
-            <span className="text-indigo-600 dark:text-indigo-400 font-medium">{CURRENT_WEEK}. Hafta</span>
-          </div>
-        </div>
-      </div>
-
       <main className="pt-6 sm:pt-8 pb-20 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto">
           <PageHeader 
