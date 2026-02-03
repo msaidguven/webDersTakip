@@ -41,7 +41,7 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
         isLoading: false,
       }));
 
-      router.push('/profil');
+      router.push('/');
     } catch (err: any) {
       setState(prev => ({
         ...prev,
