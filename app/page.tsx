@@ -5,6 +5,7 @@ import { Grade } from './src/models/homeTypes';
 // ISR: Revalidate every 60 seconds for public data
 export const revalidate = 60;
 
+// DB'de olmayan alanlar için client-side mapping
 function getGradeDescription(level: number): string {
   const descriptions: Record<number, string> = {
     6: 'Ortaokul 1. seviye',
@@ -41,6 +42,7 @@ function getGradeColor(level: number): string {
 async function getGrades(): Promise<Grade[]> {
   const supabase = createClient();
   
+  // DB şeması: grades(id, name, order_no, is_active, question_count)
   const { data, error } = await supabase
     .from('grades')
     .select('id, name, order_no, is_active')
@@ -52,7 +54,7 @@ async function getGrades(): Promise<Grade[]> {
     return [];
   }
 
-  // Map database fields to Grade type
+  // DB'de olmayan alanları client-side ekle
   return (data || []).map((g: any) => ({
     id: g.id.toString(),
     level: g.order_no,
@@ -64,8 +66,6 @@ async function getGrades(): Promise<Grade[]> {
 }
 
 export default async function HomePage() {
-  // Server-side data fetch with caching
   const grades = await getGrades();
-
   return <HomeClient initialGrades={grades} />;
 }

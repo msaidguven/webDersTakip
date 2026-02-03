@@ -10,38 +10,18 @@ import { Grade } from './src/models/homeTypes';
 
 const CURRENT_WEEK = 19;
 
-const fetcher = async (): Promise<Grade[]> => {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('grades')
-    .select('id, name, order_no, is_active')
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
-  
-  if (error) throw error;
-  
-  // Map database fields to Grade type
-  return (data || []).map((g: any) => ({
-    id: g.id.toString(),
-    level: g.order_no,
-    name: g.name,
-    description: getGradeDescription(g.order_no),
-    icon: getGradeIcon(g.order_no),
-    color: getGradeColor(g.order_no),
-  }));
-};
-
+// DB'de olmayan alanlar için client-side mapping
 function getGradeDescription(level: number): string {
   const descriptions: Record<number, string> = {
     6: 'Ortaokul 1. seviye',
     7: 'Ortaokul 2. seviye',
     8: 'Ortaokul 3. seviye - LGS',
-    9: 'Lise 1. sınıf',
-    10: 'Lise 2. sınıf',
-    11: 'Lise 3. sınıf - YKS hazırlık',
-    12: 'Lise 4. sınıf - YKS',
+    9: 'Lise 1. sinif',
+    10: 'Lise 2. sinif',
+    11: 'Lise 3. sinif - YKS hazirlik',
+    12: 'Lise 4. sinif - YKS',
   };
-  return descriptions[level] || `${level}. Sınıf`;
+  return descriptions[level] || `${level}. Sinif`;
 }
 
 function getGradeIcon(level: number): string {
@@ -64,12 +44,34 @@ function getGradeColor(level: number): string {
   return colors[level] || 'from-indigo-500 to-purple-500';
 }
 
+const fetcher = async (): Promise<Grade[]> => {
+  const supabase = createClient();
+  
+  // DB şeması: grades(id, name, order_no, is_active, question_count)
+  const { data, error } = await supabase
+    .from('grades')
+    .select('id, name, order_no, is_active')
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+  
+  if (error) throw error;
+  
+  // DB'de olmayan alanları client-side ekle
+  return (data || []).map((g: any) => ({
+    id: g.id.toString(),
+    level: g.order_no,
+    name: g.name,
+    description: getGradeDescription(g.order_no),
+    icon: getGradeIcon(g.order_no),
+    color: getGradeColor(g.order_no),
+  }));
+};
+
 interface HomeClientProps {
-  initialGrades: any[];
+  initialGrades: Grade[];
 }
 
 export default function HomeClient({ initialGrades }: HomeClientProps) {
-  // SWR with fallbackData for stale-while-revalidate pattern
   const { data: grades } = useSWR(
     'grades',
     fetcher,
@@ -77,19 +79,22 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
       fallbackData: initialGrades,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: 60000, // 1 minute
+      dedupingInterval: 60000,
     }
   );
 
-  const [selectedGrade, setSelectedGrade] = useState<any | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
   const [lessons, setLessons] = useState<any[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
 
-  const handleGradeSelect = async (grade: any) => {
+  const handleGradeSelect = async (grade: Grade) => {
     setSelectedGrade(grade);
     setLoadingLessons(true);
     
     const supabase = createClient();
+    
+    // DB şeması: lesson_grades(lesson_id, grade_id, is_active)
+    // lessons(id, name, icon, description, order_no, is_active, slug)
     const { data } = await supabase
       .from('lesson_grades')
       .select('lessons(id, name, icon, description)')
@@ -107,7 +112,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
         <div className="max-w-6xl mx-auto">
           <div className="max-w-6xl mx-auto mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-default">Müfredat Haftası</h2>
+              <h2 className="text-lg font-semibold text-default">Mufredat Haftasi</h2>
               <Link href="#" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 flex items-center gap-1">
                 Takvim <span>→</span>
               </Link>
@@ -130,7 +135,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
                 >
                   <span className="text-2xl font-bold">{week}</span>
                   <span className="text-xs mt-1">
-                    {week === CURRENT_WEEK ? 'Şimdi' : week < CURRENT_WEEK ? 'Geçen' : week > 21 ? 'Kilitli' : 'Gelecek'}
+                    {week === CURRENT_WEEK ? 'Simdi' : week < CURRENT_WEEK ? 'Gecen' : week > 21 ? 'Kilitli' : 'Gelecek'}
                   </span>
                 </button>
               ))}
@@ -163,11 +168,11 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
       <footer className="border-t border-default py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
           <p className="text-muted text-sm">
-            © 2026 Ders Takip. Tüm hakları saklıdır.
+            © 2026 Ders Takip. Tum haklari saklidir.
           </p>
           <div className="flex gap-6 text-sm text-muted">
-            <a href="#" className="hover:text-default transition-colors">Hakkımızda</a>
-            <a href="#" className="hover:text-default transition-colors">İletişim</a>
+            <a href="#" className="hover:text-default transition-colors">Hakkimizda</a>
+            <a href="#" className="hover:text-default transition-colors">Iletisim</a>
             <a href="#" className="hover:text-default transition-colors">Gizlilik</a>
           </div>
         </div>
