@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 interface PageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 async function getDersData(gradeId: string, lessonId: string) {
@@ -122,11 +122,13 @@ async function getDersData(gradeId: string, lessonId: string) {
 }
 
 export default async function DersPage({ searchParams }: PageProps) {
-  console.log('[DersPage] searchParams:', JSON.stringify(searchParams));
+  // Next.js 15'te searchParams Promise olabilir
+  const params = await searchParams;
+  console.log('[DersPage] searchParams:', JSON.stringify(params));
   
   // Array kontrolü - searchParams değerleri string veya string[] olabilir
-  const rawGradeId = searchParams.grade_id;
-  const rawLessonId = searchParams.lesson_id;
+  const rawGradeId = params.grade_id;
+  const rawLessonId = params.lesson_id;
   
   console.log('[DersPage] rawGradeId:', rawGradeId, 'type:', typeof rawGradeId);
   console.log('[DersPage] rawLessonId:', rawLessonId, 'type:', typeof rawLessonId);
