@@ -45,6 +45,7 @@ function getGradeColor(level: number): string {
 }
 
 const fetcher = async (): Promise<Grade[]> => {
+  console.log('[HomeClient fetcher] Siniflar cekiliyor...');
   const supabase = createClient();
   
   // DB şeması: grades(id, name, order_no, is_active, question_count)
@@ -54,10 +55,15 @@ const fetcher = async (): Promise<Grade[]> => {
     .eq('is_active', true)
     .order('order_no', { ascending: true });
   
-  if (error) throw error;
+  if (error) {
+    console.error('[HomeClient fetcher] HATA:', error);
+    throw error;
+  }
+  
+  console.log('[HomeClient fetcher] Bulunan kayit:', data?.length || 0);
   
   // DB'de olmayan alanları client-side ekle
-  return (data || []).map((g: any) => ({
+  const grades = (data || []).map((g: any) => ({
     id: g.id.toString(),
     level: g.order_no,
     name: g.name,
@@ -65,6 +71,9 @@ const fetcher = async (): Promise<Grade[]> => {
     icon: getGradeIcon(g.order_no),
     color: getGradeColor(g.order_no),
   }));
+  
+  console.log('[HomeClient fetcher] SONUC:', grades);
+  return grades;
 };
 
 interface HomeClientProps {
@@ -88,6 +97,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
   const [loadingLessons, setLoadingLessons] = useState(false);
 
   const handleGradeSelect = async (grade: Grade) => {
+    console.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
     setSelectedGrade(grade);
     setLoadingLessons(true);
     
@@ -95,13 +105,21 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
     
     // DB şeması: lesson_grades(lesson_id, grade_id, is_active)
     // lessons(id, name, icon, description, order_no, is_active, slug)
-    const { data } = await supabase
+    console.log('[HomeClient handleGradeSelect] Dersler cekiliyor... grade_id:', grade.id);
+    const { data, error } = await supabase
       .from('lesson_grades')
       .select('lessons(id, name, icon, description)')
       .eq('grade_id', grade.id)
       .eq('is_active', true);
     
+    if (error) {
+      console.error('[HomeClient handleGradeSelect] HATA:', error);
+    }
+    
+    console.log('[HomeClient handleGradeSelect] Dersler:', data);
+    
     const lessonList = data?.map((item: any) => item.lessons) || [];
+    console.log('[HomeClient handleGradeSelect] Islenen ders listesi:', lessonList);
     setLessons(lessonList);
     setLoadingLessons(false);
   };

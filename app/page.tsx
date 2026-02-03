@@ -40,6 +40,7 @@ function getGradeColor(level: number): string {
 }
 
 async function getGrades(): Promise<Grade[]> {
+  console.log('[getGrades] Siniflar cekiliyor...');
   const supabase = await createClient();
   
   // DB şeması: grades(id, name, order_no, is_active, question_count)
@@ -50,12 +51,14 @@ async function getGrades(): Promise<Grade[]> {
     .order('order_no', { ascending: true });
 
   if (error) {
-    console.error('Error fetching grades:', error);
+    console.error('[getGrades] HATA:', error);
     return [];
   }
 
+  console.log('[getGrades] Bulunan kayit sayisi:', data?.length || 0);
+
   // DB'de olmayan alanları client-side ekle
-  return (data || []).map((g: any) => ({
+  const grades = (data || []).map((g: any) => ({
     id: g.id.toString(),
     level: g.order_no,
     name: g.name,
@@ -63,6 +66,9 @@ async function getGrades(): Promise<Grade[]> {
     icon: getGradeIcon(g.order_no),
     color: getGradeColor(g.order_no),
   }));
+  
+  console.log('[getGrades] SONUC:', grades);
+  return grades;
 }
 
 export default async function HomePage() {
