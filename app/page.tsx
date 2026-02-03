@@ -40,7 +40,7 @@ function getGradeColor(level: number): string {
 }
 
 async function getGrades(): Promise<Grade[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // DB şeması: grades(id, name, order_no, is_active, question_count)
   const { data, error } = await supabase

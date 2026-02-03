@@ -6,7 +6,7 @@ import ProfilClient from './ProfilClient';
 export const dynamic = 'force-dynamic';
 
 async function getUserData() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data: { user }, error } = await supabase.auth.getUser();
   

@@ -9,7 +9,7 @@ interface PageProps {
 }
 
 async function getDersData(gradeId: string, lessonId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const CURRENT_WEEK = 19;
   
   const gId = parseInt(gradeId);
