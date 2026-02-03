@@ -14,22 +14,39 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-default">
-      {/* Sabit Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] bg-surface/95 backdrop-blur-md border-b border-default">
+      {/* Sabit Header - Light/Dark uyumlu */}
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] 
+        bg-white/80 dark:bg-surface/95 
+        backdrop-blur-xl 
+        border-b border-zinc-200 dark:border-default
+        shadow-sm dark:shadow-none
+        transition-colors duration-300">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
+          
           {/* Logo ve Site Adı */}
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
               {/* Logo */}
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl 
+                bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 
+                flex items-center justify-center 
+                shadow-lg shadow-indigo-500/25 dark:shadow-indigo-500/25 
+                group-hover:shadow-indigo-500/40 
+                transition-all group-hover:scale-105">
                 <span className="text-lg sm:text-xl">🎓</span>
               </div>
-              {/* Site Adı - Hem mobil hem desktop */}
+              
+              {/* Site Adı */}
               <div className="flex items-baseline gap-0.5">
-                <span className="text-base sm:text-xl font-black tracking-tight bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                <span className="text-base sm:text-xl font-black tracking-tight 
+                  bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 
+                  dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 
+                  bg-clip-text text-transparent">
                   Ders Takip
                 </span>
-                <span className="text-xs sm:text-sm font-bold text-indigo-400/80">.net</span>
+                <span className="text-xs sm:text-sm font-bold text-indigo-500/70 dark:text-indigo-400/80">
+                  .net
+                </span>
               </div>
             </Link>
           </div>
@@ -40,18 +57,22 @@ export function MainLayout({ children }: MainLayoutProps) {
             
             {isAuthenticated ? (
               <div className="flex items-center gap-2 sm:gap-4">
-                <span className="text-muted text-xs sm:text-sm hidden md:block">
+                <span className="text-zinc-500 dark:text-muted text-xs sm:text-sm hidden md:block">
                   👋 {user?.email?.split('@')[0]}
                 </span>
                 <Link 
                   href="/profil" 
-                  className="text-muted hover:text-default transition-colors text-xs sm:text-sm px-2 py-1 rounded-lg hover:bg-surface-elevated"
+                  className="text-zinc-600 dark:text-muted hover:text-zinc-900 dark:hover:text-default 
+                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
+                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                 >
                   Profil
                 </Link>
                 <button 
                   onClick={signOut}
-                  className="text-muted hover:text-red-400 transition-colors text-xs sm:text-sm px-2 py-1 rounded-lg hover:bg-red-500/10"
+                  className="text-zinc-600 dark:text-muted hover:text-red-600 dark:hover:text-red-400 
+                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
+                    hover:bg-red-50 dark:hover:bg-red-500/10"
                 >
                   Çıkış
                 </button>
@@ -60,13 +81,19 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="flex items-center gap-2">
                 <Link 
                   href="/login" 
-                  className="text-muted hover:text-default transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl hover:bg-surface-elevated"
+                  className="text-zinc-600 dark:text-muted hover:text-zinc-900 dark:hover:text-default 
+                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
+                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                 >
                   Giriş Yap
                 </Link>
                 <Link 
                   href="/register"
-                  className="px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
+                  className="px-3 sm:px-4 py-2 
+                    bg-gradient-to-r from-indigo-500 to-purple-600 
+                    text-white font-medium rounded-xl 
+                    hover:shadow-lg hover:shadow-indigo-500/30 
+                    transition-all text-xs sm:text-sm"
                 >
                   <span className="sm:hidden">Kayıt</span>
                   <span className="hidden sm:inline">Kayıt Ol</span>
