@@ -91,17 +91,34 @@ async function getDersData(gradeId: string, lessonId: string) {
 }
 
 export default async function DersPage({ searchParams }: PageProps) {
-  const gradeId = searchParams.grade_id as string;
-  const lessonId = searchParams.lesson_id as string;
+  // Array kontrolü - searchParams değerleri string veya string[] olabilir
+  const rawGradeId = searchParams.grade_id;
+  const rawLessonId = searchParams.lesson_id;
+  
+  const gradeId = Array.isArray(rawGradeId) ? rawGradeId[0] : rawGradeId;
+  const lessonId = Array.isArray(rawLessonId) ? rawLessonId[0] : rawLessonId;
 
   if (!gradeId || !lessonId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted">Sinif veya ders bilgisi eksik</p>
+        <p className="text-muted">Sinif veya ders bilgisi eksik (URL parametreleri bulunamadi)</p>
       </div>
     );
   }
 
   const data = await getDersData(gradeId, lessonId);
+  
+  // DB'de kayit yoksa hata goster
+  if (!data.gradeName || !data.lessonName) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted mb-2">Sinif veya ders bulunamadi</p>
+          <p className="text-xs text-gray-500">Grade ID: {gradeId}, Lesson ID: {lessonId}</p>
+        </div>
+      </div>
+    );
+  }
+  
   return <DersClient initialData={data} gradeId={gradeId} lessonId={lessonId} />;
 }
