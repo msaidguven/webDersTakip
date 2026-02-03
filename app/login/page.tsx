@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 import { useAuth } from '../src/context/AuthContext';
 
-export default function LoginPage() {
+// Ana login form bileşeni
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams?.get('redirectTo') || '/';
@@ -126,5 +127,26 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback
+function LoginLoading() {
+  return (
+    <div className="min-h-screen bg-default flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-muted">Yükleniyor...</p>
+      </div>
+    </div>
+  );
+}
+
+// Export ana bileşen - Suspense ile sarmalanmış
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   );
 }
