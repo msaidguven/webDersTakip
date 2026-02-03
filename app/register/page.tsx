@@ -27,8 +27,10 @@ export default function RegisterPage() {
     });
   };
 
+  const inputClass = "w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500";
+
   return (
-    <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-default flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -44,11 +46,11 @@ export default function RegisterPage() {
           <h2 className="text-xl font-semibold text-default mb-6">Kayit Ol</h2>
 
           {state.error && (
-            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
               {state.error}
               <button 
                 onClick={clearError}
-                className="ml-2 text-red-300 hover:text-red-200"
+                className="ml-2 text-red-500 hover:text-red-600"
               >
                 ✕
               </button>
@@ -62,7 +64,7 @@ export default function RegisterPage() {
                 type="text"
                 value={formData.fullName}
                 onChange={(e) => handleChange('fullName', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className={inputClass}
                 placeholder="Ahmet Yilmaz"
                 required
               />
@@ -74,7 +76,7 @@ export default function RegisterPage() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className={inputClass}
                 placeholder="ornek@email.com"
                 required
               />
@@ -86,7 +88,7 @@ export default function RegisterPage() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleChange('password', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className={inputClass}
                 placeholder="••••••••"
                 required
                 minLength={6}
@@ -99,7 +101,7 @@ export default function RegisterPage() {
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-default placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className={inputClass}
                 placeholder="••••••••"
                 required
               />
@@ -108,7 +110,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={state.isLoading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
             >
               {state.isLoading ? 'Kayit yapiliyor...' : 'Kayit Ol'}
             </button>
@@ -117,7 +119,7 @@ export default function RegisterPage() {
           <div className="mt-6 text-center">
             <p className="text-muted text-sm">
               Zaten hesabin var mi?{' '}
-              <Link href="/login" className="text-indigo-400 hover:text-indigo-300">
+              <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
                 Giris Yap
               </Link>
             </p>
