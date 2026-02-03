@@ -2,8 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import useSWR from 'swr';
-import { createClient } from '@/utils/supabase/client';
 
 const CURRENT_WEEK = 19;
 
@@ -18,90 +16,6 @@ interface DersClientProps {
   gradeId: string;
   lessonId: string;
 }
-
-const fetcher = async ([gradeId, lessonId]: [string, string]) => {
-  const supabase = createClient();
-  const gId = parseInt(gradeId);
-  const lId = parseInt(lessonId);
-
-  const [
-    { data: grade },
-    { data: lesson },
-  ] = await Promise.all([
-    supabase.from('grades').select('name').eq('id', gId).single(),
-    supabase.from('lessons').select('name').eq('id', lId).single(),
-  ]);
-
-  // Kazanımları çek
-  const { data: weekOutcomes } = await supabase
-    .from('outcome_weeks')
-    .select('outcome_id, start_week, end_week')
-    .lte('start_week', CURRENT_WEEK)
-    .gte('end_week', CURRENT_WEEK);
-
-  let outcomes: any[] = [];
-  let unitName = '';
-  
-  if (weekOutcomes?.length) {
-    const outcomeIds = weekOutcomes.map((w: any) => w.outcome_id);
-    const { data: outcomesData } = await supabase
-      .from('outcomes')
-      .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id))')
-      .in('id', outcomeIds) as any;
-
-    outcomes = (outcomesData || [])
-      .filter((o: any) => {
-        const topics = o.topics as any;
-        return topics?.units?.lesson_id === lId;
-      })
-      .map((o: any) => ({
-        id: o.id,
-        description: o.description,
-        topicTitle: (o.topics as any)?.title || '',
-      }));
-
-    const firstOutcome = outcomesData?.[0] as any;
-    if (firstOutcome?.topics?.units?.title) {
-      unitName = firstOutcome.topics.units.title;
-    }
-  }
-
-  // Konu içeriklerini çek
-  const { data: weekContents } = await supabase
-    .from('topic_content_weeks')
-    .select('topic_content_id')
-    .eq('curriculum_week', CURRENT_WEEK);
-
-  let contents: any[] = [];
-  if (weekContents?.length) {
-    const contentIds = weekContents.map((w: any) => w.topic_content_id);
-    const { data: contentsData } = await supabase
-      .from('topic_contents')
-      .select('id, title, content, order_no, topic_id, topics!inner(unit_id, units!inner(lesson_id))')
-      .in('id', contentIds)
-      .order('order_no') as any;
-
-    contents = (contentsData || [])
-      .filter((c: any) => {
-        const topics = c.topics as any;
-        return topics?.units?.lesson_id === lId;
-      })
-      .map((c: any) => ({
-        id: c.id,
-        title: c.title,
-        content: c.content,
-        orderNo: c.order_no,
-      }));
-  }
-
-  return {
-    gradeName: grade?.name || '',
-    lessonName: lesson?.name || '',
-    unitName,
-    outcomes,
-    contents,
-  };
-};
 
 function HtmlContent({ html }: { html: string }) {
   if (!html) return null;
@@ -139,20 +53,9 @@ function HtmlContent({ html }: { html: string }) {
 }
 
 export default function DersClient({ initialData, gradeId, lessonId }: DersClientProps) {
-  const { data } = useSWR(
-    ['ders', gradeId, lessonId],
-    () => fetcher([gradeId, lessonId]),
-    {
-      fallbackData: initialData,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 60000,
-    }
-  );
-
   const [activeTab, setActiveTab] = useState<'outcomes' | 'content'>('outcomes');
 
-  const { gradeName, lessonName, unitName, outcomes, contents } = data || initialData;
+  const { gradeName, lessonName, unitName, outcomes, contents } = initialData;
 
   return (
     <div className="min-h-screen bg-default">
