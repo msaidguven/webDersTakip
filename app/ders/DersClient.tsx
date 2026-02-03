@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const CURRENT_WEEK = 19;
@@ -18,21 +18,17 @@ interface DersClientProps {
 }
 
 function HtmlContent({ html }: { html: string }) {
-  const [mounted, setMounted] = useState(false);
+  const [processedHtml, setProcessedHtml] = useState<string | null>(null);
   
   useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!html) return null;
-  
-  // Sunucu tarafında boş render et, hydration sorununu önle
-  if (!mounted) {
-    return <div className="html-content" suppressHydrationWarning />;
-  }
-  
-  const cleanHtml = useMemo(() => {
-    return html
+    if (!html) {
+      setProcessedHtml('');
+      return;
+    }
+
+    // HTML isleme islemlerini useEffect icine tasiyarak hydration sorunlarini onluyoruz
+    // ve render suresini bloklamiyoruz
+    const clean = html
       .replace(/<p>\s*<\/p>/g, '')
       .replace(/\n\s*\n/g, '\n')
       .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
@@ -55,13 +51,19 @@ function HtmlContent({ html }: { html: string }) {
       .replace(/<code(?![^>]*class)/g, '<code class="bg-surface text-emerald-500 px-1.5 py-0.5 rounded text-sm font-mono"')
       .replace(/<pre/g, '<pre class="bg-surface p-4 rounded-xl overflow-x-auto my-4 text-sm"')
       .replace(/<hr/g, '<hr class="border-default my-6"');
+      
+    setProcessedHtml(clean);
   }, [html]);
+
+  // Henuz islenmediyse loading goster
+  if (processedHtml === null) {
+    return <div className="html-content min-h-[100px] animate-pulse bg-surface-elevated/30 rounded-xl" />;
+  }
 
   return (
     <div 
       className="html-content"
-      dangerouslySetInnerHTML={{ __html: cleanHtml }} 
-      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: processedHtml }} 
     />
   );
 }
