@@ -107,19 +107,7 @@ function PageHeader({ gradeName, lessonName, outcomeCount, unitName }: {
         )}
       </div>
       
-      <div className="flex items-center gap-4 sm:gap-6 text-muted">
-        {unitName ? (
-          <span className="flex items-center gap-2 text-sm text-default font-medium">
-            <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
-            {unitName}
-          </span>
-        ) : (
-          <span className="flex items-center gap-2 text-sm">
-            <Icon name="book" size={16} className="sm:w-[18px] sm:h-[18px]" />
-            {outcomeCount} Kazanim
-          </span>
-        )}
-      </div>
+      {/* Ünite adı navigasyonda gösteriliyor, burada tekrar göstermeye gerek yok */}
     </div>
   );
 }
@@ -197,7 +185,7 @@ function ContentList({
       {contents.map((content, idx) => (
         <article key={content.id} className="rounded-2xl bg-surface-elevated border border-default overflow-hidden">
           <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-default bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent">
-            <h2 className="text-xl sm:text-2xl font-bold text-red-500 leading-tight">{content.title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-red-500 leading-tight text-center">{content.title}</h2>
           </div>
           <div className="p-6 sm:p-8">
             <HtmlContent html={content.content} />
