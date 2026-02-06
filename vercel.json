@@ -1,5 +1,9 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin" },
+    { "source": "/admin/:path*", "destination": "/admin/:path*" }
+  ]
 }
