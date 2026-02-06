@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // ==================== TYPES ====================
 
-type TabType = 'dashboard' | 'content' | 'questions' | 'ai-rules' | 'bulk-ops';
+type TabType = 'dashboard' | 'content' | 'questions' | 'ai-rules' | 'bulk-ops' | 'smart-content';
 
 interface Grade { id: number; name: string; order_no: number; is_active: boolean; }
 interface Lesson { id: number; name: string; slug: string; icon?: string; is_active: boolean; }
@@ -93,6 +93,7 @@ export default function AdminPanel() {
         <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0">
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
           <NavButton active={activeTab === 'content'} onClick={() => { setActiveTab('content'); setSidebarOpen(false); }} icon="🗂️" label="İçerik" />
+          <NavButton active={activeTab === 'smart-content'} onClick={() => { setActiveTab('smart-content'); setSidebarOpen(false); }} icon="✨" label="Akıllı Ekle" />
           <NavButton active={activeTab === 'questions'} onClick={() => { setActiveTab('questions'); setSidebarOpen(false); }} icon="❓" label="Sorular" />
           <NavButton active={activeTab === 'ai-rules'} onClick={() => { setActiveTab('ai-rules'); setSidebarOpen(false); }} icon="🤖" label="AI Kuralları" />
           <NavButton active={activeTab === 'bulk-ops'} onClick={() => { setActiveTab('bulk-ops'); setSidebarOpen(false); }} icon="⚡" label="Toplu İşlemler" />
@@ -117,6 +118,7 @@ export default function AdminPanel() {
       <main className="lg:ml-64 min-h-screen pt-20 lg:pt-10 px-4 sm:px-6 lg:px-8">
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'content' && <ContentManagementTab />}
+        {activeTab === 'smart-content' && <SmartContentTab />}
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'ai-rules' && <AiRulesTab />}
         {activeTab === 'bulk-ops' && <BulkOperationsTab />}
@@ -836,6 +838,161 @@ function BulkOperationsTab() {
             <p className="text-gray-400 text-xs sm:text-sm">{op.description}</p>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== SMART CONTENT TAB ====================
+
+function SmartContentTab() {
+  const [selectedType, setSelectedType] = useState<'question' | 'topic_content' | 'unit_description'>('question');
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [selectedLesson, setSelectedLesson] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [generatedContent, setGeneratedContent] = useState('');
+
+  const contentTypes = [
+    { id: 'question', name: 'Soru', icon: '❓', description: 'Çoktan seçmeli, doğru/yanlış, boşluk doldurma soruları' },
+    { id: 'topic_content', name: 'Konu Anlatımı', icon: '📝', description: 'Detaylı konu anlatımı ve örnekler' },
+    { id: 'unit_description', name: 'Ünite Açıklaması', icon: '📁', description: 'Ünite genel açıklaması ve kazanımlar' },
+  ];
+
+  return (
+    <div className="py-4 sm:py-8">
+      <header className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">✨ Akıllı İçerik Ekleme</h2>
+        <p className="text-sm sm:text-base text-gray-400">AI destekli otomatik içerik üretimi</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Sol Panel - Seçimler */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* İçerik Tipi */}
+          <div className="bg-[#111114] rounded-xl border border-white/5 p-4 sm:p-6">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">1. İçerik Tipi Seç</h3>
+            <div className="space-y-2">
+              {contentTypes.map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => setSelectedType(type.id as any)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                    selectedType === type.id
+                      ? 'bg-indigo-500/20 border-indigo-500/50'
+                      : 'bg-white/5 border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <span className="text-xl">{type.icon}</span>
+                  <div>
+                    <p className="font-medium text-white text-sm">{type.name}</p>
+                    <p className="text-xs text-gray-400">{type.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Hiyerarşi Seçimi */}
+          <div className="bg-[#111114] rounded-xl border border-white/5 p-4 sm:p-6">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">2. Konum Seç</h3>
+            <div className="space-y-3">
+              <select 
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                <option value="">Sınıf Seç...</option>
+                <option value="1">1. Sınıf</option>
+                <option value="2">2. Sınıf</option>
+                <option value="3">3. Sınıf</option>
+                <option value="4">4. Sınıf</option>
+                <option value="5">5. Sınıf</option>
+                <option value="6">6. Sınıf</option>
+                <option value="7">7. Sınıf</option>
+                <option value="8">8. Sınıf</option>
+              </select>
+
+              <select 
+                value={selectedLesson}
+                onChange={(e) => setSelectedLesson(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                <option value="">Ders Seç...</option>
+                <option value="matematik">Matematik</option>
+                <option value="turkce">Türkçe</option>
+                <option value="fen">Fen Bilimleri</option>
+                <option value="sosyal">Sosyal Bilgiler</option>
+              </select>
+
+              <select 
+                value={selectedUnit}
+                onChange={(e) => setSelectedUnit(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                <option value="">Ünite Seç...</option>
+                <option value="1">1. Ünite</option>
+                <option value="2">2. Ünite</option>
+                <option value="3">3. Ünite</option>
+                <option value="4">4. Ünite</option>
+              </select>
+
+              <select 
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                <option value="">Konu Seç (Opsiyonel)...</option>
+                <option value="1">Konu 1</option>
+                <option value="2">Konu 2</option>
+                <option value="3">Konu 3</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Prompt */}
+          <div className="bg-[#111114] rounded-xl border border-white/5 p-4 sm:p-6">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">3. Talimatlar (Opsiyonel)</h3>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Örn: 5 adet zorluk seviyesi 3 olan soru üret..."
+              rows={4}
+              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm resize-none"
+            />
+          </div>
+
+          <button className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg transition-all">
+            🤖 AI ile İçerik Üret
+          </button>
+        </div>
+
+        {/* Sağ Panel - Önizleme */}
+        <div className="bg-[#111114] rounded-xl border border-white/5 p-4 sm:p-6">
+          <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">Önizleme</h3>
+          
+          {generatedContent ? (
+            <div className="space-y-4">
+              <div className="bg-black/50 rounded-lg p-4 text-white text-sm whitespace-pre-wrap">
+                {generatedContent}
+              </div>
+              <div className="flex gap-2">
+                <button className="flex-1 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg text-sm font-medium hover:bg-emerald-500/30 transition-all">
+                  ✅ Onayla ve Kaydet
+                </button>
+                <button className="flex-1 py-2 bg-white/5 text-white rounded-lg text-sm font-medium hover:bg-white/10 transition-all">
+                  🔄 Yeniden Üret
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-4xl mb-3">🤖</p>
+              <p className="text-sm">Sol panelden seçimlerini yapıp<br/>"AI ile İçerik Üret" butonuna tıkla</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
