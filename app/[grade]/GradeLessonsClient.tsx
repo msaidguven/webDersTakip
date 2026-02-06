@@ -56,7 +56,7 @@ export default function GradeLessonsClient({ grade, lessons }: GradeLessonsClien
       return null;
     }
 
-    const rows = (data as WeekContentRow[] | null) || [];
+    const rows = (data as unknown as WeekContentRow[] | null) || [];
     const filtered = rows
       .map((row) => row.topic_contents)
       .filter((content) => {
