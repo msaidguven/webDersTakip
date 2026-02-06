@@ -35,6 +35,7 @@ interface AiRule {
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mounted, setMounted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   useEffect(() => {
     setMounted(true);
@@ -46,14 +47,38 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0c]">
-      {/* Demo Banner */}
-      <div className="fixed top-0 left-64 right-0 z-50 bg-amber-500/90 text-black px-4 py-2 text-sm font-medium text-center">
-        ⚠️ DEMO MOD - Giriş yapmadan admin paneli görüntüleniyor
+      {/* Demo Banner - Mobil uyumlu */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-black px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-center">
+        ⚠️ DEMO MOD
       </div>
       
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[#111114] border-r border-white/5 z-40">
-        <div className="p-6">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-7 left-0 right-0 z-40 bg-[#111114] border-b border-white/5 px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+            <span className="text-sm font-bold text-white">A</span>
+          </div>
+          <span className="font-bold text-white text-sm">Admin</span>
+        </Link>
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 text-white"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {sidebarOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+      </header>
+
+      {/* Sidebar - Desktop: fixed, Mobile: overlay */}
+      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-[#111114] border-r border-white/5 z-40 transition-transform duration-300 ${
+        sidebarOpen ? 'left-0' : '-left-64 lg:left-0'
+      }`}>
+        <div className="hidden lg:block p-6">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
               <span className="text-lg font-bold text-white">A</span>
@@ -65,12 +90,12 @@ export default function AdminPanel() {
           </Link>
         </div>
 
-        <nav className="px-4 pb-4 space-y-1">
-          <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon="📊" label="Dashboard" />
-          <NavButton active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🗂️" label="İçerik Yönetimi" />
-          <NavButton active={activeTab === 'questions'} onClick={() => setActiveTab('questions')} icon="❓" label="Soru Bankası" />
-          <NavButton active={activeTab === 'ai-rules'} onClick={() => setActiveTab('ai-rules')} icon="🤖" label="AI Kuralları" />
-          <NavButton active={activeTab === 'bulk-ops'} onClick={() => setActiveTab('bulk-ops')} icon="⚡" label="Toplu İşlemler" />
+        <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0">
+          <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
+          <NavButton active={activeTab === 'content'} onClick={() => { setActiveTab('content'); setSidebarOpen(false); }} icon="🗂️" label="İçerik" />
+          <NavButton active={activeTab === 'questions'} onClick={() => { setActiveTab('questions'); setSidebarOpen(false); }} icon="❓" label="Sorular" />
+          <NavButton active={activeTab === 'ai-rules'} onClick={() => { setActiveTab('ai-rules'); setSidebarOpen(false); }} icon="🤖" label="AI Kuralları" />
+          <NavButton active={activeTab === 'bulk-ops'} onClick={() => { setActiveTab('bulk-ops'); setSidebarOpen(false); }} icon="⚡" label="Toplu İşlemler" />
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/5">
@@ -80,8 +105,16 @@ export default function AdminPanel() {
         </div>
       </aside>
 
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <main className="ml-64 min-h-screen pt-10">
+      <main className="lg:ml-64 min-h-screen pt-20 lg:pt-10 px-4 sm:px-6 lg:px-8">
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'content' && <ContentManagementTab />}
         {activeTab === 'questions' && <QuestionsTab />}
@@ -98,14 +131,14 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+      className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base ${
         active 
           ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' 
           : 'text-gray-400 hover:bg-white/5 hover:text-white'
       }`}
     >
-      <span className="text-lg">{icon}</span>
-      <span className="font-medium">{label}</span>
+      <span className="text-base sm:text-lg">{icon}</span>
+      <span className="font-medium truncate">{label}</span>
     </button>
   );
 }
@@ -167,14 +200,14 @@ function DashboardTab() {
   }
 
   return (
-    <div className="p-8">
-      <header className="mb-8">
-        <h2 className="text-2xl font-bold text-white">Dashboard</h2>
-        <p className="text-gray-400">Platform genel durumu</p>
+    <div className="py-4 sm:py-8">
+      <header className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+        <p className="text-sm sm:text-base text-gray-400">Platform genel durumu</p>
       </header>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats Grid - Mobil: 2 kolon, Desktop: 4 kolon */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <StatCard title="Sınıflar" value={stats.grades} icon="🎓" color="from-blue-500 to-cyan-500" />
         <StatCard title="Dersler" value={stats.lessons} icon="📚" color="from-emerald-500 to-teal-500" />
         <StatCard title="Üniteler" value={stats.units} icon="📁" color="from-purple-500 to-pink-500" />
@@ -185,17 +218,17 @@ function DashboardTab() {
         <StatCard title="İçerikler" value={stats.contents} icon="📝" color="from-green-500 to-lime-500" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Activity */}
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Son Aktiviteler</h3>
-          <div className="space-y-3">
+        <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Son Aktiviteler</h3>
+          <div className="space-y-2 sm:space-y-3">
             {recentActivity.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-                <span className="text-xl">{item.type === 'question' ? '❓' : '📝'}</span>
+              <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5">
+                <span className="text-lg sm:text-xl">{item.type === 'question' ? '❓' : '📝'}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm truncate">{item.title}</p>
-                  <p className="text-gray-500 text-xs">{new Date(item.date).toLocaleString('tr-TR')}</p>
+                  <p className="text-white text-xs sm:text-sm truncate">{item.title}</p>
+                  <p className="text-gray-500 text-xs">{new Date(item.date).toLocaleDateString('tr-TR')}</p>
                 </div>
               </div>
             ))}
@@ -203,9 +236,9 @@ function DashboardTab() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Hızlı İşlemler</h3>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Hızlı İşlemler</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             <QuickActionButton icon="➕" label="Sınıf Ekle" onClick={() => {}} />
             <QuickActionButton icon="➕" label="Ders Ekle" onClick={() => {}} />
             <QuickActionButton icon="➕" label="Ünite Ekle" onClick={() => {}} />
@@ -221,12 +254,12 @@ function DashboardTab() {
 
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) {
   return (
-    <div className="bg-[#111114] rounded-2xl border border-white/5 p-5 hover:border-white/10 transition-all">
-      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-lg mb-3`}>
+    <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-3 sm:p-5 hover:border-white/10 transition-all">
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-base sm:text-lg mb-2 sm:mb-3`}>
         {icon}
       </div>
-      <p className="text-2xl font-bold text-white">{value.toLocaleString()}</p>
-      <p className="text-gray-400 text-sm">{title}</p>
+      <p className="text-xl sm:text-2xl font-bold text-white">{value.toLocaleString()}</p>
+      <p className="text-gray-400 text-xs sm:text-sm">{title}</p>
     </div>
   );
 }
@@ -235,10 +268,10 @@ function QuickActionButton({ icon, label, onClick }: { icon: string; label: stri
   return (
     <button 
       onClick={onClick}
-      className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left"
+      className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left"
     >
-      <span>{icon}</span>
-      <span className="text-white text-sm font-medium">{label}</span>
+      <span className="text-sm">{icon}</span>
+      <span className="text-white text-xs sm:text-sm font-medium truncate">{label}</span>
     </button>
   );
 }
@@ -260,7 +293,6 @@ function ContentManagementTab() {
   async function loadHierarchy() {
     const supabase = createClient();
     
-    // Load grades
     const { data: grades } = await supabase
       .from('grades')
       .select('*')
@@ -335,23 +367,22 @@ function ContentManagementTab() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <div className="p-8">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="py-4 sm:py-8">
+      <header className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-white">İçerik Yönetimi</h2>
-          <p className="text-gray-400">Sınıf → Ders → Ünite → Konu hiyerarşisi</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">İçerik Yönetimi</h2>
+          <p className="text-sm sm:text-base text-gray-400">Sınıf → Ders → Ünite → Konu</p>
         </div>
         <button 
           onClick={() => openCreateModal('grade')}
-          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-medium transition-all"
+          className="w-full sm:w-auto px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-medium transition-all text-sm"
         >
           + Yeni Sınıf
         </button>
       </header>
 
-      {/* Hierarchy Tree */}
-      <div className="bg-[#111114] rounded-2xl border border-white/5 p-6">
-        <div className="space-y-2">
+      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-3 sm:p-6 overflow-x-auto">
+        <div className="space-y-1 sm:space-y-2 min-w-[300px]">
           {hierarchy.grades.map(grade => (
             <div key={grade.id}>
               <TreeItem 
@@ -364,7 +395,7 @@ function ContentManagementTab() {
               />
               
               {expanded.has(`grade-${grade.id}`) && (
-                <div className="ml-8 mt-2 space-y-2">
+                <div className="ml-4 sm:ml-8 mt-1 sm:mt-2 space-y-1 sm:space-y-2">
                   {grade.lessons.map(lesson => (
                     <div key={lesson.id}>
                       <TreeItem 
@@ -377,7 +408,7 @@ function ContentManagementTab() {
                       />
                       
                       {expanded.has(`lesson-${lesson.id}`) && (
-                        <div className="ml-8 mt-2 space-y-2">
+                        <div className="ml-4 sm:ml-8 mt-1 sm:mt-2 space-y-1 sm:space-y-2">
                           {lesson.units.map(unit => (
                             <div key={unit.id}>
                               <TreeItem 
@@ -390,7 +421,7 @@ function ContentManagementTab() {
                               />
                               
                               {expanded.has(`unit-${unit.id}`) && (
-                                <div className="ml-8 mt-2 space-y-2">
+                                <div className="ml-4 sm:ml-8 mt-1 sm:mt-2 space-y-1">
                                   {unit.topics.map(topic => (
                                     <TreeItem 
                                       key={topic.id}
@@ -425,7 +456,6 @@ function ContentManagementTab() {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
       {showModal && selectedItem && (
         <ContentModal 
           mode={modalMode}
@@ -444,18 +474,18 @@ function TreeItem({ type, item, expanded, onToggle, onEdit, onAddChild }: any) {
   const colors = { grade: 'bg-blue-500/20 text-blue-300', lesson: 'bg-emerald-500/20 text-emerald-300', unit: 'bg-purple-500/20 text-purple-300', topic: 'bg-gray-500/20 text-gray-300' };
   
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl ${colors[type as keyof typeof colors]} hover:bg-opacity-30 transition-all group`}>
-      <button onClick={onToggle} className="w-6 h-6 flex items-center justify-center">
+    <div className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg sm:rounded-xl ${colors[type as keyof typeof colors]} hover:bg-opacity-30 transition-all group text-sm sm:text-base`}>
+      <button onClick={onToggle} className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center">
         {type !== 'topic' && (expanded ? '▼' : '▶')}
       </button>
-      <span className="text-lg">{icons[type as keyof typeof icons]}</span>
-      <span className="font-medium flex-1">{item.name || item.title}</span>
-      <span className="text-xs opacity-60">#{item.order_no}</span>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+      <span className="text-base sm:text-lg">{icons[type as keyof typeof icons]}</span>
+      <span className="font-medium flex-1 truncate">{item.name || item.title}</span>
+      <span className="text-xs opacity-60 hidden sm:inline">#{item.order_no}</span>
+      <div className="opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 sm:gap-2">
         {onAddChild && type !== 'topic' && (
-          <button onClick={onAddChild} className="px-2 py-1 text-xs bg-white/20 rounded hover:bg-white/30">+ Ekle</button>
+          <button onClick={onAddChild} className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-white/20 rounded hover:bg-white/30">+ Ekle</button>
         )}
-        <button onClick={onEdit} className="px-2 py-1 text-xs bg-white/20 rounded hover:bg-white/30">Düzenle</button>
+        <button onClick={onEdit} className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-white/20 rounded hover:bg-white/30">Düzenle</button>
       </div>
     </div>
   );
@@ -463,9 +493,9 @@ function TreeItem({ type, item, expanded, onToggle, onEdit, onAddChild }: any) {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="ml-8 p-4 rounded-xl border border-dashed border-white/10 text-center">
-      <p className="text-gray-500 text-sm mb-2">Henüz içerik yok</p>
-      <button onClick={onAdd} className="text-indigo-400 text-sm hover:text-indigo-300">+ Yeni Ekle</button>
+    <div className="ml-4 sm:ml-8 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-dashed border-white/10 text-center">
+      <p className="text-gray-500 text-xs sm:text-sm mb-1 sm:mb-2">Henüz içerik yok</p>
+      <button onClick={onAdd} className="text-indigo-400 text-xs sm:text-sm hover:text-indigo-300">+ Yeni Ekle</button>
     </div>
   );
 }
@@ -500,53 +530,53 @@ function ContentModal({ mode, type, data, onClose, onSave }: any) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111114] rounded-2xl border border-white/10 w-full max-w-lg p-6">
-        <h3 className="text-xl font-bold text-white mb-4">
+      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">
           {mode === 'create' ? 'Yeni' : 'Düzenle'} {titles[type]}
         </h3>
         
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-gray-400 text-sm mb-1">İsim / Başlık</label>
+            <label className="block text-gray-400 text-xs sm:text-sm mb-1">İsim / Başlık</label>
             <input 
               type="text" 
               value={formData.name || formData.title || ''}
               onChange={e => setFormData({ ...formData, [type === 'grade' ? 'name' : 'title']: e.target.value })}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white focus:border-indigo-500 outline-none"
+              className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
             />
           </div>
           
           <div>
-            <label className="block text-gray-400 text-sm mb-1">Sıra No</label>
+            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Sıra No</label>
             <input 
               type="number" 
               value={formData.order_no || 0}
               onChange={e => setFormData({ ...formData, order_no: parseInt(e.target.value) })}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white focus:border-indigo-500 outline-none"
+              className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
             />
           </div>
           
           {type === 'lesson' && (
             <div>
-              <label className="block text-gray-400 text-sm mb-1">Icon (emoji)</label>
+              <label className="block text-gray-400 text-xs sm:text-sm mb-1">Icon (emoji)</label>
               <input 
                 type="text" 
                 value={formData.icon || ''}
                 onChange={e => setFormData({ ...formData, icon: e.target.value })}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white focus:border-indigo-500 outline-none"
+                className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
               />
             </div>
           )}
         </div>
         
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all">
+        <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
+          <button onClick={onClose} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all text-sm">
             İptal
           </button>
           <button 
             onClick={handleSave} 
             disabled={saving}
-            className="flex-1 px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-50"
+            className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-50 text-sm"
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
@@ -556,7 +586,7 @@ function ContentModal({ mode, type, data, onClose, onSave }: any) {
   );
 }
 
-// ==================== QUESTIONS TAB ====================
+// ==================== QUESTIONS TAB (MOBILE CARDS) ====================
 
 function QuestionsTab() {
   const [questions, setQuestions] = useState<any[]>([]);
@@ -580,18 +610,18 @@ function QuestionsTab() {
   }
 
   return (
-    <div className="p-8">
-      <header className="mb-6">
-        <h2 className="text-2xl font-bold text-white">Soru Bankası</h2>
-        <p className="text-gray-400">Tüm soruları görüntüle ve yönet</p>
+    <div className="py-4 sm:py-8">
+      <header className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Soru Bankası</h2>
+        <p className="text-sm sm:text-base text-gray-400">Tüm soruları görüntüle ve yönet</p>
       </header>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 sm:mb-6">
         <select 
           value={filter.type} 
           onChange={e => setFilter({ ...filter, type: e.target.value })}
-          className="bg-[#111114] border border-white/10 rounded-xl px-4 py-2 text-white"
+          className="bg-[#111114] border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm"
         >
           <option value="">Tüm Tipler</option>
           <option value="multiple_choice">Çoktan Seçmeli</option>
@@ -604,7 +634,7 @@ function QuestionsTab() {
         <select 
           value={filter.difficulty} 
           onChange={e => setFilter({ ...filter, difficulty: e.target.value })}
-          className="bg-[#111114] border border-white/10 rounded-xl px-4 py-2 text-white"
+          className="bg-[#111114] border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm"
         >
           <option value="">Tüm Zorluklar</option>
           {[1,2,3,4,5].map(d => (
@@ -612,41 +642,43 @@ function QuestionsTab() {
           ))}
         </select>
 
-        <button className="ml-auto px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-medium">
+        <button className="w-full sm:w-auto sm:ml-auto px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg sm:rounded-xl font-medium text-sm">
           + Yeni Soru
         </button>
       </div>
 
-      {/* Questions List */}
-      <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-white/5">
-            <tr>
-              <th className="text-left text-gray-400 font-medium p-4">Soru</th>
-              <th className="text-left text-gray-400 font-medium p-4">Tip</th>
-              <th className="text-left text-gray-400 font-medium p-4">Zorluk</th>
-              <th className="text-left text-gray-400 font-medium p-4">Tarih</th>
-              <th className="text-left text-gray-400 font-medium p-4">İşlem</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {questions.map(q => (
-              <tr key={q.id} className="hover:bg-white/5">
-                <td className="p-4 text-white max-w-md">
-                  <p className="truncate">{q.question_text}</p>
-                </td>
-                <td className="p-4 text-gray-400">{q.question_types?.code}</td>
-                <td className="p-4">
-                  <DifficultyBadge level={q.difficulty} />
-                </td>
-                <td className="p-4 text-gray-400 text-sm">{new Date(q.created_at).toLocaleDateString('tr-TR')}</td>
-                <td className="p-4">
-                  <button className="text-indigo-400 hover:text-indigo-300 text-sm">Düzenle</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Mobile Cards / Desktop Table */}
+      <div className="space-y-3 sm:bg-[#111114] sm:rounded-xl sm:border sm:border-white/5 sm:overflow-hidden">
+        {/* Desktop Table Header */}
+        <div className="hidden sm:grid sm:grid-cols-5 sm:bg-white/5 sm:px-4 sm:py-3">
+          <div className="text-gray-400 text-sm col-span-2">Soru</div>
+          <div className="text-gray-400 text-sm">Tip</div>
+          <div className="text-gray-400 text-sm">Zorluk</div>
+          <div className="text-gray-400 text-sm">İşlem</div>
+        </div>
+        
+        {/* Mobile Cards / Desktop Rows */}
+        {questions.map(q => (
+          <div key={q.id} className="sm:hidden bg-[#111114] rounded-xl border border-white/5 p-4">
+            <p className="text-white text-sm mb-2 line-clamp-2">{q.question_text}</p>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 text-xs">{q.question_types?.code}</span>
+              <DifficultyBadge level={q.difficulty} />
+            </div>
+          </div>
+        ))}
+        
+        {/* Desktop Table Rows */}
+        <div className="hidden sm:block divide-y divide-white/5">
+          {questions.map(q => (
+            <div key={q.id} className="grid grid-cols-5 px-4 py-3 hover:bg-white/5 items-center">
+              <div className="text-white text-sm col-span-2 truncate">{q.question_text}</div>
+              <div className="text-gray-400 text-sm">{q.question_types?.code}</div>
+              <div><DifficultyBadge level={q.difficulty} /></div>
+              <button className="text-indigo-400 hover:text-indigo-300 text-sm">Düzenle</button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -661,90 +693,52 @@ function DifficultyBadge({ level }: { level: number }) {
   );
 }
 
-// ==================== AI RULES TAB ====================
+// ==================== AI RULES TAB (MOBILE) ====================
 
 function AiRulesTab() {
-  const [rules, setRules] = useState<AiRule[]>([
+  const [rules] = useState<AiRule[]>([
     {
       id: '1',
-      name: 'Çoktan Seçmeli Soru Üretimi',
+      name: 'Çoktan Seçmeli Soru',
       description: 'Konuya uygun 4 seçenekli sorular üretir',
       contentType: 'question',
-      promptTemplate: `Konu: {{topicTitle}}
-Ünite: {{unitTitle}}
-Ders: {{lessonTitle}}
-Sınıf: {{gradeName}}
-
-Bu konu için {{count}} adet çoktan seçmeli soru üret. Her soru:
-- Net bir soru metni
-- 4 seçenek (A, B, C, D)
-- Doğru cevap belirtilmiş
-- Zorluk seviyesi (1-5 arası)
-
-Sorular MEB müfredatına uygun olsun.`,
-      variables: ['topicTitle', 'unitTitle', 'lessonTitle', 'gradeName', 'count'],
+      promptTemplate: `Konu: {{topicTitle}}\nÜnite: {{unitTitle}}\n\n{{count}} adet çoktan seçmeli soru üret.`,
+      variables: ['topicTitle', 'unitTitle', 'count'],
       isActive: true
     },
     {
       id: '2',
-      name: 'Konu Anlatımı Üretimi',
+      name: 'Konu Anlatımı',
       description: 'Konu için detaylı anlatım metni oluşturur',
       contentType: 'topic_content',
-      promptTemplate: `Konu: {{topicTitle}}
-Ünite: {{unitTitle}}
-Ders: {{lessonTitle}}
-
-Bu konu için öğrencilerin anlayacağı şekilde:
-1. Konunun tanımı ve önemi
-2. Temel kavramlar
-3. Örnekler (günlük hayattan)
-4. Özet
-
-Şeklinde yapılandırılmış bir anlatım yaz.`,
-      variables: ['topicTitle', 'unitTitle', 'lessonTitle'],
+      promptTemplate: `Konu: {{topicTitle}}\n\nÖğrencilerin anlayacağı şekilde anlatım yaz.`,
+      variables: ['topicTitle'],
       isActive: true
     },
-    {
-      id: '3',
-      name: 'Ünite Açıklaması',
-      description: 'Ünite için özet açıklama ve hedefler',
-      contentType: 'unit_description',
-      promptTemplate: `Ünite: {{unitTitle}}
-Ders: {{lessonTitle}}
-Sınıf: {{gradeName}}
-
-Bu ünite için:
-- Ünite genel açıklaması (2-3 cümle)
-- Kazanımlar/hedefler (maddeler halinde)
-- Tahmini süre
-- Ön koşul bilgiler`,
-      variables: ['unitTitle', 'lessonTitle', 'gradeName'],
-      isActive: false
-    }
   ]);
 
   const [selectedRule, setSelectedRule] = useState<AiRule | null>(null);
 
   return (
-    <div className="p-8">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="py-4 sm:py-8">
+      <header className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-white">AI Üretim Kuralları</h2>
-          <p className="text-gray-400">Benim kullanacağım prompt şablonları ve kurallar</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">AI Kuralları</h2>
+          <p className="text-sm sm:text-base text-gray-400">Prompt şablonları</p>
         </div>
-        <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-medium">
+        <button className="w-full sm:w-auto px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg sm:rounded-xl font-medium text-sm">
           + Yeni Kural
         </button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Rules List */}
-        <div className="lg:col-span-1 space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {rules.map(rule => (
             <button
               key={rule.id}
               onClick={() => setSelectedRule(rule)}
-              className={`w-full text-left p-4 rounded-xl border transition-all ${
+              className={`w-full text-left p-3 sm:p-4 rounded-xl border transition-all ${
                 selectedRule?.id === rule.id 
                   ? 'bg-indigo-500/20 border-indigo-500/50' 
                   : 'bg-[#111114] border-white/5 hover:border-white/10'
@@ -752,13 +746,9 @@ Bu ünite için:
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className={`w-2 h-2 rounded-full ${rule.isActive ? 'bg-green-500' : 'bg-gray-500'}`} />
-                <span className="font-medium text-white">{rule.name}</span>
+                <span className="font-medium text-white text-sm sm:text-base truncate">{rule.name}</span>
               </div>
-              <p className="text-gray-400 text-sm">{rule.description}</p>
-              <div className="flex gap-2 mt-2">
-                <span className="text-xs px-2 py-1 rounded bg-white/10 text-gray-300">{rule.contentType}</span>
-                <span className="text-xs px-2 py-1 rounded bg-white/10 text-gray-300">{rule.variables.length} değişken</span>
-              </div>
+              <p className="text-gray-400 text-xs sm:text-sm truncate">{rule.description}</p>
             </button>
           ))}
         </div>
@@ -766,65 +756,46 @@ Bu ünite için:
         {/* Rule Editor */}
         <div className="lg:col-span-2">
           {selectedRule ? (
-            <div className="bg-[#111114] rounded-2xl border border-white/5 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-white">{selectedRule.name}</h3>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-gray-400 text-sm">Aktif</span>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedRule.isActive}
-                    className="w-5 h-5 rounded bg-white/10 border-white/20 text-indigo-500"
-                  />
+            <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-semibold text-white">{selectedRule.name}</h3>
+                <label className="flex items-center gap-2">
+                  <span className="text-gray-400 text-xs sm:text-sm">Aktif</span>
+                  <input type="checkbox" checked={selectedRule.isActive} className="w-4 h-4" />
                 </label>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-gray-400 text-sm mb-2">Prompt Şablonu</label>
+                  <label className="block text-gray-400 text-xs sm:text-sm mb-1 sm:mb-2">Prompt Şablonu</label>
                   <textarea 
                     value={selectedRule.promptTemplate}
-                    rows={12}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white font-mono text-sm focus:border-indigo-500 outline-none resize-none"
+                    rows={8}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl p-3 sm:p-4 text-white text-xs sm:text-sm font-mono resize-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">Değişkenler</label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRule.variables.map(v => (
-                      <code key={v} className="px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 text-sm">
-                        {'{{'} {v} {'}}'}
-                      </code>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-white/5">
-                  <p className="text-gray-400 text-sm mb-3">Önizleme:</p>
-                  <div className="bg-black/50 rounded-xl p-4 text-gray-300 text-sm font-mono">
-                    {selectedRule.promptTemplate
-                      .replace(/\{\{topicTitle\}\}/g, 'Kesirlerle İşlemler')
-                      .replace(/\{\{unitTitle\}\}/g, 'Kesirler')
-                      .replace(/\{\{lessonTitle\}\}/g, 'Matematik')
-                      .replace(/\{\{gradeName\}\}/g, '5. Sınıf')
-                      .replace(/\{\{count\}\}/g, '5')}
-                  </div>
+                <div className="flex gap-2">
+                  {selectedRule.variables.map(v => (
+                    <code key={v} className="px-2 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs">
+                      {'{{'}{v}{'}}'}
+                    </code>
+                  ))}
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button className="px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all">
+              <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
+                <button className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">
                   Kopyala
                 </button>
-                <button className="px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 transition-all">
+                <button className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 text-sm">
                   Kaydet
                 </button>
               </div>
             </div>
           ) : (
-            <div className="bg-[#111114] rounded-2xl border border-white/5 p-12 text-center">
-              <p className="text-gray-400">Detayları görmek için bir kural seçin</p>
+            <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-8 sm:p-12 text-center">
+              <p className="text-gray-400 text-sm">Detayları görmek için bir kural seçin</p>
             </div>
           )}
         </div>
@@ -833,61 +804,38 @@ Bu ünite için:
   );
 }
 
-// ==================== BULK OPERATIONS ====================
+// ==================== BULK OPERATIONS (MOBILE) ====================
 
 function BulkOperationsTab() {
   const [operations] = useState([
-    { id: 'generate-questions', name: 'Toplu Soru Üret', description: 'Seçili konular için toplu soru üretimi', icon: '❓', color: 'from-blue-500 to-cyan-500' },
-    { id: 'generate-content', name: 'Toplu İçerik Üret', description: 'Konular için anlatım metinleri üret', icon: '📝', color: 'from-emerald-500 to-teal-500' },
-    { id: 'validate-links', name: 'Link Kontrolü', description: 'Tüm içeriklerdeki linkleri kontrol et', icon: '🔗', color: 'from-purple-500 to-pink-500' },
-    { id: 'sync-counts', name: 'Sayıları Senkronize Et', description: 'Soru sayılarını yeniden hesapla', icon: '🔄', color: 'from-amber-500 to-orange-500' },
-    { id: 'export-data', name: 'Veri Dışa Aktar', description: 'Tüm içerikleri JSON olarak dışa aktar', icon: '⬇️', color: 'from-indigo-500 to-violet-500' },
-    { id: 'import-data', name: 'Veri İçe Aktar', description: 'JSON dosyasından içerik aktar', icon: '⬆️', color: 'from-green-500 to-lime-500' },
+    { id: 'generate-questions', name: 'Soru Üret', description: 'Toplu soru üretimi', icon: '❓', color: 'from-blue-500 to-cyan-500' },
+    { id: 'generate-content', name: 'İçerik Üret', description: 'Anlatım metinleri üret', icon: '📝', color: 'from-emerald-500 to-teal-500' },
+    { id: 'validate-links', name: 'Link Kontrolü', description: 'Linkleri kontrol et', icon: '🔗', color: 'from-purple-500 to-pink-500' },
+    { id: 'sync-counts', name: 'Senkronize Et', description: 'Soru sayılarını yeniden hesapla', icon: '🔄', color: 'from-amber-500 to-orange-500' },
+    { id: 'export-data', name: 'Dışa Aktar', description: 'JSON olarak dışa aktar', icon: '⬇️', color: 'from-indigo-500 to-violet-500' },
+    { id: 'import-data', name: 'İçe Aktar', description: 'JSON dosyasından aktar', icon: '⬆️', color: 'from-green-500 to-lime-500' },
   ]);
 
   return (
-    <div className="p-8">
-      <header className="mb-6">
-        <h2 className="text-2xl font-bold text-white">Toplu İşlemler</h2>
-        <p className="text-gray-400">AI destekli toplu operasyonlar</p>
+    <div className="py-4 sm:py-8">
+      <header className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Toplu İşlemler</h2>
+        <p className="text-sm sm:text-base text-gray-400">AI destekli toplu operasyonlar</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {operations.map(op => (
           <button
             key={op.id}
-            className="text-left p-6 rounded-2xl bg-[#111114] border border-white/5 hover:border-white/10 transition-all group"
+            className="text-left p-4 sm:p-6 rounded-xl bg-[#111114] border border-white/5 hover:border-white/10 transition-all group"
           >
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${op.color} flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${op.color} flex items-center justify-center text-xl sm:text-2xl mb-3 sm:mb-4 group-hover:scale-110 transition-transform`}>
               {op.icon}
             </div>
-            <h3 className="font-semibold text-white mb-1">{op.name}</h3>
-            <p className="text-gray-400 text-sm">{op.description}</p>
+            <h3 className="font-semibold text-white text-sm sm:text-base mb-1">{op.name}</h3>
+            <p className="text-gray-400 text-xs sm:text-sm">{op.description}</p>
           </button>
         ))}
-      </div>
-
-      {/* Operation Preview Panel */}
-      <div className="mt-8 bg-[#111114] rounded-2xl border border-white/5 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Son İşlemler</h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5">
-            <span className="text-green-400">✓</span>
-            <div className="flex-1">
-              <p className="text-white text-sm">Soru sayıları senkronize edildi</p>
-              <p className="text-gray-500 text-xs">5 dakika önce</p>
-            </div>
-            <span className="text-gray-400 text-sm">127 ünite güncellendi</span>
-          </div>
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5">
-            <span className="text-green-400">✓</span>
-            <div className="flex-1">
-              <p className="text-white text-sm">Toplu soru üretimi tamamlandı</p>
-              <p className="text-gray-500 text-xs">1 saat önce</p>
-            </div>
-            <span className="text-gray-400 text-sm">45 soru eklendi</span>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -899,8 +847,8 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-gray-400">Yükleniyor...</span>
+        <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-gray-400 text-sm">Yükleniyor...</span>
       </div>
     </div>
   );
