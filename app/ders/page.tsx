@@ -122,9 +122,9 @@ async function getDersData(sinifId: string, dersSlug: string) {
 export default async function DersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   
-  // Yeni parametre isimleri
+  // Yeni parametre isimleri - ders_id de destekleniyor (geriye uyumluluk)
   const rawSinif = params.sinif;
-  const rawDers = params.ders;
+  const rawDers = params.ders || params.ders_id;  // ders_id de kabul et
   const rawUnite = params.unite;
   const rawHafta = params.hafta;
   
@@ -139,6 +139,7 @@ export default async function DersPage({ searchParams }: PageProps) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted">Sınıf veya ders bilgisi eksik</p>
+        <p className="text-xs text-gray-500 mt-2">sinif: {sinifId}, ders: {dersSlug}</p>
       </div>
     );
   }

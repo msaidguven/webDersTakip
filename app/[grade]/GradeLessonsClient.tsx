@@ -122,9 +122,9 @@ export default function GradeLessonsClient({ grade, lessons }: GradeLessonsClien
             isLoading={false}
             onSelect={async (lesson: Lesson) => {
               // Yeni URL formatı: isim/slug bazlı
-              const url = lesson.slug 
-                ? `/ders?sinif=${grade.id}&ders=${lesson.slug}`
-                : `/ders?sinif=${grade.id}&ders_id=${lesson.id}`;
+              // Slug varsa slug kullan, yoksa ID kullan
+              const dersParam = lesson.slug || lesson.id;
+              const url = `/ders?sinif=${grade.id}&ders=${dersParam}`;
               window.location.href = url;
             }}
             onBack={() => {
