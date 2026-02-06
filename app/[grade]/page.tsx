@@ -7,12 +7,6 @@ import { Grade, Lesson } from '@/app/src/models/homeTypes';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-interface PageProps {
-  params: {
-    grade: string;
-  };
-}
-
 interface GradeRow {
   id: number;
   name: string;
@@ -28,8 +22,9 @@ interface LessonRow {
   order_no: number | null;
 }
 
-export default async function GradePage({ params }: PageProps) {
-  const gradeId = parseGradeSegment(params.grade);
+export default async function GradePage({ params }: { params: Promise<{ grade: string }> }) {
+  const { grade: gradeSegment } = await params;
+  const gradeId = parseGradeSegment(gradeSegment);
 
   if (!gradeId) {
     return (
