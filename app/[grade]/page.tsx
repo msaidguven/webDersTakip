@@ -77,7 +77,7 @@ export default async function GradePage({ params }: PageProps) {
   };
 
   const lessonRows = (lessonsData || [])
-    .map((item: { lessons: LessonRow | null }) => item.lessons)
+    .map((item: { lessons: LessonRow[] | null }) => item.lessons?.[0] || null)
     .filter((lesson): lesson is LessonRow => Boolean(lesson));
 
   const lessons: Lesson[] = lessonRows.map((lesson, index) => ({

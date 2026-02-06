@@ -6,7 +6,6 @@ import { createSupabaseBrowserClient as createClient } from '../src/lib/supabase
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // ==================== TYPES ====================
 
