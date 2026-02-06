@@ -36,21 +36,15 @@ export default async function GradePage({ params }: { params: Promise<{ grade: s
 
   const supabase = await createClient();
 
-  const [{ data: gradeData, error: gradeError }, { data: lessonsData, error: lessonsError }] =
-    await Promise.all([
-      supabase.from('grades').select('id, name, order_no').eq('id', gradeId).single(),
-      supabase
-        .from('lesson_grades')
-        .select('lessons(id, name, icon, description, slug, order_no)')
-        .eq('grade_id', gradeId)
-        .eq('is_active', true),
-    ]);
+  // Grade bilgisini çek
+  const { data: gradeData, error: gradeError } = await supabase
+    .from('grades')
+    .select('id, name, order_no')
+    .eq('id', gradeId)
+    .single();
 
   if (gradeError) {
     console.error('[GradePage] Grade sorgu hatasi:', gradeError);
-  }
-  if (lessonsError) {
-    console.error('[GradePage] Lessons sorgu hatasi:', lessonsError);
   }
 
   const gradeRow = gradeData as GradeRow | null;
@@ -71,9 +65,36 @@ export default async function GradePage({ params }: { params: Promise<{ grade: s
     color: getGradeColor(gradeRow.order_no),
   };
 
-  const lessonRows = (lessonsData || [])
-    .map((item: { lessons: LessonRow[] | null }) => item.lessons?.[0] || null)
-    .filter((lesson): lesson is LessonRow => Boolean(lesson));
+  // Dersleri çek - önce lesson_grades'ten lesson_id'leri al
+  const { data: lessonGradesData, error: lessonGradesError } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id')
+    .eq('grade_id', gradeId)
+    .eq('is_active', true);
+
+  if (lessonGradesError) {
+    console.error('[GradePage] LessonGrades sorgu hatasi:', lessonGradesError);
+  }
+
+  // lesson_id'leri al
+  const lessonIds = lessonGradesData?.map(lg => lg.lesson_id) || [];
+  
+  // lessons tablosundan dersleri çek
+  let lessonRows: LessonRow[] = [];
+  if (lessonIds.length > 0) {
+    const { data: lessonsData, error: lessonsError } = await supabase
+      .from('lessons')
+      .select('id, name, icon, description, slug, order_no')
+      .in('id', lessonIds)
+      .eq('is_active', true)
+      .order('order_no');
+    
+    if (lessonsError) {
+      console.error('[GradePage] Lessons sorgu hatasi:', lessonsError);
+    } else {
+      lessonRows = (lessonsData as LessonRow[]) || [];
+    }
+  }
 
   const lessons: Lesson[] = lessonRows.map((lesson, index) => ({
     id: lesson.id.toString(),
