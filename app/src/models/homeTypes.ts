@@ -18,6 +18,7 @@ export interface Lesson {
   color: string;
   unitCount: number;
   questionCount: number;
+  slug?: string | null;
 }
 
 export interface Topic {

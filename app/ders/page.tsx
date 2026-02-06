@@ -163,5 +163,6 @@ export default async function DersPage({ searchParams }: PageProps) {
     );
   }
   
-  return <DersClient initialData={data} gradeId={gradeId} lessonId={lessonId} />;
+  const CURRENT_WEEK = 19;
+  return <DersClient initialData={data} gradeId={gradeId} lessonId={lessonId} week={CURRENT_WEEK} />;
 }

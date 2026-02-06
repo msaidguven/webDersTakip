@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const CURRENT_WEEK = 19;
-
 interface DersClientProps {
   initialData: {
     gradeName: string;
@@ -15,6 +13,7 @@ interface DersClientProps {
   };
   gradeId: string;
   lessonId: string;
+  week: number;
 }
 
 function HtmlContent({ html }: { html: string }) {
@@ -68,7 +67,7 @@ function HtmlContent({ html }: { html: string }) {
   );
 }
 
-export default function DersClient({ initialData, gradeId, lessonId }: DersClientProps) {
+export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const [activeTab, setActiveTab] = useState<'outcomes' | 'content'>('outcomes');
 
   const { gradeName, lessonName, unitName, outcomes, contents } = initialData;
@@ -80,7 +79,7 @@ export default function DersClient({ initialData, gradeId, lessonId }: DersClien
           {/* Header */}
           <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-default p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-4">
-              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{CURRENT_WEEK}. Hafta</span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{week}. Hafta</span>
               <span className="text-muted">→</span>
               <span className="text-default">{gradeName}</span>
               <span className="text-muted">→</span>
@@ -167,7 +166,7 @@ export default function DersClient({ initialData, gradeId, lessonId }: DersClien
                   Coktan secmeli, bosluk doldurma, eslestirme ve klasik sorularin karistigi test.
                 </p>
                 <Link 
-                  href={`/karisik-test?lesson_id=${lessonId}&week=${CURRENT_WEEK}`}
+                  href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
                   className="inline-block px-10 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
                 >
                   Teste Basla →
