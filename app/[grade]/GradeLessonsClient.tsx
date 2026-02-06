@@ -121,9 +121,10 @@ export default function GradeLessonsClient({ grade, lessons }: GradeLessonsClien
             lessons={lessons}
             isLoading={false}
             onSelect={async (lesson: Lesson) => {
-              const weeklyUrl = await getWeeklyRouteForLesson(grade.id, lesson, selectedWeek);
-              const fallbackUrl = `/ders?grade_id=${grade.id}&lesson_id=${lesson.id}`;
-              const url = weeklyUrl || fallbackUrl;
+              // Yeni URL formatı: isim/slug bazlı
+              const url = lesson.slug 
+                ? `/ders?sinif=${grade.id}&ders=${lesson.slug}`
+                : `/ders?sinif=${grade.id}&ders_id=${lesson.id}`;
               window.location.href = url;
             }}
             onBack={() => {

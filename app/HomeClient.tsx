@@ -69,7 +69,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
 
   const handleGradeSelect = (grade: Grade) => {
     console.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
-    const url = `/${grade.id}-sınıf`;
+    const url = `/sinif?sinif=${grade.id}`;
     console.log('[HomeClient handleGradeSelect] Yonlendiriliyor:', url);
     window.location.href = url;
   };
