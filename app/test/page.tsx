@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 
 interface QuestionTypeInfo {
   type: string;
@@ -28,7 +28,7 @@ function TestRouterContent() {
         return;
       }
 
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
       if (!supabase) {
         setError('Veritabanı yapılandırması eksik.');
         setLoading(false);

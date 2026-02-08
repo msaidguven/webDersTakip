@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 import { RegisterData, AuthState } from '../models/authTypes';
 
 const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
@@ -36,7 +36,7 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
       
       // 1. Kullanıcı oluştur
       const { data: authData, error: authError } = await supabase.auth.signUp({

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { SupabaseClient, User } from '@supabase/supabase-js';
-import { createSupabaseBrowserClient } from '../lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [supabase] = useState(() => createSupabaseBrowserClient());
+  const [supabase] = useState(() => createClient());
 
   const refreshUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();

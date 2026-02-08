@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createSupabaseBrowserClient as createClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';

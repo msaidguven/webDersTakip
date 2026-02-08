@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 
 interface MatchingPair {
   id: number;
@@ -35,7 +35,7 @@ function DragDropContent() {
   }, [unitId, week]);
 
   async function loadQuestion() {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     
     // Get a matching question for this week
     const { data: usages } = await supabase

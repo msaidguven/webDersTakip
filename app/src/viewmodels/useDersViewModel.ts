@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DersState, Outcome, TopicContent } from '../models/dersTypes';
-import { createSupabaseBrowserClient } from '../lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 const CURRENT_WEEK = 19;
 
 export function useDersViewModel(gradeId: string | null, lessonId: string | null) {
@@ -19,7 +19,7 @@ export function useDersViewModel(gradeId: string | null, lessonId: string | null
   const [contentsLoaded, setContentsLoaded] = useState(false);
 
   // Supabase client'ı sadece bir kez oluştur
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useMemo(() => createClient(), []);
 
   // Kazanımlar ve temel bilgiler - sayfa açılırken yüklensin
   useEffect(() => {

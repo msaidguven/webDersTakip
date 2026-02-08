@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 interface ClassicalQuestion {
@@ -85,7 +85,7 @@ function ClassicalTestContent() {
         return;
       }
 
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
       if (!supabase) {
         setError('Veritabanı bağlantısı kurulamadı');
         setLoading(false);

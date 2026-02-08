@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../src/context/AuthContext';
 
@@ -196,7 +196,7 @@ function MixedTestContent() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
 
     const lId = parseInt(lessonId);
     const w = parseInt(week);

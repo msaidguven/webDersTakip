@@ -3,6 +3,8 @@
 import React from 'react';
 import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
+import { logger } from '@/utils/logger';
+import { useRouter } from 'next/navigation';
 import { GradeSelector } from './src/components/home/GradeSelector';
 import { Grade } from './src/models/homeTypes';
 import {
@@ -19,7 +21,7 @@ interface GradeRow {
 }
 
 const fetcher = async (): Promise<Grade[]> => {
-  console.log('[HomeClient fetcher] Siniflar cekiliyor...');
+  logger.log('[HomeClient fetcher] Siniflar cekiliyor...');
   const supabase = createClient();
   
   // DB şeması: grades(id, name, order_no, is_active, question_count)
@@ -30,11 +32,11 @@ const fetcher = async (): Promise<Grade[]> => {
     .order('order_no', { ascending: true });
   
   if (error) {
-    console.error('[HomeClient fetcher] HATA:', error);
+    logger.error('[HomeClient fetcher] HATA:', error);
     throw error;
   }
   
-  console.log('[HomeClient fetcher] Bulunan kayit:', data?.length || 0);
+  logger.log('[HomeClient fetcher] Bulunan kayit:', data?.length || 0);
   
   // DB'de olmayan alanları client-side ekle
   const gradeRows = (data as GradeRow[] | null) || [];
@@ -47,7 +49,7 @@ const fetcher = async (): Promise<Grade[]> => {
     color: getGradeColor(g.order_no),
   }));
   
-  console.log('[HomeClient fetcher] SONUC:', grades);
+  logger.log('[HomeClient fetcher] SONUC:', grades);
   return grades;
 };
 
@@ -56,7 +58,8 @@ interface HomeClientProps {
 }
 
 export default function HomeClient({ initialGrades }: HomeClientProps) {
-  const { data: grades } = useSWR(
+  const router = useRouter();
+  const { data: grades, error } = useSWR(
     'grades',
     fetcher,
     {
@@ -68,10 +71,10 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
   );
 
   const handleGradeSelect = (grade: Grade) => {
-    console.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
+    logger.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
     const url = `/sinif?sinif=${grade.id}`;
-    console.log('[HomeClient handleGradeSelect] Yonlendiriliyor:', url);
-    window.location.href = url;
+    logger.log('[HomeClient handleGradeSelect] Yonlendiriliyor:', url);
+    router.push(url);
   };
 
   return (
@@ -81,6 +84,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
           <GradeSelector 
             grades={grades || []}
             isLoading={!grades}
+            error={error?.message}
             onSelect={handleGradeSelect} 
           />
         </div>

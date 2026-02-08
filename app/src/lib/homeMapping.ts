@@ -1,6 +1,6 @@
 export function getGradeDescription(level: number): string {
   const descriptions: Record<number, string> = {
-    6: '',
+    6: 'Ortaokul 1. seviye',
     7: 'Ortaokul 2. seviye',
     8: 'Ortaokul 3. seviye - LGS',
     9: 'Lise 1. sinif',

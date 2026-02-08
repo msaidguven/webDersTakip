@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useTimer } from '../src/viewmodels/useTimer';
-import { createSupabaseBrowserClient } from '../src/lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 
 interface Choice {
   id: number;
@@ -114,7 +114,7 @@ function TestContent() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     if (!supabase) {
       setError('Veritabani baglantisi kurulamadi');
       setLoading(false);

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../lib/supabaseClient';
+import { createClient } from '@/utils/supabase/client';
 import { Grade, Lesson, Unit, Topic, SelectionStep, HomeSelectionState } from '../models/homeTypes';
 
 interface UseHomeViewModelReturn {
@@ -55,7 +55,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
         setIsLoadingGrades(true);
         setGradesError(null);
         
-        const supabase = createSupabaseBrowserClient();
+        const supabase = createClient();
         
         if (!supabase) {
           setGradesError('Bağlantı hatası. Lütfen daha sonra tekrar deneyin.');
@@ -131,7 +131,7 @@ export function useHomeViewModel(): UseHomeViewModelReturn {
       setIsLoadingLessons(true);
       setLessonsError(null);
       
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
 
       if (!supabase) {
         setLessonsError('Bağlantı hatası. Lütfen daha sonra tekrar deneyin.');
