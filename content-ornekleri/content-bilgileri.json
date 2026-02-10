@@ -128,6 +128,57 @@
           "dosya": "kutle-agirlik-hafta11.html"
         }
       ]
+    },
+    {
+      "konu": "Sürtünme Kuvveti",
+      "topic_id": 98,
+      "unite": "KUVVETİ TANIYALIM",
+      "hafta_araligi": "12-13",
+      "kazanimlar": {
+        "hafta_12": [
+          "Sürtünme kuvveti ile ilgili günlük yaşamdan ön bilgilerini kullanarak örüntü oluşturur.",
+          "Sürtünme kuvvetinin çeşitli ortamlardaki etkilerine yönelik genelleme yapar."
+        ],
+        "hafta_13": [
+          "Sürtünmeyi artıran ve azaltan durumları gözlemlemek için model önerir.",
+          "Sürtünmeyi artıran ve azaltan durumlara ilişkin gözlemleri sonucunda modelini geliştirir."
+        ]
+      },
+      "icerikler": [
+        {
+          "hafta": 12,
+          "baslik": "Sürtünme Kuvveti - Tanım ve Örüntü",
+          "dosya": "surtunme-hafta12-tanim.html"
+        },
+        {
+          "hafta": 13,
+          "baslik": "Sürtünmeyi Artıran ve Azaltan Durumlar",
+          "dosya": "surtunme-hafta13-model.html"
+        }
+      ]
+    },
+    {
+      "konu": "Hücre ve Organelleri",
+      "topic_id": 99,
+      "unite": "CANLILARIN YAPISINA YOLCULUK",
+      "hafta_araligi": "14-15",
+      "kazanimlar": [
+        "Bitki ve hayvan hücrelerinin özelliklerini belirler.",
+        "Bitki ve hayvan hücrelerinin benzer özelliklerini listeler.",
+        "Bitki ve hayvan hücrelerinin farklı özelliklerini listeler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 14,
+          "baslik": "Hücre ve Organelleri - Benzer ve Farklı Özellikler",
+          "dosya": "hucre-hafta14-15.html"
+        },
+        {
+          "hafta": 15,
+          "baslik": "Hücre ve Organelleri - Bitki ve Hayvan Hücreleri",
+          "dosya": "hucre-hafta14-15.html"
+        }
+      ]
     }
   ]
 }
