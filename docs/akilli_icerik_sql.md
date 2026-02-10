@@ -1,386 +1,427 @@
-# Akıllı İçerik Ekleme - Veritabanı Şeması
+# Akıllı İçerik Ekleme - Veritabanı Şeması (Güncel)
 
-Bu doküman, admin panelindeki "Akıllı İçerik Ekleme" özelliği için veritabanı şemasını ve SQL sorgularını içerir.
-
-## 📋 İçerik Tipleri
-
-| Tip | Tablo | Açıklama |
-|-----|-------|----------|
-| `question` | `questions` + alt tablolar | Çoktan seçmeli, doğru/yanlış, boşluk doldurma, eşleştirme, klasik sorular |
-| `topic_content` | `topic_contents` | Konu anlatımı metinleri |
-| `unit_description` | `units` | Ünite açıklaması ve kazanımlar |
+Admin panelindeki "Akıllı İçerik Ekleme" özelliği için veritabanı şeması.
+**Not:** Bu sadece içerik (konu anlatımı) ekleme içindir, soru ekleme değildir.
 
 ---
 
-## 🗂️ Tablo Yapısı
+## 📋 İçerik Yapısı
 
-### 1. Sorular (`questions`)
-
-Ana soru tablosu. Tüm soru tipleri için ortak alanlar.
-
-```sql
-CREATE TABLE public.questions (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  question_type_id smallint NOT NULL REFERENCES public.question_types(id),
-  question_text text NOT NULL,
-  difficulty smallint DEFAULT 1 CHECK (difficulty >= 1 AND difficulty <= 5),
-  score smallint DEFAULT 1 CHECK (score >= 1 AND score <= 10),
-  created_at timestamp without time zone DEFAULT now()
-);
 ```
-
-**Soru Tipleri (`question_types`):**
-```sql
-INSERT INTO question_types (id, code) VALUES
-  (1, 'multiple_choice'),    -- Çoktan seçmeli
-  (2, 'true_false'),         -- Doğru/Yanlış
-  (3, 'fill_blank'),         -- Boşluk doldurma
-  (4, 'matching'),           -- Eşleştirme
-  (5, 'classical');          -- Klasik
+Ders (lessons)
+    └── Ünite (units)
+            └── Konu (topics)
+                    └── İçerik (topic_contents)
+                            └── Hafta (topic_content_weeks)
 ```
 
 ---
 
-### 2. Çoktan Seçmeli Soru Seçenekleri (`question_choices`)
+## 🗂️ Tablolar
 
-```sql
-CREATE TABLE public.question_choices (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  question_id bigint NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
-  choice_text text NOT NULL,
-  is_correct boolean DEFAULT false
-);
-```
+### 1. Konu İçerikleri (`topic_contents`)
 
-**Örnek Ekleme:**
-```sql
--- Soru ekle
-INSERT INTO questions (question_type_id, question_text, difficulty, score)
-VALUES (1, '5 + 3 kaç eder?', 1, 1)
-RETURNING id;
-
--- Seçenekleri ekle (question_id = 1 varsayalım)
-INSERT INTO question_choices (question_id, choice_text, is_correct) VALUES
-  (1, '7', false),
-  (1, '8', true),
-  (1, '9', false),
-  (1, '10', false);
-```
-
----
-
-### 3. Boşluk Doldurma Seçenekleri (`question_blank_options`)
-
-```sql
-CREATE TABLE public.question_blank_options (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  question_id bigint NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
-  option_text text NOT NULL,
-  is_correct boolean DEFAULT false,
-  order_no integer DEFAULT 0
-);
-```
-
-**Örnek Ekleme:**
-```sql
--- Boşluk doldurma sorusu
-INSERT INTO questions (question_type_id, question_text, difficulty, score)
-VALUES (3, 'Türkiye''nin başkenti ____''dır.', 1, 1)
-RETURNING id;
-
--- Doğru cevap
-INSERT INTO question_blank_options (question_id, option_text, is_correct, order_no)
-VALUES (2, 'Ankara', true, 1);
-```
-
----
-
-### 4. Eşleştirme Soruları (`question_matching_pairs`)
-
-```sql
-CREATE TABLE public.question_matching_pairs (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  question_id bigint NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
-  left_text text NOT NULL,
-  right_text text NOT NULL,
-  order_no integer DEFAULT 0
-);
-```
-
-**Örnek Ekleme:**
-```sql
--- Eşleştirme sorusu
-INSERT INTO questions (question_type_id, question_text, difficulty, score)
-VALUES (4, 'Aşağıdaki başkentleri eşleştirin.', 2, 2)
-RETURNING id;
-
--- Eşleştirme çiftleri
-INSERT INTO question_matching_pairs (question_id, left_text, right_text, order_no) VALUES
-  (3, 'Türkiye', 'Ankara', 1),
-  (3, 'Fransa', 'Paris', 2),
-  (3, 'Almanya', 'Berlin', 3),
-  (3, 'İtalya', 'Roma', 4);
-```
-
----
-
-### 5. Klasik Sorular (`question_classical`)
-
-```sql
-CREATE TABLE public.question_classical (
-  question_id bigint PRIMARY KEY REFERENCES public.questions(id) ON DELETE CASCADE,
-  model_answer text
-);
-```
-
-**Örnek Ekleme:**
-```sql
--- Klasik soru
-INSERT INTO questions (question_type_id, question_text, difficulty, score)
-VALUES (5, 'Fotosentez nedir? Açıklayınız.', 3, 5)
-RETURNING id;
-
--- Model cevap
-INSERT INTO question_classical (question_id, model_answer)
-VALUES (4, 'Bitkilerin güneş ışığı enerjisini kullanarak...');
-```
-
----
-
-### 6. Konu Anlatımı (`topic_contents`)
+Konulara ait anlatım metinlerini saklar.
 
 ```sql
 CREATE TABLE public.topic_contents (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   topic_id bigint NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
-  title text NOT NULL,
-  content text NOT NULL,
-  order_no integer DEFAULT 0,
+  title text NOT NULL,                    -- İçerik başlığı (örn: "Fotosentez Nedir?")
+  content text NOT NULL,                  -- HTML/Markdown içerik metni
+  order_no integer DEFAULT 0,             -- Sıralama (birden fazla içerik varsa)
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+```
+
+**Örnek Veri:**
+```sql
+INSERT INTO topic_contents (topic_id, title, content, order_no) VALUES
+(1, 'Fotosentezin Tanımı', 'Fotosentez bitkilerin...', 1),
+(1, 'Fotosentezin Aşamaları', 'Fotosentez iki aşamada...', 2);
+```
+
+---
+
+### 2. İçerik-Hafta İlişkisi (`topic_content_weeks`)
+
+Her içeriğin hangi müfredat haftasına ait olduğunu belirtir.
+
+```sql
+CREATE TABLE public.topic_content_weeks (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  topic_content_id bigint NOT NULL REFERENCES public.topic_contents(id) ON DELETE CASCADE,
+  curriculum_week integer NOT NULL,       -- Müfredat haftası (1, 2, 3...)
   created_at timestamp with time zone DEFAULT now()
 );
 ```
 
-**Örnek Ekleme:**
+**Örnek Veri:**
 ```sql
-INSERT INTO topic_contents (topic_id, title, content, order_no)
-VALUES (
-  1, 
-  'Fotosentez Nedir?',
-  'Fotosentez, bitkilerin güneş ışığını kullanarak...',
-  1
-);
+-- 1. içerik 3. haftaya ait
+INSERT INTO topic_content_weeks (topic_content_id, curriculum_week) VALUES (1, 3);
+
+-- 2. içerik 4. haftaya ait  
+INSERT INTO topic_content_weeks (topic_content_id, curriculum_week) VALUES (2, 4);
 ```
 
 ---
 
-### 7. Soru-Konu İlişkisi (`question_usages`)
+### 3. Haftalık İçerik Görünümü (View)
 
-Soruların hangi konuda kullanıldığını belirtir.
+Hangi haftada hangi içerikler var görmek için:
 
 ```sql
-CREATE TABLE public.question_usages (
+CREATE OR REPLACE VIEW weekly_contents AS
+SELECT 
+  g.name AS grade_name,
+  l.name AS lesson_name,
+  u.title AS unit_title,
+  t.title AS topic_title,
+  tc.id AS content_id,
+  tc.title AS content_title,
+  tcw.curriculum_week,
+  tc.order_no
+FROM topic_content_weeks tcw
+JOIN topic_contents tc ON tc.id = tcw.topic_content_id
+JOIN topics t ON t.id = tc.topic_id
+JOIN units u ON u.id = t.unit_id
+JOIN lesson_grades lg ON lg.lesson_id = u.lesson_id
+JOIN lessons l ON l.id = u.lesson_id
+JOIN grades g ON g.id = lg.grade_id
+ORDER BY tcw.curriculum_week, tc.order_no;
+```
+
+**Kullanım:**
+```sql
+-- 3. haftadaki tüm içerikler
+SELECT * FROM weekly_contents WHERE curriculum_week = 3;
+
+-- 5. sınıf, matematik, 2. hafta içerikleri
+SELECT * FROM weekly_contents 
+WHERE grade_name = '5. Sınıf' 
+  AND lesson_name = 'Matematik' 
+  AND curriculum_week = 2;
+```
+
+---
+
+## 🔗 Hiyerarşi Tabloları (Mevcut)
+
+### Dersler (`lessons`)
+```sql
+CREATE TABLE public.lessons (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  question_id bigint NOT NULL REFERENCES public.questions(id),
-  topic_id bigint NOT NULL REFERENCES public.topics(id),
-  usage_type text CHECK (usage_type = ANY (ARRAY['weekly', 'topic_end'])),
-  curriculum_week integer,
-  order_no smallint DEFAULT 0
+  name text NOT NULL UNIQUE,        -- Matematik, Türkçe, Fen...
+  icon text,                        -- Emoji veya icon adı
+  slug text UNIQUE,
+  order_no integer DEFAULT 0,
+  is_active boolean DEFAULT true
 );
 ```
 
-**Örnek Ekleme:**
+### Üniteler (`units`)
 ```sql
--- Soruyu konuya bağla
-INSERT INTO question_usages (question_id, topic_id, usage_type, curriculum_week)
-VALUES (1, 5, 'weekly', 3);
-```
-
----
-
-## 🔗 Hiyerarşi Tabloları
-
-### Sınıf-Ünite İlişkisi
-
-```sql
--- Bir ünite hangi sınıflarda görülür
-CREATE TABLE public.unit_grades (
-  unit_id bigint NOT NULL REFERENCES public.units(id),
-  grade_id bigint NOT NULL REFERENCES public.grades(id),
-  start_week integer,
-  end_week smallint,
-  PRIMARY KEY (unit_id, grade_id)
+CREATE TABLE public.units (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  lesson_id bigint NOT NULL REFERENCES public.lessons(id),
+  title text NOT NULL,              -- Ünite 1: Doğal Sayılar
+  description text,                 -- Ünite açıklaması
+  slug text UNIQUE,
+  order_no integer DEFAULT 0,
+  is_active boolean DEFAULT true
 );
 ```
 
-### Ünite-Konu İlişkisi
-
+### Konular (`topics`)
 ```sql
--- Konular üniteye bağlıdır
 CREATE TABLE public.topics (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   unit_id bigint NOT NULL REFERENCES public.units(id),
-  title text NOT NULL,
+  title text NOT NULL,              -- Fotosentez, Bölme İşlemi...
   slug text NOT NULL,
   order_no integer DEFAULT 0,
   is_active boolean DEFAULT true
 );
 ```
 
+### Sınıf-Ders İlişkisi (`lesson_grades`)
+```sql
+CREATE TABLE public.lesson_grades (
+  lesson_id bigint NOT NULL REFERENCES public.lessons(id),
+  grade_id bigint NOT NULL REFERENCES public.grades(id),
+  is_active boolean DEFAULT true,
+  PRIMARY KEY (lesson_id, grade_id)
+);
+```
+
+### Sınıflar (`grades`)
+```sql
+CREATE TABLE public.grades (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name text NOT NULL,               -- 5. Sınıf, 6. Sınıf...
+  order_no integer UNIQUE,
+  is_active boolean DEFAULT true
+);
+```
+
 ---
 
-## 🤖 AI Üretim İçin Prompt Tablosu (Önerilen)
+## 🤖 AI İçerik Üretim Tablosu
+
+AI destekli içerik üretimi için prompt şablonları:
 
 ```sql
--- AI kuralları ve prompt şablonları için
 CREATE TABLE public.ai_content_rules (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name text NOT NULL,
   description text,
-  content_type text CHECK (content_type = ANY (ARRAY['question', 'topic_content', 'unit_description'])),
+  lesson_id bigint REFERENCES public.lessons(id),  -- Belirli ders için (NULL = tümü)
   prompt_template text NOT NULL,
-  variables jsonb DEFAULT '[]',
+  variables jsonb DEFAULT '["topicTitle", "unitTitle", "gradeName"]',
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now()
 );
 
--- Örnek AI kuralı
-INSERT INTO ai_content_rules (name, description, content_type, prompt_template, variables)
-VALUES (
-  'Çoktan Seçmeli Soru',
-  'Konuya uygun 4 seçenekli sorular üretir',
-  'question',
-  'Konu: {{topicTitle}}\nÜnite: {{unitTitle}}\n\n{{count}} adet çoktan seçmeli soru üret.',
-  '["topicTitle", "unitTitle", "count"]'
-);
+-- Örnek: Matematik için AI kuralı
+INSERT INTO ai_content_rules (name, description, lesson_id, prompt_template) VALUES
+('Matematik Anlatımı', 'Matematik konusu için öğrenci dostu anlatım', 1,
+'Matematik Konusu: {{topicTitle}}
+Sınıf: {{gradeName}}
+
+Bu konu için:
+1. Konunun tanımı
+2. Formüller (varsa)
+3. Çözümlü örnek sorular (en az 3 adet)
+4. Konu ile ilgili pratik ipuçları
+
+Dil: Türkçe
+Seviye: {{gradeName}} öğrencisine uygun');
+
+-- Örnek: Fen Bilimleri için AI kuralı
+INSERT INTO ai_content_rules (name, description, lesson_id, prompt_template) VALUES
+('Fen Bilimleri Anlatımı', 'Fen konusu için bilimsel ama anlaşılır anlatım', 3,
+'Fen Konusu: {{topicTitle}}
+Ünite: {{unitTitle}}
+
+Bu konu için:
+1. Bilimsel tanım
+2. Günlük hayattan örnekler
+3. Deney önerileri (varsa)
+4. Önemli kavramlar
+
+Dil: Türkçe
+Tarz: Öğrencinin merakını uyandıran, soru-cevap formatında');
 ```
 
 ---
 
-## 📊 Özet: İçerik Ekleme Akışı
+## 📝 SQL Fonksiyonları
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Kullanıcı     │────▶│  Admin Panel    │────▶│   AI Üretimi    │
-│   Seçim Yapar   │     │  (SmartContent) │     │  (Prompt+AI)    │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                              ┌──────────────────────────┘
-                              ▼
-                    ┌─────────────────┐
-                    │  Önizleme       │
-                    │  (Onay/Red)     │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              ▼                             ▼
-    ┌─────────────────┐           ┌─────────────────┐
-    │  Soru Ekleme    │           │ Konu İçeriği    │
-    │  questions      │           │ topic_contents  │
-    │  + alt tablolar │           └─────────────────┘
-    └─────────────────┘
-```
-
----
-
-## 📝 SQL Fonksiyonları (Önerilen)
-
-### Soru Ekleme Fonksiyonu
+### 1. İçerik Ekleme (Tek Fonksiyon)
 
 ```sql
-CREATE OR REPLACE FUNCTION insert_question_with_choices(
-  p_question_text text,
-  p_question_type_id smallint,
-  p_difficulty smallint,
-  p_score smallint,
-  p_choices jsonb  -- [{"text": "A", "is_correct": true}, ...]
+CREATE OR REPLACE FUNCTION insert_topic_content(
+  p_topic_id bigint,
+  p_title text,
+  p_content text,
+  p_curriculum_week integer,
+  p_order_no integer DEFAULT 0
 ) RETURNS bigint AS $$
 DECLARE
-  v_question_id bigint;
-  choice jsonb;
+  v_content_id bigint;
 BEGIN
-  -- Soruyu ekle
-  INSERT INTO questions (question_type_id, question_text, difficulty, score)
-  VALUES (p_question_type_id, p_question_text, p_difficulty, p_score)
-  RETURNING id INTO v_question_id;
+  -- İçeriği ekle
+  INSERT INTO topic_contents (topic_id, title, content, order_no)
+  VALUES (p_topic_id, p_title, p_content, p_order_no)
+  RETURNING id INTO v_content_id;
   
-  -- Çoktan seçmeli ise seçenekleri ekle
-  IF p_question_type_id = 1 THEN
-    FOR choice IN SELECT * FROM jsonb_array_elements(p_choices)
-    LOOP
-      INSERT INTO question_choices (question_id, choice_text, is_correct)
-      VALUES (
-        v_question_id,
-        choice->>'text',
-        (choice->>'is_correct')::boolean
-      );
-    END LOOP;
-  END IF;
+  -- Hafta ilişkisini ekle
+  INSERT INTO topic_content_weeks (topic_content_id, curriculum_week)
+  VALUES (v_content_id, p_curriculum_week);
   
-  RETURN v_question_id;
+  RETURN v_content_id;
 END;
 $$ LANGUAGE plpgsql;
 ```
 
----
-
-## 🚀 Kullanım Örnekleri
-
-### 1. Çoktan Seçmeli Soru Ekleme
-
+**Kullanım:**
 ```sql
-SELECT insert_question_with_choices(
-  '5 + 3 kaç eder?',
-  1,  -- multiple_choice
-  1,  -- zorluk
-  1,  -- puan
-  '[
-    {"text": "7", "is_correct": false},
-    {"text": "8", "is_correct": true},
-    {"text": "9", "is_correct": false},
-    {"text": "10", "is_correct": false}
-  ]'::jsonb
+SELECT insert_topic_content(
+  5,                                    -- topic_id
+  'Fotosentezin Önemi',                 -- başlık
+  'Fotosentez canlılar için hayati...', -- içerik
+  3,                                    -- 3. hafta
+  1                                     -- sıra no
 );
 ```
 
-### 2. Konu Anlatımı Ekleme
+### 2. Haftaya Göre İçerik Getirme
 
 ```sql
-INSERT INTO topic_contents (topic_id, title, content, order_no)
-VALUES (
-  1,
-  'Fotosentezin Aşamaları',
-  'Fotosentez iki ana aşamada gerçekleşir:...',
-  1
-)
-RETURNING id;
+CREATE OR REPLACE FUNCTION get_contents_by_week(
+  p_grade_id bigint,
+  p_lesson_id bigint,
+  p_week integer
+) RETURNS TABLE (
+  content_id bigint,
+  content_title text,
+  topic_title text,
+  unit_title text,
+  order_no integer
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    tc.id,
+    tc.title,
+    t.title,
+    u.title,
+    tc.order_no
+  FROM topic_contents tc
+  JOIN topic_content_weeks tcw ON tcw.topic_content_id = tc.id
+  JOIN topics t ON t.id = tc.topic_id
+  JOIN units u ON u.id = t.unit_id
+  JOIN lesson_grades lg ON lg.lesson_id = u.lesson_id
+  WHERE u.lesson_id = p_lesson_id
+    AND lg.grade_id = p_grade_id
+    AND tcw.curriculum_week = p_week
+    AND lg.is_active = true
+  ORDER BY tc.order_no;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-### 3. Ünite Açıklaması Güncelleme
+**Kullanım:**
+```sql
+-- 5. sınıf, matematik, 2. hafta içerikleri
+SELECT * FROM get_contents_by_week(1, 1, 2);
+```
+
+---
+
+## 📊 Admin Panel Akışı
+
+```
+┌─────────────────┐
+│  Kullanıcı      │
+│  Seçim Yapar:   │
+│  - Sınıf        │
+│  - Ders         │
+│  - Ünite        │
+│  - Konu         │
+│  - Hafta        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  AI Prompt      │
+│  Hazırlanır:    │
+│  - Konu başlığı │
+│  - Hafta bilgisi│
+│  - Ders tipi    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  AI İçerik      │
+│  Üretir         │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Önizleme       │
+│  (Onay/Red)     │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+ Onayla     Düzenle
+    │         │
+    └────┬────┘
+         ▼
+┌─────────────────┐
+│  insert_topic_  │
+│  content()      │
+│  Fonksiyonu     │
+└─────────────────┘
+```
+
+---
+
+## 🚀 Kullanım Senaryoları
+
+### Senaryo 1: Yeni İçerik Ekleme
 
 ```sql
-UPDATE units
-SET description = 'Bu ünite temel matematik işlemlerini kapsar.'
-WHERE id = 1;
+-- 1. Konuyu bul (örn: Fotosentez)
+SELECT id FROM topics WHERE title = 'Fotosentez';
+-- Sonuç: id = 5
+
+-- 2. Fonksiyon ile ekle
+SELECT insert_topic_content(5, 'Fotosentez Nedir?', '...içerik...', 3, 1);
+```
+
+### Senaryo 2: Haftalık İçerik Listesi
+
+```sql
+-- 3. haftada hangi konular işleniyor?
+SELECT 
+  t.title AS konu,
+  tc.title AS içerik_başlığı,
+  tcw.curriculum_week AS hafta
+FROM topic_content_weeks tcw
+JOIN topic_contents tc ON tc.id = tcw.topic_content_id
+JOIN topics t ON t.id = tc.topic_id
+WHERE tcw.curriculum_week = 3
+ORDER BY t.title;
+```
+
+### Senaryo 3: Ders Programı Çıkarma
+
+```sql
+-- 5. sınıf matematik için haftalık program
+SELECT 
+  tcw.curriculum_week AS hafta,
+  STRING_AGG(tc.title, ', ') AS konular
+FROM topic_content_weeks tcw
+JOIN topic_contents tc ON tc.id = tcw.topic_content_id
+JOIN topics t ON t.id = tc.topic_id
+JOIN units u ON u.id = t.unit_id
+JOIN lesson_grades lg ON lg.lesson_id = u.lesson_id
+WHERE lg.grade_id = 1 AND u.lesson_id = 1
+GROUP BY tcw.curriculum_week
+ORDER BY tcw.curriculum_week;
 ```
 
 ---
 
 ## ⚠️ Önemli Notlar
 
-1. **Foreign Key Kontrolleri:** Soru eklemeden önce ilgili `topic_id`, `unit_id` vb. değerlerin var olduğundan emin olun.
+1. **Bir konuda birden fazla içerik olabilir** (`order_no` ile sıralanır)
 
-2. **Order No:** İçeriklerin sıralaması için `order_no` alanını kullanın.
+2. **Bir içerik birden fazla haftaya atanabilir** (ama tek hafta önerilir)
 
-3. **Slug:** URL'ler için `slug` alanını benzersiz ve URL-friendly yapın (örn: `fotosentez-nedir`).
+3. **lesson_grades kontrolü:** İçerik eklemeden önce o dersin o sınıfta aktif olduğunu kontrol edin
 
-4. **Silme Cascade:** `ON DELETE CASCADE` ayarlı tablolar (örn: `question_choices`) üst kayıt silindiğinde otomatik silinir.
-
-5. **RLS (Row Level Security):** Supabase'de tablolara RLS politikaları eklemeyi unutmayın.
+4. **RLS Politikası:**
 ```sql
--- Örnek RLS
-ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
+-- Sadece admin kullanıcılar içerik ekleyebilir
+ALTER TABLE topic_contents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admin full access" ON questions
+CREATE POLICY "Admin can manage contents" ON topic_contents
   FOR ALL TO authenticated
-  USING (auth.jwt() ->> 'role' = 'admin');
+  USING (EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  ));
+```
+
+5. **Trigger - updated_at:**
+```sql
+CREATE TRIGGER update_topic_contents_updated_at
+  BEFORE UPDATE ON topic_contents
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 ```
