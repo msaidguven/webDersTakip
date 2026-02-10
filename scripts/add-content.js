@@ -1,11 +1,7 @@
 // scripts/add-content.js
-// Otomatik içerik ekleme scripti
+// Manuel içerik ekleme scripti - Onaylı
 
 const { createClient } = require('@supabase/supabase-js');
-
-// NOT: Script çalıştırmak için SUPABASE_SERVICE_KEY gerekli
-// Supabase Dashboard -> Project Settings -> API -> service_role key
-// .env.local dosyasına ekleyin: SUPABASE_SERVICE_KEY=eyJ...
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -17,58 +13,13 @@ if (!SUPABASE_KEY) {
   console.log('2. service_role key\'i kopyala');
   console.log('3. .env.local dosyasına ekle:');
   console.log('   SUPABASE_SERVICE_KEY=eyJ...');
-  console.log('\n⚠️  service_role key çok güçlüdür, kimseyle paylaşmayın!\n');
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Hiyerarşiyi getir
-async function getHierarchy() {
-  const { data: grades } = await supabase
-    .from('grades')
-    .select('id, name, order_no')
-    .eq('is_active', true)
-    .order('order_no');
-
-  const { data: lessons } = await supabase
-    .from('lessons')
-    .select('id, name, icon')
-    .eq('is_active', true)
-    .order('order_no');
-
-  const { data: lessonGrades } = await supabase
-    .from('lesson_grades')
-    .select('lesson_id, grade_id')
-    .eq('is_active', true);
-
-  return { grades, lessons, lessonGrades };
-}
-
-// Üniteleri getir
-async function getUnits(lessonId) {
-  const { data } = await supabase
-    .from('units')
-    .select('id, title, order_no')
-    .eq('lesson_id', lessonId)
-    .eq('is_active', true)
-    .order('order_no');
-  return data || [];
-}
-
-// Konuları getir
-async function getTopics(unitId) {
-  const { data } = await supabase
-    .from('topics')
-    .select('id, title, order_no')
-    .eq('unit_id', unitId)
-    .eq('is_active', true)
-    .order('order_no');
-  return data || [];
-}
-
 // İçerik ekle
-async function addContent(topicId, title, content, week, orderNo = 0) {
+async function addContent(topicId, title, content, week) {
   // Önce içeriği ekle
   const { data: contentData, error: contentError } = await supabase
     .from('topic_contents')
@@ -76,7 +27,7 @@ async function addContent(topicId, title, content, week, orderNo = 0) {
       topic_id: topicId,
       title: title,
       content: content,
-      order_no: orderNo
+      order_no: 0
     }])
     .select()
     .single();
@@ -107,317 +58,51 @@ async function addContent(topicId, title, content, week, orderNo = 0) {
   return contentData.id;
 }
 
-// Haftaya göre kazanımları getir
-async function getOutcomesByWeek(lessonId, week) {
-  const { data, error } = await supabase
-    .from('outcome_weeks')
-    .select(`
-      id,
-      start_week,
-      end_week,
-      outcomes(
-        id,
-        description,
-        topic_id,
-        topics(
-          id, 
-          title, 
-          unit_id,
-          units(lesson_id)
-        )
-      )
-    `)
-    .lte('start_week', week)
-    .gte('end_week', week);
-  
-  if (error) {
-    console.error('❌ Kazanımlar çekilirken hata:', error.message);
-    return [];
-  }
-  
-  // Sadece istenen dersin kazanımlarını filtrele
-  const filtered = (data || []).filter(ow => {
-    return ow.outcomes?.topics?.units?.lesson_id === lessonId;
-  });
-  
-  return filtered;
-}
-
-// Ders adını getir
-async function getLessonName(lessonId) {
-  const { data } = await supabase
-    .from('lessons')
-    .select('name')
-    .eq('id', lessonId)
-    .single();
-  return data?.name || 'Bilinmeyen Ders';
-}
-
-// AI için içerik şablonu oluştur
-function generateContentTemplate(lessonName, topicTitle, outcomes, week) {
-  const outcomesText = outcomes.map((o, i) => `${i + 1}. ${o.description}`).join('\n');
-  
-  return `
-# ${lessonName} - ${week}. Hafta
-## Konu: ${topicTitle}
-
-### Kazanımlar:
-${outcomesText}
-
-### İçerik Yapısı:
-1. **Giriş**: Konunun günlük hayatla bağlantısı
-2. **Ana Konu**: Kazanımlara uygun açıklamalar
-3. **Örnekler**: Konuyla ilgili 2-3 örnek
-4. **Özet**: Konunun kısa özeti
-5. **Değerlendirme Soruları**: Kazanımları ölçen 3 soru
-
-**Not:** İçerik ${lessonName} dersine uygun, öğrenci seviyesine göre hazırlanmalıdır.
-`;
-}
-
-// Haftalık içerik ekleme (kazanımlara göre)
-async function addWeeklyContent(lessonId, week, customTitle = null, customContent = null) {
-  const lessonName = await getLessonName(lessonId);
-  
-  console.log(`\n📚 ${lessonName} - ${week}. Hafta Kazanımları:`);
-  console.log('─'.repeat(50));
-  
-  // Kazanımları çek
-  const outcomes = await getOutcomesByWeek(lessonId, week);
-  
-  if (outcomes.length === 0) {
-    console.log('⚠️ Bu hafta için kazanım bulunamadı!');
-    return;
-  }
-  
-  // Konulara göre grupla
-  const topicGroups = {};
-  outcomes.forEach(ow => {
-    const outcome = ow.outcomes;
-    if (!outcome || !outcome.topics) return;
-    
-    const topicId = outcome.topics.id;
-    if (!topicGroups[topicId]) {
-      topicGroups[topicId] = {
-        topic: outcome.topics,
-        outcomes: []
-      };
-    }
-    topicGroups[topicId].outcomes.push({
-      id: outcome.id,
-      description: outcome.description
-    });
-  });
-  
-  // Her konu için içerik hazırla
-  for (const [topicId, group] of Object.entries(topicGroups)) {
-    console.log(`\n📄 Konu: ${group.topic.title}`);
-    console.log('Kazanımlar:');
-    group.outcomes.forEach((o, i) => console.log(`  ${i + 1}. ${o.description}`));
-    
-    // İçerik şablonu oluştur
-    const template = generateContentTemplate(lessonName, group.topic.title, group.outcomes, week);
-    console.log('\n📝 Önerilen İçerik Yapısı:');
-    console.log(template);
-    
-    // Eğer içerik verildiyse ekle
-    if (customTitle && customContent) {
-      const contentId = await addContent(topicId, customTitle, customContent, week);
-      if (contentId) {
-        console.log(`✅ Konu "${group.topic.title}" için içerik eklendi!`);
-      }
-    }
-  }
-  
-  return topicGroups;
-}
-
-// İçeriği 2 haftaya böl (eğer gerekirse)
-function splitContentForTwoWeeks(fullContent) {
-  // HTML etiketlerini analiz et
-  const sections = fullContent.match(/<h[23][^>]*>.*?<\/h[23]>.*?((?=<h[23])|$)/gs) || [];
-  
-  if (sections.length <= 2) {
-    // Çok az bölüm var, bölme
-    return {
-      week1: fullContent,
-      week2: null
-    };
-  }
-  
-  const midPoint = Math.ceil(sections.length / 2);
-  const week1Sections = sections.slice(0, midPoint);
-  const week2Sections = sections.slice(midPoint);
-  
-  // Başlık çıkar
-  const titleMatch = fullContent.match(/<h2[^>]*>(.*?)<\/h2>/);
-  const mainTitle = titleMatch ? titleMatch[1] : 'Konu Anlatımı';
-  
-  return {
-    week1: `<section>\n<h2>${mainTitle} - 1. Bölüm</h2>\n${week1Sections.join('\n')}\n</section>`,
-    week2: `<section>\n<h2>${mainTitle} - 2. Bölüm</h2>\n${week2Sections.join('\n')}\n</section>`
-  };
-}
-
-// Manuel içerik ekle (çok haftalı destek)
-async function addManualContent(topicId, title, content, week, splitMode = 'single') {
-  console.log(`\n📝 İçerik Ekleme Modu: ${splitMode === 'two-weeks' ? '2 Haftaya Böl' : 'Tek Hafta'}`);
-  
-  if (splitMode === 'two-weeks') {
-    const { week1, week2 } = splitContentForTwoWeeks(content);
-    
-    console.log(`\n📅 1. Hafta (${week}):`);
-    console.log(week1.substring(0, 200) + '...');
-    
-    const id1 = await addContent(topicId, `${title} (1)`, week1, week);
-    
-    if (week2 && id1) {
-      console.log(`\n📅 2. Hafta (${week + 1}):`);
-      console.log(week2.substring(0, 200) + '...');
-      
-      await addContent(topicId, `${title} (2)`, week2, week + 1);
-    }
-  } else {
-    // Tek hafta
-    await addContent(topicId, title, content, week);
-  }
-}
-
-// Komut satırı argümanları
+// Ana fonksiyon
 async function main() {
   const args = process.argv.slice(2);
   
-  if (args[0] === '--list') {
-    const { grades, lessons, lessonGrades } = await getHierarchy();
-    
-    console.log('\n📚 SINIFLAR:');
-    grades?.forEach(g => console.log(`  ${g.id}: ${g.name}`));
-    
-    console.log('\n📖 DERSLER:');
-    lessons?.forEach(l => console.log(`  ${l.id}: ${l.name} ${l.icon || ''}`));
-    
-    console.log('\n🔗 SINIF-DERS İLİŞKİSİ:');
-    for (const lg of lessonGrades || []) {
-      const grade = grades?.find(g => g.id === lg.grade_id);
-      const lesson = lessons?.find(l => l.id === lg.lesson_id);
-      if (grade && lesson) {
-        console.log(`  ${grade.name} → ${lesson.name}`);
-      }
-    }
-    return;
-  }
-
-  if (args[0] === '--units') {
-    const lessonId = args[1];
-    const units = await getUnits(lessonId);
-    console.log(`\n📁 ÜNİTELER (Ders ID: ${lessonId}):`);
-    units.forEach(u => console.log(`  ${u.id}: ${u.title}`));
-    return;
-  }
-
-  if (args[0] === '--topics') {
-    const unitId = args[1];
-    const topics = await getTopics(unitId);
-    console.log(`\n📄 KONULAR (Ünite ID: ${unitId}):`);
-    topics.forEach(t => console.log(`  ${t.id}: ${t.title}`));
-    return;
-  }
-
-  if (args[0] === '--outcomes') {
-    // Kazanımları listele: --outcomes <lessonId> <week>
-    const lessonId = parseInt(args[1]);
-    const week = parseInt(args[2]);
-    
-    if (!lessonId || !week) {
-      console.log('Kullanım: node add-content.js --outcomes <lessonId> <week>');
-      return;
-    }
-    
-    await addWeeklyContent(lessonId, week);
-    return;
-  }
-
-  if (args[0] === '--add-manual') {
-    // Manuel içerik ekle: --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]
-    const topicId = parseInt(args[1]);
-    const week = parseInt(args[2]);
-    const title = args[3];
-    
-    // İçeriği bul (--two-weeks flag'ine kadar)
-    let contentEndIndex = args.length;
-    let splitMode = 'single';
-    
-    const twoWeeksIndex = args.indexOf('--two-weeks');
-    if (twoWeeksIndex !== -1) {
-      contentEndIndex = twoWeeksIndex;
-      splitMode = 'two-weeks';
-    }
-    
-    const content = args.slice(4, contentEndIndex).join(' ');
-    
-    if (!topicId || !week || !title || !content) {
-      console.log('Kullanım: node add-content.js --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]');
-      console.log('Örnek: node add-content.js --add-manual 93 5 "Işığın Yayılması" "<section>...</section>" --two-weeks');
-      return;
-    }
-    
-    await addManualContent(topicId, title, content, week, splitMode);
-    return;
-  }
-
-  if (args[0] === '--add-weekly') {
-    // Kazanımlara göre içerik ekle: --add-weekly <lessonId> <week> <"başlık"> <"içerik">
-    const lessonId = parseInt(args[1]);
-    const week = parseInt(args[2]);
-    const title = args[3];
-    const content = args.slice(4).join(' ');
-    
-    if (!lessonId || !week || !title || !content) {
-      console.log('Kullanım: node add-content.js --add-weekly <lessonId> <week> <"başlık"> <"içerik">');
-      console.log('Örnek: node add-content.js --add-weekly 3 5 "Güneş Sistemi" "Güneş sistemi güneş ve..."');
-      return;
-    }
-    
-    await addWeeklyContent(lessonId, week, title, content);
-    return;
-  }
-
-  if (args[0] === '--add') {
-    const topicId = parseInt(args[1]);
-    const week = parseInt(args[2]);
-    const title = args[3];
-    const content = args.slice(4).join(' ');
-    
-    if (!topicId || !week || !title || !content) {
-      console.log('Kullanım: node add-content.js --add <topicId> <week> <"başlık"> <"içerik">');
-      return;
-    }
-    
-    await addContent(topicId, title, content, week);
-    return;
-  }
-
-  console.log(`
+  // Basit kullanım: node add-content.js <topicId> <week> <title> <content>
+  if (args.length < 4) {
+    console.log(`
 📖 Kullanım:
 
-  node add-content.js --list                           # Tüm sınıf ve dersleri listele
-  node add-content.js --units <lessonId>               # Dersin ünitelerini listele
-  node add-content.js --topics <unitId>                # Ünitenin konularını listele
-  node add-content.js --outcomes <lessonId> <week>     # Haftanın kazanımlarını listele
-  
-  node add-content.js --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]
-                                                       # Manuel içerik ekle
-  
-  node add-content.js --add-weekly <lessonId> <week> <"başlık"> <"içerik">
-                                                       # Kazanıma göre içerik ekle
-  
-  node add-content.js --add <topicId> <week> <"başlık"> <"içerik">
-                                                       # Direkt içerik ekle
+  node add-content.js <topicId> <hafta> "başlık" "içerik"
 
-📝 Örnekler:
-  node add-content.js --outcomes 3 5                   # 5. hafta kazanımlarını göster
-  node add-content.js --add-manual 93 5 "Işık" "<section>...</section>" --two-weeks
+📝 Örnek:
+  node add-content.js 93 3 "Işık Nedir?" "<section><h2>...</h2></section>"
+
+📋 Parametreler:
+  topicId: Konu ID'si (örn: 93)
+  hafta: Müfredat haftası (örn: 3)
+  başlık: İçerik başlığı
+  içerik: HTML formatında içerik
 `);
+    return;
+  }
+
+  const topicId = parseInt(args[0]);
+  const week = parseInt(args[1]);
+  const title = args[2];
+  const content = args.slice(3).join(' ');
+  
+  if (!topicId || !week || !title || !content) {
+    console.error('❌ Eksik parametre!');
+    return;
+  }
+
+  // Önizleme göster
+  console.log('\n' + '='.repeat(60));
+  console.log('📋 EKLENECEK İÇERİK ÖNİZLEMESİ');
+  console.log('='.repeat(60));
+  console.log(`Konu ID: ${topicId}`);
+  console.log(`Hafta: ${week}`);
+  console.log(`Başlık: ${title}`);
+  console.log('\nİçerik (ilk 500 karakter):');
+  console.log(content.substring(0, 500) + (content.length > 500 ? '...' : ''));
+  console.log('='.repeat(60));
+  console.log('\n⚠️  Şimdi eklensin mi? (evet/hayır)');
+  console.log('Komut: --confirm flag\'i ile çalıştırın\n');
 }
 
 main().catch(console.error);
