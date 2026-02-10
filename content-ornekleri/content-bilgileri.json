@@ -1,0 +1,28 @@
+{
+  "ders": "Fen Bilimleri",
+  "sinif": "5. Sınıf",
+  "konu": "Gökyüzündeki Komşumuz: Güneş",
+  "topic_id": 93,
+  "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+  "hafta_araligi": "2-3",
+  "kazanimalar": [
+    "Güneş'in yapısı ve dönme hareketi ile ilgili bilgiye ulaşmak için kullanacağı araçları belirler.",
+    "Belirlediği araçları kullanarak Güneş'in yapısı ve dönme hareketi hakkında bilgileri bulur.",
+    "Güneş'in yapısı ve dönme hareketi hakkında bulduğu bilgileri doğrular.",
+    "Güneş'in yapısı ve dönme hareketi hakkında ulaşılan bilgileri kaydeder."
+  ],
+  "icerikler": [
+    {
+      "hafta": 2,
+      "baslik": "Güneş'i Keşfedelim - Giriş ve Gözlem Araçları",
+      "dosya": "gunes-hafta2-giris.html",
+      "konu_id": 93
+    },
+    {
+      "hafta": 3,
+      "baslik": "Güneş'in Yapısı ve Dönme Hareketi",
+      "dosya": "gunes-hafta3-yapi.html",
+      "konu_id": 93
+    }
+  ]
+}
