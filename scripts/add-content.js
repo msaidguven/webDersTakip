@@ -3,8 +3,23 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+// NOT: Script çalıştırmak için SUPABASE_SERVICE_KEY gerekli
+// Supabase Dashboard -> Project Settings -> API -> service_role key
+// .env.local dosyasına ekleyin: SUPABASE_SERVICE_KEY=eyJ...
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_KEY) {
+  console.error('❌ HATA: SUPABASE_SERVICE_KEY eksik!');
+  console.log('\n📋 Kurulum:');
+  console.log('1. Supabase Dashboard -> Project Settings -> API');
+  console.log('2. service_role key\'i kopyala');
+  console.log('3. .env.local dosyasına ekle:');
+  console.log('   SUPABASE_SERVICE_KEY=eyJ...');
+  console.log('\n⚠️  service_role key çok güçlüdür, kimseyle paylaşmayın!\n');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -217,6 +232,57 @@ async function addWeeklyContent(lessonId, week, customTitle = null, customConten
   return topicGroups;
 }
 
+// İçeriği 2 haftaya böl (eğer gerekirse)
+function splitContentForTwoWeeks(fullContent) {
+  // HTML etiketlerini analiz et
+  const sections = fullContent.match(/<h[23][^>]*>.*?<\/h[23]>.*?((?=<h[23])|$)/gs) || [];
+  
+  if (sections.length <= 2) {
+    // Çok az bölüm var, bölme
+    return {
+      week1: fullContent,
+      week2: null
+    };
+  }
+  
+  const midPoint = Math.ceil(sections.length / 2);
+  const week1Sections = sections.slice(0, midPoint);
+  const week2Sections = sections.slice(midPoint);
+  
+  // Başlık çıkar
+  const titleMatch = fullContent.match(/<h2[^>]*>(.*?)<\/h2>/);
+  const mainTitle = titleMatch ? titleMatch[1] : 'Konu Anlatımı';
+  
+  return {
+    week1: `<section>\n<h2>${mainTitle} - 1. Bölüm</h2>\n${week1Sections.join('\n')}\n</section>`,
+    week2: `<section>\n<h2>${mainTitle} - 2. Bölüm</h2>\n${week2Sections.join('\n')}\n</section>`
+  };
+}
+
+// Manuel içerik ekle (çok haftalı destek)
+async function addManualContent(topicId, title, content, week, splitMode = 'single') {
+  console.log(`\n📝 İçerik Ekleme Modu: ${splitMode === 'two-weeks' ? '2 Haftaya Böl' : 'Tek Hafta'}`);
+  
+  if (splitMode === 'two-weeks') {
+    const { week1, week2 } = splitContentForTwoWeeks(content);
+    
+    console.log(`\n📅 1. Hafta (${week}):`);
+    console.log(week1.substring(0, 200) + '...');
+    
+    const id1 = await addContent(topicId, `${title} (1)`, week1, week);
+    
+    if (week2 && id1) {
+      console.log(`\n📅 2. Hafta (${week + 1}):`);
+      console.log(week2.substring(0, 200) + '...');
+      
+      await addContent(topicId, `${title} (2)`, week2, week + 1);
+    }
+  } else {
+    // Tek hafta
+    await addContent(topicId, title, content, week);
+  }
+}
+
 // Komut satırı argümanları
 async function main() {
   const args = process.argv.slice(2);
@@ -271,6 +337,34 @@ async function main() {
     return;
   }
 
+  if (args[0] === '--add-manual') {
+    // Manuel içerik ekle: --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]
+    const topicId = parseInt(args[1]);
+    const week = parseInt(args[2]);
+    const title = args[3];
+    
+    // İçeriği bul (--two-weeks flag'ine kadar)
+    let contentEndIndex = args.length;
+    let splitMode = 'single';
+    
+    const twoWeeksIndex = args.indexOf('--two-weeks');
+    if (twoWeeksIndex !== -1) {
+      contentEndIndex = twoWeeksIndex;
+      splitMode = 'two-weeks';
+    }
+    
+    const content = args.slice(4, contentEndIndex).join(' ');
+    
+    if (!topicId || !week || !title || !content) {
+      console.log('Kullanım: node add-content.js --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]');
+      console.log('Örnek: node add-content.js --add-manual 93 5 "Işığın Yayılması" "<section>...</section>" --two-weeks');
+      return;
+    }
+    
+    await addManualContent(topicId, title, content, week, splitMode);
+    return;
+  }
+
   if (args[0] === '--add-weekly') {
     // Kazanımlara göre içerik ekle: --add-weekly <lessonId> <week> <"başlık"> <"içerik">
     const lessonId = parseInt(args[1]);
@@ -310,12 +404,19 @@ async function main() {
   node add-content.js --units <lessonId>               # Dersin ünitelerini listele
   node add-content.js --topics <unitId>                # Ünitenin konularını listele
   node add-content.js --outcomes <lessonId> <week>     # Haftanın kazanımlarını listele
-  node add-content.js --add-weekly <lessonId> <week> <"başlık"> <"içerik">  # Kazanıma göre içerik ekle
-  node add-content.js --add <topicId> <week> <"başlık"> <"içerik">          # Direkt içerik ekle
+  
+  node add-content.js --add-manual <topicId> <week> <"başlık"> <"içerik"> [--two-weeks]
+                                                       # Manuel içerik ekle
+  
+  node add-content.js --add-weekly <lessonId> <week> <"başlık"> <"içerik">
+                                                       # Kazanıma göre içerik ekle
+  
+  node add-content.js --add <topicId> <week> <"başlık"> <"içerik">
+                                                       # Direkt içerik ekle
 
 📝 Örnekler:
   node add-content.js --outcomes 3 5                   # 5. hafta kazanımlarını göster
-  node add-content.js --add-weekly 3 5 "Başlık" "İçerik..."  # 5. haftaya içerik ekle
+  node add-content.js --add-manual 93 5 "Işık" "<section>...</section>" --two-weeks
 `);
 }
 
