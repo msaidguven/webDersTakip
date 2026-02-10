@@ -1,28 +1,59 @@
 {
   "ders": "Fen Bilimleri",
   "sinif": "5. Sınıf",
-  "konu": "Gökyüzündeki Komşumuz: Güneş",
-  "topic_id": 93,
-  "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
-  "hafta_araligi": "2-3",
-  "kazanimalar": [
-    "Güneş'in yapısı ve dönme hareketi ile ilgili bilgiye ulaşmak için kullanacağı araçları belirler.",
-    "Belirlediği araçları kullanarak Güneş'in yapısı ve dönme hareketi hakkında bilgileri bulur.",
-    "Güneş'in yapısı ve dönme hareketi hakkında bulduğu bilgileri doğrular.",
-    "Güneş'in yapısı ve dönme hareketi hakkında ulaşılan bilgileri kaydeder."
-  ],
-  "icerikler": [
+  "konular": [
     {
-      "hafta": 2,
-      "baslik": "Güneş'i Keşfedelim - Giriş ve Gözlem Araçları",
-      "dosya": "gunes-hafta2-giris.html",
-      "konu_id": 93
+      "konu": "Gökyüzündeki Komşumuz: Güneş",
+      "topic_id": 93,
+      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+      "hafta_araligi": "2-3",
+      "kazanimlar": [
+        "Güneş'in yapısı ve dönme hareketi ile ilgili bilgiye ulaşmak için kullanacağı araçları belirler.",
+        "Belirlediği araçları kullanarak Güneş'in yapısı ve dönme hareketi hakkında bilgileri bulur.",
+        "Güneş'in yapısı ve dönme hareketi hakkında bulduğu bilgileri doğrular.",
+        "Güneş'in yapısı ve dönme hareketi hakkında ulaşılan bilgileri kaydeder."
+      ],
+      "icerikler": [
+        {
+          "hafta": 2,
+          "baslik": "Güneş'i Keşfedelim - Giriş ve Gözlem Araçları",
+          "dosya": "gunes-hafta2-giris.html"
+        },
+        {
+          "hafta": 3,
+          "baslik": "Güneş'in Yapısı ve Dönme Hareketi",
+          "dosya": "gunes-hafta3-yapi.html"
+        }
+      ]
     },
     {
-      "hafta": 3,
-      "baslik": "Güneş'in Yapısı ve Dönme Hareketi",
-      "dosya": "gunes-hafta3-yapi.html",
-      "konu_id": 93
+      "konu": "Gökyüzündeki Komşumuz: Ay",
+      "topic_id": 94,
+      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+      "hafta_araligi": "4-5",
+      "kazanimlar": {
+        "hafta_4": [
+          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili nitelikleri tanımlar.",
+          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili topladığı verileri kaydeder.",
+          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili verileri değerlendirir."
+        ],
+        "hafta_5": [
+          "Ay'ın evrelerini temsil eden bir model önerir.",
+          "Ay'ın evrelerini temsil eden modelini yeni kanıtlara bağlı olarak geliştirir."
+        ]
+      },
+      "icerikler": [
+        {
+          "hafta": 4,
+          "baslik": "Ay'ı Tanıyalım - Özellikler ve Hareketler",
+          "dosya": "ay-hafta4-tanitim.html"
+        },
+        {
+          "hafta": 5,
+          "baslik": "Ay'ın Evreleri ve Modelleme",
+          "dosya": "ay-hafta5-evreler.html"
+        }
+      ]
     }
   ]
 }
