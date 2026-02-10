@@ -76,6 +76,40 @@
           "dosya": "dunya-hafta7-hareket.html"
         }
       ]
+    },
+    {
+      "konu": "Kuvvet ve Kuvvetin Ölçülmesi",
+      "topic_id": 96,
+      "unite": "KUVVETİ TANIYALIM",
+      "hafta_araligi": "8-10",
+      "kazanimlar": {
+        "hafta_8_9": [
+          "Kuvvetin niteliklerini tanımlar.",
+          "Kuvvetin büyüklüğünü dinamometre ile ölçer.",
+          "Kuvvetin büyüklüğünü Newton (N) birimi ile tanımlar."
+        ],
+        "hafta_10": [
+          "Basit araç gereçler kullanarak bir dinamometre modeli önerir.",
+          "Tasarladığı dinamometre modelini yeni kanıtlara göre geliştirir."
+        ]
+      },
+      "icerikler": [
+        {
+          "hafta": 8,
+          "baslik": "Kuvveti Tanıyalım - Nitelikler ve Etkiler",
+          "dosya": "kuvvet-hafta8-tanim.html"
+        },
+        {
+          "hafta": 9,
+          "baslik": "Kuvveti Ölçelim - Dinamometre ve Newton",
+          "dosya": "kuvvet-hafta9-olcum.html"
+        },
+        {
+          "hafta": 10,
+          "baslik": "Kendi Dinamometremizi Tasarlayalım",
+          "dosya": "kuvvet-hafta10-model.html"
+        }
+      ]
     }
   ]
 }
