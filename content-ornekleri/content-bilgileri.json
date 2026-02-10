@@ -54,6 +54,28 @@
           "dosya": "ay-hafta5-evreler.html"
         }
       ]
+    },
+    {
+      "konu": "Dünya'mız ve Gökyüzündeki Komşularımız",
+      "topic_id": 95,
+      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+      "hafta_araligi": "6-7",
+      "kazanimlar": [
+        "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden bir model önerir.",
+        "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden modelini yeni kanıtlara göre geliştirir."
+      ],
+      "icerikler": [
+        {
+          "hafta": 6,
+          "baslik": "Güneş Sistemi - Büyüklükler ve Mesafeler",
+          "dosya": "dunya-hafta6-buyukluk.html"
+        },
+        {
+          "hafta": 7,
+          "baslik": "Hareketler ve Model Geliştirme",
+          "dosya": "dunya-hafta7-hareket.html"
+        }
+      ]
     }
   ]
 }
