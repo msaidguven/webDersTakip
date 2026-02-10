@@ -184,6 +184,30 @@
           "dosya": "hucre-hafta16-hiyerarsi.html"
         }
       ]
+    },
+    {
+      "konu": "Destek ve Hareket Sistemi",
+      "topic_id": 102,
+      "unite": "CANLILARIN YAPISINA YOLCULUK",
+      "hafta_araligi": "17-18",
+      "kazanimlar": [
+        "Destek ve hareket sistemine ait yapıların niteliklerini tanımlar.",
+        "Destek ve hareket sistemine ait yapıları niteliklerine göre ayrıştırır.",
+        "Destek ve hareket sistemine ait yapıları gruplandırır.",
+        "Destek ve hareket sistemine ait yapıları etiketler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 17,
+          "baslik": "Destek ve Hareket Sistemi - İskelet ve Kaslar",
+          "dosya": "destek-hareket-hafta17-tanim.html"
+        },
+        {
+          "hafta": 18,
+          "baslik": "Destek ve Hareket Sistemi - Eklemler ve Hareket Mekanizması",
+          "dosya": "destek-hareket-hafta18-eklem.html"
+        }
+      ]
     }
   ]
 }
