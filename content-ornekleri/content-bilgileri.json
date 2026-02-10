@@ -110,6 +110,24 @@
           "dosya": "kuvvet-hafta10-model.html"
         }
       ]
+    },
+    {
+      "konu": "Kütle ve Ağırlık İlişkisi",
+      "topic_id": 97,
+      "unite": "KUVVETİ TANIYALIM",
+      "hafta_araligi": "11",
+      "kazanimlar": [
+        "Kütle ve ağırlık kavramlarına ait nitelikleri tanımlar.",
+        "Dinamometre kullanarak ağırlık ölçümü yapar.",
+        "Ağırlığı bir kuvvet olarak tanımlar."
+      ],
+      "icerikler": [
+        {
+          "hafta": 11,
+          "baslik": "Kütle ve Ağırlık İlişkisi",
+          "dosya": "kutle-agirlik-hafta11.html"
+        }
+      ]
     }
   ]
 }
