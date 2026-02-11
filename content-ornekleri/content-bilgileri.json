@@ -330,6 +330,55 @@
           "dosya": "hal-degisimi-hafta28.html"
         }
       ]
+    },
+    {
+      "konu": "Isı Akışı ile İlgili Temel Kavramlar",
+      "topic_id": 112,
+      "unite": "MADDENİN DOĞASI",
+      "hafta_araligi": "29-30",
+      "kazanimlar": {
+        "hafta_29": [
+          "Maddeleri ısı iletimi bakımından belirler.",
+          "Maddeleri ısı iletkeni veya yalıtkanı olarak ayrıştırır.",
+          "Maddeleri ısı iletkeni veya yalıtkanı olarak gruplandırır.",
+          "Maddeleri ısı iletkeni veya yalıtkanı olarak etiketler."
+        ],
+        "hafta_30": [
+          "Isı yalıtımı ile ilgili model önerir.",
+          "Yeni kanıtlarla modeli yeniler."
+        ]
+      },
+      "icerikler": [
+        {
+          "hafta": 29,
+          "baslik": "Isı İletkenleri ve Yalıtkanları",
+          "dosya": "isi-iletken-hafta29.html"
+        },
+        {
+          "hafta": 30,
+          "baslik": "Isı Yalıtımı ve Modelleme",
+          "dosya": "isi-yalitim-hafta30.html"
+        }
+      ]
+    },
+    {
+      "konu": "Devre Elemanlarının Sembolleri ve Devre Şeması",
+      "topic_id": 113,
+      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
+      "hafta_araligi": "31",
+      "kazanimlar": [
+        "Bir elektrik devresindeki elemanların sembollerini belirler.",
+        "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre ayrıştırır.",
+        "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre gruplandırır.",
+        "Bir elektrik devresindeki elemanların sembollerini niteliklerine göre etiketler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 31,
+          "baslik": "Devre Elemanlarının Sembolleri ve Devre Şeması",
+          "dosya": "devre-semasi-hafta31.html"
+        }
+      ]
     }
   ]
 }
