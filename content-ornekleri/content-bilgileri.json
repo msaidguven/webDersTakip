@@ -471,6 +471,54 @@
           "dosya": "atik-yonetimi-hafta36.html"
         }
       ]
+    },
+    {
+      "ders": "Sosyal Bilgiler",
+      "sinif": "5. Sınıf",
+      "konular": [
+        {
+          "konu": "Demokrasi ve Cumhuriyet Kavramının Temel Nitelikleri",
+          "topic_id": 195,
+          "unite": "YAŞAYAN DEMOKRASİMİZ",
+          "hafta_araligi": "21",
+          "kazanimlar": [
+            "Demokrasi ve cumhuriyet kavramlarının niteliklerini belirler.",
+            "Demokrasi ve cumhuriyet kavramları arasındaki ilişkiyi belirler."
+          ],
+          "icerikler": [
+            {
+              "hafta": 21,
+              "baslik": "Demokrasi ve Cumhuriyet Kavramları",
+              "dosya": "demokrasi-cumhuriyet-hafta21.html"
+            }
+          ]
+        },
+        {
+          "konu": "Etkin Vatandaşın Özellikleri ve Önemi",
+          "topic_id": 196,
+          "unite": "YAŞAYAN DEMOKRASİMİZ",
+          "hafta_araligi": "22-23",
+          "kazanimlar": [
+            "Etkin vatandaş olmanın önemine ilişkin varsayımda bulunur.",
+            "Etkin vatandaşın sahip olması gereken özellikleri listeler.",
+            "Etkin olan ve olmayan vatandaş özelliklerini karşılaştırır.",
+            "Etkin vatandaş davranışlarının toplum düzenine etkisine yönelik tahminlerde bulunur.",
+            "Etkin vatandaş olmanın önemini toplum düzeni açısından değerlendirir."
+          ],
+          "icerikler": [
+            {
+              "hafta": 22,
+              "baslik": "Etkin Vatandaşın Özellikleri ve Karşılaştırma",
+              "dosya": "etkin-vatandas-hafta22.html"
+            },
+            {
+              "hafta": 23,
+              "baslik": "Etkin Vatandaş Davranışları ve Değerlendirme",
+              "dosya": "etkin-davranis-hafta23.html"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
