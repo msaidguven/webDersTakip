@@ -1,478 +1,340 @@
 {
-  "ders": "Fen Bilimleri",
-  "sinif": "5. Sınıf",
-  "konular": [
-    {
-      "konu": "Gökyüzündeki Komşumuz: Güneş",
-      "topic_id": 93,
-      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
-      "hafta_araligi": "2-3",
-      "kazanimlar": [
-        "Güneş'in yapısı ve dönme hareketi ile ilgili bilgiye ulaşmak için kullanacağı araçları belirler.",
-        "Belirlediği araçları kullanarak Güneş'in yapısı ve dönme hareketi hakkında bilgileri bulur.",
-        "Güneş'in yapısı ve dönme hareketi hakkında bulduğu bilgileri doğrular.",
-        "Güneş'in yapısı ve dönme hareketi hakkında ulaşılan bilgileri kaydeder."
-      ],
-      "icerikler": [
+  "kategoriler": {
+    "5. Sinif Fen Bilimleri": {
+      "ders": "Fen Bilimleri",
+      "sinif": "5. Sınıf",
+      "konular": [
         {
-          "hafta": 2,
-          "baslik": "Güneş'i Keşfedelim - Giriş ve Gözlem Araçları",
-          "dosya": "gunes-hafta2-giris.html"
+          "konu": "Gökyüzündeki Komşumuz: Güneş",
+          "topic_id": 93,
+          "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+          "hafta_araligi": "2-3",
+          "kazanimlar": [
+            "Güneş'in yapısı ve dönme hareketi ile ilgili bilgiye ulaşmak için kullanacağı araçları belirler.",
+            "Belirlediği araçları kullanarak Güneş'in yapısı ve dönme hareketi hakkında bilgileri bulur.",
+            "Güneş'in yapısı ve dönme hareketi hakkında bulduğu bilgileri doğrular.",
+            "Güneş'in yapısı ve dönme hareketi hakkında ulaşılan bilgileri kaydeder."
+          ],
+          "icerikler": [
+            { "hafta": 2, "baslik": "Güneş'i Keşfedelim - Giriş ve Gözlem Araçları", "dosya": "gunes-hafta2-giris.html" },
+            { "hafta": 3, "baslik": "Güneş'in Yapısı ve Dönme Hareketi", "dosya": "gunes-hafta3-yapi.html" }
+          ]
         },
         {
-          "hafta": 3,
-          "baslik": "Güneş'in Yapısı ve Dönme Hareketi",
-          "dosya": "gunes-hafta3-yapi.html"
-        }
-      ]
-    },
-    {
-      "konu": "Gökyüzündeki Komşumuz: Ay",
-      "topic_id": 94,
-      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
-      "hafta_araligi": "4-5",
-      "kazanimlar": {
-        "hafta_4": [
-          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili nitelikleri tanımlar.",
-          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili topladığı verileri kaydeder.",
-          "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili verileri değerlendirir."
-        ],
-        "hafta_5": [
-          "Ay'ın evrelerini temsil eden bir model önerir.",
-          "Ay'ın evrelerini temsil eden modelini yeni kanıtlara bağlı olarak geliştirir."
-        ]
-      },
-      "icerikler": [
-        {
-          "hafta": 4,
-          "baslik": "Ay'ı Tanıyalım - Özellikler ve Hareketler",
-          "dosya": "ay-hafta4-tanitim.html"
+          "konu": "Gökyüzündeki Komşumuz: Ay",
+          "topic_id": 94,
+          "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+          "hafta_araligi": "4-5",
+          "kazanimlar": {
+            "hafta_4": [
+              "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili nitelikleri tanımlar.",
+              "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili topladığı verileri kaydeder.",
+              "Ay'ın özellikleri, dönme ve dolanma hareketleri ile ilgili verileri değerlendirir."
+            ],
+            "hafta_5": [
+              "Ay'ın evrelerini temsil eden bir model önerir.",
+              "Ay'ın evrelerini temsil eden modelini yeni kanıtlara bağlı olarak geliştirir."
+            ]
+          },
+          "icerikler": [
+            { "hafta": 4, "baslik": "Ay'ı Tanıyalım - Özellikler ve Hareketler", "dosya": "ay-hafta4-tanitim.html" },
+            { "hafta": 5, "baslik": "Ay'ın Evreleri ve Modelleme", "dosya": "ay-hafta5-evreler.html" }
+          ]
         },
         {
-          "hafta": 5,
-          "baslik": "Ay'ın Evreleri ve Modelleme",
-          "dosya": "ay-hafta5-evreler.html"
-        }
-      ]
-    },
-    {
-      "konu": "Dünya'mız ve Gökyüzündeki Komşularımız",
-      "topic_id": 95,
-      "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
-      "hafta_araligi": "6-7",
-      "kazanimlar": [
-        "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden bir model önerir.",
-        "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden modelini yeni kanıtlara göre geliştirir."
-      ],
-      "icerikler": [
-        {
-          "hafta": 6,
-          "baslik": "Güneş Sistemi - Büyüklükler ve Mesafeler",
-          "dosya": "dunya-hafta6-buyukluk.html"
+          "konu": "Dünya'mız ve Gökyüzündeki Komşularımız",
+          "topic_id": 95,
+          "unite": "GÖKYÜZÜNDEKİ KOMŞULARIMIZ VE BİZ",
+          "hafta_araligi": "6-7",
+          "kazanimlar": [
+            "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden bir model önerir.",
+            "Güneş, Dünya ve Ay'ın birbirlerine göre hareketlerini ve büyüklüklerini temsil eden modelini yeni kanıtlara göre geliştirir."
+          ],
+          "icerikler": [
+            { "hafta": 6, "baslik": "Güneş Sistemi - Büyüklükler ve Mesafeler", "dosya": "dunya-hafta6-buyukluk.html" },
+            { "hafta": 7, "baslik": "Hareketler ve Model Geliştirme", "dosya": "dunya-hafta7-hareket.html" }
+          ]
         },
         {
-          "hafta": 7,
-          "baslik": "Hareketler ve Model Geliştirme",
-          "dosya": "dunya-hafta7-hareket.html"
-        }
-      ]
-    },
-    {
-      "konu": "Kuvvet ve Kuvvetin Ölçülmesi",
-      "topic_id": 96,
-      "unite": "KUVVETİ TANIYALIM",
-      "hafta_araligi": "8-10",
-      "kazanimlar": {
-        "hafta_8_9": [
-          "Kuvvetin niteliklerini tanımlar.",
-          "Kuvvetin büyüklüğünü dinamometre ile ölçer.",
-          "Kuvvetin büyüklüğünü Newton (N) birimi ile tanımlar."
-        ],
-        "hafta_10": [
-          "Basit araç gereçler kullanarak bir dinamometre modeli önerir.",
-          "Tasarladığı dinamometre modelini yeni kanıtlara göre geliştirir."
-        ]
-      },
-      "icerikler": [
-        {
-          "hafta": 8,
-          "baslik": "Kuvveti Tanıyalım - Nitelikler ve Etkiler",
-          "dosya": "kuvvet-hafta8-tanim.html"
+          "konu": "Kuvvet ve Kuvvetin Ölçülmesi",
+          "topic_id": 96,
+          "unite": "KUVVETİ TANIYALIM",
+          "hafta_araligi": "8-10",
+          "kazanimlar": {
+            "hafta_8_9": [
+              "Kuvvetin niteliklerini tanımlar.",
+              "Kuvvetin büyüklüğünü dinamometre ile ölçer.",
+              "Kuvvetin büyüklüğünü Newton (N) birimi ile tanımlar."
+            ],
+            "hafta_10": [
+              "Basit araç gereçler kullanarak bir dinamometre modeli önerir.",
+              "Tasarladığı dinamometre modelini yeni kanıtlara göre geliştirir."
+            ]
+          },
+          "icerikler": [
+            { "hafta": 8, "baslik": "Kuvveti Tanıyalım - Nitelikler ve Etkiler", "dosya": "kuvvet-hafta8-tanim.html" },
+            { "hafta": 9, "baslik": "Kuvveti Ölçelim - Dinamometre ve Newton", "dosya": "kuvvet-hafta9-olcum.html" },
+            { "hafta": 10, "baslik": "Kendi Dinamometremizi Tasarlayalım", "dosya": "kuvvet-hafta10-model.html" }
+          ]
         },
         {
-          "hafta": 9,
-          "baslik": "Kuvveti Ölçelim - Dinamometre ve Newton",
-          "dosya": "kuvvet-hafta9-olcum.html"
+          "konu": "Kütle ve Ağırlık İlişkisi",
+          "topic_id": 97,
+          "unite": "KUVVETİ TANIYALIM",
+          "hafta_araligi": "11",
+          "kazanimlar": [
+            "Kütle ve ağırlık kavramlarına ait nitelikleri tanımlar.",
+            "Dinamometre kullanarak ağırlık ölçümü yapar.",
+            "Ağırlığı bir kuvvet olarak tanımlar."
+          ],
+          "icerikler": [
+            { "hafta": 11, "baslik": "Kütle ve Ağırlık İlişkisi", "dosya": "kutle-agirlik-hafta11.html" }
+          ]
         },
         {
-          "hafta": 10,
-          "baslik": "Kendi Dinamometremizi Tasarlayalım",
-          "dosya": "kuvvet-hafta10-model.html"
-        }
-      ]
-    },
-    {
-      "konu": "Kütle ve Ağırlık İlişkisi",
-      "topic_id": 97,
-      "unite": "KUVVETİ TANIYALIM",
-      "hafta_araligi": "11",
-      "kazanimlar": [
-        "Kütle ve ağırlık kavramlarına ait nitelikleri tanımlar.",
-        "Dinamometre kullanarak ağırlık ölçümü yapar.",
-        "Ağırlığı bir kuvvet olarak tanımlar."
-      ],
-      "icerikler": [
-        {
-          "hafta": 11,
-          "baslik": "Kütle ve Ağırlık İlişkisi",
-          "dosya": "kutle-agirlik-hafta11.html"
-        }
-      ]
-    },
-    {
-      "konu": "Sürtünme Kuvveti",
-      "topic_id": 98,
-      "unite": "KUVVETİ TANIYALIM",
-      "hafta_araligi": "12-13",
-      "kazanimlar": {
-        "hafta_12": [
-          "Sürtünme kuvveti ile ilgili günlük yaşamdan ön bilgilerini kullanarak örüntü oluşturur.",
-          "Sürtünme kuvvetinin çeşitli ortamlardaki etkilerine yönelik genelleme yapar."
-        ],
-        "hafta_13": [
-          "Sürtünmeyi artıran ve azaltan durumları gözlemlemek için model önerir.",
-          "Sürtünmeyi artıran ve azaltan durumlara ilişkin gözlemleri sonucunda modelini geliştirir."
-        ]
-      },
-      "icerikler": [
-        {
-          "hafta": 12,
-          "baslik": "Sürtünme Kuvveti - Tanım ve Örüntü",
-          "dosya": "surtunme-hafta12-tanim.html"
+          "konu": "Sürtünme Kuvveti",
+          "topic_id": 98,
+          "unite": "KUVVETİ TANIYALIM",
+          "hafta_araligi": "12-13",
+          "kazanimlar": {
+            "hafta_12": [
+              "Sürtünme kuvveti ile ilgili günlük yaşamdan ön bilgilerini kullanarak örüntü oluşturur.",
+              "Sürtünme kuvvetinin çeşitli ortamlardaki etkilerine yönelik genelleme yapar."
+            ],
+            "hafta_13": [
+              "Sürtünmeyi artıran ve azaltan durumları gözlemlemek için model önerir.",
+              "Sürtünmeyi artıran ve azaltan durumlara ilişkin gözlemleri sonucunda modelini geliştirir."
+            ]
+          },
+          "icerikler": [
+            { "hafta": 12, "baslik": "Sürtünme Kuvveti - Tanım ve Örüntü", "dosya": "surtunme-hafta12-tanim.html" },
+            { "hafta": 13, "baslik": "Sürtünmeyi Artıran ve Azaltan Durumlar", "dosya": "surtunme-hafta13-model.html" }
+          ]
         },
         {
-          "hafta": 13,
-          "baslik": "Sürtünmeyi Artıran ve Azaltan Durumlar",
-          "dosya": "surtunme-hafta13-model.html"
-        }
-      ]
-    },
-    {
-      "konu": "Hücre ve Organelleri",
-      "topic_id": 99,
-      "unite": "CANLILARIN YAPISINA YOLCULUK",
-      "hafta_araligi": "14-15",
-      "kazanimlar": [
-        "Bitki ve hayvan hücrelerinin özelliklerini belirler.",
-        "Bitki ve hayvan hücrelerinin benzer özelliklerini listeler.",
-        "Bitki ve hayvan hücrelerinin farklı özelliklerini listeler."
-      ],
-      "icerikler": [
-        {
-          "hafta": 14,
-          "baslik": "Hücre ve Organelleri - Benzer Özellikler",
-          "dosya": "hucre-hafta14-benzer.html"
+          "konu": "Hücre ve Organelleri",
+          "topic_id": 99,
+          "unite": "CANLILARIN YAPISINA YOLCULUK",
+          "hafta_araligi": "14-15",
+          "kazanimlar": [
+            "Bitki ve hayvan hücrelerinin özelliklerini belirler.",
+            "Bitki ve hayvan hücrelerinin benzer özelliklerini listeler.",
+            "Bitki ve hayvan hücrelerinin farklı özelliklerini listeler."
+          ],
+          "icerikler": [
+            { "hafta": 14, "baslik": "Hücre ve Organelleri - Benzer Özellikler", "dosya": "hucre-hafta14-benzer.html" },
+            { "hafta": 15, "baslik": "Hücre ve Organelleri - Farklı Özellikler", "dosya": "hucre-hafta15-farkli.html" },
+            { "hafta": 16, "baslik": "Hücre-Doku-Organ-Sistem-Organizma Hiyerarşisi", "dosya": "hucre-hafta16-hiyerarsi.html" }
+          ]
         },
         {
-          "hafta": 15,
-          "baslik": "Hücre ve Organelleri - Farklı Özellikler",
-          "dosya": "hucre-hafta15-farkli.html"
+          "konu": "Destek ve Hareket Sistemi",
+          "topic_id": 102,
+          "unite": "CANLILARIN YAPISINA YOLCULUK",
+          "hafta_araligi": "17-18",
+          "kazanimlar": [
+            "Destek ve hareket sistemine ait yapıların niteliklerini tanımlar.",
+            "Destek ve hareket sistemine ait yapıları niteliklerine göre ayrıştırır.",
+            "Destek ve hareket sistemine ait yapıları gruplandırır.",
+            "Destek ve hareket sistemine ait yapıları etiketler."
+          ],
+          "icerikler": [
+            { "hafta": 17, "baslik": "Destek ve Hareket Sistemi - İskelet ve Kaslar", "dosya": "destek-hareket-hafta17-tanim.html" },
+            { "hafta": 18, "baslik": "Destek ve Hareket Sistemi - Eklemler ve Hareket Mekanizması", "dosya": "destek-hareket-hafta18-eklem.html" }
+          ]
         },
         {
-          "hafta": 16,
-          "baslik": "Hücre-Doku-Organ-Sistem-Organizma Hiyerarşisi",
-          "dosya": "hucre-hafta16-hiyerarsi.html"
-        }
-      ]
-    },
-    {
-      "konu": "Destek ve Hareket Sistemi",
-      "topic_id": 102,
-      "unite": "CANLILARIN YAPISINA YOLCULUK",
-      "hafta_araligi": "17-18",
-      "kazanimlar": [
-        "Destek ve hareket sistemine ait yapıların niteliklerini tanımlar.",
-        "Destek ve hareket sistemine ait yapıları niteliklerine göre ayrıştırır.",
-        "Destek ve hareket sistemine ait yapıları gruplandırır.",
-        "Destek ve hareket sistemine ait yapıları etiketler."
-      ],
-      "icerikler": [
-        {
-          "hafta": 17,
-          "baslik": "Destek ve Hareket Sistemi - İskelet ve Kaslar",
-          "dosya": "destek-hareket-hafta17-tanim.html"
+          "konu": "Işığın Maddeyle Etkileşimi",
+          "topic_id": 104,
+          "unite": "IŞIĞIN DÜNYASI",
+          "hafta_araligi": "21-22",
+          "kazanimlar": [
+            "Maddelerin ışığı geçirme durumlarına göre niteliklerini belirler.",
+            "Maddeleri ışığı geçirme durumlarına göre ayrıştırır.",
+            "Maddeleri ışığı geçirme durumlarına göre gruplandırır.",
+            "Maddeleri ışığı geçirme durumlarına göre etiketler."
+          ],
+          "icerikler": [
+            { "hafta": 21, "baslik": "Işığın Maddeyle Etkileşimi - Tanımlar", "dosya": "isik-madde-hafta21-tanim.html" },
+            { "hafta": 22, "baslik": "Işığın Maddeyle Etkileşimi - Ayrıştırma ve Gruplandırma", "dosya": "isik-madde-hafta22-uygulama.html" }
+          ]
         },
         {
-          "hafta": 18,
-          "baslik": "Destek ve Hareket Sistemi - Eklemler ve Hareket Mekanizması",
-          "dosya": "destek-hareket-hafta18-eklem.html"
-        }
-      ]
-    },
-    {
-      "konu": "Işığın Maddeyle Etkileşimi",
-      "topic_id": 104,
-      "unite": "IŞIĞIN DÜNYASI",
-      "hafta_araligi": "21-22",
-      "kazanimlar": [
-        "Maddelerin ışığı geçirme durumlarına göre niteliklerini belirler.",
-        "Maddeleri ışığı geçirme durumlarına göre ayrıştırır.",
-        "Maddeleri ışığı geçirme durumlarına göre gruplandırır.",
-        "Maddeleri ışığı geçirme durumlarına göre etiketler."
-      ],
-      "icerikler": [
-        {
-          "hafta": 21,
-          "baslik": "Işığın Maddeyle Etkileşimi - Tanımlar",
-          "dosya": "isik-madde-hafta21-tanim.html"
+          "konu": "Tam Gölgenin Oluşumu",
+          "topic_id": 105,
+          "unite": "IŞIĞIN DÜNYASI",
+          "hafta_araligi": "23",
+          "kazanimlar": [
+            "Tam gölgenin nitelikleri tanımlar.",
+            "Tam gölgeye ait elde ettiği verileri kaydeder.",
+            "Tam gölgeyi etkileyen değişkenleri açıklar."
+          ],
+          "icerikler": [
+            { "hafta": 23, "baslik": "Tam Gölgenin Oluşumu", "dosya": "golge-hafta23.html" }
+          ]
         },
         {
-          "hafta": 22,
-          "baslik": "Işığın Maddeyle Etkileşimi - Ayrıştırma ve Gruplandırma",
-          "dosya": "isik-madde-hafta22-uygulama.html"
-        }
-      ]
-    },
-    {
-      "konu": "Tam Gölgenin Oluşumu",
-      "topic_id": 105,
-      "unite": "IŞIĞIN DÜNYASI",
-      "hafta_araligi": "23",
-      "kazanimlar": [
-        "Tam gölgenin nitelikleri tanımlar.",
-        "Tam gölgeye ait elde ettiği verileri kaydeder.",
-        "Tam gölgeyi etkileyen değişkenleri açıklar."
-      ],
-      "icerikler": [
-        {
-          "hafta": 23,
-          "baslik": "Tam Gölgenin Oluşumu",
-          "dosya": "golge-hafta23.html"
-        }
-      ]
-    },
-    {
-      "konu": "Taneciklerin Konumu",
-      "topic_id": 106,
-      "unite": "MADDENİN DOĞASI",
-      "hafta_araligi": "24",
-      "kazanimlar": [
-        "Maddelerin tanecikli, boşluklu ve hareketli yapısının niteliklerini belirler.",
-        "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre ayrıştırır.",
-        "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre katı, sıvı ve gaz olarak gruplandırır.",
-        "Maddeleri tanecikli, boşluklu ve hareketli yapılarına göre farklı gruplar altında etiketler."
-      ],
-      "icerikler": [
-        {
-          "hafta": 24,
-          "baslik": "Taneciklerin Konumu",
-          "dosya": "tanecik-hafta24.html"
-        }
-      ]
-    },
-    {
-      "konu": "Isı ve Sıcaklık",
-      "topic_id": 109,
-      "unite": "MADDENİN DOĞASI",
-      "hafta_araligi": "25",
-      "kazanimlar": [
-        "Isı ve sıcaklık kavramlarının özelliklerini belirler.",
-        "Isı ve sıcaklık kavramlarının özelliklerine ilişkin benzerlikleri listeler.",
-        "Isı ve sıcaklık kavramlarının özelliklerine ilişkin farklılıkları listeler."
-      ],
-      "icerikler": [
-        {
-          "hafta": 25,
-          "baslik": "Isı ve Sıcaklık",
-          "dosya": "isi-sicaklik-hafta25.html"
-        }
-      ]
-    },
-    {
-      "konu": "Isı ve Sıcaklık Arasındaki Farklar",
-      "topic_id": 110,
-      "unite": "MADDENİN DOĞASI",
-      "hafta_araligi": "26",
-      "kazanimlar": [
-        "Farklı sıcaklıklardaki sıvılar arasında ısı alışverişi olduğunu tanımlar.",
-        "Sıvıların karıştırılmadan önceki ve sonraki sıcaklıklarını kaydeder.",
-        "Karıştırılan sıvılar arasında ısı alışverişi olduğunu değerlendirir."
-      ],
-      "icerikler": [
-        {
-          "hafta": 26,
-          "baslik": "Sıvılarda Isı Alışverişi",
-          "dosya": "isi-alisverisi-hafta26.html"
-        }
-      ]
-    },
-    {
-      "konu": "Maddenin Hâl Değişimi",
-      "topic_id": 111,
-      "unite": "MADDENİN DOĞASI",
-      "hafta_araligi": "27-28",
-      "kazanimlar": [
-        "Maddenin ısı etkisiyle hâl değiştirebileceğine ilişkin ön bilgi ve deneyimlerine dayalı önerme oluşturur.",
-        "Gözleme dayalı olan ve olmayan önermeleri karşılaştırır.",
-        "Maddenin ısı etkisiyle hâl değiştirebileceğini temellendirebilmek için gözlem verilerinden sonuç çıkarır.",
-        "Gözlemlenmemiş duruma ilişkin tahminde bulunur.",
-        "Tahminlerinin geçerliğini sorgular."
-      ],
-      "icerikler": [
-        {
-          "hafta": 27,
-          "baslik": "Maddenin Hâl Değişimi - Önerme ve Gözlem",
-          "dosya": "hal-degisimi-hafta27.html"
+          "konu": "Taneciklerin Konumu",
+          "topic_id": 106,
+          "unite": "MADDENİN DOĞASI",
+          "hafta_araligi": "24",
+          "kazanimlar": [
+            "Maddelerin tanecikli, boşluklu ve hareketli yapısının niteliklerini belirler.",
+            "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre ayrıştırır.",
+            "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre katı, sıvı ve gaz olarak gruplandırır.",
+            "Maddeleri tanecikli, boşluklu ve hareketli yapılarına göre farklı gruplar altında etiketler."
+          ],
+          "icerikler": [
+            { "hafta": 24, "baslik": "Taneciklerin Konumu", "dosya": "tanecik-hafta24.html" }
+          ]
         },
         {
-          "hafta": 28,
-          "baslik": "Maddenin Hâl Değişimi - Türler ve Örnekler",
-          "dosya": "hal-degisimi-hafta28.html"
-        }
-      ]
-    },
-    {
-      "konu": "Isı Akışı ile İlgili Temel Kavramlar",
-      "topic_id": 112,
-      "unite": "MADDENİN DOĞASI",
-      "hafta_araligi": "29-30",
-      "kazanimlar": {
-        "hafta_29": [
-          "Maddeleri ısı iletimi bakımından belirler.",
-          "Maddeleri ısı iletkeni veya yalıtkanı olarak ayrıştırır.",
-          "Maddeleri ısı iletkeni veya yalıtkanı olarak gruplandırır.",
-          "Maddeleri ısı iletkeni veya yalıtkanı olarak etiketler."
-        ],
-        "hafta_30": [
-          "Isı yalıtımı ile ilgili model önerir.",
-          "Yeni kanıtlarla modeli yeniler."
-        ]
-      },
-      "icerikler": [
-        {
-          "hafta": 29,
-          "baslik": "Isı İletkenleri ve Yalıtkanları",
-          "dosya": "isi-iletken-hafta29.html"
+          "konu": "Isı ve Sıcaklık",
+          "topic_id": 109,
+          "unite": "MADDENİN DOĞASI",
+          "hafta_araligi": "25",
+          "kazanimlar": [
+            "Isı ve sıcaklık kavramlarının özelliklerini belirler.",
+            "Isı ve sıcaklık kavramlarının özelliklerine ilişkin benzerlikleri listeler.",
+            "Isı ve sıcaklık kavramlarının özelliklerine ilişkin farklılıkları listeler."
+          ],
+          "icerikler": [
+            { "hafta": 25, "baslik": "Isı ve Sıcaklık", "dosya": "isi-sicaklik-hafta25.html" }
+          ]
         },
         {
-          "hafta": 30,
-          "baslik": "Isı Yalıtımı ve Modelleme",
-          "dosya": "isi-yalitim-hafta30.html"
-        }
-      ]
-    },
-    {
-      "konu": "Devre Elemanlarının Sembolleri ve Devre Şeması",
-      "topic_id": 113,
-      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
-      "hafta_araligi": "31",
-      "kazanimlar": [
-        "Bir elektrik devresindeki elemanların sembollerini belirler.",
-        "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre ayrıştırır.",
-        "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre gruplandırır.",
-        "Bir elektrik devresindeki elemanların sembollerini niteliklerine göre etiketler."
-      ],
-      "icerikler": [
+          "konu": "Isı ve Sıcaklık Arasındaki Farklar",
+          "topic_id": 110,
+          "unite": "MADDENİN DOĞASI",
+          "hafta_araligi": "26",
+          "kazanimlar": [
+            "Farklı sıcaklıklardaki sıvılar arasında ısı alışverişi olduğunu tanımlar.",
+            "Sıvıların karıştırılmadan önceki ve sonraki sıcaklıklarını kaydeder.",
+            "Karıştırılan sıvılar arasında ısı alışverişi olduğunu değerlendirir."
+          ],
+          "icerikler": [
+            { "hafta": 26, "baslik": "Sıvılarda Isı Alışverişi", "dosya": "isi-alisverisi-hafta26.html" }
+          ]
+        },
         {
-          "hafta": 31,
-          "baslik": "Devre Elemanlarının Sembolleri ve Devre Şeması",
-          "dosya": "devre-semasi-hafta31.html"
-        }
-      ]
-    },
-    {
-      "konu": "Devre Elemanlarının Sembolleri ve Devre Şeması",
-      "topic_id": 113,
-      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
-      "hafta_araligi": "32",
-      "kazanimlar": [
-        "Çizdiği elektrik devresine uygun deney düzeneği tasarlar.",
-        "Deneyle ilgili topladığı verilerin analizini yapar."
-      ],
-      "icerikler": [
+          "konu": "Maddenin Hâl Değişimi",
+          "topic_id": 111,
+          "unite": "MADDENİN DOĞASI",
+          "hafta_araligi": "27-28",
+          "kazanimlar": [
+            "Maddenin ısı etkisiyle hâl değiştirebileceğine ilişkin ön bilgi ve deneyimlerine dayalı önerme oluşturur.",
+            "Gözleme dayalı olan ve olmayan önermeleri karşılaştırır.",
+            "Maddenin ısı etkisiyle hâl değiştirebileceğini temellendirebilmek için gözlem verilerinden sonuç çıkarır.",
+            "Gözlemlenmemiş duruma ilişkin tahminde bulunur.",
+            "Tahminlerinin geçerliğini sorgular."
+          ],
+          "icerikler": [
+            { "hafta": 27, "baslik": "Maddenin Hâl Değişimi - Önerme ve Gözlem", "dosya": "hal-degisimi-hafta27.html" },
+            { "hafta": 28, "baslik": "Maddenin Hâl Değişimi - Türler ve Örnekler", "dosya": "hal-degisimi-hafta28.html" }
+          ]
+        },
         {
-          "hafta": 32,
-          "baslik": "Devre Kurma ve Veri Analizi",
-          "dosya": "devre-kurma-hafta32.html"
-        }
-      ]
-    },
-    {
-      "konu": "Ampul Parlaklığını Etkileyen Değişkenler",
-      "topic_id": 115,
-      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
-      "hafta_araligi": "33",
-      "kazanimlar": [
-        "Elektrik devrelerindeki ampul parlaklığını etkileyen değişkenleri tanımlar.",
-        "Pil ve ampul sayısını değiştirerek ampul parlaklığındaki değişimi neden-sonuç ilişkisi bağlamında belirler.",
-        "Ampul parlaklığındaki bağımlı, bağımsız ve kontrol edilen değişkenleri belirler.",
-        "Bağımsız değişken olarak pil sayısı ve ampul sayısını kontrol eder.",
-        "Farklı elektrik devreleri üzerinden ampul parlaklığının pil sayısı ve ampul sayısına bağlı olarak değiştiğine yönelik önermelerde bulunur."
-      ],
-      "icerikler": [
+          "konu": "Isı Akışı ile İlgili Temel Kavramlar",
+          "topic_id": 112,
+          "unite": "MADDENİN DOĞASI",
+          "hafta_araligi": "29-30",
+          "kazanimlar": {
+            "hafta_29": [
+              "Maddeleri ısı iletimi bakımından belirler.",
+              "Maddeleri ısı iletkeni veya yalıtkanı olarak ayrıştırır.",
+              "Maddeleri ısı iletkeni veya yalıtkanı olarak gruplandırır.",
+              "Maddeleri ısı iletkeni veya yalıtkanı olarak etiketler."
+            ],
+            "hafta_30": [
+              "Isı yalıtımı ile ilgili model önerir.",
+              "Yeni kanıtlarla modeli yeniler."
+            ]
+          },
+          "icerikler": [
+            { "hafta": 29, "baslik": "Isı İletkenleri ve Yalıtkanları", "dosya": "isi-iletken-hafta29.html" },
+            { "hafta": 30, "baslik": "Isı Yalıtımı ve Modelleme", "dosya": "isi-yalitim-hafta30.html" }
+          ]
+        },
         {
-          "hafta": 33,
-          "baslik": "Ampul Parlaklığını Etkileyen Değişkenler",
-          "dosya": "ampul-parlaklik-hafta33.html"
-        }
-      ]
-    },
-    {
-      "konu": "Evsel Atıklar",
-      "topic_id": 116,
-      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
-      "hafta_araligi": "34",
-      "kazanimlar": [
-        "Evsel atıkların niteliklerini tanımlar.",
-        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak ayrıştırır.",
-        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak gruplandırır.",
-        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak etiketler."
-      ],
-      "icerikler": [
+          "konu": "Devre Elemanlarının Sembolleri ve Devre Şeması",
+          "topic_id": 113,
+          "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
+          "hafta_araligi": "31-32",
+          "kazanimlar": [
+            "Bir elektrik devresindeki elemanların sembollerini belirler.",
+            "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre ayrıştırır.",
+            "Bir elektrik devresindeki elemanları sembollerinin olup olmamasına göre gruplandırır.",
+            "Bir elektrik devresindeki elemanların sembollerini niteliklerine göre etiketler.",
+            "Çizdiği elektrik devresine uygun deney düzeneği tasarlar.",
+            "Deneyle ilgili topladığı verilerin analizini yapar."
+          ],
+          "icerikler": [
+            { "hafta": 31, "baslik": "Devre Elemanlarının Sembolleri ve Devre Şeması", "dosya": "devre-semasi-hafta31.html" },
+            { "hafta": 32, "baslik": "Devre Kurma ve Veri Analizi", "dosya": "devre-kurma-hafta32.html" }
+          ]
+        },
         {
-          "hafta": 34,
-          "baslik": "Evsel Atıklar ve Geri Dönüşüm",
-          "dosya": "evsel-atik-hafta34.html"
-        }
-      ]
-    },
-    {
-      "konu": "Geri Dönüşüm",
-      "topic_id": 117,
-      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
-      "hafta_araligi": "35",
-      "kazanimlar": [
-        "Kaynakların etkili kullanımı ve geri dönüşüme ait nitelikleri tanımlar.",
-        "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin topladığı verileri kaydeder.",
-        "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin verileri değerlendirir."
-      ],
-      "icerikler": [
+          "konu": "Ampul Parlaklığını Etkileyen Değişkenler",
+          "topic_id": 115,
+          "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
+          "hafta_araligi": "33",
+          "kazanimlar": [
+            "Elektrik devrelerindeki ampul parlaklığını etkileyen değişkenleri tanımlar.",
+            "Pil ve ampul sayısını değiştirerek ampul parlaklığındaki değişimi neden-sonuç ilişkisi bağlamında belirler.",
+            "Ampul parlaklığındaki bağımlı, bağımsız ve kontrol edilen değişkenleri belirler.",
+            "Bağımsız değişken olarak pil sayısı ve ampul sayısını kontrol eder.",
+            "Farklı elektrik devreleri üzerinden ampul parlaklığının pil sayısı ve ampul sayısına bağlı olarak değiştiğine yönelik önermelerde bulunur."
+          ],
+          "icerikler": [
+            { "hafta": 33, "baslik": "Ampul Parlaklığını Etkileyen Değişkenler", "dosya": "ampul-parlaklik-hafta33.html" }
+          ]
+        },
         {
-          "hafta": 35,
-          "baslik": "Kaynakların Etkili Kullanımı ve Geri Dönüşüm",
-          "dosya": "geri-donusum-hafta35.html"
-        }
-      ]
-    },
-    {
-      "konu": "Atık Yönetimi",
-      "topic_id": 118,
-      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
-      "hafta_araligi": "36",
-      "kazanimlar": [
-        "Yakın çevresinde atık yönetimine ilişkin deneyimlerini gözden geçirir.",
-        "Yakın çevresinde atık yönetimine ilişkin deneyimlerine dayalı çıkarım yapar.",
-        "Yakın çevresinde atık yönetimine ilişkin ulaşılan çıkarımları değerlendirir."
-      ],
-      "icerikler": [
+          "konu": "Evsel Atıklar",
+          "topic_id": 116,
+          "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+          "hafta_araligi": "34",
+          "kazanimlar": [
+            "Evsel atıkların niteliklerini tanımlar.",
+            "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak ayrıştırır.",
+            "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak gruplandırır.",
+            "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak etiketler."
+          ],
+          "icerikler": [
+            { "hafta": 34, "baslik": "Evsel Atıklar ve Geri Dönüşüm", "dosya": "evsel-atik-hafta34.html" }
+          ]
+        },
         {
-          "hafta": 36,
-          "baslik": "Atık Yönetimi ve Değerlendirme",
-          "dosya": "atik-yonetimi-hafta36.html"
+          "konu": "Geri Dönüşüm",
+          "topic_id": 117,
+          "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+          "hafta_araligi": "35",
+          "kazanimlar": [
+            "Kaynakların etkili kullanımı ve geri dönüşüme ait nitelikleri tanımlar.",
+            "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin topladığı verileri kaydeder.",
+            "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin verileri değerlendirir."
+          ],
+          "icerikler": [
+            { "hafta": 35, "baslik": "Kaynakların Etkili Kullanımı ve Geri Dönüşüm", "dosya": "geri-donusum-hafta35.html" }
+          ]
+        },
+        {
+          "konu": "Atık Yönetimi",
+          "topic_id": 118,
+          "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+          "hafta_araligi": "36",
+          "kazanimlar": [
+            "Yakın çevresinde atık yönetimine ilişkin deneyimlerini gözden geçirir.",
+            "Yakın çevresinde atık yönetimine ilişkin deneyimlerine dayalı çıkarım yapar.",
+            "Yakın çevresinde atık yönetimine ilişkin ulaşılan çıkarımları değerlendirir."
+          ],
+          "icerikler": [
+            { "hafta": 36, "baslik": "Atık Yönetimi ve Değerlendirme", "dosya": "atik-yonetimi-hafta36.html" }
+          ]
         }
       ]
     },
-    {
+    "5. Sinif Sosyal Bilgiler": {
       "ders": "Sosyal Bilgiler",
       "sinif": "5. Sınıf",
       "konular": [
@@ -486,11 +348,7 @@
             "Demokrasi ve cumhuriyet kavramları arasındaki ilişkiyi belirler."
           ],
           "icerikler": [
-            {
-              "hafta": 21,
-              "baslik": "Demokrasi ve Cumhuriyet Kavramları",
-              "dosya": "demokrasi-cumhuriyet-hafta21.html"
-            }
+            { "hafta": 21, "baslik": "Demokrasi ve Cumhuriyet Kavramları", "dosya": "demokrasi-cumhuriyet-hafta21.html" }
           ]
         },
         {
@@ -506,19 +364,114 @@
             "Etkin vatandaş olmanın önemini toplum düzeni açısından değerlendirir."
           ],
           "icerikler": [
-            {
-              "hafta": 22,
-              "baslik": "Etkin Vatandaşın Özellikleri ve Karşılaştırma",
-              "dosya": "etkin-vatandas-hafta22.html"
-            },
-            {
-              "hafta": 23,
-              "baslik": "Etkin Vatandaş Davranışları ve Değerlendirme",
-              "dosya": "etkin-davranis-hafta23.html"
-            }
+            { "hafta": 22, "baslik": "Etkin Vatandaşın Özellikleri ve Karşılaştırma", "dosya": "etkin-vatandas-hafta22.html" },
+            { "hafta": 23, "baslik": "Etkin Vatandaş Davranışları ve Değerlendirme", "dosya": "etkin-davranis-hafta23.html" }
+          ]
+        },
+        {
+          "konu": "Temel Haklar, Sorumluluklar ve Önemi",
+          "topic_id": 197,
+          "unite": "YAŞAYAN DEMOKRASİMİZ",
+          "hafta_araligi": "24-25",
+          "kazanimlar": [
+            "Temel insan hak ve sorumluluklarının önemine yönelik merak ettiği konuları tanımlar.",
+            "Toplumsal hayatta insan hak ve sorumluluklarının önemine yönelik 5N1K tekniği kullanılarak sorular sorar.",
+            "Temel insan hak ve sorumluluklarının önemine ilişkin bilgi toplar.",
+            "Temel insan hak ve sorumluluklarının önemine ilişkin topladığı bilgilerin doğruluğunu değerlendirir."
+          ],
+          "icerikler": [
+            { "hafta": 24, "baslik": "Temel Haklar ve Sorumluluklar", "dosya": "hak-sorumluluk-hafta24.html" },
+            { "hafta": 25, "baslik": "Hak ve Sorumlulukların Değerlendirilmesi (5N1K)", "dosya": "hak-degerlendirme-hafta25.html" }
+          ]
+        },
+        {
+          "konu": "İhtiyaç Durumunda veya Sorunların Çözümünde Başvurulabilecek Kurumlar",
+          "topic_id": 198,
+          "unite": "YAŞAYAN DEMOKRASİMİZ",
+          "hafta_araligi": "26-27",
+          "kazanimlar": [
+            "Bir ihtiyaç hâlinde veya sorun karşısında başvuru yapılabilecek kurumlar hakkında bilgi toplayabileceği kaynakları belirler.",
+            "Belirlediği kaynaklardan ihtiyaç hâlinde veya sorun karşısında başvuru yapılabilecek kurumlar hakkındaki bilgileri bulur.",
+            "Belirlediği kaynaklardan ihtiyaç hâlinde veya sorun karşısında başvuru yapılabilecek kurumlar hakkında ulaştığı bilgileri doğrular.",
+            "Belirlediği kaynaklardan ihtiyaç hâlinde veya sorun karşısında başvuru yapılabilecek kurumlar hakkında ulaştığı bilgileri kaydeder."
+          ],
+          "icerikler": [
+            { "hafta": 26, "baslik": "Başvuru Yapılabilecek Kurumlar", "dosya": "kurumlar-hafta26.html" },
+            { "hafta": 27, "baslik": "Kurumları Tanıma ve Doğrulama", "dosya": "kurumlar-devam-hafta27.html" }
+          ]
+        },
+        {
+          "konu": "Kaynakların Verimli Kullanımı",
+          "topic_id": 199,
+          "unite": "HAYATIMIZDAKİ EKONOMİ",
+          "hafta_araligi": "28-29",
+          "kazanimlar": [
+            "Kaynakları verimli kullanmanın doğa ve insanlar üzerindeki etkisini farklı kaynaklar üzerinden inceler.",
+            "Kaynakları verimli kullanmanın doğa ve insanlar üzerindeki etkisini yazılı, görsel veya dijital ürünlere dönüştürür.",
+            "Kaynakları verimli kullanmanın doğa ve insanlar üzerindeki etkisini ifade eder."
+          ],
+          "icerikler": [
+            { "hafta": 28, "baslik": "Kaynakların Verimli Kullanımı", "dosya": "kaynaklar-hafta28.html" },
+            { "hafta": 29, "baslik": "Kaynakları Koruma Projesi", "dosya": "kaynaklar-uygulama-hafta29.html" }
+          ]
+        },
+        {
+          "konu": "Bütçe Oluşturma",
+          "topic_id": 200,
+          "unite": "HAYATIMIZDAKİ EKONOMİ",
+          "hafta_araligi": "30-31",
+          "kazanimlar": [
+            "İhtiyaç ve isteklerini karşılamaya yönelik bütçe için gerekli olan kaynakları belirler.",
+            "İhtiyaç ve isteklerini karşılamaya yönelik bütçe için gerekli olan kaynakları temin eder."
+          ],
+          "icerikler": [
+            { "hafta": 30, "baslik": "Bütçe Oluşturma", "dosya": "butce-hafta30.html" },
+            { "hafta": 31, "baslik": "Bütçe Uygulama ve Tasarruf", "dosya": "butce-uygulama-hafta31.html" }
+          ]
+        },
+        {
+          "konu": "Yaşadığım İldeki Ekonomik Faaliyetler",
+          "topic_id": 201,
+          "unite": "HAYATIMIZDAKİ EKONOMİ",
+          "hafta_araligi": "32-33",
+          "kazanimlar": [
+            "Yaşadığı ildeki ekonomik faaliyetleri çözümler.",
+            "Yaşadığı ildeki ekonomik faaliyetleri alanlarına göre sınıflandırır.",
+            "Yaşadığı ildeki ekonomik faaliyetleri yorumlar."
+          ],
+          "icerikler": [
+            { "hafta": 32, "baslik": "Ekonomik Faaliyetler", "dosya": "ekonomik-faaliyet-hafta32.html" },
+            { "hafta": 33, "baslik": "Ekonomik Faaliyetleri Değerlendirme", "dosya": "faaliyet-degerlendirme-hafta33.html" }
+          ]
+        },
+        {
+          "konu": "Teknolojik Gelişmelerin Toplum Hayatına Etkileri",
+          "topic_id": 202,
+          "unite": "TEKNOLOJİ ve SOSYAL BİLİMLER",
+          "hafta_araligi": "34-35",
+          "kazanimlar": [
+            "Teknolojik gelişmelerin toplum hayatına etkileri hakkında geçmiş ve günümüzü kıyaslayarak varsayımda bulunur.",
+            "Teknolojik gelişmelerin toplum hayatına etkileri hakkında geçmiş ve günümüzü kıyaslayarak örüntü oluşturur."
+          ],
+          "icerikler": [
+            { "hafta": 34, "baslik": "Teknolojinin Toplum Hayatına Etkileri", "dosya": "teknoloji-etki-hafta34.html" },
+            { "hafta": 35, "baslik": "Teknolojide Denge ve Bilinçli Kullanım", "dosya": "teknoloji-denge-hafta35.html" }
+          ]
+        },
+        {
+          "konu": "Teknolojik Ürünlerin Bilinçli Kullanımı",
+          "topic_id": 203,
+          "unite": "TEKNOLOJİ ve SOSYAL BİLİMLER",
+          "hafta_araligi": "36",
+          "kazanimlar": [
+            "Teknolojik ürünlerin bilinçli kullanımının önemine ilişkin karşılaştırma yapar.",
+            "Teknolojik ürünlerin bilinçli kullanımının önemi konusunda tahminde bulunur."
+          ],
+          "icerikler": [
+            { "hafta": 36, "baslik": "Teknolojik Ürünlerin Bilinçli Kullanımı", "dosya": "bilincli-kullanim-hafta36.html" }
           ]
         }
       ]
     }
-  ]
+  }
 }
