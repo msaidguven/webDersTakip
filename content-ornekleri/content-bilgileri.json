@@ -287,6 +287,49 @@
           "dosya": "isi-sicaklik-hafta25.html"
         }
       ]
+    },
+    {
+      "konu": "Isı ve Sıcaklık Arasındaki Farklar",
+      "topic_id": 110,
+      "unite": "MADDENİN DOĞASI",
+      "hafta_araligi": "26",
+      "kazanimlar": [
+        "Farklı sıcaklıklardaki sıvılar arasında ısı alışverişi olduğunu tanımlar.",
+        "Sıvıların karıştırılmadan önceki ve sonraki sıcaklıklarını kaydeder.",
+        "Karıştırılan sıvılar arasında ısı alışverişi olduğunu değerlendirir."
+      ],
+      "icerikler": [
+        {
+          "hafta": 26,
+          "baslik": "Sıvılarda Isı Alışverişi",
+          "dosya": "isi-alisverisi-hafta26.html"
+        }
+      ]
+    },
+    {
+      "konu": "Maddenin Hâl Değişimi",
+      "topic_id": 111,
+      "unite": "MADDENİN DOĞASI",
+      "hafta_araligi": "27-28",
+      "kazanimlar": [
+        "Maddenin ısı etkisiyle hâl değiştirebileceğine ilişkin ön bilgi ve deneyimlerine dayalı önerme oluşturur.",
+        "Gözleme dayalı olan ve olmayan önermeleri karşılaştırır.",
+        "Maddenin ısı etkisiyle hâl değiştirebileceğini temellendirebilmek için gözlem verilerinden sonuç çıkarır.",
+        "Gözlemlenmemiş duruma ilişkin tahminde bulunur.",
+        "Tahminlerinin geçerliğini sorgular."
+      ],
+      "icerikler": [
+        {
+          "hafta": 27,
+          "baslik": "Maddenin Hâl Değişimi - Önerme ve Gözlem",
+          "dosya": "hal-degisimi-hafta27.html"
+        },
+        {
+          "hafta": 28,
+          "baslik": "Maddenin Hâl Değişimi - Türler ve Örnekler",
+          "dosya": "hal-degisimi-hafta28.html"
+        }
+      ]
     }
   ]
 }
