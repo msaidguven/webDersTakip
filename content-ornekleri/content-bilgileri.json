@@ -435,6 +435,42 @@
           "dosya": "evsel-atik-hafta34.html"
         }
       ]
+    },
+    {
+      "konu": "Geri Dönüşüm",
+      "topic_id": 117,
+      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+      "hafta_araligi": "35",
+      "kazanimlar": [
+        "Kaynakların etkili kullanımı ve geri dönüşüme ait nitelikleri tanımlar.",
+        "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin topladığı verileri kaydeder.",
+        "Kaynakların etkili kullanımı konusunda geri dönüşümün önemine ilişkin verileri değerlendirir."
+      ],
+      "icerikler": [
+        {
+          "hafta": 35,
+          "baslik": "Kaynakların Etkili Kullanımı ve Geri Dönüşüm",
+          "dosya": "geri-donusum-hafta35.html"
+        }
+      ]
+    },
+    {
+      "konu": "Atık Yönetimi",
+      "topic_id": 118,
+      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+      "hafta_araligi": "36",
+      "kazanimlar": [
+        "Yakın çevresinde atık yönetimine ilişkin deneyimlerini gözden geçirir.",
+        "Yakın çevresinde atık yönetimine ilişkin deneyimlerine dayalı çıkarım yapar.",
+        "Yakın çevresinde atık yönetimine ilişkin ulaşılan çıkarımları değerlendirir."
+      ],
+      "icerikler": [
+        {
+          "hafta": 36,
+          "baslik": "Atık Yönetimi ve Değerlendirme",
+          "dosya": "atik-yonetimi-hafta36.html"
+        }
+      ]
     }
   ]
 }
