@@ -208,6 +208,30 @@
           "dosya": "destek-hareket-hafta18-eklem.html"
         }
       ]
+    },
+    {
+      "konu": "Işığın Maddeyle Etkileşimi",
+      "topic_id": 104,
+      "unite": "IŞIĞIN DÜNYASI",
+      "hafta_araligi": "21-22",
+      "kazanimlar": [
+        "Maddelerin ışığı geçirme durumlarına göre niteliklerini belirler.",
+        "Maddeleri ışığı geçirme durumlarına göre ayrıştırır.",
+        "Maddeleri ışığı geçirme durumlarına göre gruplandırır.",
+        "Maddeleri ışığı geçirme durumlarına göre etiketler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 21,
+          "baslik": "Işığın Maddeyle Etkileşimi - Tanımlar",
+          "dosya": "isik-madde-hafta21-tanim.html"
+        },
+        {
+          "hafta": 22,
+          "baslik": "Işığın Maddeyle Etkileşimi - Ayrıştırma ve Gruplandırma",
+          "dosya": "isik-madde-hafta22-uygulama.html"
+        }
+      ]
     }
   ]
 }
