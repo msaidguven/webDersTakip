@@ -232,6 +232,61 @@
           "dosya": "isik-madde-hafta22-uygulama.html"
         }
       ]
+    },
+    {
+      "konu": "Tam Gölgenin Oluşumu",
+      "topic_id": 105,
+      "unite": "IŞIĞIN DÜNYASI",
+      "hafta_araligi": "23",
+      "kazanimlar": [
+        "Tam gölgenin nitelikleri tanımlar.",
+        "Tam gölgeye ait elde ettiği verileri kaydeder.",
+        "Tam gölgeyi etkileyen değişkenleri açıklar."
+      ],
+      "icerikler": [
+        {
+          "hafta": 23,
+          "baslik": "Tam Gölgenin Oluşumu",
+          "dosya": "golge-hafta23.html"
+        }
+      ]
+    },
+    {
+      "konu": "Taneciklerin Konumu",
+      "topic_id": 106,
+      "unite": "MADDENİN DOĞASI",
+      "hafta_araligi": "24",
+      "kazanimlar": [
+        "Maddelerin tanecikli, boşluklu ve hareketli yapısının niteliklerini belirler.",
+        "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre ayrıştırır.",
+        "Maddeleri tanecikli, boşluklu ve hareketli yapısına göre katı, sıvı ve gaz olarak gruplandırır.",
+        "Maddeleri tanecikli, boşluklu ve hareketli yapılarına göre farklı gruplar altında etiketler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 24,
+          "baslik": "Taneciklerin Konumu",
+          "dosya": "tanecik-hafta24.html"
+        }
+      ]
+    },
+    {
+      "konu": "Isı ve Sıcaklık",
+      "topic_id": 109,
+      "unite": "MADDENİN DOĞASI",
+      "hafta_araligi": "25",
+      "kazanimlar": [
+        "Isı ve sıcaklık kavramlarının özelliklerini belirler.",
+        "Isı ve sıcaklık kavramlarının özelliklerine ilişkin benzerlikleri listeler.",
+        "Isı ve sıcaklık kavramlarının özelliklerine ilişkin farklılıkları listeler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 25,
+          "baslik": "Isı ve Sıcaklık",
+          "dosya": "isi-sicaklik-hafta25.html"
+        }
+      ]
     }
   ]
 }
