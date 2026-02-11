@@ -379,6 +379,62 @@
           "dosya": "devre-semasi-hafta31.html"
         }
       ]
+    },
+    {
+      "konu": "Devre Elemanlarının Sembolleri ve Devre Şeması",
+      "topic_id": 113,
+      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
+      "hafta_araligi": "32",
+      "kazanimlar": [
+        "Çizdiği elektrik devresine uygun deney düzeneği tasarlar.",
+        "Deneyle ilgili topladığı verilerin analizini yapar."
+      ],
+      "icerikler": [
+        {
+          "hafta": 32,
+          "baslik": "Devre Kurma ve Veri Analizi",
+          "dosya": "devre-kurma-hafta32.html"
+        }
+      ]
+    },
+    {
+      "konu": "Ampul Parlaklığını Etkileyen Değişkenler",
+      "topic_id": 115,
+      "unite": "YAŞAMIMIZDAKİ ELEKTRİK",
+      "hafta_araligi": "33",
+      "kazanimlar": [
+        "Elektrik devrelerindeki ampul parlaklığını etkileyen değişkenleri tanımlar.",
+        "Pil ve ampul sayısını değiştirerek ampul parlaklığındaki değişimi neden-sonuç ilişkisi bağlamında belirler.",
+        "Ampul parlaklığındaki bağımlı, bağımsız ve kontrol edilen değişkenleri belirler.",
+        "Bağımsız değişken olarak pil sayısı ve ampul sayısını kontrol eder.",
+        "Farklı elektrik devreleri üzerinden ampul parlaklığının pil sayısı ve ampul sayısına bağlı olarak değiştiğine yönelik önermelerde bulunur."
+      ],
+      "icerikler": [
+        {
+          "hafta": 33,
+          "baslik": "Ampul Parlaklığını Etkileyen Değişkenler",
+          "dosya": "ampul-parlaklik-hafta33.html"
+        }
+      ]
+    },
+    {
+      "konu": "Evsel Atıklar",
+      "topic_id": 116,
+      "unite": "SÜRDÜRÜLEBİLİR YAŞAM VE GERİ DÖNÜŞÜM",
+      "hafta_araligi": "34",
+      "kazanimlar": [
+        "Evsel atıkların niteliklerini tanımlar.",
+        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak ayrıştırır.",
+        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak gruplandırır.",
+        "Evsel atıkları geri dönüştürülebilen ve dönüştürülemeyen olarak etiketler."
+      ],
+      "icerikler": [
+        {
+          "hafta": 34,
+          "baslik": "Evsel Atıklar ve Geri Dönüşüm",
+          "dosya": "evsel-atik-hafta34.html"
+        }
+      ]
     }
   ]
 }
