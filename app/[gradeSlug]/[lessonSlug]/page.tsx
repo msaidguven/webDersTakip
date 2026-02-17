@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import LessonUnitsClient from './LessonUnitsClient';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 // Statik export için tüm grade+lesson kombinasyonlarını önceden belirle
 export async function generateStaticParams() {

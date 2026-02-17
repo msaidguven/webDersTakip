@@ -2,7 +2,7 @@ import { createPublicClient } from '@/utils/supabase/public';
 import { notFound } from 'next/navigation';
 import UnitTopicsClient from './UnitTopicsClient';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 // Statik export için tüm grade+lesson+unit kombinasyonlarını önceden belirle
 export async function generateStaticParams() {

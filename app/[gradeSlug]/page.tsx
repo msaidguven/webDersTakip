@@ -4,9 +4,9 @@ import GradeLessonsClient from './GradeLessonsClient';
 import { getGradeColor, getGradeDescription, getGradeIcon, getLessonColor } from '@/app/src/lib/homeMapping';
 import { Grade, Lesson } from '@/app/src/models/homeTypes';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
-// Statik export için tüm grade slug'larını önceden belirle
+// Statik export için tüm grade slug'larını önceden belirle - build time'da çalışmazsa boş dön
 export async function generateStaticParams() {
   const supabase = createPublicClient();
   const { data: grades } = await supabase

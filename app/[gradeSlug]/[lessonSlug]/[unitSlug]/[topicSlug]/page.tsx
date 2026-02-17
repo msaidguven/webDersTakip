@@ -11,7 +11,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 // Statik export için tüm grade+lesson+unit+topic kombinasyonlarını önceden belirle
 export async function generateStaticParams() {
