@@ -1,102 +1,34 @@
-import GradeLessonsClient from '../[grade]/GradeLessonsClient';
-import { createClient } from '@/utils/supabase/server';
-import { getGradeColor, getGradeDescription, getGradeIcon, getLessonColor } from '@/app/src/lib/homeMapping';
-import { Grade, Lesson } from '@/app/src/models/homeTypes';
+import { createPublicClient } from '@/utils/supabase/public';
+import { redirect, notFound } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 60;
 
-interface GradeRow {
-  id: number;
-  name: string;
-  order_no: number;
+interface Params {
+  searchParams: Promise<{ sinif?: string }>;
 }
 
-interface LessonRow {
-  id: number;
-  name: string;
-  icon: string | null;
-  description: string | null;
-  slug: string | null;
-  order_no: number | null;
-}
-
-export default async function SinifPage({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ sinif?: string; ders?: string; unite?: string; hafta?: string }> 
-}) {
+export default async function SinifPage({ searchParams }: Params) {
   const params = await searchParams;
   const sinifId = params.sinif ? parseInt(params.sinif, 10) : null;
   
   if (!sinifId || isNaN(sinifId)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted">Geçersiz sınıf parametresi.</p>
-      </div>
-    );
+    notFound();
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
-  // Sınıf bilgisini çek
+  // Sınıf slug'ını çek
   const { data: gradeData, error: gradeError } = await supabase
     .from('grades')
-    .select('id, name, order_no')
+    .select('slug')
     .eq('id', sinifId)
     .single();
 
-  if (gradeError || !gradeData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted">Sınıf bulunamadı.</p>
-      </div>
-    );
+  if (gradeError || !gradeData?.slug) {
+    console.error('[SinifPage] Grade bulunamadi:', gradeError);
+    notFound();
   }
 
-  const gradeRow = gradeData as GradeRow;
-  
-  const grade: Grade = {
-    id: gradeRow.id.toString(),
-    level: gradeRow.order_no,
-    name: gradeRow.name,
-    description: getGradeDescription(gradeRow.order_no),
-    icon: getGradeIcon(gradeRow.order_no),
-    color: getGradeColor(gradeRow.order_no),
-  };
-
-  // Dersleri çek
-  const { data: lessonGradesData } = await supabase
-    .from('lesson_grades')
-    .select('lesson_id')
-    .eq('grade_id', sinifId)
-    .eq('is_active', true);
-
-  const lessonIds = lessonGradesData?.map(lg => lg.lesson_id) || [];
-  
-  let lessonRows: LessonRow[] = [];
-  if (lessonIds.length > 0) {
-    const { data: lessonsData } = await supabase
-      .from('lessons')
-      .select('id, name, icon, description, slug, order_no')
-      .in('id', lessonIds)
-      .eq('is_active', true)
-      .order('order_no');
-    
-    lessonRows = (lessonsData as LessonRow[]) || [];
-  }
-
-  const lessons: Lesson[] = lessonRows.map((lesson, index) => ({
-    id: lesson.id.toString(),
-    gradeId: grade.id,
-    name: lesson.name,
-    description: lesson.description || '',
-    icon: lesson.icon || '📘',
-    color: getLessonColor(lesson.order_no ?? index),
-    unitCount: 0,
-    questionCount: 0,
-    slug: lesson.slug,
-  }));
-
-  return <GradeLessonsClient grade={grade} lessons={lessons} />;
+  // Yeni SEO dostu URL'ye yönlendir
+  redirect(`/${gradeData.slug}`);
 }

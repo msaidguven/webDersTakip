@@ -7,6 +7,7 @@ export interface Grade {
   description: string;
   icon: string;
   color: string;
+  slug?: string;
 }
 
 export interface Lesson {

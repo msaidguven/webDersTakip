@@ -18,16 +18,17 @@ interface GradeRow {
   name: string;
   order_no: number;
   is_active: boolean;
+  slug: string;
 }
 
 const fetcher = async (): Promise<Grade[]> => {
   logger.log('[HomeClient fetcher] Siniflar cekiliyor...');
   const supabase = createClient();
   
-  // DB şeması: grades(id, name, order_no, is_active, question_count)
+  // DB şeması: grades(id, name, order_no, is_active, question_count, slug)
   const { data, error } = await supabase
     .from('grades')
-    .select('id, name, order_no, is_active')
+    .select('id, name, order_no, is_active, slug')
     .eq('is_active', true)
     .order('order_no', { ascending: true });
   
@@ -72,7 +73,8 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
 
   const handleGradeSelect = (grade: Grade) => {
     logger.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
-    const url = `/sinif?sinif=${grade.id}`;
+    // Yeni SEO dostu URL: /5-sinif, /6-sinif vb.
+    const url = `/${grade.slug || grade.id + '-sinif'}`;
     logger.log('[HomeClient handleGradeSelect] Yonlendiriliyor:', url);
     router.push(url);
   };
