@@ -40,11 +40,24 @@ export default function TopicTestClient() {
         return;
       }
 
+      // Önce question_usages'tan bu topic'e ait soru ID'lerini çek
+      const { data: usagesData } = await supabase
+        .from('question_usages')
+        .select('question_id')
+        .eq('topic_id', topicData.id);
+
+      const questionIds = usagesData?.map((u: any) => u.question_id) || [];
+      
+      if (questionIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
       // Soruları çek
       const { data: questionsData } = await supabase
         .from('questions')
         .select('id, question_text')
-        .eq('topic_id', topicData.id)
+        .in('id', questionIds)
         .limit(10);
 
       // Her soru için seçenekleri çek
