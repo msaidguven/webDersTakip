@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-export default function LessonUnitsPageClient() {
-  const params = useParams();
-  const gradeSlug = params.gradeSlug as string;
-  const lessonSlug = params.lessonSlug as string;
+interface Props {
+  gradeSlug: string;
+  lessonSlug: string;
+}
+
+export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: Props) {
   
   const [grade, setGrade] = useState<any>(null);
   const [lesson, setLesson] = useState<any>(null);

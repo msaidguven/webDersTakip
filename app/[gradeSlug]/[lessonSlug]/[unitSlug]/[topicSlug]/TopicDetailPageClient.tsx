@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-export default function TopicDetailPageClient() {
-  const params = useParams();
-  const gradeSlug = params.gradeSlug as string;
-  const lessonSlug = params.lessonSlug as string;
-  const unitSlug = params.unitSlug as string;
-  const topicSlug = params.topicSlug as string;
+interface Props {
+  gradeSlug: string;
+  lessonSlug: string;
+  unitSlug: string;
+  topicSlug: string;
+}
+
+export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug, topicSlug }: Props) {
   
   const [topic, setTopic] = useState<any>(null);
   const [contents, setContents] = useState<any[]>([]);
