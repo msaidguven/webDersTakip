@@ -5,51 +5,6 @@ import LessonUnitsClient from './LessonUnitsClient';
 
 export const dynamic = 'force-dynamic';
 
-// Statik export için tüm grade+lesson kombinasyonlarını önceden belirle
-export async function generateStaticParams() {
-  const supabase = createPublicClient();
-  
-  // Önce aktif lesson_grades kayıtlarını çek
-  const { data: lessonGrades } = await supabase
-    .from('lesson_grades')
-    .select('grade_id, lesson_id')
-    .eq('is_active', true);
-  
-  if (!lessonGrades || lessonGrades.length === 0) {
-    return [];
-  }
-  
-  // Grade ve lesson ID'lerini al
-  const gradeIds = [...new Set(lessonGrades.map(lg => lg.grade_id))];
-  const lessonIds = [...new Set(lessonGrades.map(lg => lg.lesson_id))];
-  
-  // Grade slugsını çek
-  const { data: grades } = await supabase
-    .from('grades')
-    .select('id, slug')
-    .in('id', gradeIds);
-  
-  // Lesson slugsını çek
-  const { data: lessons } = await supabase
-    .from('lessons')
-    .select('id, slug')
-    .in('id', lessonIds);
-  
-  const gradeMap = new Map((grades || []).map(g => [g.id, g.slug]));
-  const lessonMap = new Map((lessons || []).map(l => [l.id, l.slug]));
-  
-  return lessonGrades
-    .filter(lg => {
-      const gradeSlug = gradeMap.get(lg.grade_id);
-      const lessonSlug = lessonMap.get(lg.lesson_id);
-      return gradeSlug && lessonSlug;
-    })
-    .map(lg => ({
-      gradeSlug: gradeMap.get(lg.grade_id)!,
-      lessonSlug: lessonMap.get(lg.lesson_id)!,
-    }));
-}
-
 interface Params {
   gradeSlug: string;
   lessonSlug: string;

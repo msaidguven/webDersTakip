@@ -6,19 +6,6 @@ import { Grade, Lesson } from '@/app/src/models/homeTypes';
 
 export const dynamic = 'force-dynamic';
 
-// Statik export için tüm grade slug'larını önceden belirle - build time'da çalışmazsa boş dön
-export async function generateStaticParams() {
-  const supabase = createPublicClient();
-  const { data: grades } = await supabase
-    .from('grades')
-    .select('slug')
-    .eq('is_active', true);
-  
-  return (grades || []).map((grade: { slug: string }) => ({
-    gradeSlug: grade.slug,
-  }));
-}
-
 interface GradeRow {
   id: number;
   name: string;
