@@ -12,25 +12,30 @@ export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { grade
     async function load() {
       const supabase = createClient();
       
-      // Önce lesson'ı bul (slug veya id)
-      let lessonQuery = supabase.from('lessons').select('*');
-      if (!isNaN(Number(lessonSlug))) {
-        lessonQuery = lessonQuery.eq('id', lessonSlug);
-      } else {
-        lessonQuery = lessonQuery.eq('slug', lessonSlug);
-      }
+      // Grade ve lesson'ı slug ile bul
+      const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
+        supabase.from('grades').select('id, name').eq('slug', gradeSlug).single(),
+        supabase.from('lessons').select('id, name, icon').eq('slug', lessonSlug).single(),
+      ]);
       
-      const { data: lessonData } = await lessonQuery.single();
-      
-      if (!lessonData) {
+      if (!gradeData || !lessonData) {
         setLoading(false);
         return;
       }
 
-      // Üniteleri çek
+      // Unit grades üzerinden bu grade'e ait unit_id'leri çek
+      const { data: unitGradesData } = await supabase
+        .from('unit_grades')
+        .select('unit_id')
+        .eq('grade_id', gradeData.id);
+
+      const unitIds = unitGradesData?.map((ug: any) => ug.unit_id) || [];
+      
+      // Bu unit'lerden lesson'a ait olanları çek
       const { data: unitsData } = await supabase
         .from('units')
         .select('*')
+        .in('id', unitIds)
         .eq('lesson_id', lessonData.id)
         .eq('is_active', true)
         .order('order_no');
@@ -43,7 +48,7 @@ export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { grade
     }
 
     load();
-  }, [lessonSlug]);
+  }, [gradeSlug, lessonSlug]);
 
   if (loading) return <div className="p-8">Yükleniyor...</div>;
   if (!data) return <div className="p-8">Ders bulunamadı</div>;
