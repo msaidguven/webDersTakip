@@ -45,6 +45,7 @@ const fetcher = async (): Promise<Grade[]> => {
     id: g.id.toString(),
     level: g.order_no,
     name: g.name,
+    slug: g.slug || `${g.order_no}-sinif`,
     description: getGradeDescription(g.order_no),
     icon: getGradeIcon(g.order_no),
     color: getGradeColor(g.order_no),
