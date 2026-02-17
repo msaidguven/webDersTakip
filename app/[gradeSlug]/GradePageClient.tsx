@@ -13,13 +13,11 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
     const supabase = createClient();
     
     async function load() {
-      // Grade ID bul
-      const gradeId = parseInt(gradeSlug.replace('-sinif', ''));
-      
+      // Grade slug ile bul
       const { data: gradeData, error } = await supabase
         .from('grades')
-        .select('id, name, order_no')
-        .eq('id', gradeId)
+        .select('id, name, order_no, slug')
+        .eq('slug', gradeSlug)
         .single();
 
       if (error || !gradeData) {
