@@ -1,4 +1,4 @@
-import { createPublicClient } from '@/utils/supabase/public';
+import { createServerClient } from '@/utils/supabase/server-public';
 import { notFound } from 'next/navigation';
 import UnitTopicsClient from './UnitTopicsClient';
 
@@ -40,7 +40,7 @@ interface TopicRow {
 }
 
 export async function generateMetadata({ params }: { params: Params }) {
-  const supabase = createPublicClient();
+  const supabase = createServerClient();
   
   const [{ data: grade }, { data: lesson }, { data: unit }] = await Promise.all([
     supabase.from('grades').select('name').eq('slug', params.gradeSlug).single(),
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: { params: Params }) {
 }
 
 export default async function UnitTopicsPage({ params }: { params: Params }) {
-  const supabase = createPublicClient();
+  const supabase = createServerClient();
   
   // Grade'i slug ile çek
   const { data: gradeRow, error: gradeError } = await supabase

@@ -1,4 +1,4 @@
-import { createPublicClient } from '@/utils/supabase/public';
+import { createServerClient } from '@/utils/supabase/server-public';
 import { notFound } from 'next/navigation';
 import GradeLessonsClient from './GradeLessonsClient';
 import { getGradeColor, getGradeDescription, getGradeIcon, getLessonColor } from '@/app/src/lib/homeMapping';
@@ -27,7 +27,7 @@ interface Params {
 }
 
 export async function generateMetadata({ params }: { params: Params }) {
-  const supabase = createPublicClient();
+  const supabase = createServerClient();
   const { data: grade } = await supabase
     .from('grades')
     .select('name')
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: { params: Params }) {
 }
 
 export default async function GradePage({ params }: { params: Params }) {
-  const supabase = createPublicClient();
+  const supabase = createServerClient();
   
   // Grade'i slug ile çek
   const { data: gradeRow, error: gradeError } = await supabase
