@@ -4,45 +4,41 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
-interface Props {
-  gradeSlug: string;
-  lessonSlug: string;
-  unitSlug: string;
-}
-
-export default function UnitTopicsPageClient({ gradeSlug, lessonSlug, unitSlug }: Props) {
-  
-  const [unit, setUnit] = useState<any>(null);
-  const [topics, setTopics] = useState<any[]>([]);
+export default function UnitTopicsPageClient({ gradeSlug, lessonSlug, unitSlug }: { gradeSlug: string; lessonSlug: string; unitSlug: string }) {
+  const [data, setData] = useState<{ unit: any; topics: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
-    
     async function load() {
-      const unitId = parseInt(unitSlug);
-
-      const { data: uData } = await supabase
-        .from('units')
-        .select('id, title')
-        .eq('id', unitId)
-        .single();
-
-      if (!uData) {
+      const supabase = createClient();
+      
+      // Unit'i bul (slug veya id)
+      let unitQuery = supabase.from('units').select('*');
+      if (!isNaN(Number(unitSlug))) {
+        unitQuery = unitQuery.eq('id', unitSlug);
+      } else {
+        unitQuery = unitQuery.eq('slug', unitSlug);
+      }
+      
+      const { data: unitData } = await unitQuery.single();
+      
+      if (!unitData) {
         setLoading(false);
         return;
       }
 
-      setUnit(uData);
-
-      const { data: tData } = await supabase
+      // Konuları çek
+      const { data: topicsData } = await supabase
         .from('topics')
-        .select('id, title, slug, order_no')
-        .eq('unit_id', uData.id)
+        .select('*')
+        .eq('unit_id', unitData.id)
         .eq('is_active', true)
         .order('order_no');
 
-      setTopics(tData || []);
+      setData({
+        unit: unitData,
+        topics: topicsData || []
+      });
       setLoading(false);
     }
 
@@ -50,28 +46,25 @@ export default function UnitTopicsPageClient({ gradeSlug, lessonSlug, unitSlug }
   }, [unitSlug]);
 
   if (loading) return <div className="p-8">Yükleniyor...</div>;
-  if (!unit) return <div className="p-8">Ünite bulunamadı</div>;
+  if (!data) return <div className="p-8">Ünite bulunamadı</div>;
 
   return (
     <div className="p-8">
       <Link href={`/${gradeSlug}/${lessonSlug}`} className="text-blue-600">← Üniteler</Link>
-      <h1 className="text-2xl font-bold mt-4">{unit.title}</h1>
-      <p className="text-gray-600 mb-6">Konular</p>
+      <h1 className="text-2xl font-bold mt-4">{data.unit.title}</h1>
+      <p className="mb-6">Konular</p>
 
       <div className="grid gap-4">
-        {topics.map((topic: any, i: number) => {
-          const topicSlug = topic.slug || topic.id;
-          return (
-            <Link
-              key={topic.id}
-              href={`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`}
-              className="border p-4 rounded hover:bg-gray-50"
-            >
-              <span className="font-bold mr-2">{i + 1}.</span>
-              <span>{topic.title}</span>
-            </Link>
-          );
-        })}
+        {data.topics.map((topic: any, i: number) => (
+          <Link
+            key={topic.id}
+            href={`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topic.slug || topic.id}`}
+            className="border p-4 rounded hover:bg-gray-50"
+          >
+            <span className="font-bold mr-2">{i + 1}.</span>
+            {topic.title}
+          </Link>
+        ))}
       </div>
     </div>
   );

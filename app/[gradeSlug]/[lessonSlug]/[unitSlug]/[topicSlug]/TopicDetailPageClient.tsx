@@ -4,45 +4,40 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
-interface Props {
-  gradeSlug: string;
-  lessonSlug: string;
-  unitSlug: string;
-  topicSlug: string;
-}
-
-export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug, topicSlug }: Props) {
-  
-  const [topic, setTopic] = useState<any>(null);
-  const [contents, setContents] = useState<any[]>([]);
+export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug, topicSlug }: { gradeSlug: string; lessonSlug: string; unitSlug: string; topicSlug: string }) {
+  const [data, setData] = useState<{ topic: any; contents: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
-    
     async function load() {
-      const topicId = parseInt(topicSlug);
-
-      const { data: tData } = await supabase
-        .from('topics')
-        .select('id, title')
-        .eq('id', topicId)
-        .single();
-
-      if (!tData) {
+      const supabase = createClient();
+      
+      // Topic'i bul (slug veya id)
+      let topicQuery = supabase.from('topics').select('*');
+      if (!isNaN(Number(topicSlug))) {
+        topicQuery = topicQuery.eq('id', topicSlug);
+      } else {
+        topicQuery = topicQuery.eq('slug', topicSlug);
+      }
+      
+      const { data: topicData } = await topicQuery.single();
+      
+      if (!topicData) {
         setLoading(false);
         return;
       }
 
-      setTopic(tData);
-
-      const { data: cData } = await supabase
+      // İçerikleri çek
+      const { data: contentsData } = await supabase
         .from('topic_contents')
-        .select('id, title, content, order_no')
-        .eq('topic_id', tData.id)
+        .select('*')
+        .eq('topic_id', topicData.id)
         .order('order_no');
 
-      setContents(cData || []);
+      setData({
+        topic: topicData,
+        contents: contentsData || []
+      });
       setLoading(false);
     }
 
@@ -50,15 +45,15 @@ export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug,
   }, [topicSlug]);
 
   if (loading) return <div className="p-8">Yükleniyor...</div>;
-  if (!topic) return <div className="p-8">Konu bulunamadı</div>;
+  if (!data) return <div className="p-8">Konu bulunamadı</div>;
 
   return (
     <div className="p-8 max-w-4xl">
       <Link href={`/${gradeSlug}/${lessonSlug}/${unitSlug}`} className="text-blue-600">← Konular</Link>
-      <h1 className="text-2xl font-bold mt-4 mb-6">{topic.title}</h1>
+      <h1 className="text-2xl font-bold mt-4 mb-6">{data.topic.title}</h1>
 
       <div className="space-y-6">
-        {contents.map((content: any) => (
+        {data.contents.map((content: any) => (
           <div key={content.id} className="border p-6 rounded">
             <h2 className="text-xl font-semibold mb-4">{content.title}</h2>
             <div dangerouslySetInnerHTML={{ __html: content.content }} />
