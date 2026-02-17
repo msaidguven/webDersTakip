@@ -5,12 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-interface Unit {
-  id: string;
-  title: string;
-  slug: string;
-}
-
 export default function LessonUnitsPageClient() {
   const params = useParams();
   const gradeSlug = params.gradeSlug as string;
@@ -18,88 +12,67 @@ export default function LessonUnitsPageClient() {
   
   const [grade, setGrade] = useState<any>(null);
   const [lesson, setLesson] = useState<any>(null);
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
-      const supabase = createClient();
-      
-      // Grade bul
-      const { data: gradeData } = await supabase
-        .from('grades')
-        .select('id, name, slug')
-        .or(`slug.eq.${gradeSlug},id.eq.${gradeSlug.replace('-sinif', '')}`)
-        .single();
+    const supabase = createClient();
+    
+    async function load() {
+      const gradeId = parseInt(gradeSlug.replace('-sinif', ''));
+      const lessonId = parseInt(lessonSlug);
 
-      // Lesson bul - slug veya id ile
-      const { data: lessonData } = await supabase
-        .from('lessons')
-        .select('id, name, slug, icon')
-        .or(`slug.eq.${lessonSlug},id.eq.${lessonSlug}`)
-        .single();
+      const [{ data: gData }, { data: lData }] = await Promise.all([
+        supabase.from('grades').select('id, name').eq('id', gradeId).single(),
+        supabase.from('lessons').select('id, name, icon').eq('id', lessonId).single(),
+      ]);
 
-      if (!gradeData || !lessonData) {
+      if (!gData || !lData) {
         setLoading(false);
         return;
       }
 
-      setGrade({ ...gradeData, slug: gradeData.slug || `${gradeData.id}-sinif` });
-      setLesson({ ...lessonData, slug: lessonData.slug || lessonData.id.toString() });
+      setGrade(gData);
+      setLesson(lData);
 
-      // Üniteleri çek
-      const { data: unitsData } = await supabase
+      const { data: uData } = await supabase
         .from('units')
-        .select('id, title, slug')
-        .eq('lesson_id', lessonData.id)
+        .select('id, title, slug, order_no')
+        .eq('lesson_id', lData.id)
         .eq('is_active', true)
         .order('order_no');
 
-      setUnits((unitsData || []).map((u: any) => ({
-        id: u.id.toString(),
-        title: u.title,
-        slug: u.slug || u.id.toString(),
-      })));
+      setUnits(uData || []);
       setLoading(false);
     }
 
-    fetchData();
+    load();
   }, [gradeSlug, lessonSlug]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
-  if (!grade || !lesson) return <div className="min-h-screen flex items-center justify-center">Sayfa bulunamadı</div>;
+  if (loading) return <div className="p-8">Yükleniyor...</div>;
+  if (!grade || !lesson) return <div className="p-8">Sayfa bulunamadı</div>;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold">{lesson.name}</h1>
-          <p>{grade.name} • Üniteler</p>
-        </div>
-      </div>
+    <div className="p-8">
+      <Link href={`/${gradeSlug}`} className="text-blue-600">← Dersler</Link>
+      <h1 className="text-2xl font-bold mt-4">{lesson.name}</h1>
+      <p className="text-gray-600 mb-6">{grade.name}</p>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-semibold mb-6">Üniteler</h2>
-
-        <div className="space-y-3">
-          {units.map((unit, index) => (
+      <div className="grid gap-4">
+        {units.map((unit: any, i: number) => {
+          const unitSlug = unit.slug || unit.id;
+          return (
             <Link
               key={unit.id}
-              href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
-              className="block bg-surface-elevated border border-default rounded-xl p-5 hover:border-indigo-300"
+              href={`/${gradeSlug}/${lessonSlug}/${unitSlug}`}
+              className="border p-4 rounded hover:bg-gray-50"
             >
-              <div className="flex items-center gap-4">
-                <span className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center font-bold text-indigo-600">{index + 1}</span>
-                <h3 className="font-semibold">{unit.title}</h3>
-              </div>
+              <span className="font-bold mr-2">{i + 1}.</span>
+              <span className="font-semibold">{unit.title}</span>
             </Link>
-          ))}
-        </div>
-
-        <div className="mt-8">
-          <Link href={`/${gradeSlug}`} className="text-indigo-600">← {grade.name} Derslerine Dön</Link>
-        </div>
-      </main>
+          );
+        })}
+      </div>
     </div>
   );
 }

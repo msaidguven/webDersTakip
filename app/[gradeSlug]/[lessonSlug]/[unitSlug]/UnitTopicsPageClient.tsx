@@ -5,115 +5,73 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-interface Topic {
-  id: string;
-  title: string;
-  slug: string;
-}
-
 export default function UnitTopicsPageClient() {
   const params = useParams();
   const gradeSlug = params.gradeSlug as string;
   const lessonSlug = params.lessonSlug as string;
   const unitSlug = params.unitSlug as string;
   
-  const [grade, setGrade] = useState<any>(null);
-  const [lesson, setLesson] = useState<any>(null);
   const [unit, setUnit] = useState<any>(null);
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
-      const supabase = createClient();
-      
-      const { data: gradeData } = await supabase
-        .from('grades')
-        .select('id, name, slug')
-        .or(`slug.eq.${gradeSlug},id.eq.${gradeSlug.replace('-sinif', '')}`)
-        .single();
+    const supabase = createClient();
+    
+    async function load() {
+      const unitId = parseInt(unitSlug);
 
-      const { data: lessonData } = await supabase
-        .from('lessons')
-        .select('id, name, slug')
-        .or(`slug.eq.${lessonSlug},id.eq.${lessonSlug}`)
-        .single();
-
-      if (!gradeData || !lessonData) {
-        setLoading(false);
-        return;
-      }
-
-      setGrade({ ...gradeData, slug: gradeData.slug || `${gradeData.id}-sinif` });
-      setLesson({ ...lessonData, slug: lessonData.slug || lessonData.id.toString() });
-
-      const { data: unitData } = await supabase
+      const { data: uData } = await supabase
         .from('units')
-        .select('id, title, slug')
-        .or(`slug.eq.${unitSlug},id.eq.${unitSlug}`)
-        .eq('lesson_id', lessonData.id)
+        .select('id, title')
+        .eq('id', unitId)
         .single();
 
-      if (!unitData) {
+      if (!uData) {
         setLoading(false);
         return;
       }
 
-      setUnit({ ...unitData, slug: unitData.slug || unitData.id.toString() });
+      setUnit(uData);
 
-      const { data: topicsData } = await supabase
+      const { data: tData } = await supabase
         .from('topics')
-        .select('id, title, slug')
-        .eq('unit_id', unitData.id)
+        .select('id, title, slug, order_no')
+        .eq('unit_id', uData.id)
         .eq('is_active', true)
         .order('order_no');
 
-      setTopics((topicsData || []).map((t: any) => ({
-        id: t.id.toString(),
-        title: t.title,
-        slug: t.slug || t.id.toString(),
-      })));
+      setTopics(tData || []);
       setLoading(false);
     }
 
-    fetchData();
-  }, [gradeSlug, lessonSlug, unitSlug]);
+    load();
+  }, [unitSlug]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
-  if (!grade || !lesson || !unit) return <div className="min-h-screen flex items-center justify-center">Sayfa bulunamadı</div>;
+  if (loading) return <div className="p-8">Yükleniyor...</div>;
+  if (!unit) return <div className="p-8">Ünite bulunamadı</div>;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold">{unit.title}</h1>
-          <p>{grade.name} • {lesson.name}</p>
-        </div>
-      </div>
+    <div className="p-8">
+      <Link href={`/${gradeSlug}/${lessonSlug}`} className="text-blue-600">← Üniteler</Link>
+      <h1 className="text-2xl font-bold mt-4">{unit.title}</h1>
+      <p className="text-gray-600 mb-6">Konular</p>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-semibold mb-6">Konular</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {topics.map((topic, index) => (
+      <div className="grid gap-4">
+        {topics.map((topic: any, i: number) => {
+          const topicSlug = topic.slug || topic.id;
+          return (
             <Link
               key={topic.id}
-              href={`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topic.slug}`}
-              className="block bg-surface-elevated border border-default rounded-xl p-5 hover:border-indigo-300"
+              href={`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`}
+              className="border p-4 rounded hover:bg-gray-50"
             >
-              <div className="flex items-center gap-4">
-                <span className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center font-bold text-indigo-600">{index + 1}</span>
-                <h3 className="font-semibold">{topic.title}</h3>
-              </div>
+              <span className="font-bold mr-2">{i + 1}.</span>
+              <span>{topic.title}</span>
             </Link>
-          ))}
-        </div>
-
-        <div className="mt-8 flex gap-4">
-          <Link href={`/${gradeSlug}/${lessonSlug}`} className="text-indigo-600">← Üniteler</Link>
-          <Link href={`/${gradeSlug}`} className="text-indigo-600">← Dersler</Link>
-        </div>
-      </main>
+          );
+        })}
+      </div>
     </div>
   );
 }
