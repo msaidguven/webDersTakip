@@ -10,13 +10,11 @@ import {
   BookOpen,
   PlayCircle,
   Trophy,
-  Star,
   CheckCircle2,
   Clock,
   ArrowRight,
   Menu,
-  X,
-  ChevronLeft
+  X
 } from 'lucide-react';
 
 type Outcome = { id?: string | number; description: string };
@@ -55,13 +53,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const weeksContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const activeTopic = useMemo(() => contents.find(c => c.id === activeTopicId) || contents[0], [contents, activeTopicId]);
-
-  useEffect(() => {
-    if (contents.length > 0 && !contents.find(c => c.id === activeTopicId)) {
-      setActiveTopicId(contents[0].id);
-    }
+  const selectedTopicId = useMemo(() => {
+    return contents.find(c => c.id === activeTopicId)?.id ?? contents[0]?.id ?? null;
   }, [contents, activeTopicId]);
+
+  const activeTopic = useMemo(() => {
+    return contents.find(c => c.id === selectedTopicId) || contents[0];
+  }, [contents, selectedTopicId]);
 
   // Scroll to active week on mount and week change
   useEffect(() => {
@@ -221,10 +219,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       </aside>
 
       {/* RIGHT SIDE: MAIN LAYOUT */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white lg:rounded-l-[2.5rem] shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.03)] border-l border-slate-100 relative z-10">
+      <div className="flex-1 h-[100dvh] overflow-hidden bg-white lg:rounded-l-[2rem] shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.03)] border-l border-slate-100 relative z-10">
+        <div className="h-full overflow-y-auto pb-24 bg-slate-50" style={{ scrollbarWidth: 'thin' }}>
 
         {/* HEADER */}
-        <header className="bg-white shrink-0 z-20 relative">
+        <header className="bg-white shrink-0 relative">
           {/* Top Header: Breadcrumbs */}
           <div className="px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex justify-between items-center border-b border-slate-100/80">
             <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-bold text-slate-400">
@@ -249,26 +248,24 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           </div>
 
           {/* Hero - Compact */}
-          <div className="px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
-            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-5 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-32 sm:w-64 h-32 sm:h-64 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-indigo-500/30 transition-colors duration-700" />
-              <div className="absolute left-0 bottom-0 w-24 sm:w-40 h-24 sm:h-40 bg-purple-500/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-
-              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="px-3 sm:px-6 lg:px-8 py-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-900 px-3 py-2.5 sm:px-4 text-white shadow-sm">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/10 text-slate-200 text-[8px] sm:text-[10px] font-black tracking-widest uppercase backdrop-blur-md">
-                    <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Devam Ediyor
+                  <div className="flex items-center gap-2 text-[10px] sm:text-xs font-black text-slate-300 uppercase tracking-wider">
+                    <Clock className="h-3.5 w-3.5 text-emerald-300" />
+                    <span>Devam Ediyor</span>
                   </div>
-                  <h2 className="text-sm sm:text-lg lg:text-xl font-black leading-tight mt-1 text-white truncate">
+                  <h2 className="text-sm sm:text-base lg:text-lg font-black leading-tight mt-0.5 text-white truncate">
                     {unitTitle}
                   </h2>
-                  <p className="text-slate-300 text-[10px] sm:text-xs font-semibold hidden sm:block">
+                  <p className="text-slate-300 text-[10px] sm:text-xs font-semibold hidden md:block">
                     Hafta {week} içeriklerini öğrenmeye devam et
                   </p>
                 </div>
 
                 <button
-                  className="bg-white text-slate-900 hover:bg-indigo-50 px-4 sm:px-5 py-2 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs transition-all shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 group/btn"
+                  className="bg-white text-slate-900 hover:bg-indigo-50 px-3 sm:px-4 py-2 rounded-lg font-black text-[10px] sm:text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 group/btn"
                   onClick={() => {
                     const sc = document.getElementById('lesson-content-area');
                     if (sc) sc.scrollIntoView({ behavior: 'smooth' });
@@ -324,7 +321,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </header>
 
         {/* SPLIT PANEL: TOPICS & LESSON CONTENT */}
-        <div className="flex-1 flex overflow-hidden relative bg-slate-50" id="lesson-content-area">
+        <div className="flex h-[calc(100dvh-4.75rem)] overflow-hidden relative bg-slate-50" id="lesson-content-area">
 
           {/* MIDDLE PANEL: TOPICS & OUTCOMES TABS */}
           <div className="w-[280px] lg:w-[320px] bg-white/80 backdrop-blur-sm border-r border-slate-200/80 flex flex-col shrink-0 hidden md:flex shadow-[5px_0_15px_-10px_rgba(0,0,0,0.03)]">
@@ -349,7 +346,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               {activeTab === 'konular' ? (
                 <div className="space-y-2 lg:space-y-3">
                   {contents.length > 0 ? contents.map((topic) => {
-                    const isActive = activeTopicId === topic.id;
+                    const isActive = selectedTopicId === topic.id;
                     return (
                       <button
                         key={topic.id}
@@ -413,7 +410,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               {/* Mobile Topics Dropdown */}
               <div className="md:hidden mb-4 shrink-0">
                 <select
-                  value={String(activeTopicId || '')}
+                  value={String(selectedTopicId || '')}
                   onChange={(e) => setActiveTopicId(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
@@ -476,24 +473,25 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-              {/* Next Action - Fixed Footer at the bottom of the scroll */}
-              <div className="shrink-0 mt-6 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-lg p-4 sm:p-5">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <div className="text-center sm:text-left">
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sonraki Adım</div>
-                    <div className="text-sm sm:text-base font-extrabold text-slate-800 mt-1">Haftalık Değerlendirme</div>
-                  </div>
-                  <Link
-                    href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
-                    className="bg-slate-900 text-white hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 group shrink-0 w-full sm:w-auto justify-center"
-                  >
-                    Teste Başla <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </div>
-              </div>
             </div>
           </div>
         </div>
+        </div>
+
+        <footer className="absolute bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sonraki Adım</div>
+              <div className="truncate text-sm font-extrabold text-slate-800 sm:text-base">Hafta {week} Değerlendirme Testi</div>
+            </div>
+            <Link
+              href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition-all hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 sm:px-6 sm:text-sm"
+            >
+              Teste Başla <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Link>
+          </div>
+        </footer>
       </div>
     </div>
   );
