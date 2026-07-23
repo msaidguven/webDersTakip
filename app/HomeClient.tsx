@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { logger } from '@/utils/logger';
-import { useRouter } from 'next/navigation';
 import { GradeSelector } from './src/components/home/GradeSelector';
-import { LessonSelector } from './src/components/home/LessonSelector';
-import { Grade, Lesson } from './src/models/homeTypes';
+import { Grade } from './src/models/homeTypes';
 import {
   getGradeColor,
   getGradeDescription,
@@ -98,7 +96,6 @@ function getCurrentAcademicWeekNo() {
 }
 
 export default function HomeClient({ initialGrades }: HomeClientProps) {
-  const router = useRouter();
   const { data: grades, error } = useSWR(
     'grades',
     fetcher,
@@ -110,111 +107,16 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
     }
   );
 
-  const [step, setStep] = useState<'grade' | 'lesson'>('grade');
-  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
-  const [lessonsError, setLessonsError] = useState<string | null>(null);
-
-  const currentWeekNo = useMemo(() => {
-    // UI’da 1..30 gösteriyoruz, o yüzden şimdilik 30’a clamp’liyoruz
-    return Math.min(30, getCurrentAcademicWeekNo());
-  }, []);
-
-  const handleGradeSelect = async (grade: Grade) => {
-    logger.log('[HomeClient] Grade secildi:', grade);
-    setSelectedGrade(grade);
-    setStep('lesson');
-    setLessons([]);
-    setLessonsError(null);
-    setIsLoadingLessons(true);
-
-    try {
-      const supabase = createClient();
-
-      // grade -> lesson ilişkisi: lesson_grades(lesson_id, grade_id, is_active)
-      const { data: lgData, error: lgError } = await supabase
-        .from('lesson_grades')
-        .select('lesson_id')
-        .eq('grade_id', parseInt(grade.id, 10))
-        .eq('is_active', true);
-
-      if (lgError) throw lgError;
-
-      const ids = ((lgData as { lesson_id: number }[] | null) || []).map((x) => x.lesson_id);
-
-      if (!ids.length) {
-        setLessons([]);
-        return;
-      }
-
-      const { data: dersler, error: dersError } = await supabase
-        .from('lessons')
-        .select('id, name, icon, description, slug, order_no')
-        .in('id', ids)
-        .eq('is_active', true)
-        .order('order_no', { ascending: true });
-
-      if (dersError) throw dersError;
-
-      const transformed: Lesson[] = ((dersler as LessonRow[] | null) || []).map((l) => ({
-        id: String(l.id),
-        gradeId: grade.id,
-        name: l.name,
-        description: l.description || '',
-        icon: l.icon || '📘',
-        color: getLessonColor(l.order_no ?? 0),
-        unitCount: 0,
-        questionCount: l.question_count ?? 0,
-        slug: l.slug,
-      }));
-
-      setLessons(transformed);
-    } catch (e: unknown) {
-      logger.error('[HomeClient] Dersler cekilemedi:', e);
-      setLessonsError('Dersler yüklenirken bir hata oluştu.');
-    } finally {
-      setIsLoadingLessons(false);
-    }
-  };
-
-  const handleLessonSelect = (lesson: Lesson) => {
-    // /ders sayfası: sinif + ders + hafta
-    const dersParam = lesson.slug || lesson.id;
-    const url = `/ders?sinif=${selectedGrade?.id}&ders=${dersParam}&hafta=${currentWeekNo}`;
-    logger.log('[HomeClient] Ders secildi, yonlendiriliyor:', url);
-    router.push(url);
-  };
-
-  const handleBackToGrades = () => {
-    setStep('grade');
-    setSelectedGrade(null);
-    setLessons([]);
-    setLessonsError(null);
-    setIsLoadingLessons(false);
-  };
-
   return (
     <div className="min-h-screen">
       <main className="py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto">
-          {step === 'grade' ? (
-            <GradeSelector
-              grades={grades || []}
-              isLoading={!grades}
-              error={error?.message}
-              onSelect={handleGradeSelect}
-            />
-          ) : selectedGrade ? (
-            <LessonSelector
-              grade={selectedGrade}
-              lessons={lessons}
-              isLoading={isLoadingLessons}
-              error={lessonsError}
-              onSelect={handleLessonSelect}
-              onBack={handleBackToGrades}
-            />
-          ) : null}
+          <GradeSelector
+            grades={grades || []}
+            isLoading={!grades}
+            error={error?.message}
+            onSelect={() => {}}
+          />
         </div>
       </main>
 

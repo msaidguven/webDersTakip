@@ -1,13 +1,27 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Ellipsis, GraduationCap, Minus, Plus } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import {
+  GraduationCap,
+  ChevronRight,
+  BookOpen,
+  PlayCircle,
+  Trophy,
+  Star,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Menu,
+  X,
+  ChevronLeft
+} from 'lucide-react';
 
 type Outcome = { id?: string | number; description: string };
 type Content = { id: string | number; title: string; content?: string | null };
+type Unit = { id: number; title: string; slug: string; order_no: number; start_week: number; end_week: number };
 
 interface DersClientProps {
   initialData: {
@@ -28,310 +42,458 @@ interface DersClientProps {
   week: number;
 }
 
-function formatTR(date: Date) {
-  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(date);
-}
-
-function formatTRWithYear(date: Date) {
-  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-}
-
-function addDays(d: Date, days: number) {
-  const copy = new Date(d);
-  copy.setDate(copy.getDate() + days);
-  return copy;
-}
-
-function getAcademicWeekRange(weekNo: number) {
-  // Şemada başlangıç haftası için net bir tablo yok; geçici olarak 8 Eylül 2025'i "1. hafta" başlangıcı kabul ediyoruz.
-  const week1Start = new Date(2025, 8, 8); // months are 0-based (8 => September)
-  const start = addDays(week1Start, (weekNo - 1) * 7);
-  const end = addDays(start, 6);
-  return { start, end };
-}
-
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [fontScale, setFontScale] = useState<0 | 1 | 2>(1);
+  const { gradeName, lessonName, unitName, outcomes, contents, gradeSlug, lessonSlug } = initialData;
 
-  const { gradeName, lessonName, unitName, outcomes, contents, totalWeeks, gradeSlug, lessonSlug, unitSlug, topicTitle, topicSlug } = initialData;
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [activeTopicId, setActiveTopicId] = useState<string | number | null>(contents[0]?.id || null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'konular' | 'hedefler'>('konular');
+  const weeksContainerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const activeTopic = useMemo(() => contents.find(c => c.id === activeTopicId) || contents[0], [contents, activeTopicId]);
+
+  useEffect(() => {
+    if (contents.length > 0 && !contents.find(c => c.id === activeTopicId)) {
+      setActiveTopicId(contents[0].id);
+    }
+  }, [contents, activeTopicId]);
+
+  // Scroll to active week on mount and week change
+  useEffect(() => {
+    if (weeksContainerRef.current) {
+      const activeButton = weeksContainerRef.current.querySelector(`[data-week="${week}"]`);
+      if (activeButton) {
+        activeButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
+    }
+  }, [week]);
+
+  useEffect(() => {
+    async function loadUnits() {
+      const supabase = createClient();
+      let lId = parseInt(lessonId);
+      if (isNaN(lId)) {
+        const { data: lessonData } = await supabase.from('lessons').select('id').eq('slug', lessonId).single();
+        if (lessonData) lId = lessonData.id;
+      }
+      if (!isNaN(lId)) {
+        const { data: unitsData } = await supabase
+          .from('units')
+          .select('id, title, slug, order_no, start_week, end_week')
+          .eq('lesson_id', lId)
+          .eq('grade_id', parseInt(gradeId))
+          .eq('is_active', true)
+          .order('order_no', { ascending: true });
+
+        if (unitsData) {
+          setUnits(unitsData as Unit[]);
+        }
+      }
+    }
+    loadUnits();
+  }, [gradeId, lessonId]);
 
   const weeks = useMemo(() => {
-    const max = Math.max(1, Math.min(52, totalWeeks || 30));
-    const active = Number.isFinite(week) && week >= 1 ? week : 1;
-    return Array.from({ length: max }, (_, i) => {
+    const total = 38;
+    return Array.from({ length: total }, (_, i) => {
       const no = i + 1;
-      const { start, end } = getAcademicWeekRange(no);
       return {
         no,
-        isActive: no === active,
-        isCompleted: no < active,
-        start,
-        end,
+        isActive: no === week,
+        isCompleted: no < week,
       };
     });
-  }, [week, totalWeeks]);
-
-  const activeWeekRange = useMemo(() => getAcademicWeekRange(week), [week]);
-  const konuSayisi = contents?.length ?? 0;
-
-  const dersBaslaHref = useMemo(() => {
-    if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
-    return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
-  }, [gradeSlug, lessonSlug, unitSlug, topicSlug]);
-
-  const activeFont = useMemo(() => {
-    if (fontScale === 0) return 'text-[15px] leading-7';
-    if (fontScale === 2) return 'text-[19px] leading-8';
-    return 'text-[17px] leading-7';
-  }, [fontScale]);
+  }, [week]);
 
   const handleSelectWeek = (weekNo: number) => {
     const params = new URLSearchParams(searchParams?.toString());
-    params.set('sinif', gradeId);
-    params.set('ders', lessonId);
     params.set('hafta', String(weekNo));
-    router.push(`/ders?${params.toString()}`);
+
+    if (gradeSlug && lessonSlug) {
+      router.push(`/${gradeSlug}/${lessonSlug}?${params.toString()}`);
+    } else {
+      params.set('sinif', gradeId);
+      params.set('ders', lessonId);
+      router.push(`/ders?${params.toString()}`);
+    }
   };
 
-  const handleFontDown = () => setFontScale((s) => (s === 0 ? 0 : ((s - 1) as 0 | 1 | 2)));
-  const handleFontUp = () => setFontScale((s) => (s === 2 ? 2 : ((s + 1) as 0 | 1 | 2)));
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (weeksContainerRef.current) {
+      if (e.deltaY !== 0) {
+        weeksContainerRef.current.scrollLeft += e.deltaY;
+      }
+    }
+  };
+
+  const activeUnit = units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) || units[0];
+  const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#faf7ff] via-[#f3f0ff] to-[#eef6ff]">
-      <div className="flex min-h-screen">
-        {/* Sol Sidebar - Haftalar */}
-        <aside className="w-[320px] shrink-0 border-r border-default bg-white/70 backdrop-blur-xl">
-          <div className="px-6 py-5 border-b border-default">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6d28d9] via-[#7c3aed] to-[#2563eb] shadow-[0_10px_30px_-12px_rgba(99,102,241,0.55)] flex items-center justify-center text-white">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-default leading-5 truncate">Fen Bilimleri</div>
-                <div className="text-xs text-muted leading-5 truncate">Haftalık plan</div>
-              </div>
+    <div className="flex h-[100dvh] bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
+
+      {/* MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* LEFT SIDEBAR: UNITS */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200 
+        transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-none
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-extrabold text-slate-800 leading-tight">{lessonName || 'Ders'}</div>
+              <div className="text-xs text-slate-500 font-bold">{gradeName || 'Sınıf'}</div>
             </div>
           </div>
+          <button className="lg:hidden text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 p-2 rounded-full" onClick={() => setSidebarOpen(false)}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          <div className="px-3 py-4">
-            <div
-              className="max-h-[calc(100vh-88px)] overflow-y-auto pr-1"
-              style={{ scrollbarWidth: 'thin' } satisfies CSSProperties}
-            >
-              <div className="space-y-2 px-3">
-                {weeks.map((w) => (
-                  <button
-                    key={w.no}
-                    onClick={() => handleSelectWeek(w.no)}
-                    className={[
-                      'w-full text-left rounded-2xl px-4 py-3 transition-all',
-                      'border',
-                      'hover:-translate-y-[1px] hover:shadow-[0_18px_40px_-24px_rgba(99,102,241,0.35)]',
-                      w.isActive
-                        ? 'bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] border-white/20 text-white shadow-[0_24px_60px_-26px_rgba(109,40,217,0.65)]'
-                        : 'bg-[#f6f3ff] border-default text-default hover:bg-[#f1edff]',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={[
-                          'h-8 w-8 rounded-full flex items-center justify-center shrink-0',
-                          w.isCompleted
-                            ? w.isActive
-                              ? 'bg-white/20 text-white'
-                              : 'bg-emerald-500/15 text-emerald-600'
-                            : w.isActive
-                              ? 'bg-white/20 text-white'
-                              : 'bg-white text-muted border border-default',
-                        ].join(' ')}
-                      >
-                        {w.isCompleted ? <Check className="h-4 w-4" /> : <span className="text-xs font-semibold">{w.no}</span>}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className={['font-semibold truncate', w.isActive ? 'text-white' : 'text-default'].join(' ')}>
-                          Hafta {w.no}
-                        </div>
-                        <div className={['text-xs truncate', w.isActive ? 'text-white/80' : 'text-muted'].join(' ')}>
-                          {formatTR(w.start)} – {formatTR(w.end)}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="p-5 pb-2">
+          <div className="flex justify-between items-end mb-2">
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">İlerleme</span>
+            <span className="text-xs font-black text-indigo-600">{Math.round((week / 38) * 100)}%</span>
           </div>
-        </aside>
-
-        {/* Sağ İçerik Alanı */}
-        <section className="flex-1 min-w-0">
-          {/* Üst Header */}
-          <div className="sticky top-0 z-10">
-            <div className="mx-8 mt-6 rounded-2xl bg-white/85 backdrop-blur-xl border border-default shadow-[0_16px_50px_-30px_rgba(15,23,42,0.25)]">
-              <div className="px-6 py-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6d28d9] via-[#8b5cf6] to-[#2563eb] flex items-center justify-center text-white shadow-[0_10px_30px_-14px_rgba(99,102,241,0.55)]">
-                    <GraduationCap className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-default leading-5 truncate">{lessonName || 'Fen Bilimleri'}</div>
-                    <div className="text-xs text-muted leading-5 truncate">{gradeName || '5. Sınıf'}</div>
-                  </div>
-                </div>
-
-                <div className="text-xs sm:text-sm font-semibold text-default whitespace-nowrap">
-                  {week}. Hafta – {formatTR(activeWeekRange.start)} – {formatTRWithYear(activeWeekRange.end)}
-                </div>
-              </div>
-            </div>
+          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${(week / 38) * 100}%` }} />
           </div>
+        </div>
 
-          <main className="px-8 pb-16 pt-8">
-            <div className="max-w-5xl mx-auto">
-              {/* Başlık Alanı */}
-              <div className="mb-8">
-                <div className="text-4xl font-extrabold tracking-tight text-default">
-                  {gradeName ? `${gradeName} ${lessonName}` : '5. Sınıf Fen Bilimleri'}
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] px-4 py-2 text-sm font-semibold">
-                    {week}. hafta konuları
-                  </span>
-                  <span className="text-sm text-muted">
-                    {konuSayisi} konu
-                  </span>
-                </div>
-              </div>
-
-              {/* İçerik Kartı */}
-              <div className="relative rounded-[24px] bg-white border border-default shadow-[0_30px_80px_-55px_rgba(15,23,42,0.35)] overflow-hidden">
-                {/* Sol accent */}
-                <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-[#6d28d9] via-[#8b5cf6] to-[#2563eb]" />
-
-                {/* Kart üst sağ kontroller */}
-                <div className="absolute right-4 top-4 flex items-center gap-2">
-                  <button
-                    onClick={handleFontDown}
-                    aria-label="Yazıyı küçült"
-                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleFontUp}
-                    aria-label="Yazıyı büyüt"
-                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  <button
-                    aria-label="Diğer seçenekler"
-                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
-                  >
-                    <Ellipsis className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="p-8 pl-10">
-                  <div className="space-y-6">
-                    <div>
-                      <div className="text-sm font-semibold text-muted">Ünite</div>
-                      <div className="mt-1 text-xl font-bold text-default">
-                        {unitName || 'Maddenin Doğası'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-semibold text-muted">Konu</div>
-                      <div className="mt-1 text-lg font-semibold text-default">
-                        {topicTitle || 'Konu'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-semibold text-muted">Öğrenme Çıktıları</div>
-                      <div className={['mt-3 space-y-3', activeFont].join(' ')}>
-                        {outcomes?.length ? (
-                          <ol className="space-y-3">
-                            {outcomes.map((o, idx) => (
-                              <li key={o.id ?? idx} className="flex gap-3">
-                                <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
-                                  {String.fromCharCode(97 + (idx % 26))}
-                                </span>
-                                <span className="text-default">{o.description}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        ) : (
-                          <ol className="space-y-3">
-                            <li className="flex gap-3">
-                              <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
-                                a
-                              </span>
-                              <span className="text-default">Isı yalıtımı ile ilgili model önerir.</span>
-                            </li>
-                            <li className="flex gap-3">
-                              <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
-                                b
-                              </span>
-                              <span className="text-default">Yeni kanıtlarla modeli yeniler.</span>
-                            </li>
-                          </ol>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                      {dersBaslaHref ? (
-                        <Link
-                          href={dersBaslaHref}
-                          className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] shadow-[0_18px_50px_-24px_rgba(109,40,217,0.6)] hover:shadow-[0_22px_60px_-28px_rgba(109,40,217,0.7)] transition-shadow"
-                        >
-                          Derse Başla →
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#94a3b8] to-[#64748b] opacity-70 cursor-not-allowed"
-                          title="Slug bilgileri eksik olduğu için yönlendirme yapılamadı."
-                        >
-                          Derse Başla →
-                        </button>
-                      )}
-
-                      <div className="text-sm text-muted flex items-center">
-                        Konu anlatımı ayrı sayfada gösterilecek.
-                      </div>
-                    </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-1" style={{ scrollbarWidth: 'none' }}>
+          {units.length > 0 ? units.map((u, i) => {
+            const isUnitActive = activeUnit?.id === u.id;
+            const isUnitCompleted = week > (u.end_week || 38);
+            return (
+              <div
+                key={u.id}
+                className={`
+                  p-3 rounded-2xl transition-all duration-200 cursor-pointer border group
+                  ${isUnitActive
+                    ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
+                    : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
+                `}
+                onClick={() => handleSelectWeek(u.start_week || 1)}
+              >
+                <div className="flex gap-3">
+                  <div className={`
+                    mt-0.5 h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black transition-colors
+                    ${isUnitCompleted ? 'bg-emerald-100 text-emerald-600' :
+                      isUnitActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}
+                  `}>
+                    {isUnitCompleted ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
                   </div>
-                </div>
-              </div>
-
-              {/* Alt CTA (mevcut test linki) */}
-              <div className="mt-10 rounded-[24px] bg-white/70 backdrop-blur-xl border border-default p-8 shadow-[0_28px_70px_-55px_rgba(15,23,42,0.35)]">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                   <div>
-                    <div className="text-xl font-bold text-default">Haftalık Test</div>
-                    <div className="text-muted mt-1">
-                      Çoktan seçmeli, boşluk doldurma, eşleştirme ve klasik soruların karıştığı test.
+                    <h4 className={`text-sm font-bold leading-snug line-clamp-2 ${isUnitActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                      {u.title}
+                    </h4>
+                    <p className={`text-[11px] mt-1 font-semibold ${isUnitActive ? 'text-indigo-600/80' : 'text-slate-400'}`}>
+                      Hafta {u.start_week} - {u.end_week}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="text-center p-4 text-sm text-slate-400 font-medium">Üniteler yükleniyor...</div>
+          )}
+        </div>
+      </aside>
+
+      {/* RIGHT SIDE: MAIN LAYOUT */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white lg:rounded-l-[2.5rem] shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.03)] border-l border-slate-100 relative z-10">
+
+        {/* HEADER */}
+        <header className="bg-white shrink-0 z-20 relative">
+          {/* Top Header: Breadcrumbs */}
+          <div className="px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex justify-between items-center border-b border-slate-100/80">
+            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-bold text-slate-400">
+              <button className="lg:hidden mr-1 sm:mr-2 text-slate-700 bg-slate-50 p-1.5 sm:p-2 rounded-full hover:bg-slate-100 transition-colors" onClick={() => setSidebarOpen(true)}>
+                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+              <Link href="/" className="hover:text-indigo-600 transition-colors hidden sm:block">Anasayfa</Link>
+              <ChevronRight className="h-3.5 w-3.5 hidden sm:block" />
+              <Link href={`/${gradeSlug}`} className="hover:text-indigo-600 transition-colors hidden sm:block">{gradeName}</Link>
+              <ChevronRight className="h-3.5 w-3.5 hidden sm:block" />
+              <span className="text-slate-800 truncate max-w-[120px] sm:max-w-none">{lessonName}</span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-amber-600 text-xs font-black shadow-sm">
+                <Trophy className="h-3.5 w-3.5" /> 1250 Puan
+              </div>
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold shadow-sm cursor-pointer hover:bg-slate-700 transition-colors text-xs sm:text-sm">
+                M
+              </div>
+            </div>
+          </div>
+
+          {/* Hero - Compact */}
+          <div className="px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-5 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden group">
+              <div className="absolute right-0 top-0 w-32 sm:w-64 h-32 sm:h-64 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-indigo-500/30 transition-colors duration-700" />
+              <div className="absolute left-0 bottom-0 w-24 sm:w-40 h-24 sm:h-40 bg-purple-500/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/10 text-slate-200 text-[8px] sm:text-[10px] font-black tracking-widest uppercase backdrop-blur-md">
+                    <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Devam Ediyor
+                  </div>
+                  <h2 className="text-sm sm:text-lg lg:text-xl font-black leading-tight mt-1 text-white truncate">
+                    {unitTitle}
+                  </h2>
+                  <p className="text-slate-300 text-[10px] sm:text-xs font-semibold hidden sm:block">
+                    Hafta {week} içeriklerini öğrenmeye devam et
+                  </p>
+                </div>
+
+                <button
+                  className="bg-white text-slate-900 hover:bg-indigo-50 px-4 sm:px-5 py-2 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs transition-all shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 group/btn"
+                  onClick={() => {
+                    const sc = document.getElementById('lesson-content-area');
+                    if (sc) sc.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <PlayCircle className="h-4 w-4 sm:h-4 sm:w-4 text-indigo-600 group-hover/btn:scale-110 transition-transform" />
+                  <span className="hidden xs:inline">Derse Devam Et</span>
+                  <span className="xs:hidden">Devam</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Weeks Scrollable - FIXED FOR WEB */}
+          <div className="px-3 sm:px-6 lg:px-8 py-2 border-b border-slate-100 relative bg-white">
+            <div
+              ref={weeksContainerRef}
+              onWheel={handleWheel}
+              className="flex overflow-x-auto gap-1.5 sm:gap-2 pb-2 scroll-smooth"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+                overflowX: 'auto',
+                overflowY: 'hidden'
+              }}
+            >
+              <style>{`
+                .weeks-scroll::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
+              {weeks.map(w => (
+                <button
+                  key={w.no}
+                  data-week={w.no}
+                  onClick={() => handleSelectWeek(w.no)}
+                  className={`
+                    flex-shrink-0 flex items-center justify-center h-8 sm:h-10 px-3 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all whitespace-nowrap
+                    ${w.isActive
+                      ? 'bg-slate-800 text-white shadow-md shadow-slate-200 scale-105'
+                      : w.isCompleted
+                        ? 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        : 'bg-white text-slate-400 hover:bg-slate-50 border border-slate-100/80'
+                    }
+                  `}
+                >
+                  {w.no}. Hafta
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        {/* SPLIT PANEL: TOPICS & LESSON CONTENT */}
+        <div className="flex-1 flex overflow-hidden relative bg-slate-50" id="lesson-content-area">
+
+          {/* MIDDLE PANEL: TOPICS & OUTCOMES TABS */}
+          <div className="w-[280px] lg:w-[320px] bg-white/80 backdrop-blur-sm border-r border-slate-200/80 flex flex-col shrink-0 hidden md:flex shadow-[5px_0_15px_-10px_rgba(0,0,0,0.03)]">
+            <div className="p-4 lg:p-6 shrink-0 border-b border-slate-100">
+              <div className="flex bg-slate-100 rounded-xl p-1">
+                <button 
+                  onClick={() => setActiveTab('konular')}
+                  className={`flex-1 py-2 text-xs lg:text-sm font-bold rounded-lg transition-all ${activeTab === 'konular' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Konular
+                </button>
+                <button 
+                  onClick={() => setActiveTab('hedefler')}
+                  className={`flex-1 py-2 text-xs lg:text-sm font-bold rounded-lg transition-all ${activeTab === 'hedefler' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Hedefler
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ scrollbarWidth: 'none' }}>
+              {activeTab === 'konular' ? (
+                <div className="space-y-2 lg:space-y-3">
+                  {contents.length > 0 ? contents.map((topic) => {
+                    const isActive = activeTopicId === topic.id;
+                    return (
+                      <button
+                        key={topic.id}
+                        onClick={() => setActiveTopicId(topic.id)}
+                        className={`
+                            w-full text-left p-3 lg:p-4 rounded-xl lg:rounded-2xl transition-all duration-200 border group
+                            ${isActive
+                            ? 'bg-indigo-50/80 border-indigo-200 shadow-[0_8px_20px_-8px_rgba(79,70,229,0.12)] ring-2 ring-indigo-50/50'
+                            : 'bg-white/50 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-sm'}
+                          `}
+                      >
+                        <div className="flex items-start gap-2 lg:gap-3">
+                          <div className={`
+                              mt-0.5 h-7 w-7 lg:h-8 lg:w-8 rounded-lg lg:rounded-xl flex items-center justify-center shrink-0 transition-colors text-xs lg:text-sm
+                              ${isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}
+                            `}>
+                            <BookOpen className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className={`text-xs lg:text-sm font-extrabold leading-snug mb-1 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                              {topic.title}
+                            </h4>
+                            <div className="flex items-center gap-2 lg:gap-3 text-[8px] lg:text-[10px] font-black tracking-wide uppercase text-slate-400">
+                              <span className="flex items-center gap-0.5 lg:gap-1 text-emerald-600">
+                                <Clock className="h-2.5 w-2.5 lg:h-3 lg:w-3" /> 15 dk
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }) : (
+                    <div className="text-center p-6 bg-white rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500 font-bold">
+                      Bu hafta için konu bulunamadı.
                     </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {outcomes && outcomes.length > 0 ? (
+                    outcomes.map((o, idx) => (
+                      <div key={o.id || idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed">{o.description}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-6 bg-white rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500 font-bold">
+                      Bu hafta için hedef bulunamadı.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* MAIN LESSON CONTENT - E-Kitap Style with Larger Height */}
+          <div className="flex-1 overflow-y-auto bg-slate-50/50" style={{ scrollbarWidth: 'thin' }}>
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 min-h-full flex flex-col">
+
+              {/* Mobile Topics Dropdown */}
+              <div className="md:hidden mb-4 shrink-0">
+                <select
+                  value={String(activeTopicId || '')}
+                  onChange={(e) => setActiveTopicId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  {contents.map((topic) => (
+                    <option key={topic.id} value={String(topic.id)}>
+                      {topic.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* E-Book Content - Larger and more readable */}
+              <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200/60 flex flex-col">
+                {/* Content Header */}
+                <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 rounded-t-2xl border-b border-slate-200/60 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-wider">Ders İçeriği</p>
+                        <h2 className="text-sm sm:text-base lg:text-lg font-black text-slate-800 leading-tight">
+                          {activeTopic?.title || 'Konu Seçin'}
+                        </h2>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-400 font-bold">
+                      <span className="hidden sm:inline">Hafta {week}</span>
+                      <span className="bg-slate-100 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg">15 dk</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Body - Removed inner scrollbar to let container grow */}
+                <div
+                  ref={contentRef}
+                  className="p-5 sm:p-8 lg:p-12"
+                >
+                  {activeTopic ? (
+                    <div className="prose prose-sm sm:prose lg:prose-lg max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl lg:prose-h2:text-3xl prose-h3:text-lg sm:prose-h3:text-xl lg:prose-h3:text-2xl prose-p:text-base sm:prose-p:text-lg prose-p:text-slate-700 prose-p:leading-relaxed prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-slate-800 prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base sm:prose-li:text-lg">
+                      {activeTopic.content ? (
+                        <div dangerouslySetInnerHTML={{ __html: activeTopic.content }} />
+                      ) : (
+                        <div className="text-center py-12 sm:py-16 lg:py-20">
+                          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 rounded-2xl flex items-center justify-center shadow-sm mx-auto mb-4 sm:mb-6">
+                            <PlayCircle className="h-10 w-10 sm:h-12 sm:w-12 text-slate-300" />
+                          </div>
+                          <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-800 mb-2 sm:mb-3">İçerik Hazırlanıyor</h3>
+                          <p className="text-sm sm:text-base lg:text-lg text-slate-500 font-medium">Bu konu için detaylı ders içeriği yakında eklenecektir.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 sm:py-16">
+                      <BookOpen className="h-12 w-12 sm:h-16 sm:w-16 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-500 font-medium text-base sm:text-lg">İçerik bulunamadı</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Next Action - Fixed Footer at the bottom of the scroll */}
+              <div className="shrink-0 mt-6 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-lg p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <div className="text-center sm:text-left">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sonraki Adım</div>
+                    <div className="text-sm sm:text-base font-extrabold text-slate-800 mt-1">Haftalık Değerlendirme</div>
                   </div>
                   <Link
                     href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
-                    className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] shadow-[0_18px_50px_-24px_rgba(109,40,217,0.6)] hover:shadow-[0_22px_60px_-28px_rgba(109,40,217,0.7)] transition-shadow"
+                    className="bg-slate-900 text-white hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 group shrink-0 w-full sm:w-auto justify-center"
                   >
-                    Teste Başla →
+                    Teste Başla <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </div>
             </div>
-          </main>
-        </section>
+          </div>
+        </div>
       </div>
     </div>
   );

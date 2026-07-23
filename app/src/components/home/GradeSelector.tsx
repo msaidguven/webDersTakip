@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Grade } from '../../models/homeTypes';
 
 interface GradeSelectorProps {
@@ -70,10 +71,10 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
         {grades.map((grade) => (
-          <button
+          <Link
             key={grade.id}
-            onClick={() => onSelect(grade)}
-            className="group relative p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover text-left"
+            href={`/${grade.slug || grade.id}`}
+            className="group relative p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover text-left block"
           >
             {/* Gradient Border on Hover */}
             <div className={`absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br ${grade.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
@@ -90,7 +91,7 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
             <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
               <span className="text-default text-sm sm:text-base">→</span>
             </div>
-          </button>
+          </Link>
         ))}
       </div>
     </div>

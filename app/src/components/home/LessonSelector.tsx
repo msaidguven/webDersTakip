@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Grade, Lesson } from '../../models/homeTypes';
 import { Icon } from '../icons';
 
@@ -130,10 +131,10 @@ export function LessonSelector({ grade, lessons, isLoading, error, onSelect, onB
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {lessons.map((lesson) => (
-            <button
+            <Link
               key={lesson.id}
-              onClick={() => onSelect(lesson)}
-              className="group p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover text-left flex items-center gap-3 sm:gap-5"
+              href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}`}
+              className="group p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover text-left flex items-center gap-3 sm:gap-5 block"
             >
               {/* Icon */}
               <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-2xl sm:text-3xl shadow-lg flex-shrink-0`}>
@@ -164,7 +165,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onSelect, onB
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 flex-shrink-0">
                 <span className="text-default text-sm sm:text-base">→</span>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       )}

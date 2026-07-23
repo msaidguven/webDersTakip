@@ -12,6 +12,7 @@ export function StructuredData() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(structuredData),
         }}
+        strategy="afterInteractive"
       />
       <Script
         id="structured-data-app"
@@ -19,6 +20,7 @@ export function StructuredData() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(educationalAppData),
         }}
+        strategy="afterInteractive"
       />
     </>
   );

@@ -3,14 +3,33 @@
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    const t = localStorage.getItem("theme");
-    if (t) return t === "dark";
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [isDark, setIsDark] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // Client-side'da çalıştır
+    try {
+      const t = localStorage.getItem("theme");
+      let initialValue: boolean;
+      if (t) {
+        initialValue = t === "dark";
+      } else {
+        initialValue = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      }
+      setIsDark(initialValue);
+
+      // DOM'u güncelle
+      if (initialValue) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    } catch (e) { }
+  }, []);
+
+  useEffect(() => {
+    // isDark değiştiğinde DOM'u güncelle
+    if (isDark === null) return;
+
     try {
       if (isDark) {
         document.documentElement.classList.add("dark");
@@ -19,8 +38,18 @@ export default function ThemeToggle() {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("theme", "light");
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [isDark]);
+
+  // Client-side render olana kadar placeholder göster
+  if (isDark === null) {
+    return (
+      <button
+        className="p-2 rounded-lg hover:bg-zinc-100/50 dark:hover:bg-white/5 transition-colors text-sm w-10 h-10"
+        aria-label="Loading theme"
+      />
+    );
+  }
 
   return (
     <button

@@ -24,17 +24,20 @@ export default function RootLayout({
   const setThemeScript = `(function(){try{const t=localStorage.getItem('theme');const prefersDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; if(t==='dark' || (!t && prefersDark)){document.documentElement.classList.add('dark')} else {document.documentElement.classList.remove('dark')} }catch(e){} })()`;
 
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
       <head>
-        <StructuredData />
-        <script dangerouslySetInnerHTML={{ __html: setThemeScript }} />
+        <script
+          dangerouslySetInnerHTML={{ __html: setThemeScript }}
+          suppressHydrationWarning
+        />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <AuthProvider>
           <MainLayout>
             {children}
           </MainLayout>
         </AuthProvider>
+        <StructuredData />
       </body>
     </html>
   );

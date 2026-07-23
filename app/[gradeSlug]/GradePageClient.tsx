@@ -1,32 +1,59 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import { LessonSelector } from '../src/components/home/LessonSelector';
+import { Grade, Lesson } from '../src/models/homeTypes';
+import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
+
+function getLessonColor(orderNo: number): string {
+  const colors = [
+    'from-indigo-500 to-purple-500',
+    'from-emerald-500 to-teal-500',
+    'from-orange-500 to-amber-500',
+    'from-blue-500 to-cyan-500',
+    'from-pink-500 to-rose-500',
+  ];
+  return colors[Math.abs(orderNo) % colors.length];
+}
 
 export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
-  const [grade, setGrade] = useState<any>(null);
-  const [lessons, setLessons] = useState<any[]>([]);
+  const router = useRouter();
+  const [grade, setGrade] = useState<Grade | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
     
     async function load() {
       // Grade slug ile bul
-      const { data: gradeData, error } = await supabase
+      const { data: gradeData, error: gradeError } = await supabase
         .from('grades')
         .select('id, name, order_no, slug')
         .eq('slug', gradeSlug)
         .single();
 
-      if (error || !gradeData) {
-        console.log('Grade hatası:', error);
+      if (gradeError || !gradeData) {
+        console.log('Grade hatası:', gradeError);
+        setError('Sınıf bulunamadı');
         setLoading(false);
         return;
       }
 
-      setGrade(gradeData);
+      const formattedGrade: Grade = {
+        id: gradeData.id.toString(),
+        level: gradeData.order_no,
+        name: gradeData.name,
+        slug: gradeData.slug || `${gradeData.order_no}-sinif`,
+        description: getGradeDescription(gradeData.order_no),
+        icon: getGradeIcon(gradeData.order_no),
+        color: getGradeColor(gradeData.order_no),
+      };
+
+      setGrade(formattedGrade);
 
       // Dersleri çek
       const { data: lgData } = await supabase
@@ -38,14 +65,29 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
       const ids = lgData?.map((x: any) => x.lesson_id) || [];
       
       if (ids.length > 0) {
-        const { data: dersler } = await supabase
+        const { data: dersler, error: lessonError } = await supabase
           .from('lessons')
-          .select('id, name, icon, slug, order_no')
+          .select('id, name, icon, description, slug, order_no')
           .in('id', ids)
           .eq('is_active', true)
           .order('order_no');
         
-        setLessons(dersler || []);
+        if (lessonError) {
+          setError('Dersler yüklenemedi');
+        } else {
+          const transformed: Lesson[] = ((dersler as any[] | null) || []).map((l) => ({
+            id: String(l.id),
+            gradeId: formattedGrade.id,
+            name: l.name,
+            description: l.description || '',
+            icon: l.icon || '📘',
+            color: getLessonColor(l.order_no ?? 0),
+            unitCount: 0,
+            questionCount: l.question_count ?? 0,
+            slug: l.slug,
+          }));
+          setLessons(transformed);
+        }
       }
       
       setLoading(false);
@@ -54,30 +96,19 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
     load();
   }, [gradeSlug]);
 
-  if (loading) return <div className="p-8">Yükleniyor...</div>;
-  if (!grade) return <div className="p-8">Sınıf bulunamadı</div>;
+  if (loading) return <div className="p-8 text-center text-muted">Yükleniyor...</div>;
+  if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;
 
   return (
-    <div className="p-8">
-      <Link href="/" className="text-blue-600">← Anasayfa</Link>
-      <h1 className="text-2xl font-bold mt-4">{grade.name}</h1>
-      <p className="text-gray-600 mb-6">Ders seç</p>
-
-      <div className="grid gap-4">
-        {lessons.map((ders: any) => {
-          const dersSlug = ders.slug || ders.id;
-          return (
-            <Link
-              key={ders.id}
-              href={`/${gradeSlug}/${dersSlug}`}
-              className="border p-4 rounded hover:bg-gray-50"
-            >
-              <span className="mr-2">{ders.icon || '📘'}</span>
-              <span className="font-semibold">{ders.name}</span>
-            </Link>
-          );
-        })}
-      </div>
+    <div className="min-h-screen py-6 sm:py-8">
+      <LessonSelector
+        grade={grade}
+        lessons={lessons}
+        isLoading={loading}
+        error={error}
+        onSelect={() => {}}
+        onBack={() => router.push('/')}
+      />
     </div>
   );
 }
