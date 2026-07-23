@@ -172,36 +172,35 @@ function normalizeV11ToModule(payload: unknown, fallbackTitle: string): { module
       const contentRaw = so.content;
       const content: ModuleBlock[] = Array.isArray(contentRaw)
         ? contentRaw
-            .map((b) => {
+            .flatMap((b): ModuleBlock[] => {
               const bo = asRecord(b);
-              if (!bo) return null;
+              if (!bo) return [];
               const type = safeText(bo.type);
               const contentObj = asRecord(bo.content) || {};
 
               if (type === 'markdown') {
                 const md = safeText(contentObj.body);
-                return { type: 'markdown', body: markdownToHtml(md) } as const;
+                return [{ type: 'markdown', body: markdownToHtml(md) }];
               }
 
               if (type === 'image') {
                 const svg = safeText(contentObj.svgCode);
                 const caption = safeText(contentObj.caption);
-                if (!svg) return null;
-                return { type: 'svg', svg, caption } as const;
+                if (!svg) return [];
+                return [{ type: 'svg', svg, caption }];
               }
 
               if (type === 'misconception') {
-                return {
+                return [{
                   type: 'misconception',
                   wrong: safeText(contentObj.wrong),
                   correct: safeText(contentObj.correct),
                   tip: safeText(contentObj.tip),
-                } as const;
+                }];
               }
               // Unknown block types -> ignore for now
-              return null;
+              return [];
             })
-            .filter((x): x is ModuleBlock => x !== null)
         : [];
 
       return { id, order, title, icon, content };
