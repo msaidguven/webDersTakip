@@ -1,181 +1,338 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Check, Ellipsis, GraduationCap, Minus, Plus } from 'lucide-react';
+import type { CSSProperties } from 'react';
+
+type Outcome = { id?: string | number; description: string };
+type Content = { id: string | number; title: string; content?: string | null };
 
 interface DersClientProps {
   initialData: {
     gradeName: string;
     lessonName: string;
     unitName: string;
-    outcomes: any[];
-    contents: any[];
+    outcomes: Outcome[];
+    contents: Content[];
+    totalWeeks: number;
+    gradeSlug: string | null;
+    lessonSlug: string | null;
+    unitSlug: string | null;
+    topicTitle: string | null;
+    topicSlug: string | null;
   };
   gradeId: string;
   lessonId: string;
   week: number;
 }
 
-function HtmlContent({ html }: { html: string }) {
-  const [processedHtml, setProcessedHtml] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (!html) {
-      setProcessedHtml('');
-      return;
-    }
+function formatTR(date: Date) {
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(date);
+}
 
-    // HTML isleme islemlerini useEffect icine tasiyarak hydration sorunlarini onluyoruz
-    // ve render suresini bloklamiyoruz
-    const clean = html
-      .replace(/<p>\s*<\/p>/g, '')
-      .replace(/\n\s*\n/g, '\n')
-      .replace(/<table/g, '<div class="overflow-x-auto my-4"><table class="w-full border-collapse"')
-      .replace(/<\/table>/g, '</table></div>')
-      .replace(/<td/g, '<td class="border border-default px-4 py-2 text-muted text-lg"')
-      .replace(/<th/g, '<th class="border border-default px-4 py-2 bg-surface-elevated text-default font-semibold text-lg"')
-      .replace(/<ul/g, '<ul class="list-disc list-inside space-y-2 my-4 text-muted text-lg"')
-      .replace(/<ol/g, '<ol class="list-decimal list-inside space-y-2 my-4 text-muted text-lg"')
-      .replace(/<h1/g, '<h1 class="text-3xl font-bold text-default my-6"')
-      .replace(/<h2/g, '<h2 class="text-2xl font-bold text-red-500 my-5"')
-      .replace(/<h3/g, '<h3 class="text-xl font-bold text-red-400 my-4"')
-      .replace(/<h4/g, '<h4 class="text-lg font-bold text-default my-3"')
-      .replace(/<p(?![^>]*class)/g, '<p class="text-muted leading-relaxed my-3 text-lg"')
-      .replace(/<strong/g, '<strong class="text-default font-semibold"')
-      .replace(/<b(?![^>]*class)/g, '<b class="text-default"')
-      .replace(/<em/g, '<em class="text-muted italic"')
-      .replace(/<a(?![^>]*class)/g, '<a class="text-indigo-500 hover:text-indigo-400 underline transition-colors"')
-      .replace(/<img/g, '<img class="max-w-full h-auto rounded-xl my-4 shadow-lg"')
-      .replace(/<blockquote/g, '<blockquote class="border-l-4 border-indigo-500 pl-4 my-4 italic text-muted bg-surface py-2 pr-4 rounded-r-lg"')
-      .replace(/<code(?![^>]*class)/g, '<code class="bg-surface text-emerald-500 px-1.5 py-0.5 rounded text-sm font-mono"')
-      .replace(/<pre/g, '<pre class="bg-surface p-4 rounded-xl overflow-x-auto my-4 text-sm"')
-      .replace(/<hr/g, '<hr class="border-default my-6"');
-      
-    setProcessedHtml(clean);
-  }, [html]);
+function formatTRWithYear(date: Date) {
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
 
-  // Henuz islenmediyse loading goster
-  if (processedHtml === null) {
-    return <div className="html-content min-h-[100px] animate-pulse bg-surface-elevated/30 rounded-xl" />;
-  }
+function addDays(d: Date, days: number) {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
 
-  return (
-    <div 
-      className="html-content"
-      dangerouslySetInnerHTML={{ __html: processedHtml }} 
-    />
-  );
+function getAcademicWeekRange(weekNo: number) {
+  // Şemada başlangıç haftası için net bir tablo yok; geçici olarak 8 Eylül 2025'i "1. hafta" başlangıcı kabul ediyoruz.
+  const week1Start = new Date(2025, 8, 8); // months are 0-based (8 => September)
+  const start = addDays(week1Start, (weekNo - 1) * 7);
+  const end = addDays(start, 6);
+  return { start, end };
 }
 
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
-  const [activeTab, setActiveTab] = useState<'outcomes' | 'content'>('outcomes');
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const { gradeName, lessonName, unitName, outcomes, contents } = initialData;
+  const [fontScale, setFontScale] = useState<0 | 1 | 2>(1);
+
+  const { gradeName, lessonName, unitName, outcomes, contents, totalWeeks, gradeSlug, lessonSlug, unitSlug, topicTitle, topicSlug } = initialData;
+
+  const weeks = useMemo(() => {
+    const max = Math.max(1, Math.min(52, totalWeeks || 30));
+    const active = Number.isFinite(week) && week >= 1 ? week : 1;
+    return Array.from({ length: max }, (_, i) => {
+      const no = i + 1;
+      const { start, end } = getAcademicWeekRange(no);
+      return {
+        no,
+        isActive: no === active,
+        isCompleted: no < active,
+        start,
+        end,
+      };
+    });
+  }, [week, totalWeeks]);
+
+  const activeWeekRange = useMemo(() => getAcademicWeekRange(week), [week]);
+  const konuSayisi = contents?.length ?? 0;
+
+  const dersBaslaHref = useMemo(() => {
+    if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
+    return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
+  }, [gradeSlug, lessonSlug, unitSlug, topicSlug]);
+
+  const activeFont = useMemo(() => {
+    if (fontScale === 0) return 'text-[15px] leading-7';
+    if (fontScale === 2) return 'text-[19px] leading-8';
+    return 'text-[17px] leading-7';
+  }, [fontScale]);
+
+  const handleSelectWeek = (weekNo: number) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set('sinif', gradeId);
+    params.set('ders', lessonId);
+    params.set('hafta', String(weekNo));
+    router.push(`/ders?${params.toString()}`);
+  };
+
+  const handleFontDown = () => setFontScale((s) => (s === 0 ? 0 : ((s - 1) as 0 | 1 | 2)));
+  const handleFontUp = () => setFontScale((s) => (s === 2 ? 2 : ((s + 1) as 0 | 1 | 2)));
 
   return (
-    <div className="min-h-screen bg-default">
-      <main className="pt-6 sm:pt-8 pb-20 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-default p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-4">
-              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{week}. Hafta</span>
-              <span className="text-muted">→</span>
-              <span className="text-default">{gradeName}</span>
-              <span className="text-muted">→</span>
-              <span className="text-default">{lessonName}</span>
-              {unitName && (
-                <>
-                  <span className="text-muted">→</span>
-                  <span className="text-default">{unitName}</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 sm:mb-8">
-            <button
-              onClick={() => setActiveTab('outcomes')}
-              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
-                activeTab === 'outcomes' 
-                  ? 'bg-indigo-500 text-white' 
-                  : 'bg-surface-elevated text-muted hover:text-default'
-              }`}
-            >
-              <span className="sm:hidden">🎯 Kazanimlar</span>
-              <span className="hidden sm:inline">🎯 Kazanimlar</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('content')}
-              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
-                activeTab === 'content' 
-                  ? 'bg-indigo-500 text-white' 
-                  : 'bg-surface-elevated text-muted hover:text-default'
-              }`}
-            >
-              <span className="sm:hidden">📚 Konu</span>
-              <span className="hidden sm:inline">📚 Konu Anlatimi</span>
-            </button>
-          </div>
-
-          {/* Content */}
-          {activeTab === 'outcomes' ? (
-            <div className="bg-surface-elevated border border-default rounded-2xl p-6 sm:p-8">
-              <h2 className="text-xl font-semibold text-default mb-6">Bu Haftanin Kazanimlari</h2>
-              <div className="space-y-3 sm:space-y-4">
-                {outcomes.length === 0 ? (
-                  <p className="text-muted">Bu hafta icin kazanim bulunmuyor.</p>
-                ) : (
-                  outcomes.map((outcome: any, index: number) => (
-                    <div key={outcome.id} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-surface border border-default">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0 font-bold text-sm sm:text-base">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-default text-sm sm:text-base leading-relaxed">{outcome.description}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
+    <div className="min-h-screen bg-gradient-to-br from-[#faf7ff] via-[#f3f0ff] to-[#eef6ff]">
+      <div className="flex min-h-screen">
+        {/* Sol Sidebar - Haftalar */}
+        <aside className="w-[320px] shrink-0 border-r border-default bg-white/70 backdrop-blur-xl">
+          <div className="px-6 py-5 border-b border-default">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6d28d9] via-[#7c3aed] to-[#2563eb] shadow-[0_10px_30px_-12px_rgba(99,102,241,0.55)] flex items-center justify-center text-white">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-default leading-5 truncate">Fen Bilimleri</div>
+                <div className="text-xs text-muted leading-5 truncate">Haftalık plan</div>
               </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {contents.length === 0 ? (
-                <p className="text-muted">Bu hafta icin icerik bulunmuyor.</p>
-              ) : (
-                contents.map((content: any) => (
-                  <article key={content.id} className="rounded-2xl bg-surface-elevated border border-default overflow-hidden">
-                    <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-default bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent">
-                      <h2 className="text-xl sm:text-2xl font-bold text-red-500 leading-tight text-center">{content.title}</h2>
-                    </div>
-                    <div className="p-6 sm:p-8">
-                      <HtmlContent html={content.content} />
-                    </div>
-                  </article>
-                ))
-              )}
+          </div>
 
-              <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border border-indigo-500/20 p-8 text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-4xl mx-auto mb-6 shadow-lg shadow-indigo-500/30">
-                  🎯
+          <div className="px-3 py-4">
+            <div
+              className="max-h-[calc(100vh-88px)] overflow-y-auto pr-1"
+              style={{ scrollbarWidth: 'thin' } satisfies CSSProperties}
+            >
+              <div className="space-y-2 px-3">
+                {weeks.map((w) => (
+                  <button
+                    key={w.no}
+                    onClick={() => handleSelectWeek(w.no)}
+                    className={[
+                      'w-full text-left rounded-2xl px-4 py-3 transition-all',
+                      'border',
+                      'hover:-translate-y-[1px] hover:shadow-[0_18px_40px_-24px_rgba(99,102,241,0.35)]',
+                      w.isActive
+                        ? 'bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] border-white/20 text-white shadow-[0_24px_60px_-26px_rgba(109,40,217,0.65)]'
+                        : 'bg-[#f6f3ff] border-default text-default hover:bg-[#f1edff]',
+                    ].join(' ')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={[
+                          'h-8 w-8 rounded-full flex items-center justify-center shrink-0',
+                          w.isCompleted
+                            ? w.isActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-emerald-500/15 text-emerald-600'
+                            : w.isActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-white text-muted border border-default',
+                        ].join(' ')}
+                      >
+                        {w.isCompleted ? <Check className="h-4 w-4" /> : <span className="text-xs font-semibold">{w.no}</span>}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className={['font-semibold truncate', w.isActive ? 'text-white' : 'text-default'].join(' ')}>
+                          Hafta {w.no}
+                        </div>
+                        <div className={['text-xs truncate', w.isActive ? 'text-white/80' : 'text-muted'].join(' ')}>
+                          {formatTR(w.start)} – {formatTR(w.end)}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Sağ İçerik Alanı */}
+        <section className="flex-1 min-w-0">
+          {/* Üst Header */}
+          <div className="sticky top-0 z-10">
+            <div className="mx-8 mt-6 rounded-2xl bg-white/85 backdrop-blur-xl border border-default shadow-[0_16px_50px_-30px_rgba(15,23,42,0.25)]">
+              <div className="px-6 py-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#6d28d9] via-[#8b5cf6] to-[#2563eb] flex items-center justify-center text-white shadow-[0_10px_30px_-14px_rgba(99,102,241,0.55)]">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-default leading-5 truncate">{lessonName || 'Fen Bilimleri'}</div>
+                    <div className="text-xs text-muted leading-5 truncate">{gradeName || '5. Sınıf'}</div>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-bold text-default mb-3">Haftalik Test</h3>
-                <p className="text-muted mb-6 max-w-md mx-auto">
-                  Coktan secmeli, bosluk doldurma, eslestirme ve klasik sorularin karistigi test.
-                </p>
-                <Link 
-                  href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
-                  className="inline-block px-10 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
-                >
-                  Teste Basla →
-                </Link>
+
+                <div className="text-xs sm:text-sm font-semibold text-default whitespace-nowrap">
+                  {week}. Hafta – {formatTR(activeWeekRange.start)} – {formatTRWithYear(activeWeekRange.end)}
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </main>
+          </div>
+
+          <main className="px-8 pb-16 pt-8">
+            <div className="max-w-5xl mx-auto">
+              {/* Başlık Alanı */}
+              <div className="mb-8">
+                <div className="text-4xl font-extrabold tracking-tight text-default">
+                  {gradeName ? `${gradeName} ${lessonName}` : '5. Sınıf Fen Bilimleri'}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] px-4 py-2 text-sm font-semibold">
+                    {week}. hafta konuları
+                  </span>
+                  <span className="text-sm text-muted">
+                    {konuSayisi} konu
+                  </span>
+                </div>
+              </div>
+
+              {/* İçerik Kartı */}
+              <div className="relative rounded-[24px] bg-white border border-default shadow-[0_30px_80px_-55px_rgba(15,23,42,0.35)] overflow-hidden">
+                {/* Sol accent */}
+                <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-[#6d28d9] via-[#8b5cf6] to-[#2563eb]" />
+
+                {/* Kart üst sağ kontroller */}
+                <div className="absolute right-4 top-4 flex items-center gap-2">
+                  <button
+                    onClick={handleFontDown}
+                    aria-label="Yazıyı küçült"
+                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleFontUp}
+                    aria-label="Yazıyı büyüt"
+                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    aria-label="Diğer seçenekler"
+                    className="h-9 w-9 rounded-xl border border-default bg-white hover:bg-surface transition-colors flex items-center justify-center text-muted"
+                  >
+                    <Ellipsis className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="p-8 pl-10">
+                  <div className="space-y-6">
+                    <div>
+                      <div className="text-sm font-semibold text-muted">Ünite</div>
+                      <div className="mt-1 text-xl font-bold text-default">
+                        {unitName || 'Maddenin Doğası'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-muted">Konu</div>
+                      <div className="mt-1 text-lg font-semibold text-default">
+                        {topicTitle || 'Konu'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-muted">Öğrenme Çıktıları</div>
+                      <div className={['mt-3 space-y-3', activeFont].join(' ')}>
+                        {outcomes?.length ? (
+                          <ol className="space-y-3">
+                            {outcomes.map((o, idx) => (
+                              <li key={o.id ?? idx} className="flex gap-3">
+                                <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
+                                  {String.fromCharCode(97 + (idx % 26))}
+                                </span>
+                                <span className="text-default">{o.description}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <ol className="space-y-3">
+                            <li className="flex gap-3">
+                              <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
+                                a
+                              </span>
+                              <span className="text-default">Isı yalıtımı ile ilgili model önerir.</span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="mt-[3px] inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#6d28d9]/10 text-[#6d28d9] text-sm font-bold shrink-0">
+                                b
+                              </span>
+                              <span className="text-default">Yeni kanıtlarla modeli yeniler.</span>
+                            </li>
+                          </ol>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                      {dersBaslaHref ? (
+                        <Link
+                          href={dersBaslaHref}
+                          className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] shadow-[0_18px_50px_-24px_rgba(109,40,217,0.6)] hover:shadow-[0_22px_60px_-28px_rgba(109,40,217,0.7)] transition-shadow"
+                        >
+                          Derse Başla →
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#94a3b8] to-[#64748b] opacity-70 cursor-not-allowed"
+                          title="Slug bilgileri eksik olduğu için yönlendirme yapılamadı."
+                        >
+                          Derse Başla →
+                        </button>
+                      )}
+
+                      <div className="text-sm text-muted flex items-center">
+                        Konu anlatımı ayrı sayfada gösterilecek.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alt CTA (mevcut test linki) */}
+              <div className="mt-10 rounded-[24px] bg-white/70 backdrop-blur-xl border border-default p-8 shadow-[0_28px_70px_-55px_rgba(15,23,42,0.35)]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                  <div>
+                    <div className="text-xl font-bold text-default">Haftalık Test</div>
+                    <div className="text-muted mt-1">
+                      Çoktan seçmeli, boşluk doldurma, eşleştirme ve klasik soruların karıştığı test.
+                    </div>
+                  </div>
+                  <Link
+                    href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
+                    className="inline-flex items-center justify-center rounded-2xl px-7 py-4 font-bold text-white bg-gradient-to-r from-[#2563eb] via-[#6d28d9] to-[#7c3aed] shadow-[0_18px_50px_-24px_rgba(109,40,217,0.6)] hover:shadow-[0_22px_60px_-28px_rgba(109,40,217,0.7)] transition-shadow"
+                  >
+                    Teste Başla →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </main>
+        </section>
+      </div>
     </div>
   );
 }

@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { logger } from '@/utils/logger';
 import { useRouter } from 'next/navigation';
 import { GradeSelector } from './src/components/home/GradeSelector';
-import { Grade } from './src/models/homeTypes';
+import { LessonSelector } from './src/components/home/LessonSelector';
+import { Grade, Lesson } from './src/models/homeTypes';
 import {
   getGradeColor,
   getGradeDescription,
@@ -59,6 +60,43 @@ interface HomeClientProps {
   initialGrades: Grade[];
 }
 
+interface LessonRow {
+  id: number;
+  name: string;
+  icon: string | null;
+  description: string | null;
+  order_no: number | null;
+  slug: string | null;
+  question_count?: number | null;
+}
+
+function getLessonColor(orderNo: number): string {
+  const colors = [
+    'from-indigo-500 to-purple-500',
+    'from-emerald-500 to-teal-500',
+    'from-orange-500 to-amber-500',
+    'from-blue-500 to-cyan-500',
+    'from-pink-500 to-rose-500',
+  ];
+  return colors[Math.abs(orderNo) % colors.length];
+}
+
+function getCurrentAcademicWeekNo() {
+  // Geçici: 1. hafta başlangıcı 8 Eylül 2025 (sonra DB’den dinamik yapılacak)
+  const week1Start = new Date(2025, 8, 8);
+
+  const now = new Date();
+  const start = new Date(week1Start.getFullYear(), week1Start.getMonth(), week1Start.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const diffMs = today.getTime() - start.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const week = Math.floor(diffDays / 7) + 1;
+
+  if (!Number.isFinite(week)) return 1;
+  return Math.max(1, week);
+}
+
 export default function HomeClient({ initialGrades }: HomeClientProps) {
   const router = useRouter();
   const { data: grades, error } = useSWR(
@@ -72,24 +110,111 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
     }
   );
 
-  const handleGradeSelect = (grade: Grade) => {
-    logger.log('[HomeClient handleGradeSelect] Grade secildi:', grade);
-    // Yeni SEO dostu URL: /5-sinif, /6-sinif vb.
-    const url = `/${grade.slug || grade.id + '-sinif'}`;
-    logger.log('[HomeClient handleGradeSelect] Yonlendiriliyor:', url);
+  const [step, setStep] = useState<'grade' | 'lesson'>('grade');
+  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
+  const [lessonsError, setLessonsError] = useState<string | null>(null);
+
+  const currentWeekNo = useMemo(() => {
+    // UI’da 1..30 gösteriyoruz, o yüzden şimdilik 30’a clamp’liyoruz
+    return Math.min(30, getCurrentAcademicWeekNo());
+  }, []);
+
+  const handleGradeSelect = async (grade: Grade) => {
+    logger.log('[HomeClient] Grade secildi:', grade);
+    setSelectedGrade(grade);
+    setStep('lesson');
+    setLessons([]);
+    setLessonsError(null);
+    setIsLoadingLessons(true);
+
+    try {
+      const supabase = createClient();
+
+      // grade -> lesson ilişkisi: lesson_grades(lesson_id, grade_id, is_active)
+      const { data: lgData, error: lgError } = await supabase
+        .from('lesson_grades')
+        .select('lesson_id')
+        .eq('grade_id', parseInt(grade.id, 10))
+        .eq('is_active', true);
+
+      if (lgError) throw lgError;
+
+      const ids = ((lgData as { lesson_id: number }[] | null) || []).map((x) => x.lesson_id);
+
+      if (!ids.length) {
+        setLessons([]);
+        return;
+      }
+
+      const { data: dersler, error: dersError } = await supabase
+        .from('lessons')
+        .select('id, name, icon, description, slug, order_no')
+        .in('id', ids)
+        .eq('is_active', true)
+        .order('order_no', { ascending: true });
+
+      if (dersError) throw dersError;
+
+      const transformed: Lesson[] = ((dersler as LessonRow[] | null) || []).map((l) => ({
+        id: String(l.id),
+        gradeId: grade.id,
+        name: l.name,
+        description: l.description || '',
+        icon: l.icon || '📘',
+        color: getLessonColor(l.order_no ?? 0),
+        unitCount: 0,
+        questionCount: l.question_count ?? 0,
+        slug: l.slug,
+      }));
+
+      setLessons(transformed);
+    } catch (e: unknown) {
+      logger.error('[HomeClient] Dersler cekilemedi:', e);
+      setLessonsError('Dersler yüklenirken bir hata oluştu.');
+    } finally {
+      setIsLoadingLessons(false);
+    }
+  };
+
+  const handleLessonSelect = (lesson: Lesson) => {
+    // /ders sayfası: sinif + ders + hafta
+    const dersParam = lesson.slug || lesson.id;
+    const url = `/ders?sinif=${selectedGrade?.id}&ders=${dersParam}&hafta=${currentWeekNo}`;
+    logger.log('[HomeClient] Ders secildi, yonlendiriliyor:', url);
     router.push(url);
+  };
+
+  const handleBackToGrades = () => {
+    setStep('grade');
+    setSelectedGrade(null);
+    setLessons([]);
+    setLessonsError(null);
+    setIsLoadingLessons(false);
   };
 
   return (
     <div className="min-h-screen">
       <main className="py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto">
-          <GradeSelector 
-            grades={grades || []}
-            isLoading={!grades}
-            error={error?.message}
-            onSelect={handleGradeSelect} 
-          />
+          {step === 'grade' ? (
+            <GradeSelector
+              grades={grades || []}
+              isLoading={!grades}
+              error={error?.message}
+              onSelect={handleGradeSelect}
+            />
+          ) : selectedGrade ? (
+            <LessonSelector
+              grade={selectedGrade}
+              lessons={lessons}
+              isLoading={isLoadingLessons}
+              error={lessonsError}
+              onSelect={handleLessonSelect}
+              onBack={handleBackToGrades}
+            />
+          ) : null}
         </div>
       </main>
 

@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blok Tabanlı Ortamda Yazılım Geliştirme</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222636;
+    --border: #2e3348;
+    --text: #e8eaf0;
+    --text-muted: #8b90a7;
+    --accent1: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --accent4: #f7971e;
+    --accent5: #4facfe;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- HEADER ---- */
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #12151f 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 64px;
+  }
+  .header-badge {
+    background: var(--accent1);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .header-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+  .header-meta span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .progress-mini {
+    width: 120px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-mini-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent1), var(--accent3));
+    border-radius: 99px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  /* ---- LAYOUT ---- */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ---- SIDEBAR ---- */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  .sidebar-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    user-select: none;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    border-left-color: var(--accent1);
+    background: rgba(108,99,255,0.1);
+    color: var(--text);
+  }
+  .nav-item.done { color: var(--accent3); }
+  .nav-item.done .nav-icon { background: rgba(67,233,123,0.15); }
+  .nav-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .nav-check {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--accent3);
+  }
+  .sidebar-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1rem 1.25rem;
+  }
+
+  /* ---- MAIN ---- */
+  .main {
+    padding: 2rem 2.5rem;
+    max-width: 860px;
+  }
+
+  /* ---- SECTION HEADER ---- */
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .section-icon-big {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .section-title-block h1 {
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+  .section-title-block p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ---- CONTENT BLOCKS ---- */
+  .content-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .content-block h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+  .content-block h3 {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 1.25rem 0 0.5rem;
+    color: var(--accent5);
+  }
+  .content-block p, .content-block li {
+    font-size: 0.92rem;
+    color: #c8cad8;
+    line-height: 1.75;
+  }
+  .content-block ul, .content-block ol {
+    padding-left: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .content-block strong { color: var(--text); font-weight: 800; }
+
+  /* table */
+  .content-block table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.75rem;
+    font-size: 0.87rem;
+  }
+  .content-block th {
+    background: var(--surface2);
+    padding: 0.6rem 1rem;
+    text-align: left;
+    font-weight: 800;
+    color: var(--accent5);
+    border-bottom: 1px solid var(--border);
+  }
+  .content-block td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: #c8cad8;
+  }
+  .content-block tr:last-child td { border-bottom: none; }
+
+  /* SVG image block */
+  .svg-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .svg-block svg { width: 100%; height: auto; display: block; }
+  .svg-caption {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.75rem;
+    font-style: italic;
+  }
+
+  /* Misconception block */
+  .misconception {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .misconception-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .misc-wrong {
+    background: rgba(255,101,132,0.08);
+    border: 1px solid rgba(255,101,132,0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.88rem;
+    color: #e8a0ad;
+    display: flex;
+    gap: 0.6rem;
+  }
+  .misc-correct {
+    background: rgba(67,233,123,0.07);
+    border: 1px solid rgba(67,233,123,0.2);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.88rem;
+    color: #96e6b0;
+    display: flex;
+    gap: 0.6rem;
+  }
+  .misc-tip {
+    background: rgba(247,151,30,0.08);
+    border: 1px solid rgba(247,151,30,0.2);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1rem;
+    font-size: 0.85rem;
+    color: #f7c97e;
+    display: flex;
+    gap: 0.6rem;
+  }
+  .misc-icon { flex-shrink: 0; font-size: 1.1rem; }
+
+  /* ---- QUIZ ---- */
+  .quiz-section {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+  }
+  .quiz-section-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent4);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .quiz-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .quiz-q-num {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--accent1);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .quiz-q-text {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+  .quiz-q-statement {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    color: var(--accent5);
+    font-style: italic;
+  }
+
+  /* Single / Multiple choice options */
+  .options-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .option-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: left;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    color: var(--text);
+    font-weight: 600;
+    width: 100%;
+  }
+  .option-btn:hover:not(:disabled) { border-color: var(--accent1); background: rgba(108,99,255,0.08); }
+  .option-btn.selected { border-color: var(--accent1); background: rgba(108,99,255,0.15); }
+  .option-btn.correct { border-color: var(--accent3); background: rgba(67,233,123,0.1); color: var(--accent3); }
+  .option-btn.wrong { border-color: var(--accent2); background: rgba(255,101,132,0.1); color: var(--accent2); }
+  .option-letter {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+    transition: background 0.18s;
+  }
+  .option-btn.correct .option-letter { background: var(--accent3); color: #0f1117; }
+  .option-btn.wrong .option-letter { background: var(--accent2); color: white; }
+  .option-btn.selected .option-letter { background: var(--accent1); color: white; }
+
+  /* True/False */
+  .tf-row { display: flex; gap: 0.75rem; }
+  .tf-btn {
+    flex: 1;
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text);
+    text-align: center;
+    transition: all 0.18s;
+  }
+  .tf-btn:hover:not(:disabled) { border-color: var(--accent1); background: rgba(108,99,255,0.1); }
+  .tf-btn.correct { border-color: var(--accent3); background: rgba(67,233,123,0.1); color: var(--accent3); }
+  .tf-btn.wrong { border-color: var(--accent2); background: rgba(255,101,132,0.1); color: var(--accent2); }
+  .tf-btn.selected { border-color: var(--accent1); background: rgba(108,99,255,0.12); }
+
+  /* Ordering */
+  .ordering-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    cursor: grab;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.18s;
+    user-select: none;
+  }
+  .order-item:active { cursor: grabbing; opacity: 0.7; transform: scale(0.98); }
+  .order-item.dragging { opacity: 0.4; }
+  .order-item.over { border-color: var(--accent1); background: rgba(108,99,255,0.1); }
+  .order-item.correct-order { border-color: var(--accent3); background: rgba(67,233,123,0.07); }
+  .order-item.wrong-order { border-color: var(--accent2); background: rgba(255,101,132,0.07); }
+  .order-num {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+  }
+  .drag-handle { color: var(--text-muted); font-size: 0.8rem; margin-left: auto; }
+
+  /* Matching */
+  .matching-grid { display: grid; gap: 0.75rem; }
+  .match-row { display: flex; gap: 0.75rem; align-items: center; }
+  .match-left, .match-right {
+    flex: 1;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+  }
+  .match-left { background: rgba(108,99,255,0.05); border-color: rgba(108,99,255,0.3); color: #a5a0ff; }
+  .match-right:hover { border-color: var(--accent1); background: rgba(108,99,255,0.1); }
+  .match-right.selected { border-color: var(--accent1); background: rgba(108,99,255,0.15); }
+  .match-right.correct { border-color: var(--accent3); background: rgba(67,233,123,0.1); color: var(--accent3); }
+  .match-right.wrong { border-color: var(--accent2); background: rgba(255,101,132,0.1); color: var(--accent2); }
+  .match-arrow { color: var(--text-muted); font-size: 1rem; flex-shrink: 0; }
+
+  /* Fill blank */
+  .fill-blank-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .blank-word-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .blank-word-btn:hover:not(:disabled) { border-color: var(--accent1); background: rgba(108,99,255,0.1); }
+  .blank-word-btn.used { opacity: 0.3; cursor: default; }
+  .blank-word-btn.correct { border-color: var(--accent3); background: rgba(67,233,123,0.1); color: var(--accent3); }
+  .blank-word-btn.wrong { border-color: var(--accent2); background: rgba(255,101,132,0.1); color: var(--accent2); }
+
+  .fill-blank-text {
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 2;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+  }
+  .fill-blank-slot {
+    display: inline-block;
+    border-bottom: 2px solid var(--accent1);
+    min-width: 100px;
+    padding: 0 8px;
+    font-weight: 800;
+    color: var(--accent1);
+    text-align: center;
+  }
+
+  /* Classical order (drag words) */
+  .word-bank { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .word-chip {
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    color: var(--text);
+  }
+  .word-chip:hover:not(.used):not(:disabled) { border-color: var(--accent1); background: rgba(108,99,255,0.1); }
+  .word-chip.used { opacity: 0.3; cursor: default; }
+  .answer-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px dashed var(--border);
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 0.75rem;
+    align-items: center;
+  }
+  .answer-chip {
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    background: rgba(108,99,255,0.2);
+    border: 1.5px solid var(--accent1);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent1);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .answer-chip:hover { opacity: 0.7; }
+  .answer-chip.correct { background: rgba(67,233,123,0.15); border-color: var(--accent3); color: var(--accent3); }
+  .answer-chip.wrong { background: rgba(255,101,132,0.12); border-color: var(--accent2); color: var(--accent2); }
+
+  /* Quiz actions */
+  .quiz-actions { display: flex; gap: 0.75rem; margin-top: 1rem; align-items: center; flex-wrap: wrap; }
+  .btn-check {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent1);
+    color: white;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-check:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-check:disabled { opacity: 0.4; cursor: default; transform: none; }
+  .btn-hint {
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-hint:hover { border-color: var(--accent4); color: var(--accent4); }
+  .btn-reset {
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    margin-left: auto;
+  }
+  .btn-reset:hover { border-color: var(--text-muted); color: var(--text); }
+
+  /* Feedback */
+  .quiz-feedback {
+    margin-top: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.87rem;
+    font-weight: 600;
+    line-height: 1.6;
+    display: none;
+  }
+  .quiz-feedback.correct {
+    display: block;
+    background: rgba(67,233,123,0.08);
+    border: 1px solid rgba(67,233,123,0.25);
+    color: #96e6b0;
+  }
+  .quiz-feedback.wrong {
+    display: block;
+    background: rgba(255,101,132,0.08);
+    border: 1px solid rgba(255,101,132,0.25);
+    color: #e8a0ad;
+  }
+  .quiz-feedback.hint {
+    display: block;
+    background: rgba(247,151,30,0.08);
+    border: 1px solid rgba(247,151,30,0.2);
+    color: #f7c97e;
+  }
+
+  /* ---- SECTION NAV ---- */
+  .section-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-nav:hover { border-color: var(--accent1); color: var(--accent1); transform: translateY(-1px); }
+  .btn-nav-primary {
+    background: var(--accent1);
+    border-color: var(--accent1);
+    color: white;
+  }
+  .btn-nav-primary:hover { background: #7c75ff; border-color: #7c75ff; color: white; }
+  .btn-nav:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+  /* Score badge */
+  .score-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* ---- ANIMATIONS ---- */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  .celebrate { animation: pulse 0.5s ease 2; }
+
+  /* ---- REVIEW SECTION ---- */
+  .review-banner {
+    background: linear-gradient(135deg, rgba(108,99,255,0.15), rgba(67,233,123,0.1));
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  .review-banner h2 { font-size: 1.1rem; font-weight: 900; margin-bottom: 0.3rem; }
+  .review-banner p { font-size: 0.88rem; color: var(--text-muted); }
+
+  /* Hint text */
+  .hint-text {
+    display: none;
+    font-size: 0.82rem;
+    color: var(--accent4);
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    background: rgba(247,151,30,0.07);
+    border: 1px solid rgba(247,151,30,0.15);
+  }
+  .hint-text.visible { display: block; }
+
+  /* ---- RESPONSIVE ---- */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .main { padding: 1.25rem; max-width: 100%; }
+    .header-meta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-badge">5. Sınıf</div>
+  <div class="header-title">Blok Tabanlı Ortamda Yazılım Geliştirme</div>
+  <div class="header-meta">
+    <span>⏱ 40 dk</span>
+    <div class="progress-mini"><div class="progress-mini-fill" id="progressFill"></div></div>
+    <span id="progressText" style="font-weight:800;color:var(--text);">0/5</span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-label">Modül İçeriği</div>
+    <div id="navItems"></div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main" id="mainContent"></main>
+</div>
+
+<script>
+// =============================================
+// DATA
+// =============================================
+const data = {
+  sections: [
+    {
+      id: "section_01", order: 1, title: "Blok Tabanlı Programlama Nedir?", icon: "🧩",
+      content: [
+        { type: "markdown", body: `<h2>Blok Tabanlı Programlama</h2><p>Bilgisayarlara iş yaptırmak için onlara komutlar vermemiz gerekir. Bu komutları yazmak için <strong>programlama dilleri</strong> kullanılır.</p><p style="margin-top:0.75rem">Blok tabanlı programlama, komutları yazmak yerine <strong>hazır blokları sürükleyip birleştirerek</strong> program oluşturmamızı sağlar. Tıpkı Lego parçalarını birbirine geçirmek gibi!</p><h3>Blok Tabanlı Ortamların Özellikleri</h3><ul><li>Komutlar hazır bloklar hâlinde sunulur</li><li>Bloklar fare ile sürüklenip birleştirilir</li><li>Yazım hatası yapma riski çok azdır</li><li>Görsel olduğu için anlaşılması kolaydır</li><li>Scratch, Code.org ve MakeCode en yaygın örneklerdir</li></ul>` },
+        { type: "svg", caption: "Blok tabanlı programlamada üç temel adım: seç, birleştir, çalıştır", svg: `<svg viewBox="0 0 620 260" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif"><rect width="620" height="260" fill="#1a1d27" rx="10"/><text x="310" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#e8eaf0">Blok Tabanlı Programlama Nasıl Çalışır?</text><defs><marker id="ok1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#8b90a7"/></marker></defs><rect x="20" y="55" width="140" height="65" rx="10" fill="#2563eb"/><text x="90" y="82" text-anchor="middle" font-size="13" fill="white" font-weight="bold">Blok Seç</text><text x="90" y="100" text-anchor="middle" font-size="11" fill="white">(Hareket, Ses,</text><text x="90" y="116" text-anchor="middle" font-size="11" fill="white">Kontrol...)</text><line x1="162" y1="87" x2="218" y2="87" stroke="#8b90a7" stroke-width="2" marker-end="url(#ok1)"/><rect x="220" y="55" width="140" height="65" rx="10" fill="#16a34a"/><text x="290" y="82" text-anchor="middle" font-size="13" fill="white" font-weight="bold">Birleştir</text><text x="290" y="100" text-anchor="middle" font-size="11" fill="white">(Blokları sürükle</text><text x="290" y="116" text-anchor="middle" font-size="11" fill="white">ve birleştir)</text><line x1="362" y1="87" x2="418" y2="87" stroke="#8b90a7" stroke-width="2" marker-end="url(#ok1)"/><rect x="420" y="55" width="140" height="65" rx="10" fill="#ea580c"/><text x="490" y="82" text-anchor="middle" font-size="13" fill="white" font-weight="bold">Çalıştır</text><text x="490" y="100" text-anchor="middle" font-size="11" fill="white">(Programı test et</text><text x="490" y="116" text-anchor="middle" font-size="11" fill="white">ve sonucu gör)</text><rect x="20" y="155" width="580" height="60" rx="8" fill="#1e2a4a"/><text x="310" y="178" text-anchor="middle" font-size="12" fill="#93c5fd" font-weight="bold">Örnek: Scratch ile Kedi Karakterini Hareket Ettirme</text><text x="310" y="198" text-anchor="middle" font-size="11" fill="#bfdbfe">"Yeşil bayrak tıklandığında" + "10 adım git" + "sese dönük" bloklarını birleştir → Hazır!</text><text x="310" y="240" text-anchor="middle" font-size="11" fill="#8b90a7">Blok tabanlı ortamlarda kod yazmak yerine blokları birleştirerek program oluşturursun.</text></svg>` },
+        { type: "misconception", wrong: "Blok tabanlı programlama gerçek programlama sayılmaz; sadece oyun gibi bir şeydir.", correct: "Blok tabanlı programlama gerçek bir yazılım geliştirme yöntemidir. Aynı mantık ve algoritmayı kullanır; yalnızca kod yazmak yerine blokları birleştirirsin.", tip: "Scratch ile gerçek oyunlar, animasyonlar ve hikâyeler geliştirilebilir. Bu da onu gerçek bir programlama aracı yapar." }
+      ],
+      quiz: [
+        { id:"q01", type:"single_choice", question:"Blok tabanlı programlamada komutlar nasıl verilir?", options:["Klavyeyle kod yazılarak","Hazır bloklar sürüklenip birleştirilerek","Sesli komutlar söylenerek","Matematiksel formüller girilerek"], correct:1, hint:"Lego parçalarını birbirine geçirmek gibi düşün.", explanation:"Blok tabanlı ortamlarda komutlar yazmak yerine hazır bloklar fare ile sürüklenip birleştirilir." },
+        { id:"q02", type:"true_false", question:"Aşağıdaki ifade doğru mu yoksa yanlış mı?", statement:"Scratch, blok tabanlı programlama ortamlarından biridir.", correct:true, hint:"Scratch'te kod yazmak yerine renkli blokları birleştiririz.", explanation:"Scratch, MIT tarafından geliştirilen ve blok tabanlı programlamayı temel alan yaygın bir eğitim ortamıdır." },
+        { id:"q03", type:"single_choice", question:"Blok tabanlı programlamanın metin tabanlı programlamaya göre en önemli avantajı nedir?", options:["Daha hızlı çalışan programlar üretir","Daha az bellek kullanır","Yazım hatası yapma riski çok düşüktür","Yalnızca oyun geliştirmede kullanılır"], correct:2, hint:"Blokları sürüklediğimizde harf ya da noktalama işareti hatasına düşer miyiz?", explanation:"Blok tabanlı ortamlarda blokları birleştirdiğimiz için yanlış harf yazma veya virgül unutma gibi yazım hataları yaşanmaz." },
+        { id:"q04", type:"classical_order", question:"Blok tabanlı ortam olmadan yazılım öğrenmek çok daha zor olurdu, çünkü...", words:["kod yazmak","başlangıçta","hata yapmayı","çok kolaylaştırır"], answer:"kod yazmak başlangıçta hata yapmayı çok kolaylaştırır", hint:"Blok tabanlı ortam hangi sorunu ortadan kaldırır?", explanation:"Metin tabanlı kodda küçük bir yazım hatası programı çalıştırmaz. Blok tabanlı ortam bu engeli kaldırarak öğrenmeyi kolaylaştırır." }
+      ]
+    },
+    {
+      id: "section_02", order: 2, title: "Yazılım Geliştirme Sürecini Planlama", icon: "📋",
+      content: [
+        { type: "markdown", body: `<h2>Önce Planla, Sonra Yap!</h2><p>Bir yazılım geliştirmeye başlamadan önce <strong>ne yapacağını</strong> ve <strong>nasıl yapacağını</strong> düşünmen gerekir. Bu aşamaya <strong>planlama</strong> denir.</p><h3>Planlama Aşamasında Sorulacak Sorular</h3><ol><li><strong>Ne yapacağım?</strong> — Projenin amacı nedir?</li><li><strong>Kullanıcı kim?</strong> — Bu yazılımı kim kullanacak?</li><li><strong>Hangi adımları izleyeceğim?</strong> — Algoritma nedir?</li><li><strong>Hangi blokları kullanacağım?</strong> — Hangi kategoriler gerekli?</li><li><strong>Nasıl test edeceğim?</strong> — Çalışıp çalışmadığını nasıl anlayacağım?</li></ol><h3>Planlama Neden Önemlidir?</h3><p>Plansız başlanan projeler genellikle yarıda kalır ya da hedeften uzaklaşır. İyi bir plan, seni doğru yolda tutar ve zaman kazandırır.</p>` },
+        { type: "svg", caption: "Yazılım geliştirme süreci: planlama ile başlar, değerlendirme ile tamamlanır", svg: `<svg viewBox="0 0 580 300" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif"><rect width="580" height="300" fill="#1a1d27" rx="10"/><text x="290" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#e8eaf0">Yazılım Geliştirme Süreci</text><defs><marker id="ok2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#8b90a7"/></marker></defs><rect x="30" y="55" width="100" height="50" rx="8" fill="#7c3aed"/><text x="80" y="78" text-anchor="middle" font-size="12" fill="white" font-weight="bold">1. Planlama</text><text x="80" y="96" text-anchor="middle" font-size="10" fill="white">Hedef belirle</text><line x1="132" y1="80" x2="158" y2="80" stroke="#8b90a7" stroke-width="2" marker-end="url(#ok2)"/><rect x="160" y="55" width="100" height="50" rx="8" fill="#2563eb"/><text x="210" y="78" text-anchor="middle" font-size="12" fill="white" font-weight="bold">2. Tasarım</text><text x="210" y="96" text-anchor="middle" font-size="10" fill="white">Görsel planla</text><line x1="262" y1="80" x2="288" y2="80" stroke="#8b90a7" stroke-width="2" marker-end="url(#ok2)"/><rect x="290" y="55" width="100" height="50" rx="8" fill="#16a34a"/><text x="340" y="78" text-anchor="middle" font-size="12" fill="white" font-weight="bold">3. Oluşturma</text><text x="340" y="96" text-anchor="middle" font-size="10" fill="white">Blokları kur</text><line x1="392" y1="80" x2="418" y2="80" stroke="#8b90a7" stroke-width="2" marker-end="url(#ok2)"/><rect x="420" y="55" width="120" height="50" rx="8" fill="#ea580c"/><text x="480" y="78" text-anchor="middle" font-size="12" fill="white" font-weight="bold">4. Değerlendirme</text><text x="480" y="96" text-anchor="middle" font-size="10" fill="white">Test et ve düzelt</text><rect x="30" y="135" width="520" height="55" rx="8" fill="#1e1a3a"/><text x="290" y="157" text-anchor="middle" font-size="12" fill="#a5a0ff" font-weight="bold">Planlama Soruları</text><text x="290" y="176" text-anchor="middle" font-size="11" fill="#c4c0f0">Ne yapacağım? | Kullanıcı kim? | Hangi adımlar? | Hangi bloklar?</text><rect x="30" y="210" width="250" height="60" rx="8" fill="#0f2340"/><text x="155" y="233" text-anchor="middle" font-size="11" fill="#60a5fa" font-weight="bold">İyi Plan</text><text x="155" y="250" text-anchor="middle" font-size="10" fill="#93c5fd">Hedef belli, adımlar net,</text><text x="155" y="265" text-anchor="middle" font-size="10" fill="#93c5fd">zaman kazandırır</text><rect x="300" y="210" width="250" height="60" rx="8" fill="#2d0f0f"/><text x="425" y="233" text-anchor="middle" font-size="11" fill="#f87171" font-weight="bold">Plansız Başlamak</text><text x="425" y="250" text-anchor="middle" font-size="10" fill="#fca5a5">Yön kaybolur, proje</text><text x="425" y="265" text-anchor="middle" font-size="10" fill="#fca5a5">yarıda kalır</text><text x="290" y="292" text-anchor="middle" font-size="10" fill="#8b90a7">Planlama, yazılım geliştirmenin ilk ve en kritik adımıdır.</text></svg>` },
+        { type: "misconception", wrong: "Planlama zaman kaybıdır; hemen Scratch'i açıp blok koymaya başlamak daha hızlıdır.", correct: "Planlama olmadan yapılan projeler genellikle yanlış yöne gider ve daha çok zaman harcanır. Plan yapmak seni hızlandırır.", tip: "Önce kağıda çiz, sonra ekrana geç. Kısa bir plan bile büyük zaman kazandırır." }
+      ],
+      quiz: [
+        { id:"q05", type:"ordering", question:"Blok tabanlı ortamda yazılım geliştirme sürecinin adımlarını doğru sıraya diz.", items:["Projenin amacını ve kullanıcısını belirle","Tasarımı ve akışı planla","Blokları kullanarak yazılımı oluştur","Yazılımı çalıştırarak test et ve hataları düzelt"], correctOrder:[0,1,2,3], hint:"Önce amaç, sonra plan, sonra yapım, en son test.", explanation:"Yazılım geliştirme; planlama, tasarım, oluşturma ve değerlendirme şeklinde ilerler. Bu sıralamaya uymak projenin başarısını artırır." },
+        { id:"q06", type:"multiple_choice", question:"Aşağıdakilerden hangileri iyi bir planlama aşamasında yanıtlanması gereken sorulardandır?", options:["Projenin amacı nedir?","Kullanıcı kim olacak?","Bilgisayarı kim üretti?","Hangi bloklar kullanılacak?"], correct:[0,1,3], hint:"Planlamada yazılımın kendisiyle ilgili sorular sorulur.", explanation:"Planlama aşamasında projenin amacı, hedef kullanıcı ve kullanılacak araçlar belirlenir. Bilgisayarın üreticisi yazılım planlamasıyla ilgili değildir." },
+        { id:"q07", type:"true_false", question:"Aşağıdaki ifade doğru mu yoksa yanlış mı?", statement:"Planlama aşamasını atlayıp doğrudan blok eklemeye başlamak, projenin daha hızlı tamamlanmasını sağlar.", correct:false, hint:"Plansız başlanan projelerde ne sık yaşanır?", explanation:"Plansız başlanan projeler genellikle yanlış yöne gider, sürekli değiştirilmek zorunda kalınır ve sonunda daha fazla zaman harcanır." },
+        { id:"q08", type:"classical_order", question:"Planlama aşamasını atlasaydık ne olurdu?", words:["Projemiz","nereye gittiğini","bilemeden","dağılıp giderdi"], answer:"Projemiz nereye gittiğini bilemeden dağılıp giderdi", hint:"Hedefsiz bir yolculukta ne yaşanır?", explanation:"Planlama olmadan yazılım geliştirmek, haritasız bir yolculuk gibidir. Nereye gideceğini bilemezsin ve projen yarıda kalabilir." }
+      ]
+    },
+    {
+      id: "section_03", order: 3, title: "Blok Tabanlı Ortamda Tasarım", icon: "🎨",
+      content: [
+        { type: "markdown", body: `<h2>Yazılımı Tasarlamak</h2><p>Planlama bittikten sonra sıra <strong>tasarıma</strong> gelir. Tasarım, yazılımın nasıl görüneceğini ve nasıl çalışacağını belirleme aşamasıdır.</p><h3>Blok Tabanlı Ortamda Tasarım Adımları</h3><ol><li><strong>Karakterleri ve sahneleri belirle</strong> — Hangi sprite'lar kullanılacak?</li><li><strong>Arka planı seç veya çiz</strong> — Sahne nasıl görünecek?</li><li><strong>Akış şemasını çiz</strong> — Program hangi sırayla çalışacak?</li><li><strong>Olayları planla</strong> — Hangi butona basıldığında ne olacak?</li></ol><h3>Tasarımda Kullanılan Temel Kavramlar</h3><table><tr><th>Kavram</th><th>Açıklama</th></tr><tr><td><strong>Sprite</strong></td><td>Programdaki hareketli karakter veya nesne</td></tr><tr><td><strong>Sahne</strong></td><td>Karakterlerin hareket ettiği arka plan</td></tr><tr><td><strong>Olay</strong></td><td>Bir eylemi başlatan tetikleyici (tık, tuş, vs.)</td></tr><tr><td><strong>Döngü</strong></td><td>Tekrar eden komutlar dizisi</td></tr><tr><td><strong>Koşul</strong></td><td>Belirli bir durumda yapılacak işlem</td></tr></table>` },
+        { type: "markdown", body: `<h2>Günlük Hayattan Tasarım Örneği</h2><p>Diyelim ki bir <strong>labirent oyunu</strong> tasarlamak istiyorsun.</p><p style="margin-top:0.75rem"><strong style="color:var(--accent5)">Tasarım Kararları:</strong></p><ul style="margin-top:0.5rem"><li><strong>Karakter:</strong> Bir top veya kahraman sprite</li><li><strong>Sahne:</strong> Labirent çizilmiş bir arka plan</li><li><strong>Olaylar:</strong> Ok tuşlarına basılınca karakterin hareket etmesi</li><li><strong>Koşul:</strong> Karakter duvara çarparsa durur; çıkışa ulaşırsa oyun biter</li><li><strong>Amaç:</strong> Başlangıçtan çıkışa kadar ulaşmak</li></ul><p style="margin-top:0.75rem">Bu kararları önceden almak, blokları ekleme aşamasını çok daha kolaylaştırır.</p>` }
+      ],
+      quiz: [
+        { id:"q09", type:"matching", question:"Blok tabanlı tasarım kavramlarını doğru açıklamalarıyla eşleştir.", pairs:[{left:"Sprite",right:"Programdaki hareketli karakter ya da nesne"},{left:"Olay",right:"Bir eylemi başlatan tetikleyici"},{left:"Döngü",right:"Tekrar eden komutlar dizisi"},{left:"Koşul",right:"Belirli bir durumda yapılacak işlem"}], hint:"Her kavramın tanımını dikkatlice oku; en belirgin özelliğini bul.", explanation:"Sprite hareket eden nesne, olay tetikleyici, döngü tekrar, koşul ise şarta bağlı işlem demektir." },
+        { id:"q10", type:"fill_blank", question:"Boşluğu uygun kelimeyle doldur.", question_text:"Blok tabanlı ortamda karakterlerin hareket ettiği arka plana ________ denir.", accepted:["sahne"], distractors:["sprite","olay","döngü"], hint:"Tiyatroda oyuncuların üzerinde oynadığı zemine ne denir?", explanation:"Scratch gibi ortamlarda arka plan 'sahne' olarak adlandırılır. Karakterler (sprite'lar) sahne üzerinde hareket eder." },
+        { id:"q11", type:"single_choice", question:"Bir labirent oyununda 'karakter duvara çarparsa geri döner' ifadesi hangi kavrama örnek oluşturur?", options:["Döngü","Sprite","Koşul","Sahne"], correct:2, hint:"Bu cümlede 'eğer ... ise' yapısı gizli.", explanation:"Koşul, belirli bir durum gerçekleştiğinde yapılacak işlemi belirtir. 'Eğer duvara çarparsa geri dön' bir koşul ifadesidir." },
+        { id:"q12", type:"classical_order", question:"Tasarım aşamasını hiç atlamadan oluşturma aşamasına geçen biri ne kazanır?", words:["Hangi blokları","nereye koyacağını","önceden bildiğinden","daha az hata yapar"], answer:"Hangi blokları nereye koyacağını önceden bildiğinden daha az hata yapar", hint:"Tasarım sana neyi önceden belirleme imkânı verir?", explanation:"Tasarım aşamasında akış, karakterler ve olaylar belirlenir. Bu bilgilerle oluşturma aşamasına giren kişi daha az deneme-yanılma yapar." }
+      ]
+    },
+    {
+      id: "section_04", order: 4, title: "Yazılımı Oluşturma: Blokları Bir Araya Getirme", icon: "🔧",
+      content: [
+        { type: "markdown", body: `<h2>Blokları Kullanarak Yazılımı Oluşturmak</h2><p>Planlama ve tasarım bittikten sonra sıra <strong>oluşturma</strong> aşamasına gelir.</p><h3>Scratch'te Temel Blok Kategorileri</h3><ul><li><strong>Hareket:</strong> Sprite'ı hareket ettirme, döndürme</li><li><strong>Görünüm:</strong> Kostüm değiştirme, konuşma balonu gösterme</li><li><strong>Ses:</strong> Müzik veya ses çalma</li><li><strong>Olaylar:</strong> Yeşil bayrak, tuşa basma gibi tetikleyiciler</li><li><strong>Kontrol:</strong> Döngüler ve koşullar</li><li><strong>Algılama:</strong> Nesneye değme, fare pozisyonu</li><li><strong>Değişkenler:</strong> Skor, can gibi sayısal değerler</li></ul><h3>Oluşturma Sürecinde İpuçları</h3><ol><li>Her şeyi aynı anda yapmaya çalışma; adım adım ilerle</li><li>Her bloğu ekledikten sonra test et</li><li>Blokların birbirine doğru bağlandığından emin ol</li><li>Projeyi sık sık kaydet</li></ol>` },
+        { type: "misconception", wrong: "Bir blok ekledikten sonra programın tamamını bitirip en sonda test etmek daha verimlidir.", correct: "Her adımda test etmek, hataları erken fark etmeni sağlar. Sonradan bulunacak hatalar çok daha zor düzeltilir.", tip: "Her yeni bloğu ekledikten sonra 'Yeşil bayrak'a tıkla ve ne olduğuna bak. Küçük testler büyük sorunları önler." },
+        { type: "markdown", body: `<h2>Örnek: Adım Adım Yazılım Oluşturma</h2><p><strong>Amaç:</strong> Karakterin klavye ok tuşlarıyla hareket etmesi</p><br><p><strong style="color:var(--accent1)">Adım 1:</strong> <code style="background:var(--surface2);padding:2px 8px;border-radius:4px;font-size:0.85rem">Yeşil bayrak tıklandığında</code> bloğunu ekle</p><br><p><strong style="color:var(--accent1)">Adım 2:</strong> <code style="background:var(--surface2);padding:2px 8px;border-radius:4px;font-size:0.85rem">Sürekli</code> döngü bloğunu altına bağla</p><br><p><strong style="color:var(--accent1)">Adım 3:</strong> Döngünün içine <code style="background:var(--surface2);padding:2px 8px;border-radius:4px;font-size:0.85rem">Eğer sağ ok tuşuna basılıyorsa</code> koşul bloğunu ekle</p><br><p><strong style="color:var(--accent1)">Adım 4:</strong> Koşulun içine <code style="background:var(--surface2);padding:2px 8px;border-radius:4px;font-size:0.85rem">10 adım git</code> bloğunu ekle</p><br><p><strong style="color:var(--accent3)">Adım 5:</strong> Yeşil bayrağa bas ve sağ ok tuşuna bas — karakter hareket eder! ✅</p>` }
+      ],
+      quiz: [
+        { id:"q13", type:"single_choice", question:"Scratch'te 'Eğer ... ise' yapısı hangi blok kategorisinde yer alır?", options:["Hareket","Görünüm","Kontrol","Algılama"], correct:2, hint:"Hangi kategori 'döngü' ve 'koşul' bloklarını içerir?", explanation:"Koşullar ve döngüler 'Kontrol' kategorisinde yer alır. 'Eğer ... ise' bloğu bu kategorinin en temel elemanıdır." },
+        { id:"q14", type:"multiple_choice", question:"Oluşturma aşamasında hangi iyi uygulamalar doğrudur?", options:["Her bloğu ekledikten sonra test etmek","Projeyi sık sık kaydetmek","Tüm blokları ekleyip en sonda bir kez test etmek","Adım adım ilerleyerek tüm programı tamamlamak"], correct:[0,1,3], hint:"Hangi seçenekler hatayı erken bulmana ve projeyi güvende tutmana yardımcı olur?", explanation:"Sık test etmek hataları erken bulmayı, sık kaydetmek veri kaybını engellemeyi, adım adım ilerlemek ise karmaşayı azaltmayı sağlar." },
+        { id:"q15", type:"fill_blank", question:"Boşluğu doğru kelimeyle tamamla.", question_text:"Scratch'te karakterin hareketini, sesini, kostümünü ve olaylarını düzenleyen yapıların tümü ________ olarak adlandırılır.", accepted:["blok","bloklar"], distractors:["sprite","sahne","değişken"], hint:"Bu yapılar sürüklenip birleştirilir ve komut görevi görür.", explanation:"Blok tabanlı ortamlarda tüm komutlar 'blok' adı verilen yapılarla temsil edilir. Her blok belirli bir görevi yerine getirir." },
+        { id:"q16", type:"classical_order", question:"Blok tabanlı ortamda adım adım ilerlemenin en belirgin özelliği nedir?", words:["Her adımın","hemen test edilebilir","ve hataların","erken bulunmasını sağlaması"], answer:"Her adımın hemen test edilebilir ve hataların erken bulunmasını sağlaması", hint:"Her eklemeden sonra 'yeşil bayrak'a basmak ne avantajı sağlar?", explanation:"Adım adım ilerleme sayesinde her yeni bloğun doğru çalışıp çalışmadığı anında kontrol edilebilir ve hatalar birikemeden giderilir." }
+      ]
+    },
+    {
+      id: "section_05", order: 5, title: "Yazılımı Değerlendirme ve Geliştirme", icon: "✅",
+      content: [
+        { type: "markdown", body: `<h2>Oluşturduğun Yazılımı Değerlendirmek</h2><p>Yazılım tamamlandıktan sonra <strong>değerlendirme</strong> aşaması başlar. Bu aşamada şu soruları sormalısın:</p><ul style="margin-top:0.5rem"><li>Program başta belirlediğim amaca ulaşıyor mu?</li><li>Kullanıcı programı kolayca kullanabiliyor mu?</li><li>Hatalar var mı? Varsa nerede?</li><li>Neyi daha iyi yapabilirdim?</li></ul><h3>Değerlendirme Yöntemleri</h3><ol><li><strong>Kendi kendine test:</strong> Programı farklı şekillerde çalıştır</li><li><strong>Arkadaş testi:</strong> Programı başka birine kullandır ve gözlemle</li><li><strong>Geri bildirim:</strong> Kullanıcının ne düşündüğünü sor</li><li><strong>Hata ayıklama (debug):</strong> Yanlış çalışan blokları bul ve düzelt</li></ol><h3>Hata Türleri</h3><table><tr><th>Hata Türü</th><th>Açıklama</th><th>Örnek</th></tr><tr><td><strong>Mantık hatası</strong></td><td>Program çalışır ama yanlış sonuç verir</td><td>Karakter yanlış yöne gider</td></tr><tr><td><strong>Eksik blok</strong></td><td>Bir adım unutulmuştur</td><td>Skor hiç artmaz</td></tr><tr><td><strong>Yanlış koşul</strong></td><td>Koşul yanlış kurulmuştur</td><td>Oyun hiç bitmez</td></tr></table>` },
+        { type: "markdown", body: `<h2>Geliştirme Döngüsü</h2><p>Yazılım geliştirme tek seferlik bir iş değildir. Değerlendirme sonunda yeni fikirler ve hatalar çıkar; bunları düzeltirsin ve projen gelişir.</p><p style="margin-top:0.75rem"><strong style="color:var(--accent5)">Döngü şu şekilde işler:</strong></p><p style="margin-top:0.5rem;font-family:'Space Mono',monospace;font-size:0.82rem;background:var(--surface2);padding:0.75rem 1rem;border-radius:8px;color:var(--accent3)">Oluştur → Test Et → Değerlendir → Düzelt → Tekrar Test Et</p><p style="margin-top:0.75rem">Her döngüde yazılımın daha iyi hâle gelir. Büyük yazılım şirketleri de aynı döngüyü kullanır!</p><h3>İyi Bir Değerlendirme İçin Öneriler</h3><ul><li>Neyin işe yarayıp neyin yaramadığını not al</li><li>Hatayı bulunca hemen düzelt, biriktirme</li><li>Kullanıcının bakış açısıyla düşün</li><li>Projeni başkalarıyla paylaş ve geri bildirim iste</li></ul>` }
+      ],
+      quiz: [
+        { id:"q17", type:"true_false", question:"Aşağıdaki ifade doğru mu yoksa yanlış mı?", statement:"Program hatasız çalışıyorsa değerlendirme aşamasına gerek yoktur.", correct:false, hint:"Değerlendirme yalnızca hata bulmak için midir?", explanation:"Değerlendirme sadece hata bulmak için değil; projenin amacına ulaşıp ulaşmadığını, kullanıcı deneyimini ve geliştirilecek noktaları tespit etmek için de yapılır." },
+        { id:"q18", type:"matching", question:"Hata türlerini doğru açıklamalarıyla eşleştir.", pairs:[{left:"Mantık hatası",right:"Program çalışır ama yanlış sonuç verir"},{left:"Eksik blok",right:"Bir adım unutulmuştur"},{left:"Yanlış koşul",right:"Koşul yanlış kurulduğundan beklenmedik davranış oluşur"}], hint:"Her hata türünün adı, ne tür bir sorun olduğuna dair ipucu verir.", explanation:"Mantık hatasında program çalışır ama istenilen sonucu vermez. Eksik blokta bir adım atlanmıştır. Yanlış koşulda ise koşulun kendisi hatalı yazılmıştır." },
+        { id:"q19", type:"single_choice", question:"Bir oyun projesinde karakterin sağ ok tuşuna basılmasına rağmen sola gittiğini fark ettik. Bu hangi tür bir hatadır?", options:["Eksik blok","Mantık hatası","Yanlış kaydetme","Sahne hatası"], correct:1, hint:"Program çalışıyor; yalnızca sonuç yanlış.", explanation:"Karakter hareket ediyor yani program çalışıyor; ancak yön yanlış. Bu, blokların mantığının hatalı kurulduğunu gösterir. Bu tür hatalara 'mantık hatası' denir." },
+        { id:"q20", type:"multiple_choice", question:"Yazılım değerlendirme aşamasında hangileri yapılmalıdır?", options:["Programı farklı durumlarla test etmek","Başkasına kullandırarak geri bildirim almak","Projeyi hiç değiştirmemek","Hataları bulup düzeltmek"], correct:[0,1,3], hint:"Değerlendirme, geliştirme için yapılır; durağan kalmak değerlendirmenin amacına ters düşer.", explanation:"Test etmek, geri bildirim almak ve hataları düzeltmek değerlendirme sürecinin temel adımlarıdır." },
+        { id:"q21", type:"classical_order", question:"Yazılımı arkadaşına kullandırmak sana ne kazandırır?", words:["Kendi göremediğin","hataları ve","kullanıcı bakış açısını","fark etmeni sağlar"], answer:"Kendi göremediğin hataları ve kullanıcı bakış açısını fark etmeni sağlar", hint:"Yapan kişi bazen hatayı göremez; başkası neden görebilir?", explanation:"Bir projeyi yapan kişi zamanla kör nokta oluşturur ve bazı hataları göremez. Başka bir kullanıcı farklı bir gözle yaklaşarak gizli sorunları ortaya çıkarır." }
+      ]
+    }
+  ]
+};
+
+// =============================================
+// STATE
+// =============================================
+let currentSection = 0;
+const quizState = {}; // id -> { answered, correct }
+const completedSections = new Set();
+
+// =============================================
+// NAV RENDER
+// =============================================
+function renderNav() {
+  const nav = document.getElementById('navItems');
+  nav.innerHTML = data.sections.map((s, i) => `
+    <div class="nav-item ${i === currentSection ? 'active' : ''} ${completedSections.has(i) ? 'done' : ''}"
+         onclick="goToSection(${i})">
+      <div class="nav-icon">${s.icon}</div>
+      <div style="flex:1;line-height:1.3">${s.title}</div>
+      ${completedSections.has(i) ? '<div class="nav-check">✓</div>' : ''}
+    </div>
+  `).join('<hr class="sidebar-divider">');
+
+  // progress
+  const done = completedSections.size;
+  const total = data.sections.length;
+  document.getElementById('progressFill').style.width = (done/total*100)+'%';
+  document.getElementById('progressText').textContent = done+'/'+total;
+}
+
+// =============================================
+// SECTION RENDER
+// =============================================
+function renderSection(idx) {
+  const s = data.sections[idx];
+  const main = document.getElementById('mainContent');
+
+  let html = `
+    <div class="section-header">
+      <div class="section-icon-big">${s.icon}</div>
+      <div class="section-title-block">
+        <p>Bölüm ${s.order} / ${data.sections.length}</p>
+        <h1>${s.title}</h1>
+      </div>
+    </div>
+  `;
+
+  // content blocks
+  s.content.forEach(block => {
+    if (block.type === 'markdown') {
+      html += `<div class="content-block">${block.body}</div>`;
+    } else if (block.type === 'svg') {
+      html += `<div class="svg-block">${block.svg}<div class="svg-caption">${block.caption}</div></div>`;
+    } else if (block.type === 'misconception') {
+      html += `
+        <div class="misconception">
+          <div class="misconception-title">⚠️ Yaygın Yanlış Anlama</div>
+          <div class="misc-wrong"><span class="misc-icon">✗</span><div>${block.wrong}</div></div>
+          <div class="misc-correct"><span class="misc-icon">✓</span><div>${block.correct}</div></div>
+          <div class="misc-tip"><span class="misc-icon">💡</span><div>${block.tip}</div></div>
+        </div>`;
+    }
+  });
+
+  // quiz
+  if (s.quiz && s.quiz.length > 0) {
+    html += `<div class="quiz-section"><div class="quiz-section-label">🎯 Bölüm Soruları</div>`;
+    s.quiz.forEach((q, qi) => {
+      html += renderQuiz(q, qi);
+    });
+    html += `</div>`;
+  }
+
+  // nav buttons
+  html += `
+    <div class="section-nav">
+      <button class="btn-nav" onclick="goToSection(${idx-1})" ${idx===0?'disabled':''}>← Önceki</button>
+      <span class="score-badge" id="sectionScore_${idx}"></span>
+      <button class="btn-nav btn-nav-primary" onclick="nextSection(${idx})">
+        ${idx === data.sections.length-1 ? '🎉 Tamamla' : 'Sonraki →'}
+      </button>
+    </div>`;
+
+  main.innerHTML = html;
+  main.scrollTop = 0;
+  window.scrollTo(0,0);
+
+  // restore state
+  s.quiz?.forEach(q => {
+    if (quizState[q.id]) restoreQuizUI(q, quizState[q.id]);
+  });
+
+  updateSectionScore(idx);
+  initDragDrop();
+}
+
+// =============================================
+// QUIZ RENDER
+// =============================================
+function renderQuiz(q, qi) {
+  const letters = ['A','B','C','D','E'];
+  let body = '';
+
+  if (q.type === 'single_choice') {
+    body = `<div class="options-list">${q.options.map((o,i)=>`
+      <button class="option-btn" id="opt_${q.id}_${i}" onclick="selectSingle('${q.id}',${i})">
+        <span class="option-letter">${letters[i]}</span>${o}
+      </button>`).join('')}</div>`;
+  } else if (q.type === 'multiple_choice') {
+    body = `<div class="options-list">${q.options.map((o,i)=>`
+      <button class="option-btn" id="opt_${q.id}_${i}" onclick="toggleMulti('${q.id}',${i})">
+        <span class="option-letter">${letters[i]}</span>${o}
+      </button>`).join('')}</div>`;
+  } else if (q.type === 'true_false') {
+    body = `
+      <div class="quiz-q-statement">${q.statement}</div>
+      <div class="tf-row">
+        <button class="tf-btn" id="tf_${q.id}_true" onclick="selectTF('${q.id}',true)">✓ Doğru</button>
+        <button class="tf-btn" id="tf_${q.id}_false" onclick="selectTF('${q.id}',false)">✗ Yanlış</button>
+      </div>`;
+  } else if (q.type === 'ordering') {
+    body = `<div class="ordering-list" id="order_${q.id}">
+      ${q.items.map((item,i)=>`
+        <div class="order-item" data-id="${q.id}" data-idx="${i}" draggable="true">
+          <span class="order-num">${i+1}</span>
+          <span>${item}</span>
+          <span class="drag-handle">⠿</span>
+        </div>`).join('')}
+    </div>`;
+  } else if (q.type === 'matching') {
+    // shuffle rights
+    const shuffled = [...q.pairs].sort(()=>Math.random()-0.5);
+    body = `<div class="matching-grid">
+      ${q.pairs.map((p,i)=>`
+        <div class="match-row">
+          <div class="match-left">${p.left}</div>
+          <div class="match-arrow">→</div>
+          <select class="match-right" id="match_${q.id}_${i}" style="flex:1;padding:0.65rem 0.9rem;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer">
+            <option value="">— Seç —</option>
+            ${shuffled.map(s=>`<option value="${s.right}">${s.right}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+    </div>`;
+  } else if (q.type === 'fill_blank') {
+    const allWords = [...q.accepted, ...q.distractors].sort(()=>Math.random()-0.5);
+    const displayText = q.question_text.replace('________', `<span class="fill-blank-slot" id="slot_${q.id}">________</span>`);
+    body = `
+      <div class="fill-blank-text">${displayText}</div>
+      <div class="fill-blank-row">${allWords.map(w=>`
+        <button class="blank-word-btn" id="word_${q.id}_${w}" onclick="selectFill('${q.id}','${w}')">${w}</button>`).join('')}
+      </div>`;
+  } else if (q.type === 'classical_order') {
+    const shuffled = [...q.words].sort(()=>Math.random()-0.5);
+    body = `
+      <div class="answer-slots" id="slots_${q.id}"></div>
+      <div class="word-bank" id="bank_${q.id}">${shuffled.map(w=>`
+        <button class="word-chip" id="chip_${q.id}_${w.replace(/\s/g,'_')}" onclick="selectWord('${q.id}','${w}')">${w}</button>`).join('')}
+      </div>`;
+  }
+
+  return `
+    <div class="quiz-card" id="qcard_${q.id}">
+      <div class="quiz-q-num">Soru ${qi+1}</div>
+      <div class="quiz-q-text">${q.question}</div>
+      ${body}
+      <div class="hint-text" id="hint_${q.id}">💡 İpucu: ${q.hint}</div>
+      <div class="quiz-feedback" id="fb_${q.id}"></div>
+      <div class="quiz-actions">
+        <button class="btn-check" onclick="checkAnswer('${q.id}')">Kontrol Et</button>
+        <button class="btn-hint" onclick="showHint('${q.id}')">💡 İpucu</button>
+        <button class="btn-reset" onclick="resetQuiz('${q.id}')">↺ Sıfırla</button>
+      </div>
+    </div>`;
+}
+
+// =============================================
+// INTERACTION HANDLERS
+// =============================================
+const selections = {}; // for tracking
+
+function selectSingle(qid, idx) {
+  document.querySelectorAll(`[id^="opt_${qid}_"]`).forEach(b => b.classList.remove('selected'));
+  document.getElementById(`opt_${qid}_${idx}`).classList.add('selected');
+  selections[qid] = idx;
+}
+
+function toggleMulti(qid, idx) {
+  if (!selections[qid]) selections[qid] = new Set();
+  const btn = document.getElementById(`opt_${qid}_${idx}`);
+  if (selections[qid].has(idx)) {
+    selections[qid].delete(idx);
+    btn.classList.remove('selected');
+  } else {
+    selections[qid].add(idx);
+    btn.classList.add('selected');
+  }
+}
+
+function selectTF(qid, val) {
+  ['true','false'].forEach(v => document.getElementById(`tf_${qid}_${v}`)?.classList.remove('selected'));
+  document.getElementById(`tf_${qid}_${val}`)?.classList.add('selected');
+  selections[qid] = val;
+}
+
+function selectFill(qid, word) {
+  // remove previous selection
+  const prev = selections[qid];
+  if (prev) document.getElementById(`word_${qid}_${prev}`)?.classList.remove('used','selected');
+  selections[qid] = word;
+  document.querySelectorAll(`[id^="word_${qid}_"]`).forEach(b=>b.classList.remove('used'));
+  document.getElementById(`word_${qid}_${word}`)?.classList.add('used');
+  const slot = document.getElementById(`slot_${qid}`);
+  if (slot) { slot.textContent = word; slot.style.color='var(--accent1)'; }
+}
+
+function selectWord(qid, word) {
+  const chip = document.getElementById(`chip_${qid}_${word.replace(/\s/g,'_')}`);
+  if (chip?.classList.contains('used')) return;
+  if (!selections[qid]) selections[qid] = [];
+  selections[qid].push(word);
+  chip?.classList.add('used');
+  const slots = document.getElementById(`slots_${qid}`);
+  if (slots) {
+    const el = document.createElement('button');
+    el.className = 'answer-chip';
+    el.textContent = word;
+    el.onclick = () => removeWord(qid, word, el);
+    slots.appendChild(el);
+  }
+}
+
+function removeWord(qid, word, el) {
+  if (!selections[qid]) return;
+  const i = selections[qid].indexOf(word);
+  if (i > -1) selections[qid].splice(i, 1);
+  document.getElementById(`chip_${qid}_${word.replace(/\s/g,'_')}`)?.classList.remove('used');
+  el.remove();
+}
+
+function showHint(qid) {
+  const h = document.getElementById(`hint_${qid}`);
+  if (h) h.classList.toggle('visible');
+}
+
+// =============================================
+// CHECK ANSWER
+// =============================================
+function checkAnswer(qid) {
+  const s = data.sections[currentSection];
+  const q = s.quiz.find(x => x.id === qid);
+  if (!q) return;
+
+  let correct = false;
+  const sel = selections[qid];
+
+  if (q.type === 'single_choice') {
+    correct = sel === q.correct;
+    q.options.forEach((_,i) => {
+      const btn = document.getElementById(`opt_${q.id}_${i}`);
+      if (!btn) return;
+      btn.disabled = true;
+      if (i === q.correct) btn.classList.add('correct');
+      else if (i === sel) btn.classList.add('wrong');
+    });
+  } else if (q.type === 'multiple_choice') {
+    const selArr = sel ? [...sel] : [];
+    const corrArr = q.correct;
+    correct = selArr.length === corrArr.length && corrArr.every(x => selArr.includes(x));
+    q.options.forEach((_,i) => {
+      const btn = document.getElementById(`opt_${q.id}_${i}`);
+      if (!btn) return;
+      btn.disabled = true;
+      if (corrArr.includes(i)) btn.classList.add('correct');
+      else if (selArr.includes(i)) btn.classList.add('wrong');
+    });
+  } else if (q.type === 'true_false') {
+    correct = sel === q.correct;
+    ['true','false'].forEach(v => {
+      const btn = document.getElementById(`tf_${qid}_${v}`);
+      if (!btn) return;
+      btn.disabled = true;
+      const bVal = v === 'true';
+      if (bVal === q.correct) btn.classList.add('correct');
+      else if (sel !== undefined && bVal === sel) btn.classList.add('wrong');
+    });
+  } else if (q.type === 'ordering') {
+    const items = document.querySelectorAll(`#order_${qid} .order-item`);
+    const currentOrder = [...items].map(el => parseInt(el.dataset.idx));
+    correct = JSON.stringify(currentOrder) === JSON.stringify(q.correctOrder);
+    items.forEach((el, pos) => {
+      el.style.cursor = 'default';
+      if (currentOrder[pos] === q.correctOrder[pos]) el.classList.add('correct-order');
+      else el.classList.add('wrong-order');
+    });
+  } else if (q.type === 'matching') {
+    let allRight = true;
+    q.pairs.forEach((p, i) => {
+      const sel = document.getElementById(`match_${qid}_${i}`);
+      if (!sel) return;
+      sel.disabled = true;
+      if (sel.value === p.right) sel.style.borderColor = 'var(--accent3)';
+      else { sel.style.borderColor = 'var(--accent2)'; allRight = false; }
+    });
+    correct = allRight;
+  } else if (q.type === 'fill_blank') {
+    const word = selections[qid];
+    correct = word && q.accepted.map(a=>a.toLowerCase()).includes(word.toLowerCase());
+    const slot = document.getElementById(`slot_${qid}`);
+    if (slot) slot.style.color = correct ? 'var(--accent3)' : 'var(--accent2)';
+    document.querySelectorAll(`[id^="word_${qid}_"]`).forEach(b=>b.disabled=true);
+  } else if (q.type === 'classical_order') {
+    const given = (sel || []).join(' ');
+    correct = given.trim().toLowerCase() === q.answer.trim().toLowerCase();
+    document.querySelectorAll(`#slots_${qid} .answer-chip`).forEach(chip => {
+      chip.classList.add(correct ? 'correct' : 'wrong');
+    });
+    document.querySelectorAll(`#bank_${qid} .word-chip`).forEach(c=>c.disabled=true);
+  }
+
+  // feedback
+  const fb = document.getElementById(`fb_${qid}`);
+  if (fb) {
+    fb.className = 'quiz-feedback ' + (correct ? 'correct' : 'wrong');
+    fb.innerHTML = correct
+      ? `✓ <strong>Doğru!</strong> ${q.explanation}`
+      : `✗ <strong>Yanlış.</strong> ${q.explanation}`;
+  }
+
+  // disable check btn
+  const card = document.getElementById(`qcard_${qid}`);
+  card?.querySelector('.btn-check')?.setAttribute('disabled','true');
+
+  // save state
+  quizState[qid] = { answered: true, correct };
+  updateSectionScore(currentSection);
+  checkSectionCompletion(currentSection);
+}
+
+function resetQuiz(qid) {
+  delete selections[qid];
+  delete quizState[qid];
+  // re-render just quiz section
+  renderSection(currentSection);
+}
+
+function updateSectionScore(idx) {
+  const s = data.sections[idx];
+  if (!s.quiz) return;
+  const answered = s.quiz.filter(q => quizState[q.id]?.answered).length;
+  const correct = s.quiz.filter(q => quizState[q.id]?.correct).length;
+  const el = document.getElementById(`sectionScore_${idx}`);
+  if (el) el.textContent = answered > 0 ? `${correct}/${answered} doğru` : '';
+}
+
+function checkSectionCompletion(idx) {
+  const s = data.sections[idx];
+  if (!s.quiz || s.quiz.length === 0) return;
+  const allAnswered = s.quiz.every(q => quizState[q.id]?.answered);
+  if (allAnswered) { completedSections.add(idx); renderNav(); }
+}
+
+function restoreQuizUI(q, state) {
+  // skip for now - reset on navigate
+}
+
+// =============================================
+// DRAG AND DROP (ordering)
+// =============================================
+function initDragDrop() {
+  document.querySelectorAll('.ordering-list').forEach(list => {
+    let dragEl = null;
+    list.querySelectorAll('.order-item').forEach(item => {
+      item.addEventListener('dragstart', e => { dragEl = item; item.classList.add('dragging'); });
+      item.addEventListener('dragend', () => { dragEl?.classList.remove('dragging'); dragEl=null; });
+      item.addEventListener('dragover', e => { e.preventDefault(); if (item !== dragEl) item.classList.add('over'); });
+      item.addEventListener('dragleave', () => item.classList.remove('over'));
+      item.addEventListener('drop', e => {
+        e.preventDefault(); item.classList.remove('over');
+        if (dragEl && item !== dragEl) {
+          const allItems = [...list.querySelectorAll('.order-item')];
+          const fromIdx = allItems.indexOf(dragEl);
+          const toIdx = allItems.indexOf(item);
+          if (fromIdx < toIdx) list.insertBefore(dragEl, item.nextSibling);
+          else list.insertBefore(dragEl, item);
+          // update order numbers
+          list.querySelectorAll('.order-item .order-num').forEach((n,i)=>n.textContent=i+1);
+        }
+      });
+    });
+  });
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+function goToSection(idx) {
+  if (idx < 0 || idx >= data.sections.length) return;
+  currentSection = idx;
+  renderNav();
+  renderSection(idx);
+}
+
+function nextSection(idx) {
+  if (idx === data.sections.length - 1) {
+    completedSections.add(idx);
+    renderNav();
+    showCompletion();
+  } else {
+    completedSections.add(idx);
+    goToSection(idx + 1);
+  }
+}
+
+function showCompletion() {
+  const main = document.getElementById('mainContent');
+  const total = Object.values(quizState).length;
+  const correct = Object.values(quizState).filter(s=>s.correct).length;
+  main.innerHTML = `
+    <div style="text-align:center;padding:4rem 2rem;animation:fadeUp 0.5s ease">
+      <div style="font-size:4rem;margin-bottom:1rem">🎉</div>
+      <h1 style="font-size:2rem;font-weight:900;margin-bottom:0.5rem">Tebrikler!</h1>
+      <p style="color:var(--text-muted);font-size:1rem;margin-bottom:2rem">Modülü başarıyla tamamladın.</p>
+      <div style="display:inline-flex;gap:2rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2.5rem;margin-bottom:2rem">
+        <div><div style="font-size:2rem;font-weight:900;color:var(--accent3)">${correct}</div><div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">Doğru</div></div>
+        <div style="border-left:1px solid var(--border)"></div>
+        <div><div style="font-size:2rem;font-weight:900;color:var(--accent2)">${total-correct}</div><div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">Yanlış</div></div>
+        <div style="border-left:1px solid var(--border)"></div>
+        <div><div style="font-size:2rem;font-weight:900;color:var(--accent5)">${total}</div><div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">Toplam</div></div>
+      </div>
+      <br>
+      <button class="btn-nav btn-nav-primary" onclick="goToSection(0)" style="margin:auto">↺ Baştan Başla</button>
+    </div>`;
+}
+
+// =============================================
+// INIT
+// =============================================
+renderNav();
+renderSection(0);
+</script>
+</body>
+</html>

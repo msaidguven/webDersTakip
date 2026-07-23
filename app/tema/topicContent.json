@@ -1,0 +1,520 @@
+{
+    "lessonModule": {
+      "id": "module_5_bto_yazilim",
+      "title": "Blok Tabanlı Ortamda Yazılım Geliştirme",
+      "description": "Bu modülde blok tabanlı programlama ortamında yazılım geliştirme sürecini planlama, tasarlama, oluşturma ve değerlendirme adımlarını öğreneceksin.",
+      "subject": "Bilişim Teknolojileri ve Yazılım",
+      "gradeLevel": "5. Sınıf",
+      "language": "tr",
+      "tags": ["blok tabanlı programlama", "yazılım geliştirme", "Scratch", "algoritma", "tasarım", "değerlendirme", "5. sınıf", "bilişim"],
+      "estimatedMinutes": 40,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-01T00:00:00Z",
+      "sections": [
+        {
+          "id": "section_01",
+          "order": 1,
+          "title": "Blok Tabanlı Programlama Nedir?",
+          "icon": "🧩",
+          "content": [
+            {
+              "id": "blk_001",
+              "type": "markdown",
+              "order": 1,
+              "content": {
+                "body": "## Blok Tabanlı Programlama\n\nBilgisayarlara iş yaptırmak için onlara komutlar vermemiz gerekir. Bu komutları yazmak için **programlama dilleri** kullanılır.\n\nBlok tabanlı programlama, komutları yazmak yerine **hazır blokları sürükleyip birleştirerek** program oluşturmamızı sağlar. Tıpkı Lego parçalarını birbirine geçirmek gibi!\n\n### Blok Tabanlı Ortamların Özellikleri\n\n- Komutlar hazır bloklar hâlinde sunulur\n- Bloklar fare ile sürüklenip birleştirilir\n- Yazım hatası yapma riski çok azdır\n- Görsel olduğu için anlaşılması kolaydır\n- Scratch, Code.org ve MakeCode en yaygın örneklerdir"
+              }
+            },
+            {
+              "id": "blk_002",
+              "type": "image",
+              "order": 2,
+              "content": {
+                "svgCode": "<svg viewBox=\"0 0 620 260\" xmlns=\"http://www.w3.org/2000/svg\" font-family=\"Arial, sans-serif\">\n  <rect width=\"620\" height=\"260\" fill=\"#f8fafc\" rx=\"10\"/>\n  <text x=\"310\" y=\"30\" text-anchor=\"middle\" font-size=\"15\" font-weight=\"bold\" fill=\"#1e293b\">Blok Tabanlı Programlama Nasıl Çalışır?</text>\n  <defs>\n    <marker id=\"ok1\" markerWidth=\"10\" markerHeight=\"7\" refX=\"9\" refY=\"3.5\" orient=\"auto\">\n      <polygon points=\"0 0, 10 3.5, 0 7\" fill=\"#555\"/>\n    </marker>\n  </defs>\n  <rect x=\"20\" y=\"55\" width=\"140\" height=\"65\" rx=\"10\" fill=\"#2563eb\"/>\n  <text x=\"90\" y=\"82\" text-anchor=\"middle\" font-size=\"13\" fill=\"white\" font-weight=\"bold\">Blok Seç</text>\n  <text x=\"90\" y=\"100\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">(Hareket, Ses,</text>\n  <text x=\"90\" y=\"116\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">Kontrol...)</text>\n  <line x1=\"162\" y1=\"87\" x2=\"218\" y2=\"87\" stroke=\"#555\" stroke-width=\"2\" marker-end=\"url(#ok1)\"/>\n  <rect x=\"220\" y=\"55\" width=\"140\" height=\"65\" rx=\"10\" fill=\"#16a34a\"/>\n  <text x=\"290\" y=\"82\" text-anchor=\"middle\" font-size=\"13\" fill=\"white\" font-weight=\"bold\">Birleştir</text>\n  <text x=\"290\" y=\"100\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">(Blokları sürükle</text>\n  <text x=\"290\" y=\"116\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">ve birleştir)</text>\n  <line x1=\"362\" y1=\"87\" x2=\"418\" y2=\"87\" stroke=\"#555\" stroke-width=\"2\" marker-end=\"url(#ok1)\"/>\n  <rect x=\"420\" y=\"55\" width=\"140\" height=\"65\" rx=\"10\" fill=\"#ea580c\"/>\n  <text x=\"490\" y=\"82\" text-anchor=\"middle\" font-size=\"13\" fill=\"white\" font-weight=\"bold\">Çalıştır</text>\n  <text x=\"490\" y=\"100\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">(Programı test et</text>\n  <text x=\"490\" y=\"116\" text-anchor=\"middle\" font-size=\"11\" fill=\"white\">ve sonucu gör)</text>\n  <rect x=\"20\" y=\"155\" width=\"580\" height=\"60\" rx=\"8\" fill=\"#dbeafe\"/>\n  <text x=\"310\" y=\"178\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1e3a8a\" font-weight=\"bold\">Örnek: Scratch ile Kedi Karakterini Hareket Ettirme</text>\n  <text x=\"310\" y=\"198\" text-anchor=\"middle\" font-size=\"11\" fill=\"#1e3a8a\">\"Yeşil bayrak tıklandığında\" + \"10 adım git\" + \"sese dönük\" bloklarını birleştir → Program hazır!</text>\n  <text x=\"310\" y=\"240\" text-anchor=\"middle\" font-size=\"11\" fill=\"#64748b\">Blok tabanlı ortamlarda kod yazmak yerine blokları birleştirerek program oluşturursun.</text>\n</svg>",
+                "imageUrl": "",
+                "imagePrompt": "Blok tabanlı programlamada blokların sürüklenip birleştirildiğini gösteren, adım adım süreç diyagramı, okul çağı çocuklarına uygun eğitici ve sade çizim",
+                "caption": "Blok tabanlı programlamada üç temel adım: seç, birleştir, çalıştır",
+                "altText": "Blok tabanlı programlama sürecini gösteren üç adımlı diyagram: blok seç, birleştir, çalıştır"
+              }
+            },
+            {
+              "id": "blk_003",
+              "type": "misconception",
+              "order": 3,
+              "content": {
+                "wrong": "Blok tabanlı programlama gerçek programlama sayılmaz; sadece oyun gibi bir şeydir.",
+                "correct": "Blok tabanlı programlama gerçek bir yazılım geliştirme yöntemidir. Aynı mantık ve algoritmayı kullanır; yalnızca kod yazmak yerine blokları birleştirirsin.",
+                "tip": "Scratch ile gerçek oyunlar, animasyonlar ve hikâyeler geliştirilebilir. Bu da onu gerçek bir programlama aracı yapar."
+              }
+            }
+          ],
+          "quiz": [
+            {
+              "id": "q_01_01",
+              "type": "quiz",
+              "order": 1,
+              "content": {
+                "questionType": "single_choice",
+                "question": "Blok tabanlı programlamada komutlar nasıl verilir?",
+                "options": [
+                  { "id": "opt_1_01_1", "text": "Klavyeyle kod yazılarak" },
+                  { "id": "opt_1_01_2", "text": "Hazır bloklar sürüklenip birleştirilerek" },
+                  { "id": "opt_1_01_3", "text": "Sesli komutlar söylenerek" },
+                  { "id": "opt_1_01_4", "text": "Matematiksel formüller girilerek" }
+                ],
+                "correctOptionId": "opt_1_01_2",
+                "hint": "Lego parçalarını birbirine geçirmek gibi düşün.",
+                "explanation": "Blok tabanlı ortamlarda komutlar yazmak yerine hazır bloklar fare ile sürüklenip birleştirilir."
+              }
+            },
+            {
+              "id": "q_01_02",
+              "type": "quiz",
+              "order": 2,
+              "content": {
+                "questionType": "true_false",
+                "question": "Aşağıdaki ifade doğru mu yoksa yanlış mı?",
+                "statement": "Scratch, blok tabanlı programlama ortamlarından biridir.",
+                "correctAnswer": true,
+                "hint": "Scratch'te kod yazmak yerine renkli blokları birleştiririz.",
+                "explanation": "Scratch, MIT tarafından geliştirilen ve blok tabanlı programlamayı temel alan yaygın bir eğitim ortamıdır."
+              }
+            },
+            {
+              "id": "q_01_03",
+              "type": "quiz",
+              "order": 3,
+              "content": {
+                "questionType": "single_choice",
+                "question": "Blok tabanlı programlamanın metin tabanlı programlamaya göre en önemli avantajı nedir?",
+                "options": [
+                  { "id": "opt_1_03_1", "text": "Daha hızlı çalışan programlar üretir" },
+                  { "id": "opt_1_03_2", "text": "Daha az bellek kullanır" },
+                  { "id": "opt_1_03_3", "text": "Yazım hatası yapma riski çok düşüktür" },
+                  { "id": "opt_1_03_4", "text": "Yalnızca oyun geliştirmede kullanılır" }
+                ],
+                "correctOptionId": "opt_1_03_3",
+                "hint": "Blokları sürüklediğimizde harf ya da noktalama işareti hatasına düşer miyiz?",
+                "explanation": "Blok tabanlı ortamlarda blokları birleştirdiğimiz için yanlış harf yazma veya virgül unutma gibi yazım hataları yaşanmaz."
+              }
+            },
+            {
+              "id": "q_01_04",
+              "type": "quiz",
+              "order": 4,
+              "content": {
+                "questionType": "classical_order",
+                "question": "Blok tabanlı ortam olmadan yazılım öğrenmek çok daha zor olurdu, çünkü...",
+                "answer_words": ["kod yazmak", "başlangıçta", "hata yapmayı", "çok kolaylaştırır"],
+                "model_answer": "kod yazmak başlangıçta hata yapmayı çok kolaylaştırır",
+                "hint": "Blok tabanlı ortam hangi sorunu ortadan kaldırır?",
+                "explanation": "Metin tabanlı kodda küçük bir yazım hatası programı çalıştırmaz. Blok tabanlı ortam bu engeli kaldırarak öğrenmeyi kolaylaştırır."
+              }
+            }
+          ]
+        },
+        {
+          "id": "section_02",
+          "order": 2,
+          "title": "Yazılım Geliştirme Sürecini Planlama",
+          "icon": "📋",
+          "content": [
+            {
+              "id": "blk_004",
+              "type": "markdown",
+              "order": 1,
+              "content": {
+                "body": "## Önce Planla, Sonra Yap!\n\nBir yazılım geliştirmeye başlamadan önce **ne yapacağını** ve **nasıl yapacağını** düşünmen gerekir. Bu aşamaya **planlama** denir.\n\n### Planlama Aşamasında Sorulacak Sorular\n\n1. **Ne yapacağım?** — Projenin amacı nedir?\n2. **Kullanıcı kim?** — Bu yazılımı kim kullanacak?\n3. **Hangi adımları izleyeceğim?** — Algoritma nedir?\n4. **Hangi blokları kullanacağım?** — Hangi kategoriler gerekli?\n5. **Nasıl test edeceğim?** — Çalışıp çalışmadığını nasıl anlayacağım?\n\n### Planlama Neden Önemlidir?\n\nPlansız başlanan projeler genellikle yarıda kalır ya da hedeften uzaklaşır. İyi bir plan, seni doğru yolda tutar ve zaman kazandırır."
+              }
+            },
+            {
+              "id": "blk_005",
+              "type": "image",
+              "order": 2,
+              "content": {
+                "svgCode": "<svg viewBox=\"0 0 580 300\" xmlns=\"http://www.w3.org/2000/svg\" font-family=\"Arial, sans-serif\">\n  <rect width=\"580\" height=\"300\" fill=\"#f8fafc\" rx=\"10\"/>\n  <text x=\"290\" y=\"30\" text-anchor=\"middle\" font-size=\"15\" font-weight=\"bold\" fill=\"#1e293b\">Yazılım Geliştirme Süreci</text>\n  <defs>\n    <marker id=\"ok2\" markerWidth=\"10\" markerHeight=\"7\" refX=\"9\" refY=\"3.5\" orient=\"auto\">\n      <polygon points=\"0 0, 10 3.5, 0 7\" fill=\"#475569\"/>\n    </marker>\n  </defs>\n  <rect x=\"30\" y=\"55\" width=\"100\" height=\"50\" rx=\"8\" fill=\"#7c3aed\"/>\n  <text x=\"80\" y=\"78\" text-anchor=\"middle\" font-size=\"12\" fill=\"white\" font-weight=\"bold\">1. Planlama</text>\n  <text x=\"80\" y=\"96\" text-anchor=\"middle\" font-size=\"10\" fill=\"white\">Hedef belirle</text>\n  <line x1=\"132\" y1=\"80\" x2=\"158\" y2=\"80\" stroke=\"#475569\" stroke-width=\"2\" marker-end=\"url(#ok2)\"/>\n  <rect x=\"160\" y=\"55\" width=\"100\" height=\"50\" rx=\"8\" fill=\"#2563eb\"/>\n  <text x=\"210\" y=\"78\" text-anchor=\"middle\" font-size=\"12\" fill=\"white\" font-weight=\"bold\">2. Tasarım</text>\n  <text x=\"210\" y=\"96\" text-anchor=\"middle\" font-size=\"10\" fill=\"white\">Görsel planla</text>\n  <line x1=\"262\" y1=\"80\" x2=\"288\" y2=\"80\" stroke=\"#475569\" stroke-width=\"2\" marker-end=\"url(#ok2)\"/>\n  <rect x=\"290\" y=\"55\" width=\"100\" height=\"50\" rx=\"8\" fill=\"#16a34a\"/>\n  <text x=\"340\" y=\"78\" text-anchor=\"middle\" font-size=\"12\" fill=\"white\" font-weight=\"bold\">3. Oluşturma</text>\n  <text x=\"340\" y=\"96\" text-anchor=\"middle\" font-size=\"10\" fill=\"white\">Blokları kur</text>\n  <line x1=\"392\" y1=\"80\" x2=\"418\" y2=\"80\" stroke=\"#475569\" stroke-width=\"2\" marker-end=\"url(#ok2)\"/>\n  <rect x=\"420\" y=\"55\" width=\"120\" height=\"50\" rx=\"8\" fill=\"#ea580c\"/>\n  <text x=\"480\" y=\"78\" text-anchor=\"middle\" font-size=\"12\" fill=\"white\" font-weight=\"bold\">4. Değerlendirme</text>\n  <text x=\"480\" y=\"96\" text-anchor=\"middle\" font-size=\"10\" fill=\"white\">Test et ve düzelt</text>\n  <rect x=\"30\" y=\"135\" width=\"520\" height=\"55\" rx=\"8\" fill=\"#ede9fe\"/>\n  <text x=\"290\" y=\"157\" text-anchor=\"middle\" font-size=\"12\" fill=\"#4c1d95\" font-weight=\"bold\">Planlama Soruları</text>\n  <text x=\"290\" y=\"176\" text-anchor=\"middle\" font-size=\"11\" fill=\"#4c1d95\">Ne yapacağım? | Kullanıcı kim? | Hangi adımlar? | Hangi bloklar?</text>\n  <rect x=\"30\" y=\"210\" width=\"250\" height=\"60\" rx=\"8\" fill=\"#dbeafe\"/>\n  <text x=\"155\" y=\"233\" text-anchor=\"middle\" font-size=\"11\" fill=\"#1e3a8a\" font-weight=\"bold\">İyi Plan</text>\n  <text x=\"155\" y=\"250\" text-anchor=\"middle\" font-size=\"10\" fill=\"#1e3a8a\">Hedef belli, adımlar net,</text>\n  <text x=\"155\" y=\"265\" text-anchor=\"middle\" font-size=\"10\" fill=\"#1e3a8a\">zaman kazandırır</text>\n  <rect x=\"300\" y=\"210\" width=\"250\" height=\"60\" rx=\"8\" fill=\"#fee2e2\"/>\n  <text x=\"425\" y=\"233\" text-anchor=\"middle\" font-size=\"11\" fill=\"#991b1b\" font-weight=\"bold\">Plansız Başlamak</text>\n  <text x=\"425\" y=\"250\" text-anchor=\"middle\" font-size=\"10\" fill=\"#991b1b\">Yön kaybolur, proje</text>\n  <text x=\"425\" y=\"265\" text-anchor=\"middle\" font-size=\"10\" fill=\"#991b1b\">yarıda kalır</text>\n  <text x=\"290\" y=\"292\" text-anchor=\"middle\" font-size=\"10\" fill=\"#64748b\">Planlama, yazılım geliştirmenin ilk ve en kritik adımıdır.</text>\n</svg>",
+                "imageUrl": "",
+                "imagePrompt": "Yazılım geliştirme sürecinin dört adımını gösteren sade akış diyagramı: planlama, tasarım, oluşturma, değerlendirme",
+                "caption": "Yazılım geliştirme süreci: planlama ile başlar, değerlendirme ile tamamlanır",
+                "altText": "Dört aşamalı yazılım geliştirme sürecini gösteren akış diyagramı"
+              }
+            },
+            {
+              "id": "blk_006",
+              "type": "misconception",
+              "order": 3,
+              "content": {
+                "wrong": "Planlama zaman kaybıdır; hemen Scratch'i açıp blok koymaya başlamak daha hızlıdır.",
+                "correct": "Planlama olmadan yapılan projeler genellikle yanlış yöne gider ve daha çok zaman harcanır. Plan yapmak seni hızlandırır.",
+                "tip": "Önce kağıda çiz, sonra ekrana geç. Kısa bir plan bile büyük zaman kazandırır."
+              }
+            }
+          ],
+          "quiz": [
+            {
+              "id": "q_02_01",
+              "type": "quiz",
+              "order": 1,
+              "content": {
+                "questionType": "ordering",
+                "question": "Blok tabanlı ortamda yazılım geliştirme sürecinin adımlarını doğru sıraya diz.",
+                "items": [
+                  { "id": "stp_2_1", "text": "Projenin amacını ve kullanıcısını belirle" },
+                  { "id": "stp_2_2", "text": "Tasarımı ve akışı planla" },
+                  { "id": "stp_2_3", "text": "Blokları kullanarak yazılımı oluştur" },
+                  { "id": "stp_2_4", "text": "Yazılımı çalıştırarak test et ve hataları düzelt" }
+                ],
+                "correctOrder": ["stp_2_1", "stp_2_2", "stp_2_3", "stp_2_4"],
+                "hint": "Önce amaç, sonra plan, sonra yapım, en son test.",
+                "explanation": "Yazılım geliştirme; planlama, tasarım, oluşturma ve değerlendirme şeklinde ilerler. Bu sıralamaya uymak projenin başarısını artırır."
+              }
+            },
+            {
+              "id": "q_02_02",
+              "type": "quiz",
+              "order": 2,
+              "content": {
+                "questionType": "multiple_choice",
+                "question": "Aşağıdakilerden hangileri iyi bir planlama aşamasında yanıtlanması gereken sorulardandır?",
+                "options": [
+                  { "id": "opt_2_02_1", "text": "Projenin amacı nedir?" },
+                  { "id": "opt_2_02_2", "text": "Kullanıcı kim olacak?" },
+                  { "id": "opt_2_02_3", "text": "Bilgisayarı kim üretti?" },
+                  { "id": "opt_2_02_4", "text": "Hangi bloklar kullanılacak?" }
+                ],
+                "correctOptionIds": ["opt_2_02_1", "opt_2_02_2", "opt_2_02_4"],
+                "hint": "Planlamada yazılımın kendisiyle ilgili sorular sorulur.",
+                "explanation": "Planlama aşamasında projenin amacı, hedef kullanıcı ve kullanılacak araçlar belirlenir. Bilgisayarın üreticisi yazılım planlamasıyla ilgili değildir."
+              }
+            },
+            {
+              "id": "q_02_03",
+              "type": "quiz",
+              "order": 3,
+              "content": {
+                "questionType": "true_false",
+                "question": "Aşağıdaki ifade doğru mu yoksa yanlış mı?",
+                "statement": "Planlama aşamasını atlayıp doğrudan blok eklemeye başlamak, projenin daha hızlı tamamlanmasını sağlar.",
+                "correctAnswer": false,
+                "hint": "Plansız başlanan projelerde ne sık yaşanır?",
+                "explanation": "Plansız başlanan projeler genellikle yanlış yöne gider, sürekli değiştirilmek zorunda kalınır ve sonunda daha fazla zaman harcanır."
+              }
+            },
+            {
+              "id": "q_02_04",
+              "type": "quiz",
+              "order": 4,
+              "content": {
+                "questionType": "classical_order",
+                "question": "Planlama aşamasını atlasaydık ne olurdu?",
+                "answer_words": ["Projemiz", "nereye gittiğini", "bilemeden", "dağılıp giderdi"],
+                "model_answer": "Projemiz nereye gittiğini bilemeden dağılıp giderdi",
+                "hint": "Hedefsiz bir yolculukta ne yaşanır?",
+                "explanation": "Planlama olmadan yazılım geliştirmek, haritasız bir yolculuk gibidir. Nereye gideceğini bilemezsin ve projen yarıda kalabilir."
+              }
+            }
+          ]
+        },
+        {
+          "id": "section_03",
+          "order": 3,
+          "title": "Blok Tabanlı Ortamda Tasarım",
+          "icon": "🎨",
+          "content": [
+            {
+              "id": "blk_007",
+              "type": "markdown",
+              "order": 1,
+              "content": {
+                "body": "## Yazılımı Tasarlamak\n\nPlanlama bittikten sonra sıra **tasarıma** gelir. Tasarım, yazılımın nasıl görüneceğini ve nasıl çalışacağını belirleme aşamasıdır.\n\n### Blok Tabanlı Ortamda Tasarım Adımları\n\n1. **Karakterleri ve sahneleri belirle** — Hangi sprite'lar (karakterler) kullanılacak?\n2. **Arka planı seç veya çiz** — Sahne nasıl görünecek?\n3. **Akış şemasını çiz** — Program hangi sırayla çalışacak?\n4. **Olayları planla** — Hangi butona basıldığında ne olacak?\n\n### Tasarımda Kullanılan Temel Kavramlar\n\n| Kavram | Açıklama |\n|---|---|\n| Sprite | Programdaki hareketli karakter veya nesne |\n| Sahne | Karakterlerin hareket ettiği arka plan |\n| Olay | Bir eylemi başlatan tetikleyici (tık, tuş, vs.) |\n| Döngü | Tekrar eden komutlar dizisi |\n| Koşul | Belirli bir durumda yapılacak işlem |"
+              }
+            },
+            {
+              "id": "blk_008",
+              "type": "markdown",
+              "order": 2,
+              "content": {
+                "body": "## Günlük Hayattan Tasarım Örneği\n\nDiyelim ki bir **labirent oyunu** tasarlamak istiyorsun.\n\n**Tasarım Kararları:**\n- **Karakter:** Bir top veya kahraman sprite\n- **Sahne:** Labirent çizilmiş bir arka plan\n- **Olaylar:** Ok tuşlarına basılınca karakterin hareket etmesi\n- **Koşul:** Karakter duvara çarparsa durur; çıkışa ulaşırsa oyun biter\n- **Amaç:** Başlangıçtan çıkışa kadar ulaşmak\n\nBu kararları önceden almak, blokları ekleme aşamasını çok daha kolaylaştırır."
+              }
+            }
+          ],
+          "quiz": [
+            {
+              "id": "q_03_01",
+              "type": "quiz",
+              "order": 1,
+              "content": {
+                "questionType": "matching",
+                "question": "Blok tabanlı tasarım kavramlarını doğru açıklamalarıyla eşleştir.",
+                "pairs": [
+                  { "id": "p3_1", "left": "Sprite", "right": "Programdaki hareketli karakter ya da nesne" },
+                  { "id": "p3_2", "left": "Olay", "right": "Bir eylemi başlatan tetikleyici" },
+                  { "id": "p3_3", "left": "Döngü", "right": "Tekrar eden komutlar dizisi" },
+                  { "id": "p3_4", "left": "Koşul", "right": "Belirli bir durumda yapılacak işlem" }
+                ],
+                "hint": "Her kavramın tanımını dikkatlice oku; en belirgin özelliğini bul.",
+                "explanation": "Sprite hareket eden nesne, olay tetikleyici, döngü tekrar, koşul ise şarta bağlı işlem demektir."
+              }
+            },
+            {
+              "id": "q_03_02",
+              "type": "quiz",
+              "order": 2,
+              "content": {
+                "questionType": "fill_blank",
+                "question": "Boşluğu uygun kelimeyle doldur.",
+                "question_text": "Blok tabanlı ortamda karakterlerin hareket ettiği arka plana ________ denir.",
+                "acceptedAnswers": ["sahne"],
+                "distractors": ["sprite", "olay", "döngü"],
+                "hint": "Tiyatroda oyuncuların üzerinde oynadığı zemine ne denir?",
+                "explanation": "Scratch gibi ortamlarda arka plan 'sahne' olarak adlandırılır. Karakterler (sprite'lar) sahne üzerinde hareket eder."
+              }
+            },
+            {
+              "id": "q_03_03",
+              "type": "quiz",
+              "order": 3,
+              "content": {
+                "questionType": "single_choice",
+                "question": "Bir labirent oyununda 'karakter duvara çarparsa geri döner' ifadesi hangi kavrama örnek oluşturur?",
+                "options": [
+                  { "id": "opt_3_03_1", "text": "Döngü" },
+                  { "id": "opt_3_03_2", "text": "Sprite" },
+                  { "id": "opt_3_03_3", "text": "Koşul" },
+                  { "id": "opt_3_03_4", "text": "Sahne" }
+                ],
+                "correctOptionId": "opt_3_03_3",
+                "hint": "Bu cümlede 'eğer ... ise' yapısı gizli.",
+                "explanation": "Koşul, belirli bir durum gerçekleştiğinde yapılacak işlemi belirtir. 'Eğer duvara çarparsa geri dön' bir koşul ifadesidir."
+              }
+            },
+            {
+              "id": "q_03_04",
+              "type": "quiz",
+              "order": 4,
+              "content": {
+                "questionType": "classical_order",
+                "question": "Tasarım aşamasını hiç atlamadan oluşturma aşamasına geçen biri ne kazanır?",
+                "answer_words": ["Hangi blokları", "nereye koyacağını", "önceden bildiğinden", "daha az hata yapar"],
+                "model_answer": "Hangi blokları nereye koyacağını önceden bildiğinden daha az hata yapar",
+                "hint": "Tasarım sana neyi önceden belirleme imkânı verir?",
+                "explanation": "Tasarım aşamasında akış, karakterler ve olaylar belirlenir. Bu bilgilerle oluşturma aşamasına giren kişi daha az deneme-yanılma yapar."
+              }
+            }
+          ]
+        },
+        {
+          "id": "section_04",
+          "order": 4,
+          "title": "Yazılımı Oluşturma: Blokları Bir Araya Getirme",
+          "icon": "🔧",
+          "content": [
+            {
+              "id": "blk_009",
+              "type": "markdown",
+              "order": 1,
+              "content": {
+                "body": "## Blokları Kullanarak Yazılımı Oluşturmak\n\nPlanlama ve tasarım bittikten sonra sıra **oluşturma** aşamasına gelir. Bu aşamada blok tabanlı ortamı açar ve planına göre blokları birleştirmeye başlarsın.\n\n### Scratch'te Temel Blok Kategorileri\n\n- **Hareket:** Sprite'ı hareket ettirme, döndürme\n- **Görünüm:** Kostüm değiştirme, konuşma balonu gösterme\n- **Ses:** Müzik veya ses çalma\n- **Olaylar:** Yeşil bayrak, tuşa basma gibi tetikleyiciler\n- **Kontrol:** Döngüler ve koşullar\n- **Algılama:** Nesneye değme, fare pozisyonu\n- **Değişkenler:** Skor, can gibi sayısal değerler\n\n### Oluşturma Sürecinde İpuçları\n\n1. Her şeyi aynı anda yapmaya çalışma; adım adım ilerle\n2. Her bloğu ekledikten sonra test et\n3. Blokların birbirine doğru bağlandığından emin ol\n4. Projeyi sık sık kaydet"
+              }
+            },
+            {
+              "id": "blk_010",
+              "type": "misconception",
+              "order": 2,
+              "content": {
+                "wrong": "Bir blok ekledikten sonra programın tamamını bitirip en sonda test etmek daha verimlidir.",
+                "correct": "Her adımda test etmek, hataları erken fark etmeni sağlar. Sonradan bulunacak hatalar çok daha zor düzeltilir.",
+                "tip": "Her yeni bloğu ekledikten sonra 'Yeşil bayrak'a tıkla ve ne olduğuna bak. Küçük testler büyük sorunları önler."
+              }
+            },
+            {
+              "id": "blk_011",
+              "type": "markdown",
+              "order": 3,
+              "content": {
+                "body": "## Örnek: Adım Adım Yazılım Oluşturma\n\nAmaç: Karakterin klavye ok tuşlarıyla hareket etmesi\n\n**Adım 1:** `Yeşil bayrak tıklandığında` bloğunu ekle\n\n**Adım 2:** `Sürekli` döngü bloğunu altına bağla\n\n**Adım 3:** Döngünün içine `Eğer sağ ok tuşuna basılıyorsa` koşul bloğunu ekle\n\n**Adım 4:** Koşulun içine `10 adım git` bloğunu ekle\n\n**Adım 5:** Yeşil bayrağa bas ve sağ ok tuşuna bas — karakter hareket eder!\n\nHer adımı test ederek devam etmek, hatayı hemen görmen demektir."
+              }
+            }
+          ],
+          "quiz": [
+            {
+              "id": "q_04_01",
+              "type": "quiz",
+              "order": 1,
+              "content": {
+                "questionType": "single_choice",
+                "question": "Scratch'te 'Eğer ... ise' yapısı hangi blok kategorisinde yer alır?",
+                "options": [
+                  { "id": "opt_4_01_1", "text": "Hareket" },
+                  { "id": "opt_4_01_2", "text": "Görünüm" },
+                  { "id": "opt_4_01_3", "text": "Kontrol" },
+                  { "id": "opt_4_01_4", "text": "Algılama" }
+                ],
+                "correctOptionId": "opt_4_01_3",
+                "hint": "Hangi kategori 'döngü' ve 'koşul' bloklarını içerir?",
+                "explanation": "Koşullar ve döngüler 'Kontrol' kategorisinde yer alır. 'Eğer ... ise' bloğu bu kategorinin en temel elemanıdır."
+              }
+            },
+            {
+              "id": "q_04_02",
+              "type": "quiz",
+              "order": 2,
+              "content": {
+                "questionType": "multiple_choice",
+                "question": "Oluşturma aşamasında hangi iyi uygulamalar doğrudur?",
+                "options": [
+                  { "id": "opt_4_02_1", "text": "Her bloğu ekledikten sonra test etmek" },
+                  { "id": "opt_4_02_2", "text": "Projeyi sık sık kaydetmek" },
+                  { "id": "opt_4_02_3", "text": "Tüm blokları ekleyip en sonda bir kez test etmek" },
+                  { "id": "opt_4_02_4", "text": "Adım adım ilerleyerek tüm programı tamamlamak" }
+                ],
+                "correctOptionIds": ["opt_4_02_1", "opt_4_02_2", "opt_4_02_4"],
+                "hint": "Hangi seçenekler hatayı erken bulmana ve projeyi güvende tutmana yardımcı olur?",
+                "explanation": "Sık test etmek hataları erken bulmayı, sık kaydetmek veri kaybını engellemeyi, adım adım ilerlemek ise karmaşayı azaltmayı sağlar."
+              }
+            },
+            {
+              "id": "q_04_03",
+              "type": "quiz",
+              "order": 3,
+              "content": {
+                "questionType": "fill_blank",
+                "question": "Boşluğu doğru kelimeyle tamamla.",
+                "question_text": "Scratch'te karakterin hareketini, sesini, kostümünü ve olaylarını düzenleyen yapıların tümü ________ olarak adlandırılır.",
+                "acceptedAnswers": ["blok", "bloklar"],
+                "distractors": ["sprite", "sahne", "değişken"],
+                "hint": "Bu yapılar sürüklenip birleştirilir ve komut görevi görür.",
+                "explanation": "Blok tabanlı ortamlarda tüm komutlar 'blok' adı verilen yapılarla temsil edilir. Her blok belirli bir görevi yerine getirir."
+              }
+            },
+            {
+              "id": "q_04_04",
+              "type": "quiz",
+              "order": 4,
+              "content": {
+                "questionType": "classical_order",
+                "question": "Blok tabanlı ortamda adım adım ilerlemenin en belirgin özelliği nedir?",
+                "answer_words": ["Her adımın", "hemen test edilebilir", "ve hataların", "erken bulunmasını sağlaması"],
+                "model_answer": "Her adımın hemen test edilebilir ve hataların erken bulunmasını sağlaması",
+                "hint": "Her eklemeden sonra 'yeşil bayrak'a basmak ne avantajı sağlar?",
+                "explanation": "Adım adım ilerleme sayesinde her yeni bloğun doğru çalışıp çalışmadığı anında kontrol edilebilir ve hatalar birikemeden giderilir."
+              }
+            }
+          ]
+        },
+        {
+          "id": "section_05",
+          "order": 5,
+          "title": "Yazılımı Değerlendirme ve Geliştirme",
+          "icon": "✅",
+          "content": [
+            {
+              "id": "blk_012",
+              "type": "markdown",
+              "order": 1,
+              "content": {
+                "body": "## Oluşturduğun Yazılımı Değerlendirmek\n\nYazılım tamamlandıktan sonra **değerlendirme** aşaması başlar. Bu aşamada şu soruları sormalısın:\n\n- Program başta belirlediğim amaca ulaşıyor mu?\n- Kullanıcı programı kolayca kullanabiliyor mu?\n- Hatalar var mı? Varsa nerede?\n- Neyi daha iyi yapabilirdim?\n\n### Değerlendirme Yöntemleri\n\n1. **Kendi kendine test:** Programı farklı şekillerde çalıştır; beklenmedik durumlar yaratmayı dene\n2. **Arkadaş testi:** Programı başka birine kullandır ve gözlemle\n3. **Geri bildirim:** Kullanıcının ne düşündüğünü sor\n4. **Hata ayıklama (debug):** Yanlış çalışan blokları bul ve düzelt\n\n### Hata Türleri\n\n| Hata Türü | Açıklama | Örnek |\n|---|---|---|\n| Mantık hatası | Program çalışır ama yanlış sonuç verir | Karakter yanlış yöne gider |\n| Eksik blok | Bir adım unutulmuştur | Skor hiç artmaz |\n| Yanlış koşul | Koşul yanlış kurulmuştur | Oyun hiç bitmez |"
+              }
+            },
+            {
+              "id": "blk_013",
+              "type": "markdown",
+              "order": 2,
+              "content": {
+                "body": "## Geliştirme Döngüsü\n\nYazılım geliştirme tek seferlik bir iş değildir. Değerlendirme sonunda yeni fikirler ve hatalar çıkar; bunları düzeltirsin ve projen gelişir.\n\n**Döngü şu şekilde işler:**\n\nOluştur → Test Et → Değerlendir → Düzelt → Tekrar Test Et\n\nHer döngüde yazılımın daha iyi hâle gelir. Büyük yazılım şirketleri de aynı döngüyü kullanır — sadece çok daha büyük ölçekte!\n\n### İyi Bir Değerlendirme İçin Öneriler\n\n- Neyin işe yarayıp neyin yaramadığını not al\n- Hatayı bulunca hemen düzelt, biriktirme\n- Kullanıcının bakış açısıyla düşün\n- Projeni başkalarıyla paylaş ve geri bildirim iste"
+              }
+            }
+          ],
+          "quiz": [
+            {
+              "id": "q_05_01",
+              "type": "quiz",
+              "order": 1,
+              "content": {
+                "questionType": "true_false",
+                "question": "Aşağıdaki ifade doğru mu yoksa yanlış mı?",
+                "statement": "Program hatasız çalışıyorsa değerlendirme aşamasına gerek yoktur.",
+                "correctAnswer": false,
+                "hint": "Değerlendirme yalnızca hata bulmak için midir?",
+                "explanation": "Değerlendirme sadece hata bulmak için değil; projenin amacına ulaşıp ulaşmadığını, kullanıcı deneyimini ve geliştirilecek noktaları tespit etmek için de yapılır."
+              }
+            },
+            {
+              "id": "q_05_02",
+              "type": "quiz",
+              "order": 2,
+              "content": {
+                "questionType": "matching",
+                "question": "Hata türlerini doğru açıklamalarıyla eşleştir.",
+                "pairs": [
+                  { "id": "p5_1", "left": "Mantık hatası", "right": "Program çalışır ama yanlış sonuç verir" },
+                  { "id": "p5_2", "left": "Eksik blok", "right": "Bir adım unutulmuştur" },
+                  { "id": "p5_3", "left": "Yanlış koşul", "right": "Koşul yanlış kurulduğundan beklenmedik davranış oluşur" }
+                ],
+                "hint": "Her hata türünün adı, ne tür bir sorun olduğuna dair ipucu verir.",
+                "explanation": "Mantık hatasında program çalışır ama istenilen sonucu vermez. Eksik blokta bir adım atlanmıştır. Yanlış koşulda ise koşulun kendisi hatalı yazılmıştır."
+              }
+            },
+            {
+              "id": "q_05_03",
+              "type": "quiz",
+              "order": 3,
+              "content": {
+                "questionType": "single_choice",
+                "question": "Bir oyun projesinde karakterin sağ ok tuşuna basılmasına rağmen sola gittiğini fark ettik. Bu hangi tür bir hatadır?",
+                "options": [
+                  { "id": "opt_5_03_1", "text": "Eksik blok" },
+                  { "id": "opt_5_03_2", "text": "Mantık hatası" },
+                  { "id": "opt_5_03_3", "text": "Yanlış kaydetme" },
+                  { "id": "opt_5_03_4", "text": "Sahne hatası" }
+                ],
+                "correctOptionId": "opt_5_03_2",
+                "hint": "Program çalışıyor; yalnızca sonuç yanlış.",
+                "explanation": "Karakter hareket ediyor yani program çalışıyor; ancak yön yanlış. Bu, blokların mantığının hatalı kurulduğunu gösterir. Bu tür hatalara 'mantık hatası' denir."
+              }
+            },
+            {
+              "id": "q_05_04",
+              "type": "quiz",
+              "order": 4,
+              "content": {
+                "questionType": "multiple_choice",
+                "question": "Yazılım değerlendirme aşamasında hangileri yapılmalıdır?",
+                "options": [
+                  { "id": "opt_5_04_1", "text": "Programı farklı durumlarla test etmek" },
+                  { "id": "opt_5_04_2", "text": "Başkasına kullandırarak geri bildirim almak" },
+                  { "id": "opt_5_04_3", "text": "Projeyi hiç değiştirmemek" },
+                  { "id": "opt_5_04_4", "text": "Hataları bulup düzeltmek" }
+                ],
+                "correctOptionIds": ["opt_5_04_1", "opt_5_04_2", "opt_5_04_4"],
+                "hint": "Değerlendirme, geliştirme için yapılır; durağan kalmak değerlendirmenin amacına ters düşer.",
+                "explanation": "Test etmek, geri bildirim almak ve hataları düzeltmek değerlendirme sürecinin temel adımlarıdır. Projeyi değiştirmemek ise gelişimi engeller."
+              }
+            },
+            {
+              "id": "q_05_05",
+              "type": "quiz",
+              "order": 5,
+              "content": {
+                "questionType": "classical_order",
+                "question": "Yazılımı arkadaşına kullandırmak sana ne kazandırır?",
+                "answer_words": ["Kendi göremediğin", "hataları ve", "kullanıcı bakış açısını", "fark etmeni sağlar"],
+                "model_answer": "Kendi göremediğin hataları ve kullanıcı bakış açısını fark etmeni sağlar",
+                "hint": "Yapan kişi bazen hatayı göremez; başkası neden görebilir?",
+                "explanation": "Bir projeyi yapan kişi zamanla kör nokta oluşturur ve bazı hataları göremez. Başka bir kullanıcı farklı bir gözle yaklaşarak gizli sorunları ortaya çıkarır."
+              }
+            }
+          ]
+        },
+        {
+          "id": "section_06",
+          "order": 6,
+          "title": "Yazılı Sorular: Cümleleri Oluştur",
+          "icon": "✍️",
+          "type": "review_section",
+          "content": [],
+          "quiz_refs": ["q_01_04", "q_02_04", "q_03_04", "q_04_04", "q_05_05"]
+        }
+      ]
+    }
+  }
