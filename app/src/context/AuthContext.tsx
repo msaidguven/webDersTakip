@@ -1,3 +1,5 @@
+// app/src/context/AuthContext.tsx
+
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -11,6 +13,7 @@ interface AuthContextType {
   supabase: SupabaseClient;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  clearSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,23 +23,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [supabase] = useState(() => createClient());
 
+  const clearSession = async () => {
+    // Local storage'daki token'ları temizle
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.refreshToken');
+    }
+    setUser(null);
+  };
+
   const refreshUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user || null);
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      // Refresh token hatası kontrolü
+      if (error) {
+        console.error('Session hatası:', error);
+
+        // Refresh token hatası varsa oturumu temizle
+        if (error.message?.includes('Refresh Token') ||
+          error.message?.includes('Invalid Refresh Token')) {
+          await clearSession();
+          setLoading(false);
+          return;
+        }
+      }
+
+      setUser(session?.user || null);
+    } catch (error) {
+      console.error('Refresh user hatası:', error);
+      // Beklenmeyen hata durumunda da temizle
+      await clearSession();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+      await clearSession();
+    } catch (error) {
+      console.error('Sign out hatası:', error);
+      // Hata olsa bile localStorage'ı temizle
+      await clearSession();
+    }
   };
 
   useEffect(() => {
     // İlk yüklemede session kontrolü
-    refreshUser().then(() => setLoading(false));
+    refreshUser();
 
     // Auth state değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
+        console.log('Auth event:', event);
+
+        // Token yenileme başarısız olduysa
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token başarıyla yenilendi');
+          setUser(session?.user || null);
+          setLoading(false);
+          return;
+        }
+
+        // Oturum sonlandıysa veya refresh token hatası varsa
+        if (event === 'SIGNED_OUT') {
+          await clearSession();
+          setLoading(false);
+          return;
+        }
+
+        // Kullanıcı silinirse (manuel kontrol)
+        if (session?.user === null && event !== 'INITIAL_SESSION') {
+          await clearSession();
+          setLoading(false);
+          return;
+        }
+
+        // Normal durumlar
         setUser(session?.user || null);
         setLoading(false);
       }
@@ -53,7 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         supabase,
         signOut,
-        refreshUser
+        refreshUser,
+        clearSession
       }}
     >
       {children}
