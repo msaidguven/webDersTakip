@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
+import LessonUnitsClient from './LessonUnitsClient';
 
 export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { gradeSlug: string; lessonSlug: string }) {
-  const [data, setData] = useState<{ lesson: any; units: any[] } | null>(null);
+  const [data, setData] = useState<{ grade: any; lesson: any; units: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,8 +14,8 @@ export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { grade
       
       // Grade ve lesson'ı slug ile bul
       const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-        supabase.from('grades').select('id, name').eq('slug', gradeSlug).single(),
-        supabase.from('lessons').select('id, name, icon').eq('slug', lessonSlug).single(),
+        supabase.from('grades').select('id, name, slug, order_no').eq('slug', gradeSlug).single(),
+        supabase.from('lessons').select('id, name, icon, slug, description').eq('slug', lessonSlug).single(),
       ]);
       
       if (!gradeData || !lessonData) {
@@ -23,24 +23,17 @@ export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { grade
         return;
       }
 
-      // Unit grades üzerinden bu grade'e ait unit_id'leri çek
-      const { data: unitGradesData } = await supabase
-        .from('unit_grades')
-        .select('unit_id')
-        .eq('grade_id', gradeData.id);
-
-      const unitIds = unitGradesData?.map((ug: any) => ug.unit_id) || [];
-      
-      // Bu unit'lerden lesson'a ait olanları çek
+      // Üniteleri doğrudan units tablosundan çekiyoruz (unit_grades tablosu yerine)
       const { data: unitsData } = await supabase
         .from('units')
         .select('*')
-        .in('id', unitIds)
+        .eq('grade_id', gradeData.id)
         .eq('lesson_id', lessonData.id)
         .eq('is_active', true)
         .order('order_no');
 
       setData({
+        grade: gradeData,
         lesson: lessonData,
         units: unitsData || []
       });
@@ -50,27 +43,16 @@ export default function LessonUnitsPageClient({ gradeSlug, lessonSlug }: { grade
     load();
   }, [gradeSlug, lessonSlug]);
 
-  if (loading) return <div className="p-8">Yükleniyor...</div>;
-  if (!data) return <div className="p-8">Ders bulunamadı</div>;
+  if (loading) return <div className="p-8 flex justify-center text-gray-500">Yükleniyor...</div>;
+  if (!data) return <div className="p-8 text-center text-red-500">Ders bulunamadı</div>;
 
   return (
-    <div className="p-8">
-      <Link href={`/${gradeSlug}`} className="text-blue-600">← Dersler</Link>
-      <h1 className="text-2xl font-bold mt-4">{data.lesson.name}</h1>
-      <p className="mb-6">Üniteler</p>
-
-      <div className="grid gap-4">
-        {data.units.map((unit: any, i: number) => (
-          <Link
-            key={unit.id}
-            href={`/${gradeSlug}/${lessonSlug}/${unit.slug || unit.id}`}
-            className="border p-4 rounded hover:bg-gray-50"
-          >
-            <span className="font-bold mr-2">{i + 1}.</span>
-            {unit.title}
-          </Link>
-        ))}
-      </div>
-    </div>
+    <LessonUnitsClient
+      grade={data.grade}
+      lesson={data.lesson}
+      units={data.units}
+      gradeSlug={gradeSlug}
+      lessonSlug={lessonSlug}
+    />
   );
 }
