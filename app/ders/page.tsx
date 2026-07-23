@@ -113,7 +113,19 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
   }
 
   if (!lId || isNaN(lId)) {
-    return { gradeName: '', lessonName: '', unitName: '', outcomes: [], contents: [] };
+    return {
+      gradeName: '',
+      lessonName: '',
+      unitName: '',
+      outcomes: [],
+      contents: [],
+      totalWeeks: 0,
+      gradeSlug: null,
+      lessonSlug: null,
+      unitSlug: null,
+      topicTitle: null,
+      topicSlug: null,
+    };
   }
 
   console.log('[getDersData] sinifId:', sinifId, 'dersSlug:', dersSlug, 'gId:', gId, 'lId:', lId);
