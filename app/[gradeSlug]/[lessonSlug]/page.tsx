@@ -14,6 +14,41 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+
+type WeekOutcomeRow = { outcome_id: number; start_week: number; end_week: number };
+type OutcomeRow = {
+  id: number;
+  description: string;
+  topic_id?: number;
+  topics?: {
+    title?: string | null;
+    units?: {
+      title?: string | null;
+      lesson_id?: number | null;
+      grade_id?: number | null;
+    } | null;
+  } | null;
+};
+type OutcomeVM = { id: number; description: string; topicTitle: string };
+type ContentVM = { id: number; title: string; content: string | null; orderNo: number };
+type UnitRow = {
+  id: number;
+  title: string;
+  slug: string | null;
+  order_no: number;
+  start_week: number | null;
+  end_week: number | null;
+};
+type TopicRow = { id: number; title: string; slug: string; order_no: number };
+type TopicContentOutcomeV11Row = { topic_content_v11_id: number; outcome_id: number };
+type TopicContentV11Row = {
+  id: number;
+  topic_id: number;
+  title: string | null;
+  payload: unknown;
+  version_no: number;
+};
+
 function escapeHtml(text: string) {
   return text
     .replaceAll('&', '&amp;')
@@ -78,7 +113,7 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     .eq('is_active', true)
     .order('order_no', { ascending: true });
 
-  const units = (unitsData as any[]) || [];
+  const units = (unitsData as UnitRow[] | null) || [];
 
   const totalWeeks = (() => {
     const maxFromUnits = units.reduce((max, u) => Math.max(max, u.end_week ?? u.start_week ?? 0), 0);
@@ -104,7 +139,7 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
         .order('order_no', { ascending: true })
     : { data: null };
 
-  const topics = (topicsData as any[]) || [];
+  const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);
   const activeTopic = topics[0] ?? null;
 
@@ -114,18 +149,18 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     .lte('start_week', week)
     .gte('end_week', week);
 
-  let outcomes: any[] = [];
+  let outcomes: OutcomeVM[] = [];
   let outcomeIds: number[] = [];
   
   if (weekOutcomes?.length) {
-    outcomeIds = (weekOutcomes as any[]).map((w) => w.outcome_id);
+    outcomeIds = (weekOutcomes as WeekOutcomeRow[]).map((w) => w.outcome_id);
     
     const { data: outcomesData } = await supabase
       .from('outcomes')
       .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
       .in('id', outcomeIds);
 
-    const typedOutcomes = (outcomesData as any[]) || [];
+    const typedOutcomes = (outcomesData as OutcomeRow[] | null) || [];
     const filteredOutcomesData = typedOutcomes
       .filter((o) => o.topics?.units?.lesson_id === lId && o.topics?.units?.grade_id === gId)
       .filter((o) => (topicIds.length ? topicIds.includes(o.topic_id ?? -1) : true));
@@ -139,15 +174,15 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     outcomeIds = filteredOutcomesData.map((o) => o.id);
   }
 
-  let contents: any[] = [];
+  let contents: ContentVM[] = [];
   if (outcomeIds.length) {
     const { data: relData } = await supabase
       .from('topic_content_outcomes_v11')
       .select('topic_content_v11_id, outcome_id')
       .in('outcome_id', outcomeIds);
 
-    const rels = (relData as any[]) || [];
-    const contentV11Ids = Array.from(new Set(rels.map((r) => r.topic_content_v11_id))).filter((x) => !!x);
+    const rels = (relData as TopicContentOutcomeV11Row[] | null) || [];
+    const contentV11Ids = Array.from(new Set(rels.map((r) => r.topic_content_v11_id))).filter((x): x is number => Boolean(x));
 
     if (contentV11Ids.length) {
       const { data: v11Data } = await supabase
@@ -156,8 +191,8 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
         .in('id', contentV11Ids)
         .eq('is_published', true);
 
-      const v11Rows = (v11Data as any[]) || [];
-      const bestByTopic = new Map<number, any>();
+      const v11Rows = (v11Data as TopicContentV11Row[] | null) || [];
+      const bestByTopic = new Map<number, TopicContentV11Row>();
       for (const row of v11Rows) {
         const prev = bestByTopic.get(row.topic_id);
         if (!prev || (row.version_no ?? 0) > (prev.version_no ?? 0)) {
@@ -166,20 +201,29 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
       }
 
       const sortedTopics = topics.slice().sort((a, b) => a.order_no - b.order_no);
-      contents = sortedTopics
-        .map((t) => {
-          const v11 = bestByTopic.get(t.id);
-          if (!v11) return null;
-          const html = toHtmlFromV11Payload(v11.payload) || '';
-          return {
-            id: v11.id,
-            title: v11.title || t.title,
-            content: html,
-            orderNo: t.order_no,
-          };
-        })
-        .filter((x) => x !== null);
+      contents = sortedTopics.map((t) => {
+        const v11 = bestByTopic.get(t.id);
+        const html = v11 ? toHtmlFromV11Payload(v11.payload) : null;
+        return {
+          id: t.id,
+          title: t.title,
+          content: html,
+          orderNo: t.order_no,
+        };
+      });
     }
+  }
+
+  if (!contents.length && topics.length) {
+    contents = topics
+      .slice()
+      .sort((a, b) => a.order_no - b.order_no)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        content: null,
+        orderNo: t.order_no,
+      }));
   }
 
   return {

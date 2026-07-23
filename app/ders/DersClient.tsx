@@ -125,13 +125,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!weeksContainerRef.current || e.deltaY === 0) return;
+  useEffect(() => {
+    const el = weeksContainerRef.current;
+    if (!el) return;
 
-    e.preventDefault();
-    e.stopPropagation();
-    weeksContainerRef.current.scrollLeft += e.deltaY;
-  };
+    const handleWeekWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      el.scrollLeft += e.deltaY;
+    };
+
+    el.addEventListener('wheel', handleWeekWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWeekWheel);
+  }, []);
 
   const activeUnit = units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) || units[0];
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
@@ -256,7 +264,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             <div className="px-3 sm:px-6 lg:px-8 py-2 border-b border-slate-100 relative bg-white">
               <div
                 ref={weeksContainerRef}
-                onWheel={handleWheel}
                 className="weeks-scroll flex overflow-x-auto gap-1.5 sm:gap-2 pb-2 scroll-smooth"
                 style={{
                   scrollbarWidth: 'none',

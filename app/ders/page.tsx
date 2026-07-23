@@ -24,7 +24,7 @@ type OutcomeRow = {
 };
 
 type OutcomeVM = { id: number; description: string; topicTitle: string };
-type ContentVM = { id: number; title: string; content: string; orderNo: number };
+type ContentVM = { id: number; title: string; content: string | null; orderNo: number };
 
 type UnitRow = {
   id: number;
@@ -251,20 +251,29 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
       }
 
       const sortedTopics = topics.slice().sort((a, b) => a.order_no - b.order_no);
-      contents = sortedTopics
-        .map((t) => {
-          const v11 = bestByTopic.get(t.id);
-          if (!v11) return null;
-          const html = toHtmlFromV11Payload(v11.payload) || '';
-          return {
-            id: v11.id,
-            title: v11.title || t.title,
-            content: html,
-            orderNo: t.order_no,
-          } satisfies ContentVM;
-        })
-        .filter((x): x is ContentVM => x !== null);
+      contents = sortedTopics.map((t) => {
+        const v11 = bestByTopic.get(t.id);
+        const html = v11 ? toHtmlFromV11Payload(v11.payload) : null;
+        return {
+          id: t.id,
+          title: t.title,
+          content: html,
+          orderNo: t.order_no,
+        } satisfies ContentVM;
+      });
     }
+  }
+
+  if (!contents.length && topics.length) {
+    contents = topics
+      .slice()
+      .sort((a, b) => a.order_no - b.order_no)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        content: null,
+        orderNo: t.order_no,
+      }));
   }
 
   return {
