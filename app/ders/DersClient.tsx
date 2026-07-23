@@ -126,11 +126,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (weeksContainerRef.current) {
-      if (e.deltaY !== 0) {
-        weeksContainerRef.current.scrollLeft += e.deltaY;
-      }
-    }
+    if (!weeksContainerRef.current || e.deltaY === 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    weeksContainerRef.current.scrollLeft += e.deltaY;
   };
 
   const activeUnit = units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) || units[0];
@@ -219,22 +219,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       </aside>
 
       {/* RIGHT SIDE: MAIN LAYOUT */}
-      <div className="flex-1 h-[100dvh] overflow-hidden bg-white lg:rounded-l-[2rem] shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.03)] border-l border-slate-100 relative z-10">
-        <div className="h-full overflow-y-auto pb-24 bg-slate-50" style={{ scrollbarWidth: 'thin' }}>
+      <div className="flex-1 flex h-[100dvh] flex-col overflow-hidden bg-white lg:rounded-l-[2rem] shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.03)] border-l border-slate-100 relative z-10">
+        <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-[68px]">
 
         {/* HEADER */}
         <header className="bg-white shrink-0 relative">
           {/* Top Header: Breadcrumbs */}
-          <div className="px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex justify-between items-center border-b border-slate-100/80">
-            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-bold text-slate-400">
-              <button className="lg:hidden mr-1 sm:mr-2 text-slate-700 bg-slate-50 p-1.5 sm:p-2 rounded-full hover:bg-slate-100 transition-colors" onClick={() => setSidebarOpen(true)}>
+          <div className="px-3 sm:px-6 lg:px-8 min-h-14 sm:min-h-16 py-2 flex justify-between items-center gap-3 border-b border-slate-100/80">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 text-[11px] sm:text-sm font-bold text-slate-400">
+              <button className="lg:hidden mr-0.5 sm:mr-2 text-slate-700 bg-slate-50 p-1.5 sm:p-2 rounded-full hover:bg-slate-100 transition-colors shrink-0" onClick={() => setSidebarOpen(true)}>
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
-              <Link href="/" className="hover:text-indigo-600 transition-colors hidden sm:block">Anasayfa</Link>
-              <ChevronRight className="h-3.5 w-3.5 hidden sm:block" />
-              <Link href={`/${gradeSlug}`} className="hover:text-indigo-600 transition-colors hidden sm:block">{gradeName}</Link>
-              <ChevronRight className="h-3.5 w-3.5 hidden sm:block" />
-              <span className="text-slate-800 truncate max-w-[120px] sm:max-w-none">{lessonName}</span>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-tight sm:gap-x-2">
+                <Link href="/" className="hover:text-indigo-600 transition-colors">Anasayfa</Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <Link href={`/${gradeSlug}`} className="hover:text-indigo-600 transition-colors">{gradeName}</Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-slate-700 truncate max-w-[180px] sm:max-w-[260px] lg:max-w-none">{lessonName}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-slate-900 truncate max-w-[220px] sm:max-w-[320px] lg:max-w-[440px]">{unitTitle}</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -247,50 +251,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             </div>
           </div>
 
-          {/* Hero - Compact */}
-          <div className="px-3 sm:px-6 lg:px-8 py-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-900 px-3 py-2.5 sm:px-4 text-white shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-[10px] sm:text-xs font-black text-slate-300 uppercase tracking-wider">
-                    <Clock className="h-3.5 w-3.5 text-emerald-300" />
-                    <span>Devam Ediyor</span>
-                  </div>
-                  <h2 className="text-sm sm:text-base lg:text-lg font-black leading-tight mt-0.5 text-white truncate">
-                    {unitTitle}
-                  </h2>
-                  <p className="text-slate-300 text-[10px] sm:text-xs font-semibold hidden md:block">
-                    Hafta {week} içeriklerini öğrenmeye devam et
-                  </p>
-                </div>
-
-                <button
-                  className="bg-white text-slate-900 hover:bg-indigo-50 px-3 sm:px-4 py-2 rounded-lg font-black text-[10px] sm:text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 group/btn"
-                  onClick={() => {
-                    const sc = document.getElementById('lesson-content-area');
-                    if (sc) sc.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <PlayCircle className="h-4 w-4 sm:h-4 sm:w-4 text-indigo-600 group-hover/btn:scale-110 transition-transform" />
-                  <span className="hidden xs:inline">Derse Devam Et</span>
-                  <span className="xs:hidden">Devam</span>
-                </button>
-              </div>
-            </div>
-          </div>
 
           {/* Weeks Scrollable - FIXED FOR WEB */}
           <div className="px-3 sm:px-6 lg:px-8 py-2 border-b border-slate-100 relative bg-white">
             <div
               ref={weeksContainerRef}
               onWheel={handleWheel}
-              className="flex overflow-x-auto gap-1.5 sm:gap-2 pb-2 scroll-smooth"
+              className="weeks-scroll flex overflow-x-auto gap-1.5 sm:gap-2 pb-2 scroll-smooth"
               style={{
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none',
                 WebkitOverflowScrolling: 'touch',
                 overflowX: 'auto',
-                overflowY: 'hidden'
+                overflowY: 'hidden',
+                overscrollBehaviorX: 'contain',
+                overscrollBehaviorY: 'none'
               }}
             >
               <style>{`
@@ -321,7 +296,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </header>
 
         {/* SPLIT PANEL: TOPICS & LESSON CONTENT */}
-        <div className="flex h-[calc(100dvh-4.75rem)] overflow-hidden relative bg-slate-50" id="lesson-content-area">
+        <div className="flex min-h-0 flex-1 overflow-hidden relative bg-slate-50" id="lesson-content-area">
 
           {/* MIDDLE PANEL: TOPICS & OUTCOMES TABS */}
           <div className="w-[280px] lg:w-[320px] bg-white/80 backdrop-blur-sm border-r border-slate-200/80 flex flex-col shrink-0 hidden md:flex shadow-[5px_0_15px_-10px_rgba(0,0,0,0.03)]">
@@ -405,7 +380,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
           {/* MAIN LESSON CONTENT - E-Kitap Style with Larger Height */}
           <div className="flex-1 overflow-y-auto bg-slate-50/50" style={{ scrollbarWidth: 'thin' }}>
-            <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 min-h-full flex flex-col">
+            <div className="max-w-4xl mx-auto p-3 sm:p-4 lg:p-5 min-h-full flex flex-col">
 
               {/* Mobile Topics Dropdown */}
               <div className="md:hidden mb-4 shrink-0">
@@ -478,7 +453,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </div>
         </div>
 
-        <footer className="absolute bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md sm:px-6 lg:px-8">
+        <footer className="absolute bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-3 py-2 shadow-[0_-12px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md sm:px-6 lg:px-8">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sonraki Adım</div>
@@ -486,7 +461,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             </div>
             <Link
               href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
-              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition-all hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 sm:px-6 sm:text-sm"
+              className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition-all hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 sm:px-6 sm:text-sm"
             >
               Teste Başla <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
