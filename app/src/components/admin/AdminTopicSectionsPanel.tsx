@@ -45,8 +45,12 @@ const STATUS_COLORS: Record<Section['status'], string> = {
 
 async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // düşer: aşağıdaki execCommand fallback'i dener
+    }
   }
   const textarea = document.createElement('textarea');
   textarea.value = text;
@@ -280,9 +284,13 @@ function PromptCopyBox({ prompt, loading }: { prompt: string; loading: boolean }
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await copyText(prompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    try {
+      await copyText(prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.alert('Kopyalama başarısız oldu. Metni elle seçip kopyalayın.');
+    }
   }
 
   return (

@@ -15,13 +15,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'topicId gerekli' }, { status: 400 });
   }
 
+  if (!process.env.SUPABASE_SERVICE_KEY) {
+    console.error('[assign-codes] SUPABASE_SERVICE_KEY tanımlı değil, service-role client anon key ile çalışıyor olabilir.');
+  }
+
   const supabase = createServiceClient();
 
-  const { data: outcomesData } = await supabase
+  const { data: outcomesData, error: selectError } = await supabase
     .from('outcomes')
     .select('id, order_index, code')
     .eq('topic_id', topicId)
     .order('order_index', { ascending: true });
+
+  if (selectError) {
+    console.error('[assign-codes] outcomes select hatası:', selectError);
+    return NextResponse.json({ error: `Kazanımlar okunamadı: ${selectError.message}` }, { status: 500 });
+  }
 
   const outcomes = (outcomesData as OutcomeRow[] | null) || [];
   const assignments = computeMissingCodeAssignments(outcomes);
@@ -36,7 +45,8 @@ export async function POST(request: NextRequest) {
       .update({ code: assignment.code })
       .eq('id', assignment.id);
     if (error) {
-      return NextResponse.json({ error: 'Kod ataması sırasında hata oluştu' }, { status: 500 });
+      console.error('[assign-codes] outcomes update hatası:', error);
+      return NextResponse.json({ error: `Kod ataması başarısız: ${error.message}` }, { status: 500 });
     }
   }
 
