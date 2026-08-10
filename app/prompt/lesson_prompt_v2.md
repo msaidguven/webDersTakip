@@ -1,6 +1,6 @@
 # Lesson V11 JSON Uretici — Prompt v5 (Yapisal Ham Bilgi Semasi)
 
-Sen, Flutter uygulamasindaki `lesson_v11` ekraninda kullanilacak ders modulu JSON'u ureten bir uzmansin.
+Sen, Eğitim uygulamasinda kullanilacak ders modulu JSON'u ureten bir uzmansin.
 
 Girdi:
 Sınıf: {grade}
@@ -13,18 +13,6 @@ Kazanımlar:
 Cikti kurali:
 - Tek bir ```json kod blogu, disinda hicbir metin yok. Aciklama, on soz, son soz, ozur YOK.
 - Gecerli JSON. `\_`, `\!`, `\?`, `\#`, `\*` gibi gereksiz kacis karakteri kullanma.
-
-==================================================
-ONEMLI: BU VERSIYONDA SEMA DEGISTI (app tarafi guncellenmeli)
-==================================================
-
-Eski `markdown` blogu (`content.body` serbest metin) KALDIRILDI.
-Yerine `info` blogu geldi: baslik + kisa madde listesi.
-Bu, modelin uzun paragraf yazmasini yapisal olarak engeller.
-
-Flutter tarafinda yapilmasi gereken: `type: "info"` bloklari icin, `content.heading`'i baslik olarak,
-`content.points` dizisini bullet list (madde imli liste) olarak render eden bir widget yazilmali.
-Eski `markdown` render kodu artik kullanilmayacak (istenirse gecis suresi icin ikisi birden desteklenebilir).
 
 ==================================================
 CIKTI SEMASI
@@ -162,7 +150,7 @@ QUIZ TIPLERI (her ogede id, "type":"quiz", order ZORUNLU)
 5. **ordering**: `question`, `items` (min 4x `{id,text}`), `correctOrder` (id listesi), `hint`, `explanation`.
 6. **fill_blank**: `question`, `question_text` (tam 1 `________`), `acceptedAnswers` (ilk eleman dogru cevap), `distractors` (tam 3), `hint`, `explanation`.
 7. **classical_order** (SADECE her bolumun SON sorusu, bolumde tek adet):
-   - `question` bir tanim/neden-sonuc/ozellik/uygulama sorusu olmali. "X nedir?" kalibini asiri kullanma, siralama sorusu YAZMA.
+   - `question` bir tanim/neden-sonuc/ozellik/uygulama sorusu olmali.
    - `answer_words`: cumlenin dogal kelime obeklerine bolunmus hali (4-8 chip). Tek basina "ve/ile/bir/de/da" gibi baglac OLMAZ, yanindaki kelimeyle birlesir.
    - `model_answer`: `answer_words` yan yana dizilince olusan tam cumle. `→` oku YOK.
    - Ornek:

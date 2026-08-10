@@ -18,14 +18,35 @@ function getLessonColor(orderNo: number): string {
   return colors[Math.abs(orderNo) % colors.length];
 }
 
-export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
+type LessonGradeRow = { lesson_id: number };
+type LessonRow = {
+  id: number;
+  name: string;
+  icon: string | null;
+  description: string | null;
+  slug: string | null;
+  order_no: number | null;
+  question_count?: number | null;
+};
+
+interface GradePageClientProps {
+  gradeSlug: string;
+  initialGrade?: Grade | null;
+  initialLessons?: Lesson[];
+}
+
+export default function GradePageClient({ gradeSlug, initialGrade = null, initialLessons = [] }: GradePageClientProps) {
   const router = useRouter();
-  const [grade, setGrade] = useState<Grade | null>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [grade, setGrade] = useState<Grade | null>(initialGrade);
+  const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
+  const [loading, setLoading] = useState(!initialGrade);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialGrade) {
+      return;
+    }
+
     const supabase = createClient();
     
     async function load() {
@@ -62,7 +83,7 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
         .eq('grade_id', gradeData.id)
         .eq('is_active', true);
 
-      const ids = lgData?.map((x: any) => x.lesson_id) || [];
+      const ids = ((lgData as LessonGradeRow[] | null) || []).map((x) => x.lesson_id);
       
       if (ids.length > 0) {
         const { data: dersler, error: lessonError } = await supabase
@@ -75,7 +96,7 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
         if (lessonError) {
           setError('Dersler yüklenemedi');
         } else {
-          const transformed: Lesson[] = ((dersler as any[] | null) || []).map((l) => ({
+          const transformed: Lesson[] = ((dersler as LessonRow[] | null) || []).map((l) => ({
             id: String(l.id),
             gradeId: formattedGrade.id,
             name: l.name,
@@ -94,7 +115,7 @@ export default function GradePageClient({ gradeSlug }: { gradeSlug: string }) {
     }
 
     load();
-  }, [gradeSlug]);
+  }, [gradeSlug, initialGrade, initialLessons]);
 
   if (loading) return <div className="p-8 text-center text-muted">Yükleniyor...</div>;
   if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;

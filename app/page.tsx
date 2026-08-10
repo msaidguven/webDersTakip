@@ -1,3 +1,5 @@
+//app/page.tsx
+
 import { createPublicClient } from '@/utils/supabase/public';
 import HomeClient from './HomeClient';
 import { Grade } from './src/models/homeTypes';

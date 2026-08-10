@@ -1,10 +1,10 @@
-// app/[gradeSlug]/[lessonSlug]/page.tsx
-// Bu dosya, mevcut page.tsx'in YERİNİ ALIR. Eski page.tsx içeriği
-// app/[gradeSlug]/[lessonSlug]/icerik/page.tsx dosyasına taşındı.
+// app/[gradeSlug]/[lessonSlug]/icerik/page.tsx
+// Bu dosya, eski app/[gradeSlug]/[lessonSlug]/page.tsx dosyasının AYNISIDIR.
+// Tek fark: klasör bir seviye derine indiği için DersClient import yolu güncellendi.
 
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
-import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
+import DersClient from '../../../ders/DersClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,6 +19,8 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+
+type ContentVM = { id: number; title: string; content: string | null; orderNo: number };
 type UnitRow = {
   id: number;
   title: string;
@@ -27,11 +29,11 @@ type UnitRow = {
   start_week: number | null;
   end_week: number | null;
 };
-type TopicRow = { id: number; unit_id: number };
+type TopicRow = { id: number; title: string; slug: string; order_no: number };
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
 
-async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string, week: number) {
+async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: number) {
   const supabase = await createClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
@@ -103,68 +105,64 @@ async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string, we
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
-  // Her ünite için konu sayısı ("8 konu" etiketi)
-  const unitIds = units.map((u) => u.id);
-  let topicCountByUnit: Record<number, number> = {};
-  if (unitIds.length > 0) {
-    const { data: topicsData } = await supabase
-      .from('topics')
-      .select('id, unit_id')
-      .in('unit_id', unitIds)
-      .eq('is_active', true);
-
-    topicCountByUnit = ((topicsData as TopicRow[] | null) || []).reduce((acc, t) => {
-      acc[t.unit_id] = (acc[t.unit_id] || 0) + 1;
-      return acc;
-    }, {} as Record<number, number>);
-  }
-
-  const unitsWithTopicCount: Unit[] = units.map((u) => ({
-    ...u,
-    topicCount: topicCountByUnit[u.id] ?? null,
-  }));
-
   const activeUnit = units.find((u) => {
     const sw = u.start_week ?? 1;
     const ew = u.end_week ?? totalWeeks;
     return week >= sw && week <= ew;
   }) ?? units[0] ?? null;
 
-  // Banner'da göstermek için aktif ünitenin ilk konusu
-  let currentTopicTitle: string | null = null;
-  if (activeUnit) {
-    const { data: firstTopic } = await supabase
-      .from('topics')
-      .select('title')
-      .eq('unit_id', activeUnit.id)
-      .eq('is_active', true)
-      .order('order_no', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    currentTopicTitle = (firstTopic as { title: string } | null)?.title ?? null;
-  }
+  const unitId = activeUnit?.id ?? null;
+  const unitName = activeUnit?.title ?? '';
+  const unitSlug = activeUnit?.slug ?? null;
+
+  const { data: topicsData } = unitId
+    ? await supabase
+        .from('topics')
+        .select('id, title, slug, order_no')
+        .eq('unit_id', unitId)
+        .eq('is_active', true)
+        .order('order_no', { ascending: true })
+    : { data: null };
+
+  const topics = (topicsData as TopicRow[] | null) || [];
+  const activeTopic = topics[0] ?? null;
+
+  const contents: ContentVM[] = topics
+    .slice()
+    .sort((a, b) => a.order_no - b.order_no)
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      content: null,
+      orderNo: t.order_no,
+    }));
 
   return {
     gradeId: gId.toString(),
     lessonId: lId.toString(),
     gradeName: grade.name,
     lessonName: lesson.name,
+    unitName,
+    outcomes: [],
+    contents,
+    units,
+    totalWeeks,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
-    units: unitsWithTopicCount,
-    totalWeeks,
-    currentTopicTitle,
+    unitSlug,
+    topicTitle: activeTopic?.title || null,
+    topicSlug: activeTopic?.slug || null,
   };
 }
 
-export default async function LessonOverviewPage({ params, searchParams }: PageProps) {
+export default async function LessonContentPage({ params, searchParams }: PageProps) {
   const { gradeSlug, lessonSlug } = await params;
   const sp = await searchParams;
 
   const rawHafta = sp.hafta;
   const hafta = Array.isArray(rawHafta) ? parseInt(rawHafta[0]) : (rawHafta ? parseInt(rawHafta) : 19);
 
-  const data = await getMufredatOverviewData(gradeSlug, lessonSlug, hafta);
+  const data = await getDersDataBySlugs(gradeSlug, lessonSlug, hafta);
 
   if (!data) {
     return (
@@ -175,17 +173,11 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
   }
 
   return (
-    <MufredatOverviewClient
-      gradeName={data.gradeName}
-      lessonName={data.lessonName}
-      gradeSlug={data.gradeSlug}
-      lessonSlug={data.lessonSlug}
+    <DersClient
+      initialData={data}
       gradeId={data.gradeId}
       lessonId={data.lessonId}
-      units={data.units}
-      currentWeek={hafta}
-      totalWeeks={data.totalWeeks}
-      currentTopicTitle={data.currentTopicTitle}
+      week={hafta}
     />
   );
 }

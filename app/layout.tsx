@@ -1,10 +1,14 @@
 import type { Viewport } from "next";
 import { Inter } from "next/font/google";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
+import "primereact/resources/primereact.min.css";
+import "primeicons/primeicons.css";
 import "./globals.css";
 import { metadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";
 import { StructuredData } from "./src/components/StructuredData";
+import { PrimeReactProvider } from "primereact/api";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,12 +36,14 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <AuthProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
-        </AuthProvider>
-        <StructuredData />
+        <PrimeReactProvider>
+          <AuthProvider>
+            <MainLayout>
+              {children}
+            </MainLayout>
+          </AuthProvider>
+          <StructuredData />
+        </PrimeReactProvider>
       </body>
     </html>
   );

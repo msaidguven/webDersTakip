@@ -24,7 +24,6 @@ const fetcher = async (): Promise<Grade[]> => {
   logger.log('[HomeClient fetcher] Siniflar cekiliyor...');
   const supabase = createClient();
   
-  // DB şeması: grades(id, name, order_no, is_active, question_count, slug)
   const { data, error } = await supabase
     .from('grades')
     .select('id, name, order_no, is_active, slug')
@@ -38,7 +37,6 @@ const fetcher = async (): Promise<Grade[]> => {
   
   logger.log('[HomeClient fetcher] Bulunan kayit:', data?.length || 0);
   
-  // DB'de olmayan alanları client-side ekle
   const gradeRows = (data as GradeRow[] | null) || [];
   const grades = gradeRows.map((g) => ({
     id: g.id.toString(),
@@ -58,43 +56,6 @@ interface HomeClientProps {
   initialGrades: Grade[];
 }
 
-interface LessonRow {
-  id: number;
-  name: string;
-  icon: string | null;
-  description: string | null;
-  order_no: number | null;
-  slug: string | null;
-  question_count?: number | null;
-}
-
-function getLessonColor(orderNo: number): string {
-  const colors = [
-    'from-indigo-500 to-purple-500',
-    'from-emerald-500 to-teal-500',
-    'from-orange-500 to-amber-500',
-    'from-blue-500 to-cyan-500',
-    'from-pink-500 to-rose-500',
-  ];
-  return colors[Math.abs(orderNo) % colors.length];
-}
-
-function getCurrentAcademicWeekNo() {
-  // Geçici: 1. hafta başlangıcı 8 Eylül 2025 (sonra DB’den dinamik yapılacak)
-  const week1Start = new Date(2025, 8, 8);
-
-  const now = new Date();
-  const start = new Date(week1Start.getFullYear(), week1Start.getMonth(), week1Start.getDate());
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const diffMs = today.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const week = Math.floor(diffDays / 7) + 1;
-
-  if (!Number.isFinite(week)) return 1;
-  return Math.max(1, week);
-}
-
 export default function HomeClient({ initialGrades }: HomeClientProps) {
   const { data: grades, error } = useSWR(
     'grades',
@@ -108,7 +69,7 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
   );
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <main className="py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto">
           <GradeSelector
@@ -120,15 +81,15 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
         </div>
       </main>
 
-      <footer className="border-t border-default py-6 sm:py-8 px-4 sm:px-8">
+      <footer className="border-t border-gray-200 dark:border-gray-800 py-6 sm:py-8 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
-          <p className="text-muted text-sm">
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
             © 2026 Ders Takip. Tum haklari saklidir.
           </p>
-          <div className="flex gap-6 text-sm text-muted">
-            <a href="#" className="hover:text-default transition-colors">Hakkimizda</a>
-            <a href="#" className="hover:text-default transition-colors">Iletisim</a>
-            <a href="#" className="hover:text-default transition-colors">Gizlilik</a>
+          <div className="flex gap-6 text-sm text-gray-600 dark:text-gray-400">
+            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Hakkimizda</a>
+            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Iletisim</a>
+            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Gizlilik</a>
           </div>
         </div>
       </footer>

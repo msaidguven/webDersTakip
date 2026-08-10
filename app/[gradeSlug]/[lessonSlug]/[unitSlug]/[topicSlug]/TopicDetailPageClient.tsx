@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { GraduationCap, ChevronLeft, Check } from 'lucide-react';
+import { useAuth } from '@/app/src/context/AuthContext';
+import AdminTopicSectionsPanel from '@/app/src/components/admin/AdminTopicSectionsPanel';
+
+type ProfileRoleRow = { role: string | null };
 
 type ModuleBlock =
   | { type: 'markdown'; body: string }
@@ -227,6 +231,34 @@ export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug,
   const [data, setData] = useState<ModuleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  const { user, supabase: authSupabase } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAdminRole() {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data: profile } = await authSupabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setIsAdmin((profile as ProfileRoleRow | null)?.role === 'admin');
+      }
+    }
+
+    loadAdminRole();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSupabase, user]);
 
   useEffect(() => {
     async function load() {
@@ -490,6 +522,12 @@ export default function TopicDetailPageClient({ gradeSlug, lessonSlug, unitSlug,
               📝 Konu Testi Çöz
             </Link>
           </div>
+
+          {isAdmin && (
+            <div className="mt-10">
+              <AdminTopicSectionsPanel topicId={data.topic.id} />
+            </div>
+          )}
         </main>
       </div>
     </div>
