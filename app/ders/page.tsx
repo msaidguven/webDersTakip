@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
+import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import DersClient from './DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,36 @@ type OutcomeRow = {
 };
 
 type OutcomeVM = { id: number; description: string; topicTitle: string };
-type ContentVM = { id: number; title: string; content: string | null; orderNo: number };
+type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null };
+type HighlightVM = { position: string; icon: string | null; title: string; description: string };
+type ContentVM = {
+  id: number;
+  title: string;
+  content: string | null;
+  orderNo: number;
+  sections: SectionVM[];
+  heroImageUrl: string | null;
+  subtitle: string | null;
+  highlights: HighlightVM[];
+};
+
+type TopicContentRow = { id: number; topic_id: number; hero_image_url: string | null; subtitle: string | null };
+type SectionRow = {
+  id: number;
+  topic_content_id: number;
+  order_no: number;
+  heading: string;
+  body_markdown: string | null;
+  image_url: string | null;
+};
+type HighlightRow = {
+  topic_content_id: number;
+  position: string;
+  icon: string | null;
+  title: string;
+  description: string;
+  order_no: number;
+};
 
 type UnitRow = {
   id: number;
@@ -259,6 +289,10 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
           title: t.title,
           content: html,
           orderNo: t.order_no,
+          sections: [],
+          heroImageUrl: null,
+          subtitle: null,
+          highlights: [],
         } satisfies ContentVM;
       });
     }
@@ -273,7 +307,73 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
         title: t.title,
         content: null,
         orderNo: t.order_no,
+        sections: [],
+        heroImageUrl: null,
+        subtitle: null,
+        highlights: [],
       }));
+  }
+
+  if (topicIds.length) {
+    const { data: topicContentsData } = await supabase
+      .from('topic_contents')
+      .select('id, topic_id, hero_image_url, subtitle')
+      .in('topic_id', topicIds);
+
+    const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
+    const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
+    const contentIds = topicContentRows.map((tc) => tc.id);
+
+    const heroByTopic = new Map<number, { heroImageUrl: string | null; subtitle: string | null }>();
+    for (const tc of topicContentRows) {
+      heroByTopic.set(tc.topic_id, { heroImageUrl: tc.hero_image_url, subtitle: tc.subtitle });
+    }
+
+    if (contentIds.length) {
+      const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
+        supabase
+          .from('topic_content_sections')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url')
+          .in('topic_content_id', contentIds)
+          .order('order_no', { ascending: true }),
+        supabase
+          .from('topic_content_highlights')
+          .select('topic_content_id, position, icon, title, description, order_no')
+          .in('topic_content_id', contentIds)
+          .order('order_no', { ascending: true }),
+      ]);
+
+      const sectionsByTopic = new Map<number, SectionVM[]>();
+      for (const row of (sectionsData as SectionRow[] | null) || []) {
+        const topicId = topicIdByContentId.get(row.topic_content_id);
+        if (!topicId) continue;
+        const list = sectionsByTopic.get(topicId) || [];
+        list.push({
+          id: row.id,
+          heading: row.heading,
+          html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
+          imageUrl: row.image_url,
+        });
+        sectionsByTopic.set(topicId, list);
+      }
+
+      const highlightsByTopic = new Map<number, HighlightVM[]>();
+      for (const row of (highlightsData as HighlightRow[] | null) || []) {
+        const topicId = topicIdByContentId.get(row.topic_content_id);
+        if (!topicId) continue;
+        const list = highlightsByTopic.get(topicId) || [];
+        list.push({ position: row.position, icon: row.icon, title: row.title, description: row.description });
+        highlightsByTopic.set(topicId, list);
+      }
+
+      contents = contents.map((c) => ({
+        ...c,
+        sections: sectionsByTopic.get(c.id) || [],
+        heroImageUrl: heroByTopic.get(c.id)?.heroImageUrl || null,
+        subtitle: heroByTopic.get(c.id)?.subtitle || null,
+        highlights: highlightsByTopic.get(c.id) || [],
+      }));
+    }
   }
 
   return {

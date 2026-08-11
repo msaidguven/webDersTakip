@@ -30,12 +30,18 @@ ALTER TABLE outcomes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "outcomes_public_read" ON outcomes;
 CREATE POLICY "outcomes_public_read" ON outcomes FOR SELECT USING (true);
 
+-- topic_content_sections tablosu için (alt başlıklar; öğrenci sayfaları anon/oturum
+-- anahtarıyla okuduğu için bu policy olmadan hiç veri dönmüyor)
+ALTER TABLE topic_content_sections ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "topic_content_sections_public_read" ON topic_content_sections;
+CREATE POLICY "topic_content_sections_public_read" ON topic_content_sections FOR SELECT USING (true);
+
+-- topic_content_highlights tablosu için (kapak görseli vurgu kartları; aynı sebep)
+ALTER TABLE topic_content_highlights ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "topic_content_highlights_public_read" ON topic_content_highlights;
+CREATE POLICY "topic_content_highlights_public_read" ON topic_content_highlights FOR SELECT USING (true);
+
 -- lesson_grades tablosu için
 ALTER TABLE lesson_grades ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "lesson_grades_public_read" ON lesson_grades;
 CREATE POLICY "lesson_grades_public_read" ON lesson_grades FOR SELECT USING (true);
-
--- unit_grades tablosu için
-ALTER TABLE unit_grades ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "unit_grades_public_read" ON unit_grades;
-CREATE POLICY "unit_grades_public_read" ON unit_grades FOR SELECT USING (true);

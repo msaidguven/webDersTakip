@@ -4,7 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, Clipboard, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 
 type Outcome = { id: number; description: string; order_index: number | null; code: string | null; previewCode: string };
-type TopicContent = { id: number; title: string; body_markdown: string | null; is_published: boolean } | null;
+type TopicContent = {
+  id: number;
+  title: string;
+  body_markdown: string | null;
+  is_published: boolean;
+  hero_image_url: string | null;
+  subtitle: string | null;
+} | null;
 type SectionOutcome = { id: number; code: string | null; description: string };
 type Section = {
   id: number;
@@ -17,6 +24,7 @@ type Section = {
   status: 'planned' | 'content_ready' | 'image_ready' | 'published';
   outcomes: SectionOutcome[];
 };
+type Highlight = { id: number; position: string; icon: string | null; title: string; description: string; order_no: number };
 
 type Bundle = {
   topic: { id: number; title: string };
@@ -26,8 +34,18 @@ type Bundle = {
   outcomes: Outcome[];
   missingCodeCount: number;
   topicContent: TopicContent;
+  highlights: Highlight[];
   sections: Section[];
 };
+
+const HIGHLIGHT_POSITIONS: { key: string; label: string }[] = [
+  { key: 'top-left', label: 'Sol Üst' },
+  { key: 'mid-left', label: 'Sol Orta' },
+  { key: 'bottom-left', label: 'Sol Alt' },
+  { key: 'top-right', label: 'Sağ Üst' },
+  { key: 'mid-right', label: 'Sağ Orta' },
+  { key: 'bottom-right', label: 'Sağ Alt' },
+];
 
 const STATUS_LABELS: Record<Section['status'], string> = {
   planned: 'Planlandı',
@@ -248,6 +266,14 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         </div>
       )}
 
+      {bundle.topicContent && (
+        <HeroHighlightsPanel
+          topicContent={bundle.topicContent}
+          highlights={bundle.highlights}
+          onSaved={load}
+        />
+      )}
+
       {planModalOpen && (
         <PlanModal topicId={topicId} onClose={() => setPlanModalOpen(false)} onSaved={() => { setPlanModalOpen(false); load(); }} />
       )}
@@ -258,8 +284,226 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           section={activeSection}
           onClose={() => setActiveSection(null)}
           onSaved={() => { setActiveSection(null); load(); }}
+          onImageChanged={load}
         />
       )}
+    </div>
+  );
+}
+
+function HeroHighlightsPanel({
+  topicContent,
+  highlights,
+  onSaved,
+}: {
+  topicContent: NonNullable<TopicContent>;
+  highlights: Highlight[];
+  onSaved: () => void;
+}) {
+  const [subtitle, setSubtitle] = useState(topicContent.subtitle || '');
+  const [subtitleSaving, setSubtitleSaving] = useState(false);
+  const [subtitleSaved, setSubtitleSaved] = useState(false);
+
+  const [heroUrl, setHeroUrl] = useState(topicContent.hero_image_url);
+  const [heroFile, setHeroFile] = useState<File | null>(null);
+  const [heroBusy, setHeroBusy] = useState(false);
+  const [heroError, setHeroError] = useState<string | null>(null);
+
+  const [slots, setSlots] = useState<Record<string, { icon: string; title: string; description: string }>>(() => {
+    const map: Record<string, { icon: string; title: string; description: string }> = {};
+    for (const p of HIGHLIGHT_POSITIONS) {
+      const existing = highlights.find((h) => h.position === p.key);
+      map[p.key] = { icon: existing?.icon || '', title: existing?.title || '', description: existing?.description || '' };
+    }
+    return map;
+  });
+  const [highlightsSaving, setHighlightsSaving] = useState(false);
+  const [highlightsError, setHighlightsError] = useState<string | null>(null);
+  const [highlightsSaved, setHighlightsSaved] = useState(false);
+
+  async function handleSubtitleSave() {
+    setSubtitleSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/topic-content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId: topicContent.id, subtitle }),
+      });
+      if (res.ok) {
+        setSubtitleSaved(true);
+        setTimeout(() => setSubtitleSaved(false), 1800);
+        onSaved();
+      }
+    } finally {
+      setSubtitleSaving(false);
+    }
+  }
+
+  async function handleHeroUpload() {
+    if (!heroFile) return;
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', heroFile);
+      formData.append('topicContentId', String(topicContent.id));
+      const res = await fetch('/api/admin/topic-sections/hero-image', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setHeroError(data?.error || 'Yükleme başarısız.');
+        return;
+      }
+      setHeroUrl(data.imageUrl);
+      setHeroFile(null);
+      onSaved();
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
+  async function handleHeroRemove() {
+    if (!confirm('Kapak görselini kaldırmak istediğinize emin misiniz?')) return;
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/hero-image?topicContentId=${topicContent.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setHeroUrl(null);
+        onSaved();
+      }
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
+  function updateSlot(position: string, field: 'icon' | 'title' | 'description', value: string) {
+    setSlots((prev) => ({ ...prev, [position]: { ...prev[position], [field]: value } }));
+  }
+
+  async function handleHighlightsSave() {
+    setHighlightsSaving(true);
+    setHighlightsError(null);
+    try {
+      const payload = HIGHLIGHT_POSITIONS
+        .map((p, idx) => ({ position: p.key, ...slots[p.key], order_no: idx }))
+        .filter((h) => h.title.trim() && h.description.trim());
+
+      const res = await fetch('/api/admin/topic-sections/highlights', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId: topicContent.id, highlights: payload }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setHighlightsError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setHighlightsSaved(true);
+      setTimeout(() => setHighlightsSaved(false), 1800);
+      onSaved();
+    } finally {
+      setHighlightsSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
+      <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7] block mb-3">Kapak Görseli &amp; Vurgular</span>
+
+      <div className="mb-4">
+        <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Alt Başlık (konu başlığının hemen altında görünür)</span>
+        <div className="flex gap-2">
+          <input
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.target.value)}
+            placeholder="Örn. Bilgisayarın beyni"
+            className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+          />
+          <button
+            onClick={handleSubtitleSave}
+            disabled={subtitleSaving}
+            className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {subtitleSaving ? '...' : subtitleSaved ? 'Kaydedildi' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Kapak Görseli</span>
+        {heroUrl ? (
+          <div className="flex items-center gap-3">
+            <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
+            <button
+              onClick={handleHeroRemove}
+              disabled={heroBusy}
+              className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+            >
+              {heroBusy ? 'İşleniyor...' : 'Kaldır'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+              className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+            />
+            <button
+              onClick={handleHeroUpload}
+              disabled={!heroFile || heroBusy}
+              className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {heroBusy ? 'Yükleniyor...' : 'Yükle'}
+            </button>
+          </div>
+        )}
+        {heroError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{heroError}</p>}
+      </div>
+
+      <div>
+        <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+          Vurgu Kartları (görselin etrafında, opsiyonel — boş bırakılan pozisyon gösterilmez)
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {HIGHLIGHT_POSITIONS.map((p) => (
+            <div key={p.key} className="rounded-lg border border-[#2e3348] bg-[#12151f] p-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#6c63ff] block mb-2">{p.label}</span>
+              <div className="flex gap-2 mb-2">
+                <input
+                  value={slots[p.key].icon}
+                  onChange={(e) => updateSlot(p.key, 'icon', e.target.value)}
+                  placeholder="🧠"
+                  maxLength={4}
+                  className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-1.5 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+                />
+                <input
+                  value={slots[p.key].title}
+                  onChange={(e) => updateSlot(p.key, 'title', e.target.value)}
+                  placeholder="Başlık"
+                  className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+                />
+              </div>
+              <textarea
+                value={slots[p.key].description}
+                onChange={(e) => updateSlot(p.key, 'description', e.target.value)}
+                placeholder="Kısa açıklama"
+                rows={2}
+                className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
+          ))}
+        </div>
+        {highlightsError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{highlightsError}</p>}
+        <button
+          onClick={handleHighlightsSave}
+          disabled={highlightsSaving}
+          className="mt-3 rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+        >
+          {highlightsSaving ? 'Kaydediliyor...' : highlightsSaved ? 'Kaydedildi' : 'Vurgu Kartlarını Kaydet'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -415,12 +659,30 @@ function PlanModal({ topicId, onClose, onSaved }: { topicId: number; onClose: ()
   );
 }
 
-function SectionModal({ topicId, section, onClose, onSaved }: { topicId: number; section: Section; onClose: () => void; onSaved: () => void }) {
+function SectionModal({
+  topicId,
+  section,
+  onClose,
+  onSaved,
+  onImageChanged,
+}: {
+  topicId: number;
+  section: Section;
+  onClose: () => void;
+  onSaved: () => void;
+  onImageChanged: () => void;
+}) {
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [imageUrl, setImageUrl] = useState<string | null>(section.image_url);
+  const [imagePrompt, setImagePrompt] = useState<string | null>(section.image_prompt);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -471,9 +733,52 @@ function SectionModal({ topicId, section, onClose, onSaved }: { topicId: number;
         setError(data?.error || 'Kaydedilemedi.');
         return;
       }
+      setImagePrompt(typeof obj.image_prompt === 'string' ? obj.image_prompt : null);
       onSaved();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleImageUpload() {
+    if (!imageFile) return;
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', imageFile);
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/image`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setImageError(data?.error || 'Yükleme başarısız.');
+        return;
+      }
+      setImageUrl(data.imageUrl);
+      setImageFile(null);
+      onImageChanged();
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function handleImageRemove() {
+    if (!confirm('Görseli kaldırmak istediğinize emin misiniz?')) return;
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/image`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setImageError(data?.error || 'Silinemedi.');
+        return;
+      }
+      setImageUrl(null);
+      onImageChanged();
+    } finally {
+      setImageBusy(false);
     }
   }
 
@@ -494,6 +799,49 @@ function SectionModal({ topicId, section, onClose, onSaved }: { topicId: number;
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+
+        <div className="border-t border-[#2e3348] pt-4">
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">3. Adım: Görsel (opsiyonel)</span>
+
+          {imagePrompt && (
+            <div className="mb-3">
+              <PromptCopyBox prompt={imagePrompt} loading={false} />
+            </div>
+          )}
+
+          {imageUrl ? (
+            <div className="flex items-center gap-3">
+              <img src={imageUrl} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#2e3348]" />
+              <button
+                type="button"
+                onClick={handleImageRemove}
+                disabled={imageBusy}
+                className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+              >
+                {imageBusy ? 'İşleniyor...' : 'Görseli Kaldır'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+              />
+              <button
+                type="button"
+                onClick={handleImageUpload}
+                disabled={!imageFile || imageBusy}
+                className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                {imageBusy ? 'Yükleniyor...' : 'Yükle'}
+              </button>
+            </div>
+          )}
+
+          {imageError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{imageError}</p>}
+        </div>
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">

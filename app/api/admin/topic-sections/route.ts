@@ -8,7 +8,22 @@ type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number 
 type LessonRow = { id: number; name: string };
 type GradeRow = { id: number; name: string };
 type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null };
-type TopicContentRow = { id: number; title: string; body_markdown: string | null; is_published: boolean };
+type TopicContentRow = {
+  id: number;
+  title: string;
+  body_markdown: string | null;
+  is_published: boolean;
+  hero_image_url: string | null;
+  subtitle: string | null;
+};
+type HighlightRow = {
+  id: number;
+  position: string;
+  icon: string | null;
+  title: string;
+  description: string;
+  order_no: number;
+};
 type SectionRow = {
   id: number;
   topic_content_id: number;
@@ -73,14 +88,24 @@ export async function GET(request: NextRequest) {
 
   const { data: topicContent } = await supabase
     .from('topic_contents')
-    .select('id, title, body_markdown, is_published')
+    .select('id, title, body_markdown, is_published, hero_image_url, subtitle')
     .eq('topic_id', topicRow.id)
     .maybeSingle();
 
   const topicContentRow = topicContent as TopicContentRow | null;
 
+  let highlights: HighlightRow[] = [];
   let sections: SectionRow[] = [];
   let sectionOutcomeMap: Record<number, number[]> = {};
+
+  if (topicContentRow) {
+    const { data: highlightsData } = await supabase
+      .from('topic_content_highlights')
+      .select('id, position, icon, title, description, order_no')
+      .eq('topic_content_id', topicContentRow.id)
+      .order('order_no', { ascending: true });
+    highlights = (highlightsData as HighlightRow[] | null) || [];
+  }
 
   if (topicContentRow) {
     const { data: sectionsData } = await supabase
@@ -122,6 +147,7 @@ export async function GET(request: NextRequest) {
     outcomes,
     missingCodeCount,
     topicContent: topicContentRow,
+    highlights,
     sections: sectionsWithOutcomes,
   });
 }

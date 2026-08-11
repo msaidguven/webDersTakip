@@ -22,11 +22,30 @@ import {
   PanelLeftOpen,
   Target,
   Sparkles,
+  Layers,
+  Compass,
+  Puzzle,
+  Rocket,
+  PenTool,
+  Globe2,
+  Atom,
+  Brain,
+  Star,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
-type Content = { id: string | number; title: string; content?: string | null };
+type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null };
+type TopicHighlight = { position: string; icon: string | null; title: string; description: string };
+type Content = {
+  id: string | number;
+  title: string;
+  content?: string | null;
+  sections?: TopicSection[];
+  heroImageUrl?: string | null;
+  subtitle?: string | null;
+  highlights?: TopicHighlight[];
+};
 type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null };
 type ProfileRoleRow = { role: string | null };
 
@@ -50,6 +69,23 @@ interface DersClientProps {
   week: number;
 }
 
+const TOPIC_STYLES = [
+  { Icon: BookOpen, bg: 'bg-indigo-100', text: 'text-indigo-600' },
+  { Icon: Atom, bg: 'bg-purple-100', text: 'text-purple-600' },
+  { Icon: Compass, bg: 'bg-emerald-100', text: 'text-emerald-600' },
+  { Icon: Puzzle, bg: 'bg-amber-100', text: 'text-amber-600' },
+  { Icon: Rocket, bg: 'bg-rose-100', text: 'text-rose-600' },
+  { Icon: Layers, bg: 'bg-cyan-100', text: 'text-cyan-600' },
+  { Icon: PenTool, bg: 'bg-fuchsia-100', text: 'text-fuchsia-600' },
+  { Icon: Globe2, bg: 'bg-lime-100', text: 'text-lime-700' },
+  { Icon: Brain, bg: 'bg-orange-100', text: 'text-orange-600' },
+  { Icon: Star, bg: 'bg-sky-100', text: 'text-sky-600' },
+];
+
+function getTopicStyle(index: number) {
+  return TOPIC_STYLES[index % TOPIC_STYLES.length];
+}
+
 const STUDY_TIPS = [
   'Bir konuyu okuduktan sonra kendi cümlelerinle özetlemek, kalıcılığı artırır.',
   'Kısa aralıklarla tekrar etmek, tek seferde uzun çalışmaktan daha etkilidir.',
@@ -57,6 +93,21 @@ const STUDY_TIPS = [
   'Not alarak okumak, sadece okumaktan daha kalıcı öğrenme sağlar.',
   'Zor gelen kısımları atlamak yerine üzerinde durup anlamaya çalış.',
 ];
+
+const LEFT_HIGHLIGHT_POSITIONS = ['top-left', 'mid-left', 'bottom-left'];
+const RIGHT_HIGHLIGHT_POSITIONS = ['top-right', 'mid-right', 'bottom-right'];
+
+function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-3.5 flex items-start gap-2.5">
+      {highlight.icon && <span className="text-xl leading-none shrink-0">{highlight.icon}</span>}
+      <div className="min-w-0">
+        <p className="text-xs font-black text-slate-800 leading-snug">{highlight.title}</p>
+        <p className="text-[11px] text-slate-500 font-medium leading-snug mt-0.5">{highlight.description}</p>
+      </div>
+    </div>
+  );
+}
 
 function CircularProgress({ percent }: { percent: number }) {
   const size = 64;
@@ -104,6 +155,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [contents, setContents] = useState<Content[]>(initialData.contents);
   const [isWeekDataLoading, setIsWeekDataLoading] = useState(true);
   const [activeTopicId, setActiveTopicId] = useState<string | number | null>(initialData.contents[0]?.id || null);
+  const [activeSectionId, setActiveSectionId] = useState<string | number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [outcomesOpen, setOutcomesOpen] = useState(false);
@@ -121,6 +173,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const selectedTopicId = contents[selectedTopicIndex]?.id ?? null;
   const activeTopic = contents[selectedTopicIndex];
+
+  const currentSection = useMemo(() => {
+    const sections = activeTopic?.sections;
+    if (!sections || !sections.length) return null;
+    return sections.find((s) => String(s.id) === String(activeSectionId)) || sections[0];
+  }, [activeTopic, activeSectionId]);
+
+  const currentSectionIndex = useMemo(() => {
+    if (!activeTopic?.sections || !currentSection) return -1;
+    return activeTopic.sections.findIndex((s) => String(s.id) === String(currentSection.id));
+  }, [activeTopic, currentSection]);
 
   const activeTopicOutcomes = useMemo(() => {
     if (!selectedTopicId) return outcomes;
@@ -287,7 +350,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const goToTopic = (index: number) => {
     const topic = contents[index];
-    if (topic) setActiveTopicId(topic.id);
+    if (!topic) return;
+    setActiveTopicId(topic.id);
+    setActiveSectionId(null);
+  };
+
+  const goToSection = (index: number, sectionId: string | number) => {
+    const topic = contents[index];
+    if (!topic) return;
+    if (String(activeTopicId) !== String(topic.id)) setActiveTopicId(topic.id);
+    setActiveSectionId(sectionId);
+    setSidebarOpen(false);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -405,18 +479,29 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           )}
 
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1" style={{ scrollbarWidth: 'none' }}>
+            {!tocCollapsed && contents.length > 0 && (
+              <div className="mx-0.5 mb-2 flex items-center gap-2.5 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-black text-slate-700 truncate">{unitTitle}</span>
+              </div>
+            )}
             {contents.length > 0 ? contents.map((topic, idx) => {
               const isActive = idx === selectedTopicIndex;
               const isCompleted = idx < selectedTopicIndex;
               const showAdminMenu = isAdmin && !tocCollapsed;
+              const showSectionTree = !tocCollapsed && isActive && !!topic.sections?.length;
+              const { Icon: TopicIcon, bg: topicBg, text: topicText } = getTopicStyle(idx);
               return (
-                <div key={topic.id} className="relative">
+                <div key={topic.id}>
+                <div className="relative">
                   <button
                     onClick={() => goToTopic(idx)}
                     title={topic.title}
                     className={`
                       w-full flex items-center gap-3 rounded-xl transition-all duration-200 border text-left
-                      ${tocCollapsed ? 'justify-center p-2.5' : 'p-3'}
+                      ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
                       ${showAdminMenu ? 'pr-8' : ''}
                       ${isActive
                         ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
@@ -424,16 +509,30 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     `}
                   >
                     <div className={`
-                      h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black transition-colors
-                      ${isCompleted ? 'bg-emerald-100 text-emerald-600' :
-                        isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 text-slate-500'}
+                      h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors
+                      ${isCompleted ? 'bg-emerald-100' : isActive ? topicBg : 'bg-slate-100'}
                     `}>
-                      {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : idx + 1}
+                      {isCompleted ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <TopicIcon className={`h-4 w-4 ${isActive ? topicText : 'text-slate-400'}`} />
+                      )}
                     </div>
                     {!tocCollapsed && (
-                      <h4 className={`text-sm font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
-                        {topic.title}
-                      </h4>
+                      <>
+                        <h4 className={`flex-1 min-w-0 text-sm font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                          {topic.title}
+                        </h4>
+                        <span className="shrink-0">
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          ) : isActive ? (
+                            <span className="block h-2.5 w-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                          ) : (
+                            <span className="block h-2.5 w-2.5 rounded-full border-2 border-slate-300" />
+                          )}
+                        </span>
+                      </>
                     )}
                   </button>
 
@@ -469,6 +568,30 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       )}
                     </div>
                   )}
+                </div>
+
+                {showSectionTree && (
+                  <div className="ml-8 mt-1 mb-2 border-l border-slate-200 pl-3 space-y-0.5">
+                    {topic.sections!.map((section, sIdx) => {
+                      const isSectionActive = String(currentSection?.id) === String(section.id);
+                      return (
+                        <button
+                          key={section.id}
+                          type="button"
+                          onClick={() => goToSection(idx, section.id)}
+                          title={section.heading}
+                          className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
+                            isSectionActive
+                              ? 'bg-indigo-100 text-indigo-700 font-black'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+                          }`}
+                        >
+                          {sIdx + 1}. {section.heading}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 </div>
               );
             }) : (
@@ -528,13 +651,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
                   <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 rounded-t-2xl border-b border-slate-200/60 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-wider">
-                        {totalTopics ? `${selectedTopicIndex + 1}. ` : ''}Konu
-                      </p>
-                      <h2 className="text-base sm:text-lg lg:text-xl font-black text-slate-800 leading-tight truncate">
-                        {activeTopic?.title || 'Konu Seçin'}
-                      </h2>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {activeTopic && (() => {
+                        const { Icon: HeaderIcon, bg: headerBg, text: headerText } = getTopicStyle(selectedTopicIndex);
+                        return (
+                          <div className={`hidden sm:flex h-11 w-11 rounded-2xl items-center justify-center shrink-0 ${headerBg}`}>
+                            <HeaderIcon className={`h-5 w-5 ${headerText}`} />
+                          </div>
+                        );
+                      })()}
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-wider">
+                          {totalTopics ? `${selectedTopicIndex + 1}. ` : ''}Konu
+                        </p>
+                        <h2 className="text-base sm:text-lg lg:text-xl font-black text-slate-800 leading-tight line-clamp-2">
+                          {activeTopic?.title || 'Konu Seçin'}
+                        </h2>
+                        {activeTopic?.subtitle && (
+                          <p className="text-xs text-slate-500 font-semibold mt-0.5 truncate">{activeTopic.subtitle}</p>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -547,10 +683,88 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
 
                   <div ref={contentRef} className="p-5 sm:p-8 lg:p-10">
+                    {activeTopic?.heroImageUrl && (() => {
+                      const highlights = activeTopic.highlights || [];
+                      const leftHighlights = LEFT_HIGHLIGHT_POSITIONS
+                        .map((pos) => highlights.find((h) => h.position === pos))
+                        .filter((h): h is TopicHighlight => Boolean(h));
+                      const rightHighlights = RIGHT_HIGHLIGHT_POSITIONS
+                        .map((pos) => highlights.find((h) => h.position === pos))
+                        .filter((h): h is TopicHighlight => Boolean(h));
+
+                      return (
+                        <div className="not-prose mb-8">
+                          <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-3 items-stretch">
+                            {leftHighlights.length > 0 && (
+                              <div className="hidden lg:flex flex-col gap-3 justify-center">
+                                {leftHighlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                              </div>
+                            )}
+                            <div className={`rounded-2xl overflow-hidden border border-slate-100 shadow-sm ${leftHighlights.length === 0 ? 'lg:col-start-1' : ''} ${rightHighlights.length === 0 ? 'lg:col-end-4' : ''}`}>
+                              <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full h-full object-cover" />
+                            </div>
+                            {rightHighlights.length > 0 && (
+                              <div className="hidden lg:flex flex-col gap-3 justify-center">
+                                {rightHighlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                              </div>
+                            )}
+                          </div>
+                          {highlights.length > 0 && (
+                            <div className="lg:hidden mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {activeTopic ? (
-                      <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-slate-800 prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base">
-                        <p className="!mt-0 text-[10px] font-black text-indigo-500 uppercase tracking-widest not-prose mb-4">Konu Anlatımı</p>
-                        {activeTopic.content ? (
+                      <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
+                        <div className="!mt-0 not-prose mb-5 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                          <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
+                        </div>
+                        {currentSection ? (
+                          <div>
+                            <h2 className="flex items-center gap-2.5">
+                              <span className="not-prose inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-600">
+                                {currentSectionIndex + 1}
+                              </span>
+                              {currentSection.heading}
+                            </h2>
+                            {currentSection.imageUrl && (
+                              <img
+                                src={currentSection.imageUrl}
+                                alt={currentSection.heading}
+                                className="not-prose w-full rounded-xl border border-slate-100 mb-4"
+                              />
+                            )}
+                            {currentSection.html ? (
+                              <div dangerouslySetInnerHTML={{ __html: currentSection.html }} />
+                            ) : (
+                              <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
+                            )}
+
+                            {activeTopic.sections && activeTopic.sections.length > 1 && (
+                              <div className="not-prose mt-8 pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  disabled={currentSectionIndex <= 0}
+                                  onClick={() => setActiveSectionId(activeTopic.sections![currentSectionIndex - 1].id)}
+                                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  <ArrowLeft className="h-3.5 w-3.5" /> Önceki Alt Başlık
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={currentSectionIndex >= activeTopic.sections.length - 1}
+                                  onClick={() => setActiveSectionId(activeTopic.sections![currentSectionIndex + 1].id)}
+                                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  Sonraki Alt Başlık <ArrowRight className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : activeTopic.content ? (
                           <div dangerouslySetInnerHTML={{ __html: activeTopic.content }} />
                         ) : isWeekDataLoading ? (
                           <div className="space-y-5 animate-pulse not-prose">
