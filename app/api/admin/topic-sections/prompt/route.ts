@@ -7,7 +7,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
 type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null };
-type SectionRow = { id: number; heading: string; order_no: number };
+type SectionRow = { id: number; heading: string; order_no: number; body_markdown?: string | null };
 type SectionOutcomeLinkRow = { section_id: number; outcome_id: number };
 
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type');
   const sectionId = request.nextUrl.searchParams.get('sectionId');
 
-  if (!topicId || (type !== 'plan' && type !== 'section')) {
+  if (!topicId || (type !== 'plan' && type !== 'section' && type !== 'questions')) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   const { data: allSections } = await supabase
     .from('topic_content_sections')
-    .select('id, heading, order_no')
+    .select('id, heading, order_no, body_markdown')
     .eq('topic_content_id', (topicContent as { id: number }).id)
     .order('order_no', { ascending: true });
 
@@ -104,6 +104,26 @@ export async function GET(request: NextRequest) {
   const sectionOutcomesText = matchedOutcomes.length
     ? matchedOutcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
+
+  if (type === 'questions') {
+    if (!currentSection.body_markdown?.trim()) {
+      return NextResponse.json({ error: 'Önce bu alt başlığın ders notu (içeriği) oluşturulmalı' }, { status: 409 });
+    }
+
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', '03-section-questions.md');
+    const template = await readFile(templatePath, 'utf8');
+
+    const prompt = template
+      .replaceAll('{grade}', gradeName)
+      .replaceAll('{lesson}', lessonName)
+      .replaceAll('{unit}', unitTitle)
+      .replaceAll('{topic}', topicRow.title)
+      .replaceAll('{heading}', currentSection.heading)
+      .replaceAll('{section_outcomes}', sectionOutcomesText)
+      .replaceAll('{section_content}', currentSection.body_markdown);
+
+    return NextResponse.json({ prompt });
+  }
 
   const otherHeadings = sections
     .filter((s) => String(s.id) !== String(sectionId))

@@ -732,6 +732,116 @@ export type SectionModalSection = {
   image_prompt: string | null;
 };
 
+export function QuestionsModal({
+  topicId,
+  section,
+  onClose,
+}: {
+  topicId: number;
+  section: { id: number; heading: string };
+  onClose: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=questions`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setPrompt(data?.prompt || '');
+        } else {
+          setPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, section.id]);
+
+  async function handleSave() {
+    setError(null);
+    setSavedCount(null);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(pasted);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+
+    const obj = parsed as { questions?: unknown };
+    if (!Array.isArray(obj.questions) || !obj.questions.length) {
+      setError('JSON içinde "questions" listesi bulunamadı.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: obj.questions }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedCount(data?.savedCount ?? obj.questions.length);
+      setPasted('');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Soru Ekle — ${section.heading}`} onClose={onClose}>
+      <div className="space-y-4">
+        {promptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
+        ) : (
+          <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın (5 soru tek seferde kaydedilir)</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={10}
+            placeholder='{"questions": [{"question_text": "...", "choices": [{"text": "...", "is_correct": true}, ...]}]}'
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            Kapat
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pasted.trim()}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export function SectionModal({
   topicId,
   section,

@@ -29,9 +29,10 @@ import {
   Atom,
   Brain,
   Star,
+  ListChecks,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
-import { PlanModal, SectionModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
+import { PlanModal, SectionModal, QuestionsModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
 import SectionContent from './SectionContent';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
@@ -126,6 +127,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
+  const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
+  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const selectedTopicIndex = useMemo(() => {
@@ -415,14 +418,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           </div>
 
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1" style={{ scrollbarWidth: 'none' }}>
-            {!tocCollapsed && contents.length > 0 && (
-              <div className="mx-0.5 mb-2 flex items-center gap-2.5 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0">
-                  <Layers className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-black text-slate-700 truncate">{unitTitle}</span>
-              </div>
-            )}
             {contents.length > 0 ? contents.map((topic, idx) => {
               const isActive = idx === selectedTopicIndex;
               const isCompleted = idx < selectedTopicIndex;
@@ -563,16 +558,48 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSectionModalTarget({
-                                    topicId: Number(topic.id),
-                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                                  });
+                                  setSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id));
                                 }}
                                 className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                                title="Alt başlık içerik promptu"
                               >
                                 <MoreVertical className="h-3 w-3" />
                               </button>
+
+                              {String(sectionMenuOpenId) === String(section.id) && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
+                                  <div className="absolute right-0 top-6 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSectionMenuOpenId(null);
+                                        setSectionModalTarget({
+                                          topicId: Number(topic.id),
+                                          section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                        });
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSectionMenuOpenId(null);
+                                        setQuestionsModalTarget({
+                                          topicId: Number(topic.id),
+                                          section: { id: Number(section.id), heading: section.heading },
+                                        });
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
@@ -639,12 +666,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 {currentSection.heading}
                               </h2>
                               {currentSection.html || currentSection.imageUrl ? (
-                                <SectionContent
-                                  key={currentSection.id}
-                                  html={currentSection.html || ''}
-                                  imageUrl={currentSection.imageUrl}
-                                  caption={currentSection.heading}
-                                />
+                                <>
+                                  <SectionContent
+                                    key={currentSection.id}
+                                    html={currentSection.html || ''}
+                                    imageUrl={currentSection.imageUrl}
+                                    caption={currentSection.heading}
+                                  />
+                                  <Link
+                                    href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
+                                    className="not-prose mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100"
+                                  >
+                                    <Trophy className="h-4 w-4" /> Bu Alt Başlığı Test Et
+                                  </Link>
+                                </>
                               ) : (
                                 <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
                               )}
@@ -817,6 +852,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             refreshWeekData();
           }}
           onImageChanged={refreshWeekData}
+        />
+      )}
+
+      {questionsModalTarget && (
+        <QuestionsModal
+          topicId={questionsModalTarget.topicId}
+          section={questionsModalTarget.section}
+          onClose={() => setQuestionsModalTarget(null)}
         />
       )}
     </div>
