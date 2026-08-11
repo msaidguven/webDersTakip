@@ -21,7 +21,7 @@ Kazanımlar:
   ],
   "cover": {
     "subtitle": string,               // konu başlığının hemen altında görünecek çok kısa alt başlık, max 6 kelime
-    "image_prompt": string,           // İngilizce, konuyu somut/betimleyici şekilde anlatan, çocuk dostu illüstrasyon üretim promptu
+    "image_prompt": string,           // İngilizce, konuyu somut/betimleyici şekilde anlatan, çocuk dostu illüstrasyon üretim promptu. Görselde herhangi bir yazı/etiket/tabela olacaksa bu metinler MUTLAKA Türkçe olmalı (promptun kendisi İngilizce kalsın, sadece görsel içindeki yazılar Türkçe olsun)
     "highlights": [
       {
         "position": string,          // "top-left" | "mid-left" | "bottom-left" | "top-right" | "mid-right" | "bottom-right"
@@ -52,3 +52,4 @@ Kısıtlar (cover için):
 - Her pozisyon (top-left, mid-left, vb.) en fazla bir kez kullanılabilir, hepsini doldurmak zorunda değilsin
 - title ve description çok kısa, sınav notu gibi öz olsun (hikaye anlatma, retorik soru sorma)
 - image_prompt somut bir sahne/nesne tarif etsin (soyut kavram değil), {grade}. sınıf öğrencisine uygun, eğitici ve sade bir illüstrasyon stili iste
+- image_prompt içinde görsele metin/etiket eklenmesi isteniyorsa (ör. parça adları, tabela), bu metinlerin Türkçe olması gerektiğini açıkça belirt (örn. "with Turkish text labels reading '...'")

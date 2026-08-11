@@ -25,7 +25,7 @@ type OutcomeRow = {
 };
 
 type OutcomeVM = { id: number; description: string; topicTitle: string };
-type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null };
+type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
 type HighlightVM = { position: string; icon: string | null; title: string; description: string };
 type ContentVM = {
   id: number;
@@ -46,6 +46,7 @@ type SectionRow = {
   heading: string;
   body_markdown: string | null;
   image_url: string | null;
+  image_prompt: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -333,7 +334,7 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
       const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -353,6 +354,7 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
           heading: row.heading,
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
           imageUrl: row.image_url,
+          imagePrompt: row.image_prompt,
         });
         sectionsByTopic.set(topicId, list);
       }

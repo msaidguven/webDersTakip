@@ -97,7 +97,6 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<Section | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
 
   const load = useCallback(async () => {
@@ -219,6 +218,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         </p>
       ) : (
         <div className="rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
+          <p className="mb-3 text-xs text-[#8b90a7]">
+            İçerik ve görsel oluşturma artık soldaki içindekiler menüsünde ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
+          </p>
           {/* Ağacın kökü: ana konu */}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base leading-none">📘</span>
@@ -250,12 +252,6 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                     {STATUS_LABELS[section.status]}
                   </span>
                   <button
-                    onClick={() => setActiveSection(section)}
-                    className="shrink-0 rounded-lg border border-[#2e3348] bg-[#222636] px-3 py-1.5 text-xs font-bold text-[#e8eaf0] hover:bg-[#2a2f42] transition-colors"
-                  >
-                    {section.status === 'planned' ? 'İçerik Oluştur' : 'İçeriği Düzenle'}
-                  </button>
-                  <button
                     onClick={() => handleDeleteSection(section.id)}
                     className="shrink-0 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 p-1.5 text-[#ff6584] hover:bg-[#ff6584]/20 transition-colors"
                     title="Alt başlığı sil"
@@ -281,16 +277,6 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {planModalOpen && (
         <PlanModal topicId={topicId} onClose={() => setPlanModalOpen(false)} onSaved={() => { setPlanModalOpen(false); load(); }} />
-      )}
-
-      {activeSection && (
-        <SectionModal
-          topicId={topicId}
-          section={activeSection}
-          onClose={() => setActiveSection(null)}
-          onSaved={() => { setActiveSection(null); load(); }}
-          onImageChanged={load}
-        />
       )}
     </div>
   );

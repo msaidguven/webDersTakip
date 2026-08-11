@@ -35,7 +35,7 @@ import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectio
 import { PlanModal, SectionModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
-type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null };
+type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
 type TopicHighlight = { position: string; icon: string | null; title: string; description: string };
 type Content = {
   id: string | number;
@@ -94,9 +94,6 @@ const STUDY_TIPS = [
   'Zor gelen kısımları atlamak yerine üzerinde durup anlamaya çalış.',
 ];
 
-const LEFT_HIGHLIGHT_POSITIONS = ['top-left', 'mid-left', 'bottom-left'];
-const RIGHT_HIGHLIGHT_POSITIONS = ['top-right', 'mid-right', 'bottom-right'];
-
 function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-3.5 flex items-start gap-2.5">
@@ -106,42 +103,6 @@ function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
         <p className="text-[11px] text-slate-500 font-medium leading-snug mt-0.5">{highlight.description}</p>
       </div>
     </div>
-  );
-}
-
-function CircularProgress({ percent }: { percent: number }) {
-  const size = 64;
-  const stroke = 6;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} stroke="#e2e8f0" strokeWidth={stroke} fill="none" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke="#4f46e5"
-        strokeWidth={stroke}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
-      />
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        transform={`rotate(90 ${size / 2} ${size / 2})`}
-        className="fill-indigo-700 text-[13px] font-black"
-      >
-        %{Math.round(percent)}
-      </text>
-    </svg>
   );
 }
 
@@ -161,6 +122,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [outcomesOpen, setOutcomesOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
+  const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
@@ -176,8 +138,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const currentSection = useMemo(() => {
     const sections = activeTopic?.sections;
-    if (!sections || !sections.length) return null;
-    return sections.find((s) => String(s.id) === String(activeSectionId)) || sections[0];
+    if (!sections || !sections.length || activeSectionId == null) return null;
+    return sections.find((s) => String(s.id) === String(activeSectionId)) || null;
   }, [activeTopic, activeSectionId]);
 
   const currentSectionIndex = useMemo(() => {
@@ -192,6 +154,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   }, [outcomes, selectedTopicId]);
 
   const studyTip = STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length];
+
+  useEffect(() => {
+    if (selectedTopicId == null) return;
+    setExpandedTopicIds((prev) => {
+      const key = String(selectedTopicId);
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, [selectedTopicId]);
+
+  const toggleTopicExpanded = (id: string | number) => {
+    setExpandedTopicIds((prev) => {
+      const key = String(id);
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   // Müfredat özeti (üniteler + haftalar) sayfasına dönüş linki
   const overviewHref = useMemo(() => {
@@ -232,11 +214,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const totalTopics = contents.length;
   const progressPercent = totalTopics ? Math.round(((selectedTopicIndex + 1) / totalTopics) * 100) : 0;
-  const remainingTopics = Math.max(0, totalTopics - (selectedTopicIndex + 1));
-  const remainingMinutes = remainingTopics * 15;
-  const remainingLabel = remainingMinutes >= 60
-    ? `${Math.floor(remainingMinutes / 60)} saat ${remainingMinutes % 60 ? `${remainingMinutes % 60} dk` : ''}`.trim()
-    : `${remainingMinutes} dk`;
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -316,6 +293,43 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setSidebarOpen(false);
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const sections = activeTopic?.sections || [];
+
+  const goForward = () => {
+    if (sections.length) {
+      if (currentSection) {
+        if (currentSectionIndex < sections.length - 1) {
+          setActiveSectionId(sections[currentSectionIndex + 1].id);
+          contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        goToTopic(selectedTopicIndex + 1);
+        return;
+      }
+      setActiveSectionId(sections[0].id);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    goToTopic(selectedTopicIndex + 1);
+  };
+
+  const goBackward = () => {
+    if (sections.length && currentSection) {
+      if (currentSectionIndex > 0) {
+        setActiveSectionId(sections[currentSectionIndex - 1].id);
+      } else {
+        setActiveSectionId(null);
+      }
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    goToTopic(selectedTopicIndex - 1);
+  };
+
+  const isAtVeryStart = selectedTopicIndex <= 0 && !currentSection;
+  const isAtVeryEnd = selectedTopicIndex >= totalTopics - 1
+    && (!sections.length || (!!currentSection && currentSectionIndex >= sections.length - 1));
 
   return (
     <div className="flex h-[calc(100dvh-60px)] sm:h-[calc(100dvh-72px)] flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
@@ -419,7 +433,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               const isActive = idx === selectedTopicIndex;
               const isCompleted = idx < selectedTopicIndex;
               const showAdminMenu = isAdmin && !tocCollapsed;
-              const showSectionTree = !tocCollapsed && isActive && !!topic.sections?.length;
+              const hasSections = !!topic.sections?.length;
+              const isTopicExpanded = expandedTopicIds.has(String(topic.id));
+              const showExpandToggle = hasSections && !tocCollapsed;
+              const showSectionTree = showExpandToggle && isTopicExpanded;
+              const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
               const { Icon: TopicIcon, bg: topicBg, text: topicText } = getTopicStyle(idx);
               return (
                 <div key={topic.id}>
@@ -430,7 +448,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     className={`
                       w-full flex items-center gap-3 rounded-xl transition-all duration-200 border text-left
                       ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
-                      ${showAdminMenu ? 'pr-8' : ''}
+                      ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
                       ${isActive
                         ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
                         : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
@@ -464,45 +482,63 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     )}
                   </button>
 
-                  {showAdminMenu && (
-                    <div className="absolute right-1 top-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTopicMenuOpenId((cur) => (String(cur) === String(topic.id) ? null : topic.id));
-                        }}
-                        className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </button>
+                  {(showExpandToggle || showAdminMenu) && (
+                    <div className="absolute right-1 top-1 flex items-center gap-0.5">
+                      {showExpandToggle && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTopicExpanded(topic.id);
+                          }}
+                          title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
+                          className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                        >
+                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
+                        </button>
+                      )}
 
-                      {String(topicMenuOpenId) === String(topic.id) && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
-                          <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTopicMenuOpenId(null);
-                                setPlanModalTopicId(Number(topic.id));
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                            >
-                              <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTopicMenuOpenId(null);
-                                setManagingTopicId(Number(topic.id));
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                            >
-                              <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
-                            </button>
-                          </div>
-                        </>
+                      {showAdminMenu && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTopicMenuOpenId((cur) => (String(cur) === String(topic.id) ? null : topic.id));
+                            }}
+                            className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
+
+                          {String(topicMenuOpenId) === String(topic.id) && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
+                              <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTopicMenuOpenId(null);
+                                    setPlanModalTopicId(Number(topic.id));
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTopicMenuOpenId(null);
+                                    setManagingTopicId(Number(topic.id));
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -535,7 +571,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   e.stopPropagation();
                                   setSectionModalTarget({
                                     topicId: Number(topic.id),
-                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: null },
+                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
                                   });
                                 }}
                                 className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
@@ -557,23 +593,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             )}
           </div>
 
-          {/* ÖĞRENME DURUMU */}
-          {!tocCollapsed && (
-            <div className="p-4 border-t border-slate-100 shrink-0">
-              <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Öğrenme Durumu</div>
-              <div className="flex items-center gap-3 bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
-                <CircularProgress percent={progressPercent} />
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-slate-700">
-                    {Math.min(selectedTopicIndex + 1, totalTopics)} / {totalTopics} konu tamamlandı
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-semibold mt-1">
-                    Kalan süre tahmini{remainingLabel ? `: ${remainingLabel}` : ''}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </aside>
 
         {/* MAIN CONTENT */}
@@ -605,7 +624,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5 items-start">
+              <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
                   <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 rounded-t-2xl border-b border-slate-200/60 flex items-center justify-between gap-3">
@@ -641,87 +660,78 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
 
                   <div ref={contentRef} className="p-5 sm:p-8 lg:p-10">
-                    {activeTopic?.heroImageUrl && (() => {
-                      const highlights = activeTopic.highlights || [];
-                      const leftHighlights = LEFT_HIGHLIGHT_POSITIONS
-                        .map((pos) => highlights.find((h) => h.position === pos))
-                        .filter((h): h is TopicHighlight => Boolean(h));
-                      const rightHighlights = RIGHT_HIGHLIGHT_POSITIONS
-                        .map((pos) => highlights.find((h) => h.position === pos))
-                        .filter((h): h is TopicHighlight => Boolean(h));
-
-                      return (
-                        <div className="not-prose mb-8">
-                          <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-3 items-stretch">
-                            {leftHighlights.length > 0 && (
-                              <div className="hidden lg:flex flex-col gap-3 justify-center">
-                                {leftHighlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
-                              </div>
-                            )}
-                            <div className={`rounded-2xl overflow-hidden border border-slate-100 shadow-sm ${leftHighlights.length === 0 ? 'lg:col-start-1' : ''} ${rightHighlights.length === 0 ? 'lg:col-end-4' : ''}`}>
-                              <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full h-full object-cover" />
-                            </div>
-                            {rightHighlights.length > 0 && (
-                              <div className="hidden lg:flex flex-col gap-3 justify-center">
-                                {rightHighlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
-                              </div>
-                            )}
-                          </div>
-                          {highlights.length > 0 && (
-                            <div className="lg:hidden mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {!currentSection && activeTopic?.heroImageUrl && (
+                      <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[16/9]">
+                        <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         <div className="!mt-0 not-prose mb-5 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
                           <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
                         </div>
-                        {currentSection ? (
-                          <div>
-                            <h2 className="flex items-center gap-2.5">
-                              <span className="not-prose inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-600">
-                                {currentSectionIndex + 1}
-                              </span>
-                              {currentSection.heading}
-                            </h2>
-                            {currentSection.imageUrl && (
-                              <img
-                                src={currentSection.imageUrl}
-                                alt={currentSection.heading}
-                                className="not-prose w-full rounded-xl border border-slate-100 mb-4"
-                              />
-                            )}
-                            {currentSection.html ? (
-                              <div dangerouslySetInnerHTML={{ __html: currentSection.html }} />
-                            ) : (
-                              <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
-                            )}
+                        {activeTopic.sections && activeTopic.sections.length > 0 ? (
+                          currentSection ? (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setActiveSectionId(null)}
+                                className="not-prose mb-3 flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                              >
+                                <ArrowLeft className="h-3.5 w-3.5" /> Alt Başlıklara Dön
+                              </button>
+                              <h2 className="flex items-center gap-2.5 text-rose-600">
+                                <span className="not-prose inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-sm font-black text-rose-600">
+                                  {currentSectionIndex + 1}
+                                </span>
+                                {currentSection.heading}
+                              </h2>
+                              {(() => {
+                                const body = currentSection.html ? (
+                                  <div dangerouslySetInnerHTML={{ __html: currentSection.html }} />
+                                ) : (
+                                  <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
+                                );
 
-                            {activeTopic.sections && activeTopic.sections.length > 1 && (
-                              <div className="not-prose mt-8 pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
-                                <button
-                                  type="button"
-                                  disabled={currentSectionIndex <= 0}
-                                  onClick={() => setActiveSectionId(activeTopic.sections![currentSectionIndex - 1].id)}
-                                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <ArrowLeft className="h-3.5 w-3.5" /> Önceki Alt Başlık
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={currentSectionIndex >= activeTopic.sections.length - 1}
-                                  onClick={() => setActiveSectionId(activeTopic.sections![currentSectionIndex + 1].id)}
-                                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  Sonraki Alt Başlık <ArrowRight className="h-3.5 w-3.5" />
-                                </button>
+                                if (!currentSection.imageUrl) return body;
+
+                                return (
+                                  <div className="not-prose flex flex-col sm:flex-row gap-5 items-start">
+                                    <img
+                                      src={currentSection.imageUrl}
+                                      alt={currentSection.heading}
+                                      className="w-full sm:w-1/2 rounded-xl border border-slate-100 shadow-sm shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0 bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+                                      {body}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            <div className="not-prose">
+                              <p className="text-sm text-slate-500 font-medium mb-4">
+                                Bu konudaki alt başlıklardan birini seçerek konu anlatımını görüntüleyebilirsin.
+                              </p>
+                              <div className="space-y-2">
+                                {activeTopic.sections.map((section, idx) => (
+                                  <button
+                                    key={section.id}
+                                    type="button"
+                                    onClick={() => goToSection(selectedTopicIndex, section.id)}
+                                    className="w-full flex items-center gap-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/50 px-4 py-3.5 text-left shadow-sm transition-colors"
+                                  >
+                                    <span className="h-8 w-8 shrink-0 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="flex-1 min-w-0 text-sm font-bold text-slate-700 truncate">{section.heading}</span>
+                                    <ArrowRight className="h-4 w-4 text-slate-300 shrink-0" />
+                                  </button>
+                                ))}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )
                         ) : activeTopic.content ? (
                           <div dangerouslySetInnerHTML={{ __html: activeTopic.content }} />
                         ) : isWeekDataLoading ? (
@@ -777,13 +787,27 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 </div>
 
-                {/* RIGHT: Biliyor musun? */}
-                <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5 lg:sticky lg:top-4">
-                  <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
-                    <Lightbulb className="h-4 w-4" /> Biliyor musun?
+                {/* RIGHT: Vurgular + Biliyor musun? (sadece ana konu genel görünümünde) */}
+                {!currentSection && (
+                  <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+                    {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
+                      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+                        <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
+                          <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
+                        </div>
+                        <div className="space-y-2.5">
+                          {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                        </div>
+                      </div>
+                    )}
+                    <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
+                      <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
+                        <Lightbulb className="h-4 w-4" /> Biliyor musun?
+                      </div>
+                      <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -793,21 +817,23 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => goToTopic(selectedTopicIndex - 1)}
-                disabled={selectedTopicIndex <= 0}
+                onClick={goBackward}
+                disabled={isAtVeryStart}
                 className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed sm:px-6 sm:text-sm"
               >
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" /> Geri
               </button>
 
               <span className="text-xs sm:text-sm font-black text-slate-400">
-                {totalTopics ? selectedTopicIndex + 1 : 0} / {totalTopics}
+                {currentSection
+                  ? `${selectedTopicIndex + 1}. Konu • ${currentSectionIndex + 1}/${sections.length}`
+                  : `${totalTopics ? selectedTopicIndex + 1 : 0} / ${totalTopics}`}
               </span>
 
               <button
                 type="button"
-                onClick={() => goToTopic(selectedTopicIndex + 1)}
-                disabled={selectedTopicIndex >= totalTopics - 1}
+                onClick={goForward}
+                disabled={isAtVeryEnd}
                 className="flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition-all hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 disabled:opacity-40 disabled:cursor-not-allowed sm:px-6 sm:text-sm"
               >
                 İleri <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />

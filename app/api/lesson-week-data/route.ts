@@ -25,6 +25,7 @@ type SectionRow = {
   heading: string;
   body_markdown: string | null;
   image_url: string | null;
+  image_prompt: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -136,7 +137,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const sectionsByTopic = new Map<number, { id: number; heading: string; html: string | null; imageUrl: string | null }[]>();
+  const sectionsByTopic = new Map<number, { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null }[]>();
   const heroByTopic = new Map<number, { heroImageUrl: string | null; subtitle: string | null }>();
   const highlightsByTopic = new Map<number, { position: string; icon: string | null; title: string; description: string }[]>();
 
@@ -158,7 +159,7 @@ export async function GET(request: Request) {
       const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -177,6 +178,7 @@ export async function GET(request: Request) {
           heading: row.heading,
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
           imageUrl: row.image_url,
+          imagePrompt: row.image_prompt,
         });
         sectionsByTopic.set(topicId, list);
       }

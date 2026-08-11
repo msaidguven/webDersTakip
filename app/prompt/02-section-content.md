@@ -12,7 +12,7 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
 {
   "body_markdown": string,     // 60-120 kelime, markdown
   "needs_image": boolean,       // bu alt başlık görsel bir örnekle desteklenmeli mi?
-  "image_prompt": string|null   // needs_image true ise, İngilizce, somut/betimleyici görsel üretim promptu
+  "image_prompt": string|null   // needs_image true ise, İngilizce, somut/betimleyici görsel üretim promptu. Görselde yazı/etiket olacaksa bu metinler MUTLAKA Türkçe olmalı (promptun kendisi İngilizce kalsın, sadece görsel içindeki yazılar Türkçe olsun)
 }
 
 body_markdown biçim kuralları (MUTLAKA uygula):
