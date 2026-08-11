@@ -15,7 +15,6 @@ import {
   Clipboard,
   Settings,
   MoreVertical,
-  Volume2,
   Lightbulb,
   PanelLeftClose,
   PanelLeftOpen,
@@ -33,6 +32,7 @@ import {
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import { PlanModal, SectionModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
+import SectionContent from './SectionContent';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
@@ -332,7 +332,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     && (!sections.length || (!!currentSection && currentSectionIndex >= sections.length - 1));
 
   return (
-    <div className="flex h-[calc(100dvh-60px)] sm:h-[calc(100dvh-72px)] flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="flex h-dvh flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
 
       {/* TOP APP BAR */}
       <header className="shrink-0 bg-white border-b border-slate-200 px-3 sm:px-6 h-16 flex items-center gap-3 sm:gap-6 z-30">
@@ -413,12 +413,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <X className="h-4 w-4" />
             </button>
           </div>
-
-          {!tocCollapsed && (
-            <div className="px-4 pt-3 pb-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest shrink-0">
-              İçindekiler
-            </div>
-          )}
 
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1" style={{ scrollbarWidth: 'none' }}>
             {!tocCollapsed && contents.length > 0 && (
@@ -627,87 +621,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 rounded-t-2xl border-b border-slate-200/60 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {activeTopic && (() => {
-                        const { Icon: HeaderIcon, bg: headerBg, text: headerText } = getTopicStyle(selectedTopicIndex);
-                        return (
-                          <div className={`hidden sm:flex h-11 w-11 rounded-2xl items-center justify-center shrink-0 ${headerBg}`}>
-                            <HeaderIcon className={`h-5 w-5 ${headerText}`} />
-                          </div>
-                        );
-                      })()}
-                      <div className="min-w-0">
-                        <p className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-wider">
-                          {totalTopics ? `${selectedTopicIndex + 1}. ` : ''}Konu
-                        </p>
-                        <h2 className="text-base sm:text-lg lg:text-xl font-black text-slate-800 leading-tight line-clamp-2">
-                          {activeTopic?.title || 'Konu Seçin'}
-                        </h2>
-                        {activeTopic?.subtitle && (
-                          <p className="text-xs text-slate-500 font-semibold mt-0.5 truncate">{activeTopic.subtitle}</p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled
-                      title="Sesli anlatım yakında eklenecek"
-                      className="flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-full border border-indigo-100 bg-white text-indigo-600 text-xs font-black shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <Volume2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sesli Anlatım</span>
-                    </button>
-                  </div>
-
                   <div ref={contentRef} className="p-5 sm:p-8 lg:p-10">
                     {!currentSection && activeTopic?.heroImageUrl && (
-                      <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[16/9]">
-                        <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full h-full object-cover" />
+                      <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
+                        <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full max-h-[420px] object-contain" />
                       </div>
                     )}
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
-                        <div className="!mt-0 not-prose mb-5 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                          <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
-                        </div>
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
                           currentSection ? (
                             <div>
-                              <button
-                                type="button"
-                                onClick={() => setActiveSectionId(null)}
-                                className="not-prose mb-3 flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
-                              >
-                                <ArrowLeft className="h-3.5 w-3.5" /> Alt Başlıklara Dön
-                              </button>
                               <h2 className="flex items-center gap-2.5 text-rose-600">
                                 <span className="not-prose inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-sm font-black text-rose-600">
                                   {currentSectionIndex + 1}
                                 </span>
                                 {currentSection.heading}
                               </h2>
-                              {(() => {
-                                const body = currentSection.html ? (
-                                  <div dangerouslySetInnerHTML={{ __html: currentSection.html }} />
-                                ) : (
-                                  <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
-                                );
-
-                                if (!currentSection.imageUrl) return body;
-
-                                return (
-                                  <div className="not-prose flex flex-col sm:flex-row gap-5 items-start">
-                                    <img
-                                      src={currentSection.imageUrl}
-                                      alt={currentSection.heading}
-                                      className="w-full sm:w-1/2 rounded-xl border border-slate-100 shadow-sm shrink-0"
-                                    />
-                                    <div className="flex-1 min-w-0 bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
-                                      {body}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
+                              {currentSection.html || currentSection.imageUrl ? (
+                                <SectionContent
+                                  key={currentSection.id}
+                                  html={currentSection.html || ''}
+                                  imageUrl={currentSection.imageUrl}
+                                  caption={currentSection.heading}
+                                />
+                              ) : (
+                                <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
+                              )}
                             </div>
                           ) : (
                             <div className="not-prose">
@@ -733,7 +673,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             </div>
                           )
                         ) : activeTopic.content ? (
-                          <div dangerouslySetInnerHTML={{ __html: activeTopic.content }} />
+                          <SectionContent html={activeTopic.content} />
                         ) : isWeekDataLoading ? (
                           <div className="space-y-5 animate-pulse not-prose">
                             <div className="h-7 w-2/3 rounded-lg bg-slate-100" />

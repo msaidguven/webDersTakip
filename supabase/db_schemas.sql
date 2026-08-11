@@ -409,13 +409,6 @@ CREATE TABLE public.topic_content_outcomes (
   CONSTRAINT topic_content_outcomes_topic_content_id_fkey FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id),
   CONSTRAINT topic_content_outcomes_outcome_id_fkey FOREIGN KEY (outcome_id) REFERENCES public.outcomes(id)
 );
-CREATE TABLE public.topic_content_section_outcomes (
-  section_id bigint NOT NULL,
-  outcome_id bigint NOT NULL,
-  CONSTRAINT topic_content_section_outcomes_pkey PRIMARY KEY (section_id, outcome_id),
-  CONSTRAINT fk_tcso_section FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id),
-  CONSTRAINT fk_tcso_outcome FOREIGN KEY (outcome_id) REFERENCES public.outcomes(id)
-);
 CREATE TABLE public.special_week_events (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   grade_id bigint,

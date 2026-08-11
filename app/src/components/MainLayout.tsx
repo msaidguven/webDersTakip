@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 
@@ -13,6 +14,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, signOut } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const pathname = usePathname();
+  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik');
 
   useEffect(() => {
     const controlNavbar = () => {
@@ -44,8 +47,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-default">
       {/* Auto-hide Header */}
-      <nav 
-        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] 
+      {!hideHeader && (
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px]
           bg-white/80 dark:bg-surface/95 
           backdrop-blur-xl 
           border-b border-zinc-200 dark:border-default
@@ -135,9 +139,10 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
       </nav>
+      )}
 
       {/* Ana İçerik */}
-      <main className="pt-[60px] sm:pt-[72px]">
+      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
         {children}
       </main>
     </div>

@@ -19,81 +19,98 @@ export function escapeHtml(text: string) {
     .replaceAll("'", '&#039;');
 }
 
+type ListItemLine = { indent: number; marker: 'ul' | 'ol'; text: string };
+
+// items[start..] aynı girinti+madde tipindeki kardeşleri tüketir; daha derin girintili
+// satırlarla karşılaşınca, üstündeki <li> kapanmadan içine iç içe bir liste açar.
+function parseListLevel(items: ListItemLine[], start: number, indent: number, inline: (s: string) => string): [string, number] {
+  const marker = items[start].marker;
+  const liHtmls: string[] = [];
+  let idx = start;
+
+  while (idx < items.length && items[idx].indent === indent && items[idx].marker === marker) {
+    let liContent = inline(items[idx].text);
+    idx += 1;
+    if (idx < items.length && items[idx].indent > indent) {
+      const [childHtml, nextIdx] = parseListLevel(items, idx, items[idx].indent, inline);
+      liContent += childHtml;
+      idx = nextIdx;
+    }
+    liHtmls.push(`<li>${liContent}</li>`);
+  }
+
+  return [`<${marker}>${liHtmls.join('')}</${marker}>`, idx];
+}
+
+function renderListBlock(items: ListItemLine[], inline: (s: string) => string): string {
+  const htmls: string[] = [];
+  let idx = 0;
+  while (idx < items.length) {
+    const [html, nextIdx] = parseListLevel(items, idx, items[idx].indent, inline);
+    htmls.push(html);
+    idx = nextIdx;
+  }
+  return htmls.join('\n');
+}
+
 export function markdownToHtml(md: string) {
   const src = escapeHtml(md).replaceAll('\r\n', '\n');
   const lines = src.split('\n');
   const out: string[] = [];
-  let inUl = false;
-  let inOl = false;
-
-  const flushLists = () => {
-    if (inUl) out.push('</ul>');
-    if (inOl) out.push('</ol>');
-    inUl = false;
-    inOl = false;
-  };
+  let listItems: ListItemLine[] = [];
 
   const inline = (s: string) =>
     s
       .replaceAll(/`([^`]+)`/g, '<code>$1</code>')
       .replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
+  const flushList = () => {
+    if (listItems.length) {
+      out.push(renderListBlock(listItems, inline));
+      listItems = [];
+    }
+  };
+
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (!line.trim()) {
-      flushLists();
+      flushList();
       continue;
     }
 
     if (line.startsWith('### ')) {
-      flushLists();
+      flushList();
       out.push(`<h3>${inline(line.slice(4))}</h3>`);
       continue;
     }
     if (line.startsWith('## ')) {
-      flushLists();
+      flushList();
       out.push(`<h2>${inline(line.slice(3))}</h2>`);
       continue;
     }
     if (line.startsWith('# ')) {
-      flushLists();
+      flushList();
       out.push(`<h1>${inline(line.slice(2))}</h1>`);
       continue;
     }
 
-    const ul = line.match(/^\s*-\s+(.*)$/);
+    const ul = line.match(/^(\s*)-\s+(.*)$/);
     if (ul) {
-      if (inOl) {
-        out.push('</ol>');
-        inOl = false;
-      }
-      if (!inUl) {
-        out.push('<ul>');
-        inUl = true;
-      }
-      out.push(`<li>${inline(ul[1])}</li>`);
+      listItems.push({ indent: ul[1].length, marker: 'ul', text: ul[2] });
       continue;
     }
 
-    const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+    const ol = line.match(/^(\s*)\d+\.\s+(.*)$/);
     if (ol) {
-      if (inUl) {
-        out.push('</ul>');
-        inUl = false;
-      }
-      if (!inOl) {
-        out.push('<ol>');
-        inOl = true;
-      }
-      out.push(`<li>${inline(ol[1])}</li>`);
+      listItems.push({ indent: ol[1].length, marker: 'ol', text: ol[2] });
       continue;
     }
 
-    flushLists();
+    flushList();
     out.push(`<p>${inline(line)}</p>`);
   }
 
-  flushLists();
+  flushList();
   return out.join('\n');
 }
 

@@ -17,7 +17,7 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
 
 body_markdown biçim kuralları (MUTLAKA uygula):
 - Ağırlıklı olarak madde işaretli liste kullan (`- madde`). Düz paragraf gerekirse en fazla 1 kısa tanım cümlesi olsun
-- Önemli terimleri ve tanımları **kalın** yaz (markdown `**terim**`)
+- Her maddede SADECE terimi/kısa etiketi **kalın** yaz (markdown `**terim**`), açıklama/tanım cümlesi kalın OLMASIN. Örn: "- **Doğal gruplar**: kişinin isteği dışında bulunduğu gruplardır." — "kişinin isteği dışında bulunduğu gruplardır" kısmı kalın yazılmamalı
 - Sadece sınavda çıkabilecek somut bilgi, tanım ve kavramı ver — gereksiz açıklama, doldurma cümlesi, uzun örnek anlatımı YOK
 - İlk satır doğrudan bilgiyle başlasın, giriş/bağlam cümlesiyle başlama
 
