@@ -34,6 +34,7 @@ type Bundle = {
   outcomes: Outcome[];
   missingCodeCount: number;
   topicContent: TopicContent;
+  heroImagePrompt: string | null;
   highlights: Highlight[];
   sections: Section[];
 };
@@ -61,7 +62,7 @@ const STATUS_COLORS: Record<Section['status'], string> = {
   published: 'bg-[#6c63ff]/15 text-[#b5b0ff] border-[#6c63ff]/30',
 };
 
-async function copyText(text: string) {
+export async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
@@ -80,7 +81,7 @@ async function copyText(text: string) {
   document.body.removeChild(textarea);
 }
 
-function extractJson(raw: string): unknown {
+export function extractJson(raw: string): unknown {
   const trimmed = raw.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1].trim() : trimmed;
@@ -97,6 +98,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [assignError, setAssignError] = useState<string | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<Section | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +106,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
       if (res.ok) {
         setBundle(await res.json());
+        setReloadCount((c) => c + 1);
       }
     } finally {
       setLoading(false);
@@ -268,8 +271,10 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {bundle.topicContent && (
         <HeroHighlightsPanel
+          key={`${bundle.topicContent.id}-${reloadCount}`}
           topicContent={bundle.topicContent}
           highlights={bundle.highlights}
+          heroImagePrompt={bundle.heroImagePrompt}
           onSaved={load}
         />
       )}
@@ -291,13 +296,24 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   );
 }
 
+function buildSlotsFromHighlights(highlights: Highlight[]) {
+  const map: Record<string, { icon: string; title: string; description: string }> = {};
+  for (const p of HIGHLIGHT_POSITIONS) {
+    const existing = highlights.find((h) => h.position === p.key);
+    map[p.key] = { icon: existing?.icon || '', title: existing?.title || '', description: existing?.description || '' };
+  }
+  return map;
+}
+
 function HeroHighlightsPanel({
   topicContent,
   highlights,
+  heroImagePrompt,
   onSaved,
 }: {
   topicContent: NonNullable<TopicContent>;
   highlights: Highlight[];
+  heroImagePrompt: string | null;
   onSaved: () => void;
 }) {
   const [subtitle, setSubtitle] = useState(topicContent.subtitle || '');
@@ -309,14 +325,9 @@ function HeroHighlightsPanel({
   const [heroBusy, setHeroBusy] = useState(false);
   const [heroError, setHeroError] = useState<string | null>(null);
 
-  const [slots, setSlots] = useState<Record<string, { icon: string; title: string; description: string }>>(() => {
-    const map: Record<string, { icon: string; title: string; description: string }> = {};
-    for (const p of HIGHLIGHT_POSITIONS) {
-      const existing = highlights.find((h) => h.position === p.key);
-      map[p.key] = { icon: existing?.icon || '', title: existing?.title || '', description: existing?.description || '' };
-    }
-    return map;
-  });
+  const [slots, setSlots] = useState<Record<string, { icon: string; title: string; description: string }>>(() =>
+    buildSlotsFromHighlights(highlights)
+  );
   const [highlightsSaving, setHighlightsSaving] = useState(false);
   const [highlightsError, setHighlightsError] = useState<string | null>(null);
   const [highlightsSaved, setHighlightsSaved] = useState(false);
@@ -431,6 +442,12 @@ function HeroHighlightsPanel({
 
       <div className="mb-4">
         <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Kapak Görseli</span>
+        {heroImagePrompt && (
+          <div className="mb-3">
+            <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
+            <PromptCopyBox prompt={heroImagePrompt} loading={false} />
+          </div>
+        )}
         {heroUrl ? (
           <div className="flex items-center gap-3">
             <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
@@ -524,7 +541,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-function PromptCopyBox({ prompt, loading }: { prompt: string; loading: boolean }) {
+export function PromptCopyBox({ prompt, loading }: { prompt: string; loading: boolean }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -560,30 +577,60 @@ function PromptCopyBox({ prompt, loading }: { prompt: string; loading: boolean }
   );
 }
 
-function PlanModal({ topicId, onClose, onSaved }: { topicId: number; onClose: () => void; onSaved: () => void }) {
+export function PlanModal({
+  topicId,
+  onClose,
+  onSaved,
+  onManageMore,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+  onManageMore?: () => void;
+}) {
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [assigningCodes, setAssigningCodes] = useState(false);
+
+  const loadPrompt = useCallback(async () => {
+    setLoadingPrompt(true);
+    setError(null);
+    const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=plan`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setPrompt(data?.prompt || '');
+    } else {
+      setError(data?.error || 'Prompt oluşturulamadı.');
+    }
+    setLoadingPrompt(false);
+  }, [topicId]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=plan`);
-      const data = await res.json().catch(() => null);
-      if (!cancelled) {
-        if (res.ok) {
-          setPrompt(data?.prompt || '');
-        } else {
-          setError(data?.error || 'Prompt oluşturulamadı.');
-        }
-        setLoadingPrompt(false);
+    loadPrompt();
+  }, [loadPrompt]);
+
+  async function handleAssignCodes() {
+    setAssigningCodes(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/assign-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      });
+      if (res.ok) {
+        await loadPrompt();
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kod ataması başarısız oldu.');
       }
-    })();
-    return () => { cancelled = true; };
-  }, [topicId]);
+    } finally {
+      setAssigningCodes(false);
+    }
+  }
 
   async function handleSave() {
     setError(null);
@@ -596,18 +643,20 @@ function PlanModal({ topicId, onClose, onSaved }: { topicId: number; onClose: ()
       return;
     }
 
-    const parsedSections = (parsed as { sections?: unknown })?.sections;
+    const parsedObj = parsed as { sections?: unknown; cover?: unknown };
+    const parsedSections = parsedObj?.sections;
     if (!Array.isArray(parsedSections) || !parsedSections.length) {
       setError('JSON içinde "sections" listesi bulunamadı.');
       return;
     }
+    const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
 
     setSaving(true);
     try {
       const res = await fetch('/api/admin/topic-sections/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections: parsedSections }),
+        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -623,43 +672,81 @@ function PlanModal({ topicId, onClose, onSaved }: { topicId: number; onClose: ()
     }
   }
 
+  const missingCodes = !loadingPrompt && !!error && error.includes('kodu eksik');
+
   return (
     <ModalShell title="1. Adım: Alt Başlık Planı" onClose={onClose}>
       <div className="space-y-4">
-        <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+        {missingCodes ? (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4">
+            <p className="mb-3 text-xs font-bold text-amber-300">{error}</p>
+            <button
+              onClick={handleAssignCodes}
+              disabled={assigningCodes}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20 disabled:opacity-50 transition-colors"
+            >
+              {assigningCodes ? 'Atanıyor...' : 'Eksik Kodları Ata'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
-        <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
-          <textarea
-            value={pasted}
-            onChange={(e) => setPasted(e.target.value)}
-            rows={8}
-            placeholder='{"sections": [...]}'
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
-          />
-        </div>
+            <div>
+              <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+                AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak görseli + vurgu kartları tek seferde kaydedilir)
+              </span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={8}
+                placeholder='{"sections": [...], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
+                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
 
-        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
-        {warning && <p className="text-xs font-bold text-amber-300">{warning}</p>}
+            {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+            {warning && <p className="text-xs font-bold text-amber-300">{warning}</p>}
+          </>
+        )}
 
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
-            İptal
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !pasted.trim()}
-            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          {onManageMore ? (
+            <button
+              onClick={onManageMore}
+              className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
+            >
+              Kazanım / kapak görseli / vurgu kartları yönetimi
+            </button>
+          ) : <span />}
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              İptal
+            </button>
+            {!missingCodes && (
+              <button
+                onClick={handleSave}
+                disabled={saving || !pasted.trim()}
+                className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </ModalShell>
   );
 }
 
-function SectionModal({
+export type SectionModalSection = {
+  id: number;
+  heading: string;
+  image_url: string | null;
+  image_prompt: string | null;
+};
+
+export function SectionModal({
   topicId,
   section,
   onClose,
@@ -667,7 +754,7 @@ function SectionModal({
   onImageChanged,
 }: {
   topicId: number;
-  section: Section;
+  section: SectionModalSection;
   onClose: () => void;
   onSaved: () => void;
   onImageChanged: () => void;

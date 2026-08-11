@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 
 type IncomingSection = { heading?: unknown; order_no?: unknown; matched_outcome_codes?: unknown };
 type CleanSection = { heading: string; order_no: number; matched_outcome_codes: string[] };
 type OutcomeRow = { id: number; code: string | null };
+type IncomingCover = { subtitle?: unknown; image_prompt?: unknown; highlights?: IncomingHighlight[] };
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = await request.json().catch(() => null) as { topicId?: number | string; sections?: IncomingSection[] } | null;
+  const body = await request.json().catch(() => null) as {
+    topicId?: number | string;
+    sections?: IncomingSection[];
+    cover?: IncomingCover;
+  } | null;
   const topicId = body?.topicId;
   const sections = body?.sections;
+  const cover = body?.cover;
 
   if (!topicId || !Array.isArray(sections) || sections.length === 0) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
@@ -74,6 +81,24 @@ export async function POST(request: NextRequest) {
       await supabase.from('topic_content_section_outcomes').delete().in('section_id', oldSectionIds);
     }
     await supabase.from('topic_content_sections').delete().eq('topic_content_id', topicContentId);
+  }
+
+  if (cover) {
+    const subtitle = typeof cover.subtitle === 'string' ? cover.subtitle.trim() || null : null;
+    const heroImagePrompt = typeof cover.image_prompt === 'string' ? cover.image_prompt.trim() || null : null;
+
+    await supabase
+      .from('topic_contents')
+      .update({
+        subtitle,
+        generation_meta: heroImagePrompt ? { heroImagePrompt } : null,
+      })
+      .eq('id', topicContentId);
+
+    const cleanCoverHighlights = cleanHighlights(topicContentId, cover.highlights);
+    if (cleanCoverHighlights !== null) {
+      await replaceHighlights(supabase, topicContentId, cleanCoverHighlights);
+    }
   }
 
   const { data: insertedSections, error: insertError } = await supabase

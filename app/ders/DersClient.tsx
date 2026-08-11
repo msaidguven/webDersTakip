@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
 import {
@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   Clipboard,
-  Check,
   Settings,
   MoreVertical,
   Volume2,
@@ -33,6 +32,7 @@ import {
   Star,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
+import { PlanModal, SectionModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null };
@@ -160,10 +160,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [outcomesOpen, setOutcomesOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [copyState, setCopyState] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
+  const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
+  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const selectedTopicIndex = useMemo(() => {
@@ -227,54 +227,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     };
   }, [supabase, user]);
 
-  const handleCopyPrompt = async () => {
-    if (isWeekDataLoading) return;
-
-    setCopyState('loading');
-    try {
-      const response = await fetch('/api/admin/lesson-prompt');
-      if (!response.ok) {
-        throw new Error('Prompt alınamadı');
-      }
-
-      const data = await response.json() as { prompt?: string };
-      if (!data.prompt) {
-        throw new Error('Prompt boş');
-      }
-
-      const learningOutcomes = activeTopicOutcomes.length
-        ? activeTopicOutcomes.map((outcome, index) => `${index + 1}. ${outcome.description}`).join('\n')
-        : 'Bu konu için kazanım bulunamadı.';
-
-      const filledPrompt = data.prompt
-        .replaceAll('{grade}', gradeName || '')
-        .replaceAll('{subject}', lessonName || '')
-        .replaceAll('{unit}', unitTitle || '')
-        .replaceAll('{topic}', activeTopic?.title || '')
-        .replaceAll('{learning_outcomes}', learningOutcomes);
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(filledPrompt);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = filledPrompt;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-      setCopyState('copied');
-      setMenuOpen(false);
-      window.setTimeout(() => setCopyState('idle'), 1800);
-    } catch (error) {
-      console.error('Prompt kopyalama hatası:', error);
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 2200);
-    }
-  };
-
   const activeUnit = units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) || units[0];
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
 
@@ -299,6 +251,41 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setIsWeekDataLoading(true);
   }, [initialData]);
 
+  const loadWeekData = useCallback(async (unitId: number, signal?: AbortSignal) => {
+    setIsWeekDataLoading(true);
+    const params = new URLSearchParams({
+      gradeId,
+      lessonId,
+      unitId: String(unitId),
+      week: String(week),
+    });
+    try {
+      const response = await fetch(`/api/lesson-week-data?${params.toString()}`, { signal });
+      if (!response.ok) return;
+
+      const data = await response.json() as { outcomes?: Outcome[]; contents?: Content[] };
+      if (signal?.aborted) return;
+
+      setOutcomes(data.outcomes || []);
+      if (data.contents?.length) {
+        setContents(data.contents);
+        setActiveTopicId((current) => (
+          data.contents?.some((topic) => String(topic.id) === String(current))
+            ? current
+            : data.contents?.[0]?.id || null
+        ));
+      }
+    } catch (error) {
+      if (!signal?.aborted) {
+        console.error('Hafta verisi yüklenemedi:', error);
+      }
+    } finally {
+      if (!signal?.aborted) {
+        setIsWeekDataLoading(false);
+      }
+    }
+  }, [gradeId, lessonId, week]);
+
   useEffect(() => {
     if (!activeUnit?.id) {
       setIsWeekDataLoading(false);
@@ -306,47 +293,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
 
     const controller = new AbortController();
-    const params = new URLSearchParams({
-      gradeId,
-      lessonId,
-      unitId: String(activeUnit.id),
-      week: String(week),
-    });
-
-    async function loadWeekData() {
-      setIsWeekDataLoading(true);
-      try {
-        const response = await fetch(`/api/lesson-week-data?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-
-        const data = await response.json() as { outcomes?: Outcome[]; contents?: Content[] };
-        if (controller.signal.aborted) return;
-
-        setOutcomes(data.outcomes || []);
-        if (data.contents?.length) {
-          setContents(data.contents);
-          setActiveTopicId((current) => (
-            data.contents?.some((topic) => String(topic.id) === String(current))
-              ? current
-              : data.contents?.[0]?.id || null
-          ));
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error('Hafta verisi yüklenemedi:', error);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsWeekDataLoading(false);
-        }
-      }
-    }
-
-    loadWeekData();
+    loadWeekData(activeUnit.id, controller.signal);
     return () => controller.abort();
-  }, [activeUnit?.id, gradeId, lessonId, week]);
+  }, [activeUnit?.id, loadWeekData]);
+
+  const refreshWeekData = useCallback(() => {
+    if (activeUnit?.id) loadWeekData(activeUnit.id);
+  }, [activeUnit, loadWeekData]);
 
   const goToTopic = (index: number) => {
     const topic = contents[index];
@@ -398,31 +351,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           >
             <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Mini Test</span>
           </Link>
-
-          {isAdmin && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="h-9 w-9 flex items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-11 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-40">
-                  <button
-                    type="button"
-                    onClick={handleCopyPrompt}
-                    disabled={copyState === 'loading' || isWeekDataLoading}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-wait"
-                  >
-                    {copyState === 'copied' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Clipboard className="h-3.5 w-3.5" />}
-                    {isWeekDataLoading ? 'Veri yükleniyor' : copyState === 'loading' ? 'Kopyalanıyor' : copyState === 'copied' ? 'Kopyalandı' : copyState === 'error' ? 'Hata oluştu' : 'Prompt Kopyala'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
           <Link
             href="/profil"
@@ -552,7 +480,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       {String(topicMenuOpenId) === String(topic.id) && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
-                          <div className="absolute right-0 top-7 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                          <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTopicMenuOpenId(null);
+                                setPlanModalTopicId(Number(topic.id));
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                            >
+                              <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -561,7 +499,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                             >
-                              <Sparkles className="h-3.5 w-3.5" /> AI İçerik / Prompt Kopyala
+                              <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
                             </button>
                           </div>
                         </>
@@ -575,19 +513,39 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {topic.sections!.map((section, sIdx) => {
                       const isSectionActive = String(currentSection?.id) === String(section.id);
                       return (
-                        <button
-                          key={section.id}
-                          type="button"
-                          onClick={() => goToSection(idx, section.id)}
-                          title={section.heading}
-                          className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
-                            isSectionActive
-                              ? 'bg-indigo-100 text-indigo-700 font-black'
-                              : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-                          }`}
-                        >
-                          {sIdx + 1}. {section.heading}
-                        </button>
+                        <div key={section.id} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => goToSection(idx, section.id)}
+                            title={section.heading}
+                            className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
+                              isSectionActive
+                                ? 'bg-indigo-100 text-indigo-700 font-black'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+                            }`}
+                          >
+                            {sIdx + 1}. {section.heading}
+                          </button>
+
+                          {isAdmin && (
+                            <div className="absolute right-0.5 top-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSectionModalTarget({
+                                    topicId: Number(topic.id),
+                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: null },
+                                  });
+                                }}
+                                className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                                title="Alt başlık içerik promptu"
+                              >
+                                <MoreVertical className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -864,6 +822,35 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={managingTopicId}
           topicTitle={contents.find((c) => Number(c.id) === managingTopicId)?.title}
           onClose={() => setManagingTopicId(null)}
+        />
+      )}
+
+      {planModalTopicId != null && (
+        <PlanModal
+          topicId={planModalTopicId}
+          onClose={() => setPlanModalTopicId(null)}
+          onSaved={() => {
+            setPlanModalTopicId(null);
+            refreshWeekData();
+          }}
+          onManageMore={() => {
+            const topicId = planModalTopicId;
+            setPlanModalTopicId(null);
+            setManagingTopicId(topicId);
+          }}
+        />
+      )}
+
+      {sectionModalTarget && (
+        <SectionModal
+          topicId={sectionModalTarget.topicId}
+          section={sectionModalTarget.section}
+          onClose={() => setSectionModalTarget(null)}
+          onSaved={() => {
+            setSectionModalTarget(null);
+            refreshWeekData();
+          }}
+          onImageChanged={refreshWeekData}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ type TopicContentRow = {
   is_published: boolean;
   hero_image_url: string | null;
   subtitle: string | null;
+  generation_meta: unknown;
 };
 type HighlightRow = {
   id: number;
@@ -88,11 +89,17 @@ export async function GET(request: NextRequest) {
 
   const { data: topicContent } = await supabase
     .from('topic_contents')
-    .select('id, title, body_markdown, is_published, hero_image_url, subtitle')
+    .select('id, title, body_markdown, is_published, hero_image_url, subtitle, generation_meta')
     .eq('topic_id', topicRow.id)
     .maybeSingle();
 
   const topicContentRow = topicContent as TopicContentRow | null;
+  const heroImagePrompt = (() => {
+    const meta = topicContentRow?.generation_meta;
+    if (!meta || typeof meta !== 'object') return null;
+    const val = (meta as Record<string, unknown>).heroImagePrompt;
+    return typeof val === 'string' && val.trim() ? val : null;
+  })();
 
   let highlights: HighlightRow[] = [];
   let sections: SectionRow[] = [];
@@ -147,6 +154,7 @@ export async function GET(request: NextRequest) {
     outcomes,
     missingCodeCount,
     topicContent: topicContentRow,
+    heroImagePrompt,
     highlights,
     sections: sectionsWithOutcomes,
   });
