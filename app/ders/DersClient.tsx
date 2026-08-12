@@ -323,6 +323,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const sections = activeTopic?.sections || [];
 
   const goForward = () => {
+    const container = contentRef.current;
+    if (container) {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 4;
+      if (!isAtBottom) {
+        container.scrollBy({ top: clientHeight * 0.9, behavior: 'smooth' });
+        return;
+      }
+    }
     if (sections.length) {
       if (currentSection) {
         if (currentSectionIndex < sections.length - 1) {
@@ -341,6 +350,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   const goBackward = () => {
+    const container = contentRef.current;
+    if (container) {
+      const isAtTop = container.scrollTop <= 4;
+      if (!isAtTop) {
+        container.scrollBy({ top: -container.clientHeight * 0.9, behavior: 'smooth' });
+        return;
+      }
+    }
     if (sections.length && currentSection) {
       if (currentSectionIndex > 0) {
         setActiveSectionId(sections[currentSectionIndex - 1].id);
@@ -350,7 +367,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    goToTopic(selectedTopicIndex - 1);
+    const prevTopic = contents[selectedTopicIndex - 1];
+    if (!prevTopic) return;
+    setActiveTopicId(prevTopic.id);
+    const prevSections = prevTopic.sections || [];
+    setActiveSectionId(prevSections.length ? prevSections[prevSections.length - 1].id : null);
   };
 
   const isAtVeryStart = selectedTopicIndex <= 0 && !currentSection;
@@ -641,7 +662,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
         {/* MAIN CONTENT */}
         <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-slate-50">
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+          <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             <div className="max-w-5xl mx-auto p-3 sm:p-5 lg:p-8">
 
               {/* Breadcrumb */}
@@ -671,7 +692,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  <div ref={contentRef} className="p-5 sm:p-8 lg:p-10">
+                  <div className="p-5 sm:p-8 lg:p-10">
                     {!currentSection && activeTopic?.heroImageUrl && (
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
                         <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full max-h-[420px] object-contain" />

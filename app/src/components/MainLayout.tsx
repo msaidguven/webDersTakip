@@ -16,7 +16,14 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const pathname = usePathname();
-  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik');
+  // Konu okuma sayfası (DersClient) kendi sabit header/footer çerçevesini
+  // yönetir; bu yüzden global nav ve LegalFooter burada devre dışı bırakılır.
+  // /ders?... rotası (query tabanlı) ve karşılık gelen /[grade]/[lesson]/[unit]/[topic]
+  // pretty-URL rotası (DersClient içeriği yüklendikten sonra history.replaceState ile
+  // bu formata geçiyor) aynı sayfa olduğu için ikisi de eşleşmeli.
+  const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
+  const isTopicContentRoute = pathSegments.length === 4;
+  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute;
 
   useEffect(() => {
     const controlNavbar = () => {
