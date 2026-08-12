@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://derstakip.net';
+export const SITE_URL = 'https://www.derstakip.net';
 
 export function stripHtml(html: string, maxLength = 160): string {
   const text = html
