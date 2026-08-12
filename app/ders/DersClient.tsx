@@ -22,9 +22,11 @@ import {
   Target,
   Sparkles,
   ListChecks,
+  Calendar,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import { PlanModal, SectionModal, QuestionsModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
+import { formatWeekDateRangeLabel } from '@/app/src/lib/routeParsing';
 import SectionContent from './SectionContent';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
@@ -101,6 +103,21 @@ const STUDY_TIPS = [
   'Not alarak okumak, sadece okumaktan daha kalıcı öğrenme sağlar.',
   'Zor gelen kısımları atlamak yerine üzerinde durup anlamaya çalış.',
 ];
+
+function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel: string; dateRangeLabel: string }) {
+  return (
+    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+      <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-2">
+        <Calendar className="h-4 w-4" /> MEB Müfredat Takvimi
+      </div>
+      <p className="text-sm font-black text-slate-800">{weekRangeLabel}</p>
+      <p className="text-xs text-slate-500 font-medium mt-1">{dateRangeLabel} tarihleri arasında işlenir</p>
+      <p className="text-[10px] text-slate-400 font-medium mt-2 leading-snug">
+        Tarihler MEB takvimine göre tahminidir, okula göre değişiklik gösterebilir.
+      </p>
+    </div>
+  );
+}
 
 function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
   return (
@@ -413,6 +430,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const progressPercent = totalTopics ? Math.round(((selectedTopicIndex + 1) / totalTopics) * 100) : 0;
 
   const totalWeeks = initialData.totalWeeks || 38;
+
+  const unitStartWeek = activeUnit?.start_week || 1;
+  const unitEndWeek = activeUnit?.end_week || totalWeeks;
+  const curriculumWeekRangeLabel = unitStartWeek === unitEndWeek ? `${unitStartWeek}. Hafta` : `${unitStartWeek}–${unitEndWeek}. Hafta`;
+  const curriculumDateRangeLabel = useMemo(
+    () => formatWeekDateRangeLabel(unitStartWeek, unitEndWeek, totalWeeks),
+    [unitStartWeek, unitEndWeek, totalWeeks]
+  );
 
   const openKazanimlarModal = () => {
     setKazanimlarWeek(week);
@@ -1076,7 +1101,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 )}
               </div>
 
-              <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
+              <div className="grid grid-cols-1 gap-5 items-start lg:grid-cols-[1fr_260px]">
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
@@ -1097,27 +1122,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 {currentSection.heading}
                               </h2>
                               {currentSection.html || currentSection.imageUrl ? (
-                                <>
-                                  <SectionContent
-                                    key={currentSection.id}
-                                    html={currentSection.html || ''}
-                                    imageUrl={currentSection.imageUrl}
-                                    caption={currentSection.heading}
-                                  />
-                                  {sectionQuestionCount !== 0 && (
-                                    <Link
-                                      href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
-                                      className="not-prose mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100"
-                                    >
-                                      <Trophy className="h-4 w-4" /> Bu Konuyla İlgili Sorular Çöz
-                                      {sectionQuestionCount != null && (
-                                        <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800">
-                                          {sectionQuestionCount} Soru
-                                        </span>
-                                      )}
-                                    </Link>
-                                  )}
-                                </>
+                                <SectionContent
+                                  key={currentSection.id}
+                                  html={currentSection.html || ''}
+                                  imageUrl={currentSection.imageUrl}
+                                  caption={currentSection.heading}
+                                />
                               ) : (
                                 <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
                               )}
@@ -1176,27 +1186,48 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 </div>
 
-                {/* RIGHT: Vurgular + Biliyor musun? (sadece ana konu genel görünümünde) */}
-                {!currentSection && (
-                  <div className="flex flex-col gap-4 lg:sticky lg:top-4">
-                    {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
-                      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
-                        <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
-                          <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
+                {/* RIGHT SIDEBAR: MEB takvimi + (alt başlıkta) ilgili sorular / (ana konuda) vurgular + ipucu */}
+                <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+                  {activeTopic && (
+                    <CurriculumWeekCard weekRangeLabel={curriculumWeekRangeLabel} dateRangeLabel={curriculumDateRangeLabel} />
+                  )}
+
+                  {currentSection ? (
+                    sectionQuestionCount !== 0 && (
+                      <Link
+                        href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
+                        className="flex flex-col items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-4 sm:p-5 text-center transition-colors hover:bg-amber-100"
+                      >
+                        <Trophy className="h-5 w-5 text-amber-600" />
+                        <span className="text-sm font-black text-amber-700">Bu Konuyla İlgili Sorular Çöz</span>
+                        {sectionQuestionCount != null && (
+                          <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800">
+                            {sectionQuestionCount} Soru
+                          </span>
+                        )}
+                      </Link>
+                    )
+                  ) : (
+                    <>
+                      {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
+                        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+                          <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
+                            <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
+                          </div>
+                          <div className="space-y-2.5">
+                            {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                          </div>
                         </div>
-                        <div className="space-y-2.5">
-                          {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                      )}
+                      <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
+                        <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
+                          <Lightbulb className="h-4 w-4" /> Biliyor musun?
                         </div>
+                        <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
                       </div>
-                    )}
-                    <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
-                      <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
-                        <Lightbulb className="h-4 w-4" /> Biliyor musun?
-                      </div>
-                      <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
-                    </div>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
