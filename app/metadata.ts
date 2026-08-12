@@ -69,7 +69,7 @@ export const metadata: Metadata = {
   },
   // Search Console / Yandex Webmaster'dan alınan gerçek doğrulama kodlarıyla değiştirilmeli.
   verification: {
-    google: "your-google-verification-code",
+    google: "fLSAOZnCMbw8ijTZLGgxVAwUqQXNmM9Eu8WjFWwPWKg",
     yandex: "your-yandex-verification-code",
   },
   category: "education",

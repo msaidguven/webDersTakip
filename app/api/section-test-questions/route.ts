@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  const questions = shuffle(all).slice(0, 5);
+  const questions = shuffle(all);
 
   return NextResponse.json({ heading, questions });
 }

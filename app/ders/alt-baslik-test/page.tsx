@@ -201,6 +201,7 @@ function AltBaslikTestContent() {
   const [feedback, setFeedback] = useState<Record<number, string>>({});
   const [showResult, setShowResult] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [maxIndex, setMaxIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +218,7 @@ function AltBaslikTestContent() {
           setHeading(data?.heading || '');
           setQuestions(res.ok ? data?.questions || [] : []);
           setIndex(0);
+          setMaxIndex(0);
           setSelection({});
           setMatchAssign({});
           setLocked({});
@@ -267,8 +269,23 @@ function AltBaslikTestContent() {
   };
 
   const goNext = () => {
-    if (index < questions.length - 1) setIndex((i) => i + 1);
-    else setShowResult(true);
+    if (index < questions.length - 1) {
+      const nextIndex = index + 1;
+      setMaxIndex((m) => Math.max(m, nextIndex));
+      setIndex(nextIndex);
+    } else {
+      setShowResult(true);
+    }
+  };
+
+  const goPrev = () => {
+    if (index > 0) setIndex((i) => i - 1);
+  };
+
+  const jumpToIndex = (i: number) => {
+    if (i < 0 || i >= questions.length || i > maxIndex) return;
+    setShowResult(false);
+    setIndex(i);
   };
 
   const retry = () => setReloadKey((k) => k + 1);
@@ -315,6 +332,33 @@ function AltBaslikTestContent() {
           </h1>
           <p className="mt-1 text-sm font-bold text-slate-400">%{percent} başarı</p>
 
+          <div className="mt-6 max-h-72 space-y-1.5 overflow-y-auto text-left">
+            {questions.map((q, i) => {
+              const isCorrectQ = !!correct[q.id];
+              const label = q.type === 'matching' ? `${i + 1}. Eşleştirme Sorusu` : `${i + 1}. ${q.question_text}`;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => jumpToIndex(i)}
+                  className="flex w-full items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                >
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                    isCorrectQ ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                  }`}>
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-600">{label}</span>
+                  {isCorrectQ ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
             <button
               type="button"
@@ -357,8 +401,31 @@ function AltBaslikTestContent() {
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
           <div
             className="h-full rounded-full bg-indigo-500 transition-all duration-500 ease-out"
-            style={{ width: `${(index / questions.length) * 100}%` }}
+            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
           />
+        </div>
+        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+          {questions.map((q, i) => {
+            const isCurrent = i === index;
+            const isLocked = !!locked[q.id];
+            const isReachable = i <= maxIndex;
+            let cls = 'bg-slate-100 text-slate-400';
+            if (isLocked) cls = correct[q.id] ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white';
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => jumpToIndex(i)}
+                disabled={!isReachable}
+                title={`${i + 1}. Soru${isLocked ? (correct[q.id] ? ' - Doğru' : ' - Yanlış') : ''}`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cls} ${
+                  isCurrent ? 'ring-2 ring-indigo-400 ring-offset-1' : ''
+                }`}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -400,14 +467,24 @@ function AltBaslikTestContent() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={goNext}
-          disabled={!isAnswered}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-black text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {index === questions.length - 1 ? 'Testi Bitir' : 'Sonraki Soru'}
-        </button>
+        <div className="mt-6 flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={index === 0}
+            className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ArrowLeft className="h-4 w-4" /> Geri
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={!isAnswered}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-black text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {index === questions.length - 1 ? 'Testi Bitir' : 'Sonraki Soru'}
+          </button>
+        </div>
       </div>
     </div>
   );
