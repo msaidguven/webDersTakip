@@ -136,6 +136,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [isAdmin, setIsAdmin] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
+  const [manualUnitId, setManualUnitId] = useState<number | null>(null);
+  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
+  const [unitTopicsCache, setUnitTopicsCache] = useState<Record<string, Content[]>>({});
+  const [loadingUnitIds, setLoadingUnitIds] = useState<Set<string>>(new Set());
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
@@ -247,10 +251,94 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   }, [supabase, user]);
 
   const activeUnit =
+    (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
     (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
     units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) ||
     units[0];
+
+  const sortedUnits = useMemo(
+    () => [...units].sort((a, b) => a.order_no - b.order_no),
+    [units]
+  );
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
+
+  // Aktif ünite değiştikçe sidebar index'inde otomatik açılsın
+  useEffect(() => {
+    if (activeUnit?.id == null) return;
+    setExpandedUnitIds((prev) => {
+      const key = String(activeUnit.id);
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, [activeUnit?.id]);
+
+  // Aktif ünitenin konuları zaten yükleniyor (contents); index önbelleğine de yansıt
+  useEffect(() => {
+    if (activeUnit?.id == null) return;
+    setUnitTopicsCache((prev) => ({ ...prev, [String(activeUnit.id)]: contents }));
+  }, [activeUnit?.id, contents]);
+
+  const ensureUnitTopicsLoaded = async (unit: Unit) => {
+    const key = String(unit.id);
+    if (unitTopicsCache[key] || loadingUnitIds.has(key)) return;
+    setLoadingUnitIds((prev) => new Set(prev).add(key));
+    try {
+      const params = new URLSearchParams({
+        gradeId,
+        lessonId,
+        unitId: String(unit.id),
+        week: String(unit.start_week || week),
+      });
+      const response = await fetch(`/api/lesson-week-data?${params.toString()}`);
+      if (!response.ok) return;
+      const data = await response.json() as { contents?: Content[] };
+      setUnitTopicsCache((prev) => ({ ...prev, [key]: data.contents || [] }));
+    } catch (error) {
+      console.error('Ünite konuları yüklenemedi:', error);
+    } finally {
+      setLoadingUnitIds((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
+  const toggleUnitExpanded = (unit: Unit) => {
+    const key = String(unit.id);
+    setExpandedUnitIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+    if (!unitTopicsCache[key]) {
+      ensureUnitTopicsLoaded(unit);
+    }
+  };
+
+  const selectUnitTopic = (unit: Unit, topicId: string | number) => {
+    if (String(unit.id) !== String(activeUnit?.id)) {
+      const cached = unitTopicsCache[String(unit.id)];
+      if (cached) setContents(cached);
+      setManualUnitId(Number(unit.id));
+    }
+    setActiveTopicId(topicId);
+    setActiveSectionId(null);
+    setSidebarOpen(false);
+  };
+
+  const selectUnitSection = (unit: Unit, topicId: string | number, sectionId: string | number) => {
+    if (String(unit.id) !== String(activeUnit?.id)) {
+      const cached = unitTopicsCache[String(unit.id)];
+      if (cached) setContents(cached);
+      setManualUnitId(Number(unit.id));
+    }
+    setActiveTopicId(topicId);
+    setActiveSectionId(sectionId);
+    setSidebarOpen(false);
+  };
 
   const totalTopics = contents.length;
   const progressPercent = totalTopics ? Math.round(((selectedTopicIndex + 1) / totalTopics) * 100) : 0;
@@ -275,6 +363,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setActiveTopicId(pickInitialTopicId(initialData.contents, initialData.topicSlug));
     setOutcomesOpen(false);
     setIsWeekDataLoading(true);
+    setManualUnitId(null);
   }, [initialData]);
 
   const loadWeekData = useCallback(async (unitId: number, signal?: AbortSignal) => {
@@ -418,6 +507,216 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const isAtVeryEnd = selectedTopicIndex >= totalTopics - 1
     && (!sections.length || (!!currentSection && currentSectionIndex >= sections.length - 1));
 
+  const renderTopicItem = (topic: Content, idx: number, unit: Unit, isActiveUnitList: boolean) => {
+    const isActive = isActiveUnitList && idx === selectedTopicIndex;
+    const isCompleted = isActiveUnitList && idx < selectedTopicIndex;
+    const showAdminMenu = isAdmin && !tocCollapsed;
+    const hasSections = !!topic.sections?.length;
+    const isTopicExpanded = expandedTopicIds.has(String(topic.id));
+    const showExpandToggle = hasSections && !tocCollapsed;
+    const showSectionTree = showExpandToggle && isTopicExpanded;
+    const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
+    const { Icon: TopicIcon, bg: topicBg, text: topicText } = getTopicStyle(idx);
+
+    const handleTopicClick = () => {
+      if (isActiveUnitList) {
+        goToTopic(idx);
+      } else {
+        selectUnitTopic(unit, topic.id);
+      }
+    };
+
+    const handleSectionClick = (sectionId: string | number) => {
+      if (isActiveUnitList) {
+        goToSection(idx, sectionId);
+      } else {
+        selectUnitSection(unit, topic.id, sectionId);
+      }
+    };
+
+    return (
+      <div key={topic.id}>
+      <div className="relative">
+        <button
+          onClick={handleTopicClick}
+          title={topic.title}
+          className={`
+            w-full flex items-center gap-3 rounded-xl transition-all duration-200 border text-left
+            ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
+            ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
+            ${isActive
+              ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
+              : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
+          `}
+        >
+          <div className={`
+            h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors
+            ${isCompleted ? 'bg-emerald-100' : isActive ? topicBg : 'bg-slate-100'}
+          `}>
+            {isCompleted ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <TopicIcon className={`h-4 w-4 ${isActive ? topicText : 'text-slate-400'}`} />
+            )}
+          </div>
+          {!tocCollapsed && (
+            <>
+              <h4 className={`flex-1 min-w-0 text-sm font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                {topic.title}
+              </h4>
+              <span className="shrink-0">
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : isActive ? (
+                  <span className="block h-2.5 w-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                ) : (
+                  <span className="block h-2.5 w-2.5 rounded-full border-2 border-slate-300" />
+                )}
+              </span>
+            </>
+          )}
+        </button>
+
+        {(showExpandToggle || showAdminMenu) && (
+          <div className="absolute right-1 top-1 flex items-center gap-0.5">
+            {showExpandToggle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTopicExpanded(topic.id);
+                }}
+                title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
+                className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+              >
+                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
+              </button>
+            )}
+
+            {showAdminMenu && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTopicMenuOpenId((cur) => (String(cur) === String(topic.id) ? null : topic.id));
+                  }}
+                  className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                >
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </button>
+
+                {String(topicMenuOpenId) === String(topic.id) && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
+                    <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setPlanModalTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setManagingTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showSectionTree && (
+        <div className="ml-8 mt-1 mb-2 border-l border-slate-200 pl-3 space-y-0.5">
+          {topic.sections!.map((section, sIdx) => {
+            const isSectionActive = isActiveUnitList && String(currentSection?.id) === String(section.id);
+            return (
+              <div key={section.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => handleSectionClick(section.id)}
+                  title={section.heading}
+                  className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
+                    isSectionActive
+                      ? 'bg-indigo-100 text-indigo-700 font-black'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+                  }`}
+                >
+                  {sIdx + 1}. {section.heading}
+                </button>
+
+                {isAdmin && (
+                  <div className="absolute right-0.5 top-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id));
+                      }}
+                      className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                    >
+                      <MoreVertical className="h-3 w-3" />
+                    </button>
+
+                    {String(sectionMenuOpenId) === String(section.id) && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
+                        <div className="absolute right-0 top-6 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setSectionModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setQuestionsModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-dvh flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
 
@@ -502,199 +801,47 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           </div>
 
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1" style={{ scrollbarWidth: 'none' }}>
-            {contents.length > 0 ? contents.map((topic, idx) => {
-              const isActive = idx === selectedTopicIndex;
-              const isCompleted = idx < selectedTopicIndex;
-              const showAdminMenu = isAdmin && !tocCollapsed;
-              const hasSections = !!topic.sections?.length;
-              const isTopicExpanded = expandedTopicIds.has(String(topic.id));
-              const showExpandToggle = hasSections && !tocCollapsed;
-              const showSectionTree = showExpandToggle && isTopicExpanded;
-              const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
-              const { Icon: TopicIcon, bg: topicBg, text: topicText } = getTopicStyle(idx);
+            {tocCollapsed ? (
+              contents.length > 0 ? contents.map((topic, idx) => renderTopicItem(topic, idx, activeUnit as Unit, true)) : (
+                <div className="text-center p-4 text-sm text-slate-400 font-medium">Konular yükleniyor...</div>
+              )
+            ) : sortedUnits.length > 0 ? sortedUnits.map((unit) => {
+              const isActiveUnit = String(unit.id) === String(activeUnit?.id);
+              const unitKey = String(unit.id);
+              const isUnitExpanded = expandedUnitIds.has(unitKey);
+              const unitTopics = isActiveUnit ? contents : (unitTopicsCache[unitKey] || []);
+              const isLoadingUnit = loadingUnitIds.has(unitKey);
               return (
-                <div key={topic.id}>
-                <div className="relative">
+                <div key={unit.id} className="mb-1">
                   <button
-                    onClick={() => goToTopic(idx)}
-                    title={topic.title}
-                    className={`
-                      w-full flex items-center gap-3 rounded-xl transition-all duration-200 border text-left
-                      ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
-                      ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
-                      ${isActive
-                        ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
-                        : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
-                    `}
+                    type="button"
+                    onClick={() => toggleUnitExpanded(unit)}
+                    className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                      isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                    }`}
                   >
-                    <div className={`
-                      h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors
-                      ${isCompleted ? 'bg-emerald-100' : isActive ? topicBg : 'bg-slate-100'}
-                    `}>
-                      {isCompleted ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <TopicIcon className={`h-4 w-4 ${isActive ? topicText : 'text-slate-400'}`} />
-                      )}
-                    </div>
-                    {!tocCollapsed && (
-                      <>
-                        <h4 className={`flex-1 min-w-0 text-sm font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
-                          {topic.title}
-                        </h4>
-                        <span className="shrink-0">
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          ) : isActive ? (
-                            <span className="block h-2.5 w-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
-                          ) : (
-                            <span className="block h-2.5 w-2.5 rounded-full border-2 border-slate-300" />
-                          )}
-                        </span>
-                      </>
-                    )}
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                    <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
+                      {unit.title}
+                    </span>
+                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
                   </button>
 
-                  {(showExpandToggle || showAdminMenu) && (
-                    <div className="absolute right-1 top-1 flex items-center gap-0.5">
-                      {showExpandToggle && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTopicExpanded(topic.id);
-                          }}
-                          title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
-                          className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                        >
-                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
-                        </button>
-                      )}
-
-                      {showAdminMenu && (
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTopicMenuOpenId((cur) => (String(cur) === String(topic.id) ? null : topic.id));
-                            }}
-                            className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                          >
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </button>
-
-                          {String(topicMenuOpenId) === String(topic.id) && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
-                              <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTopicMenuOpenId(null);
-                                    setPlanModalTopicId(Number(topic.id));
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                >
-                                  <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTopicMenuOpenId(null);
-                                    setManagingTopicId(Number(topic.id));
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                >
-                                  <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                  {isUnitExpanded && (
+                    <div className="mt-1 mb-2 space-y-1 pl-1">
+                      {isLoadingUnit && !unitTopics.length ? (
+                        <div className="px-3 py-2 text-xs font-medium text-slate-400">Yükleniyor...</div>
+                      ) : unitTopics.length === 0 ? (
+                        <div className="px-3 py-2 text-xs font-medium text-slate-400">Konu bulunamadı</div>
+                      ) : (
+                        unitTopics.map((topic, idx) => renderTopicItem(topic, idx, unit, isActiveUnit))
                       )}
                     </div>
                   )}
                 </div>
-
-                {showSectionTree && (
-                  <div className="ml-8 mt-1 mb-2 border-l border-slate-200 pl-3 space-y-0.5">
-                    {topic.sections!.map((section, sIdx) => {
-                      const isSectionActive = String(currentSection?.id) === String(section.id);
-                      return (
-                        <div key={section.id} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => goToSection(idx, section.id)}
-                            title={section.heading}
-                            className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
-                              isSectionActive
-                                ? 'bg-indigo-100 text-indigo-700 font-black'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-                            }`}
-                          >
-                            {sIdx + 1}. {section.heading}
-                          </button>
-
-                          {isAdmin && (
-                            <div className="absolute right-0.5 top-0.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id));
-                                }}
-                                className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                              >
-                                <MoreVertical className="h-3 w-3" />
-                              </button>
-
-                              {String(sectionMenuOpenId) === String(section.id) && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
-                                  <div className="absolute right-0 top-6 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSectionMenuOpenId(null);
-                                        setSectionModalTarget({
-                                          topicId: Number(topic.id),
-                                          section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                                        });
-                                      }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                    >
-                                      <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSectionMenuOpenId(null);
-                                        setQuestionsModalTarget({
-                                          topicId: Number(topic.id),
-                                          section: { id: Number(section.id), heading: section.heading },
-                                        });
-                                      }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                    >
-                                      <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                </div>
               );
             }) : (
-              <div className="text-center p-4 text-sm text-slate-400 font-medium">Konular yükleniyor...</div>
+              <div className="text-center p-4 text-sm text-slate-400 font-medium">Üniteler yükleniyor...</div>
             )}
           </div>
 
