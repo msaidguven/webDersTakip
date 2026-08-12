@@ -36,6 +36,13 @@ export type Unit = {
   topics?: UnitTopic[];
 };
 
+export type GradeLessonOption = {
+  id: number;
+  name: string;
+  slug: string | null;
+  icon: string | null;
+};
+
 interface MufredatOverviewClientProps {
   gradeName: string;
   lessonName: string;
@@ -47,6 +54,7 @@ interface MufredatOverviewClientProps {
   units: Unit[];
   currentWeek: number;
   totalWeeks?: number;
+  gradeLessons?: GradeLessonOption[];
 }
 
 function academicYearLabel(): string {
@@ -101,6 +109,7 @@ export default function MufredatOverviewClient({
   units,
   currentWeek,
   totalWeeks = 38,
+  gradeLessons = [],
 }: MufredatOverviewClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -134,6 +143,14 @@ export default function MufredatOverviewClient({
   };
 
   const changeLessonsHref = gradeSlug ? `/${gradeSlug}` : '/';
+
+  const handleLessonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedSlug = e.target.value;
+    if (!gradeSlug || !selectedSlug || selectedSlug === lessonSlug) return;
+    router.push(`/${gradeSlug}/${selectedSlug}`);
+  };
+
+  const showLessonDropdown = !!gradeSlug && gradeLessons.filter((l) => l.slug).length > 1;
 
   const unitStats = useMemo(
     () =>
@@ -170,12 +187,30 @@ export default function MufredatOverviewClient({
             </span>
             Dersler
           </Link>
-          <Link
-            href={changeLessonsHref}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Dersleri Değiştir
-          </Link>
+          {showLessonDropdown ? (
+            <div className="relative shrink-0">
+              <select
+                value={lessonSlug ?? ''}
+                onChange={handleLessonChange}
+                aria-label="Ders değiştir"
+                className="appearance-none max-w-[150px] sm:max-w-[220px] truncate pl-3 pr-8 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+              >
+                {gradeLessons.filter((l) => l.slug).map((l) => (
+                  <option key={l.id} value={l.slug ?? ''}>
+                    {l.icon || '📘'} {l.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          ) : (
+            <Link
+              href={changeLessonsHref}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Dersleri Değiştir
+            </Link>
+          )}
         </div>
 
         {/* Ders başlığı */}

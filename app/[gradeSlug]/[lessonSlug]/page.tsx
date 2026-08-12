@@ -32,6 +32,8 @@ type UnitRow = {
 type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number };
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null; icon: string | null };
+type LessonGradeRow = { lesson_id: number };
+type GradeLessonOption = { id: number; name: string; slug: string | null; icon: string | null };
 
 const getMufredatOverviewData = cache(async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string) {
   const supabase = await createClient();
@@ -129,6 +131,30 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     topics: topicsByUnit[u.id] ?? [],
   }));
 
+  // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
+  const { data: lessonGradesData } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id')
+    .eq('grade_id', gId)
+    .eq('is_active', true);
+
+  const siblingLessonIds = ((lessonGradesData as LessonGradeRow[] | null) || []).map((lg) => lg.lesson_id);
+  let gradeLessons: GradeLessonOption[] = [];
+  if (siblingLessonIds.length) {
+    const { data: siblingLessonsData } = await supabase
+      .from('lessons')
+      .select('id, name, slug, icon, order_no')
+      .in('id', siblingLessonIds)
+      .eq('is_active', true)
+      .order('order_no', { ascending: true });
+    gradeLessons = ((siblingLessonsData as (LessonRow & { order_no: number | null })[] | null) || []).map((l) => ({
+      id: l.id,
+      name: l.name,
+      slug: l.slug,
+      icon: l.icon,
+    }));
+  }
+
   return {
     gradeId: gId.toString(),
     lessonId: lId.toString(),
@@ -139,6 +165,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     lessonSlug: lesson.slug,
     units: unitsWithTopicCount,
     totalWeeks,
+    gradeLessons,
   };
 });
 
@@ -175,6 +202,7 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
       units={data.units}
       currentWeek={hafta}
       totalWeeks={data.totalWeeks}
+      gradeLessons={data.gradeLessons}
     />
   );
 }
