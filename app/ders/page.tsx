@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
+import { getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import DersClient from './DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +122,7 @@ function escapeHtml(text: string) {
     .replaceAll("'", '&#039;');
 }
 
-async function getDersData(sinifId: string, dersSlug: string, week: number) {
+async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
   
   const gId = parseInt(sinifId);
@@ -156,6 +157,7 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
       unitSlug: null,
       topicTitle: null,
       topicSlug: null,
+      week: requestedWeek ?? getCurrentCurriculumWeek(),
     };
   }
 
@@ -192,6 +194,8 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
     }, 0);
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
+
+  const week = requestedWeek ?? getCurrentCurriculumWeek(totalWeeks);
 
   const activeUnit =
     units.find((u) => {
@@ -390,6 +394,7 @@ async function getDersData(sinifId: string, dersSlug: string, week: number) {
     unitSlug,
     topicTitle: activeTopic?.title || null,
     topicSlug: activeTopic?.slug || null,
+    week,
   };
 }
 
@@ -405,9 +410,13 @@ export default async function DersPage({ searchParams }: PageProps) {
   const sinifId = Array.isArray(rawSinif) ? rawSinif[0] : rawSinif;
   const dersSlug = Array.isArray(rawDers) ? rawDers[0] : rawDers;
   const uniteSlug = Array.isArray(rawUnite) ? rawUnite[0] : rawUnite;
-  const hafta = Array.isArray(rawHafta) ? parseInt(rawHafta[0]) : (rawHafta ? parseInt(rawHafta) : 19);
+  const requestedHafta = Array.isArray(rawHafta)
+    ? parseInt(rawHafta[0])
+    : rawHafta
+      ? parseInt(rawHafta)
+      : null;
 
-  console.log('[DersPage] sinif:', sinifId, 'ders:', dersSlug, 'unite:', uniteSlug, 'hafta:', hafta);
+  console.log('[DersPage] sinif:', sinifId, 'ders:', dersSlug, 'unite:', uniteSlug, 'hafta:', requestedHafta);
 
   if (!sinifId || !dersSlug) {
     return (
@@ -418,8 +427,8 @@ export default async function DersPage({ searchParams }: PageProps) {
     );
   }
 
-  const data = await getDersData(sinifId, dersSlug, hafta);
-  
+  const data = await getDersData(sinifId, dersSlug, requestedHafta);
+
   if (!data.gradeName || !data.lessonName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -430,6 +439,6 @@ export default async function DersPage({ searchParams }: PageProps) {
       </div>
     );
   }
-  
-  return <DersClient initialData={data} gradeId={sinifId} lessonId={dersSlug} week={hafta} />;
+
+  return <DersClient initialData={data} gradeId={sinifId} lessonId={dersSlug} week={data.week} />;
 }

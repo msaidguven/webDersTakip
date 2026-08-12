@@ -1,17 +1,29 @@
 // app/ders/Mufredatoverviewclient.tsx
-// (İçerik MufredatOverviewClient.tsx ile birebir aynı — sadece istenen dosya yoluna göre yeniden adlandırıldı.)
 
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  BookOpen,
-  CheckCircle2,
-  ChevronRight,
-  Sparkles,
+  ArrowLeft,
   ArrowRight,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  PieChart,
+  RefreshCw,
 } from 'lucide-react';
+
+export type UnitTopic = {
+  id: number;
+  title: string;
+  slug: string | null;
+  order_no: number;
+};
 
 export type Unit = {
   id: number;
@@ -21,11 +33,13 @@ export type Unit = {
   start_week: number | null;
   end_week: number | null;
   topicCount?: number | null;
+  topics?: UnitTopic[];
 };
 
 interface MufredatOverviewClientProps {
   gradeName: string;
   lessonName: string;
+  lessonIcon?: string | null;
   gradeSlug: string | null;
   lessonSlug: string | null;
   gradeId: string;
@@ -33,14 +47,53 @@ interface MufredatOverviewClientProps {
   units: Unit[];
   currentWeek: number;
   totalWeeks?: number;
-  currentTopicTitle?: string | null;
 }
 
-const UNIT_ICONS = ['🌞', '📦', '🧪', '🧬', '💡', '🧲', '🌍', '⚙️'];
+function academicYearLabel(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  // Eğitim-öğretim yılı Eylül'de başlar
+  return now.getMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+function ProgressRing({ percent, tone }: { percent: number; tone: 'active' | 'done' | 'idle' }) {
+  const size = 44;
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
+
+  const trackColor = tone === 'idle' ? '#e2e8f0' : tone === 'done' ? '#d1fae5' : '#ede9fe';
+  const barColor = tone === 'done' ? '#10b981' : tone === 'active' ? '#6366f1' : '#94a3b8';
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={barColor}
+          strokeWidth={stroke}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-slate-700">
+        {tone === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : `${percent}%`}
+      </div>
+    </div>
+  );
+}
 
 export default function MufredatOverviewClient({
   gradeName,
   lessonName,
+  lessonIcon,
   gradeSlug,
   lessonSlug,
   gradeId,
@@ -48,10 +101,16 @@ export default function MufredatOverviewClient({
   units,
   currentWeek,
   totalWeeks = 38,
-  currentTopicTitle,
 }: MufredatOverviewClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const activeUnit = useMemo(
+    () => units.find((u) => currentWeek >= (u.start_week || 1) && currentWeek <= (u.end_week || totalWeeks)),
+    [units, currentWeek, totalWeeks]
+  );
+
+  const [expandedUnitId, setExpandedUnitId] = useState<number | null>(activeUnit?.id ?? null);
 
   const goToWeek = (weekNo: number) => {
     const params = new URLSearchParams(searchParams?.toString());
@@ -66,156 +125,219 @@ export default function MufredatOverviewClient({
     }
   };
 
-  const activeUnit = useMemo(
-    () => units.find((u) => currentWeek >= (u.start_week || 1) && currentWeek <= (u.end_week || totalWeeks)),
+  const goToTopic = (unitSlug: string | null, topicSlug: string | null, fallbackWeek: number) => {
+    if (gradeSlug && lessonSlug && unitSlug && topicSlug) {
+      router.push(`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`);
+      return;
+    }
+    goToWeek(fallbackWeek);
+  };
+
+  const changeLessonsHref = gradeSlug ? `/${gradeSlug}` : '/';
+
+  const unitStats = useMemo(
+    () =>
+      units.map((unit) => {
+        const start = unit.start_week || 1;
+        const end = unit.end_week || totalWeeks;
+        const isCompleted = currentWeek > end;
+        const isActive = currentWeek >= start && currentWeek <= end;
+        const weeksInUnit = Math.max(1, end - start + 1);
+        const weeksDone = Math.min(weeksInUnit, Math.max(0, currentWeek - start));
+        const progressPct = isCompleted ? 100 : Math.round((weeksDone / weeksInUnit) * 100);
+        return { unit, start, end, isCompleted, isActive, weeksInUnit, progressPct };
+      }),
     [units, currentWeek, totalWeeks]
   );
 
-  const overallProgressPct = Math.min(100, Math.round(((currentWeek - 1) / totalWeeks) * 100));
+  const weekProgressPct = Math.min(100, Math.max(0, Math.round((currentWeek / totalWeeks) * 100)));
+  const overallProgressPct = unitStats.length
+    ? Math.round(unitStats.reduce((sum, s) => sum + s.progressPct, 0) / unitStats.length)
+    : 0;
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-slate-800 font-sans">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
 
+        {/* Üst gezinme */}
         <div className="flex items-center justify-between mb-5 sm:mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">{lessonName}</h1>
-            <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-400 mt-0.5">
-              <span>{gradeName}</span>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-black">
-            <Sparkles className="h-3.5 w-3.5" /> %{overallProgressPct} tamamlandı
-          </div>
-        </div>
-
-        {activeUnit && (
-          <button
-            onClick={() => goToWeek(currentWeek)}
-            className="w-full text-left mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 sm:px-6 py-4 flex items-center justify-between gap-4 hover:bg-amber-100/70 transition-colors group"
+          <Link
+            href={changeLessonsHref}
+            className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
           >
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-amber-400 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11px] sm:text-xs font-black text-amber-700 uppercase tracking-wide">
-                  MEB&apos;de Bu Hafta &middot; Hafta {currentWeek}
-                </div>
-                <div className="text-sm sm:text-base font-extrabold text-slate-800 truncate">
-                  {activeUnit.order_no}. Ünite &ndash; {activeUnit.title}
-                </div>
-                {currentTopicTitle && (
-                  <div className="text-xs sm:text-sm text-slate-500 font-medium truncate">
-                    {currentTopicTitle} konusuna devam ediliyor.
-                  </div>
-                )}
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5 text-amber-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        )}
-
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-base sm:text-lg font-black text-slate-800">Üniteler</h2>
+            <span className="h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+              <ArrowLeft className="h-4 w-4" />
+            </span>
+            Dersler
+          </Link>
+          <Link
+            href={changeLessonsHref}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Dersleri Değiştir
+          </Link>
         </div>
 
-        <div className="space-y-4">
-          {units.map((unit, i) => {
-            const start = unit.start_week || 1;
-            const end = unit.end_week || totalWeeks;
-            const isCompleted = currentWeek > end;
-            const isActive = currentWeek >= start && currentWeek <= end;
-            const weeksInUnit = Math.max(1, end - start + 1);
-            const weeksDone = Math.min(weeksInUnit, Math.max(0, currentWeek - start));
-            const unitProgressPct = isCompleted ? 100 : Math.round((weeksDone / weeksInUnit) * 100);
-            const weekNumbers = Array.from({ length: weeksInUnit }, (_, idx) => start + idx);
+        {/* Ders başlığı */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl shrink-0 shadow-lg shadow-indigo-500/20">
+            {lessonIcon || '📘'}
+          </div>
+          <div className="min-w-0">
+            <span className="inline-block text-[11px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 mb-1.5">
+              {gradeName}
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 truncate">{lessonName}</h1>
+            <p className="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">{academicYearLabel()} Eğitim Öğretim Yılı</p>
+          </div>
+        </div>
 
-            const statusLabel = isCompleted ? 'Tamamlandı' : isActive ? 'Devam Ediyor' : 'Başlamadı';
-            const ctaLabel = isCompleted ? 'Tekrar Çalış' : isActive ? 'Devam Et' : 'İncele';
-            const ctaWeek = isCompleted ? start : isActive ? currentWeek : start;
+        {/* İstatistik kartları */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 sm:mb-8">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
+              <Calendar className="h-3.5 w-3.5" /> Şu anki hafta
+            </div>
+            <div className="text-2xl font-black text-slate-900">{currentWeek}. Hafta</div>
+            <p className="text-[11px] font-semibold text-slate-400 mt-0.5">Takvime göre {currentWeek}. hafta</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
+              <BookOpen className="h-3.5 w-3.5" /> Müfredat ilerlemesi
+            </div>
+            <div className="text-2xl font-black text-slate-900">{currentWeek} / {totalWeeks} <span className="text-sm font-bold text-slate-400">hafta</span></div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-2">
+              <div className="h-full rounded-full bg-indigo-500" style={{ width: `${weekProgressPct}%` }} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
+              <PieChart className="h-3.5 w-3.5" /> Genel ilerleme
+            </div>
+            <div className="text-2xl font-black text-slate-900">%{overallProgressPct}</div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-2">
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${overallProgressPct}%` }} />
+            </div>
+          </div>
+        </div>
+
+        <h2 className="text-base sm:text-lg font-black text-slate-800 mb-3 sm:mb-4">Üniteler</h2>
+
+        <div className="space-y-3">
+          {unitStats.map(({ unit, start, end, isCompleted, isActive, progressPct }) => {
+            const isExpanded = expandedUnitId === unit.id;
+            const statusLabel = isCompleted ? 'Tamamlandı' : isActive ? 'Şu anki ünite' : 'Başlanmadı';
+            const topics = unit.topics ?? [];
+
+            // Konuları haftalara eşit dağıtarak yaklaşık ilerleme durumu hesapla
+            const weeksInUnit = Math.max(1, end - start + 1);
+            const topicsWithWeek = topics.map((t, idx) => ({
+              ...t,
+              week: Math.min(end, start + Math.floor((idx * weeksInUnit) / Math.max(1, topics.length))),
+            }));
+            const currentTopicIdx = isActive
+              ? topicsWithWeek.findIndex((t) => t.week >= currentWeek)
+              : isCompleted
+                ? -1
+                : 0;
 
             return (
               <div
                 key={unit.id}
                 className={`
                   rounded-2xl border overflow-hidden transition-shadow
-                  ${isActive ? 'border-amber-200 bg-amber-50/40 shadow-sm' : 'border-slate-200 bg-white'}
+                  ${isActive ? 'border-indigo-200 bg-indigo-50/40 shadow-sm' : 'border-slate-200 bg-white'}
                 `}
               >
-                <div className="p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                <button
+                  onClick={() => setExpandedUnitId(isExpanded ? null : unit.id)}
+                  className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4"
+                >
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl shrink-0">
-                      {UNIT_ICONS[i % UNIT_ICONS.length]}
+                    <div
+                      className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-lg font-black shrink-0
+                        ${isActive ? 'bg-indigo-600 text-white shadow-sm' : isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
+                    >
+                      {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : unit.order_no}
                     </div>
                     <div className="min-w-0">
-                      <span
-                        className={`inline-block text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md mb-1
-                          ${isActive ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                        {unit.order_no}. Ünite
-                      </span>
                       <h3 className="text-sm sm:text-base font-black text-slate-900 truncate">{unit.title}</h3>
-                      {unit.topicCount != null && (
-                        <div className="flex items-center gap-1 text-xs text-slate-400 font-bold mt-0.5">
-                          <BookOpen className="h-3 w-3" /> {unit.topicCount} konu
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs font-bold text-slate-400">Hafta {start}&ndash;{end} &middot; {Math.max(1, end - start + 1)} hafta</span>
+                        {isActive && (
+                          <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> {statusLabel}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <ProgressRing percent={progressPct} tone={isCompleted ? 'done' : isActive ? 'active' : 'idle'} />
+                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+                    {topicsWithWeek.length === 0 ? (
+                      <p className="text-xs font-bold text-slate-400 pl-1">Bu ünite için konu bulunamadı.</p>
+                    ) : (
+                      <div className="relative pl-1">
+                        <div className="absolute left-[15px] top-2 bottom-2 w-px bg-slate-200" />
+                        <div className="space-y-1">
+                          {topicsWithWeek.map((topic, idx) => {
+                            const isDone = currentTopicIdx === -1 ? true : idx < currentTopicIdx;
+                            const isCurrent = idx === currentTopicIdx;
+                            const isPending = !isDone && !isCurrent;
+
+                            return (
+                              <div
+                                key={topic.id}
+                                className={`relative flex items-center gap-3 py-2.5 pl-0 pr-2 rounded-xl ${isCurrent ? 'bg-white' : ''}`}
+                              >
+                                <div className="relative z-10 shrink-0 h-[30px] w-[30px] rounded-full flex items-center justify-center bg-[#f9fafb]">
+                                  {isDone ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                  ) : isCurrent ? (
+                                    <span className="h-3 w-3 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                                  ) : (
+                                    <Circle className="h-4 w-4 text-slate-300" />
+                                  )}
+                                </div>
+
+                                <button
+                                  onClick={() => goToTopic(unit.slug, topic.slug, topic.week)}
+                                  className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left"
+                                >
+                                  <div className="min-w-0">
+                                    <div className={`text-sm font-black truncate ${isPending ? 'text-slate-400' : 'text-slate-900'}`}>
+                                      {unit.order_no}.{idx + 1} {topic.title}
+                                    </div>
+                                    <div className={`text-xs font-bold ${isDone ? 'text-emerald-600' : isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                      {isDone ? 'Tamamlandı' : isCurrent ? `Şu an öğreniyorsun · Hafta ${topic.week}` : 'Başlanmadı'}
+                                    </div>
+                                  </div>
+
+                                  {isCurrent ? (
+                                    <span className="flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 transition-colors">
+                                      Devam Et <ArrowRight className="h-3.5 w-3.5" />
+                                    </span>
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex flex-col items-end gap-1.5 shrink-0 min-w-[120px]">
-                    <div className={`flex items-center gap-1 text-xs font-black ${isCompleted ? 'text-emerald-600' : isActive ? 'text-amber-600' : 'text-slate-400'}`}>
-                      {isCompleted && <CheckCircle2 className="h-3.5 w-3.5" />}
-                      {statusLabel}
-                    </div>
-                    <div className="h-1.5 w-full min-w-[100px] bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-amber-400'}`}
-                        style={{ width: `${unitProgressPct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex items-center gap-2 flex-wrap">
-                  {weekNumbers.map((w) => {
-                    const wCompleted = w < currentWeek;
-                    const wIsCurrent = w === currentWeek;
-                    return (
-                      <button
-                        key={w}
-                        onClick={() => goToWeek(w)}
-                        className={`
-                          flex flex-col items-center justify-center px-3 py-2 rounded-xl text-xs font-bold border transition-colors min-w-[76px]
-                          ${wIsCurrent
-                            ? 'bg-amber-400 border-amber-400 text-white shadow-sm'
-                            : wCompleted
-                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100'
-                              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}
-                        `}
-                      >
-                        <span className="flex items-center gap-1">
-                          {wCompleted && !wIsCurrent && <CheckCircle2 className="h-3 w-3" />}
-                          Hafta {w}
-                        </span>
-                        {wIsCurrent && <span className="text-[9px] font-black uppercase tracking-wide">MEB&apos;de Bu Hafta</span>}
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    onClick={() => goToWeek(ctaWeek)}
-                    className={`
-                      ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-colors shrink-0
-                      ${isActive
-                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}
-                    `}
-                  >
-                    {ctaLabel} <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                )}
               </div>
             );
           })}

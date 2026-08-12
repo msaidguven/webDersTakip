@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
-type Choice = { id: number; choice_text: string; is_correct: boolean };
-type Question = { id: number; question_text: string; choices: Choice[] };
+type Option = { id: number; text: string; is_correct: boolean };
+type Pair = { id: number; left_text: string; right_text: string };
+
+type MultipleChoiceQuestion = { id: number; type: 'multiple_choice'; question_text: string; solution_text: string | null; choices: Option[] };
+type BlankQuestion = { id: number; type: 'blank'; question_text: string; solution_text: string | null; options: Option[] };
+type MatchingQuestion = { id: number; type: 'matching'; pairs: Pair[] };
+type Question = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -48,28 +53,56 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ heading, questions: [] as Question[] });
   }
 
-  const { data: questionsData } = await supabase
-    .from('questions')
-    .select('id, question_text')
-    .in('id', questionIds);
+  const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }] = await Promise.all([
+    supabase.from('questions').select('id, question_text, solution_text, question_type_id').in('id', questionIds),
+    supabase.from('question_choices').select('id, question_id, choice_text, is_correct').in('question_id', questionIds),
+    supabase.from('question_blank_options').select('id, question_id, option_text, is_correct').in('question_id', questionIds),
+    supabase.from('question_matching_pairs').select('id, question_id, left_text, right_text').in('question_id', questionIds),
+  ]);
 
-  const { data: choicesData } = await supabase
-    .from('question_choices')
-    .select('id, question_id, choice_text, is_correct')
-    .in('question_id', questionIds);
-
-  const choicesByQuestion = new Map<number, Choice[]>();
+  const choicesByQuestion = new Map<number, Option[]>();
   ((choicesData as { id: number; question_id: number; choice_text: string; is_correct: boolean }[] | null) || []).forEach((c) => {
     const list = choicesByQuestion.get(c.question_id) || [];
-    list.push({ id: c.id, choice_text: c.choice_text, is_correct: c.is_correct });
+    list.push({ id: c.id, text: c.choice_text, is_correct: c.is_correct });
     choicesByQuestion.set(c.question_id, list);
   });
 
-  const withChoices = ((questionsData as { id: number; question_text: string }[] | null) || [])
-    .map((q) => ({ id: q.id, question_text: q.question_text, choices: shuffle(choicesByQuestion.get(q.id) || []) }))
-    .filter((q) => q.choices.length >= 2);
+  const optionsByQuestion = new Map<number, Option[]>();
+  ((optionsData as { id: number; question_id: number; option_text: string; is_correct: boolean }[] | null) || []).forEach((o) => {
+    const list = optionsByQuestion.get(o.question_id) || [];
+    list.push({ id: o.id, text: o.option_text, is_correct: o.is_correct });
+    optionsByQuestion.set(o.question_id, list);
+  });
 
-  const questions = shuffle(withChoices).slice(0, 5);
+  const pairsByQuestion = new Map<number, Pair[]>();
+  ((pairsData as { id: number; question_id: number; left_text: string; right_text: string }[] | null) || []).forEach((p) => {
+    const list = pairsByQuestion.get(p.question_id) || [];
+    list.push({ id: p.id, left_text: p.left_text, right_text: p.right_text });
+    pairsByQuestion.set(p.question_id, list);
+  });
+
+  const all: Question[] = [];
+
+  ((questionsData as { id: number; question_text: string; solution_text: string | null; question_type_id: number }[] | null) || []).forEach((q) => {
+    if (q.question_type_id === 1) {
+      const choices = shuffle(choicesByQuestion.get(q.id) || []);
+      if (choices.length >= 2) all.push({ id: q.id, type: 'multiple_choice', question_text: q.question_text, solution_text: q.solution_text, choices });
+      return;
+    }
+    if (q.question_type_id === 3) {
+      const options = shuffle(optionsByQuestion.get(q.id) || []);
+      if (options.length >= 2 && q.question_text.includes('_____')) {
+        all.push({ id: q.id, type: 'blank', question_text: q.question_text, solution_text: q.solution_text, options });
+      }
+      return;
+    }
+    if (q.question_type_id === 4) {
+      const pairs = shuffle(pairsByQuestion.get(q.id) || []);
+      if (pairs.length >= 2) all.push({ id: q.id, type: 'matching', pairs });
+    }
+  });
+
+  const questions = shuffle(all).slice(0, 5);
 
   return NextResponse.json({ heading, questions });
 }

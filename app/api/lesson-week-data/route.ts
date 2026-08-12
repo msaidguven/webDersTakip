@@ -9,7 +9,7 @@ type OutcomeRow = {
   topic_id: number;
   order_index: number | null;
 };
-type TopicRow = { id: number; title: string; order_no: number };
+type TopicRow = { id: number; title: string; slug: string | null; order_no: number };
 type TopicContentOutcomeV11Row = { topic_content_v11_id: number };
 type TopicContentV11Row = {
   id: number;
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   ] = await Promise.all([
     supabase
       .from('topics')
-      .select('id, title, order_no')
+      .select('id, title, slug, order_no')
       .eq('unit_id', unitId)
       .eq('is_active', true)
       .order('order_no', { ascending: true }),
@@ -96,6 +96,7 @@ export async function GET(request: Request) {
   let contents = topics.map((t) => ({
     id: t.id,
     title: t.title,
+    slug: t.slug,
     content: null as string | null,
     orderNo: t.order_no,
   }));
@@ -130,6 +131,7 @@ export async function GET(request: Request) {
         return {
           id: t.id,
           title: t.title,
+          slug: t.slug,
           content: v11 ? topicContentV11ToHtml(v11.payload) : null,
           orderNo: t.order_no,
         };

@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type');
   const sectionId = request.nextUrl.searchParams.get('sectionId');
 
-  if (!topicId || (type !== 'plan' && type !== 'section' && type !== 'questions')) {
+  const QUESTION_TEMPLATES: Record<string, string> = {
+    questions: '03-section-questions.md',
+    blank_questions: '04-section-blank-questions.md',
+    matching_questions: '05-section-matching-questions.md',
+  };
+  const isQuestionType = !!type && type in QUESTION_TEMPLATES;
+
+  if (!topicId || (type !== 'plan' && type !== 'section' && !isQuestionType)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -105,12 +112,12 @@ export async function GET(request: NextRequest) {
     ? matchedOutcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
-  if (type === 'questions') {
+  if (isQuestionType) {
     if (!currentSection.body_markdown?.trim()) {
       return NextResponse.json({ error: 'Önce bu alt başlığın ders notu (içeriği) oluşturulmalı' }, { status: 409 });
     }
 
-    const templatePath = path.join(process.cwd(), 'app', 'prompt', '03-section-questions.md');
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', QUESTION_TEMPLATES[type as string]);
     const template = await readFile(templatePath, 'utf8');
 
     const prompt = template

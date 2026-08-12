@@ -1,10 +1,11 @@
 // app/[gradeSlug]/[lessonSlug]/icerik/page.tsx
-// Bu dosya, eski app/[gradeSlug]/[lessonSlug]/page.tsx dosyasının AYNISIDIR.
-// Tek fark: klasör bir seviye derine indiği için DersClient import yolu güncellendi.
+// Eski ?hafta= tabanlı URL'ler için geriye dönük uyumluluk: ilgili haftanın
+// düştüğü üniteyi ve o ünitenin ilk konusunu bulup yeni slug tabanlı
+// /[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug] adresine yönlendirir.
 
+import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { parseGradeSegment } from '@/app/src/lib/routeParsing';
-import DersClient from '../../../ders/DersClient';
+import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,32 +20,29 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-
-type ContentVM = { id: number; title: string; content: string | null; orderNo: number };
 type UnitRow = {
   id: number;
-  title: string;
   slug: string | null;
   order_no: number;
   start_week: number | null;
   end_week: number | null;
 };
-type TopicRow = { id: number; title: string; slug: string; order_no: number };
-type GradeRow = { id: number; name: string; slug: string | null };
-type LessonRow = { id: number; name: string; slug: string | null };
+type TopicRow = { slug: string | null; order_no: number };
+type GradeRow = { id: number; slug: string | null };
+type LessonRow = { id: number; slug: string | null };
 
-async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: number) {
+export default async function LegacyIcerikRedirectPage({ params, searchParams }: PageProps) {
+  const { gradeSlug, lessonSlug } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
 
   let grade: GradeRow | null = null;
-  let lesson: LessonRow | null = null;
-
   const { data: gradeBySlug } = await supabase
     .from('grades')
-    .select('id, name, slug')
+    .select('id, slug')
     .eq('slug', decodedGradeSlug)
     .maybeSingle();
   grade = gradeBySlug as GradeRow | null;
@@ -53,20 +51,20 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     const gradeOrderNo = parseGradeSegment(decodedGradeSlug);
     const gradeId = Number(decodedGradeSlug);
     const gradeQueryValue = gradeOrderNo ?? (Number.isFinite(gradeId) ? gradeId : null);
-
     if (gradeQueryValue) {
       const { data: gradeByFallback } = await supabase
         .from('grades')
-        .select('id, name, slug')
+        .select('id, slug')
         .eq(gradeOrderNo ? 'order_no' : 'id', gradeQueryValue)
         .maybeSingle();
       grade = gradeByFallback as GradeRow | null;
     }
   }
 
+  let lesson: LessonRow | null = null;
   const { data: lessonBySlug } = await supabase
     .from('lessons')
-    .select('id, name, slug')
+    .select('id, slug')
     .eq('slug', decodedLessonSlug)
     .maybeSingle();
   lesson = lessonBySlug as LessonRow | null;
@@ -76,7 +74,7 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     if (Number.isFinite(lessonId)) {
       const { data: lessonById } = await supabase
         .from('lessons')
-        .select('id, name, slug')
+        .select('id, slug')
         .eq('id', lessonId)
         .maybeSingle();
       lesson = lessonById as LessonRow | null;
@@ -84,17 +82,14 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
   }
 
   if (!grade || !lesson) {
-    return null;
+    redirect(`/${gradeSlug}/${lessonSlug}`);
   }
-
-  const gId = grade.id;
-  const lId = lesson.id;
 
   const { data: unitsData } = await supabase
     .from('units')
-    .select('id, title, slug, order_no, start_week, end_week')
-    .eq('lesson_id', lId)
-    .eq('grade_id', gId)
+    .select('id, slug, order_no, start_week, end_week')
+    .eq('lesson_id', lesson.id)
+    .eq('grade_id', grade.id)
     .eq('is_active', true)
     .order('order_no', { ascending: true });
 
@@ -105,79 +100,36 @@ async function getDersDataBySlugs(gradeSlug: string, lessonSlug: string, week: n
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
+  const rawHafta = sp.hafta;
+  const week = Array.isArray(rawHafta)
+    ? parseInt(rawHafta[0])
+    : rawHafta
+      ? parseInt(rawHafta)
+      : getCurrentCurriculumWeek(totalWeeks);
+
   const activeUnit = units.find((u) => {
     const sw = u.start_week ?? 1;
     const ew = u.end_week ?? totalWeeks;
     return week >= sw && week <= ew;
   }) ?? units[0] ?? null;
 
-  const unitId = activeUnit?.id ?? null;
-  const unitName = activeUnit?.title ?? '';
-  const unitSlug = activeUnit?.slug ?? null;
-
-  const { data: topicsData } = unitId
-    ? await supabase
-        .from('topics')
-        .select('id, title, slug, order_no')
-        .eq('unit_id', unitId)
-        .eq('is_active', true)
-        .order('order_no', { ascending: true })
-    : { data: null };
-
-  const topics = (topicsData as TopicRow[] | null) || [];
-  const activeTopic = topics[0] ?? null;
-
-  const contents: ContentVM[] = topics
-    .slice()
-    .sort((a, b) => a.order_no - b.order_no)
-    .map((t) => ({
-      id: t.id,
-      title: t.title,
-      content: null,
-      orderNo: t.order_no,
-    }));
-
-  return {
-    gradeId: gId.toString(),
-    lessonId: lId.toString(),
-    gradeName: grade.name,
-    lessonName: lesson.name,
-    unitName,
-    outcomes: [],
-    contents,
-    units,
-    totalWeeks,
-    gradeSlug: grade.slug,
-    lessonSlug: lesson.slug,
-    unitSlug,
-    topicTitle: activeTopic?.title || null,
-    topicSlug: activeTopic?.slug || null,
-  };
-}
-
-export default async function LessonContentPage({ params, searchParams }: PageProps) {
-  const { gradeSlug, lessonSlug } = await params;
-  const sp = await searchParams;
-
-  const rawHafta = sp.hafta;
-  const hafta = Array.isArray(rawHafta) ? parseInt(rawHafta[0]) : (rawHafta ? parseInt(rawHafta) : 19);
-
-  const data = await getDersDataBySlugs(gradeSlug, lessonSlug, hafta);
-
-  if (!data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500">Ders bulunamadı.</p>
-      </div>
-    );
+  if (!activeUnit?.slug) {
+    redirect(`/${gradeSlug}/${lessonSlug}`);
   }
 
-  return (
-    <DersClient
-      initialData={data}
-      gradeId={data.gradeId}
-      lessonId={data.lessonId}
-      week={hafta}
-    />
-  );
+  const { data: firstTopic } = await supabase
+    .from('topics')
+    .select('slug, order_no')
+    .eq('unit_id', activeUnit.id)
+    .eq('is_active', true)
+    .order('order_no', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const topicSlug = (firstTopic as TopicRow | null)?.slug;
+  if (!topicSlug) {
+    redirect(`/${gradeSlug}/${lessonSlug}`);
+  }
+
+  redirect(`/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${topicSlug}`);
 }

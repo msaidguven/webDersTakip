@@ -41,6 +41,7 @@ type TopicHighlight = { position: string; icon: string | null; title: string; de
 type Content = {
   id: string | number;
   title: string;
+  slug?: string | null;
   content?: string | null;
   sections?: TopicSection[];
   heroImageUrl?: string | null;
@@ -112,11 +113,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug } = initialData;
 
+  const pickInitialTopicId = (contentsList: Content[], topicSlug: string | null) => {
+    if (topicSlug) {
+      const bySlug = contentsList.find((c) => c.slug === topicSlug);
+      if (bySlug) return bySlug.id;
+    }
+    return contentsList[0]?.id ?? null;
+  };
+
   const [units, setUnits] = useState<Unit[]>(initialData.units || []);
   const [outcomes, setOutcomes] = useState<Outcome[]>(initialData.outcomes);
   const [contents, setContents] = useState<Content[]>(initialData.contents);
   const [isWeekDataLoading, setIsWeekDataLoading] = useState(true);
-  const [activeTopicId, setActiveTopicId] = useState<string | number | null>(initialData.contents[0]?.id || null);
+  const [activeTopicId, setActiveTopicId] = useState<string | number | null>(
+    pickInitialTopicId(initialData.contents, initialData.topicSlug)
+  );
   const [activeSectionId, setActiveSectionId] = useState<string | number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
@@ -212,7 +223,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     };
   }, [supabase, user]);
 
-  const activeUnit = units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) || units[0];
+  const activeUnit =
+    (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
+    units.find(u => week >= (u.start_week || 1) && week <= (u.end_week || 38)) ||
+    units[0];
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
 
   const totalTopics = contents.length;
@@ -222,11 +236,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [selectedTopicId]);
 
+  // Görüntülenen konu değiştikçe adres çubuğunu (yeniden yükleme yapmadan) senkronize et
+  useEffect(() => {
+    if (!gradeSlug || !lessonSlug || !activeUnit?.slug || !activeTopic?.slug) return;
+    const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}`;
+    if (window.location.pathname !== url) {
+      window.history.replaceState(null, '', url);
+    }
+  }, [gradeSlug, lessonSlug, activeUnit?.slug, activeTopic?.slug]);
+
   useEffect(() => {
     setUnits(initialData.units || []);
     setContents(initialData.contents);
     setOutcomes(initialData.outcomes);
-    setActiveTopicId(initialData.contents[0]?.id || null);
+    setActiveTopicId(pickInitialTopicId(initialData.contents, initialData.topicSlug));
     setOutcomesOpen(false);
     setIsWeekDataLoading(true);
   }, [initialData]);
