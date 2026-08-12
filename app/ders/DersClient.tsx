@@ -276,23 +276,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   // Üniteye tıklayınca: zaten aktifse sadece aç/kapa; değilse o üniteyi aktif yap ve ilk konusunu otomatik seç
-  const handleUnitHeaderClick = async (unit: Unit) => {
+  // Üniteye tıklamak sadece o ünitenin konularını gösterir/gizler (akordeon);
+  // asıl içeriği değiştirmez — kullanıcı sadece konuları görmek isteyebilir.
+  // İçerik ancak bir konu/alt konuya tıklandığında değişir (selectUnitTopic/selectUnitSection).
+  const handleUnitHeaderClick = (unit: Unit) => {
     const key = String(unit.id);
-
-    if (String(unit.id) === String(activeUnit?.id)) {
-      setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
-      return;
+    setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
+    if (!unitTopicsCache[key]) {
+      ensureUnitTopicsLoaded(unit);
     }
-
-    const topics = unitTopicsCache[key] || (await ensureUnitTopicsLoaded(unit));
-    const firstTopic = topics[0];
-    if (firstTopic) {
-      setContents(topics);
-      setActiveTopicId(firstTopic.id);
-      setActiveSectionId(null);
-    }
-    setManualUnitId(Number(unit.id));
-    setSidebarOpen(false);
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
