@@ -322,6 +322,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const sections = activeTopic?.sections || [];
 
+  const runViewTransition = (direction: 'forward' | 'backward', update: () => void) => {
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+    if (!doc.startViewTransition) {
+      update();
+      return;
+    }
+    document.documentElement.setAttribute('data-nav-direction', direction);
+    const transition = doc.startViewTransition(update);
+    transition.finished.finally(() => {
+      document.documentElement.removeAttribute('data-nav-direction');
+    });
+  };
+
   const goForward = () => {
     const container = contentRef.current;
     if (container) {
@@ -332,21 +345,23 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         return;
       }
     }
-    if (sections.length) {
-      if (currentSection) {
-        if (currentSectionIndex < sections.length - 1) {
-          setActiveSectionId(sections[currentSectionIndex + 1].id);
-          contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    runViewTransition('forward', () => {
+      if (sections.length) {
+        if (currentSection) {
+          if (currentSectionIndex < sections.length - 1) {
+            setActiveSectionId(sections[currentSectionIndex + 1].id);
+            contentRef.current?.scrollTo({ top: 0 });
+            return;
+          }
+          goToTopic(selectedTopicIndex + 1);
           return;
         }
-        goToTopic(selectedTopicIndex + 1);
+        setActiveSectionId(sections[0].id);
+        contentRef.current?.scrollTo({ top: 0 });
         return;
       }
-      setActiveSectionId(sections[0].id);
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    goToTopic(selectedTopicIndex + 1);
+      goToTopic(selectedTopicIndex + 1);
+    });
   };
 
   const goBackward = () => {
@@ -358,20 +373,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         return;
       }
     }
-    if (sections.length && currentSection) {
-      if (currentSectionIndex > 0) {
-        setActiveSectionId(sections[currentSectionIndex - 1].id);
-      } else {
-        setActiveSectionId(null);
+    runViewTransition('backward', () => {
+      if (sections.length && currentSection) {
+        if (currentSectionIndex > 0) {
+          setActiveSectionId(sections[currentSectionIndex - 1].id);
+        } else {
+          setActiveSectionId(null);
+        }
+        contentRef.current?.scrollTo({ top: 0 });
+        return;
       }
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const prevTopic = contents[selectedTopicIndex - 1];
-    if (!prevTopic) return;
-    setActiveTopicId(prevTopic.id);
-    const prevSections = prevTopic.sections || [];
-    setActiveSectionId(prevSections.length ? prevSections[prevSections.length - 1].id : null);
+      const prevTopic = contents[selectedTopicIndex - 1];
+      if (!prevTopic) return;
+      setActiveTopicId(prevTopic.id);
+      const prevSections = prevTopic.sections || [];
+      setActiveSectionId(prevSections.length ? prevSections[prevSections.length - 1].id : null);
+    });
   };
 
   const isAtVeryStart = selectedTopicIndex <= 0 && !currentSection;
@@ -691,7 +708,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
               <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
                 {/* CONTENT CARD */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
                     {!currentSection && activeTopic?.heroImageUrl && (
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">

@@ -230,3 +230,40 @@
 ::-webkit-scrollbar-thumb:hover {
   background-color: #52525b;
 }
+
+/* Ders içeriği İleri/Geri geçiş efekti (View Transitions API) */
+::view-transition-group(root) {
+  animation-duration: 0s;
+}
+
+::view-transition-old(ders-content),
+::view-transition-new(ders-content) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-nav-direction='forward'] ::view-transition-old(ders-content) {
+  animation-name: ders-slide-out-left;
+}
+html[data-nav-direction='forward'] ::view-transition-new(ders-content) {
+  animation-name: ders-slide-in-right;
+}
+html[data-nav-direction='backward'] ::view-transition-old(ders-content) {
+  animation-name: ders-slide-out-right;
+}
+html[data-nav-direction='backward'] ::view-transition-new(ders-content) {
+  animation-name: ders-slide-in-left;
+}
+
+@keyframes ders-slide-out-left {
+  to { transform: translateX(-16px); opacity: 0; }
+}
+@keyframes ders-slide-in-right {
+  from { transform: translateX(16px); opacity: 0; }
+}
+@keyframes ders-slide-out-right {
+  to { transform: translateX(16px); opacity: 0; }
+}
+@keyframes ders-slide-in-left {
+  from { transform: translateX(-16px); opacity: 0; }
+}
