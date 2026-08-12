@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
 import {
   ChevronRight,
+  ChevronLeft,
   BookOpen,
   Trophy,
   CheckCircle2,
@@ -96,7 +97,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   const [units, setUnits] = useState<Unit[]>(initialData.units || []);
-  const [outcomes, setOutcomes] = useState<Outcome[]>(initialData.outcomes);
+  const [, setOutcomes] = useState<Outcome[]>(initialData.outcomes);
   const [contents, setContents] = useState<Content[]>(initialData.contents);
   const [isWeekDataLoading, setIsWeekDataLoading] = useState(true);
   const [activeTopicId, setActiveTopicId] = useState<string | number | null>(
@@ -106,7 +107,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
-  const [outcomesOpen, setOutcomesOpen] = useState(false);
+  const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
+  const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
+  const [kazanimlarCache, setKazanimlarCache] = useState<Record<number, Outcome[]>>({});
+  const [kazanimlarLoadingWeek, setKazanimlarLoadingWeek] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
@@ -161,12 +165,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       cancelled = true;
     };
   }, [currentSection]);
-
-  const activeTopicOutcomes = useMemo(() => {
-    if (!selectedTopicId) return outcomes;
-    const matchingOutcomes = outcomes.filter((outcome) => String(outcome.topicId ?? '') === String(selectedTopicId));
-    return matchingOutcomes.length ? matchingOutcomes : outcomes.filter((outcome) => outcome.topicId == null);
-  }, [outcomes, selectedTopicId]);
 
   const studyTip = STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length];
 
@@ -236,16 +234,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   );
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
 
-  // Aktif ünite değiştikçe sidebar index'inde otomatik açılsın
+  // Aktif ünite değiştikçe sidebar index'inde SADECE o ünite açık kalsın (akordeon)
   useEffect(() => {
     if (activeUnit?.id == null) return;
-    setExpandedUnitIds((prev) => {
-      const key = String(activeUnit.id);
-      if (prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
+    setExpandedUnitIds(new Set([String(activeUnit.id)]));
   }, [activeUnit?.id]);
 
   // Aktif ünitenin konuları zaten yükleniyor (contents); index önbelleğine de yansıt
@@ -254,9 +246,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setUnitTopicsCache((prev) => ({ ...prev, [String(activeUnit.id)]: contents }));
   }, [activeUnit?.id, contents]);
 
-  const ensureUnitTopicsLoaded = async (unit: Unit) => {
+  const ensureUnitTopicsLoaded = async (unit: Unit): Promise<Content[]> => {
     const key = String(unit.id);
-    if (unitTopicsCache[key] || loadingUnitIds.has(key)) return;
+    if (unitTopicsCache[key]) return unitTopicsCache[key];
     setLoadingUnitIds((prev) => new Set(prev).add(key));
     try {
       const params = new URLSearchParams({
@@ -266,11 +258,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         week: String(unit.start_week || week),
       });
       const response = await fetch(`/api/lesson-week-data?${params.toString()}`);
-      if (!response.ok) return;
+      if (!response.ok) return [];
       const data = await response.json() as { contents?: Content[] };
-      setUnitTopicsCache((prev) => ({ ...prev, [key]: data.contents || [] }));
+      const topics = data.contents || [];
+      setUnitTopicsCache((prev) => ({ ...prev, [key]: topics }));
+      return topics;
     } catch (error) {
       console.error('Ünite konuları yüklenemedi:', error);
+      return [];
     } finally {
       setLoadingUnitIds((prev) => {
         const next = new Set(prev);
@@ -280,16 +275,24 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   };
 
-  const toggleUnitExpanded = (unit: Unit) => {
+  // Üniteye tıklayınca: zaten aktifse sadece aç/kapa; değilse o üniteyi aktif yap ve ilk konusunu otomatik seç
+  const handleUnitHeaderClick = async (unit: Unit) => {
     const key = String(unit.id);
-    setExpandedUnitIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-    if (!unitTopicsCache[key]) {
-      ensureUnitTopicsLoaded(unit);
+
+    if (String(unit.id) === String(activeUnit?.id)) {
+      setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
+      return;
     }
+
+    const topics = unitTopicsCache[key] || (await ensureUnitTopicsLoaded(unit));
+    const firstTopic = topics[0];
+    if (firstTopic) {
+      setContents(topics);
+      setActiveTopicId(firstTopic.id);
+      setActiveSectionId(null);
+    }
+    setManualUnitId(Number(unit.id));
+    setSidebarOpen(false);
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
@@ -317,6 +320,62 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const totalTopics = contents.length;
   const progressPercent = totalTopics ? Math.round(((selectedTopicIndex + 1) / totalTopics) * 100) : 0;
 
+  const totalWeeks = initialData.totalWeeks || 38;
+
+  const openKazanimlarModal = () => {
+    setKazanimlarWeek(week);
+    setKazanimlarOpen(true);
+  };
+
+  const goToKazanimlarWeek = (targetWeek: number) => {
+    if (targetWeek < 1 || targetWeek > totalWeeks) return;
+    setKazanimlarWeek(targetWeek);
+  };
+
+  useEffect(() => {
+    if (!kazanimlarOpen) return;
+    if (kazanimlarCache[kazanimlarWeek]) return;
+    const unitForWeek = units.find((u) => kazanimlarWeek >= (u.start_week || 1) && kazanimlarWeek <= (u.end_week || 38));
+    if (!unitForWeek) return;
+
+    let cancelled = false;
+    setKazanimlarLoadingWeek(kazanimlarWeek);
+    const params = new URLSearchParams({
+      gradeId,
+      lessonId,
+      unitId: String(unitForWeek.id),
+      week: String(kazanimlarWeek),
+    });
+    fetch(`/api/lesson-week-data?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { outcomes?: Outcome[] } | null) => {
+        if (cancelled) return;
+        setKazanimlarCache((prev) => ({ ...prev, [kazanimlarWeek]: data?.outcomes || [] }));
+      })
+      .catch(() => {
+        if (!cancelled) setKazanimlarCache((prev) => ({ ...prev, [kazanimlarWeek]: [] }));
+      })
+      .finally(() => {
+        if (!cancelled) setKazanimlarLoadingWeek((w) => (w === kazanimlarWeek ? null : w));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kazanimlarOpen, kazanimlarWeek, kazanimlarCache, gradeId, lessonId, units]);
+
+  const kazanimlarTouchStartX = useRef<number | null>(null);
+  const handleKazanimlarTouchStart = (e: React.TouchEvent) => {
+    kazanimlarTouchStartX.current = e.touches[0].clientX;
+  };
+  const handleKazanimlarTouchEnd = (e: React.TouchEvent) => {
+    if (kazanimlarTouchStartX.current == null) return;
+    const deltaX = e.changedTouches[0].clientX - kazanimlarTouchStartX.current;
+    kazanimlarTouchStartX.current = null;
+    const threshold = 50;
+    if (deltaX > threshold) goToKazanimlarWeek(kazanimlarWeek - 1);
+    else if (deltaX < -threshold) goToKazanimlarWeek(kazanimlarWeek + 1);
+  };
+
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [selectedTopicId]);
@@ -335,10 +394,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setContents(initialData.contents);
     setOutcomes(initialData.outcomes);
     setActiveTopicId(pickInitialTopicId(initialData.contents, initialData.topicSlug));
-    setOutcomesOpen(false);
     setIsWeekDataLoading(true);
     setManualUnitId(null);
-  }, [initialData]);
+    setKazanimlarWeek(week);
+    setKazanimlarCache({});
+  }, [initialData, week]);
 
   const loadWeekData = useCallback(async (unitId: number, signal?: AbortSignal) => {
     setIsWeekDataLoading(true);
@@ -514,12 +574,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onClick={handleTopicClick}
           title={topic.title}
           className={`
-            w-full flex items-center gap-3 rounded-xl transition-all duration-200 border text-left
+            w-full flex items-center gap-3 rounded-xl transition-colors duration-200 text-left
             ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
             ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
-            ${isActive
-              ? 'bg-indigo-50/80 border-indigo-100/80 shadow-sm'
-              : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
+            ${isActive ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}
           `}
         >
           {tocCollapsed ? (
@@ -715,6 +773,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={openKazanimlarModal}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 sm:px-4 text-xs font-black text-emerald-600 shadow-sm hover:bg-emerald-100 transition-colors"
+          >
+            <Target className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Kazanımlar</span>
+          </button>
+
           <Link
             href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
             className="flex h-9 items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 sm:px-4 text-xs font-black text-amber-600 shadow-sm hover:bg-amber-100 transition-colors"
@@ -785,7 +851,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 <div key={unit.id} className="mb-1">
                   <button
                     type="button"
-                    onClick={() => toggleUnitExpanded(unit)}
+                    onClick={() => handleUnitHeaderClick(unit)}
                     className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
                       isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
                     }`}
@@ -1015,30 +1081,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
-
-                    {activeTopicOutcomes.length > 0 && (
-                      <div className="mt-8 pt-6 border-t border-slate-100 not-prose">
-                        <button
-                          type="button"
-                          onClick={() => setOutcomesOpen((v) => !v)}
-                          className="flex items-center gap-2 text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-widest"
-                        >
-                          <Target className="h-3.5 w-3.5" />
-                          Kazanımlar
-                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${outcomesOpen ? 'rotate-90' : ''}`} />
-                        </button>
-                        {outcomesOpen && (
-                          <div className="mt-3 space-y-2">
-                            {activeTopicOutcomes.map((o, idx) => (
-                              <div key={o.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2.5">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                                <p className="text-sm font-medium text-slate-700 leading-relaxed">{o.description}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1097,6 +1139,69 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           </footer>
         </div>
       </div>
+
+      {kazanimlarOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+          onClick={() => setKazanimlarOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleKazanimlarTouchStart}
+            onTouchEnd={handleKazanimlarTouchEnd}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <Target className="h-4 w-4 text-emerald-600 shrink-0" />
+                <h3 className="text-sm font-black text-slate-800 truncate">{kazanimlarWeek}. Hafta Kazanımları</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKazanimlarOpen(false)}
+                className="h-8 w-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/60">
+              <button
+                type="button"
+                onClick={() => goToKazanimlarWeek(kazanimlarWeek - 1)}
+                disabled={kazanimlarWeek <= 1}
+                className="h-8 w-8 flex items-center justify-center rounded-full text-slate-500 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hafta {kazanimlarWeek} / {totalWeeks}</span>
+              <button
+                type="button"
+                onClick={() => goToKazanimlarWeek(kazanimlarWeek + 1)}
+                disabled={kazanimlarWeek >= totalWeeks}
+                className="h-8 w-8 flex items-center justify-center rounded-full text-slate-500 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+              {kazanimlarLoadingWeek === kazanimlarWeek ? (
+                <div className="py-10 text-center text-sm font-medium text-slate-400">Yükleniyor...</div>
+              ) : (kazanimlarCache[kazanimlarWeek]?.length ?? 0) === 0 ? (
+                <div className="py-10 text-center text-sm font-medium text-slate-400">Bu hafta için kazanım bulunamadı.</div>
+              ) : (
+                kazanimlarCache[kazanimlarWeek]!.map((o, idx) => (
+                  <div key={o.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <p className="text-sm font-medium text-slate-700 leading-relaxed">{o.description}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {managingTopicId != null && (
         <AdminTopicSectionsModal
