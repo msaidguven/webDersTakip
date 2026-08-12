@@ -199,24 +199,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   const studyTip = STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length];
 
+  // Akordeon: sadece seçili konunun alt başlıkları açık kalsın, diğer konularınki kapansın
   useEffect(() => {
     if (selectedTopicId == null) return;
-    setExpandedTopicIds((prev) => {
-      const key = String(selectedTopicId);
-      if (prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
+    setExpandedTopicIds(new Set([String(selectedTopicId)]));
   }, [selectedTopicId]);
 
   const toggleTopicExpanded = (id: string | number) => {
-    setExpandedTopicIds((prev) => {
-      const key = String(id);
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
+    const key = String(id);
+    setExpandedTopicIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
   };
 
   // Müfredat özeti (üniteler + haftalar) sayfasına dönüş linki
@@ -678,26 +669,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             w-full flex items-center gap-3 rounded-xl transition-colors duration-200 text-left
             ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
             ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
-            ${isActive ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}
+            ${isActive ? 'bg-violet-50/80' : 'hover:bg-slate-50'}
           `}
         >
           {tocCollapsed ? (
             <div className={`
               h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-black transition-colors
-              ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}
+              ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isActive ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-400'}
             `}>
               {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
             </div>
           ) : (
             <>
-              <h4 className={`flex-1 min-w-0 text-xs font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+              <h4 className={`flex-1 min-w-0 text-xs font-bold leading-snug line-clamp-2 ${isActive ? 'text-violet-900' : 'text-slate-700'}`}>
                 {topic.title}
               </h4>
               <span className="shrink-0">
                 {isCompleted ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 ) : isActive ? (
-                  <span className="block h-2.5 w-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                  <span className="block h-2.5 w-2.5 rounded-full bg-violet-500 ring-4 ring-violet-100" />
                 ) : (
                   <span className="block h-2.5 w-2.5 rounded-full border-2 border-slate-300" />
                 )}
@@ -965,7 +956,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </button>
 
                   {isUnitExpanded && (
-                    <div className="mt-1 mb-2 space-y-1 pl-1">
+                    <div className="ml-3 mt-1 mb-2 space-y-1 border-l border-slate-200 pl-3">
                       {isLoadingUnit && !unitTopics.length ? (
                         <div className="px-3 py-2 text-xs font-medium text-slate-400">Yükleniyor...</div>
                       ) : unitTopics.length === 0 ? (
