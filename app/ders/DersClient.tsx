@@ -141,6 +141,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
+  const [sectionQuestionCount, setSectionQuestionCount] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const selectedTopicIndex = useMemo(() => {
@@ -161,6 +162,27 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (!activeTopic?.sections || !currentSection) return -1;
     return activeTopic.sections.findIndex((s) => String(s.id) === String(currentSection.id));
   }, [activeTopic, currentSection]);
+
+  useEffect(() => {
+    const hasContent = !!(currentSection?.html || currentSection?.imageUrl);
+    if (!currentSection || !hasContent) {
+      setSectionQuestionCount(null);
+      return;
+    }
+    let cancelled = false;
+    setSectionQuestionCount(null);
+    fetch(`/api/section-test-questions?sectionId=${currentSection.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { questions?: unknown[] } | null) => {
+        if (!cancelled) setSectionQuestionCount(data?.questions?.length ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setSectionQuestionCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSection]);
 
   const activeTopicOutcomes = useMemo(() => {
     if (!selectedTopicId) return outcomes;
@@ -804,12 +826,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     imageUrl={currentSection.imageUrl}
                                     caption={currentSection.heading}
                                   />
-                                  <Link
-                                    href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
-                                    className="not-prose mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100"
-                                  >
-                                    <Trophy className="h-4 w-4" /> Bu Konuyla İlgili Sorular Çöz
-                                  </Link>
+                                  {sectionQuestionCount !== 0 && (
+                                    <Link
+                                      href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
+                                      className="not-prose mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100"
+                                    >
+                                      <Trophy className="h-4 w-4" /> Bu Konuyla İlgili Sorular Çöz
+                                      {sectionQuestionCount != null && (
+                                        <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800">
+                                          {sectionQuestionCount} Soru
+                                        </span>
+                                      )}
+                                    </Link>
+                                  )}
                                 </>
                               ) : (
                                 <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
