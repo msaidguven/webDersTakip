@@ -130,6 +130,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   );
   const [activeSectionId, setActiveSectionId] = useState<string | number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [outcomesOpen, setOutcomesOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -692,18 +693,87 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               </div>
 
               {/* Mobile Topics Dropdown */}
-              <div className="md:hidden mb-4">
-                <select
-                  value={String(selectedTopicId || '')}
-                  onChange={(e) => setActiveTopicId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              <div className="md:hidden mb-4 relative">
+                <button
+                  type="button"
+                  onClick={() => setMobileTopicMenuOpen((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  {contents.map((topic, idx) => (
-                    <option key={topic.id} value={String(topic.id)}>
-                      {idx + 1}. {topic.title}
-                    </option>
-                  ))}
-                </select>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
+                      {selectedTopicIndex + 1}. Konu{currentSection ? ` • ${currentSectionIndex + 1}. Alt Başlık` : ''}
+                    </span>
+                    <span className="block text-sm font-bold text-slate-800 truncate">
+                      {currentSection ? currentSection.heading : activeTopic?.title}
+                    </span>
+                  </span>
+                  <ChevronRight className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${mobileTopicMenuOpen ? 'rotate-90' : ''}`} />
+                </button>
+
+                {mobileTopicMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMobileTopicMenuOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl space-y-1">
+                      {contents.map((topic, idx) => {
+                        const isActiveTopic = idx === selectedTopicIndex;
+                        const hasSections = !!topic.sections?.length;
+                        const isExpanded = expandedTopicIds.has(String(topic.id));
+                        return (
+                          <div key={topic.id} className="relative">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                goToTopic(idx);
+                                setMobileTopicMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2 rounded-lg py-2.5 pl-3 text-left text-sm font-bold transition-colors ${hasSections ? 'pr-9' : 'pr-3'} ${
+                                isActiveTopic && !currentSection ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span className="flex-1 min-w-0 truncate">{idx + 1}. {topic.title}</span>
+                            </button>
+
+                            {hasSections && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleTopicExpanded(topic.id);
+                                }}
+                                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                              >
+                                <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                              </button>
+                            )}
+
+                            {hasSections && isExpanded && (
+                              <div className="ml-4 mb-1 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3">
+                                {topic.sections!.map((section, sIdx) => {
+                                  const isActiveSection = isActiveTopic && String(currentSection?.id) === String(section.id);
+                                  return (
+                                    <button
+                                      key={section.id}
+                                      type="button"
+                                      onClick={() => {
+                                        goToSection(idx, section.id);
+                                        setMobileTopicMenuOpen(false);
+                                      }}
+                                      className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
+                                        isActiveSection ? 'bg-indigo-100 text-indigo-700 font-black' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+                                      }`}
+                                    >
+                                      {sIdx + 1}. {section.heading}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className={`grid grid-cols-1 gap-5 items-start ${currentSection ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
