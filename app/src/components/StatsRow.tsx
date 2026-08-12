@@ -40,7 +40,7 @@ function StatCard({ stat, index }: StatCardProps) {
         <div className="text-xl sm:text-3xl font-bold text-default mb-0.5 sm:mb-1">
           {stat.value}
         </div>
-        <div className="text-xs sm:text-sm text-muted">
+        <div className="text-xs sm:text-sm text-muted-foreground">
           {stat.label}
         </div>
       </div>

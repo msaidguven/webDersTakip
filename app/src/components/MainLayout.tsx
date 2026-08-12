@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import { LegalFooter } from './LegalFooter';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -93,12 +94,12 @@ export function MainLayout({ children }: MainLayoutProps) {
             
             {isAuthenticated ? (
               <div className="flex items-center gap-2 sm:gap-4">
-                <span className="text-zinc-500 dark:text-muted text-xs sm:text-sm hidden md:block">
+                <span className="text-zinc-500 dark:text-muted-foreground text-xs sm:text-sm hidden md:block">
                   👋 {user?.email?.split('@')[0]}
                 </span>
                 <Link 
                   href="/profil" 
-                  className="text-zinc-600 dark:text-muted hover:text-zinc-900 dark:hover:text-default 
+                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
                     transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
                     hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                 >
@@ -106,7 +107,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </Link>
                 <button 
                   onClick={signOut}
-                  className="text-zinc-600 dark:text-muted hover:text-red-600 dark:hover:text-red-400 
+                  className="text-zinc-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 
                     transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
                     hover:bg-red-50 dark:hover:bg-red-500/10"
                 >
@@ -117,7 +118,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="flex items-center gap-2">
                 <Link 
                   href="/login" 
-                  className="text-zinc-600 dark:text-muted hover:text-zinc-900 dark:hover:text-default 
+                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
                     transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
                     hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                 >
@@ -145,6 +146,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
         {children}
       </main>
+
+      {!hideHeader && <LegalFooter />}
     </div>
   );
 }

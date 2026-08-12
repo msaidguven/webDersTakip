@@ -69,8 +69,10 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="py-6 sm:py-8 px-4 sm:px-8">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-gradient-radial" />
+
+      <main className="relative py-8 sm:py-14 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto">
           <GradeSelector
             grades={grades || []}
@@ -80,19 +82,6 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
           />
         </div>
       </main>
-
-      <footer className="border-t border-gray-200 dark:border-gray-800 py-6 sm:py-8 px-4 sm:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-center sm:text-left">
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            © 2026 Ders Takip. Tum haklari saklidir.
-          </p>
-          <div className="flex gap-6 text-sm text-gray-600 dark:text-gray-400">
-            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Hakkimizda</a>
-            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Iletisim</a>
-            <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Gizlilik</a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

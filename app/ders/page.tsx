@@ -421,7 +421,7 @@ export default async function DersPage({ searchParams }: PageProps) {
   if (!sinifId || !dersSlug) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted">Sınıf veya ders bilgisi eksik</p>
+        <p className="text-muted-foreground">Sınıf veya ders bilgisi eksik</p>
         <p className="text-xs text-gray-500 mt-2">sinif: {sinifId}, ders: {dersSlug}</p>
       </div>
     );
@@ -433,7 +433,7 @@ export default async function DersPage({ searchParams }: PageProps) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted mb-2">Sınıf veya ders bulunamadı</p>
+          <p className="text-muted-foreground mb-2">Sınıf veya ders bulunamadı</p>
           <p className="text-xs text-gray-500">Sınıf: {sinifId}, Ders: {dersSlug}</p>
         </div>
       </div>

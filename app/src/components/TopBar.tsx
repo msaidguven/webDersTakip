@@ -17,13 +17,13 @@ export function TopBar({ notificationCount, streak, onNotificationClick, onMenuC
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="lg:hidden w-10 h-10 rounded-xl bg-surface border border-default flex items-center justify-center text-muted hover:text-default hover:border-default/20 transition-all"
+          className="lg:hidden w-10 h-10 rounded-xl bg-surface border border-default flex items-center justify-center text-muted-foreground hover:text-default hover:border-default/20 transition-all"
         >
           <Icon name="menu" size={20} />
         </button>
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-default">Dashboard</h2>
-          <p className="hidden sm:block text-sm text-muted">Hoş geldin, Ali! Bugün harika bir gün öğrenmek için.</p>
+          <p className="hidden sm:block text-sm text-muted-foreground">Hoş geldin, Ali! Bugün harika bir gün öğrenmek için.</p>
         </div>
       </div>
 
@@ -31,7 +31,7 @@ export function TopBar({ notificationCount, streak, onNotificationClick, onMenuC
       <div className="flex items-center gap-2 sm:gap-4">
         {/* Search - Hidden on mobile */}
         <div className="hidden sm:block relative">
-          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={18} />
+          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
             type="text"
             placeholder="Ara..."
@@ -44,7 +44,7 @@ export function TopBar({ notificationCount, streak, onNotificationClick, onMenuC
           <span className="text-lg sm:text-xl">🔥</span>
           <div>
             <span className="text-orange-400 font-bold text-sm sm:text-base">{streak}</span>
-            <span className="text-muted text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
+            <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
           </div>
         </div>
 
@@ -53,7 +53,7 @@ export function TopBar({ notificationCount, streak, onNotificationClick, onMenuC
           onClick={onNotificationClick}
           className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
         >
-          <Icon name="bell" className="text-muted" size={18} />
+          <Icon name="bell" className="text-muted-foreground" size={18} />
           {notificationCount > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 text-default text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center shadow-lg shadow-red-500/30">
               {notificationCount}

@@ -154,7 +154,7 @@ export default function MufredatOverviewClient({
 
   const unitStats = useMemo(
     () =>
-      units.map((unit) => {
+      units.map((unit, idx) => {
         const start = unit.start_week || 1;
         const end = unit.end_week || totalWeeks;
         const isCompleted = currentWeek > end;
@@ -162,7 +162,10 @@ export default function MufredatOverviewClient({
         const weeksInUnit = Math.max(1, end - start + 1);
         const weeksDone = Math.min(weeksInUnit, Math.max(0, currentWeek - start));
         const progressPct = isCompleted ? 100 : Math.round((weeksDone / weeksInUnit) * 100);
-        return { unit, start, end, isCompleted, isActive, weeksInUnit, progressPct };
+        // unit.order_no müfredat genelinde artan bir sıra numarasıdır (dersin ilk
+        // ünitesinde bile 1'den başlamayabilir); listedeki görünür sıra numarası
+        // bu yüzden dizideki konumdan (1'den başlayarak) hesaplanır.
+        return { unit, displayNo: idx + 1, start, end, isCompleted, isActive, weeksInUnit, progressPct };
       }),
     [units, currentWeek, totalWeeks]
   );
@@ -260,7 +263,7 @@ export default function MufredatOverviewClient({
         <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-3 sm:mb-4">Üniteler</h2>
 
         <div className="space-y-3">
-          {unitStats.map(({ unit, start, end, isCompleted, isActive, progressPct }) => {
+          {unitStats.map(({ unit, displayNo, start, end, isCompleted, isActive, progressPct }) => {
             const isExpanded = expandedUnitId === unit.id;
             const statusLabel = isCompleted ? 'Tamamlandı' : isActive ? 'Şu anki ünite' : 'Başlanmadı';
             const topics = unit.topics ?? [];
@@ -294,7 +297,7 @@ export default function MufredatOverviewClient({
                       className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-lg font-black shrink-0
                         ${isActive ? 'bg-indigo-600 text-white shadow-sm' : isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
                     >
-                      {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : unit.order_no}
+                      {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : displayNo}
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">{unit.title}</h3>
@@ -349,7 +352,7 @@ export default function MufredatOverviewClient({
                                 >
                                   <div className="min-w-0">
                                     <div className={`text-sm font-black truncate ${isPending ? 'text-slate-400' : 'text-slate-900'}`}>
-                                      {unit.order_no}.{idx + 1} {topic.title}
+                                      {displayNo}.{idx + 1} {topic.title}
                                     </div>
                                     <div className={`text-xs font-bold ${isDone ? 'text-emerald-600' : isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
                                       {isDone ? 'Tamamlandı' : isCurrent ? `Şu an öğreniyorsun · Hafta ${topic.week}` : 'Başlanmadı'}

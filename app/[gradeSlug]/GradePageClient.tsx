@@ -86,16 +86,29 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
       const ids = ((lgData as LessonGradeRow[] | null) || []).map((x) => x.lesson_id);
       
       if (ids.length > 0) {
-        const { data: dersler, error: lessonError } = await supabase
-          .from('lessons')
-          .select('id, name, icon, description, slug, order_no')
-          .in('id', ids)
-          .eq('is_active', true)
-          .order('order_no');
-        
+        const [{ data: dersler, error: lessonError }, { data: unitRows }] = await Promise.all([
+          supabase
+            .from('lessons')
+            .select('id, name, icon, description, slug, order_no')
+            .in('id', ids)
+            .eq('is_active', true)
+            .order('order_no'),
+          supabase
+            .from('units')
+            .select('lesson_id')
+            .eq('grade_id', gradeData.id)
+            .eq('is_active', true)
+            .in('lesson_id', ids),
+        ]);
+
         if (lessonError) {
           setError('Dersler yüklenemedi');
         } else {
+          const unitCountByLesson = new Map<number, number>();
+          for (const u of (unitRows as { lesson_id: number }[] | null) || []) {
+            unitCountByLesson.set(u.lesson_id, (unitCountByLesson.get(u.lesson_id) ?? 0) + 1);
+          }
+
           const transformed: Lesson[] = ((dersler as LessonRow[] | null) || []).map((l) => ({
             id: String(l.id),
             gradeId: formattedGrade.id,
@@ -103,7 +116,7 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
             description: l.description || '',
             icon: l.icon || '📘',
             color: getLessonColor(l.order_no ?? 0),
-            unitCount: 0,
+            unitCount: unitCountByLesson.get(l.id) ?? 0,
             questionCount: l.question_count ?? 0,
             slug: l.slug,
           }));
@@ -117,19 +130,22 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
     load();
   }, [gradeSlug, initialGrade, initialLessons]);
 
-  if (loading) return <div className="p-8 text-center text-muted">Yükleniyor...</div>;
+  if (loading) return <div className="p-8 text-center text-muted-foreground">Yükleniyor...</div>;
   if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;
 
   return (
-    <div className="min-h-screen py-6 sm:py-8">
-      <LessonSelector
-        grade={grade}
-        lessons={lessons}
-        isLoading={loading}
-        error={error}
-        onSelect={() => {}}
-        onBack={() => router.push('/')}
-      />
+    <div className="min-h-screen bg-background relative overflow-hidden py-8 sm:py-14">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-radial" />
+      <div className="relative">
+        <LessonSelector
+          grade={grade}
+          lessons={lessons}
+          isLoading={loading}
+          error={error}
+          onSelect={() => {}}
+          onBack={() => router.push('/')}
+        />
+      </div>
     </div>
   );
 }

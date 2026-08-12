@@ -92,7 +92,7 @@ export default function ProfilClient({ user }: ProfilClientProps) {
       <div className="pt-[72px] pb-6 px-4 sm:px-8 border-b border-default bg-gradient-to-b from-surface to-default">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-muted hover:text-default transition-colors">
+            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-default transition-colors">
               <span className="text-lg">←</span>
               <span className="hidden sm:inline">Ana Sayfa</span>
             </Link>
@@ -150,14 +150,14 @@ export default function ProfilClient({ user }: ProfilClientProps) {
 
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-2xl font-bold text-default mb-1">{user.fullName}</h2>
-              <p className="text-muted mb-3">{user.email}</p>
+              <p className="text-muted-foreground mb-3">{user.email}</p>
               <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                 <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">8. Sinif</span>
                 <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Aktif Uye</span>
               </div>
             </div>
 
-            <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl bg-surface border border-default text-muted hover:bg-red-500/10 hover:text-red-400 transition-all">
+            <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-all">
               Cikis Yap
             </button>
           </div>

@@ -38,7 +38,7 @@ export default function RegisterPage() {
             <span className="text-2xl">📚</span>
           </div>
           <h1 className="text-2xl font-bold text-default">Ders Takip</h1>
-          <p className="text-muted mt-2">Hemen ucretsiz kaydol</p>
+          <p className="text-muted-foreground mt-2">Hemen ucretsiz kaydol</p>
         </div>
 
         {/* Form */}
@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-muted mb-2">Ad Soyad</label>
+              <label className="block text-sm text-muted-foreground mb-2">Ad Soyad</label>
               <input
                 type="text"
                 value={formData.fullName}
@@ -71,7 +71,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-muted mb-2">E-posta</label>
+              <label className="block text-sm text-muted-foreground mb-2">E-posta</label>
               <input
                 type="email"
                 value={formData.email}
@@ -83,7 +83,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-muted mb-2">Sifre</label>
+              <label className="block text-sm text-muted-foreground mb-2">Sifre</label>
               <input
                 type="password"
                 value={formData.password}
@@ -96,7 +96,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-muted mb-2">Sifre Tekrar</label>
+              <label className="block text-sm text-muted-foreground mb-2">Sifre Tekrar</label>
               <input
                 type="password"
                 value={formData.confirmPassword}
@@ -117,7 +117,7 @@ export default function RegisterPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-muted text-sm">
+            <p className="text-muted-foreground text-sm">
               Zaten hesabin var mi?{' '}
               <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
                 Giris Yap
@@ -127,7 +127,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="mt-8 text-center">
-          <Link href="/" className="text-muted hover:text-default text-sm">
+          <Link href="/" className="text-muted-foreground hover:text-default text-sm">
             ← Ana Sayfaya Don
           </Link>
         </div>

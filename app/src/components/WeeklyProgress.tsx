@@ -50,7 +50,7 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek }: WeeklyPro
               <div className={`text-lg sm:text-2xl font-bold ${isActive ? 'text-indigo-400' : 'text-default'}`}>
                 {week.number}
               </div>
-              <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${isActive ? 'text-indigo-400/70' : 'text-muted'}`}>
+              <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${isActive ? 'text-indigo-400/70' : 'text-muted-foreground'}`}>
                 {week.label}
               </div>
               
@@ -65,7 +65,7 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek }: WeeklyPro
       {/* Daily Progress */}
       <div>
         <div className="flex items-center justify-between text-xs sm:text-sm mb-2 sm:mb-3">
-          <span className="text-muted">Bu Hafta</span>
+          <span className="text-muted-foreground">Bu Hafta</span>
           <span className="text-default font-medium">5/7 Gün</span>
         </div>
         
@@ -87,7 +87,7 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek }: WeeklyPro
                     }
                   `}
                 />
-                <span className={`text-[10px] sm:text-xs ${isToday ? 'text-indigo-400 font-medium' : 'text-muted'}`}>
+                <span className={`text-[10px] sm:text-xs ${isToday ? 'text-indigo-400 font-medium' : 'text-muted-foreground'}`}>
                   {day}
                 </span>
               </div>

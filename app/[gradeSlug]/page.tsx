@@ -96,6 +96,18 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     .eq('is_active', true)
     .order('order_no');
 
+  const { data: unitRows } = await supabase
+    .from('units')
+    .select('lesson_id')
+    .eq('grade_id', gradeData.id)
+    .eq('is_active', true)
+    .in('lesson_id', ids);
+
+  const unitCountByLesson = new Map<number, number>();
+  for (const u of (unitRows as { lesson_id: number }[] | null) || []) {
+    unitCountByLesson.set(u.lesson_id, (unitCountByLesson.get(u.lesson_id) ?? 0) + 1);
+  }
+
   const lessons: Lesson[] = ((lessonRows as LessonRow[] | null) || []).map((lesson) => ({
     id: String(lesson.id),
     gradeId: grade.id,
@@ -103,7 +115,7 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     description: lesson.description || '',
     icon: lesson.icon || '📘',
     color: getLessonColor(lesson.order_no ?? 0),
-    unitCount: 0,
+    unitCount: unitCountByLesson.get(lesson.id) ?? 0,
     questionCount: questionCountByLesson.get(lesson.id) ?? 0,
     slug: lesson.slug,
   }));

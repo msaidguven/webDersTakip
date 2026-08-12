@@ -139,7 +139,6 @@
 
   /* Theme-aware utility classes */
   .text-default { color: var(--text) !important; }
-  .text-muted { color: var(--muted) !important; }
   .bg-default { background-color: var(--background) !important; }
   .bg-surface { background-color: var(--surface) !important; }
   .bg-surface-elevated { background-color: var(--surface-elevated) !important; }
@@ -186,6 +185,30 @@
 
   .bg-gradient-radial {
     background: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.1) 0%, transparent 60%);
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s ease-out backwards;
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(3deg); }
+  }
+
+  .animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
   }
 }
 

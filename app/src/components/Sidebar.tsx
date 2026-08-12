@@ -23,7 +23,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
       {/* Close Button for Mobile */}
       <button
         onClick={onClose}
-        className="lg:hidden absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-muted hover:text-default hover:bg-white/20 transition-colors z-50"
+        className="lg:hidden absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-muted-foreground hover:text-default hover:bg-white/20 transition-colors z-50"
       >
         ✕
       </button>
@@ -36,7 +36,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
           </div>
           <div>
             <h1 className="text-xl font-bold text-default tracking-tight">Ders Takip</h1>
-            <p className="text-xs text-muted">Öğrenme Yolculuğu</p>
+            <p className="text-xs text-muted-foreground">Öğrenme Yolculuğu</p>
           </div>
         </Link>
       </div>
@@ -56,7 +56,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
                 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                 ${isActive 
                   ? 'bg-primary/10 text-indigo-400 border border-primary/20' 
-                  : 'text-muted hover:text-default hover:bg-white/5'
+                  : 'text-muted-foreground hover:text-default hover:bg-white/5'
                 }
               `}
             >
@@ -78,7 +78,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
       <div className="px-4 py-2">
         <Link
           href="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted hover:text-default hover:bg-white/5 transition-all"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-default hover:bg-white/5 transition-all"
         >
           <Icon name="home" size={20} />
           <span className="font-medium">Ana Sayfa</span>
@@ -95,9 +95,9 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
             <p className="text-sm font-medium text-default group-hover:text-indigo-400 transition-colors">
               Ali Yılmaz
             </p>
-            <p className="text-xs text-muted">Öğrenci</p>
+            <p className="text-xs text-muted-foreground">Öğrenci</p>
           </div>
-          <Icon name="chevron-right" size={16} className="text-muted group-hover:text-muted" />
+          <Icon name="chevron-right" size={16} className="text-muted-foreground group-hover:text-muted-foreground" />
         </button>
       </div>
     </aside>

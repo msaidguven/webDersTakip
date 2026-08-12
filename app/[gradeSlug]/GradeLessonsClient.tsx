@@ -44,7 +44,7 @@ export default function GradeLessonsClient({ grade, lessons, gradeSlug }: GradeL
       {/* Breadcrumb */}
       <div className="bg-surface border-b border-default">
         <div className="max-w-6xl mx-auto px-4 py-3">
-          <nav className="flex items-center gap-2 text-sm text-muted">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-default transition-colors">Anasayfa</Link>
             <span>/</span>
             <span className="text-default font-medium">{grade.name}</span>
@@ -58,7 +58,7 @@ export default function GradeLessonsClient({ grade, lessons, gradeSlug }: GradeL
         
         {lessons.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted">Bu sınıfta henüz ders bulunmuyor.</p>
+            <p className="text-muted-foreground">Bu sınıfta henüz ders bulunmuyor.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -79,12 +79,12 @@ export default function GradeLessonsClient({ grade, lessons, gradeSlug }: GradeL
                     <h3 className="font-semibold text-default group-hover:text-indigo-600 transition-colors truncate">
                       {lesson.name}
                     </h3>
-                    <p className="text-sm text-muted mt-1 line-clamp-2">
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                       {lesson.description || 'Üniteleri görüntüle'}
                     </p>
                   </div>
                   <svg 
-                    className="w-5 h-5 text-muted group-hover:text-indigo-500 transition-colors flex-shrink-0 mt-1" 
+                    className="w-5 h-5 text-muted-foreground group-hover:text-indigo-500 transition-colors flex-shrink-0 mt-1" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -100,7 +100,7 @@ export default function GradeLessonsClient({ grade, lessons, gradeSlug }: GradeL
         <div className="mt-8">
           <Link 
             href="/" 
-            className="inline-flex items-center gap-2 text-sm text-muted hover:text-default transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-default transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

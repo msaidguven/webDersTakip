@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://derstakip.vercel.app';
+export const SITE_URL = 'https://derstakip.net';
 
 export function stripHtml(html: string, maxLength = 160): string {
   const text = html

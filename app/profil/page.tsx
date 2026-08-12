@@ -34,7 +34,7 @@ export default async function ProfilPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-default p-4">
         <h1 className="text-2xl font-bold text-default mb-4">Oturum Doğrulanamadı</h1>
-        <p className="text-muted mb-8 text-center max-w-md">
+        <p className="text-muted-foreground mb-8 text-center max-w-md">
           Güvenlik nedeniyle oturum bilginize erişilemedi. Lütfen tekrar giriş yapın.
         </p>
         <a href="/login?redirectTo=/profil" className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">

@@ -26,7 +26,7 @@ export function SRSWidget({ review, onReview }: SRSWidgetProps) {
           <h3 className="text-lg sm:text-xl font-semibold text-default mb-1.5 sm:mb-2">
             {review.title}
           </h3>
-          <p className="text-muted text-sm sm:text-base mb-3 sm:mb-4 leading-relaxed">
+          <p className="text-muted-foreground text-sm sm:text-base mb-3 sm:mb-4 leading-relaxed">
             {review.description}
           </p>
 
@@ -34,11 +34,11 @@ export function SRSWidget({ review, onReview }: SRSWidgetProps) {
           <div className="flex items-center gap-4 sm:gap-6 mb-3 sm:mb-4">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xl sm:text-2xl font-bold text-amber-400">{review.questionCount}</span>
-              <span className="text-xs sm:text-sm text-muted">Soru</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">Soru</span>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xl sm:text-2xl font-bold text-orange-400">~{Math.round(review.questionCount * 1.5)}</span>
-              <span className="text-xs sm:text-sm text-muted">Dakika</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">Dakika</span>
             </div>
           </div>
 

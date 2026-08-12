@@ -35,7 +35,7 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
             ${isCompleted 
               ? 'bg-emerald-500/10 text-emerald-400' 
               : isLocked 
-                ? 'bg-zinc-800 text-muted'
+                ? 'bg-zinc-800 text-muted-foreground'
                 : 'bg-indigo-500/10 text-indigo-400'
             }
           `}>
@@ -64,12 +64,12 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
         <h3 className="text-base sm:text-lg font-semibold text-default mb-1 sm:mb-2 group-hover:text-indigo-400 transition-colors">
           {unit.title}
         </h3>
-        <p className="text-xs sm:text-sm text-muted mb-3 sm:mb-4">{unit.subtitle}</p>
+        <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">{unit.subtitle}</p>
 
         {/* Progress Bar */}
         <div className="space-y-1.5 sm:space-y-2">
           <div className="flex justify-between text-xs sm:text-sm">
-            <span className="text-muted">
+            <span className="text-muted-foreground">
               {isCompleted ? 'Başarı Oranı' : 'İlerleme'}
             </span>
             <span className={`font-semibold ${isCompleted ? 'text-emerald-400' : 'text-default'}`}>
@@ -91,7 +91,7 @@ export function ProgressCard({ unit, onClick }: ProgressCardProps) {
         </div>
 
         {/* Topics Preview */}
-        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-default flex items-center gap-2 text-xs sm:text-sm text-muted">
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-default flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
           <Icon name="book" size={12} className="sm:w-3.5 sm:h-3.5" />
           <span>{unit.totalTopics} Konu</span>
           <span className="mx-1">•</span>

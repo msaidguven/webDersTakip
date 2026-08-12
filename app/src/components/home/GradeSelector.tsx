@@ -2,9 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Card } from 'primereact/card';
-import { Skeleton } from 'primereact/skeleton';
-import { Message } from 'primereact/message';
+import { ArrowRight, Calendar, ListChecks, Target } from 'lucide-react';
 import { Grade } from '../../models/homeTypes';
 
 interface GradeSelectorProps {
@@ -14,30 +12,50 @@ interface GradeSelectorProps {
   onSelect: (grade: Grade) => void;
 }
 
+const FEATURE_CHIPS = [
+  { icon: Calendar, label: 'Haftalık Müfredat' },
+  { icon: ListChecks, label: 'İnteraktif Testler' },
+  { icon: Target, label: 'Kazanım Takibi' },
+];
+
+function Hero() {
+  return (
+    <div className="text-center mb-8 sm:mb-14">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-default bg-surface-elevated px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground mb-4 sm:mb-5">
+        🎓 MEB Müfredatına Uygun
+      </span>
+      <h1 className="text-3xl sm:text-5xl font-black text-default mb-3 sm:mb-4 tracking-tight">
+        Sınıfını Seç, <span className="gradient-text">Derse Başla</span>
+      </h1>
+      <p className="text-muted-foreground text-sm sm:text-lg max-w-xl mx-auto mb-5 sm:mb-8">
+        Haftalık müfredata uygun konu anlatımları ve interaktif testlerle çalış, ilerlemeni takip et.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        {FEATURE_CHIPS.map(({ icon: FeatureIcon, label }) => (
+          <span
+            key={label}
+            className="inline-flex items-center gap-1.5 rounded-full bg-surface-elevated border border-default px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground"
+          >
+            <FeatureIcon className="h-3.5 w-3.5 text-indigo-500" /> {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelectorProps) {
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-2xl sm:text-4xl font-bold text-default mb-3 sm:mb-4">
-            Sınıflar <span className="gradient-text">Yükleniyor</span>...
-          </h1>
-          <p className="text-muted text-base sm:text-lg">Lütfen bekleyin</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <Card
-              key={i}
-              pt={{
-                root: { className: 'rounded-xl sm:rounded-2xl bg-surface-elevated border border-default shadow-none' },
-                body: { className: 'p-4 sm:p-6' },
-                content: { className: 'p-0' },
-              }}
-            >
-              <Skeleton shape="rounded" width="2.5rem" height="2.5rem" className="mb-3 sm:mb-4" />
-              <Skeleton width="6rem" height="1.25rem" className="mb-2" />
-              <Skeleton width="8rem" height="0.875rem" />
-            </Card>
+        <Hero />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="rounded-2xl border border-default bg-surface-elevated p-4 sm:p-6 animate-pulse">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-surface mb-3 sm:mb-4" />
+              <div className="h-4 sm:h-5 w-20 rounded bg-surface mb-2" />
+              <div className="h-3 w-28 rounded bg-surface" />
+            </div>
           ))}
         </div>
       </div>
@@ -47,16 +65,10 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
   if (error) {
     return (
       <div className="max-w-6xl mx-auto px-4">
-        <Message
-          severity="error"
-          className="w-full justify-content-start"
-          content={
-            <div>
-              <p className="mb-1 font-semibold">Sınıflar yüklenirken bir hata oluştu</p>
-              <p className="text-sm opacity-80">{error}</p>
-            </div>
-          }
-        />
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 sm:p-6">
+          <p className="font-bold text-red-500 mb-1">Sınıflar yüklenirken bir hata oluştu</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
       </div>
     );
   }
@@ -64,61 +76,42 @@ export function GradeSelector({ grades, isLoading, error, onSelect }: GradeSelec
   if (grades.length === 0) {
     return (
       <div className="max-w-6xl mx-auto px-4">
-        <Message
-          severity="info"
-          className="w-full justify-content-start"
-          text="Henüz sınıf bulunmamaktadır."
-        />
+        <div className="rounded-2xl border border-default bg-surface-elevated p-6 text-center text-muted-foreground text-sm font-bold">
+          Henüz sınıf bulunmamaktadır.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="text-center mb-8 sm:mb-12">
-        <h1 className="text-2xl sm:text-4xl font-bold text-default mb-3 sm:mb-4">
-          Hangi <span className="gradient-text">Sınıf</span>tasın?
-        </h1>
-        <p className="text-muted text-base sm:text-lg">
-          Sınıfını seçerek sana özel içeriklere ulaşabilirsin
-        </p>
-      </div>
+      <Hero />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
         {grades.map((grade) => (
           <Link
             key={grade.id}
             href={`/${grade.slug || grade.id}`}
-            className="group relative block"
+            onClick={() => onSelect(grade)}
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-default bg-surface-elevated p-4 sm:p-6 card-hover"
           >
-            <Card
-              pt={{
-                root: {
-                  className:
-                    'relative overflow-hidden rounded-xl sm:rounded-2xl bg-surface-elevated border border-default hover:border-default/20 transition-all duration-300 card-hover shadow-none h-full',
-                },
-                body: { className: 'p-4 sm:p-6' },
-                content: { className: 'p-0' },
-              }}
-            >
-              {/* Gradient Border on Hover */}
+            <div
+              className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${grade.color} opacity-0 group-hover:opacity-[0.07] transition-opacity`}
+            />
+            <div className="relative flex-1">
               <div
-                className={`absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br ${grade.color} opacity-0 group-hover:opacity-10 transition-opacity`}
-              />
-
-              <div className="relative">
-                <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{grade.icon}</div>
-                <h3 className="text-lg sm:text-xl font-bold text-default mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-zinc-300 transition-all">
-                  {grade.name}
-                </h3>
-                <p className="text-xs sm:text-sm text-muted line-clamp-2">{grade.description}</p>
+                className={`h-12 w-12 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl bg-gradient-to-br ${grade.color} flex items-center justify-center text-2xl sm:text-3xl shadow-lg mb-3 sm:mb-4 transition-transform group-hover:scale-105`}
+              >
+                {grade.icon}
               </div>
+              <h2 className="text-base sm:text-lg font-black text-default mb-1">{grade.name}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{grade.description}</p>
+            </div>
 
-              {/* Arrow */}
-              <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                <span className="text-default text-sm sm:text-base">→</span>
-              </div>
-            </Card>
+            <div className="relative mt-3 sm:mt-4 flex items-center gap-1 text-xs sm:text-sm font-bold text-indigo-500">
+              İncele
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </div>
           </Link>
         ))}
       </div>

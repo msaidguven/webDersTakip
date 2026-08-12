@@ -46,7 +46,7 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold text-default mb-2">
               Tekrar Hoşgeldin, <span className="gradient-text">Ali</span>! 👋
             </h1>
-            <p className="text-muted text-lg">
+            <p className="text-muted-foreground text-lg">
               Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
             </p>
           </div>
@@ -73,13 +73,13 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-default">Üniteler</h2>
                   <div className="flex gap-2">
-                    <button className="px-4 py-2 text-sm text-muted hover:text-default transition-colors">
+                    <button className="px-4 py-2 text-sm text-muted-foreground hover:text-default transition-colors">
                       Tümü
                     </button>
-                    <button className="px-4 py-2 text-sm text-muted hover:text-default transition-colors">
+                    <button className="px-4 py-2 text-sm text-muted-foreground hover:text-default transition-colors">
                       Devam Edenler
                     </button>
-                    <button className="px-4 py-2 text-sm text-muted hover:text-default transition-colors">
+                    <button className="px-4 py-2 text-sm text-muted-foreground hover:text-default transition-colors">
                       Tamamlananlar
                     </button>
                   </div>
@@ -113,10 +113,10 @@ export default function DashboardPage() {
 
           {/* Quote/Footer Section */}
           <div className="rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-default p-6 text-center">
-            <p className="text-muted italic">
+            <p className="text-muted-foreground italic">
               "Öğrenme bir yolculuktur, bir varış noktası değil."
             </p>
-            <p className="text-muted text-sm mt-2">— Benjamin Franklin</p>
+            <p className="text-muted-foreground text-sm mt-2">— Benjamin Franklin</p>
           </div>
         </main>
       </div>

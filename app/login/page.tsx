@@ -35,7 +35,7 @@ function LoginForm() {
       <div className="min-h-screen bg-default flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted">Yonlendiriliyor...</p>
+          <p className="text-muted-foreground">Yonlendiriliyor...</p>
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ function LoginForm() {
               <span className="text-sm font-bold text-indigo-400/80">.net</span>
             </div>
           </Link>
-          <p className="text-muted mt-2">Öğrenmeye devam et</p>
+          <p className="text-muted-foreground mt-2">Öğrenmeye devam et</p>
         </div>
 
         {/* Form */}
@@ -78,7 +78,7 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-muted mb-2">E-posta</label>
+              <label className="block text-sm text-muted-foreground mb-2">E-posta</label>
               <input
                 type="email"
                 value={email}
@@ -90,7 +90,7 @@ function LoginForm() {
             </div>
 
             <div>
-              <label className="block text-sm text-muted mb-2">Sifre</label>
+              <label className="block text-sm text-muted-foreground mb-2">Sifre</label>
               <input
                 type="password"
                 value={password}
@@ -111,7 +111,7 @@ function LoginForm() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-muted text-sm">
+            <p className="text-muted-foreground text-sm">
               Hesabin yok mu?{' '}
               <Link href="/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
                 Kayit Ol
@@ -121,7 +121,7 @@ function LoginForm() {
         </div>
 
         <div className="mt-8 text-center">
-          <Link href="/" className="text-muted hover:text-default text-sm">
+          <Link href="/" className="text-muted-foreground hover:text-default text-sm">
             ← Ana Sayfaya Don
           </Link>
         </div>
@@ -136,7 +136,7 @@ function LoginLoading() {
     <div className="min-h-screen bg-default flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-muted">Yükleniyor...</p>
+        <p className="text-muted-foreground">Yükleniyor...</p>
       </div>
     </div>
   );
