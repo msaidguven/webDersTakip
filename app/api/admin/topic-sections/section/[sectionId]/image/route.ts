@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sharp from 'sharp';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/app/src/lib/imageUpload';
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, convertToWebp } from '@/app/src/lib/imageUpload';
 
 const BUCKET = 'topic-content-images';
 
@@ -28,23 +27,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
     return NextResponse.json({ error: 'Dosya 4MB\'tan büyük olamaz' }, { status: 400 });
   }
 
-  console.log('[img-diag] received file', { name: file.name, type: file.type, size: file.size, nodeVersion: process.version });
-  const rawArrayBuffer = await file.arrayBuffer();
-  const rawInputBuffer = Buffer.from(rawArrayBuffer);
-  console.log('[img-diag] rawInputBuffer', { length: rawInputBuffer.length, head: rawInputBuffer.subarray(0, 16).toString('hex') });
-
   let webpBuffer: Buffer;
   try {
-    const isAnimated = file.type === 'image/gif' || file.type === 'image/webp';
-    webpBuffer = await sharp(rawInputBuffer, { animated: isAnimated })
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
-  } catch (e) {
-    console.log('[img-diag] sharp error', e instanceof Error ? e.message : e);
+    webpBuffer = await convertToWebp(file);
+  } catch {
     return NextResponse.json({ error: 'Görsel işlenemedi. Dosya bozuk olabilir.' }, { status: 400 });
   }
-  console.log('[img-diag] webpBuffer', { length: webpBuffer.length, head: webpBuffer.subarray(0, 16).toString('hex') });
 
   const supabase = createServiceClient();
 
@@ -52,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, webpBuffer, { contentType: 'image/webp', upsert: false });
+    .upload(path, new Blob([new Uint8Array(webpBuffer)], { type: 'image/webp' }), { contentType: 'image/webp', upsert: false });
 
   if (uploadError) {
     return NextResponse.json({ error: `Yükleme başarısız: ${uploadError.message}` }, { status: 500 });
@@ -60,18 +48,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
   const imageUrl = publicUrlData.publicUrl;
-
-  try {
-    const verifyRes = await fetch(imageUrl);
-    const verifyArr = Buffer.from(await verifyRes.arrayBuffer());
-    console.log('[img-diag] readback after upload', {
-      length: verifyArr.length,
-      head: verifyArr.subarray(0, 16).toString('hex'),
-      matchesWebpBuffer: Buffer.compare(verifyArr, webpBuffer) === 0,
-    });
-  } catch (e) {
-    console.log('[img-diag] readback error', e instanceof Error ? e.message : e);
-  }
 
   const { data: sectionRow } = await supabase
     .from('topic_content_sections')

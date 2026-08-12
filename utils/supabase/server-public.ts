@@ -11,5 +11,13 @@ export function createServerClient() {
     );
   }
 
-  return createSupabaseClient(supabaseUrl, supabaseKey);
+  return createSupabaseClient(supabaseUrl, supabaseKey, {
+    global: {
+      // Next.js'in global fetch'ini önbellekleme/klonlama katmanıyla sarmalaması,
+      // ikili (binary) gövdeli isteklerde (ör. görsel yükleme) veri bozulmasına yol
+      // açabiliyor. cache: 'no-store' bu sarmalamayı devre dışı bırakıp isteği
+      // olduğu gibi iletir.
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
+  });
 }

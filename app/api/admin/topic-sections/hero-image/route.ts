@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, webpBuffer, { contentType: 'image/webp', upsert: false });
+    .upload(path, new Blob([new Uint8Array(webpBuffer)], { type: 'image/webp' }), { contentType: 'image/webp', upsert: false });
 
   if (uploadError) {
     return NextResponse.json({ error: `Yükleme başarısız: ${uploadError.message}` }, { status: 500 });
