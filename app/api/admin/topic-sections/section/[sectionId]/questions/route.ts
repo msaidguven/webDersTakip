@@ -24,14 +24,17 @@ function parseChoiceList(raw: unknown, min: number, max: number): { text: string
   return out;
 }
 
-function parseQuestions(body: unknown): { type: QuestionType; questions: ParsedQuestion[] } | null {
+function parseQuestions(body: unknown): ParsedQuestion[] | null {
   const obj = body as { type?: unknown; questions?: unknown } | null;
-  if (!obj || !Array.isArray(obj.questions) || !obj.questions.length || obj.questions.length > 10) return null;
+  if (!obj || !Array.isArray(obj.questions) || !obj.questions.length || obj.questions.length > 20) return null;
 
-  const type: QuestionType = obj.type === 'blank' || obj.type === 'matching' ? obj.type : 'multiple_choice';
+  const defaultType: QuestionType = obj.type === 'blank' || obj.type === 'matching' ? obj.type : 'multiple_choice';
   const parsed: ParsedQuestion[] = [];
 
   for (const q of obj.questions as Record<string, unknown>[]) {
+    const type: QuestionType =
+      q.type === 'blank' || q.type === 'matching' || q.type === 'multiple_choice' ? q.type : defaultType;
+
     if (type === 'matching') {
       if (!Array.isArray(q.pairs) || q.pairs.length < 2 || q.pairs.length > 10) return null;
       const pairs: { left_text: string; right_text: string }[] = [];
@@ -62,15 +65,12 @@ function parseQuestions(body: unknown): { type: QuestionType; questions: ParsedQ
     parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), solution_text, choices });
   }
 
-  return { type, questions: parsed };
+  return parsed;
 }
 
 const TYPE_ID: Record<QuestionType, number> = { multiple_choice: 1, blank: 3, matching: 4 };
-const INVALID_MESSAGE: Record<QuestionType, string> = {
-  multiple_choice: 'Geçersiz soru listesi (her soruda 2-6 şık ve tam olarak 1 doğru şık olmalı)',
-  blank: 'Geçersiz soru listesi (her sorunun metninde tam olarak bir "_____" ve 2-6 seçenekten tam 1 doğru olmalı)',
-  matching: 'Geçersiz soru listesi (her soruda 2-10 çift olmalı, hepsinde left_text ve right_text dolu olmalı)',
-};
+const INVALID_MESSAGE =
+  'Geçersiz soru listesi (çoktan seçmeli: 2-6 şık ve tam 1 doğru; boşluk doldurma: metinde tam bir "_____" ve 2-6 seçenekten tam 1 doğru; eşleştirme: 2-10 çift, hepsi dolu)';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<Params> }) {
   const admin = await requireAdmin();
@@ -78,16 +78,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const { sectionId } = await params;
   const body = await request.json().catch(() => null);
-  const parsed = parseQuestions(body);
+  const questions = parseQuestions(body);
 
-  if (!parsed) {
-    const type: QuestionType = (body as { type?: unknown } | null)?.type === 'blank' || (body as { type?: unknown } | null)?.type === 'matching'
-      ? ((body as { type?: unknown }).type as QuestionType)
-      : 'multiple_choice';
-    return NextResponse.json({ error: INVALID_MESSAGE[type] }, { status: 400 });
+  if (!questions) {
+    return NextResponse.json({ error: INVALID_MESSAGE }, { status: 400 });
   }
 
-  const { type, questions } = parsed;
   const supabase = createServiceClient();
 
   const { data: linkRows, error: linkError } = await supabase
@@ -112,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
     const { data: questionRow, error: qError } = await supabase
       .from('questions')
-      .insert({ question_type_id: TYPE_ID[type], question_text: questionText, solution_text: solutionText })
+      .insert({ question_type_id: TYPE_ID[q.kind], question_text: questionText, solution_text: solutionText })
       .select('id')
       .single();
 

@@ -1,9 +1,13 @@
 // app/[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/page.tsx
 // Konu okuma sayfası — ünite ve konu, haftaya göre değil doğrudan slug'a göre bulunur.
 
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
+import { stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +24,6 @@ interface PageProps {
   params: Promise<Params>;
 }
 
-type ContentVM = { id: number; title: string; slug: string | null; content: string | null; orderNo: number };
 type UnitRow = {
   id: number;
   title: string;
@@ -29,11 +32,10 @@ type UnitRow = {
   start_week: number | null;
   end_week: number | null;
 };
-type TopicRow = { id: number; title: string; slug: string | null; order_no: number };
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
 
-async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug: string, topicSlug: string) {
+const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug: string, topicSlug: string) {
   const supabase = await createClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
@@ -112,35 +114,20 @@ async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug:
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
-  const { data: topicsData } = await supabase
-    .from('topics')
-    .select('id, title, slug, order_no')
-    .eq('unit_id', activeUnit.id)
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
-
-  const topics = (topicsData as TopicRow[] | null) || [];
-  const activeTopic = topics.find((t) => t.slug === decodedTopicSlug) ?? null;
-  if (!activeTopic) {
-    return null;
-  }
-
-  const contents: ContentVM[] = topics
-    .slice()
-    .sort((a, b) => a.order_no - b.order_no)
-    .map((t) => ({
-      id: t.id,
-      title: t.title,
-      slug: t.slug,
-      content: null,
-      orderNo: t.order_no,
-    }));
-
   // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
   const unitStart = activeUnit.start_week ?? 1;
   const unitEnd = activeUnit.end_week ?? totalWeeks;
   const suggestedWeek = getCurrentCurriculumWeek(totalWeeks);
   const week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
+
+  // Konu içeriğini (alt başlıklar, ders notu, kazanımlar) SUNUCU tarafında çekiyoruz
+  // ki Google ve diğer arama motorları sayfayı ilk yüklemede tam içerikle görsün.
+  const { outcomes, contents } = await getLessonWeekData(supabase, activeUnit.id, week);
+
+  const activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
+  if (!activeTopic) {
+    return null;
+  }
 
   return {
     gradeId: gId.toString(),
@@ -148,7 +135,7 @@ async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug:
     gradeName: grade.name,
     lessonName: lesson.name,
     unitName: activeUnit.title,
-    outcomes: [],
+    outcomes,
     contents,
     units,
     totalWeeks,
@@ -159,7 +146,7 @@ async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug:
     topicTitle: activeTopic.title,
     topicSlug: activeTopic.slug,
   };
-}
+});
 
 export default async function TopicPage({ params }: PageProps) {
   const { gradeSlug, lessonSlug, unitSlug, topicSlug } = await params;
@@ -178,4 +165,41 @@ export default async function TopicPage({ params }: PageProps) {
       week={data.week}
     />
   );
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { gradeSlug, lessonSlug, unitSlug, topicSlug } = await params;
+  const data = await getTopicPageData(gradeSlug, lessonSlug, unitSlug, topicSlug);
+
+  if (!data) {
+    return { title: 'Konu Bulunamadı' };
+  }
+
+  const activeContent = data.contents.find((c) => c.slug === data.topicSlug);
+  const firstSectionHtml = activeContent?.sections.find((s) => s.html)?.html || null;
+  const description = firstSectionHtml
+    ? stripHtml(firstSectionHtml)
+    : activeContent?.content
+      ? stripHtml(activeContent.content)
+      : `${data.gradeName} ${data.lessonName} dersi, ${data.unitName} ünitesi, ${data.topicTitle} konu anlatımı ve interaktif alıştırmalar.`;
+
+  const title = `${data.topicTitle} — ${data.gradeName} ${data.lessonName}`;
+  const canonicalPath = `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalPath },
+    openGraph: {
+      title,
+      description,
+      url: canonicalPath,
+      type: 'article',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  };
 }

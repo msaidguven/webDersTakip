@@ -2,6 +2,8 @@
 // Bu dosya, mevcut page.tsx'in YERİNİ ALIR. Eski page.tsx içeriği
 // app/[gradeSlug]/[lessonSlug]/icerik/page.tsx dosyasına taşındı.
 
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
@@ -31,7 +33,7 @@ type TopicRow = { id: number; unit_id: number; title: string; slug: string | nul
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null; icon: string | null };
 
-async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string) {
+const getMufredatOverviewData = cache(async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string) {
   const supabase = await createClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
@@ -138,7 +140,7 @@ async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string) {
     units: unitsWithTopicCount,
     totalWeeks,
   };
-}
+});
 
 export default async function LessonOverviewPage({ params, searchParams }: PageProps) {
   const { gradeSlug, lessonSlug } = await params;
@@ -175,4 +177,27 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
       totalWeeks={data.totalWeeks}
     />
   );
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { gradeSlug, lessonSlug } = await params;
+  const data = await getMufredatOverviewData(gradeSlug, lessonSlug);
+
+  if (!data) {
+    return { title: 'Ders Bulunamadı' };
+  }
+
+  const unitTitles = data.units.map((u) => u.title).join(', ');
+  const title = `${data.gradeName} ${data.lessonName} Müfredatı ve Üniteler`;
+  const description = unitTitles
+    ? `${data.gradeName} ${data.lessonName} dersi haftalık müfredatı: ${unitTitles}. Konu anlatımları ve testlerle çalış.`
+    : `${data.gradeName} ${data.lessonName} dersi haftalık müfredatı, konu anlatımları ve testleri.`;
+  const canonicalPath = `/${data.gradeSlug}/${data.lessonSlug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalPath },
+    openGraph: { title, description, url: canonicalPath },
+  };
 }

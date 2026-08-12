@@ -1,3 +1,5 @@
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
@@ -32,7 +34,7 @@ function getLessonColor(orderNo: number): string {
   return colors[Math.abs(orderNo) % colors.length];
 }
 
-async function getGradePageData(gradeSlug: string): Promise<{ grade: Grade | null; lessons: Lesson[] }> {
+const getGradePageData = cache(async function getGradePageData(gradeSlug: string): Promise<{ grade: Grade | null; lessons: Lesson[] }> {
   const supabase = await createClient();
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
 
@@ -107,10 +109,33 @@ async function getGradePageData(gradeSlug: string): Promise<{ grade: Grade | nul
   }));
 
   return { grade, lessons };
-}
+});
 
 export default async function GradePage({ params }: { params: Promise<Params> }) {
   const { gradeSlug } = await params;
   const { grade, lessons } = await getGradePageData(gradeSlug);
   return <GradePageClient gradeSlug={gradeSlug} initialGrade={grade} initialLessons={lessons} />;
+}
+
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const { gradeSlug } = await params;
+  const { grade, lessons } = await getGradePageData(gradeSlug);
+
+  if (!grade) {
+    return { title: 'Sınıf Bulunamadı' };
+  }
+
+  const lessonNames = lessons.map((l) => l.name).join(', ');
+  const title = `${grade.name} Konu Anlatımı ve Online Testler`;
+  const description = lessonNames
+    ? `${grade.name} için ${lessonNames} derslerinde haftalık müfredata uygun konu anlatımları ve interaktif testler.`
+    : `${grade.name} için MEB müfredatına uygun konu anlatımları ve interaktif testler.`;
+  const canonicalPath = `/${grade.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalPath },
+    openGraph: { title, description, url: canonicalPath },
+  };
 }

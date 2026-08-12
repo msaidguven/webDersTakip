@@ -19,9 +19,7 @@ export async function GET(request: NextRequest) {
   const sectionId = request.nextUrl.searchParams.get('sectionId');
 
   const QUESTION_TEMPLATES: Record<string, string> = {
-    questions: '03-section-questions.md',
-    blank_questions: '04-section-blank-questions.md',
-    matching_questions: '05-section-matching-questions.md',
+    mixed_questions: '06-section-mixed-questions.md',
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 

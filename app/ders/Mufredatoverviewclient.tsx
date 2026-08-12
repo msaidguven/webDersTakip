@@ -193,37 +193,36 @@ export default function MufredatOverviewClient({
         </div>
 
         {/* İstatistik kartları */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 sm:mb-8">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
-              <Calendar className="h-3.5 w-3.5" /> Şu anki hafta
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-8">
+          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
+              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">Şu anki hafta</span>
             </div>
-            <div className="text-2xl font-black text-slate-900">{currentWeek}. Hafta</div>
-            <p className="text-[11px] font-semibold text-slate-400 mt-0.5">Takvime göre {currentWeek}. hafta</p>
+            <div className="text-base sm:text-2xl font-black text-slate-900 truncate">{currentWeek}. Hafta</div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
-              <BookOpen className="h-3.5 w-3.5" /> Müfredat ilerlemesi
+          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
+              <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">İlerleme</span>
             </div>
-            <div className="text-2xl font-black text-slate-900">{currentWeek} / {totalWeeks} <span className="text-sm font-bold text-slate-400">hafta</span></div>
-            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-2">
+            <div className="text-base sm:text-2xl font-black text-slate-900 truncate">{currentWeek}<span className="text-slate-400 text-[11px] sm:text-sm font-bold">/{totalWeeks}</span></div>
+            <div className="h-1 sm:h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1.5 sm:mt-2">
               <div className="h-full rounded-full bg-indigo-500" style={{ width: `${weekProgressPct}%` }} />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-2">
-              <PieChart className="h-3.5 w-3.5" /> Genel ilerleme
+          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
+              <PieChart className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">Genel</span>
             </div>
-            <div className="text-2xl font-black text-slate-900">%{overallProgressPct}</div>
-            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-2">
+            <div className="text-base sm:text-2xl font-black text-slate-900">%{overallProgressPct}</div>
+            <div className="h-1 sm:h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1.5 sm:mt-2">
               <div className="h-full rounded-full bg-emerald-500" style={{ width: `${overallProgressPct}%` }} />
             </div>
           </div>
         </div>
 
-        <h2 className="text-base sm:text-lg font-black text-slate-800 mb-3 sm:mb-4">Üniteler</h2>
+        <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-3 sm:mb-4">Üniteler</h2>
 
         <div className="space-y-3">
           {unitStats.map(({ unit, start, end, isCompleted, isActive, progressPct }) => {
@@ -263,9 +262,9 @@ export default function MufredatOverviewClient({
                       {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : unit.order_no}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm sm:text-base font-black text-slate-900 truncate">{unit.title}</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">{unit.title}</h3>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-bold text-slate-400">Hafta {start}&ndash;{end} &middot; {Math.max(1, end - start + 1)} hafta</span>
+                        <span className="text-xs font-bold text-slate-400">Hafta {start}&ndash;{end}</span>
                         {isActive && (
                           <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> {statusLabel}

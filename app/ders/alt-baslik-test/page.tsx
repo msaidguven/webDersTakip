@@ -12,7 +12,34 @@ type BlankQuestion = { id: number; type: 'blank'; question_text: string; solutio
 type MatchingQuestion = { id: number; type: 'matching'; pairs: Pair[] };
 type Question = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion;
 
-const CORRECT_MESSAGES = ['Harika! 🎉', 'Süpersin! ⭐', 'Aynen öyle! 👏', 'Tam isabet! 🎯', 'Çok iyi gidiyorsun! 🚀'];
+
+const CORRECT_MESSAGES = [
+  'Harika! 🎉',
+  'Süpersin! ⭐',
+  'Tam isabet! 🎯',
+  'Çok iyi gidiyorsun! 🚀',
+  'Mükemmel! ✨',
+  'Bravo! 👏',
+  'Doğru bildin! ✅',
+  'Harikasın! 🌟',
+  'İşte bu! 💪',
+  'Tebrikler! 🏆',
+  'Muhteşemsin! 🔥',
+  'Tam üstüne bastın! 🎯',
+  'Çok başarılısın! 🥳',
+  'Bir dahi gibisin! 🧠',
+  'Yıldız gibi parlıyorsun! ⭐',
+  'Bu doğru cevap! ✔️',
+  'Kesinlikle doğru! 💯',
+  'Çok zekisin! 💡',
+  'Aferin sana! 👍',
+  'Böyle devam! 🚀',
+  'Sen bir şampiyonsun! 🏅',
+  'Harika bir cevap! 🎊',
+  'Tam olarak doğru! 🎈',
+  'Süper performans! 🌈'
+];
+
 const INCORRECT_MESSAGES = ['Olsun, öğrenmenin bir parçası! 🌱', 'Az kalsın, bir dahakine yakalarsın 💪', 'Sorun değil, doğrusuna bakalım 👇', 'Bu sefer olmadı ama devam! ✨'];
 
 const TYPE_LABELS: Record<Question['type'], string> = {

@@ -1,5 +1,5 @@
 import { createPublicClient } from '@/utils/supabase/public';
-import { redirect, notFound } from 'next/navigation';
+import { permanentRedirect, notFound } from 'next/navigation';
 
 export const revalidate = 60;
 
@@ -29,6 +29,6 @@ export default async function SinifPage({ searchParams }: Params) {
     notFound();
   }
 
-  // Yeni SEO dostu URL'ye yönlendir
-  redirect(`/${gradeData.slug}`);
+  // Yeni SEO dostu URL'ye kalıcı (301) yönlendirme
+  permanentRedirect(`/${gradeData.slug}`);
 }

@@ -732,28 +732,12 @@ export type SectionModalSection = {
   image_prompt: string | null;
 };
 
-type QuestionKind = 'multiple_choice' | 'blank' | 'matching';
-
-const QUESTION_TYPE_TABS: { key: QuestionKind; label: string; promptType: string; placeholder: string }[] = [
-  {
-    key: 'multiple_choice',
-    label: 'Çoktan Seçmeli',
-    promptType: 'questions',
-    placeholder: '{"questions": [{"question_text": "...", "solution_text": "...", "choices": [{"text": "...", "is_correct": true}, ...]}]}',
-  },
-  {
-    key: 'blank',
-    label: 'Boşluk Doldurma',
-    promptType: 'blank_questions',
-    placeholder: '{"questions": [{"question_text": "... _____ ...", "solution_text": "...", "options": [{"text": "...", "is_correct": true}, ...]}]}',
-  },
-  {
-    key: 'matching',
-    label: 'Eşleştirme',
-    promptType: 'matching_questions',
-    placeholder: '{"questions": [{"pairs": [{"left_text": "...", "right_text": "..."}, ...]}]}',
-  },
-];
+const MIXED_QUESTIONS_PLACEHOLDER =
+  '{"questions": [' +
+  '{"type": "multiple_choice", "question_text": "...", "solution_text": "...", "choices": [{"text": "...", "is_correct": true}, ...]}, ' +
+  '{"type": "blank", "question_text": "... _____ ...", "solution_text": "...", "options": [{"text": "...", "is_correct": true}, ...]}, ' +
+  '{"type": "matching", "pairs": [{"left_text": "...", "right_text": "..."}, ...]}' +
+  ']}';
 
 export function QuestionsModal({
   topicId,
@@ -764,7 +748,6 @@ export function QuestionsModal({
   section: { id: number; heading: string };
   onClose: () => void;
 }) {
-  const [activeType, setActiveType] = useState<QuestionKind>('multiple_choice');
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -773,17 +756,12 @@ export function QuestionsModal({
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
 
-  const activeTab = QUESTION_TYPE_TABS.find((t) => t.key === activeType) || QUESTION_TYPE_TABS[0];
-
   useEffect(() => {
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    setPasted('');
-    setError(null);
-    setSavedCount(null);
     (async () => {
-      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${activeTab.promptType}`);
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=mixed_questions`);
       const data = await res.json().catch(() => null);
       if (!cancelled) {
         if (res.ok) {
@@ -795,7 +773,7 @@ export function QuestionsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, section.id, activeTab.promptType]);
+  }, [topicId, section.id]);
 
   async function handleSave() {
     setError(null);
@@ -819,7 +797,7 @@ export function QuestionsModal({
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: activeType, questions: obj.questions }),
+        body: JSON.stringify({ questions: obj.questions }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -836,20 +814,9 @@ export function QuestionsModal({
   return (
     <ModalShell title={`Soru Ekle — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
-        <div className="flex gap-1.5 rounded-xl border border-[#2e3348] bg-[#0f1119] p-1">
-          {QUESTION_TYPE_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveType(tab.key)}
-              className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${
-                activeType === tab.key ? 'bg-[#6c63ff] text-white' : 'text-[#8b90a7] hover:text-[#e8eaf0]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <p className="text-xs text-[#8b90a7]">
+          Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
+        </p>
 
         {promptError ? (
           <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
@@ -862,8 +829,8 @@ export function QuestionsModal({
           <textarea
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
-            rows={10}
-            placeholder={activeTab.placeholder}
+            rows={12}
+            placeholder={MIXED_QUESTIONS_PLACEHOLDER}
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
