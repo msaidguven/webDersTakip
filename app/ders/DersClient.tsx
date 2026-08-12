@@ -63,6 +63,37 @@ interface DersClientProps {
   week: number;
 }
 
+// Genel amaçlı, TTL'li localStorage önbelleği. Herhangi bir veri için (sadece
+// ünite konuları değil) sayfa açılışını yavaşlatmadan arkaplanda önceden
+// yükleyip birkaç gün boyunca saklamak istediğimizde tekrar kullanılabilir.
+function readPersistentCache<T>(key: string, ttlMs: number): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: T; savedAt: number };
+    if (!parsed || typeof parsed.savedAt !== 'number' || Date.now() - parsed.savedAt > ttlMs) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistentCache<T>(key: string, data: T) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }));
+  } catch {
+    // localStorage dolu/erişilemez olabilir; sessizce yoksay, sadece bellek içi önbellek kullanılır
+  }
+}
+
+const UNIT_TOPICS_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 gün
+
+function unitTopicsCacheKey(gradeId: string, lessonId: string, unitId: number | string) {
+  return `ders-unit-topics:${gradeId}:${lessonId}:${unitId}`;
+}
+
 const STUDY_TIPS = [
   'Bir konuyu okuduktan sonra kendi cümlelerinle özetlemek, kalıcılığı artırır.',
   'Kısa aralıklarla tekrar etmek, tek seferde uzun çalışmaktan daha etkilidir.',
@@ -240,51 +271,129 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setExpandedUnitIds(new Set([String(activeUnit.id)]));
   }, [activeUnit?.id]);
 
-  // Aktif ünitenin konuları zaten yükleniyor (contents); index önbelleğine de yansıt
+  // Aktif ünitenin konuları zaten yükleniyor (contents); index önbelleğine (bellek + localStorage) de yansıt
   useEffect(() => {
     if (activeUnit?.id == null) return;
     setUnitTopicsCache((prev) => ({ ...prev, [String(activeUnit.id)]: contents }));
-  }, [activeUnit?.id, contents]);
-
-  const ensureUnitTopicsLoaded = async (unit: Unit): Promise<Content[]> => {
-    const key = String(unit.id);
-    if (unitTopicsCache[key]) return unitTopicsCache[key];
-    setLoadingUnitIds((prev) => new Set(prev).add(key));
-    try {
-      const params = new URLSearchParams({
-        gradeId,
-        lessonId,
-        unitId: String(unit.id),
-        week: String(unit.start_week || week),
-      });
-      const response = await fetch(`/api/lesson-week-data?${params.toString()}`);
-      if (!response.ok) return [];
-      const data = await response.json() as { contents?: Content[] };
-      const topics = data.contents || [];
-      setUnitTopicsCache((prev) => ({ ...prev, [key]: topics }));
-      return topics;
-    } catch (error) {
-      console.error('Ünite konuları yüklenemedi:', error);
-      return [];
-    } finally {
-      setLoadingUnitIds((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
+    if (contents.length) {
+      writePersistentCache(unitTopicsCacheKey(gradeId, lessonId, activeUnit.id), contents);
     }
+  }, [activeUnit?.id, contents, gradeId, lessonId]);
+
+  // Diğer effect/callback'lerin, ortasında bulundukları render'ın eski (stale)
+  // unitTopicsCache kopyasını değil her zaman en güncelini görebilmesi için
+  const unitTopicsCacheRef = useRef(unitTopicsCache);
+  useEffect(() => {
+    unitTopicsCacheRef.current = unitTopicsCache;
+  }, [unitTopicsCache]);
+
+  // Arka plan ısıtma döngüsü ile kullanıcının manuel tıklaması aynı üniteyi
+  // aynı anda isteyebilir; bu ref ile aynı isteği paylaşıp mükerrer fetch'i önlüyoruz.
+  const inFlightUnitFetchesRef = useRef<Record<string, Promise<Content[]> | undefined>>({});
+
+  const ensureUnitTopicsLoaded = (unit: Unit): Promise<Content[]> => {
+    const key = String(unit.id);
+    if (unitTopicsCacheRef.current[key]) return Promise.resolve(unitTopicsCacheRef.current[key]);
+
+    const persisted = readPersistentCache<Content[]>(unitTopicsCacheKey(gradeId, lessonId, unit.id), UNIT_TOPICS_CACHE_TTL_MS);
+    if (persisted) {
+      setUnitTopicsCache((prev) => ({ ...prev, [key]: persisted }));
+      return Promise.resolve(persisted);
+    }
+
+    if (inFlightUnitFetchesRef.current[key]) {
+      return inFlightUnitFetchesRef.current[key];
+    }
+
+    const fetchPromise = (async (): Promise<Content[]> => {
+      setLoadingUnitIds((prev) => new Set(prev).add(key));
+      try {
+        const params = new URLSearchParams({
+          gradeId,
+          lessonId,
+          unitId: String(unit.id),
+          week: String(unit.start_week || week),
+        });
+        const response = await fetch(`/api/lesson-week-data?${params.toString()}`);
+        if (!response.ok) return [];
+        const data = await response.json() as { contents?: Content[] };
+        const topics = data.contents || [];
+        setUnitTopicsCache((prev) => ({ ...prev, [key]: topics }));
+        writePersistentCache(unitTopicsCacheKey(gradeId, lessonId, unit.id), topics);
+        return topics;
+      } catch (error) {
+        console.error('Ünite konuları yüklenemedi:', error);
+        return [];
+      } finally {
+        setLoadingUnitIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        delete inFlightUnitFetchesRef.current[key];
+      }
+    })();
+
+    inFlightUnitFetchesRef.current[key] = fetchPromise;
+    return fetchPromise;
   };
 
-  // Üniteye tıklayınca: zaten aktifse sadece aç/kapa; değilse o üniteyi aktif yap ve ilk konusunu otomatik seç
-  // Üniteye tıklamak sadece o ünitenin konularını gösterir/gizler (akordeon);
-  // asıl içeriği değiştirmez — kullanıcı sadece konuları görmek isteyebilir.
-  // İçerik ancak bir konu/alt konuya tıklandığında değişir (selectUnitTopic/selectUnitSection).
-  const handleUnitHeaderClick = (unit: Unit) => {
+  // Sayfa ilk içeriğini yükledikten SONRA (arkaplanda, tek seferlik), henüz
+  // önbellekte olmayan ünitelerin konularını sırayla arka planda ısıtır —
+  // böylece kullanıcı bir üniteye tıkladığında beklemeden açılır. İlk sayfa
+  // yüklemesini yavaşlatmamak için isWeekDataLoading false olana kadar başlamaz.
+  const hasStartedBackgroundPrefetchRef = useRef(false);
+  useEffect(() => {
+    if (isWeekDataLoading) return;
+    if (hasStartedBackgroundPrefetchRef.current) return;
+    if (!sortedUnits.length) return;
+    hasStartedBackgroundPrefetchRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      for (const unit of sortedUnits) {
+        if (cancelled) return;
+        const key = String(unit.id);
+        if (unitTopicsCacheRef.current[key]) continue;
+
+        const persisted = readPersistentCache<Content[]>(unitTopicsCacheKey(gradeId, lessonId, unit.id), UNIT_TOPICS_CACHE_TTL_MS);
+        if (persisted) {
+          setUnitTopicsCache((prev) => (prev[key] ? prev : { ...prev, [key]: persisted }));
+          continue;
+        }
+
+        await ensureUnitTopicsLoaded(unit);
+        if (cancelled) return;
+        // arkaplan yüklemesi ağı/tarayıcıyı boğmasın diye istekler arasında küçük bir bekleme
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWeekDataLoading, sortedUnits, gradeId, lessonId]);
+
+  // Üniteye tıklayınca: zaten aktifse sadece aç/kapa; değilse o üniteyi aktif yap
+  // ve ilk konusunu otomatik seç (aktif görünmesi için içerik de değişir),
+  // ama mobilde sidebar'ı kapatma — kullanıcı gezinmeye devam edebilsin.
+  const handleUnitHeaderClick = async (unit: Unit) => {
     const key = String(unit.id);
-    setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
-    if (!unitTopicsCache[key]) {
-      ensureUnitTopicsLoaded(unit);
+
+    if (String(unit.id) === String(activeUnit?.id)) {
+      setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
+      return;
     }
+
+    const topics = unitTopicsCacheRef.current[key] || (await ensureUnitTopicsLoaded(unit));
+    const firstTopic = topics[0];
+    if (firstTopic) {
+      setContents(topics);
+      setActiveTopicId(firstTopic.id);
+      setActiveSectionId(null);
+    }
+    setManualUnitId(Number(unit.id));
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
