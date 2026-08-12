@@ -20,15 +20,6 @@ import {
   PanelLeftOpen,
   Target,
   Sparkles,
-  Layers,
-  Compass,
-  Puzzle,
-  Rocket,
-  PenTool,
-  Globe2,
-  Atom,
-  Brain,
-  Star,
   ListChecks,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
@@ -69,23 +60,6 @@ interface DersClientProps {
   gradeId: string;
   lessonId: string;
   week: number;
-}
-
-const TOPIC_STYLES = [
-  { Icon: BookOpen, bg: 'bg-indigo-100', text: 'text-indigo-600' },
-  { Icon: Atom, bg: 'bg-purple-100', text: 'text-purple-600' },
-  { Icon: Compass, bg: 'bg-emerald-100', text: 'text-emerald-600' },
-  { Icon: Puzzle, bg: 'bg-amber-100', text: 'text-amber-600' },
-  { Icon: Rocket, bg: 'bg-rose-100', text: 'text-rose-600' },
-  { Icon: Layers, bg: 'bg-cyan-100', text: 'text-cyan-600' },
-  { Icon: PenTool, bg: 'bg-fuchsia-100', text: 'text-fuchsia-600' },
-  { Icon: Globe2, bg: 'bg-lime-100', text: 'text-lime-700' },
-  { Icon: Brain, bg: 'bg-orange-100', text: 'text-orange-600' },
-  { Icon: Star, bg: 'bg-sky-100', text: 'text-sky-600' },
-];
-
-function getTopicStyle(index: number) {
-  return TOPIC_STYLES[index % TOPIC_STYLES.length];
 }
 
 const STUDY_TIPS = [
@@ -516,7 +490,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const showExpandToggle = hasSections && !tocCollapsed;
     const showSectionTree = showExpandToggle && isTopicExpanded;
     const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
-    const { Icon: TopicIcon, bg: topicBg, text: topicText } = getTopicStyle(idx);
 
     const handleTopicClick = () => {
       if (isActiveUnitList) {
@@ -549,19 +522,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-100'}
           `}
         >
-          <div className={`
-            h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors
-            ${isCompleted ? 'bg-emerald-100' : isActive ? topicBg : 'bg-slate-100'}
-          `}>
-            {isCompleted ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            ) : (
-              <TopicIcon className={`h-4 w-4 ${isActive ? topicText : 'text-slate-400'}`} />
-            )}
-          </div>
-          {!tocCollapsed && (
+          {tocCollapsed ? (
+            <div className={`
+              h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-black transition-colors
+              ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}
+            `}>
+              {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+            </div>
+          ) : (
             <>
-              <h4 className={`flex-1 min-w-0 text-sm font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+              <h4 className={`flex-1 min-w-0 text-xs font-bold leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
                 {topic.title}
               </h4>
               <span className="shrink-0">
@@ -844,6 +814,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <div className="text-center p-4 text-sm text-slate-400 font-medium">Üniteler yükleniyor...</div>
             )}
           </div>
+
+          {/* Ana footer ile aynı hizada kalsın diye eşleşen boş şerit */}
+          <div className="hidden lg:block h-16 shrink-0 border-t border-slate-200/80 bg-white/95" />
 
         </aside>
 
