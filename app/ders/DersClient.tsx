@@ -721,7 +721,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
                                     className="not-prose mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100"
                                   >
-                                    <Trophy className="h-4 w-4" /> Bu Alt Başlığı Test Et
+                                    <Trophy className="h-4 w-4" /> Bu Konuyla İlgili Sorular Çöz
                                   </Link>
                                 </>
                               ) : (
