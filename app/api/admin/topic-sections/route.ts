@@ -8,6 +8,7 @@ type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number 
 type LessonRow = { id: number; name: string };
 type GradeRow = { id: number; name: string };
 type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null };
+type OutcomeWeekRow = { outcome_id: number; start_week: number; end_week: number };
 type TopicContentRow = {
   id: number;
   title: string;
@@ -84,7 +85,29 @@ export async function GET(request: NextRequest) {
     .eq('topic_id', topicRow.id)
     .order('order_index', { ascending: true });
 
-  const outcomes = withPreviewCodes((outcomesData as OutcomeRow[] | null) || []);
+  const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];
+
+  // Kazanımın hangi hafta(lar)da işlendiğini de gösterebilmek için outcome_weeks'i eşleştiriyoruz;
+  // bir konunun kazanımları farklı haftalara dağılmış olabilir (müfredat böyle planlanmış olabilir).
+  const outcomeIds = outcomeRows.map((o) => o.id);
+  const weekByOutcomeId = new Map<number, { startWeek: number; endWeek: number }>();
+  if (outcomeIds.length) {
+    const { data: weeksData } = await supabase
+      .from('outcome_weeks')
+      .select('outcome_id, start_week, end_week')
+      .in('outcome_id', outcomeIds);
+    ((weeksData as OutcomeWeekRow[] | null) || []).forEach((w) => {
+      weekByOutcomeId.set(w.outcome_id, { startWeek: w.start_week, endWeek: w.end_week });
+    });
+  }
+
+  const outcomesWithWeeks = outcomeRows.map((o) => ({
+    ...o,
+    startWeek: weekByOutcomeId.get(o.id)?.startWeek ?? null,
+    endWeek: weekByOutcomeId.get(o.id)?.endWeek ?? null,
+  }));
+
+  const outcomes = withPreviewCodes(outcomesWithWeeks);
   const missingCodeCount = outcomes.filter((o) => !o.code).length;
 
   const { data: topicContent } = await supabase

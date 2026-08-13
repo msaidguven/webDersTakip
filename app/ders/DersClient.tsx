@@ -27,6 +27,7 @@ import {
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import { PlanModal, SectionModal, QuestionsModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
 import { formatWeekDateRangeLabel } from '@/app/src/lib/routeParsing';
+import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
@@ -63,6 +64,20 @@ interface DersClientProps {
   gradeId: string;
   lessonId: string;
   week: number;
+}
+
+// Bir konunun alt başlıklarına (section) başlıktan türetilen, benzersiz, URL-güvenli
+// anchor slug'ları üretir. Aynı başlık iki kez geçerse -2, -3... ile ayrıştırılır.
+function buildSectionSlugs(sections: TopicSection[]): Map<string | number, string> {
+  const used = new Map<string, number>();
+  const bySectionId = new Map<string | number, string>();
+  sections.forEach((section) => {
+    const base = slugifyHeading(section.heading) || 'alt-baslik';
+    const count = used.get(base) || 0;
+    used.set(base, count + 1);
+    bySectionId.set(section.id, count === 0 ? base : `${base}-${count + 1}`);
+  });
+  return bySectionId;
 }
 
 // Genel amaçlı, TTL'li localStorage önbelleği. Herhangi bir veri için (sadece
@@ -131,6 +146,45 @@ function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
   );
 }
 
+// Her alt başlığın altında, o alt başlığa özel soru sayısı varsa mini test linki gösterir.
+function SectionQuizLink({ sectionId }: { sectionId: string | number }) {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCount(null);
+    fetch(`/api/section-test-questions?sectionId=${sectionId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { questions?: unknown[] } | null) => {
+        if (!cancelled) setCount(data?.questions?.length ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sectionId]);
+
+  if (count === 0) return null;
+
+  return (
+    <Link
+      href={`/ders/alt-baslik-test?sectionId=${sectionId}`}
+      className="not-prose mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 sm:px-5"
+    >
+      <span className="flex items-center gap-2 text-sm font-black text-amber-700">
+        <Trophy className="h-4 w-4 text-amber-600 shrink-0" /> Bu Konuyla İlgili Sorular Çöz
+      </span>
+      {count != null && (
+        <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800 shrink-0">
+          {count} Soru
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const { user, supabase } = useAuth();
 
@@ -151,7 +205,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeTopicId, setActiveTopicId] = useState<string | number | null>(
     pickInitialTopicId(initialData.contents, initialData.topicSlug)
   );
-  const [activeSectionId, setActiveSectionId] = useState<string | number | null>(null);
+  const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
@@ -170,9 +224,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
+  const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
-  const [sectionQuestionCount, setSectionQuestionCount] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Bir TOC tıklaması başka bir konuya geçiş gerektirdiğinde, o konunun içeriği
+  // render edilene kadar hangi alt başlığa kaydırılacağını burada bekletiyoruz.
+  const pendingScrollSlugRef = useRef<string | null>(null);
+  const initialHashHandledRef = useRef(false);
 
   const selectedTopicIndex = useMemo(() => {
     const idx = contents.findIndex((c) => String(c.id) === String(activeTopicId));
@@ -182,37 +240,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const selectedTopicId = contents[selectedTopicIndex]?.id ?? null;
   const activeTopic = contents[selectedTopicIndex];
 
-  const currentSection = useMemo(() => {
-    const sections = activeTopic?.sections;
-    if (!sections || !sections.length || activeSectionId == null) return null;
-    return sections.find((s) => String(s.id) === String(activeSectionId)) || null;
-  }, [activeTopic, activeSectionId]);
-
-  const currentSectionIndex = useMemo(() => {
-    if (!activeTopic?.sections || !currentSection) return -1;
-    return activeTopic.sections.findIndex((s) => String(s.id) === String(currentSection.id));
-  }, [activeTopic, currentSection]);
-
-  useEffect(() => {
-    const hasContent = !!(currentSection?.html || currentSection?.imageUrl);
-    if (!currentSection || !hasContent) {
-      setSectionQuestionCount(null);
-      return;
-    }
-    let cancelled = false;
-    setSectionQuestionCount(null);
-    fetch(`/api/section-test-questions?sectionId=${currentSection.id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { questions?: unknown[] } | null) => {
-        if (!cancelled) setSectionQuestionCount(data?.questions?.length ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) setSectionQuestionCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentSection]);
+  const activeTopicSectionSlugs = useMemo(
+    () => buildSectionSlugs(activeTopic?.sections || []),
+    [activeTopic]
+  );
 
   const studyTip = STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length];
 
@@ -399,7 +430,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (firstTopic) {
       setContents(topics);
       setActiveTopicId(firstTopic.id);
-      setActiveSectionId(null);
     }
     setManualUnitId(Number(unit.id));
   };
@@ -411,18 +441,34 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       setManualUnitId(Number(unit.id));
     }
     setActiveTopicId(topicId);
-    setActiveSectionId(null);
     setSidebarOpen(false);
   };
 
-  const selectUnitSection = (unit: Unit, topicId: string | number, sectionId: string | number) => {
+  // Aktif olarak gösterilen konudaki bir alt başlığa (section) kayar; artık her
+  // alt başlık aynı sayfada birlikte render edildiği için "seçim" değil, sadece
+  // o başlığa scroll + adres çubuğunu (#slug) güncellemek anlamına geliyor.
+  const goToSectionAnchor = (slug: string) => {
+    const el = document.getElementById(slug);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (gradeSlug && lessonSlug && activeUnit?.slug && activeTopic?.slug) {
+        const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}#${slug}`;
+        window.history.replaceState(null, '', url);
+      }
+    }
+    setSidebarOpen(false);
+  };
+
+  // Başka bir konudaki/üniteredeki bir alt başlığa tıklanınca: önce o konuyu aktif
+  // yapar, içerik render olduktan sonra pendingScrollSlugRef üzerinden anchor'a kayar.
+  const selectUnitSection = (unit: Unit, topicId: string | number, slug: string) => {
     if (String(unit.id) !== String(activeUnit?.id)) {
       const cached = unitTopicsCache[String(unit.id)];
       if (cached) setContents(cached);
       setManualUnitId(Number(unit.id));
     }
     setActiveTopicId(topicId);
-    setActiveSectionId(sectionId);
+    pendingScrollSlugRef.current = slug;
     setSidebarOpen(false);
   };
 
@@ -506,6 +552,60 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   }, [gradeSlug, lessonSlug, activeUnit?.slug, activeTopic?.slug]);
 
+  // Bir TOC tıklaması konu değişikliği gerektirdiyse (selectUnitSection), yeni
+  // konunun alt başlıkları DOM'a yazıldıktan sonra bekleyen anchor'a kaydır.
+  useEffect(() => {
+    if (!pendingScrollSlugRef.current) return;
+    const slug = pendingScrollSlugRef.current;
+    pendingScrollSlugRef.current = null;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(slug);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (gradeSlug && lessonSlug && activeUnit?.slug && activeTopic?.slug) {
+          const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}#${slug}`;
+          window.history.replaceState(null, '', url);
+        }
+      }
+    });
+  }, [activeTopic?.id, gradeSlug, lessonSlug, activeUnit?.slug]);
+
+  // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
+  // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
+  useEffect(() => {
+    if (initialHashHandledRef.current) return;
+    if (!activeTopic) return;
+    initialHashHandledRef.current = true;
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    if (!hash) return;
+    requestAnimationFrame(() => {
+      document.getElementById(decodeURIComponent(hash))?.scrollIntoView({ block: 'start' });
+    });
+  }, [activeTopic]);
+
+  // Uzun, tüm alt başlıkların art arda göründüğü sayfada kullanıcı kaydırdıkça
+  // sol menüde hangi alt başlıkta olduğunu vurgulamak için basit bir scroll-spy.
+  useEffect(() => {
+    const sectionEls = Array.from(document.querySelectorAll('[data-section-anchor]')) as HTMLElement[];
+    if (!sectionEls.length) {
+      setActiveSectionSlug(null);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) {
+          setActiveSectionSlug(visible[0].target.getAttribute('data-section-anchor'));
+        }
+      },
+      { root: contentRef.current, rootMargin: '-15% 0px -70% 0px', threshold: 0 }
+    );
+    sectionEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [activeTopic?.id]);
+
   useEffect(() => {
     setUnits(initialData.units || []);
     setContents(initialData.contents);
@@ -571,16 +671,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const topic = contents[index];
     if (!topic) return;
     setActiveTopicId(topic.id);
-    setActiveSectionId(null);
-  };
-
-  const goToSection = (index: number, sectionId: string | number) => {
-    const topic = contents[index];
-    if (!topic) return;
-    if (String(activeTopicId) !== String(topic.id)) setActiveTopicId(topic.id);
-    setActiveSectionId(sectionId);
-    setSidebarOpen(false);
-    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const sections = activeTopic?.sections || [];
@@ -598,6 +688,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     });
   };
 
+  // Alt başlıklar artık aynı sayfada birlikte göründüğü için "ileri/geri" önce
+  // içerik alanını kaydırır; sayfanın sonuna/başına ulaşınca bir sonraki/önceki
+  // konuya geçer.
   const goForward = () => {
     const container = contentRef.current;
     if (container) {
@@ -608,21 +701,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         return;
       }
     }
+    if (selectedTopicIndex >= totalTopics - 1) return;
     runViewTransition('forward', () => {
-      if (sections.length) {
-        if (currentSection) {
-          if (currentSectionIndex < sections.length - 1) {
-            setActiveSectionId(sections[currentSectionIndex + 1].id);
-            contentRef.current?.scrollTo({ top: 0 });
-            return;
-          }
-          goToTopic(selectedTopicIndex + 1);
-          return;
-        }
-        setActiveSectionId(sections[0].id);
-        contentRef.current?.scrollTo({ top: 0 });
-        return;
-      }
       goToTopic(selectedTopicIndex + 1);
     });
   };
@@ -636,27 +716,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         return;
       }
     }
+    if (selectedTopicIndex <= 0) return;
     runViewTransition('backward', () => {
-      if (sections.length && currentSection) {
-        if (currentSectionIndex > 0) {
-          setActiveSectionId(sections[currentSectionIndex - 1].id);
-        } else {
-          setActiveSectionId(null);
-        }
-        contentRef.current?.scrollTo({ top: 0 });
-        return;
-      }
-      const prevTopic = contents[selectedTopicIndex - 1];
-      if (!prevTopic) return;
-      setActiveTopicId(prevTopic.id);
-      const prevSections = prevTopic.sections || [];
-      setActiveSectionId(prevSections.length ? prevSections[prevSections.length - 1].id : null);
+      goToTopic(selectedTopicIndex - 1);
     });
   };
 
-  const isAtVeryStart = selectedTopicIndex <= 0 && !currentSection;
-  const isAtVeryEnd = selectedTopicIndex >= totalTopics - 1
-    && (!sections.length || (!!currentSection && currentSectionIndex >= sections.length - 1));
+  const isAtVeryStart = selectedTopicIndex <= 0;
+  const isAtVeryEnd = selectedTopicIndex >= totalTopics - 1;
 
   const renderTopicItem = (topic: Content, idx: number, unit: Unit, isActiveUnitList: boolean) => {
     const isActive = isActiveUnitList && idx === selectedTopicIndex;
@@ -667,6 +734,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const showExpandToggle = hasSections && !tocCollapsed;
     const showSectionTree = showExpandToggle && isTopicExpanded;
     const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
+    const topicSectionSlugs = showSectionTree ? buildSectionSlugs(topic.sections!) : null;
 
     const handleTopicClick = () => {
       if (isActiveUnitList) {
@@ -676,11 +744,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       }
     };
 
-    const handleSectionClick = (sectionId: string | number) => {
+    const handleSectionClick = (slug: string) => {
       if (isActiveUnitList) {
-        goToSection(idx, sectionId);
+        goToSectionAnchor(slug);
       } else {
-        selectUnitSection(unit, topic.id, sectionId);
+        selectUnitSection(unit, topic.id, slug);
       }
     };
 
@@ -787,12 +855,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       {showSectionTree && (
         <div className="ml-8 mt-1 mb-2 border-l border-slate-200 pl-3 space-y-0.5">
           {topic.sections!.map((section, sIdx) => {
-            const isSectionActive = isActiveUnitList && String(currentSection?.id) === String(section.id);
+            const slug = topicSectionSlugs!.get(section.id)!;
+            const isSectionActive = isActiveUnitList && activeSectionSlug === slug;
             return (
               <div key={section.id} className="relative">
                 <button
                   type="button"
-                  onClick={() => handleSectionClick(section.id)}
+                  onClick={() => handleSectionClick(slug)}
                   title={section.heading}
                   className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
                     isSectionActive
@@ -1026,10 +1095,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 >
                   <span className="min-w-0">
                     <span className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
-                      {selectedTopicIndex + 1}. Konu{currentSection ? ` • ${currentSectionIndex + 1}. Alt Başlık` : ''}
+                      {selectedTopicIndex + 1}. Konu{sections.length ? ` • ${sections.length} Alt Başlık` : ''}
                     </span>
                     <span className="block text-sm font-bold text-slate-800 truncate">
-                      {currentSection ? currentSection.heading : activeTopic?.title}
+                      {activeTopic?.title}
                     </span>
                   </span>
                   <ChevronRight className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${mobileTopicMenuOpen ? 'rotate-90' : ''}`} />
@@ -1043,6 +1112,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         const isActiveTopic = idx === selectedTopicIndex;
                         const hasSections = !!topic.sections?.length;
                         const isExpanded = expandedTopicIds.has(String(topic.id));
+                        const mobileSectionSlugs = hasSections ? buildSectionSlugs(topic.sections!) : null;
                         return (
                           <div key={topic.id} className="relative">
                             <button
@@ -1052,7 +1122,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 setMobileTopicMenuOpen(false);
                               }}
                               className={`w-full flex items-center gap-2 rounded-lg py-2.5 pl-3 text-left text-sm font-bold transition-colors ${hasSections ? 'pr-9' : 'pr-3'} ${
-                                isActiveTopic && !currentSection ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                                isActiveTopic ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
                               }`}
                             >
                               <span className="flex-1 min-w-0 truncate">{idx + 1}. {topic.title}</span>
@@ -1074,13 +1144,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             {hasSections && isExpanded && (
                               <div className="ml-4 mb-1 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3">
                                 {topic.sections!.map((section, sIdx) => {
-                                  const isActiveSection = isActiveTopic && String(currentSection?.id) === String(section.id);
+                                  const slug = mobileSectionSlugs!.get(section.id)!;
+                                  const isActiveSection = isActiveTopic && activeSectionSlug === slug;
                                   return (
                                     <button
                                       key={section.id}
                                       type="button"
                                       onClick={() => {
-                                        goToSection(idx, section.id);
+                                        if (isActiveTopic) {
+                                          goToSectionAnchor(slug);
+                                        } else {
+                                          setActiveTopicId(topic.id);
+                                          pendingScrollSlugRef.current = slug;
+                                        }
                                         setMobileTopicMenuOpen(false);
                                       }}
                                       className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
@@ -1105,7 +1181,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
-                    {!currentSection && activeTopic?.heroImageUrl && (
+                    {activeTopic?.heroImageUrl && (
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
                         <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full max-h-[420px] object-contain" />
                       </div>
@@ -1113,48 +1189,81 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
-                          currentSection ? (
-                            <div>
-                              <h2 className="flex items-center gap-2.5 text-rose-600">
-                                <span className="not-prose inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-sm font-black text-rose-600">
-                                  {currentSectionIndex + 1}
-                                </span>
-                                {currentSection.heading}
-                              </h2>
-                              {currentSection.html || currentSection.imageUrl ? (
-                                <SectionContent
-                                  key={currentSection.id}
-                                  html={currentSection.html || ''}
-                                  imageUrl={currentSection.imageUrl}
-                                  caption={currentSection.heading}
-                                />
-                              ) : (
-                                <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="not-prose">
-                              <p className="text-sm text-slate-500 font-medium mb-4">
-                                Bu konudaki alt başlıklardan birini seçerek konu anlatımını görüntüleyebilirsin.
-                              </p>
-                              <div className="space-y-2">
-                                {activeTopic.sections.map((section, idx) => (
-                                  <button
-                                    key={section.id}
-                                    type="button"
-                                    onClick={() => goToSection(selectedTopicIndex, section.id)}
-                                    className="w-full flex items-center gap-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/50 px-4 py-3.5 text-left shadow-sm transition-colors"
-                                  >
-                                    <span className="h-8 w-8 shrink-0 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">
-                                      {idx + 1}
-                                    </span>
-                                    <span className="flex-1 min-w-0 text-sm font-bold text-slate-700 truncate">{section.heading}</span>
-                                    <ArrowRight className="h-4 w-4 text-slate-300 shrink-0" />
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )
+                          <div className="space-y-10">
+                            {activeTopic.sections.map((section, idx) => {
+                              const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
+                              return (
+                                <section key={section.id} id={slug} data-section-anchor={slug} className="scroll-mt-4">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h2 className="flex flex-1 min-w-0 items-center gap-2.5 text-rose-600">
+                                      <span className="not-prose inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-sm font-black text-rose-600">
+                                        {idx + 1}
+                                      </span>
+                                      {section.heading}
+                                    </h2>
+
+                                    {isAdmin && (
+                                      <div className="not-prose relative shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => setContentSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id))}
+                                          className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </button>
+
+                                        {String(contentSectionMenuOpenId) === String(section.id) && (
+                                          <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setContentSectionMenuOpenId(null)} />
+                                            <div className="absolute right-0 top-8 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
+                                                  setSectionModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
+                                                  setQuestionsModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {section.html || section.imageUrl ? (
+                                    <>
+                                      <SectionContent
+                                        html={section.html || ''}
+                                        imageUrl={section.imageUrl}
+                                        caption={section.heading}
+                                      />
+                                      <SectionQuizLink sectionId={section.id} />
+                                    </>
+                                  ) : (
+                                    <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
+                                  )}
+                                </section>
+                              );
+                            })}
+                          </div>
                         ) : activeTopic.content ? (
                           <SectionContent html={activeTopic.content} />
                         ) : isWeekDataLoading ? (
@@ -1186,47 +1295,29 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 </div>
 
-                {/* RIGHT SIDEBAR: MEB takvimi + (alt başlıkta) ilgili sorular / (ana konuda) vurgular + ipucu */}
+                {/* RIGHT SIDEBAR: MEB takvimi + vurgular + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
                   {activeTopic && (
                     <CurriculumWeekCard weekRangeLabel={curriculumWeekRangeLabel} dateRangeLabel={curriculumDateRangeLabel} />
                   )}
 
-                  {currentSection ? (
-                    sectionQuestionCount !== 0 && (
-                      <Link
-                        href={`/ders/alt-baslik-test?sectionId=${currentSection.id}`}
-                        className="flex flex-col items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-4 sm:p-5 text-center transition-colors hover:bg-amber-100"
-                      >
-                        <Trophy className="h-5 w-5 text-amber-600" />
-                        <span className="text-sm font-black text-amber-700">Bu Konuyla İlgili Sorular Çöz</span>
-                        {sectionQuestionCount != null && (
-                          <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800">
-                            {sectionQuestionCount} Soru
-                          </span>
-                        )}
-                      </Link>
-                    )
-                  ) : (
-                    <>
-                      {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
-                        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
-                          <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
-                            <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
-                          </div>
-                          <div className="space-y-2.5">
-                            {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
-                          </div>
-                        </div>
-                      )}
-                      <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
-                        <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
-                          <Lightbulb className="h-4 w-4" /> Biliyor musun?
-                        </div>
-                        <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
+                  {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
+                    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+                      <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
+                        <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
                       </div>
-                    </>
+                      <div className="space-y-2.5">
+                        {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                      </div>
+                    </div>
                   )}
+
+                  <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest mb-2">
+                      <Lightbulb className="h-4 w-4" /> Biliyor musun?
+                    </div>
+                    <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1245,9 +1336,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               </button>
 
               <span className="text-xs sm:text-sm font-black text-slate-400">
-                {currentSection
-                  ? `${selectedTopicIndex + 1}. Konu • ${currentSectionIndex + 1}/${sections.length}`
-                  : `${totalTopics ? selectedTopicIndex + 1 : 0} / ${totalTopics}`}
+                {totalTopics ? selectedTopicIndex + 1 : 0} / {totalTopics}
               </span>
 
               <button

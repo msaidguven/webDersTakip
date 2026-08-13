@@ -4,6 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { computeMissingCodeAssignments } from '@/app/src/lib/outcomeCodes';
 
 type OutcomeRow = { id: number; order_index: number | null; code: string | null };
+type OutcomeWeekRow = { outcome_id: number; start_week: number };
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
@@ -33,7 +34,23 @@ export async function POST(request: NextRequest) {
   }
 
   const outcomes = (outcomesData as OutcomeRow[] | null) || [];
-  const assignments = computeMissingCodeAssignments(outcomes);
+
+  // order_index tek başına konu içinde benzersiz değil (her hafta kendi 1'den başlayan
+  // sırasına sahip olabiliyor); harf ataması haftalar arası tutarlı olsun diye önce haftayı ekliyoruz.
+  const outcomeIds = outcomes.map((o) => o.id);
+  const weekByOutcomeId = new Map<number, number>();
+  if (outcomeIds.length) {
+    const { data: weeksData } = await supabase
+      .from('outcome_weeks')
+      .select('outcome_id, start_week')
+      .in('outcome_id', outcomeIds);
+    ((weeksData as OutcomeWeekRow[] | null) || []).forEach((w) => {
+      weekByOutcomeId.set(w.outcome_id, w.start_week);
+    });
+  }
+
+  const outcomesWithWeeks = outcomes.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }));
+  const assignments = computeMissingCodeAssignments(outcomesWithWeeks);
 
   if (!assignments.length) {
     return NextResponse.json({ ok: true, assignedCount: 0 });

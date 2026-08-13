@@ -3,7 +3,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Clipboard, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 
-type Outcome = { id: number; description: string; order_index: number | null; code: string | null; previewCode: string };
+type Outcome = {
+  id: number;
+  description: string;
+  order_index: number | null;
+  code: string | null;
+  previewCode: string;
+  startWeek: number | null;
+  endWeek: number | null;
+};
+
+function outcomeWeekLabel(o: Outcome): string {
+  if (o.startWeek == null || o.endWeek == null) return 'Hafta atanmamış';
+  return o.startWeek === o.endWeek ? `${o.startWeek}. Hafta` : `${o.startWeek}–${o.endWeek}. Hafta`;
+}
 type TopicContent = {
   id: number;
   title: string;
@@ -155,6 +168,10 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   if (!bundle) return null;
 
   const canCreatePlan = bundle.missingCodeCount === 0;
+  const distinctWeekRanges = new Set(
+    bundle.outcomes.map((o) => (o.startWeek == null ? 'none' : `${o.startWeek}-${o.endWeek}`))
+  );
+  const outcomesSpanMultipleWeeks = distinctWeekRanges.size > 1;
 
   return (
     <div className="rounded-2xl border border-dashed border-[#6c63ff]/40 bg-[#15121f] p-6">
@@ -180,6 +197,11 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           )}
         </div>
         {assignError && <p className="mb-2 text-xs font-bold text-[#ff6584]">{assignError}</p>}
+        {outcomesSpanMultipleWeeks && (
+          <p className="mb-2 text-xs font-bold text-amber-300">
+            Bu konunun kazanımları birden fazla haftaya yayılmış — aşağıdaki hafta etiketlerine bak.
+          </p>
+        )}
         {bundle.outcomes.length === 0 ? (
           <p className="text-xs text-[#8b90a7]">Bu konu için tanımlı kazanım bulunamadı.</p>
         ) : (
@@ -189,7 +211,10 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                 <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono font-bold ${o.code ? 'bg-[#222636] text-[#b5b0ff]' : 'bg-amber-400/10 text-amber-300'}`}>
                   {o.code || `${o.previewCode}?`}
                 </span>
-                <span>{o.description}</span>
+                <span className="flex-1">{o.description}</span>
+                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${o.startWeek == null ? 'bg-amber-400/10 text-amber-300' : 'bg-[#222636] text-[#8b90a7]'}`}>
+                  {outcomeWeekLabel(o)}
+                </span>
               </li>
             ))}
           </ul>

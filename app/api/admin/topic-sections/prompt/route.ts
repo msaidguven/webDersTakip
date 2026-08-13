@@ -3,10 +3,12 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
 type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null };
+type OutcomeWeekRow = { outcome_id: number; start_week: number };
 type SectionRow = { id: number; heading: string; order_no: number; body_markdown?: string | null };
 type SectionOutcomeLinkRow = { section_id: number; outcome_id: number };
 
@@ -52,7 +54,26 @@ export async function GET(request: NextRequest) {
     .eq('topic_id', topicRow.id)
     .order('order_index', { ascending: true });
 
-  const outcomes = (outcomesData as OutcomeRow[] | null) || [];
+  const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];
+
+  // order_index konu içinde benzersiz değil (her hafta kendi 1'den başlayan sırasına sahip
+  // olabiliyor); AI'a giden kazanım listesi haftalar arası karışmasın diye önce haftayı ekleyip
+  // ona göre sıralıyoruz.
+  const outcomeIds = outcomeRows.map((o) => o.id);
+  const weekByOutcomeId = new Map<number, number>();
+  if (outcomeIds.length) {
+    const { data: weeksData } = await supabase
+      .from('outcome_weeks')
+      .select('outcome_id, start_week')
+      .in('outcome_id', outcomeIds);
+    ((weeksData as OutcomeWeekRow[] | null) || []).forEach((w) => {
+      weekByOutcomeId.set(w.outcome_id, w.start_week);
+    });
+  }
+
+  const outcomes = sortOutcomesByWeek(
+    outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
+  );
 
   if (type === 'plan') {
     const missingCodeCount = outcomes.filter((o) => !o.code?.trim()).length;
