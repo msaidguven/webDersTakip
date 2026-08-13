@@ -329,7 +329,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 // düzenlemeyi sağlar. Tasarım tamamen markdown'dan (kalın terim, madde/alt madde)
 // üretildiği için sağdaki önizleme, gerçek sayfadaki render'ın birebir aynısını kullanır —
 // admin kaydetmeden önce tasarımı bozup bozmadığını görebilir.
-export function SectionContentEditModal({
+function SectionContentEditModal({
   section,
   onClose,
   onSaved,

@@ -235,7 +235,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
@@ -298,7 +298,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     let cancelled = false;
 
     async function loadAdminRole() {
-      return; // TEMP: forcing isAdmin=true for a local visual smoke test, revert after.
       if (!user) {
         setIsAdmin(false);
         return;
