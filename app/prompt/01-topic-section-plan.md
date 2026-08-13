@@ -20,7 +20,7 @@ Kazanımlar:
     }
   ],
   "cover": {
-    "subtitle": string,               // konu başlığının hemen altında görünecek çok kısa alt başlık, max 6 kelime
+    "subtitle": string,               // konu başlığının hemen altında görünecek, tanıtıcı bir cümle: bu konuda öğrencinin ne öğreneceğini/neyle karşılaşacağını somut şekilde özetler (yaklaşık 8-16 kelime, tek cümle, çekici ve merak uyandırıcı ama abartısız)
     "image_prompt": string,           // İngilizce, konuyu somut/betimleyici şekilde anlatan, çocuk dostu illüstrasyon üretim promptu. Görselde herhangi bir yazı/etiket/tabela olacaksa bu metinler MUTLAKA Türkçe olmalı (promptun kendisi İngilizce kalsın, sadece görsel içindeki yazılar Türkçe olsun)
     "highlights": [
       {

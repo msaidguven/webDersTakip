@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Check, Clipboard, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { markdownToHtml } from '@/app/src/lib/topicContentV11';
+import SectionContent from '@/app/ders/SectionContent';
 
 type Outcome = {
   id: number;
@@ -110,6 +112,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
 
   const load = useCallback(async () => {
@@ -277,6 +280,13 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                     {STATUS_LABELS[section.status]}
                   </span>
                   <button
+                    onClick={() => setEditingSection(section)}
+                    className="shrink-0 rounded-lg border border-[#6c63ff]/30 bg-[#6c63ff]/10 p-1.5 text-[#b5b0ff] hover:bg-[#6c63ff]/20 transition-colors"
+                    title="İçeriği düzenle"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleDeleteSection(section.id)}
                     className="shrink-0 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 p-1.5 text-[#ff6584] hover:bg-[#ff6584]/20 transition-colors"
                     title="Alt başlığı sil"
@@ -303,6 +313,118 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       {planModalOpen && (
         <PlanModal topicId={topicId} onClose={() => setPlanModalOpen(false)} onSaved={() => { setPlanModalOpen(false); load(); }} />
       )}
+
+      {editingSection && (
+        <SectionContentEditModal
+          section={editingSection}
+          onClose={() => setEditingSection(null)}
+          onSaved={() => { setEditingSection(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Küçük düzeltme/ekleme için alt başlık metnini doğrudan (AI prompt turu olmadan)
+// düzenlemeyi sağlar. Tasarım tamamen markdown'dan (kalın terim, madde/alt madde)
+// üretildiği için sağdaki önizleme, gerçek sayfadaki render'ın birebir aynısını kullanır —
+// admin kaydetmeden önce tasarımı bozup bozmadığını görebilir.
+export function SectionContentEditModal({
+  section,
+  onClose,
+  onSaved,
+}: {
+  section: Section;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState(section.body_markdown || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const previewHtml = useMemo(() => (text.trim() ? markdownToHtml(text) : ''), [text]);
+
+  async function handleSave() {
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body_markdown: text,
+          needs_image: Boolean(section.image_prompt),
+          image_prompt: section.image_prompt,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-5xl rounded-2xl border border-[#2e3348] bg-[#12151f] p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-base font-black text-[#e8eaf0]">İçeriği Düzenle — {section.heading}</h4>
+          <button onClick={onClose} className="text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <p className="mb-4 text-xs text-[#8b90a7] leading-relaxed">
+          Küçük düzeltme/eklemeler için metni doğrudan değiştirebilirsiniz. Tasarımın bozulmaması için mevcut biçimi koruyun:
+          kalın terim için <code className="text-[#b5b0ff]">**terim**: açıklama</code>, madde için satır başında{' '}
+          <code className="text-[#b5b0ff]">- </code>, alt madde için bir kademe içeri{' '}
+          <code className="text-[#b5b0ff]">&nbsp;&nbsp;- </code>. Sağdaki önizleme gerçek sayfadaki görünümün birebir aynısıdır.
+        </p>
+
+        {error && <p className="mb-3 text-xs font-bold text-[#ff6584]">{error}</p>}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#8b90a7] block mb-1.5">Markdown</span>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={18}
+              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#8b90a7] block mb-1.5">Önizleme</span>
+            <div className="rounded-xl border border-[#2e3348] bg-[#f9fafb] p-4 max-h-[420px] overflow-y-auto">
+              {previewHtml ? (
+                <SectionContent html={previewHtml} imageUrl={section.image_url} caption={section.heading} />
+              ) : (
+                <p className="text-sm text-slate-400 italic">İçerik boş.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#c8cad8] hover:bg-[#1a1d27] transition-colors"
+          >
+            Vazgeç
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !text.trim()}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

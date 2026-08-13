@@ -31,6 +31,12 @@ import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
+type WeekedOutcome = Outcome & {
+  startWeek: number | null;
+  endWeek: number | null;
+  code: string | null;
+  previewCode: string;
+};
 type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
 type TopicHighlight = { position: string; icon: string | null; title: string; description: string };
 type Content = {
@@ -111,12 +117,29 @@ function unitTopicsCacheKey(gradeId: string, lessonId: string, unitId: number | 
   return `ders-unit-topics:${gradeId}:${lessonId}:${unitId}`;
 }
 
+// Kazanımlar müfredat yılı içinde neredeyse hiç değişmiyor; 10 günde bir tazelemek yeterli.
+const KAZANIMLAR_CACHE_TTL_MS = 10 * 24 * 60 * 60 * 1000; // 10 gün
+
+function kazanimlarCacheKey(gradeId: string, lessonId: string) {
+  return `ders-kazanimlar-all:${gradeId}:${lessonId}`;
+}
+
 const STUDY_TIPS = [
   'Bir konuyu okuduktan sonra kendi cümlelerinle özetlemek, kalıcılığı artırır.',
   'Kısa aralıklarla tekrar etmek, tek seferde uzun çalışmaktan daha etkilidir.',
   'Öğrendiğin bir konuyu birine anlatmayı dene, eksiklerin hemen ortaya çıkar.',
   'Not alarak okumak, sadece okumaktan daha kalıcı öğrenme sağlar.',
   'Zor gelen kısımları atlamak yerine üzerinde durup anlamaya çalış.',
+  'Öğrendiklerini küçük şemalar veya kutucuklarla görselleştirmek, hatırlamayı kolaylaştırır.',
+  'Bir konuyu bitirince kendine sorular sorup cevaplamaya çalış, bu en iyi tekrar yöntemidir.',
+  'Yeni öğrendiğin bir bilgiyi daha önce bildiğin bir şeyle ilişkilendirmek, akılda kalıcılığı artırır.',
+  'Uykudan hemen önce kısa bir tekrar yapmak, bilgilerin kalıcı hafızaya geçmesine yardımcı olur.',
+  'Çalışırken telefonunu uzak tutmak, dikkatini konuya vermeni kolaylaştırır.',
+  'Bir konuyu anlamadan ezberlemeye çalışmak yerine, önce mantığını kavramaya odaklan.',
+  'Düzenli kısa molalar vermek, uzun süre aralıksız çalışmaktan daha verimlidir.',
+  'Bir günde çok fazla konuya yüzeysel değil, az konuya derinlemesine çalışmak daha kalıcıdır.',
+  'Örnek sorular çözmek, konuyu gerçekten anlayıp anlamadığını en iyi gösteren yöntemdir.',
+  'Kendi kelimelerinle bir özet çıkarmak, konuyu pasif okumaktan çok daha etkilidir.',
 ];
 
 function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel: string; dateRangeLabel: string }) {
@@ -136,11 +159,11 @@ function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel
 
 function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-3.5 flex items-start gap-2.5">
-      {highlight.icon && <span className="text-xl leading-none shrink-0">{highlight.icon}</span>}
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 flex items-start gap-3">
+      {highlight.icon && <span className="text-2xl leading-none shrink-0">{highlight.icon}</span>}
       <div className="min-w-0">
-        <p className="text-xs font-black text-slate-800 leading-snug">{highlight.title}</p>
-        <p className="text-[11px] text-slate-500 font-medium leading-snug mt-0.5">{highlight.description}</p>
+        <p className="text-sm font-black text-slate-800 leading-snug">{highlight.title}</p>
+        <p className="text-xs text-slate-500 font-medium leading-snug mt-0.5">{highlight.description}</p>
       </div>
     </div>
   );
@@ -211,9 +234,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
-  const [kazanimlarCache, setKazanimlarCache] = useState<Record<number, Outcome[]>>({});
-  const [kazanimlarLoadingWeek, setKazanimlarLoadingWeek] = useState<number | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
+  const [isAdmin, setIsAdmin] = useState(true);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
@@ -245,7 +267,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     [activeTopic]
   );
 
-  const studyTip = STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length];
+  // Math.random() render sırasında değil (sunucu/istemci hidrasyon uyuşmazlığı
+  // yaratmasın diye) bir effect içinde çağrılır; ilk gösterim konu index'ine göre
+  // sabit bir ipucuyla başlar, hidrasyondan hemen sonra rastgele biriyle değiştirilir.
+  const [studyTip, setStudyTip] = useState(() => STUDY_TIPS[selectedTopicIndex % STUDY_TIPS.length]);
+  useEffect(() => {
+    setStudyTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)]);
+  }, [selectedTopicId]);
 
   // Akordeon: sadece seçili konunun alt başlıkları açık kalsın, diğer konularınki kapansın
   useEffect(() => {
@@ -270,6 +298,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     let cancelled = false;
 
     async function loadAdminRole() {
+      return; // TEMP: forcing isAdmin=true for a local visual smoke test, revert after.
       if (!user) {
         setIsAdmin(false);
         return;
@@ -473,8 +502,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   const totalTopics = contents.length;
-  const progressPercent = totalTopics ? Math.round(((selectedTopicIndex + 1) / totalTopics) * 100) : 0;
-
   const totalWeeks = initialData.totalWeeks || 38;
 
   const unitStartWeek = activeUnit?.start_week || 1;
@@ -495,36 +522,79 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setKazanimlarWeek(targetWeek);
   };
 
+  // Aynı anda birden fazla yerden (arkaplan ısıtma + modal açılışı) eş zamanlı istenirse
+  // mükerrer fetch'i önlemek için tek uçuşluk (single-flight) referans
+  const inFlightAllKazanimlarFetchRef = useRef<Promise<WeekedOutcome[]> | null>(null);
+
+  // Bu dersin (gradeId+lessonId) TÜM haftalarına ait kazanımlarını TEK istekte yükler;
+  // bellek içi state, sonra localStorage (10 gün), sonra ağ sırasıyla denenir. Kazanımlar
+  // modali daha sonra bu tek listeyi haftaya göre kendi içinde (ücretsizce) filtreler —
+  // her hafta için ayrı ayrı ağır /api/lesson-week-data çağrısı yapmaya gerek kalmaz.
+  const ensureAllKazanimlarLoaded = useCallback((): Promise<WeekedOutcome[]> => {
+    if (allKazanimlar) return Promise.resolve(allKazanimlar);
+
+    const persisted = readPersistentCache<WeekedOutcome[]>(kazanimlarCacheKey(gradeId, lessonId), KAZANIMLAR_CACHE_TTL_MS);
+    if (persisted) {
+      setAllKazanimlar(persisted);
+      return Promise.resolve(persisted);
+    }
+
+    if (inFlightAllKazanimlarFetchRef.current) {
+      return inFlightAllKazanimlarFetchRef.current;
+    }
+
+    const fetchPromise = (async (): Promise<WeekedOutcome[]> => {
+      try {
+        const params = new URLSearchParams({ gradeId, lessonId });
+        const response = await fetch(`/api/lesson-outcomes?${params.toString()}`);
+        const data = response.ok ? await response.json() as { outcomes?: WeekedOutcome[] } : null;
+        const outcomes = data?.outcomes || [];
+        setAllKazanimlar(outcomes);
+        writePersistentCache(kazanimlarCacheKey(gradeId, lessonId), outcomes);
+        return outcomes;
+      } catch {
+        setAllKazanimlar([]);
+        return [];
+      } finally {
+        inFlightAllKazanimlarFetchRef.current = null;
+      }
+    })();
+
+    inFlightAllKazanimlarFetchRef.current = fetchPromise;
+    return fetchPromise;
+  }, [allKazanimlar, gradeId, lessonId]);
+
   useEffect(() => {
     if (!kazanimlarOpen) return;
-    if (kazanimlarCache[kazanimlarWeek]) return;
-    const unitForWeek = units.find((u) => kazanimlarWeek >= (u.start_week || 1) && kazanimlarWeek <= (u.end_week || 38));
-    if (!unitForWeek) return;
+    ensureAllKazanimlarLoaded();
+  }, [kazanimlarOpen, ensureAllKazanimlarLoaded]);
 
-    let cancelled = false;
-    setKazanimlarLoadingWeek(kazanimlarWeek);
-    const params = new URLSearchParams({
-      gradeId,
-      lessonId,
-      unitId: String(unitForWeek.id),
-      week: String(kazanimlarWeek),
-    });
-    fetch(`/api/lesson-week-data?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { outcomes?: Outcome[] } | null) => {
-        if (cancelled) return;
-        setKazanimlarCache((prev) => ({ ...prev, [kazanimlarWeek]: data?.outcomes || [] }));
-      })
-      .catch(() => {
-        if (!cancelled) setKazanimlarCache((prev) => ({ ...prev, [kazanimlarWeek]: [] }));
-      })
-      .finally(() => {
-        if (!cancelled) setKazanimlarLoadingWeek((w) => (w === kazanimlarWeek ? null : w));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [kazanimlarOpen, kazanimlarWeek, kazanimlarCache, gradeId, lessonId, units]);
+  // Sayfa açıldıktan 5 saniye sonra (kullanıcı "Kazanımlar"a hiç tıklamamış olsa bile),
+  // bu dersin tüm haftalarına ait kazanımlarını arkaplanda sessizce ısıtır — böylece butona
+  // tıklanıp herhangi bir haftaya geçildiğinde hep anında açılır. 5sn gecikme, ilk sayfa
+  // yüklemesiyle çakışıp ağı boğmasın diyedir.
+  const hasStartedKazanimlarPrefetchRef = useRef(false);
+  useEffect(() => {
+    if (isWeekDataLoading) return;
+    if (hasStartedKazanimlarPrefetchRef.current) return;
+    if (!units.length) return;
+    hasStartedKazanimlarPrefetchRef.current = true;
+
+    const timeoutId = window.setTimeout(() => {
+      ensureAllKazanimlarLoaded();
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isWeekDataLoading, units.length, ensureAllKazanimlarLoaded]);
+
+  // Kazanımlar modalinde gösterilecek liste: tek seferde çekilen tüm kazanımlardan,
+  // seçili haftanın aralığına (start_week–end_week) düşenler — ağ isteği gerektirmez.
+  const kazanimlarForSelectedWeek = useMemo(() => {
+    if (!allKazanimlar) return null;
+    return allKazanimlar.filter(
+      (o) => o.startWeek != null && o.endWeek != null && kazanimlarWeek >= o.startWeek && kazanimlarWeek <= o.endWeek
+    );
+  }, [allKazanimlar, kazanimlarWeek]);
 
   const kazanimlarTouchStartX = useRef<number | null>(null);
   const handleKazanimlarTouchStart = (e: React.TouchEvent) => {
@@ -614,8 +684,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setIsWeekDataLoading(true);
     setManualUnitId(null);
     setKazanimlarWeek(week);
-    setKazanimlarCache({});
   }, [initialData, week]);
+
+  // allKazanimlar tüm ders (gradeId+lessonId) için tek seferde çekildiği için sadece
+  // gerçekten farklı bir derse geçildiğinde sıfırlanmalı — aynı derste konu/ünite
+  // değiştirmek onu geçersiz kılmaz, gereksiz yeniden yüklemeyi önler.
+  useEffect(() => {
+    setAllKazanimlar(null);
+  }, [gradeId, lessonId]);
 
   const loadWeekData = useCallback(async (unitId: number, signal?: AbortSignal) => {
     setIsWeekDataLoading(true);
@@ -940,23 +1016,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
-            <BookOpen className="h-5 w-5" />
+        <Link href="/" title="Anasayfa" className="flex items-center gap-2 sm:gap-3 shrink-0 group">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-all group-hover:scale-105">
+            <span className="text-lg sm:text-xl">🎓</span>
           </div>
-          <div className="min-w-0">
-            <h1 className="font-black text-slate-800 leading-tight text-sm sm:text-base uppercase tracking-tight truncate">{unitTitle}</h1>
-            <p className="text-[11px] sm:text-xs text-slate-500 font-bold truncate">{lessonName} • {gradeName}</p>
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-base sm:text-xl font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Ders Takip
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-indigo-500/70">.net</span>
           </div>
-        </div>
-
-        <div className="hidden md:flex items-center gap-3 mx-auto min-w-[220px]">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest shrink-0">İlerleme</span>
-          <div className="h-1.5 w-40 lg:w-56 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 rounded-full transition-all duration-700 ease-out" style={{ width: `${progressPercent}%` }} />
-          </div>
-          <span className="text-xs font-black text-indigo-600 shrink-0">%{progressPercent}</span>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
           <button
@@ -1181,24 +1251,46 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
+                    {activeTopic && (
+                      <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
+                        <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
+                        <h1 className="mt-3 font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
+                        <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
+                        {activeTopic.subtitle && (
+                          <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
+                        )}
+                      </div>
+                    )}
                     {activeTopic?.heroImageUrl && (
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
                         <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full max-h-[420px] object-contain" />
                       </div>
                     )}
+                    {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
+                      <div className="not-prose mb-8">
+                        <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
+                          <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                        </div>
+                      </div>
+                    )}
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
-                          <div className="space-y-10">
-                            {activeTopic.sections.map((section, idx) => {
+                          <div>
+                            {activeTopic.sections.map((section) => {
                               const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
                               return (
-                                <section key={section.id} id={slug} data-section-anchor={slug} className="scroll-mt-4">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <h2 className="flex flex-1 min-w-0 items-center gap-2.5 text-rose-600">
-                                      <span className="not-prose inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-sm font-black text-rose-600">
-                                        {idx + 1}
-                                      </span>
+                                <section
+                                  key={section.id}
+                                  id={slug}
+                                  data-section-anchor={slug}
+                                  className="scroll-mt-4 mt-10 border-t-2 border-rose-100 pt-10 first:mt-0 first:border-t-0 first:pt-0"
+                                >
+                                  <div className="flex items-start justify-between gap-2 mb-5">
+                                    <h2 className="not-prose flex-1 min-w-0 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
                                       {section.heading}
                                     </h2>
 
@@ -1295,21 +1387,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 </div>
 
-                {/* RIGHT SIDEBAR: MEB takvimi + vurgular + ipucu */}
+                {/* RIGHT SIDEBAR: MEB takvimi + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
                   {activeTopic && (
                     <CurriculumWeekCard weekRangeLabel={curriculumWeekRangeLabel} dateRangeLabel={curriculumDateRangeLabel} />
-                  )}
-
-                  {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
-                    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
-                      <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
-                        <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
-                      </div>
-                      <div className="space-y-2.5">
-                        {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
-                      </div>
-                    </div>
                   )}
 
                   <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 sm:p-5">
@@ -1397,15 +1478,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
-              {kazanimlarLoadingWeek === kazanimlarWeek ? (
+            <div className="h-[60vh] overflow-y-auto p-4 space-y-2">
+              {kazanimlarForSelectedWeek === null ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Yükleniyor...</div>
-              ) : (kazanimlarCache[kazanimlarWeek]?.length ?? 0) === 0 ? (
+              ) : kazanimlarForSelectedWeek.length === 0 ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Bu hafta için kazanım bulunamadı.</div>
               ) : (
-                kazanimlarCache[kazanimlarWeek]!.map((o, idx) => (
+                kazanimlarForSelectedWeek.map((o, idx) => (
                   <div key={o.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-bold bg-emerald-100 text-emerald-700">
+                      {o.code || o.previewCode}
+                    </span>
                     <p className="text-sm font-medium text-slate-700 leading-relaxed">{o.description}</p>
                   </div>
                 ))
