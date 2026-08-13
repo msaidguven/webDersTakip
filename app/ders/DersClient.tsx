@@ -23,9 +23,17 @@ import {
   Sparkles,
   ListChecks,
   Calendar,
+  Pencil,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
-import { PlanModal, SectionModal, QuestionsModal, type SectionModalSection } from '@/app/src/components/admin/AdminTopicSectionsPanel';
+import {
+  PlanModal,
+  SectionModal,
+  QuestionsModal,
+  SectionContentEditModal,
+  type SectionModalSection,
+  type EditableSection,
+} from '@/app/src/components/admin/AdminTopicSectionsPanel';
 import { formatWeekDateRangeLabel } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
@@ -248,6 +256,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
+  const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
+  const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Bir TOC tıklaması başka bir konuya geçiş gerektirdiğinde, o konunun içeriği
   // render edilene kadar hangi alt başlığa kaydırılacağını burada bekletiyoruz.
@@ -741,6 +751,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const refreshWeekData = useCallback(() => {
     if (activeUnit?.id) loadWeekData(activeUnit.id);
   }, [activeUnit, loadWeekData]);
+
+  // Ders sayfasında, okuduğu alt başlığın hemen altındaki "İçeriği Düzenle" butonuna
+  // basınca ham markdown'ı çeker ve düzenleme penceresini açar.
+  const openContentEditModal = async (sectionId: string | number) => {
+    setLoadingEditSectionId(sectionId);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${sectionId}`);
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) {
+        setEditingContentSection(data as EditableSection);
+      }
+    } finally {
+      setLoadingEditSectionId(null);
+    }
+  };
 
   const goToTopic = (index: number) => {
     const topic = contents[index];
@@ -1351,6 +1376,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   ) : (
                                     <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
                                   )}
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openContentEditModal(section.id)}
+                                      disabled={loadingEditSectionId === section.id}
+                                      className="not-prose mt-5 flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 disabled:opacity-50 transition-colors"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                      {loadingEditSectionId === section.id ? 'Yükleniyor...' : 'İçeriği Düzenle'}
+                                    </button>
+                                  )}
                                 </section>
                               );
                             })}
@@ -1539,6 +1575,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={questionsModalTarget.topicId}
           section={questionsModalTarget.section}
           onClose={() => setQuestionsModalTarget(null)}
+        />
+      )}
+
+      {editingContentSection && (
+        <SectionContentEditModal
+          section={editingContentSection}
+          onClose={() => setEditingContentSection(null)}
+          onSaved={() => {
+            setEditingContentSection(null);
+            refreshWeekData();
+          }}
         />
       )}
     </div>

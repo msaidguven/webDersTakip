@@ -6,6 +6,28 @@ interface Params {
   sectionId: string;
 }
 
+// Ders sayfasındaki "İçeriği Düzenle" butonu (admin) için: düzenleme formunu doldurmak
+// üzere tek bir alt başlığın ham markdown'ını ve görsel bilgisini döner.
+export async function GET(request: NextRequest, { params }: { params: Promise<Params> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const { sectionId } = await params;
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from('topic_content_sections')
+    .select('id, heading, body_markdown, image_url, image_prompt')
+    .eq('id', sectionId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return NextResponse.json({ error: 'Alt başlık bulunamadı' }, { status: 404 });
+  }
+
+  return NextResponse.json(data);
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<Params> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;

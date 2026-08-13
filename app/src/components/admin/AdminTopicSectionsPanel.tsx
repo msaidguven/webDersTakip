@@ -247,7 +247,8 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       ) : (
         <div className="rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
           <p className="mb-3 text-xs text-[#8b90a7]">
-            İçerik ve görsel oluşturma artık soldaki içindekiler menüsünde ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
+            AI ile içerik/görsel oluşturma soldaki içindekiler menüsünde ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
+            Küçük düzeltme veya eklemeler için aşağıda her alt başlığın yanındaki <Pencil className="inline h-3 w-3 align-[-1px]" /> simgesiyle içeriği doğrudan (AI&apos;a gitmeden) düzenleyebilirsiniz.
           </p>
           {/* Ağacın kökü: ana konu */}
           <div className="flex items-center gap-2 mb-3">
@@ -325,16 +326,25 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   );
 }
 
+export type EditableSection = {
+  id: number;
+  heading: string;
+  body_markdown: string | null;
+  image_url: string | null;
+  image_prompt: string | null;
+};
+
 // Küçük düzeltme/ekleme için alt başlık metnini doğrudan (AI prompt turu olmadan)
 // düzenlemeyi sağlar. Tasarım tamamen markdown'dan (kalın terim, madde/alt madde)
 // üretildiği için sağdaki önizleme, gerçek sayfadaki render'ın birebir aynısını kullanır —
-// admin kaydetmeden önce tasarımı bozup bozmadığını görebilir.
-function SectionContentEditModal({
+// admin kaydetmeden önce tasarımı bozup bozmadığını görebilir. Hem bu panelden hem de
+// ders sayfasındaki "İçeriği Düzenle" butonundan (DersClient) ortak kullanılır.
+export function SectionContentEditModal({
   section,
   onClose,
   onSaved,
 }: {
-  section: Section;
+  section: EditableSection;
   onClose: () => void;
   onSaved: () => void;
 }) {
