@@ -3,71 +3,76 @@ module.exports = {
   title: 'Görsel Tasarıma Yönelik Kurgu Oluşturma',
   sections: [
     {
-      heading: 'Gerçek Hayat Problemini Belirleme',
+      heading: 'Tasarım Problemi Belirleme',
       matched_outcome_codes: ['a'],
       needs_image: true,
       image_prompt:
-        "A simple flat educational illustration for children showing a school canteen area with litter scattered on the ground near a trash bin, two children looking at the mess with thoughtful expressions, bright cheerful colors, no photorealism, no text.",
-      body_markdown: `- **Gerçek hayat problemi**, görsel tasarım sürecinin başlangıç noktasıdır ve tasarımdan önce belirlenir.
-- Problem, "kağıt israfı" veya "geri dönüşüm" gibi somut ve sınırlı olmalı; "çevre kirliliği" gibi çok geniş bir başlık seçilmemelidir.
-- Problem belirlenirken **hedef kitle** de netleştirilir: görsel kime ulaşacak, sınıf arkadaşları, okul, mahalle sakinleri.
-- Gözlem, anket veya öğretmen/veli geri bildirimi, gerçek bir problemi tespit etmenin yollarındandır.
-- Örnek: kantin önünde çöplerin yere atıldığı gözlemlenirse, geri dönüşüm bilincini artıracak bir afiş problemi ortaya çıkar.
-- Problem net tanımlanmazsa görsel amacından uzaklaşır ve dağınık bir mesaj taşır.
-- Problem genellikle kısa bir cümleyle ifade edilir: "Okul bahçesinde çöpler ayrıştırılmıyor, bu nedenle afiş tasarlanacaktır."`,
+        "A simple flat educational illustration for children showing a school hallway scene where a student with a notepad is observing a real-life problem: recycling bins with mixed, unsorted trash scattered on the floor, a thought bubble above the student showing a question mark, bright friendly colors, simple flat illustration style, with a Turkish text label on the notepad reading 'Problem: Çöp Ayrıştırma', no photorealism.",
+      body_markdown: `- **Tasarım problemi**: bir görselle çözülebilecek, gözlemlenebilir gerçek hayat ihtiyacıdır.
+- **Gözlem**: okul koridorunda çöplerin ayrıştırılmaması gibi somut bir aksaklığı fark etmektir.
+- **Anket**: sınıf arkadaşlarına sorular sorarak hangi konunun görselle anlatılmaya ihtiyaç duyduğunu ölçmektir.
+- **Hedef kitle**: problemin kimi etkilediğini belirler, örneğin okul öğrencileri veya mahalle sakinleri.
+- **Somutluk**: iyi bir problem cümlesi "çevre kirliliği" gibi geniş değil, "kantin önünde atılan pet şişeler" gibi dar olmalıdır.
+- **Ölçülebilirlik**: problemin çözülüp çözülmediği, görsel asıldıktan sonra davranış değişikliğiyle kontrol edilebilir.
+- **Yanlış seçim**: bir görselle çözülemeyecek problemler, örneğin bina tadilatı ihtiyacı, tasarım problemi olarak seçilmemelidir.
+- **Kaynak**: problem, öğretmen görüşü, okul panosu şikâyetleri veya kişisel gözlemden elde edilebilir.`,
     },
     {
       heading: 'Hikâye ve Senaryo Unsurları',
       matched_outcome_codes: ['b'],
       needs_image: true,
       image_prompt:
-        "A flat educational illustration for children showing four labeled icon cards arranged in a row: a character icon (a smiling child), a location icon (a small school building), a plot icon (a storybook with an arrow), and a message icon (a speech bubble with a heart), simple colorful icons with Turkish text labels reading 'Karakter', 'Mekân', 'Olay', 'Mesaj', no photorealism.",
-      body_markdown: `- Hikâye/senaryo unsurları dört temel öğeden oluşur: karakter, mekân, olay örgüsü, mesaj.
-- **Karakter**, hikâyeyi taşıyan kişi, hayvan veya nesnedir; örneğin bir öğrenci ya da geri dönüşüm kutusu karakter olabilir.
-- **Mekân**, olayın geçtiği yerdir; hedef kitlenin tanıdığı bir ortam (okul bahçesi, sınıf, mutfak gibi) seçilir.
-- **Olay örgüsü**, başlangıç-gelişme-sonuç sırasıyla ilerler: problem ortaya çıkar, fark edilir, sonunda çözülür.
-- **Mesaj**, görselin izleyiciye iletmek istediği ana fikirdir ve tek bir cümleyle özetlenecek kadar net olmalıdır.
-- Hikâyenin geçtiği zaman kısa tutulur, genellikle tek bir gün ya da tek bir olay anıyla sınırlandırılır.
-- Unsurlar seçilirken belirlenen probleme ve hedef kitlenin yaşına uygunluk gözetilir.`,
+        "A simple flat educational illustration for children showing four puzzle pieces connecting together around a central open storybook icon, each puzzle piece containing a small icon: a character figure, a house/setting icon, a clock for time, and a winding path for plot, bright friendly colors, simple flat illustration style, with Turkish text labels on each puzzle piece reading 'Karakter', 'Mekân', 'Zaman' and 'Olay Örgüsü', no photorealism.",
+      body_markdown: `- **Karakter**: hikâyede mesajı taşıyan kişi veya nesnedir, örneğin geri dönüşümü anlatan bir çocuk figürü.
+- **Mekân**: olayın geçtiği yerdir; okul bahçesi, ev veya sokak gibi tanıdık bir ortam seçilir.
+- **Zaman**: olayın ne zaman geçtiğini belirtir, ders arası, hafta sonu veya belirli bir mevsim olabilir.
+- **Olay örgüsü**: giriş, gelişme ve sonuç bölümlerinden oluşan olayların sırasıdır.
+- **Mesaj**: hikâyenin izleyiciye ulaştırmak istediği asıl fikirdir, örneğin "suyu israf etme".
+- **Çatışma**: karakterin çözmesi gereken küçük bir sorundur ve hikâyeyi ilgi çekici kılar.
+- **Hedef kitle uyumu**: unsurlar, görseli izleyecek yaş grubunun anlayacağı basitlikte seçilmelidir.
+- **Eksik unsur**: mekân veya zaman belirtilmezse hikâye kopuk ve anlaşılması güç hale gelir.`,
     },
     {
-      heading: 'Senaryo Oluşturma',
+      heading: 'Senaryo Oluşturma Süreci',
       matched_outcome_codes: ['c'],
       needs_image: true,
       image_prompt:
-        "A flat educational illustration for children showing a simple three-panel storyboard strip, each panel a small rectangular frame with a simple drawn scene inside showing a story progressing left to right, numbered '1', '2', '3' above each panel, notebook paper background, no photorealism, no additional text.",
-      body_markdown: `- **Senaryo oluşturma**, belirlenen karakter, mekân, olay ve mesajın sahne sahne bir araya getirilmesidir.
-- İlk sahnede karakter ve mekân tanıtılır, örneğin "Ali, kantin önünde duruyor" gibi kısa bir cümleyle.
-- İkinci sahnede problem ortaya çıkar: "Ali elindeki çöpü yere atar, arkadaşı Ayşe bunu görür."
-- Üçüncü sahnede çözüm uygulanır: "Ayşe geri dönüşüm kutusunu gösterir, Ali çöpü doğru kutuya atar."
-- Sahneler, kısa ve görsele dönüştürülebilecek somut cümlelerle yazılır, uzun anlatımlardan kaçınılır.
-- Bir senaryo taslağında genellikle üç ile beş arasında sahne bulunur, her sahne ayrı bir satıra numaralandırılarak yazılır.
-- Sahneler arasındaki geçiş mantıklı olmalı, her sahne kendinden önceki sahnenin doğal devamı olmalıdır.`,
+        "A simple flat educational illustration for children showing a storyboard sheet with three numbered scene boxes in a row, each box containing a simple stick-figure sketch of a small scene, a pencil resting beside the sheet, bright friendly colors, simple flat illustration style, with Turkish text labels reading 'Sahne 1', 'Sahne 2' and 'Sahne 3' above each box, no photorealism.",
+      body_markdown: `- **Taslak metin**: belirlenen karakter, mekân, zaman ve mesaj bir araya getirilerek kısa bir olay akışı yazılır.
+- **Sahne sıralaması**: senaryo, genellikle 3-5 sahneye bölünerek giriş, gelişme ve sonuç net şekilde ayrılır.
+- **Sahne notu**: her sahne için kim, nerede, ne yapıyor bilgisi tek tek yazılır.
+- **Konuşma/açıklama**: karaktere ait varsa kısa bir söz veya bilgi cümlesi sahneye eklenir.
+- **Sıra tutarlılığı**: bir sahnede verilen bilgi, örneğin karakterin elindeki eşya, sonraki sahnede aniden değişmemelidir.
+- **Kaba çizim**: her sahne, ayrıntılı görsel yapılmadan önce basit kutu ve şekillerle taslak hâlinde çizilebilir.
+- **Tekrar gözden geçirme**: yazılan senaryo, eksik sahne veya anlam kopukluğu için en az bir kez baştan okunur.
+- **Ekip çalışması**: grup projelerinde her sahnenin kimin tarafından tasarlanacağı bu aşamada belirlenir.`,
     },
     {
-      heading: 'Senaryoyu Değerlendirme',
+      heading: 'Senaryo Değerlendirme Ölçütleri',
       matched_outcome_codes: ['ç'],
-      needs_image: false,
-      image_prompt: null,
-      body_markdown: `- Oluşturulan senaryo, görsele dönüştürülmeden önce **bütünlük** ve **kullanışlılık** ölçütlerine göre kontrol edilir.
-- **Bütünlük** ölçütünde sahneler arasında mantıksal bir bağ olup olmadığı, başlangıç-gelişme-sonuç sıralamasının eksiksiz olup olmadığı incelenir.
-- **Kullanışlılık** ölçütünde senaryonun, ilk belirlenen gerçek hayat problemine gerçekten çözüm sunup sunmadığı değerlendirilir.
-- Kontrol sırasında mesajın net olup olmadığı, karakter ve mekânın tutarlı kullanılıp kullanılmadığı incelenir.
-- Konuyla ilgisi olmayan veya tekrar eden bir sahne fark edilirse senaryodan çıkarılır.
-- Sonucun belirsiz kaldığı gibi eksik bir unsur fark edilirse ilgili sahneye ekleme yapılır.
-- Değerlendirme genellikle sınıf arkadaşlarının veya öğretmenin geri bildirimiyle desteklenir.
-- Onaylanan senaryo, bir sonraki aşamada görselin tasarımına temel oluşturan son hâlini alır.`,
+      needs_image: true,
+      image_prompt:
+        "A simple flat educational illustration for children showing two students sitting at a table reviewing a storyboard sheet together, one student pointing at a scene while the other holds a checklist with checkmarks, bright friendly colors, simple flat illustration style, with Turkish text labels on the checklist reading 'Bütünlük' and 'Kullanışlılık' next to checkmark icons, no photorealism.",
+      body_markdown: `- **Bütünlük kontrolü**: sahneler arasında karakter, mekân ve zamanın tutarlı kalıp kalmadığı incelenir.
+- **Kullanışlılık kontrolü**: senaryonun, belirlenen gerçek hayat problemini gerçekten çözüp çözmediği sorgulanır.
+- **Mesaj netliği**: hikâyeyi okuyan bir kişinin, ek açıklama olmadan mesajı anlayıp anlamadığı test edilir.
+- **Kontrol listesi**: karakter, mekân, zaman, olay örgüsü ve mesaj unsurlarının tamamının senaryoda yer alıp almadığı işaretlenir.
+- **Akran geri bildirimi**: senaryo bir sınıf arkadaşına okutularak anlaşılmayan bölümler tespit edilir.
+- **Eksik sahne**: giriş, gelişme veya sonuçtan biri eksikse senaryo yarım kalmış sayılır ve tamamlanmalıdır.
+- **Hedef kitleye uygunluk**: kullanılan dil ve örnekler, görseli izleyecek yaş grubuna göre yeniden kontrol edilir.
+- **Revizyon**: değerlendirme sonucunda beğenilmeyen sahne, tüm senaryo değil sadece o sahne yeniden yazılarak düzeltilir.`,
     },
   ],
   cover: {
-    subtitle: 'Bir görsel tasarlamadan önce gerçek bir problem bulup hikâyeleştirme sürecini keşfediyoruz.',
+    subtitle:
+      'Bir gerçek hayat problemini belirleyip bunu görselleştirecek özgün bir hikâye/senaryo kurgulamayı öğreniyoruz.',
     image_prompt:
-      "A bright flat educational illustration for children showing a student at a desk sketching a simple storyboard on paper, with small thought-bubble icons above showing a character, a location, and a lightbulb idea floating around, colorful and friendly classroom style, no photorealism, no text.",
+      "A bright, friendly flat educational illustration for a 5th grade classroom showing a student at a desk sketching a simple storyboard with three numbered scene boxes on paper, surrounded by sticky notes and speech-bubble icons representing a character, a setting and a light bulb idea, warm colors, simple flat illustration style for children, with Turkish text labels reading 'Problem', 'Karakter' and 'Sahne' near the relevant sticky notes, no photorealism.",
     highlights: [
-      { position: 'top-left', icon: '🎯', title: 'Problem Belirleme', description: 'Gerçek hayattan somut bir problem' },
-      { position: 'top-right', icon: '🧩', title: 'Hikâye Unsurları', description: 'Karakter, mekân, olay, mesaj' },
-      { position: 'mid-left', icon: '📝', title: 'Senaryo Oluşturma', description: '3-5 sahnelik kısa akış' },
-      { position: 'mid-right', icon: '✅', title: 'Senaryo Değerlendirme', description: 'Bütünlük ve kullanışlılık kontrolü' },
+      { position: 'top-left', icon: '🔍', title: 'Problem Belirleme', description: 'Gözlem, anket veya görüşmeyle belirlenir' },
+      { position: 'top-right', icon: '🧩', title: 'Senaryo Unsurları', description: 'Karakter, mekân, zaman, olay örgüsü' },
+      { position: 'mid-left', icon: '✍️', title: 'Senaryo Oluşturma', description: '3-5 sahnelik olay akışı yazılır' },
+      { position: 'mid-right', icon: '✅', title: 'Senaryo Değerlendirme', description: 'Bütünlük ve kullanışlılık ölçütüyle kontrol' },
     ],
   },
 };

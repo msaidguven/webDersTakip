@@ -334,12 +334,21 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
       } else if (entityKey === 'contents') {
         if (topicId) params.set('topicId', topicId);
         else if (unitId) params.set('unitId', unitId);
+        else {
+          if (lessonId) params.set('lessonId', lessonId);
+          if (gradeId) params.set('gradeId', gradeId);
+        }
         if (search) params.set('search', search);
       } else if (entityKey === 'outcomes') {
         if (topicId) params.set('topicId', topicId);
         if (search) params.set('search', search);
       } else if (entityKey === 'questions') {
         if (topicId) params.set('topicId', topicId);
+        else if (unitId) params.set('unitId', unitId);
+        else {
+          if (lessonId) params.set('lessonId', lessonId);
+          if (gradeId) params.set('gradeId', gradeId);
+        }
         if (search) params.set('search', search);
         if (typeId) params.set('typeId', typeId);
       }

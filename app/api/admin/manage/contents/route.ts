@@ -12,13 +12,28 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const topicId = request.nextUrl.searchParams.get('topicId');
   const unitId = request.nextUrl.searchParams.get('unitId');
+  const gradeId = request.nextUrl.searchParams.get('gradeId');
+  const lessonId = request.nextUrl.searchParams.get('lessonId');
   const search = request.nextUrl.searchParams.get('search');
   const source = request.nextUrl.searchParams.get('source');
   const isPublished = request.nextUrl.searchParams.get('isPublished');
 
+  let unitIds: number[] | null = null;
+  if (!topicId && !unitId && (gradeId || lessonId)) {
+    let unitQuery = supabase.from('units').select('id');
+    if (gradeId) unitQuery = unitQuery.eq('grade_id', gradeId);
+    if (lessonId) unitQuery = unitQuery.eq('lesson_id', lessonId);
+    const { data: unitRows } = await unitQuery;
+    unitIds = ((unitRows as { id: number }[] | null) || []).map((r) => r.id);
+    if (!unitIds.length) return NextResponse.json({ items: [] });
+  }
+
   let topicIds: number[] | null = null;
-  if (!topicId && unitId) {
-    const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId);
+  if (!topicId && (unitId || unitIds)) {
+    let topicQuery = supabase.from('topics').select('id');
+    if (unitId) topicQuery = topicQuery.eq('unit_id', unitId);
+    else if (unitIds) topicQuery = topicQuery.in('unit_id', unitIds);
+    const { data: topicRows } = await topicQuery;
     topicIds = ((topicRows as { id: number }[] | null) || []).map((r) => r.id);
     if (!topicIds.length) return NextResponse.json({ items: [] });
   }

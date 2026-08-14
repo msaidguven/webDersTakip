@@ -39,13 +39,39 @@ export async function GET(request: NextRequest) {
   }
 
   const topicId = request.nextUrl.searchParams.get('topicId');
+  const unitId = request.nextUrl.searchParams.get('unitId');
+  const gradeId = request.nextUrl.searchParams.get('gradeId');
+  const lessonId = request.nextUrl.searchParams.get('lessonId');
   const search = request.nextUrl.searchParams.get('search');
   const difficulty = request.nextUrl.searchParams.get('difficulty');
   const typeId = request.nextUrl.searchParams.get('typeId');
 
+  let unitIds: number[] | null = null;
+  if (!topicId && !unitId && (gradeId || lessonId)) {
+    let unitQuery = supabase.from('units').select('id');
+    if (gradeId) unitQuery = unitQuery.eq('grade_id', gradeId);
+    if (lessonId) unitQuery = unitQuery.eq('lesson_id', lessonId);
+    const { data: unitRows } = await unitQuery;
+    unitIds = ((unitRows as { id: number }[] | null) || []).map((r) => r.id);
+    if (!unitIds.length) return NextResponse.json({ items: [] });
+  }
+
+  let topicIds: number[] | null = null;
+  if (!topicId && (unitId || unitIds)) {
+    let topicQuery = supabase.from('topics').select('id');
+    if (unitId) topicQuery = topicQuery.eq('unit_id', unitId);
+    else if (unitIds) topicQuery = topicQuery.in('unit_id', unitIds);
+    const { data: topicRows } = await topicQuery;
+    topicIds = ((topicRows as { id: number }[] | null) || []).map((r) => r.id);
+    if (!topicIds.length) return NextResponse.json({ items: [] });
+  }
+
   let questionIds: number[] | null = null;
-  if (topicId) {
-    const { data: usageRows } = await supabase.from('question_usages').select('question_id').eq('topic_id', topicId);
+  if (topicId || topicIds) {
+    let usageQuery = supabase.from('question_usages').select('question_id');
+    if (topicId) usageQuery = usageQuery.eq('topic_id', topicId);
+    else if (topicIds) usageQuery = usageQuery.in('topic_id', topicIds);
+    const { data: usageRows } = await usageQuery;
     questionIds = Array.from(new Set(((usageRows as { question_id: number }[] | null) || []).map((r) => r.question_id)));
     if (!questionIds.length) return NextResponse.json({ items: [] });
   }
