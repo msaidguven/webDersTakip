@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
+import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import ProfilClient from './ProfilClient';
 
 // Force dynamic rendering for user-specific data
@@ -54,5 +55,14 @@ export default async function ProfilPage() {
     avatarUrl: user.user_metadata?.avatar_url || null,
   };
 
-  return <ProfilClient user={userData} />;
+  // profiles tablosunda kullanıcı bazlı SELECT RLS politikası yok; bu yüzden kendi
+  // profilini de servis rolüyle, sunucu tarafında okuyup client'a prop olarak geçiyoruz.
+  const service = createServiceClient();
+  const { data: profileRow } = await service
+    .from('profiles')
+    .select('grade_id, city_id, district_id, school_id, school_name')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  return <ProfilClient user={userData} profile={profileRow || null} />;
 }

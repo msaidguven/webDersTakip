@@ -120,11 +120,13 @@ CREATE TABLE public.profiles (
   title text,
   city_id integer,
   district_id bigint,
+  school_id bigint,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT fk_profiles_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id),
   CONSTRAINT fk_profiles_city FOREIGN KEY (city_id) REFERENCES public.cities(id),
-  CONSTRAINT fk_profiles_district FOREIGN KEY (district_id) REFERENCES public.districts(id)
+  CONSTRAINT fk_profiles_district FOREIGN KEY (district_id) REFERENCES public.districts(id),
+  CONSTRAINT profiles_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
 CREATE TABLE public.question_types (
   id smallint NOT NULL,
@@ -485,4 +487,18 @@ CREATE TABLE public.topic_content_section_outcomes (
   CONSTRAINT topic_content_section_outcomes_pkey PRIMARY KEY (section_id, outcome_id),
   CONSTRAINT fk_tcso_section FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id),
   CONSTRAINT fk_tcso_outcome FOREIGN KEY (outcome_id) REFERENCES public.outcomes(id)
+);
+CREATE TABLE public.schools (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  meb_kurum_kodu text UNIQUE,
+  name text NOT NULL,
+  school_type text NOT NULL CHECK (school_type = ANY (ARRAY['anaokulu'::text, 'ilkokul'::text, 'ortaokul'::text, 'lise'::text])),
+  city_id integer NOT NULL,
+  district_id bigint,
+  host text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT schools_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_schools_city FOREIGN KEY (city_id) REFERENCES public.cities(id),
+  CONSTRAINT fk_schools_district FOREIGN KEY (district_id) REFERENCES public.districts(id)
 );

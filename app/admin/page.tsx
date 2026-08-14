@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import ManagementTab, { type EntityKey } from '@/app/src/components/admin/ManagementTab';
 import MembersTab from '@/app/src/components/admin/MembersTab';
+import SchoolsSyncPanel from '@/app/src/components/admin/SchoolsSyncPanel';
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';
 
 // ==================== TYPES ====================
 
-type TabType = 'dashboard' | 'manage' | 'members';
+type TabType = 'dashboard' | 'manage' | 'members' | 'schools';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -78,6 +79,7 @@ export default function AdminPanel() {
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
+          <NavButton active={activeTab === 'schools'} onClick={() => { setActiveTab('schools'); setSidebarOpen(false); }} icon="🏫" label="Okullar" />
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/5">
@@ -97,9 +99,10 @@ export default function AdminPanel() {
 
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-10 px-4 sm:px-6 lg:px-8">
-        {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} />}
+        {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} onGoSchools={() => setActiveTab('schools')} />}
         {activeTab === 'manage' && <ManagementTab initialEntity={manageEntity} />}
         {activeTab === 'members' && <MembersTab />}
+        {activeTab === 'schools' && <SchoolsSyncPanel />}
       </main>
     </div>
   );
@@ -127,7 +130,7 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
 
 type RecentActivityItem = { type: 'question' | 'content'; title: string; date: string };
 
-function DashboardTab({ onGoManage, onGoMembers }: { onGoManage: (entity: EntityKey) => void; onGoMembers: () => void }) {
+function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (entity: EntityKey) => void; onGoMembers: () => void; onGoSchools: () => void }) {
   const [stats, setStats] = useState({
     grades: 0, lessons: 0, units: 0, topics: 0,
     questions: 0, users: 0, tests: 0, contents: 0
@@ -229,6 +232,7 @@ function DashboardTab({ onGoManage, onGoMembers }: { onGoManage: (entity: Entity
             <QuickActionButton icon="🎯" label="Kazanımlar" onClick={() => onGoManage('outcomes')} />
             <QuickActionButton icon="❓" label="Sorular" onClick={() => onGoManage('questions')} />
             <QuickActionButton icon="👥" label="Üyeler" onClick={onGoMembers} />
+            <QuickActionButton icon="🏫" label="Okullar" onClick={onGoSchools} />
           </div>
         </div>
       </div>
