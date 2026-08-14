@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const gradeId = request.nextUrl.searchParams.get('gradeId');
   const lessonId = request.nextUrl.searchParams.get('lessonId');
   const search = request.nextUrl.searchParams.get('search');
+  const isActive = request.nextUrl.searchParams.get('isActive');
 
   let query = supabase
     .from('units')
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
   if (gradeId) query = query.eq('grade_id', gradeId);
   if (lessonId) query = query.eq('lesson_id', lessonId);
   if (search) query = query.ilike('title', `%${search}%`);
+  if (isActive) query = query.eq('is_active', isActive === 'true');
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

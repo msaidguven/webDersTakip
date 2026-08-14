@@ -30,6 +30,12 @@ type ColumnConfig = {
   render?: (row: Row) => React.ReactNode;
 };
 
+type ExtraFilterConfig = {
+  key: string; // API'ye gönderilecek query param adı
+  label: string;
+  options: { value: string; label: string }[];
+};
+
 type EntityConfig = {
   key: EntityKey;
   label: string;
@@ -37,6 +43,16 @@ type EntityConfig = {
   hasActiveToggle?: boolean; // is_active alanı var, "sil" = pasifleştir
   columns: ColumnConfig[];
   editFields: FieldConfig[];
+  extraFilters?: ExtraFilterConfig[];
+};
+
+const ACTIVE_STATUS_FILTER: ExtraFilterConfig = {
+  key: 'isActive',
+  label: 'Durum',
+  options: [
+    { value: 'true', label: 'Aktif' },
+    { value: 'false', label: 'Pasif' },
+  ],
 };
 
 const ENTITIES: EntityConfig[] = [
@@ -44,6 +60,7 @@ const ENTITIES: EntityConfig[] = [
     key: 'units',
     label: 'Üniteler',
     hasActiveToggle: true,
+    extraFilters: [ACTIVE_STATUS_FILTER],
     columns: [
       { key: 'title', label: 'Başlık' },
       { key: 'lesson', label: 'Ders', render: (r) => r.lessons?.name || '—' },
@@ -65,6 +82,7 @@ const ENTITIES: EntityConfig[] = [
     key: 'topics',
     label: 'Konular',
     hasActiveToggle: true,
+    extraFilters: [ACTIVE_STATUS_FILTER],
     columns: [
       { key: 'title', label: 'Başlık' },
       { key: 'unit', label: 'Ünite', render: (r) => r.units?.title || '—' },
@@ -85,6 +103,18 @@ const ENTITIES: EntityConfig[] = [
     key: 'sections',
     label: 'Alt Başlıklar',
     needsTopic: true,
+    extraFilters: [
+      {
+        key: 'status',
+        label: 'Durum',
+        options: [
+          { value: 'planned', label: 'Planlandı' },
+          { value: 'content_ready', label: 'İçerik Hazır' },
+          { value: 'image_ready', label: 'Görsel Hazır' },
+          { value: 'published', label: 'Yayında' },
+        ],
+      },
+    ],
     columns: [
       { key: 'order_no', label: 'Sıra' },
       { key: 'heading', label: 'Başlık' },
@@ -111,6 +141,24 @@ const ENTITIES: EntityConfig[] = [
   {
     key: 'contents',
     label: 'İçerikler',
+    extraFilters: [
+      {
+        key: 'source',
+        label: 'Kaynak',
+        options: [
+          { value: 'manual', label: 'Manuel' },
+          { value: 'ai_generated', label: 'AI Üretildi' },
+        ],
+      },
+      {
+        key: 'isPublished',
+        label: 'Yayın',
+        options: [
+          { value: 'true', label: 'Yayında' },
+          { value: 'false', label: 'Taslak' },
+        ],
+      },
+    ],
     columns: [
       { key: 'title', label: 'Başlık' },
       { key: 'topic', label: 'Konu', render: (r) => r.topics?.title || '—' },
@@ -144,6 +192,13 @@ const ENTITIES: EntityConfig[] = [
   {
     key: 'questions',
     label: 'Sorular',
+    extraFilters: [
+      {
+        key: 'difficulty',
+        label: 'Zorluk',
+        options: [1, 2, 3, 4, 5].map((d) => ({ value: String(d), label: `Zorluk ${d}` })),
+      },
+    ],
     columns: [
       { key: 'question_text', label: 'Soru', render: (r) => <span className="line-clamp-2">{r.question_text}</span> },
       { key: 'type', label: 'Tip', render: (r) => r.question_types?.code || '—' },
@@ -183,6 +238,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
   const [lessons, setLessons] = useState<LookupRow[]>([]);
   const [units, setUnits] = useState<LookupRow[]>([]);
   const [topics, setTopics] = useState<LookupRow[]>([]);
+  const [questionTypes, setQuestionTypes] = useState<LookupRow[]>([]);
 
   const [gradeId, setGradeId] = useState('');
   const [lessonId, setLessonId] = useState('');
@@ -190,6 +246,8 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
   const [topicId, setTopicId] = useState('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [typeId, setTypeId] = useState('');
 
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -213,6 +271,9 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
 
       const { data: lessonsData } = await supabase.from('lessons').select('id, name').order('order_no');
       setLessons(((lessonsData as { id: number; name: string }[] | null) || []).map((l) => ({ id: l.id, label: l.name })));
+
+      const { data: typesData } = await supabase.from('question_types').select('id, code').order('id');
+      setQuestionTypes(((typesData as { id: number; code: string }[] | null) || []).map((t) => ({ id: t.id, label: t.code })));
     })();
   }, []);
 
@@ -247,6 +308,8 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
   useEffect(() => {
     setSelected(new Set());
     setItems([]);
+    setFilterValues({});
+    setTypeId('');
   }, [entityKey]);
 
   const loadList = useCallback(async () => {
@@ -277,6 +340,12 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
       } else if (entityKey === 'questions') {
         if (topicId) params.set('topicId', topicId);
         if (search) params.set('search', search);
+        if (typeId) params.set('typeId', typeId);
+      }
+
+      for (const f of entity.extraFilters || []) {
+        const v = filterValues[f.key];
+        if (v) params.set(f.key, v);
       }
 
       const res = await fetch(`/api/admin/manage/${entityKey}?${params.toString()}`);
@@ -292,12 +361,12 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
     } finally {
       setLoading(false);
     }
-  }, [entityKey, gradeId, lessonId, unitId, topicId, search, showNotice]);
+  }, [entityKey, gradeId, lessonId, unitId, topicId, search, typeId, filterValues, entity.extraFilters, showNotice]);
 
   useEffect(() => {
     loadList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityKey, gradeId, lessonId, unitId, topicId, search]);
+  }, [entityKey, gradeId, lessonId, unitId, topicId, search, typeId, filterValues]);
 
   function toggleSelectAll() {
     if (selected.size === items.length) setSelected(new Set());
@@ -399,6 +468,18 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         {(entityKey === 'sections' || entityKey === 'contents' || entityKey === 'outcomes' || entityKey === 'questions') && (
           <FilterSelect label="Konu" value={topicId} onChange={setTopicId} options={topics} />
         )}
+        {entityKey === 'questions' && (
+          <FilterSelect label="Tip" value={typeId} onChange={setTypeId} options={questionTypes} />
+        )}
+        {(entity.extraFilters || []).map((f) => (
+          <StaticFilterSelect
+            key={f.key}
+            label={f.label}
+            value={filterValues[f.key] || ''}
+            onChange={(v) => setFilterValues({ ...filterValues, [f.key]: v })}
+            options={f.options}
+          />
+        ))}
         {entityKey !== 'sections' && (
           <div className="flex flex-col gap-1">
             <label className="text-gray-400 text-xs">Ara</label>
@@ -540,6 +621,26 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
         <option value="">Tümü</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function StaticFilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-gray-400 text-xs">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-36 sm:w-44"
+      >
+        <option value="">Tümü</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}

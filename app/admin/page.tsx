@@ -6,13 +6,14 @@ import { createClient } from '@/utils/supabase/client';
 import ManagementTab, { type EntityKey } from '@/app/src/components/admin/ManagementTab';
 import MembersTab from '@/app/src/components/admin/MembersTab';
 import SchoolsSyncPanel from '@/app/src/components/admin/SchoolsSyncPanel';
+import CodeCleanupPanel from '@/app/src/components/admin/CodeCleanupPanel';
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';
 
 // ==================== TYPES ====================
 
-type TabType = 'dashboard' | 'manage' | 'members' | 'schools';
+type TabType = 'dashboard' | 'manage' | 'members' | 'schools' | 'code-cleanup';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -80,6 +81,7 @@ export default function AdminPanel() {
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
           <NavButton active={activeTab === 'schools'} onClick={() => { setActiveTab('schools'); setSidebarOpen(false); }} icon="🏫" label="Okullar" />
+          <NavButton active={activeTab === 'code-cleanup'} onClick={() => { setActiveTab('code-cleanup'); setSidebarOpen(false); }} icon="🧹" label="Kod Temizliği" />
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/5">
@@ -103,6 +105,7 @@ export default function AdminPanel() {
         {activeTab === 'manage' && <ManagementTab initialEntity={manageEntity} />}
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'schools' && <SchoolsSyncPanel />}
+        {activeTab === 'code-cleanup' && <CodeCleanupPanel />}
       </main>
     </div>
   );

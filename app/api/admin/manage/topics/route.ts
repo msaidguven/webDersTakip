@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const lessonId = request.nextUrl.searchParams.get('lessonId');
   const gradeId = request.nextUrl.searchParams.get('gradeId');
   const search = request.nextUrl.searchParams.get('search');
+  const isActive = request.nextUrl.searchParams.get('isActive');
 
   let unitIds: number[] | null = null;
   if (!unitId && (lessonId || gradeId)) {
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
   if (unitId) query = query.eq('unit_id', unitId);
   else if (unitIds) query = query.in('unit_id', unitIds);
   if (search) query = query.ilike('title', `%${search}%`);
+  if (isActive) query = query.eq('is_active', isActive === 'true');
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

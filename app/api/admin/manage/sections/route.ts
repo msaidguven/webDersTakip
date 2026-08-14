@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient();
   const topicId = request.nextUrl.searchParams.get('topicId');
+  const status = request.nextUrl.searchParams.get('status');
 
   if (!topicId) {
     return NextResponse.json({ items: [] });
@@ -27,11 +28,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ items: [] });
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('topic_content_sections')
     .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, status')
     .eq('topic_content_id', topicContentId)
     .order('order_no', { ascending: true });
+
+  if (status) query = query.eq('status', status);
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

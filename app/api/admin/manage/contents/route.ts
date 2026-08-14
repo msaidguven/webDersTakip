@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
   const unitId = request.nextUrl.searchParams.get('unitId');
   const search = request.nextUrl.searchParams.get('search');
+  const source = request.nextUrl.searchParams.get('source');
+  const isPublished = request.nextUrl.searchParams.get('isPublished');
 
   let topicIds: number[] | null = null;
   if (!topicId && unitId) {
@@ -30,6 +32,8 @@ export async function GET(request: NextRequest) {
   if (topicId) query = query.eq('topic_id', topicId);
   else if (topicIds) query = query.in('topic_id', topicIds);
   if (search) query = query.ilike('title', `%${search}%`);
+  if (source) query = query.eq('source', source);
+  if (isPublished) query = query.eq('is_published', isPublished === 'true');
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
