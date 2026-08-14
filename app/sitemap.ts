@@ -10,6 +10,10 @@ type LessonGradeRow = { lesson_id: number; grade_id: number };
 type UnitRow = { id: number; slug: string | null; lesson_id: number; grade_id: number };
 type TopicRow = { id: number; slug: string | null; unit_id: number };
 
+const excludedSitemapUrls = new Set([
+  `${SITE_URL}/5-sinif/fen-bilimleri/isigin-dunyasi/fb-5-4-3-tam-golgenin-olusumu`,
+]);
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const entries: MetadataRoute.Sitemap = [
@@ -87,5 +91,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('[sitemap] Dinamik URL üretimi başarısız:', error);
   }
 
-  return entries;
+  return entries.filter((entry) => !excludedSitemapUrls.has(entry.url));
 }
