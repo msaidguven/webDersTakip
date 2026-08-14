@@ -256,6 +256,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
 
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ ids: number[]; hard?: boolean } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
     setNotice({ kind, text });
@@ -381,6 +382,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
   }
 
   async function handleDelete(ids: number[], hard?: boolean) {
+    setDeleting(true);
     try {
       const res = await fetch(`/api/admin/manage/${entityKey}`, {
         method: 'DELETE',
@@ -401,9 +403,11 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         showNotice('success', `${deletedCount} kayıt silindi`);
       }
       setConfirmTarget(null);
-      loadList();
+      await loadList();
     } catch {
       showNotice('error', 'Silinirken hata oluştu');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -599,6 +603,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
           count={confirmTarget.ids.length}
           entityLabel={entity.label}
           allowHard={!entity.hasActiveToggle}
+          deleting={deleting}
           onCancel={() => setConfirmTarget(null)}
           onConfirm={(hard) => handleDelete(confirmTarget.ids, hard)}
         />
@@ -1018,12 +1023,14 @@ function ConfirmDeleteModal({
   count,
   entityLabel,
   allowHard,
+  deleting,
   onCancel,
   onConfirm,
 }: {
   count: number;
   entityLabel: string;
   allowHard: boolean;
+  deleting: boolean;
   onCancel: () => void;
   onConfirm: (hard: boolean) => void;
 }) {
@@ -1035,21 +1042,46 @@ function ConfirmDeleteModal({
           {count} {entityLabel.toLowerCase()} kaydı{allowHard ? ' kalıcı olarak' : ''} silinecek. Bu işlem geri alınamaz.
           {!allowHard && ' (Bağlı kayıtlar varsa "Pasifleştir" ile gizlemeyi tercih edebilirsiniz.)'}
         </p>
+        {deleting && (
+          <div className="flex items-center gap-2 text-indigo-300 text-sm mb-4">
+            <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            {count} kayıt siliniyor, lütfen bekleyin...
+          </div>
+        )}
         <div className="flex gap-2 sm:gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 disabled:opacity-50 text-sm"
+          >
             Vazgeç
           </button>
           {allowHard ? (
-            <button onClick={() => onConfirm(false)} className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 text-sm">
-              Sil
+            <button
+              onClick={() => onConfirm(false)}
+              disabled={deleting}
+              className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+            >
+              {deleting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {deleting ? 'Siliniyor...' : 'Sil'}
             </button>
           ) : (
             <>
-              <button onClick={() => onConfirm(false)} className="flex-1 px-4 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-500 text-sm">
-                Pasifleştir
+              <button
+                onClick={() => onConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-500 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+              >
+                {deleting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {deleting ? 'İşleniyor...' : 'Pasifleştir'}
               </button>
-              <button onClick={() => onConfirm(true)} className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 text-sm">
-                Kalıcı Sil
+              <button
+                onClick={() => onConfirm(true)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+              >
+                {deleting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {deleting ? 'Siliniyor...' : 'Kalıcı Sil'}
               </button>
             </>
           )}

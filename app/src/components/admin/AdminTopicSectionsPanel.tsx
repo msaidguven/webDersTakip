@@ -114,6 +114,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
+  const [deletingSectionId, setDeletingSectionId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,8 +157,13 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
   async function handleDeleteSection(sectionId: number) {
     if (!confirm('Bu alt başlığı silmek istediğinize emin misiniz?')) return;
-    const res = await fetch(`/api/admin/topic-sections/section/${sectionId}`, { method: 'DELETE' });
-    if (res.ok) load();
+    setDeletingSectionId(sectionId);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${sectionId}`, { method: 'DELETE' });
+      if (res.ok) await load();
+    } finally {
+      setDeletingSectionId(null);
+    }
   }
 
   if (loading) {
@@ -289,10 +295,15 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                   </button>
                   <button
                     onClick={() => handleDeleteSection(section.id)}
-                    className="shrink-0 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 p-1.5 text-[#ff6584] hover:bg-[#ff6584]/20 transition-colors"
+                    disabled={deletingSectionId === section.id}
+                    className="shrink-0 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 p-1.5 text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
                     title="Alt başlığı sil"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    {deletingSectionId === section.id ? (
+                      <span className="block h-3.5 w-3.5 rounded-full border-2 border-[#ff6584] border-t-transparent animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
