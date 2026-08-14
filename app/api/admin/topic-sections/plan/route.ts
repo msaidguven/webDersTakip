@@ -3,8 +3,21 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 
-type IncomingSection = { heading?: unknown; order_no?: unknown; matched_outcome_codes?: unknown };
-type CleanSection = { heading: string; order_no: number; matched_outcome_codes: string[] };
+type IncomingSection = {
+  heading?: unknown;
+  order_no?: unknown;
+  matched_outcome_codes?: unknown;
+  body_markdown?: unknown;
+  needs_image?: unknown;
+  image_prompt?: unknown;
+};
+type CleanSection = {
+  heading: string;
+  order_no: number;
+  matched_outcome_codes: string[];
+  body_markdown: string | null;
+  image_prompt: string | null;
+};
 type OutcomeRow = { id: number; code: string | null };
 type IncomingCover = { subtitle?: unknown; image_prompt?: unknown; highlights?: IncomingHighlight[] };
 
@@ -26,14 +39,20 @@ export async function POST(request: NextRequest) {
   }
 
   const cleanSections: CleanSection[] = sections
-    .filter((s): s is { heading: string; order_no?: unknown; matched_outcome_codes?: unknown } => typeof s?.heading === 'string' && s.heading.trim().length > 0)
-    .map((s, idx) => ({
-      heading: s.heading.trim(),
-      order_no: typeof s.order_no === 'number' ? s.order_no : idx,
-      matched_outcome_codes: Array.isArray(s.matched_outcome_codes)
-        ? s.matched_outcome_codes.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim())
-        : [],
-    }));
+    .filter((s): s is IncomingSection & { heading: string } => typeof s?.heading === 'string' && s.heading.trim().length > 0)
+    .map((s, idx) => {
+      const bodyMarkdown = typeof s.body_markdown === 'string' ? s.body_markdown.trim() : '';
+      const needsImage = Boolean(s.needs_image);
+      return {
+        heading: s.heading.trim(),
+        order_no: typeof s.order_no === 'number' ? s.order_no : idx,
+        matched_outcome_codes: Array.isArray(s.matched_outcome_codes)
+          ? s.matched_outcome_codes.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim())
+          : [],
+        body_markdown: bodyMarkdown || null,
+        image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
+      };
+    });
 
   if (!cleanSections.length) {
     return NextResponse.json({ error: 'Geçerli alt başlık bulunamadı' }, { status: 400 });
@@ -108,7 +127,9 @@ export async function POST(request: NextRequest) {
         topic_content_id: topicContentId,
         order_no: s.order_no,
         heading: s.heading,
-        status: 'planned',
+        body_markdown: s.body_markdown,
+        image_prompt: s.image_prompt,
+        status: s.body_markdown ? 'content_ready' : 'planned',
       }))
     )
     .select('id, order_no, heading');

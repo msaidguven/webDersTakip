@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 
-  if (!topicId || (type !== 'plan' && type !== 'section' && !isQuestionType)) {
+  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && !isQuestionType)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
   );
 
-  if (type === 'plan') {
+  if (type === 'plan' || type === 'full') {
     const missingCodeCount = outcomes.filter((o) => !o.code?.trim()).length;
     if (missingCodeCount > 0) {
       return NextResponse.json(
@@ -84,7 +84,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const templatePath = path.join(process.cwd(), 'app', 'prompt', '01-topic-section-plan.md');
+    const templateFile = type === 'full' ? '03-notebooklm-full-topic.md' : '01-topic-section-plan.md';
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
     const template = await readFile(templatePath, 'utf8');
 
     const outcomesText = outcomes.length

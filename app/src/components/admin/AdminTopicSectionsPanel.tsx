@@ -893,6 +893,171 @@ export function PlanModal({
   );
 }
 
+export function NotebookPlanModal({
+  topicId,
+  onClose,
+  onSaved,
+  onManageMore,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+  onManageMore?: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [assigningCodes, setAssigningCodes] = useState(false);
+
+  const loadPrompt = useCallback(async () => {
+    setLoadingPrompt(true);
+    setError(null);
+    const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=full`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setPrompt(data?.prompt || '');
+    } else {
+      setError(data?.error || 'Prompt oluşturulamadı.');
+    }
+    setLoadingPrompt(false);
+  }, [topicId]);
+
+  useEffect(() => {
+    loadPrompt();
+  }, [loadPrompt]);
+
+  async function handleAssignCodes() {
+    setAssigningCodes(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/assign-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      });
+      if (res.ok) {
+        await loadPrompt();
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kod ataması başarısız oldu.');
+      }
+    } finally {
+      setAssigningCodes(false);
+    }
+  }
+
+  async function handleSave() {
+    setError(null);
+    setWarning(null);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(pasted);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+
+    const parsedObj = parsed as { sections?: unknown; cover?: unknown };
+    const parsedSections = parsedObj?.sections;
+    if (!Array.isArray(parsedSections) || !parsedSections.length) {
+      setError('JSON içinde "sections" listesi bulunamadı.');
+      return;
+    }
+    const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      if (data?.unresolvedCodes?.length) {
+        setWarning(`Şu kazanım kodları eşleşmedi: ${data.unresolvedCodes.join(', ')}`);
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const missingCodes = !loadingPrompt && !!error && error.includes('kodu eksik');
+
+  return (
+    <ModalShell title="Google NotebookLM — Tek Prompt (Alt Başlık + İçerik)" onClose={onClose}>
+      <div className="space-y-4">
+        {missingCodes ? (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4">
+            <p className="mb-3 text-xs font-bold text-amber-300">{error}</p>
+            <button
+              onClick={handleAssignCodes}
+              disabled={assigningCodes}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20 disabled:opacity-50 transition-colors"
+            >
+              {assigningCodes ? 'Atanıyor...' : 'Eksik Kodları Ata'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-[#8b90a7]">
+              Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Alt başlıklar, her başlığın içeriği ve görsel promptları TEK seferde JSON olarak gelir; aşağıya yapıştırıp tek seferde kaydedin.
+            </p>
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+
+            <div>
+              <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+                NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik + kapak görseli + vurgu kartları tek seferde kaydedilir)
+              </span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={10}
+                placeholder='{"sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
+                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
+
+            {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+            {warning && <p className="text-xs font-bold text-amber-300">{warning}</p>}
+          </>
+        )}
+
+        <div className="flex items-center justify-between gap-2">
+          {onManageMore ? (
+            <button
+              onClick={onManageMore}
+              className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
+            >
+              Kazanım / kapak görseli / vurgu kartları yönetimi
+            </button>
+          ) : <span />}
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              İptal
+            </button>
+            {!missingCodes && (
+              <button
+                onClick={handleSave}
+                disabled={saving || !pasted.trim()}
+                className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export type SectionModalSection = {
   id: number;
   heading: string;

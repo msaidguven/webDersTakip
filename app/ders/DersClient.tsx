@@ -29,6 +29,7 @@ import {
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import {
   PlanModal,
+  NotebookPlanModal,
   SectionModal,
   QuestionsModal,
   SectionContentEditModal,
@@ -256,6 +257,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [loadingUnitIds, setLoadingUnitIds] = useState<Set<string>>(new Set());
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
+  const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
@@ -1320,7 +1322,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic && (
                       <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
                         <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
-                        <h1 className="mt-3 font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                          <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setNotebookPlanTopicId(Number(activeTopic.id))}
+                              title="Google NotebookLM için tek prompt'u kopyala"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <Clipboard className="h-3 w-3" /> NotebookLM Prompt&apos;u
+                            </button>
+                          )}
+                        </div>
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
@@ -1594,6 +1608,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onManageMore={() => {
             const topicId = planModalTopicId;
             setPlanModalTopicId(null);
+            setManagingTopicId(topicId);
+          }}
+        />
+      )}
+
+      {notebookPlanTopicId != null && (
+        <NotebookPlanModal
+          topicId={notebookPlanTopicId}
+          onClose={() => setNotebookPlanTopicId(null)}
+          onSaved={() => {
+            setNotebookPlanTopicId(null);
+            refreshWeekData();
+          }}
+          onManageMore={() => {
+            const topicId = notebookPlanTopicId;
+            setNotebookPlanTopicId(null);
             setManagingTopicId(topicId);
           }}
         />
