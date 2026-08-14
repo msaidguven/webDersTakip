@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
-import { stripHtml } from '@/app/src/lib/site';
+import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +34,41 @@ type UnitRow = {
 };
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
+
+function buildTopicPath(data: NonNullable<Awaited<ReturnType<typeof getTopicPageData>>>) {
+  return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
+}
+
+function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getTopicPageData>>>) {
+  const topicPath = buildTopicPath(data);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: data.gradeName, item: `${SITE_URL}/${data.gradeSlug}` },
+      { '@type': 'ListItem', position: 3, name: data.lessonName, item: `${SITE_URL}/${data.gradeSlug}/${data.lessonSlug}` },
+      { '@type': 'ListItem', position: 4, name: data.unitName, item: `${SITE_URL}/${data.gradeSlug}/${data.lessonSlug}#${data.unitSlug}` },
+      { '@type': 'ListItem', position: 5, name: data.topicTitle, item: `${SITE_URL}${topicPath}` },
+    ],
+  };
+}
+
+function normalizeDescription(text: string, maxLength = 158) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) return clean;
+  const sliced = clean.slice(0, maxLength - 1);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return `${sliced.slice(0, lastSpace > 120 ? lastSpace : sliced.length).trimEnd()}…`;
+}
+
+function buildMetaDescription(data: NonNullable<Awaited<ReturnType<typeof getTopicPageData>>>, bodyText: string | null) {
+  const prefix = `${data.topicTitle} konusu; ${data.gradeName} ${data.lessonName} ${data.unitName} ünitesi için`;
+  const detail = bodyText
+    ? ` ${bodyText}`
+    : ' konu anlatımı, örnekler ve interaktif alıştırmalarla öğrenmeyi destekler.';
+  return normalizeDescription(`${prefix}${detail}`);
+}
 
 const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug: string, topicSlug: string) {
   const supabase = await createClient();
@@ -158,12 +193,21 @@ export default async function TopicPage({ params }: PageProps) {
   }
 
   return (
-    <DersClient
-      initialData={data}
-      gradeId={data.gradeId}
-      lessonId={data.lessonId}
-      week={data.week}
-    />
+    <>
+      <script
+        id="structured-data-breadcrumb"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
+        }}
+      />
+      <DersClient
+        initialData={data}
+        gradeId={data.gradeId}
+        lessonId={data.lessonId}
+        week={data.week}
+      />
+    </>
   );
 }
 
@@ -177,23 +221,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const activeContent = data.contents.find((c) => c.slug === data.topicSlug);
   const firstSectionHtml = activeContent?.sections.find((s) => s.html)?.html || null;
-  const description = firstSectionHtml
-    ? stripHtml(firstSectionHtml)
+  const bodyText = firstSectionHtml
+    ? stripHtml(firstSectionHtml, 120)
     : activeContent?.content
-      ? stripHtml(activeContent.content)
-      : `${data.gradeName} ${data.lessonName} dersi, ${data.unitName} ünitesi, ${data.topicTitle} konu anlatımı ve interaktif alıştırmalar.`;
+      ? stripHtml(activeContent.content, 120)
+      : null;
+  const description = buildMetaDescription(data, bodyText);
 
   const title = `${data.topicTitle} — ${data.gradeName} ${data.lessonName}`;
-  const canonicalPath = `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
+  const canonicalPath = buildTopicPath(data);
+  const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   return {
     title,
     description,
-    alternates: { canonical: canonicalPath },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
-      url: canonicalPath,
+      url: canonicalUrl,
       type: 'article',
     },
     twitter: {

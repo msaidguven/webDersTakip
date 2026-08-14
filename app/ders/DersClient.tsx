@@ -128,6 +128,19 @@ function unitTopicsCacheKey(gradeId: string, lessonId: string, unitId: number | 
   return `ders-unit-topics:${gradeId}:${lessonId}:${unitId}`;
 }
 
+function buildTopicHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
+  if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
+  return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
+}
+
+function buildTopicImageAlt(topicTitle: string, unitTitle: string, lessonName: string, gradeName: string) {
+  return `${gradeName} ${lessonName} dersi ${unitTitle} ünitesinde ${topicTitle} konusunu anlatan görsel`;
+}
+
+function buildSectionImageAlt(sectionHeading: string, topicTitle: string, unitTitle: string) {
+  return `${topicTitle} konusu içinde ${sectionHeading} alt başlığını açıklayan ${unitTitle} görseli`;
+}
+
 // Kazanımlar müfredat yılı içinde neredeyse hiç değişmiyor; 10 günde bir tazelemek yeterli.
 const KAZANIMLAR_CACHE_TTL_MS = 10 * 24 * 60 * 60 * 1000; // 10 gün
 
@@ -222,7 +235,7 @@ function SectionQuizLink({ sectionId }: { sectionId: string | number }) {
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const { user, supabase } = useAuth();
 
-  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug } = initialData;
+  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug } = initialData;
 
   const pickInitialTopicId = (contentsList: Content[], topicSlug: string | null) => {
     if (topicSlug) {
@@ -347,6 +360,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     [units]
   );
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
+  const activeUnitSlug = activeUnit?.slug || unitSlug || null;
+  const activeTopicHref = buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic?.slug || null);
+  const relatedTopics = useMemo(
+    () =>
+      contents
+        .filter((topic) => String(topic.id) !== String(activeTopic?.id))
+        .map((topic) => ({
+          topic,
+          href: buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, topic.slug || null),
+        }))
+        .filter((item): item is { topic: Content; href: string } => Boolean(item.href))
+        .slice(0, 6),
+    [contents, activeTopic?.id, gradeSlug, lessonSlug, activeUnitSlug]
+  );
 
   // Aktif ünite değiştikçe sidebar index'inde SADECE o ünite açık kalsın (akordeon)
   useEffect(() => {
@@ -1222,6 +1249,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 <Link href={`/${gradeSlug}`} className="hover:text-indigo-600 transition-colors">{gradeName}</Link>
                 <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                 <Link href={overviewHref} className="hover:text-indigo-600 transition-colors">{lessonName}</Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <Link href={`${overviewHref}#${activeUnitSlug || ''}`} className="hover:text-indigo-600 transition-colors">{unitTitle}</Link>
+                {activeTopic && (
+                  <>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    {activeTopicHref ? (
+                      <Link href={activeTopicHref} className="text-slate-500">{activeTopic.title}</Link>
+                    ) : (
+                      <span className="text-slate-500">{activeTopic.title}</span>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Mobile Topics Dropdown */}
@@ -1343,7 +1382,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     )}
                     {activeTopic?.heroImageUrl && (
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
-                        <img src={activeTopic.heroImageUrl} alt={activeTopic.title} className="w-full max-h-[420px] object-contain" />
+                        <img
+                          src={activeTopic.heroImageUrl}
+                          alt={buildTopicImageAlt(activeTopic.title, unitTitle, lessonName, gradeName)}
+                          className="w-full max-h-[420px] object-contain"
+                        />
                       </div>
                     )}
                     {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
@@ -1426,6 +1469,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                         html={section.html || ''}
                                         imageUrl={section.imageUrl}
                                         caption={section.heading}
+                                        imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, unitTitle)}
                                       />
                                       <SectionQuizLink sectionId={section.id} />
                                     </>
@@ -1474,6 +1518,38 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
+                    )}
+                    {activeTopic && (
+                      <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Bu konudan sonra</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Link
+                            href={overviewHref}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                          >
+                            {unitTitle}
+                          </Link>
+                          {relatedTopics.map(({ topic, href }) => (
+                            <Link
+                              key={topic.id}
+                              href={href}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                            >
+                              {topic.title}
+                            </Link>
+                          ))}
+                          {sections.slice(0, 3).map((section) => (
+                            <Link
+                              key={`test-${section.id}`}
+                              href={`/ders/alt-baslik-test?sectionId=${section.id}`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700 transition-colors hover:bg-amber-100"
+                            >
+                              <Trophy className="h-3.5 w-3.5" />
+                              {section.heading} testi
+                            </Link>
+                          ))}
+                        </div>
+                      </nav>
                     )}
                   </div>
                 </div>

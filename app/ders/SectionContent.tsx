@@ -125,7 +125,17 @@ function buildBlocks(html: string): React.ReactNode[] {
   return blocks;
 }
 
-export default function SectionContent({ html, imageUrl, caption }: { html: string; imageUrl?: string | null; caption?: string | null }) {
+export default function SectionContent({
+  html,
+  imageUrl,
+  caption,
+  imageAlt,
+}: {
+  html: string;
+  imageUrl?: string | null;
+  caption?: string | null;
+  imageAlt?: string | null;
+}) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
 
   useEffect(() => {
@@ -137,7 +147,7 @@ export default function SectionContent({ html, imageUrl, caption }: { html: stri
       {imageUrl && (
         <img
           src={imageUrl}
-          alt={caption || ''}
+          alt={imageAlt || caption || 'Konu anlatım görseli'}
           className="w-full max-h-[420px] object-contain rounded-2xl border border-slate-100 bg-slate-50 shadow-sm"
         />
       )}

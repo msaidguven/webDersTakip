@@ -46,6 +46,7 @@ CREATE TABLE public.units (
   grade_id bigint NOT NULL,
   start_week integer CHECK (start_week IS NULL OR start_week >= 1),
   end_week integer CHECK (end_week IS NULL OR end_week >= 1),
+  curriculum_code text,
   CONSTRAINT units_pkey PRIMARY KEY (id),
   CONSTRAINT fk_units_lesson FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
   CONSTRAINT fk_units_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id)
