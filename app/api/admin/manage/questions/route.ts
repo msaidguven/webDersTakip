@@ -1,0 +1,182 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/app/src/lib/adminAuth';
+import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
+
+const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
+
+export async function GET(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const supabase = createServiceClient();
+  const id = request.nextUrl.searchParams.get('id');
+
+  // Tekli detay: düzenleme modalı için şık/seçenek/eşleştirme/klasik alt tablolarını da döner.
+  if (id) {
+    const { data: question, error } = await supabase
+      .from('questions')
+      .select('id, question_type_id, question_text, difficulty, score, solution_text, question_types(code)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !question) return NextResponse.json({ error: 'Soru bulunamadı' }, { status: 404 });
+
+    const [{ data: choices }, { data: blankOptions }, { data: matchingPairs }, { data: classical }] = await Promise.all([
+      supabase.from('question_choices').select('id, choice_text, is_correct').eq('question_id', id),
+      supabase.from('question_blank_options').select('id, option_text, is_correct, order_no').eq('question_id', id).order('order_no'),
+      supabase.from('question_matching_pairs').select('id, left_text, right_text, order_no').eq('question_id', id).order('order_no'),
+      supabase.from('question_classical').select('model_answer, answer_words').eq('question_id', id).maybeSingle(),
+    ]);
+
+    return NextResponse.json({
+      question,
+      choices: choices || [],
+      blankOptions: blankOptions || [],
+      matchingPairs: matchingPairs || [],
+      classical: classical || null,
+    });
+  }
+
+  const topicId = request.nextUrl.searchParams.get('topicId');
+  const search = request.nextUrl.searchParams.get('search');
+  const difficulty = request.nextUrl.searchParams.get('difficulty');
+  const typeId = request.nextUrl.searchParams.get('typeId');
+
+  let questionIds: number[] | null = null;
+  if (topicId) {
+    const { data: usageRows } = await supabase.from('question_usages').select('question_id').eq('topic_id', topicId);
+    questionIds = Array.from(new Set(((usageRows as { question_id: number }[] | null) || []).map((r) => r.question_id)));
+    if (!questionIds.length) return NextResponse.json({ items: [] });
+  }
+
+  let query = supabase
+    .from('questions')
+    .select('id, question_type_id, question_text, difficulty, score, created_at, question_types(code)')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (questionIds) query = query.in('id', questionIds);
+  if (search) query = query.ilike('question_text', `%${search}%`);
+  if (difficulty) query = query.eq('difficulty', difficulty);
+  if (typeId) query = query.eq('question_type_id', typeId);
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ items: data || [] });
+}
+
+type ChoiceInput = { choice_text: string; is_correct: boolean };
+type BlankOptionInput = { option_text: string; is_correct: boolean; order_no: number };
+type MatchingPairInput = { left_text: string; right_text: string; order_no: number };
+type ClassicalInput = { model_answer: string | null; answer_words: string[] };
+
+export async function PATCH(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const body = await request.json().catch(() => null) as {
+    id?: unknown;
+    ids?: unknown;
+    patch?: unknown;
+    choices?: unknown;
+    blankOptions?: unknown;
+    matchingPairs?: unknown;
+    classical?: unknown;
+  } | null;
+
+  const supabase = createServiceClient();
+
+  // Tekli düzenleme (alt tablolarla birlikte)
+  if (typeof body?.id === 'number') {
+    const questionId = body.id;
+    const rawPatch = body.patch && typeof body.patch === 'object' ? (body.patch as Record<string, unknown>) : {};
+
+    const patch: Record<string, unknown> = {};
+    for (const key of ['question_text', 'difficulty', 'score', 'solution_text']) {
+      if (key in rawPatch) patch[key] = rawPatch[key];
+    }
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from('questions').update(patch).eq('id', questionId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (Array.isArray(body.choices)) {
+      const choices = body.choices as ChoiceInput[];
+      await supabase.from('question_choices').delete().eq('question_id', questionId);
+      if (choices.length) {
+        const { error } = await supabase
+          .from('question_choices')
+          .insert(choices.map((c) => ({ question_id: questionId, choice_text: c.choice_text, is_correct: c.is_correct })));
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    if (Array.isArray(body.blankOptions)) {
+      const options = body.blankOptions as BlankOptionInput[];
+      await supabase.from('question_blank_options').delete().eq('question_id', questionId);
+      if (options.length) {
+        const { error } = await supabase
+          .from('question_blank_options')
+          .insert(options.map((o, idx) => ({ question_id: questionId, option_text: o.option_text, is_correct: o.is_correct, order_no: idx })));
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    if (Array.isArray(body.matchingPairs)) {
+      const pairs = body.matchingPairs as MatchingPairInput[];
+      await supabase.from('question_matching_pairs').delete().eq('question_id', questionId);
+      if (pairs.length) {
+        const { error } = await supabase
+          .from('question_matching_pairs')
+          .insert(pairs.map((p, idx) => ({ question_id: questionId, left_text: p.left_text, right_text: p.right_text, order_no: idx })));
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    if (body.classical && typeof body.classical === 'object') {
+      const classical = body.classical as ClassicalInput;
+      const { error } = await supabase
+        .from('question_classical')
+        .upsert({ question_id: questionId, model_answer: classical.model_answer, answer_words: classical.answer_words || [] }, { onConflict: 'question_id' });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Toplu düzenleme (sadece zorluk/puan gibi ortak alanlar)
+  const ids = Array.isArray(body?.ids) ? body.ids.filter((v): v is number => typeof v === 'number') : [];
+  const rawPatch = body?.patch && typeof body.patch === 'object' ? (body.patch as Record<string, unknown>) : null;
+
+  if (!ids.length || !rawPatch) {
+    return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
+  }
+
+  const patch: Record<string, unknown> = {};
+  for (const key of BULK_EDITABLE_FIELDS) {
+    if (key in rawPatch) patch[key] = rawPatch[key];
+  }
+  if (!Object.keys(patch).length) {
+    return NextResponse.json({ error: 'Güncellenecek alan yok' }, { status: 400 });
+  }
+
+  const { error } = await supabase.from('questions').update(patch).in('id', ids);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const body = await request.json().catch(() => null) as { ids?: unknown } | null;
+  const ids = Array.isArray(body?.ids) ? body.ids.filter((v): v is number => typeof v === 'number') : [];
+  if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
+
+  const supabase = createServiceClient();
+  const result = await deleteQuestionsCascade(supabase, ids);
+  return NextResponse.json(result);
+}
