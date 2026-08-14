@@ -17,7 +17,15 @@ interface PageProps {
 
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
-type UnitRow = { id: number; title: string; slug: string | null; lesson_id: number; grade_id: number };
+type UnitRow = {
+  id: number;
+  title: string;
+  description: string | null;
+  slug: string | null;
+  lesson_id: number;
+  grade_id: number;
+  question_count: number | null;
+};
 type TopicRow = { slug: string | null; order_no: number };
 
 const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
@@ -38,7 +46,7 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
 
   const { data: unitData } = await supabase
     .from('units')
-    .select('id, title, slug, lesson_id, grade_id')
+    .select('id, title, description, slug, lesson_id, grade_id, question_count')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug)
@@ -48,9 +56,9 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
   const unit = unitData as UnitRow | null;
   if (!unit) return null;
 
-  const { data: topicData } = await supabase
+  const { data: topicData, count: topicCount } = await supabase
     .from('topics')
-    .select('slug, order_no')
+    .select('slug, order_no', { count: 'exact' })
     .eq('unit_id', unit.id)
     .eq('is_active', true)
     .order('order_no', { ascending: true })
@@ -68,6 +76,9 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
     gradeName: grade.name,
     lessonName: lesson.name,
     unitTitle: unit.title,
+    unitDescription: unit.description,
+    questionCount: unit.question_count ?? null,
+    topicCount: topicCount ?? null,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
     unitSlug: unit.slug,
@@ -94,6 +105,57 @@ function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getUn
   };
 }
 
+function normalizeDescription(text: string, maxLength = 158) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) return clean;
+  const sliced = clean.slice(0, maxLength - 1);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return `${sliced.slice(0, lastSpace > 120 ? lastSpace : sliced.length).trimEnd()}…`;
+}
+
+function buildSeoText(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
+  const title = `${data.unitTitle} Ünite Testi | ${data.gradeName} ${data.lessonName}`;
+  const description = normalizeDescription(
+    `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesi için online ünite testi çöz; konuları pekiştir, doğru-yanlış sonucunu anında gör.`
+  );
+  return { title, description };
+}
+
+function buildLearningResourceJsonLd(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
+  const path = buildUnitTestPath(data);
+  const { title, description } = buildSeoText(data);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    name: title,
+    description,
+    url: `${SITE_URL}${path}`,
+    inLanguage: 'tr-TR',
+    learningResourceType: 'Ünite testi',
+    educationalLevel: data.gradeName,
+    teaches: `${data.lessonName} - ${data.unitTitle}`,
+    about: data.unitTitle,
+    provider: {
+      '@type': 'Organization',
+      name: 'Ders Takip',
+      url: SITE_URL,
+    },
+    isPartOf: {
+      '@type': 'Course',
+      name: `${data.gradeName} ${data.lessonName}`,
+      url: `${SITE_URL}/${data.gradeSlug}/${data.lessonSlug}`,
+    },
+    additionalProperty: [
+      ...(data.topicCount
+        ? [{ '@type': 'PropertyValue', name: 'Konu sayısı', value: data.topicCount }]
+        : []),
+      ...(data.questionCount
+        ? [{ '@type': 'PropertyValue', name: 'Soru sayısı', value: data.questionCount }]
+        : []),
+    ],
+  };
+}
+
 export default async function UnitTestPage({ params }: PageProps) {
   const { gradeSlug, lessonSlug, unitSlug } = await params;
   const data = await getUnitTestPageData(gradeSlug, lessonSlug, unitSlug);
@@ -111,6 +173,13 @@ export default async function UnitTestPage({ params }: PageProps) {
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
+      <script
+        id="structured-data-unit-test-learning-resource"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildLearningResourceJsonLd(data)).replace(/</g, '\\u003c'),
+        }}
+      />
       <KarisikTestClient
         unitId={data.unitId}
         lessonId={data.lessonId}
@@ -118,6 +187,9 @@ export default async function UnitTestPage({ params }: PageProps) {
         unitTitle={data.unitTitle}
         lessonName={data.lessonName}
         gradeName={data.gradeName}
+        unitDescription={data.unitDescription}
+        questionCount={data.questionCount}
+        topicCount={data.topicCount}
         exitHref={data.exitHref}
       />
     </>
@@ -134,17 +206,35 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const path = buildUnitTestPath(data);
   const canonicalUrl = `${SITE_URL}${path}`;
-  const title = `${data.unitTitle} Ünite Testi — ${data.gradeName} ${data.lessonName}`;
-  const description = `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesi için hazırlanmış online ünite testiyle konuları pekiştir, sonuçlarını anında gör.`;
+  const { title, description } = buildSeoText(data);
 
   return {
     title,
     description,
+    keywords: [
+      `${data.unitTitle} ünite testi`,
+      `${data.gradeName} ${data.lessonName} testi`,
+      `${data.lessonName} online test`,
+      'ders takip',
+    ],
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-snippet': -1,
+        'max-image-preview': 'large',
+        'max-video-preview': -1,
+      },
+    },
     alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
       url: canonicalUrl,
+      siteName: 'Ders Takip',
+      locale: 'tr_TR',
       type: 'article',
     },
     twitter: {

@@ -52,6 +52,9 @@ interface KarisikTestClientProps {
   unitTitle: string;
   lessonName: string;
   gradeName: string;
+  unitDescription: string | null;
+  questionCount: number | null;
+  topicCount: number | null;
   exitHref: string;
 }
 
@@ -174,6 +177,9 @@ export default function KarisikTestClient({
   unitTitle,
   lessonName,
   gradeName,
+  unitDescription,
+  questionCount,
+  topicCount,
   exitHref,
 }: KarisikTestClientProps) {
   const { user, isAuthenticated, supabase: authSupabase } = useAuth();
@@ -553,6 +559,31 @@ export default function KarisikTestClient({
       {/* Main Content */}
       <main className="pt-[120px] sm:pt-[140px] pb-24 sm:pb-20 px-3 sm:px-8">
         <div className="max-w-3xl mx-auto">
+          <header className="mb-4 sm:mb-6 rounded-xl sm:rounded-2xl bg-surface-elevated border border-default p-4 sm:p-6">
+            <p className="text-xs sm:text-sm font-bold text-indigo-400 mb-2">
+              {gradeName} / {lessonName}
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-black text-default leading-tight">
+              {unitTitle} Ünite Testi
+            </h1>
+            <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
+              {unitDescription || `${unitTitle} ünitesindeki konuları pekiştirmek için hazırlanmış online ünite testi.`}
+            </p>
+            {(topicCount || questionCount) && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {topicCount && (
+                  <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">
+                    {topicCount} Konu
+                  </span>
+                )}
+                {questionCount && (
+                  <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">
+                    {questionCount} Soru
+                  </span>
+                )}
+              </div>
+            )}
+          </header>
           {/* Question Card */}
           <div className="rounded-xl sm:rounded-2xl bg-surface-elevated border border-default p-4 sm:p-8 mb-4 sm:mb-6">
             {/* Type Badge */}
