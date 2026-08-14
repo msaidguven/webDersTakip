@@ -4,7 +4,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowLeft, BookOpen, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, BookOpen, CheckCircle2, Layers, Sparkles } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
 
 interface LessonSelectorProps {
@@ -76,6 +77,34 @@ function GradeHeader({ grade, onBack }: { grade: Grade; onBack: () => void }) {
   );
 }
 
+const STAT_COLOR_CLASSES = {
+  indigo: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300',
+  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+} as const;
+
+function HeroStat({
+  icon: Icon,
+  value,
+  label,
+  color,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+  color: keyof typeof STAT_COLOR_CLASSES;
+}) {
+  return (
+    <div className="relative rounded-2xl border border-default bg-surface/70 backdrop-blur-sm p-3 sm:p-4 text-center sm:text-left">
+      <div className={`inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl mb-1.5 sm:mb-2 ${STAT_COLOR_CLASSES[color]}`}>
+        <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+      </div>
+      <p className="text-xl sm:text-2xl font-black text-default leading-none">{value}</p>
+      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground mt-1">{label}</p>
+    </div>
+  );
+}
+
 function LessonCardSkeleton() {
   return (
     <div className="rounded-2xl bg-surface-elevated border border-default p-4 sm:p-6 animate-pulse">
@@ -140,59 +169,65 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
       <GradeHeader grade={grade} onBack={onBack} />
 
       <div className="relative overflow-hidden rounded-3xl border border-default bg-surface-elevated mb-8 sm:mb-10">
-        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-pink-500/10 blur-3xl" />
+        {/* İnce noktalı doku, sol üstten sağ alta doğru soluklaşarak */}
         <div
-          className={`pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-gradient-to-br ${grade.color} opacity-10 blur-3xl`}
+          className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.15]"
+          style={{
+            backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
+            backgroundSize: '18px 18px',
+            color: 'rgb(99 102 241)',
+            maskImage: 'radial-gradient(ellipse 70% 60% at 15% 10%, black 0%, transparent 70%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 70% 60% at 15% 10%, black 0%, transparent 70%)',
+          }}
         />
+        <div className="pointer-events-none absolute -top-20 -right-16 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 via-purple-500/20 to-pink-500/10 blur-3xl" />
+        <div
+          className={`pointer-events-none absolute -bottom-24 -left-12 h-56 w-56 rounded-full bg-gradient-to-br ${grade.color} opacity-10 blur-3xl`}
+        />
+        {/* Üstte ince, parlak bir vurgu çizgisi */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
 
         <div className="relative flex flex-col lg:flex-row items-start lg:items-center gap-6 sm:gap-8 p-6 sm:p-10">
           <div className="flex-1 min-w-0">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground mb-4">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-              Derslerini Seç
+              <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse" />
+              {grade.icon} {grade.name} · Derslerini Seç
             </span>
             <h1 className="text-2xl sm:text-4xl font-black text-default mb-2.5 sm:mb-3 tracking-tight leading-tight">
               Hangi <span className="gradient-text">Derse</span> Çalışmak İstiyorsun?
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-lg mb-5 sm:mb-6">
-              Dersini seçerek üniteleri ve haftalık müfredatı görüntüle, konuları sırayla tamamla.
+              Dersini seç, ünitesini bul, konuyu aç — haftalık müfredata uygun sırayla ilerle.
             </p>
 
             {lessons.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-default px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground">
-                  <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
-                  {lessons.length} Ders
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-default px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground">
-                  {totalUnits} Ünite
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-default px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500" />
-                  {totalQuestions} Soru
-                </span>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-sm">
+                <HeroStat icon={BookOpen} value={lessons.length} label="Ders" color="indigo" />
+                <HeroStat icon={Layers} value={totalUnits} label="Ünite" color="amber" />
+                <HeroStat icon={CheckCircle2} value={totalQuestions} label="Soru" color="emerald" />
               </div>
             )}
           </div>
 
-          <div className="hidden lg:flex relative shrink-0 items-center justify-center h-40 w-40">
+          <div className="hidden lg:flex relative shrink-0 items-center justify-center h-44 w-44">
             <div
-              className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-br ${grade.color} opacity-20 blur-2xl`}
+              className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-br ${grade.color} opacity-20 blur-2xl animate-pulse`}
+              style={{ animationDuration: '4s' }}
             />
             <div
-              className={`relative h-28 w-28 rounded-[2rem] bg-gradient-to-br ${grade.color} flex items-center justify-center text-5xl shadow-2xl animate-float-slow`}
+              className={`relative h-28 w-28 rounded-[2rem] bg-gradient-to-br ${grade.color} flex items-center justify-center text-5xl shadow-2xl animate-float-slow ring-4 ring-white/40 dark:ring-white/10`}
             >
               {grade.icon}
             </div>
-            {lessons.slice(0, 3).map((lesson, i) => (
+            {lessons.slice(0, 4).map((lesson, i) => (
               <div
                 key={lesson.id}
-                className={`absolute h-10 w-10 rounded-xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-lg shadow-lg animate-float-slow`}
+                className={`absolute h-10 w-10 rounded-xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-lg shadow-lg animate-float-slow ring-2 ring-white/50 dark:ring-white/10`}
                 style={{
-                  animationDelay: `${i * 0.7}s`,
-                  top: i === 0 ? '-4px' : i === 1 ? '55%' : '10%',
-                  left: i === 0 ? '70%' : i === 1 ? '-10px' : undefined,
-                  right: i === 2 ? '-10px' : undefined,
+                  animationDelay: `${i * 0.6}s`,
+                  top: i === 0 ? '-8px' : i === 1 ? '60%' : i === 3 ? '78%' : '6%',
+                  left: i === 0 ? '72%' : i === 1 ? '-14px' : i === 3 ? '58%' : undefined,
+                  right: i === 2 ? '-14px' : undefined,
                 }}
               >
                 {lesson.icon}
@@ -208,7 +243,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-5">
             {lessons.map((lesson, index) => {
               const units = byLessonId[lesson.id];
               const isLoadingUnits = loadingLessonIds.has(lesson.id);
@@ -216,89 +251,89 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
               return (
                 <div
                   key={lesson.id}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-default/70 bg-surface-elevated shadow-sm animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-transparent"
+                  className="group relative flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-default/70 bg-surface-elevated shadow-sm animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-transparent"
                   style={{ animationDelay: `${index * 70}ms` }}
                 >
                   {/* Üst renk şeridi, dersin kendi rengiyle */}
                   <div className={`h-1.5 w-full shrink-0 bg-gradient-to-r ${lesson.color}`} />
 
-                  <div className="relative overflow-hidden p-4 sm:p-6 pb-4 sm:pb-5">
+                  <div className="relative overflow-hidden p-2.5 sm:p-6 pb-2.5 sm:pb-5">
                     {/* Kartın arkasında dersin rengiyle uyumlu yumuşak bir parıltı */}
                     <div
                       className={`pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gradient-to-br ${lesson.color} opacity-10 blur-2xl transition-opacity duration-300 group-hover:opacity-20`}
                     />
 
-                    <div className="relative flex items-start gap-3 sm:gap-4">
+                    <div className="relative flex items-start gap-2 sm:gap-4">
                       <div className="relative shrink-0">
                         <div
-                          className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${lesson.color} opacity-40 blur-lg transition-opacity duration-300 group-hover:opacity-70`}
+                          className={`absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br ${lesson.color} opacity-40 blur-lg transition-opacity duration-300 group-hover:opacity-70`}
                         />
                         <div
-                          className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-2xl sm:text-3xl shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
+                          className={`relative w-9 h-9 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-lg sm:text-3xl shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
                         >
                           {lesson.icon}
                         </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <h3 title={lesson.name} className="text-base sm:text-lg font-black text-default leading-tight truncate">
+                        <h3 title={lesson.name} className="text-[13px] sm:text-lg font-black text-default leading-tight truncate">
                           {lesson.name}
                         </h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">{lesson.description}</p>
+                        <p className="hidden sm:block text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">{lesson.description}</p>
                       </div>
                     </div>
 
-                    <div className="relative flex flex-wrap gap-1.5 sm:gap-2 mt-3 sm:mt-4">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                        <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <div className="relative flex flex-wrap gap-1 sm:gap-2 mt-2 sm:mt-4">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                        <BookOpen className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
                         {lesson.unitCount} Ünite
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                         {lesson.questionCount} Soru
                       </span>
                     </div>
                   </div>
 
-                  <div className="relative flex-1 border-t border-default/70 bg-surface/40 p-3 sm:p-4">
+                  <div className="relative flex-1 border-t border-default/70 bg-surface/40 p-1.5 sm:p-4">
                     {isLoadingUnits ? (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 sm:space-y-2">
                         {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="h-11 w-full rounded-xl bg-surface animate-pulse" />
+                          <div key={i} className="h-9 sm:h-11 w-full rounded-lg sm:rounded-xl bg-surface animate-pulse" />
                         ))}
                       </div>
                     ) : !units || units.length === 0 ? (
-                      <p className="text-center text-xs sm:text-sm text-muted-foreground py-3">
+                      <p className="text-center text-[10px] sm:text-sm text-muted-foreground py-3">
                         Bu derste henüz ünite bulunmuyor.
                       </p>
                     ) : (
-                      <div className="space-y-1.5 sm:space-y-2">
+                      <div className="space-y-1 sm:space-y-2">
                         {units.map((unit, unitIndex) =>
                           unit.firstTopicSlug && unit.slug ? (
                             <Link
                               key={unit.id}
                               href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
-                              className="group/unit flex items-center gap-2.5 rounded-xl border border-transparent bg-surface px-3 py-2.5 transition-all duration-200 hover:border-default hover:bg-surface-elevated hover:shadow-md animate-fade-in-up"
+                              className="group/unit flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border border-transparent bg-surface px-2 sm:px-3 py-1.5 sm:py-2.5 transition-all duration-200 hover:border-default hover:bg-surface-elevated hover:shadow-md animate-fade-in-up"
                               style={{ animationDelay: `${index * 70 + unitIndex * 40}ms` }}
                             >
                               <span
-                                className={`h-6 w-6 sm:h-7 sm:w-7 shrink-0 rounded-full bg-gradient-to-br ${lesson.color} text-white flex items-center justify-center text-[10px] sm:text-[11px] font-black shadow-sm`}
+                                className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full bg-gradient-to-br ${lesson.color} text-white flex items-center justify-center text-[9px] sm:text-[11px] font-black shadow-sm`}
                               >
                                 {unitIndex + 1}
                               </span>
-                              <span className="flex-1 min-w-0 text-xs sm:text-sm font-bold text-default truncate">{unit.title}</span>
-                              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-indigo-500" />
+                              <span className="flex-1 min-w-0 text-[11px] sm:text-sm font-bold text-default truncate">{unit.title}</span>
+                              <ArrowRight className="hidden sm:block h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-indigo-500" />
                             </Link>
                           ) : (
                             <div
                               key={unit.id}
-                              className="flex items-center gap-2.5 rounded-xl border border-transparent bg-surface px-3 py-2.5 opacity-50"
+                              className="flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border border-transparent bg-surface px-2 sm:px-3 py-1.5 sm:py-2.5 opacity-50"
                             >
-                              <span className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 rounded-full bg-slate-500/10 text-slate-400 flex items-center justify-center text-[10px] sm:text-[11px] font-black">
+                              <span className="h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full bg-slate-500/10 text-slate-400 flex items-center justify-center text-[9px] sm:text-[11px] font-black">
                                 {unitIndex + 1}
                               </span>
-                              <span className="flex-1 min-w-0 text-xs sm:text-sm font-bold text-muted-foreground truncate">{unit.title}</span>
-                              <span className="text-[10px] text-muted-foreground shrink-0">Konu yok</span>
+                              <span className="flex-1 min-w-0 text-[11px] sm:text-sm font-bold text-muted-foreground truncate">{unit.title}</span>
+                              <span className="hidden sm:inline text-[10px] text-muted-foreground shrink-0">Konu yok</span>
                             </div>
                           )
                         )}
