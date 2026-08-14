@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Clipboard,
+  Check,
   Settings,
   MoreVertical,
   Lightbulb,
@@ -31,6 +32,7 @@ import {
   SectionModal,
   QuestionsModal,
   SectionContentEditModal,
+  copyText,
   type SectionModalSection,
   type EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
@@ -244,6 +246,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [curriculumPromptCopied, setCurriculumPromptCopied] = useState(false);
+  const [curriculumPromptLoading, setCurriculumPromptLoading] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
@@ -524,6 +528,29 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const openKazanimlarModal = () => {
     setKazanimlarWeek(week);
     setKazanimlarOpen(true);
+  };
+
+  // Bu sınıf+dersin müfredatını Claude Code'a hazırlatmak için hazır talimatı
+  // (app/prompt/00-curriculum-kickoff.md şablonundan, sınıf/ders dolduruşmuş
+  // hâliyle) panoya kopyalar.
+  const handleCopyCurriculumPrompt = async () => {
+    setCurriculumPromptLoading(true);
+    try {
+      const params = new URLSearchParams({ grade: gradeName, lesson: lessonName });
+      const res = await fetch(`/api/admin/curriculum-prompt?${params.toString()}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.prompt) {
+        window.alert(data?.error || 'Prompt alınamadı.');
+        return;
+      }
+      await copyText(data.prompt as string);
+      setCurriculumPromptCopied(true);
+      setTimeout(() => setCurriculumPromptCopied(false), 1800);
+    } catch {
+      window.alert('Kopyalama başarısız oldu. Metni elle seçip kopyalayın.');
+    } finally {
+      setCurriculumPromptLoading(false);
+    }
   };
 
   const goToKazanimlarWeek = (targetWeek: number) => {
@@ -1053,6 +1080,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleCopyCurriculumPrompt}
+              disabled={curriculumPromptLoading}
+              title="Bu sınıf/ders için müfredat hazırlama talimatını kopyala"
+              className="flex h-9 items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 sm:px-4 text-xs font-black text-indigo-600 shadow-sm hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+            >
+              {curriculumPromptCopied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">
+                {curriculumPromptCopied ? 'Kopyalandı' : curriculumPromptLoading ? 'Hazırlanıyor...' : "Müfredat Prompt'u"}
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={openKazanimlarModal}

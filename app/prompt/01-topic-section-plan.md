@@ -51,5 +51,10 @@ Kısıtlar (cover için):
 - highlights: 4-6 arası öğe üret, konuya göre sen karar ver daha az veya daha çok olabilir, konunun en önemli/akılda kalıcı noktalarını seç
 - Her pozisyon (top-left, mid-left, vb.) en fazla bir kez kullanılabilir, hepsini doldurmak zorunda değilsin
 - title ve description çok kısa, sınav notu gibi öz olsun (hikaye anlatma, retorik soru sorma)
+- description'lar SOMUT olsun: bir sayı, isim veya net bir ayrım taşısın (ör. "Dünya'dan 100 kat büyük", "Yaklaşık 25-35 gün"). "Önemlidir", "ilginç bir olgudur" gibi hiçbir bilgi taşımayan genel description YASAK
 - image_prompt somut bir sahne/nesne tarif etsin (soyut kavram değil), {grade}. sınıf öğrencisine uygun, eğitici ve sade bir illüstrasyon stili iste
 - image_prompt içinde görsele metin/etiket eklenmesi isteniyorsa (ör. parça adları, tabela), bu metinlerin Türkçe olması gerektiğini açıkça belirt (örn. "with Turkish text labels reading '...'")
+
+## Kalite notu
+
+Bu konunun alt başlıkları, aynı ders/ünite içindeki diğer konulardan farklı bir cümle yapısı ve açılışla düşünülmeli — "X Nedir?" gibi tek bir kalıbı her konuda otomatik tekrar etme. Bu planlama adımından sonra her alt başlığın içeriği ayrı bir görevde, TEK bir alt başlığa odaklanarak, somut ve doygun bilgiyle (sayı, isim, tarih, mekanizma) yazılacak — bu yüzden heading'lerin kendisi de o konuya özgü, net ve ders kitabı editörü kalitesinde olmalı, jenerik olmamalı.
