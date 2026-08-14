@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../src/context/AuthContext';
@@ -46,39 +45,38 @@ interface Question {
 
 // Use central wrapper
 
-async function fetchMixedQuestions(
+interface KarisikTestClientProps {
+  unitId: number;
+  lessonId: number;
+  gradeId: number;
+  unitTitle: string;
+  lessonName: string;
+  gradeName: string;
+  exitHref: string;
+}
+
+async function fetchUnitQuestions(
   supabase: SupabaseClient,
-  lessonId: number,
-  week: number
+  unitId: number
 ): Promise<Question[]> {
-  // 1. Dersin unit'lerini bul
-  const { data: units } = await supabase
-    .from('units')
-    .select('id')
-    .eq('lesson_id', lessonId);
-
-  if (!units?.length) return [];
-  const unitIds = units.map(u => u.id);
-
-  // 2. Topic'leri bul
+  // 1. Ünitenin topic'lerini bul
   const { data: topics } = await supabase
     .from('topics')
     .select('id')
-    .in('unit_id', unitIds);
+    .eq('unit_id', unitId)
+    .eq('is_active', true);
 
   if (!topics?.length) return [];
   const topicIds = topics.map(t => t.id);
 
-  // 3. Haftaya göre soru kullanımlarını bul
+  // 2. Ünitedeki tüm konu sorularını bul
   const { data: usages } = await supabase
     .from('question_usages')
     .select('question_id, topic_id')
-    .in('topic_id', topicIds)
-    .eq('curriculum_week', week)
-    .eq('usage_type', 'weekly');
+    .in('topic_id', topicIds);
 
   if (!usages?.length) return [];
-  const questionIds = usages.map(u => u.question_id);
+  const questionIds = Array.from(new Set(usages.map(u => u.question_id)));
 
   // 4. Soruları çek (tip ID'si önemli değil, ilişkili tabloya göre belirleyeceğiz)
   const { data: questions } = await supabase
@@ -169,10 +167,15 @@ async function fetchMixedQuestions(
   return result.sort(() => Math.random() - 0.5);
 }
 
-function MixedTestContent() {
-  const searchParams = useSearchParams();
-  const lessonId = searchParams.get('lesson_id');
-  const week = searchParams.get('week');
+export default function KarisikTestClient({
+  unitId,
+  lessonId,
+  gradeId,
+  unitTitle,
+  lessonName,
+  gradeName,
+  exitHref,
+}: KarisikTestClientProps) {
   const { user, isAuthenticated, supabase: authSupabase } = useAuth();
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -190,24 +193,21 @@ function MixedTestContent() {
 
   // İlk soruyu hemen çek, arka planda tümünü çek
   useEffect(() => {
-    if (!lessonId || !week) {
-      setError('Ders veya hafta bilgisi eksik');
+    if (!unitId) {
+      setError('Ünite bilgisi eksik');
       setLoading(false);
       return;
     }
 
     const supabase = createClient();
 
-    const lId = parseInt(lessonId);
-    const w = parseInt(week);
-
     async function loadQuestions() {
       try {
         // Önce tüm soruları çek ama hemen gösterme
-        const allQuestions = await fetchMixedQuestions(supabase!, lId, w);
+        const allQuestions = await fetchUnitQuestions(supabase!, unitId);
         
         if (allQuestions.length === 0) {
-          setError('Bu ders ve hafta için soru bulunamadı');
+          setError('Bu ünite için soru bulunamadı');
           setLoading(false);
           return;
         }
@@ -232,7 +232,7 @@ function MixedTestContent() {
     }
 
     loadQuestions();
-  }, [lessonId, week]);
+  }, [unitId]);
 
   useEffect(() => {
     if (isFinished || loading) return;
@@ -333,12 +333,15 @@ function MixedTestContent() {
           .from('test_sessions')
           .insert({
             user_id: user.id,
-            lesson_id: lessonId ? parseInt(lessonId) : null,
-            grade_id: null, // Gerekirse URL'den alınabilir
+            lesson_id: lessonId,
+            grade_id: gradeId,
+            unit_id: unitId,
             completed_at: new Date().toISOString(),
             settings: {
-              week: week ? parseInt(week) : null,
-              test_type: 'mixed',
+              test_type: 'unit',
+              unit_title: unitTitle,
+              lesson_name: lessonName,
+              grade_name: gradeName,
               total_questions: result.total,
               correct_count: result.correct,
               wrong_count: result.wrong,
@@ -395,7 +398,7 @@ function MixedTestContent() {
     };
 
     saveResults();
-  }, [isFinished, isAuthenticated, resultsSaved, user, lessonId, week, questions, answers, calculateResult, authSupabase]);
+  }, [isFinished, isAuthenticated, resultsSaved, user, lessonId, gradeId, unitId, unitTitle, lessonName, gradeName, questions, answers, calculateResult, authSupabase]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -454,7 +457,7 @@ function MixedTestContent() {
           <div className="w-20 h-20 rounded-full bg-surface-elevated flex items-center justify-center text-4xl mx-auto mb-6">📝</div>
           <h1 className="text-2xl font-bold text-default mb-4">Soru Bulunamadı</h1>
           <p className="text-muted-foreground mb-6">Bu ders ve hafta için soru eklenmemiş.</p>
-          <Link href="/ders" className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-medium">Derse Dön</Link>
+          <Link href={exitHref} className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-medium">Üniteye Dön</Link>
         </div>
       </div>
     );
@@ -505,7 +508,7 @@ function MixedTestContent() {
           )}
 
           <div className="flex justify-center gap-4">
-            <Link href="/ders" className="px-6 py-3 rounded-xl bg-surface text-default border border-default">Derse Dön</Link>
+            <Link href={exitHref} className="px-6 py-3 rounded-xl bg-surface text-default border border-default">Üniteye Dön</Link>
             <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium">Tekrar Dene</button>
           </div>
         </div>
@@ -521,7 +524,7 @@ function MixedTestContent() {
       <div className="fixed top-[60px] sm:top-[72px] left-0 right-0 z-40 border-b border-default bg-surface">
         <div className="max-w-7xl mx-auto px-3 sm:px-8 py-3">
           <div className="flex items-center justify-between">
-            <Link href="/ders" className="text-sm text-muted-foreground hover:text-default flex items-center gap-1">
+            <Link href={exitHref} className="text-sm text-muted-foreground hover:text-default flex items-center gap-1">
               ← Testten Çık
             </Link>
             
@@ -891,13 +894,5 @@ function MixedTestContent() {
         </div>
       </main>
     </div>
-  );
-}
-
-export default function MixedTestPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-default" />}>
-      <MixedTestContent />
-    </Suspense>
   );
 }

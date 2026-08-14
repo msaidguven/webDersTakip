@@ -1133,10 +1133,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           </button>
 
           <Link
-            href={`/karisik-test?lesson_id=${lessonId}&week=${week}`}
+            href={gradeSlug && lessonSlug && activeUnitSlug ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi` : `/karisik-test?lesson_id=${lessonId}&week=${week}`}
             className="flex h-9 items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 sm:px-4 text-xs font-black text-amber-600 shadow-sm hover:bg-amber-100 transition-colors"
           >
-            <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Mini Test</span>
+            <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ünite Testi</span>
           </Link>
 
           <Link

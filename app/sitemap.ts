@@ -18,7 +18,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const entries: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: now, changeFrequency: 'daily', priority: 1 },
-    { url: `${SITE_URL}/karisik-test`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/hakkimizda`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE_URL}/iletisim`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE_URL}/gizlilik-politikasi`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
@@ -73,6 +72,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const lessonSlug = lessonSlugById.get(u.lesson_id);
       if (gradeSlug && lessonSlug && u.slug) {
         unitPathById.set(u.id, { gradeSlug, lessonSlug, unitSlug: u.slug });
+        entries.push({
+          url: `${SITE_URL}/${gradeSlug}/${lessonSlug}/${u.slug}/unite-testi`,
+          lastModified: now,
+          changeFrequency: 'weekly',
+          priority: 0.65,
+        });
       }
     }
 
