@@ -1903,3 +1903,131 @@ export function TopicHighlightsModal({
     </ModalShell>
   );
 }
+
+// Tek bir anahtar kavramı, AI'a gitmeden, elle hızlıca eklemek için. Ders sayfasındaki
+// "Anahtar Kavramlar" başlığının yanındaki + butonundan açılır; mevcut kavramların üzerine
+// yenisini ekler (listeyi sıfırlamaz).
+export function TopicHighlightQuickAddModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [existing, setExisting] = useState<{ icon: string | null; title: string; description: string }[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [icon, setIcon] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setLoadError(data?.error || 'Konu bilgisi yüklenemedi.');
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+      setExisting(((data?.highlights || []) as { icon: string | null; title: string; description: string }[]));
+    } finally {
+      setLoading(false);
+    }
+  }, [topicId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleAdd() {
+    if (!topicContentId) return;
+    setError(null);
+    if (!title.trim() || !description.trim()) {
+      setError('Başlık ve açıklama zorunlu.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const merged = [
+        ...existing.map((h) => ({ icon: h.icon || '', title: h.title, description: h.description })),
+        { icon: icon.trim(), title: title.trim(), description: description.trim() },
+      ].map((h, idx) => ({ ...h, order_no: idx }));
+
+      const res = await fetch('/api/admin/topic-sections/highlights', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId, highlights: merged }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Yeni Anahtar Kavram Ekle" onClose={onClose}>
+      {loading ? (
+        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+      ) : loadError ? (
+        <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>
+      ) : !topicContentId ? (
+        <p className="text-sm text-[#8b90a7]">
+          Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="🧠"
+              maxLength={4}
+              className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-2 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            />
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Kavram / terim"
+              className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Açıklama / tanım"
+            rows={3}
+            className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+          />
+          {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              İptal
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={saving || !title.trim() || !description.trim()}
+              className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Ekleniyor...' : 'Ekle'}
+            </button>
+          </div>
+        </div>
+      )}
+    </ModalShell>
+  );
+}

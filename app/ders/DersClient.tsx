@@ -26,6 +26,7 @@ import {
   Calendar,
   Pencil,
   ImagePlus,
+  Plus,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import {
@@ -37,6 +38,7 @@ import {
   SectionContentEditModal,
   TopicCoverImageModal,
   TopicHighlightsModal,
+  TopicHighlightQuickAddModal,
   copyText,
   type SectionModalSection,
   type EditableSection,
@@ -277,6 +279,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
+  const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
@@ -1430,14 +1433,40 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         />
                       </div>
                     )}
-                    {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
+                    {activeTopic && (isAdmin || (activeTopic.highlights && activeTopic.highlights.length > 0)) && (
                       <div className="not-prose mb-8">
-                        <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
-                          <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest">
+                            <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
+                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setHighlightQuickAddTopicId(Number(activeTopic.id))}
+                                title="Yeni anahtar kavram ekle"
+                                className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTopicHighlightsModalTopicId(Number(activeTopic.id))}
+                                title="Anahtar kavramları güncelle"
+                                className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {activeTopic.highlights.map((h, idx) => <HighlightCard key={idx} highlight={h} />)}
-                        </div>
+                        {activeTopic.highlights && activeTopic.highlights.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {activeTopic.highlights.map((h, idx) => <HighlightCard key={idx} highlight={h} />)}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">Henüz anahtar kavram eklenmemiş.</p>
+                        )}
                       </div>
                     )}
                     {activeTopic ? (
@@ -1812,6 +1841,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <TopicHighlightsModal
           topicId={topicHighlightsModalTopicId}
           onClose={() => setTopicHighlightsModalTopicId(null)}
+          onSaved={refreshWeekData}
+        />
+      )}
+
+      {highlightQuickAddTopicId != null && (
+        <TopicHighlightQuickAddModal
+          topicId={highlightQuickAddTopicId}
+          onClose={() => setHighlightQuickAddTopicId(null)}
           onSaved={refreshWeekData}
         />
       )}

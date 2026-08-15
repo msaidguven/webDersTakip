@@ -102,20 +102,37 @@ export async function POST(request: NextRequest) {
     await supabase.from('topic_content_sections').delete().eq('topic_content_id', topicContentId);
   }
 
+  // cover artık sadece subtitle taşıyor (kapak görseli ve anahtar kavramlar ayrı, kendi
+  // promptlarıyla üretiliyor); o yüzden sadece gerçekten gönderilen alanları güncelliyoruz —
+  // aksi halde subtitle-only bir plan kaydı, önceden ayrı ayrı kaydedilmiş kapak görselini/
+  // anahtar kavramları sessizce silerdi.
   if (cover) {
-    const subtitle = typeof cover.subtitle === 'string' ? cover.subtitle.trim() || null : null;
-    const heroImagePrompt = typeof cover.image_prompt === 'string' ? cover.image_prompt.trim() || null : null;
+    const update: Record<string, unknown> = {};
 
-    await supabase
-      .from('topic_contents')
-      .update({
-        subtitle,
-        generation_meta: heroImagePrompt ? { heroImagePrompt } : null,
-      })
-      .eq('id', topicContentId);
+    if (typeof cover.subtitle === 'string') {
+      update.subtitle = cover.subtitle.trim() || null;
+    }
 
-    const cleanCoverHighlights = cleanHighlights(topicContentId, cover.highlights);
-    await replaceHighlights(supabase, topicContentId, cleanCoverHighlights);
+    if (typeof cover.image_prompt === 'string' && cover.image_prompt.trim()) {
+      const { data: current } = await supabase
+        .from('topic_contents')
+        .select('generation_meta')
+        .eq('id', topicContentId)
+        .maybeSingle();
+      const currentMeta = current?.generation_meta && typeof current.generation_meta === 'object'
+        ? (current.generation_meta as Record<string, unknown>)
+        : {};
+      update.generation_meta = { ...currentMeta, heroImagePrompt: cover.image_prompt.trim() };
+    }
+
+    if (Object.keys(update).length) {
+      await supabase.from('topic_contents').update(update).eq('id', topicContentId);
+    }
+
+    if (Array.isArray(cover.highlights) && cover.highlights.length) {
+      const cleanCoverHighlights = cleanHighlights(topicContentId, cover.highlights);
+      await replaceHighlights(supabase, topicContentId, cleanCoverHighlights);
+    }
   }
 
   const { data: insertedSections, error: insertError } = await supabase

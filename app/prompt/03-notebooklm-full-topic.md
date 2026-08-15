@@ -23,10 +23,6 @@ SADECE bu JSON'u döndür, başka metin ekleme:
     }
   ],
   "cover": {
-    "subtitle": string,             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
-    "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu; yazı varsa Türkçe olsun
-    "highlights": [
-      { "icon": "tek emoji", "title": "kavram/terim, max 3 kelime", "description": "1 kısa cümle, somut ve doğrulanabilir bir tanım" }
-    ]  // konunun en önemli 4-8 anahtar kavramı
+    "subtitle": string             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
   }
 }
