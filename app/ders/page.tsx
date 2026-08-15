@@ -27,7 +27,7 @@ type OutcomeRow = {
 
 type OutcomeVM = { id: number; description: string; topicTitle: string };
 type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
-type HighlightVM = { position: string; icon: string | null; title: string; description: string };
+type HighlightVM = { icon: string | null; title: string; description: string };
 type ContentVM = {
   id: number;
   title: string;
@@ -51,7 +51,6 @@ type SectionRow = {
 };
 type HighlightRow = {
   topic_content_id: number;
-  position: string;
   icon: string | null;
   title: string;
   description: string;
@@ -343,7 +342,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
           .order('order_no', { ascending: true }),
         supabase
           .from('topic_content_highlights')
-          .select('topic_content_id, position, icon, title, description, order_no')
+          .select('topic_content_id, icon, title, description, order_no')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
       ]);
@@ -368,7 +367,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
         const topicId = topicIdByContentId.get(row.topic_content_id);
         if (!topicId) continue;
         const list = highlightsByTopic.get(topicId) || [];
-        list.push({ position: row.position, icon: row.icon, title: row.title, description: row.description });
+        list.push({ icon: row.icon, title: row.title, description: row.description });
         highlightsByTopic.set(topicId, list);
       }
 

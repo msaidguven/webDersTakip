@@ -26,7 +26,7 @@ SADECE bu JSON'u döndür, başka metin ekleme:
     "subtitle": string,             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
     "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu; yazı varsa Türkçe olsun
     "highlights": [
-      { "position": "top-left|mid-left|bottom-left|top-right|mid-right|bottom-right", "icon": "tek emoji", "title": "max 3 kelime", "description": "max 8 kelime, somut (sayı/isim)" }
-    ]  // 6 tane, her position en fazla 1 kez
+      { "icon": "tek emoji", "title": "kavram/terim, max 3 kelime", "description": "1 kısa cümle, somut ve doğrulanabilir bir tanım" }
+    ]  // konunun en önemli 4-8 anahtar kavramı
   }
 }

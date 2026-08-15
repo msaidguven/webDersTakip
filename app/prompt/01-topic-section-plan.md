@@ -24,10 +24,9 @@ Kazanımlar:
     "image_prompt": string,           // İngilizce, konuyu somut/betimleyici şekilde anlatan, çocuk dostu illüstrasyon üretim promptu. Görselde herhangi bir yazı/etiket/tabela olacaksa bu metinler MUTLAKA Türkçe olmalı (promptun kendisi İngilizce kalsın, sadece görsel içindeki yazılar Türkçe olsun)
     "highlights": [
       {
-        "position": string,          // "top-left" | "mid-left" | "bottom-left" | "top-right" | "mid-right" | "bottom-right"
         "icon": string,              // tek bir emoji
-        "title": string,             // max 3 kelime
-        "description": string        // max 8 kelime, kısa açıklama
+        "title": string,             // kavramın/terimin adı, max 3 kelime
+        "description": string        // 1 kısa cümle, bu kavramı açıklayan somut bir tanım
       }
     ]
   }
@@ -48,9 +47,8 @@ Kısıtlar (alt başlıklar için):
 Kazanımlar arasında "araştırır", "değerlendirir", "sorgular", "çıkarım yapar" gibi süreç/beceri odaklı olanlar (konunun kendi içeriği değil, o içerikle ne yapılacağını anlatan kazanımlar) olabilir. Bunlar için AYRI bir alt başlık AÇMA (ör. "Araştırma Soruları", "Bilgi Değerlendirme" gibi başlıklar yasak). Bunun yerine bu kazanımın kodunu, içerik olarak en yakın olan alt başlığın matched_outcome_codes listesine ekle. Yine de her kazanım kodu en az bir alt başlıkta geçmeli, hiçbiri boşta kalmasın.
 
 Kısıtlar (cover için):
-- highlights: 4-6 arası öğe üret, konuya göre sen karar ver daha az veya daha çok olabilir, konunun en önemli/akılda kalıcı noktalarını seç
-- Her pozisyon (top-left, mid-left, vb.) en fazla bir kez kullanılabilir, hepsini doldurmak zorunda değilsin
-- title ve description çok kısa, sınav notu gibi öz olsun (hikaye anlatma, retorik soru sorma)
+- highlights: konunun en önemli 4-8 anahtar kavramını/terimini üret, konuya göre sen karar ver (sabit bir sayı yok)
+- title kavramın kendisi (terim/isim) olsun; description bu kavramı öğrenciye açıklayan, doygun ve doğrulanabilir bir tanım cümlesi olsun (sınav notu kalitesinde, hikaye anlatma, retorik soru sorma)
 - description'lar SOMUT olsun: bir sayı, isim veya net bir ayrım taşısın (ör. "Dünya'dan 100 kat büyük", "Yaklaşık 25-35 gün"). "Önemlidir", "ilginç bir olgudur" gibi hiçbir bilgi taşımayan genel description YASAK
 - image_prompt somut bir sahne/nesne tarif etsin (soyut kavram değil), {grade}. sınıf öğrencisine uygun, eğitici ve sade bir illüstrasyon stili iste
 - image_prompt içinde görsele metin/etiket eklenmesi isteniyorsa (ör. parça adları, tabela), bu metinlerin Türkçe olması gerektiğini açıkça belirt (örn. "with Turkish text labels reading '...'")

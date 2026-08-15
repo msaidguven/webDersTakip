@@ -18,9 +18,6 @@ export async function PUT(request: NextRequest) {
   }
 
   const clean = cleanHighlights(topicContentId, body?.highlights);
-  if (clean === null) {
-    return NextResponse.json({ error: 'Her pozisyon en fazla bir kez kullanılabilir' }, { status: 400 });
-  }
 
   const supabase = createServiceClient();
   const error = await replaceHighlights(supabase, topicContentId, clean);

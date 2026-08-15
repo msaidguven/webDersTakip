@@ -445,7 +445,6 @@ CREATE TABLE public.topic_content_highlights (
   icon text,
   title text NOT NULL,
   description text NOT NULL,
-  position text NOT NULL CHECK ("position" = ANY (ARRAY['top-left'::text, 'mid-left'::text, 'bottom-left'::text, 'top-right'::text, 'mid-right'::text, 'bottom-right'::text])),
   order_no integer NOT NULL DEFAULT 0,
   CONSTRAINT topic_content_highlights_pkey PRIMARY KEY (id),
   CONSTRAINT fk_tch_topic_content FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id)

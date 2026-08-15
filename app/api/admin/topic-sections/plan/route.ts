@@ -115,9 +115,7 @@ export async function POST(request: NextRequest) {
       .eq('id', topicContentId);
 
     const cleanCoverHighlights = cleanHighlights(topicContentId, cover.highlights);
-    if (cleanCoverHighlights !== null) {
-      await replaceHighlights(supabase, topicContentId, cleanCoverHighlights);
-    }
+    await replaceHighlights(supabase, topicContentId, cleanCoverHighlights);
   }
 
   const { data: insertedSections, error: insertError } = await supabase

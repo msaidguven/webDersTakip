@@ -20,7 +20,6 @@ type TopicContentRow = {
 };
 type HighlightRow = {
   id: number;
-  position: string;
   icon: string | null;
   title: string;
   description: string;
@@ -131,7 +130,7 @@ export async function GET(request: NextRequest) {
   if (topicContentRow) {
     const { data: highlightsData } = await supabase
       .from('topic_content_highlights')
-      .select('id, position, icon, title, description, order_no')
+      .select('id, icon, title, description, order_no')
       .eq('topic_content_id', topicContentRow.id)
       .order('order_no', { ascending: true });
     highlights = (highlightsData as HighlightRow[] | null) || [];

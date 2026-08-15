@@ -39,7 +39,7 @@ type Section = {
   status: 'planned' | 'content_ready' | 'image_ready' | 'published';
   outcomes: SectionOutcome[];
 };
-type Highlight = { id: number; position: string; icon: string | null; title: string; description: string; order_no: number };
+type Highlight = { id: number; icon: string | null; title: string; description: string; order_no: number };
 
 type Bundle = {
   topic: { id: number; title: string };
@@ -53,15 +53,6 @@ type Bundle = {
   highlights: Highlight[];
   sections: Section[];
 };
-
-const HIGHLIGHT_POSITIONS: { key: string; label: string }[] = [
-  { key: 'top-left', label: 'Sol Üst' },
-  { key: 'mid-left', label: 'Sol Orta' },
-  { key: 'bottom-left', label: 'Sol Alt' },
-  { key: 'top-right', label: 'Sağ Üst' },
-  { key: 'mid-right', label: 'Sağ Orta' },
-  { key: 'bottom-right', label: 'Sağ Alt' },
-];
 
 const STATUS_LABELS: Record<Section['status'], string> = {
   planned: 'Planlandı',
@@ -450,15 +441,6 @@ export function SectionContentEditModal({
   );
 }
 
-function buildSlotsFromHighlights(highlights: Highlight[]) {
-  const map: Record<string, { icon: string; title: string; description: string }> = {};
-  for (const p of HIGHLIGHT_POSITIONS) {
-    const existing = highlights.find((h) => h.position === p.key);
-    map[p.key] = { icon: existing?.icon || '', title: existing?.title || '', description: existing?.description || '' };
-  }
-  return map;
-}
-
 function HeroHighlightsPanel({
   topicContent,
   highlights,
@@ -479,8 +461,10 @@ function HeroHighlightsPanel({
   const [heroBusy, setHeroBusy] = useState(false);
   const [heroError, setHeroError] = useState<string | null>(null);
 
-  const [slots, setSlots] = useState<Record<string, { icon: string; title: string; description: string }>>(() =>
-    buildSlotsFromHighlights(highlights)
+  const [concepts, setConcepts] = useState<{ icon: string; title: string; description: string }[]>(() =>
+    highlights.length
+      ? highlights.map((h) => ({ icon: h.icon || '', title: h.title, description: h.description }))
+      : [{ icon: '', title: '', description: '' }]
   );
   const [highlightsSaving, setHighlightsSaving] = useState(false);
   const [highlightsError, setHighlightsError] = useState<string | null>(null);
@@ -541,17 +525,25 @@ function HeroHighlightsPanel({
     }
   }
 
-  function updateSlot(position: string, field: 'icon' | 'title' | 'description', value: string) {
-    setSlots((prev) => ({ ...prev, [position]: { ...prev[position], [field]: value } }));
+  function updateConcept(idx: number, field: 'icon' | 'title' | 'description', value: string) {
+    setConcepts((prev) => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
+  }
+
+  function addConcept() {
+    setConcepts((prev) => [...prev, { icon: '', title: '', description: '' }]);
+  }
+
+  function removeConcept(idx: number) {
+    setConcepts((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleHighlightsSave() {
     setHighlightsSaving(true);
     setHighlightsError(null);
     try {
-      const payload = HIGHLIGHT_POSITIONS
-        .map((p, idx) => ({ position: p.key, ...slots[p.key], order_no: idx }))
-        .filter((h) => h.title.trim() && h.description.trim());
+      const payload = concepts
+        .map((c, idx) => ({ ...c, order_no: idx }))
+        .filter((c) => c.title.trim() && c.description.trim());
 
       const res = await fetch('/api/admin/topic-sections/highlights', {
         method: 'PUT',
@@ -573,7 +565,7 @@ function HeroHighlightsPanel({
 
   return (
     <div className="mb-5 rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
-      <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7] block mb-3">Kapak Görseli &amp; Vurgular</span>
+      <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7] block mb-3">Kapak Görseli &amp; Anahtar Kavramlar</span>
 
       <div className="mb-4">
         <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Alt Başlık (konu başlığının hemen altında görünür)</span>
@@ -635,44 +627,58 @@ function HeroHighlightsPanel({
 
       <div>
         <span className="text-xs font-bold text-[#8b90a7] block mb-2">
-          Vurgu Kartları (görselin etrafında, opsiyonel — boş bırakılan pozisyon gösterilmez)
+          Anahtar Kavramlar (opsiyonel — konunun en önemli terimleri ve tanımları)
         </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {HIGHLIGHT_POSITIONS.map((p) => (
-            <div key={p.key} className="rounded-lg border border-[#2e3348] bg-[#12151f] p-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#6c63ff] block mb-2">{p.label}</span>
+        <div className="space-y-3">
+          {concepts.map((c, idx) => (
+            <div key={idx} className="rounded-lg border border-[#2e3348] bg-[#12151f] p-3">
               <div className="flex gap-2 mb-2">
                 <input
-                  value={slots[p.key].icon}
-                  onChange={(e) => updateSlot(p.key, 'icon', e.target.value)}
+                  value={c.icon}
+                  onChange={(e) => updateConcept(idx, 'icon', e.target.value)}
                   placeholder="🧠"
                   maxLength={4}
                   className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-1.5 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
                 />
                 <input
-                  value={slots[p.key].title}
-                  onChange={(e) => updateSlot(p.key, 'title', e.target.value)}
-                  placeholder="Başlık"
+                  value={c.title}
+                  onChange={(e) => updateConcept(idx, 'title', e.target.value)}
+                  placeholder="Kavram / terim"
                   className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => removeConcept(idx)}
+                  className="shrink-0 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-2 text-[#ff6584] hover:bg-[#ff6584]/20 transition-colors"
+                  aria-label="Kavramı sil"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
               <textarea
-                value={slots[p.key].description}
-                onChange={(e) => updateSlot(p.key, 'description', e.target.value)}
-                placeholder="Kısa açıklama"
+                value={c.description}
+                onChange={(e) => updateConcept(idx, 'description', e.target.value)}
+                placeholder="Açıklama / tanım"
                 rows={2}
                 className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={addConcept}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#2e3348] px-3 py-1.5 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] hover:border-[#6c63ff]/40 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> Kavram Ekle
+        </button>
         {highlightsError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{highlightsError}</p>}
         <button
           onClick={handleHighlightsSave}
           disabled={highlightsSaving}
-          className="mt-3 rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          className="mt-3 block rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
         >
-          {highlightsSaving ? 'Kaydediliyor...' : highlightsSaved ? 'Kaydedildi' : 'Vurgu Kartlarını Kaydet'}
+          {highlightsSaving ? 'Kaydediliyor...' : highlightsSaved ? 'Kaydedildi' : 'Anahtar Kavramları Kaydet'}
         </button>
       </div>
     </div>
@@ -848,7 +854,7 @@ export function PlanModal({
 
             <div>
               <span className="text-xs font-bold text-[#8b90a7] block mb-2">
-                AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak görseli + vurgu kartları tek seferde kaydedilir)
+                AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
               </span>
               <textarea
                 value={pasted}
@@ -870,7 +876,7 @@ export function PlanModal({
               onClick={onManageMore}
               className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
             >
-              Kazanım / kapak görseli / vurgu kartları yönetimi
+              Kazanım / kapak görseli / anahtar kavramlar yönetimi
             </button>
           ) : <span />}
           <div className="flex justify-end gap-2">
@@ -1013,7 +1019,7 @@ export function NotebookPlanModal({
 
             <div>
               <span className="text-xs font-bold text-[#8b90a7] block mb-2">
-                NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik + kapak görseli + vurgu kartları tek seferde kaydedilir)
+                NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
               </span>
               <textarea
                 value={pasted}
@@ -1035,7 +1041,7 @@ export function NotebookPlanModal({
               onClick={onManageMore}
               className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
             >
-              Kazanım / kapak görseli / vurgu kartları yönetimi
+              Kazanım / kapak görseli / anahtar kavramlar yönetimi
             </button>
           ) : <span />}
           <div className="flex justify-end gap-2">

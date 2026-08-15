@@ -28,7 +28,6 @@ type SectionRow = {
 };
 type HighlightRow = {
   topic_content_id: number;
-  position: string;
   icon: string | null;
   title: string;
   description: string;
@@ -46,7 +45,7 @@ export type LessonWeekContent = {
   sections: LessonWeekSection[];
   heroImageUrl: string | null;
   subtitle: string | null;
-  highlights: { position: string; icon: string | null; title: string; description: string }[];
+  highlights: { icon: string | null; title: string; description: string }[];
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,7 +154,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     }
 
     const sectionsByTopic = new Map<number, LessonWeekSection[]>();
-    const highlightsByTopic = new Map<number, { position: string; icon: string | null; title: string; description: string }[]>();
+    const highlightsByTopic = new Map<number, { icon: string | null; title: string; description: string }[]>();
 
     if (contentIds.length) {
       const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
@@ -166,7 +165,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .order('order_no', { ascending: true }),
         supabase
           .from('topic_content_highlights')
-          .select('topic_content_id, position, icon, title, description, order_no')
+          .select('topic_content_id, icon, title, description, order_no')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
       ]);
@@ -189,7 +188,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
         const topicId = topicIdByContentId.get(row.topic_content_id);
         if (!topicId) continue;
         const list = highlightsByTopic.get(topicId) || [];
-        list.push({ position: row.position, icon: row.icon, title: row.title, description: row.description });
+        list.push({ icon: row.icon, title: row.title, description: row.description });
         highlightsByTopic.set(topicId, list);
       }
     }

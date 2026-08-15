@@ -51,7 +51,7 @@ type WeekedOutcome = Outcome & {
   previewCode: string;
 };
 type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
-type TopicHighlight = { position: string; icon: string | null; title: string; description: string };
+type TopicHighlight = { icon: string | null; title: string; description: string };
 type Content = {
   id: string | number;
   title: string;
@@ -1000,7 +1000,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
-                        <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Vurgular
+                        <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Anahtar Kavramlar
                       </button>
                     </div>
                   </>
@@ -1409,10 +1409,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic?.highlights && activeTopic.highlights.length > 0 && (
                       <div className="not-prose mb-8">
                         <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest mb-3">
-                          <Sparkles className="h-4 w-4" /> Bunları Biliyor musun?
+                          <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {activeTopic.highlights.map((h) => <HighlightCard key={h.position} highlight={h} />)}
+                          {activeTopic.highlights.map((h, idx) => <HighlightCard key={idx} highlight={h} />)}
                         </div>
                       </div>
                     )}
