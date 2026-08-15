@@ -522,6 +522,8 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         <UnitToolsBar
           lessonId={Number(lessonId)}
           gradeId={Number(gradeId)}
+          gradeLabel={grades.find((g) => String(g.id) === gradeId)?.label || ''}
+          lessonLabel={lessons.find((l) => String(l.id) === lessonId)?.label || ''}
           showNotice={showNotice}
           onImported={loadList}
         />
@@ -680,11 +682,15 @@ function StaticFilterSelect({ label, value, onChange, options }: { label: string
 function UnitToolsBar({
   lessonId,
   gradeId,
+  gradeLabel,
+  lessonLabel,
   showNotice,
   onImported,
 }: {
   lessonId: number;
   gradeId: number;
+  gradeLabel: string;
+  lessonLabel: string;
   showNotice: (kind: 'success' | 'error', text: string) => void;
   onImported: () => void;
 }) {
@@ -775,6 +781,8 @@ function UnitToolsBar({
         <UnitImportModal
           lessonId={lessonId}
           gradeId={gradeId}
+          gradeLabel={gradeLabel}
+          lessonLabel={lessonLabel}
           onClose={() => setShowImportModal(false)}
           onImported={() => {
             setShowImportModal(false);
@@ -794,18 +802,47 @@ type ImportUnitInput = { title: string; curriculum_code?: string | null; duratio
 function UnitImportModal({
   lessonId,
   gradeId,
+  gradeLabel,
+  lessonLabel,
   onClose,
   onImported,
   showNotice,
 }: {
   lessonId: number;
   gradeId: number;
+  gradeLabel: string;
+  lessonLabel: string;
   onClose: () => void;
   onImported: () => void;
   showNotice: (kind: 'success' | 'error', text: string) => void;
 }) {
+  const [urlInput, setUrlInput] = useState('');
+  const [copyingPrompt, setCopyingPrompt] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [saving, setSaving] = useState(false);
+
+  async function handleCopyPrompt() {
+    if (!urlInput.trim()) {
+      showNotice('error', 'Önce MEB ünite linkini girin');
+      return;
+    }
+    setCopyingPrompt(true);
+    try {
+      const params = new URLSearchParams({ url: urlInput.trim(), gradeLabel, lessonLabel });
+      const res = await fetch(`/api/admin/manage/units/import-prompt?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice('error', data.error || 'Prompt oluşturulamadı');
+        return;
+      }
+      await navigator.clipboard.writeText(data.prompt);
+      showNotice('success', 'Prompt panoya kopyalandı — AI sohbetinize yapıştırıp JSON çıktısını alın');
+    } catch {
+      showNotice('error', 'Prompt kopyalanamadı');
+    } finally {
+      setCopyingPrompt(false);
+    }
+  }
 
   let parsed: ImportUnitInput | null = null;
   let parseError = '';
@@ -853,9 +890,27 @@ function UnitImportModal({
     <ModalShell title="Ünite JSON'dan İçe Aktar" onClose={onClose} wide>
       <div className="space-y-3 sm:space-y-4">
         <div>
-          <label className="block text-gray-400 text-xs sm:text-sm mb-1">
-            AI&apos;dan alınan JSON (bkz. <code>app/prompt/00-unit-import.md</code>)
-          </label>
+          <label className="block text-gray-400 text-xs sm:text-sm mb-1">1. Adım — MEB Ünite Linki</label>
+          <div className="flex gap-1">
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://tymm.meb.gov.tr/.../unite/73"
+              className="flex-1 bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+            />
+            <button
+              onClick={handleCopyPrompt}
+              disabled={copyingPrompt}
+              className="px-3 sm:px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg sm:rounded-xl text-sm whitespace-nowrap disabled:opacity-50"
+            >
+              {copyingPrompt ? 'Kopyalanıyor...' : 'Promptu Kopyala'}
+            </button>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">Kopyalanan promptu AI sohbetinize yapıştırıp gelen JSON çıktısını aşağıya yapıştırın.</p>
+        </div>
+        <div>
+          <label className="block text-gray-400 text-xs sm:text-sm mb-1">2. Adım — AI&apos;dan Gelen JSON</label>
           <textarea
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
