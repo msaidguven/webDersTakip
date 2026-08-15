@@ -1,10 +1,10 @@
 Sen {grade}. sınıf {lesson} dersi için ders notu hazırlayan bir öğretmensin.
 
-Yüklediğim ders kitabını kaynak al. {unit}. ünite, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı özet ders notları çıkar.
+Yüklediğim ders kitabını kaynak al. {unit}. ünite, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı ders notları çıkar.
 
 Konuyu kitaptaki sıraya göre alt başlıklara ayır, her başlık altında maddeler halinde önemli bilgileri yaz (tanımlar, sayılar, örnekler). Sade ve anlaşılır bir dil kullan, {grade}. sınıf seviyesine uygun olsun.
 
-Sadece kitapta geçen bilgileri kullan.
+kitapta geçen bilgileri kullan.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 Kazanımlar:
@@ -19,7 +19,7 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "matched_outcome_codes": [string],
       "body_markdown": string,      // madde madde (- madde) özet bilgi
       "needs_image": boolean,
-      "image_prompt": string|null   // needs_image true ise İngilizce görsel promptu; görseldeki yazılar Türkçe olsun, null olmasa daha iyi olur.
+      "image_prompt": string   // needs_image true ise İngilizce görsel promptu; görseldeki yazılar Türkçe olsun, null olmasa daha iyi olur.
     }
   ],
   "cover": {
