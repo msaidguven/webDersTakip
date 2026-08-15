@@ -1,6 +1,6 @@
 Sen {grade}. sınıf {lesson} dersi için ders notu hazırlayan bir öğretmensin.
 
-Yüklediğim ders kitabını kaynak al. {unit}. ünite, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı ders notları çıkar.
+Yüklediğim ders kitabını kaynak al. "{unit}" ünitesi, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı ders notları çıkar.
 
 Konuyu kitaptaki sıraya göre alt başlıklara ayır, her başlık altında maddeler halinde önemli bilgileri yaz (tanımlar, sayılar, örnekler). Sade ve anlaşılır bir dil kullan, {grade}. sınıf seviyesine uygun olsun.
 
