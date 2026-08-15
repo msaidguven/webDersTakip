@@ -2,6 +2,7 @@ import type { Viewport } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { metadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";

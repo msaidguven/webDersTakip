@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 
 const DOT_COLORS = ['bg-indigo-400', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-sky-400'];
 
@@ -130,17 +131,24 @@ export default function SectionContent({
   imageUrl,
   caption,
   imageAlt,
+  diagramSvg,
 }: {
   html: string;
   imageUrl?: string | null;
   caption?: string | null;
   imageAlt?: string | null;
+  diagramSvg?: string | null;
 }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
+  const [cleanSvg, setCleanSvg] = useState<string | null>(null);
 
   useEffect(() => {
     setBlocks(html ? buildBlocks(html) : []);
   }, [html]);
+
+  useEffect(() => {
+    setCleanSvg(diagramSvg ? sanitizeMathSvg(diagramSvg) : null);
+  }, [diagramSvg]);
 
   return (
     <div className="not-prose space-y-4">
@@ -149,6 +157,14 @@ export default function SectionContent({
           src={imageUrl}
           alt={imageAlt || caption || 'Konu anlatım görseli'}
           className="w-full max-h-[420px] object-contain rounded-2xl border border-slate-100 bg-slate-50 shadow-sm"
+        />
+      )}
+      {cleanSvg && (
+        <div
+          role="img"
+          aria-label={caption || 'Konu anlatım diyagramı'}
+          className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md"
+          dangerouslySetInnerHTML={{ __html: cleanSvg }}
         />
       )}
       <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-[#fffdf6] shadow-sm">

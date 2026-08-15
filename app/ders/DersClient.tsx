@@ -26,6 +26,7 @@ import {
   Calendar,
   Pencil,
   ImagePlus,
+  Shapes,
   Plus,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
@@ -35,6 +36,7 @@ import {
   SectionModal,
   QuestionsModal,
   ImageModal,
+  DiagramModal,
   SectionContentEditModal,
   TopicCoverImageModal,
   TopicHighlightsModal,
@@ -56,7 +58,7 @@ type WeekedOutcome = Outcome & {
   code: string | null;
   previewCode: string;
 };
-type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt?: string | null };
+type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt?: string | null; diagramSvg?: string | null };
 type TopicHighlight = { icon: string | null; title: string; description: string };
 type Content = {
   id: string | number;
@@ -286,8 +288,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [curriculumPromptCopied, setCurriculumPromptCopied] = useState(false);
-  const [curriculumPromptLoading, setCurriculumPromptLoading] = useState(false);
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
@@ -306,6 +306,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
+  const [diagramModalTarget, setDiagramModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
   const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -588,29 +589,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const openKazanimlarModal = () => {
     setKazanimlarWeek(week);
     setKazanimlarOpen(true);
-  };
-
-  // Bu sınıf+dersin müfredatını Claude Code'a hazırlatmak için hazır talimatı
-  // (app/prompt/00-curriculum-kickoff.md şablonundan, sınıf/ders dolduruşmuş
-  // hâliyle) panoya kopyalar.
-  const handleCopyCurriculumPrompt = async () => {
-    setCurriculumPromptLoading(true);
-    try {
-      const params = new URLSearchParams({ grade: gradeName, lesson: lessonName });
-      const res = await fetch(`/api/admin/curriculum-prompt?${params.toString()}`);
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.prompt) {
-        window.alert(data?.error || 'Prompt alınamadı.');
-        return;
-      }
-      await copyText(data.prompt as string);
-      setCurriculumPromptCopied(true);
-      setTimeout(() => setCurriculumPromptCopied(false), 1800);
-    } catch {
-      window.alert('Kopyalama başarısız oldu. Metni elle seçip kopyalayın.');
-    } finally {
-      setCurriculumPromptLoading(false);
-    }
   };
 
   const goToKazanimlarWeek = (targetWeek: number) => {
@@ -1129,6 +1107,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             onClick={(e) => {
                               e.stopPropagation();
                               setSectionMenuOpenId(null);
+                              setDiagramModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt, diagram_svg: section.diagramSvg },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Shapes className="h-3.5 w-3.5" /> Diyagram Ekle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
                               setQuestionsModalTarget({
                                 topicId: Number(topic.id),
                                 section: { id: Number(section.id), heading: section.heading },
@@ -1174,21 +1166,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={handleCopyCurriculumPrompt}
-              disabled={curriculumPromptLoading}
-              title="Bu sınıf/ders için müfredat hazırlama talimatını kopyala"
-              className="flex h-9 items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 sm:px-4 text-xs font-black text-indigo-600 shadow-sm hover:bg-indigo-100 disabled:opacity-50 transition-colors"
-            >
-              {curriculumPromptCopied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">
-                {curriculumPromptCopied ? 'Kopyalandı' : curriculumPromptLoading ? 'Hazırlanıyor...' : "Müfredat Prompt'u"}
-              </span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={openKazanimlarModal}
@@ -1559,6 +1536,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                 type="button"
                                                 onClick={() => {
                                                   setContentSectionMenuOpenId(null);
+                                                  setDiagramModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt, diagram_svg: section.diagramSvg },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <Shapes className="h-3.5 w-3.5" /> Diyagram Ekle
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
                                                   setQuestionsModalTarget({
                                                     topicId: Number(activeTopic.id),
                                                     section: { id: Number(section.id), heading: section.heading },
@@ -1574,13 +1564,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                       </div>
                                     )}
                                   </div>
-                                  {section.html || section.imageUrl ? (
+                                  {section.html || section.imageUrl || section.diagramSvg ? (
                                     <>
                                       <SectionContent
                                         html={section.html || ''}
                                         imageUrl={section.imageUrl}
                                         caption={section.heading}
                                         imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
+                                        diagramSvg={section.diagramSvg}
                                       />
                                       <SectionQuizLink sectionId={section.id} />
                                     </>
@@ -1836,6 +1827,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onClose={() => setImageModalTarget(null)}
           onSaved={refreshWeekData}
           onImageChanged={refreshWeekData}
+        />
+      )}
+
+      {diagramModalTarget && (
+        <DiagramModal
+          topicId={diagramModalTarget.topicId}
+          section={diagramModalTarget.section}
+          onClose={() => setDiagramModalTarget(null)}
+          onSaved={refreshWeekData}
         />
       )}
 

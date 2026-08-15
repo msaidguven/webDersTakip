@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
+import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import SectionContent from '@/app/ders/SectionContent';
 
 type Outcome = {
@@ -334,6 +335,7 @@ export type EditableSection = {
   body_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  diagram_svg?: string | null;
 };
 
 // Küçük düzeltme/ekleme için alt başlık metnini doğrudan (AI prompt turu olmadan)
@@ -413,7 +415,7 @@ export function SectionContentEditModal({
             <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#8b90a7] block mb-1.5">Önizleme</span>
             <div className="rounded-xl border border-[#2e3348] bg-[#f9fafb] p-4 max-h-[420px] overflow-y-auto">
               {previewHtml ? (
-                <SectionContent html={previewHtml} imageUrl={section.image_url} caption={section.heading} />
+                <SectionContent html={previewHtml} imageUrl={section.image_url} caption={section.heading} diagramSvg={section.diagram_svg} />
               ) : (
                 <p className="text-sm text-slate-400 italic">İçerik boş.</p>
               )}
@@ -1070,6 +1072,7 @@ export type SectionModalSection = {
   image_url: string | null;
   image_prompt: string | null;
   image_alt?: string | null;
+  diagram_svg?: string | null;
 };
 
 const MIXED_QUESTIONS_PLACEHOLDER =
@@ -1513,6 +1516,169 @@ export function ImageModal({
 
           {imageError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{imageError}</p>}
         </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            Kapat
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Harici bir görsel üretim aracına ihtiyaç duymadan, AI'ın doğrudan yazdığı SVG diyagram
+// kodunu (sayı doğrusu, kesir modeli, ölçü etiketli geometrik şekil vb.) kaydetmek için.
+// Görsel akışının aksine dosya yükleme yok — AI çıktısı doğrudan metin olarak yapıştırılır.
+// Render tarafında ham SVG DOMPurify ile temizlenir (bkz. sanitizeSvg.ts, SectionContent.tsx).
+export function DiagramModal({
+  topicId,
+  section,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  section: SectionModalSection;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [metaPrompt, setMetaPrompt] = useState('');
+  const [loadingMetaPrompt, setLoadingMetaPrompt] = useState(true);
+  const [metaPromptError, setMetaPromptError] = useState<string | null>(null);
+
+  const [rawPrompt, setRawPrompt] = useState('');
+  const [savedSvg, setSavedSvg] = useState<string | null>(section.diagram_svg ?? null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMetaPrompt(true);
+    setMetaPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=diagram`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setMetaPrompt(data?.prompt || '');
+        } else {
+          setMetaPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingMetaPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, section.id]);
+
+  async function handleSave() {
+    setError(null);
+    if (!rawPrompt.trim()) {
+      setError('Önce AI\'dan gelen JSON çıktısını yapıştırın.');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawPrompt);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+    const obj = parsed as { diagram_svg?: unknown };
+    const svg = typeof obj.diagram_svg === 'string' ? obj.diagram_svg.trim() : '';
+    if (!svg.startsWith('<svg') || !svg.endsWith('</svg>')) {
+      setError('JSON içindeki "diagram_svg" geçerli bir <svg>...</svg> kodu değil.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/diagram`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ diagram_svg: svg }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedSvg(svg);
+      setRawPrompt('');
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirm('Diyagramı kaldırmak istediğinize emin misiniz?')) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/diagram`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Silinemedi.');
+        return;
+      }
+      setSavedSvg(null);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Diyagram Ekle — ${section.heading}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-[#8b90a7]">
+          Önce bu promptu bir AI&apos;a sorun; ders notundaki sayı/ölçüyle birebir tutarlı bir SVG diyagram kodu üretir
+          (sayı doğrusu, kesir modeli, ölçü etiketli şekil vb.). Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin —
+          harici bir görsel aracına gitmenize gerek yok, kod doğrudan sayfada render edilir.
+        </p>
+
+        {metaPromptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{metaPromptError}</p>
+        ) : (
+          <PromptCopyBox prompt={metaPrompt} loading={loadingMetaPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={rawPrompt}
+            onChange={(e) => setRawPrompt(e.target.value)}
+            rows={6}
+            placeholder='{"diagram_svg": "<svg viewBox=\"0 0 300 160\">...</svg>"}'
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !rawPrompt.trim()}
+            className="mt-2 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Diyagramı Kaydet'}
+          </button>
+          {error && <p className="mt-2 text-xs font-bold text-[#ff6584]">{error}</p>}
+        </div>
+
+        {savedSvg && (
+          <div className="border-t border-[#2e3348] pt-4">
+            <span className="text-xs font-bold text-[#8b90a7] block mb-2">Kayıtlı diyagram</span>
+            <div
+              className="rounded-lg border border-[#2e3348] bg-white p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs"
+              dangerouslySetInnerHTML={{ __html: sanitizeMathSvg(savedSvg) || '' }}
+            />
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={saving}
+              className="mt-2 rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'İşleniyor...' : 'Diyagramı Kaldır'}
+            </button>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">

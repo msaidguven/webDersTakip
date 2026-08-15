@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<Pa
 
   const { data, error } = await supabase
     .from('topic_content_sections')
-    .select('id, heading, body_markdown, image_url, image_prompt')
+    .select('id, heading, body_markdown, image_url, image_prompt, diagram_svg')
     .eq('id', sectionId)
     .maybeSingle();
 

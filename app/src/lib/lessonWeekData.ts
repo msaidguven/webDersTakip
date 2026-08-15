@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { topicContentV11ToHtml, markdownToHtml } from '@/app/src/lib/topicContentV11';
+import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 
 type WeekOutcomeRow = { outcome_id: number };
 type OutcomeRow = {
@@ -9,13 +9,6 @@ type OutcomeRow = {
   order_index: number | null;
 };
 type TopicRow = { id: number; title: string; slug: string | null; order_no: number };
-type TopicContentOutcomeV11Row = { topic_content_v11_id: number };
-type TopicContentV11Row = {
-  id: number;
-  topic_id: number;
-  payload: unknown;
-  version_no: number;
-};
 type TopicContentRow = { id: number; topic_id: number; hero_image_url: string | null; subtitle: string | null; generation_meta: unknown };
 type SectionRow = {
   id: number;
@@ -26,6 +19,7 @@ type SectionRow = {
   image_url: string | null;
   image_prompt: string | null;
   image_alt: string | null;
+  diagram_svg: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -36,7 +30,7 @@ type HighlightRow = {
 };
 
 export type LessonWeekOutcome = { id: number; description: string; topicId: number | null; topicTitle: string };
-export type LessonWeekSection = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null };
+export type LessonWeekSection = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null; diagramSvg: string | null };
 export type LessonWeekContent = {
   id: number;
   title: string;
@@ -79,7 +73,6 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
   const topicIds = topics.map((t) => t.id);
   const topicTitleById = new Map(topics.map((topic) => [topic.id, topic.title]));
   let outcomes: LessonWeekOutcome[] = [];
-  let outcomeIds: number[] = [];
 
   if (topicIds.length) {
     const { data: outcomesData } = await supabase
@@ -99,7 +92,6 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       topicId: o.topic_id,
       topicTitle: topicTitleById.get(o.topic_id) || '',
     }));
-    outcomeIds = filtered.map((o) => o.id);
   }
 
   let contents: LessonWeekContent[] = topics.map((t) => ({
@@ -114,38 +106,6 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     subtitle: null,
     highlights: [],
   }));
-
-  if (outcomeIds.length) {
-    const { data: relData } = await supabase
-      .from('topic_content_outcomes_v11')
-      .select('topic_content_v11_id')
-      .in('outcome_id', outcomeIds);
-
-    const contentV11Ids = Array.from(
-      new Set(((relData as TopicContentOutcomeV11Row[] | null) || []).map((r) => r.topic_content_v11_id))
-    ).filter((id): id is number => Boolean(id));
-
-    if (contentV11Ids.length) {
-      const { data: v11Data } = await supabase
-        .from('topic_contents_v11')
-        .select('id, topic_id, payload, version_no')
-        .in('id', contentV11Ids)
-        .eq('is_published', true);
-
-      const bestByTopic = new Map<number, TopicContentV11Row>();
-      for (const row of (v11Data as TopicContentV11Row[] | null) || []) {
-        const prev = bestByTopic.get(row.topic_id);
-        if (!prev || (row.version_no ?? 0) > (prev.version_no ?? 0)) {
-          bestByTopic.set(row.topic_id, row);
-        }
-      }
-
-      contents = contents.map((c) => {
-        const v11 = bestByTopic.get(c.id);
-        return { ...c, content: v11 ? topicContentV11ToHtml(v11.payload) : null };
-      });
-    }
-  }
 
   if (topicIds.length) {
     const { data: topicContentsData } = await supabase
@@ -173,7 +133,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, image_alt')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, image_alt, diagram_svg')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -201,6 +161,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           imageUrl: row.image_url,
           imagePrompt: row.image_prompt,
           imageAlt: row.image_alt,
+          diagramSvg: row.diagram_svg,
         });
         sectionsByTopic.set(topicId, list);
       }

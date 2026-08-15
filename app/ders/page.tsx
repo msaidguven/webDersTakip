@@ -26,7 +26,7 @@ type OutcomeRow = {
 };
 
 type OutcomeVM = { id: number; description: string; topicTitle: string };
-type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
+type SectionVM = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; diagramSvg: string | null };
 type HighlightVM = { icon: string | null; title: string; description: string };
 type ContentVM = {
   id: number;
@@ -48,6 +48,7 @@ type SectionRow = {
   body_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  diagram_svg: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -67,59 +68,6 @@ type UnitRow = {
 };
 
 type TopicRow = { id: number; title: string; slug: string; order_no: number };
-
-type TopicContentOutcomeV11Row = { topic_content_v11_id: number; outcome_id: number };
-type TopicContentV11Row = {
-  id: number;
-  topic_id: number;
-  title: string | null;
-  payload: unknown;
-  version_no: number;
-};
-
-function toHtmlFromV11Payload(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const p = payload as Record<string, unknown>;
-
-  const direct =
-    (typeof p.content === 'string' && p.content) ||
-    (typeof p.html === 'string' && p.html) ||
-    (typeof p.content_html === 'string' && p.content_html);
-  if (direct) return direct;
-
-  const sections = p.sections;
-  if (Array.isArray(sections)) {
-    const html = sections
-      .map((s) => {
-        if (!s || typeof s !== 'object') return '';
-        const so = s as Record<string, unknown>;
-        const title = typeof so.title === 'string' ? so.title : null;
-        const body =
-          (typeof so.content === 'string' && so.content) ||
-          (typeof so.html === 'string' && so.html) ||
-          (typeof so.text === 'string' && so.text) ||
-          '';
-        if (!title && !body) return '';
-        if (title && body) return `<h3>${title}</h3>\n${body}`;
-        return body || (title ? `<h3>${title}</h3>` : '');
-      })
-      .filter(Boolean)
-      .join('\n\n');
-    return html || null;
-  }
-
-  // Son çare: JSON'u okunur şekilde göster
-  return `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
-}
-
-function escapeHtml(text: string) {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
 
 async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
@@ -229,11 +177,10 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
     .gte('end_week', week);
 
   let outcomes: OutcomeVM[] = [];
-  let outcomeIds: number[] = [];
-  
+
   if (weekOutcomes?.length) {
-    outcomeIds = (weekOutcomes as WeekOutcomeRow[]).map((w) => w.outcome_id);
-    
+    const outcomeIds = (weekOutcomes as WeekOutcomeRow[]).map((w) => w.outcome_id);
+
     const { data: outcomesData } = await supabase
       .from('outcomes')
       .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
@@ -249,58 +196,9 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
       description: o.description,
       topicTitle: o.topics?.title || '',
     }));
-
-    // İçerik eşlemesi için outcome_id listesini aynı filtreyle daralt
-    outcomeIds = filteredOutcomesData.map((o) => o.id);
   }
 
-  // Konu içeriklerini v11 üzerinden, kazanımların bağından çek:
-  // outcome_weeks (hafta) -> outcomes -> topic_content_outcomes_v11 -> topic_contents_v11
   let contents: ContentVM[] = [];
-  if (outcomeIds.length) {
-    const { data: relData } = await supabase
-      .from('topic_content_outcomes_v11')
-      .select('topic_content_v11_id, outcome_id')
-      .in('outcome_id', outcomeIds);
-
-    const rels = (relData as TopicContentOutcomeV11Row[] | null) || [];
-    const contentV11Ids = Array.from(new Set(rels.map((r) => r.topic_content_v11_id))).filter((x) => !!x);
-
-    if (contentV11Ids.length) {
-      const { data: v11Data } = await supabase
-        .from('topic_contents_v11')
-        .select('id, topic_id, title, payload, version_no')
-        .in('id', contentV11Ids)
-        .eq('is_published', true);
-
-      const v11Rows = (v11Data as TopicContentV11Row[] | null) || [];
-
-      // Aynı topic için birden çok v11 id gelebilir; version_no en yüksek olanı seç.
-      const bestByTopic = new Map<number, TopicContentV11Row>();
-      for (const row of v11Rows) {
-        const prev = bestByTopic.get(row.topic_id);
-        if (!prev || (row.version_no ?? 0) > (prev.version_no ?? 0)) {
-          bestByTopic.set(row.topic_id, row);
-        }
-      }
-
-      const sortedTopics = topics.slice().sort((a, b) => a.order_no - b.order_no);
-      contents = sortedTopics.map((t) => {
-        const v11 = bestByTopic.get(t.id);
-        const html = v11 ? toHtmlFromV11Payload(v11.payload) : null;
-        return {
-          id: t.id,
-          title: t.title,
-          content: html,
-          orderNo: t.order_no,
-          sections: [],
-          heroImageUrl: null,
-          subtitle: null,
-          highlights: [],
-        } satisfies ContentVM;
-      });
-    }
-  }
 
   if (!contents.length && topics.length) {
     contents = topics
@@ -337,7 +235,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
       const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, diagram_svg')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -358,6 +256,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
           imageUrl: row.image_url,
           imagePrompt: row.image_prompt,
+          diagramSvg: row.diagram_svg,
         });
         sectionsByTopic.set(topicId, list);
       }
