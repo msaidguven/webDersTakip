@@ -58,16 +58,21 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
   const warnings: string[] = [];
 
+  // Aktif/pasif farketmeksizin aynı ders+sınıfta aynı başlıkta ünite varsa engelle —
+  // pasif üniteler (henüz içeriği yazılmamış, yeni içe aktarılmış) de dahil, aksi halde
+  // aynı JSON yanlışlıkla iki kez kaydedilirse sessizce kopya oluşurdu.
   const { data: existingSameTitle } = await supabase
     .from('units')
     .select('id')
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId)
-    .eq('is_active', true)
     .eq('title', unitInput.title)
     .limit(1);
   if (existingSameTitle && existingSameTitle.length) {
-    warnings.push('Bu başlıkta zaten bir ünite var, yine de eklendi');
+    return NextResponse.json(
+      { error: `"${unitInput.title}" başlığında bu ders+sınıfta zaten bir ünite var. Önce onu silin/pasifleştirin veya farklı bir başlık kullanın.` },
+      { status: 409 }
+    );
   }
 
   const { data: maxOrderRow } = await supabase
