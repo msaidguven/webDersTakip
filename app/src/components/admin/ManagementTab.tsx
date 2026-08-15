@@ -65,6 +65,7 @@ const ENTITIES: EntityConfig[] = [
       { key: 'title', label: 'Başlık' },
       { key: 'lesson', label: 'Ders', render: (r) => r.lessons?.name || '—' },
       { key: 'order_no', label: 'Sıra' },
+      { key: 'duration_hours', label: 'Süre (saat)' },
       { key: 'weeks', label: 'Hafta', render: (r) => (r.start_week && r.end_week ? `${r.start_week}-${r.end_week}` : '—') },
       { key: 'question_count', label: 'Soru' },
       { key: 'is_active', label: 'Durum', render: (r) => <StatusBadge active={r.is_active} /> },
@@ -73,6 +74,8 @@ const ENTITIES: EntityConfig[] = [
       { key: 'title', label: 'Başlık', type: 'text' },
       { key: 'description', label: 'Açıklama', type: 'textarea', rows: 3 },
       { key: 'order_no', label: 'Sıra No', type: 'number' },
+      { key: 'curriculum_code', label: 'Müfredat Kodu', type: 'text' },
+      { key: 'duration_hours', label: 'Süre (ders saati)', type: 'number' },
       { key: 'start_week', label: 'Başlangıç Haftası', type: 'number' },
       { key: 'end_week', label: 'Bitiş Haftası', type: 'number' },
       { key: 'is_active', label: 'Aktif', type: 'boolean' },
@@ -515,6 +518,15 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         </button>
       </div>
 
+      {entityKey === 'units' && gradeId && lessonId && (
+        <UnitToolsBar
+          lessonId={Number(lessonId)}
+          gradeId={Number(gradeId)}
+          showNotice={showNotice}
+          onImported={loadList}
+        />
+      )}
+
       {/* Bulk Toolbar */}
       {selected.size > 0 && (
         <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
@@ -660,6 +672,210 @@ function StaticFilterSelect({ label, value, onChange, options }: { label: string
         ))}
       </select>
     </div>
+  );
+}
+
+// ==================== UNIT TOOLS (JSON İÇE AKTAR + HAFTA HESAPLAMA) ====================
+
+function UnitToolsBar({
+  lessonId,
+  gradeId,
+  showNotice,
+  onImported,
+}: {
+  lessonId: number;
+  gradeId: number;
+  showNotice: (kind: 'success' | 'error', text: string) => void;
+  onImported: () => void;
+}) {
+  const [weeklyHoursInput, setWeeklyHoursInput] = useState('');
+  const [savingHours, setSavingHours] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`/api/admin/manage/lesson-grades?lessonId=${lessonId}&gradeId=${gradeId}`);
+      const data = await res.json();
+      if (res.ok) setWeeklyHoursInput(data.item?.weekly_hours != null ? String(data.item.weekly_hours) : '');
+    })();
+  }, [lessonId, gradeId]);
+
+  async function handleSaveWeeklyHours() {
+    setSavingHours(true);
+    const weeklyHours = weeklyHoursInput === '' ? null : Number(weeklyHoursInput);
+    const res = await fetch('/api/admin/manage/lesson-grades', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lessonId, gradeId, weeklyHours }),
+    });
+    const data = await res.json();
+    setSavingHours(false);
+    if (!res.ok) {
+      showNotice('error', data.error || 'Kaydedilemedi');
+      return;
+    }
+    showNotice('success', 'Haftalık ders saati kaydedildi');
+  }
+
+  async function handleRecalculate() {
+    setRecalculating(true);
+    const res = await fetch('/api/admin/manage/units/recalculate-weeks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lessonId, gradeId }),
+    });
+    const data = await res.json();
+    setRecalculating(false);
+    if (!res.ok) {
+      showNotice('error', data.error || 'Hesaplanamadı');
+      return;
+    }
+    if (data.warnings?.length) {
+      showNotice('error', data.warnings.join(' • '));
+    } else {
+      showNotice('success', `${data.updated?.length ?? 0} ünitenin haftaları güncellendi`);
+      onImported();
+    }
+  }
+
+  return (
+    <div className="bg-[#111114] rounded-xl border border-white/5 p-3 sm:p-4 mb-4 flex flex-wrap gap-3 items-end">
+      <div className="flex flex-col gap-1">
+        <label className="text-gray-400 text-xs">Haftalık Ders Saati</label>
+        <div className="flex gap-1">
+          <input
+            type="number"
+            min={1}
+            value={weeklyHoursInput}
+            onChange={(e) => setWeeklyHoursInput(e.target.value)}
+            className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-20"
+          />
+          <button
+            onClick={handleSaveWeeklyHours}
+            disabled={savingHours}
+            className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm disabled:opacity-50"
+          >
+            Kaydet
+          </button>
+        </div>
+      </div>
+      <button
+        onClick={handleRecalculate}
+        disabled={recalculating}
+        className="px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-sm disabled:opacity-50"
+      >
+        {recalculating ? 'Hesaplanıyor...' : 'Haftaları Yeniden Hesapla'}
+      </button>
+      <button onClick={() => setShowImportModal(true)} className="px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg text-sm ml-auto">
+        JSON&apos;dan İçe Aktar
+      </button>
+
+      {showImportModal && (
+        <UnitImportModal
+          lessonId={lessonId}
+          gradeId={gradeId}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false);
+            onImported();
+          }}
+          showNotice={showNotice}
+        />
+      )}
+    </div>
+  );
+}
+
+type ImportOutcomeInput = { code?: string; description: string };
+type ImportTopicInput = { title: string; curriculum_code?: string | null; outcomes?: ImportOutcomeInput[] };
+type ImportUnitInput = { title: string; curriculum_code?: string | null; duration_hours: number; topics: ImportTopicInput[] };
+
+function UnitImportModal({
+  lessonId,
+  gradeId,
+  onClose,
+  onImported,
+  showNotice,
+}: {
+  lessonId: number;
+  gradeId: number;
+  onClose: () => void;
+  onImported: () => void;
+  showNotice: (kind: 'success' | 'error', text: string) => void;
+}) {
+  const [jsonText, setJsonText] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  let parsed: ImportUnitInput | null = null;
+  let parseError = '';
+  if (jsonText.trim()) {
+    try {
+      const raw = JSON.parse(jsonText);
+      const unit = raw?.unit ?? raw;
+      if (!unit || typeof unit.title !== 'string' || !Array.isArray(unit.topics)) {
+        parseError = 'JSON şeması beklendiği gibi değil (unit.title / unit.topics eksik)';
+      } else {
+        parsed = unit as ImportUnitInput;
+      }
+    } catch {
+      parseError = 'Geçersiz JSON';
+    }
+  }
+
+  const totalOutcomes = parsed ? parsed.topics.reduce((sum, t) => sum + (t.outcomes?.length || 0), 0) : 0;
+
+  async function handleSave() {
+    if (!parsed) {
+      showNotice('error', 'Kaydetmeden önce geçerli bir JSON yapıştırın');
+      return;
+    }
+    setSaving(true);
+    const res = await fetch('/api/admin/manage/units/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lessonId, gradeId, unit: parsed }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      showNotice('error', data.error || 'İçe aktarılamadı');
+      return;
+    }
+    const parts = [`${parsed.topics.length} konu, ${totalOutcomes} kazanım eklendi`];
+    if (data.warnings?.length) parts.push(...data.warnings);
+    if (data.weekRecalc?.warnings?.length) parts.push(...data.weekRecalc.warnings);
+    showNotice(data.warnings?.length || data.weekRecalc?.warnings?.length ? 'error' : 'success', parts.join(' • '));
+    onImported();
+  }
+
+  return (
+    <ModalShell title="Ünite JSON'dan İçe Aktar" onClose={onClose} wide>
+      <div className="space-y-3 sm:space-y-4">
+        <div>
+          <label className="block text-gray-400 text-xs sm:text-sm mb-1">
+            AI&apos;dan alınan JSON (bkz. <code>app/prompt/00-unit-import.md</code>)
+          </label>
+          <textarea
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+            rows={12}
+            placeholder='{ "unit": { "title": "...", "duration_hours": 16, "topics": [...] } }'
+            className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none resize-y font-mono"
+          />
+        </div>
+        {parseError && <p className="text-red-300 text-sm">{parseError}</p>}
+        {parsed && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-200">
+            <p className="font-medium">{parsed.title}</p>
+            <p className="text-emerald-300/80">
+              {parsed.duration_hours} ders saati • {parsed.topics.length} konu • {totalOutcomes} kazanım
+            </p>
+          </div>
+        )}
+      </div>
+      <ModalActions onCancel={onClose} onSave={handleSave} saving={saving} />
+    </ModalShell>
   );
 }
 

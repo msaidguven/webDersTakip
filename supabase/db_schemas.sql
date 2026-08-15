@@ -28,6 +28,7 @@ CREATE TABLE public.lesson_grades (
   created_at timestamp with time zone DEFAULT now(),
   question_count integer NOT NULL DEFAULT 0,
   is_active boolean NOT NULL DEFAULT true,
+  weekly_hours integer CHECK (weekly_hours IS NULL OR weekly_hours >= 1),
   CONSTRAINT lesson_grades_pkey PRIMARY KEY (lesson_id, grade_id),
   CONSTRAINT fk_lg_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id),
   CONSTRAINT fk_lg_lesson FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
@@ -47,6 +48,7 @@ CREATE TABLE public.units (
   start_week integer CHECK (start_week IS NULL OR start_week >= 1),
   end_week integer CHECK (end_week IS NULL OR end_week >= 1),
   curriculum_code text,
+  duration_hours integer CHECK (duration_hours IS NULL OR duration_hours >= 1),
   CONSTRAINT units_pkey PRIMARY KEY (id),
   CONSTRAINT fk_units_lesson FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
   CONSTRAINT fk_units_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id)

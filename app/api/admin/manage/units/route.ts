@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteUnitsCascade } from '@/app/src/lib/adminCascade';
 
-const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active'] as const;
+const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active', 'duration_hours', 'curriculum_code'] as const;
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('units')
-    .select('id, lesson_id, grade_id, title, slug, description, order_no, is_active, start_week, end_week, question_count, lessons(name)')
+    .select('id, lesson_id, grade_id, title, slug, description, order_no, is_active, start_week, end_week, curriculum_code, duration_hours, question_count, lessons(name)')
     .order('grade_id', { ascending: true })
     .order('order_no', { ascending: true })
     .limit(500);
