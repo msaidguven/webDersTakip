@@ -20,7 +20,7 @@ function splitBullet(liInnerHtml: string): { titleHtml: string | null; bodyHtml:
   }
 
   const m = trimmed.match(/^<strong>(.*?)<\/strong>\s*:?\s*/);
-  if (m) return { titleHtml: m[1], bodyHtml: trimmed.slice(m[0].length).trim() };
+  if (m) return { titleHtml: m[1].replace(/:\s*$/, '').trim(), bodyHtml: trimmed.slice(m[0].length).trim() };
   return { titleHtml: null, bodyHtml: trimmed };
 }
 
