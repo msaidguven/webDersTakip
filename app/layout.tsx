@@ -1,10 +1,13 @@
 import type { Viewport } from "next";
+import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { metadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";
 import { StructuredData } from "./src/components/StructuredData";
+
+const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,6 +33,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: setThemeScript }}
           suppressHydrationWarning
         />
+        {ADSENSE_CLIENT && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
       </head>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <AuthProvider>

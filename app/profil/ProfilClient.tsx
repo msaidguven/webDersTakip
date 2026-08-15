@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
+import AdSlot from '@/app/src/components/AdSlot';
 
 interface ProfileRow {
   grade_id: number | null;
@@ -275,6 +276,8 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
 
         {/* Okul Bilgileri */}
         <SchoolInfoCard initialProfile={profile} />
+
+        <AdSlot slot="0000000006" />
       </main>
     </div>
   );

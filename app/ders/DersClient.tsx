@@ -47,6 +47,7 @@ import {
 import { formatWeekDateRangeLabel } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
+import AdSlot from '@/app/src/components/AdSlot';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type WeekedOutcome = Outcome & {
@@ -1495,6 +1496,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         )}
                       </div>
                     )}
+                    {activeTopic && <AdSlot slot="0000000002" className="not-prose mb-8" />}
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
@@ -1628,6 +1630,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
+                    {activeTopic && <AdSlot slot="0000000003" className="not-prose mt-10" />}
                     {activeTopic && (
                       <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">
                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">Bu konudan sonra</p>

@@ -3,6 +3,7 @@
 import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
+import AdSlot from '@/app/src/components/AdSlot';
 
 type Option = { id: number; text: string; is_correct: boolean };
 type Pair = { id: number; left_text: string; right_text: string };
@@ -375,6 +376,8 @@ function AltBaslikTestContent() {
               <ArrowLeft className="h-3.5 w-3.5" /> Alt Başlığa Dön
             </button>
           </div>
+
+          <AdSlot slot="0000000005" className="mt-6" />
         </div>
       </div>
     );
