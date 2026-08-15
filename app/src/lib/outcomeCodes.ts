@@ -1,7 +1,13 @@
-const LETTERS = ['a', 'b', 'c', 'ç', 'd', 'e', 'f', 'g', 'ğ', 'h', 'ı', 'i', 'j', 'k', 'l'];
+const LETTERS = [
+  'a', 'b', 'c', 'ç', 'd', 'e', 'f', 'g', 'ğ', 'h', 'ı', 'i', 'j', 'k', 'l',
+  'm', 'n', 'o', 'ö', 'p', 'r', 's', 'ş', 't', 'u', 'ü', 'v', 'y', 'z',
+];
 
 export function outcomeLetterAt(index: number): string {
-  return LETTERS[index] ?? `k${index + 1}`;
+  if (index < LETTERS.length) return LETTERS[index];
+  // 29 harflik Türk alfabesi bittiyse (pratikte olmaz) alfabeyi tekrar dolaşıp sıra numarası ekler.
+  const cycle = Math.floor(index / LETTERS.length) + 1;
+  return `${LETTERS[index % LETTERS.length]}${cycle}`;
 }
 
 type CodedOutcome = { id: number; order_index: number | null; code: string | null; startWeek?: number | null };
