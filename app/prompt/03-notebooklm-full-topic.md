@@ -27,6 +27,6 @@ SADECE bu JSON'u döndür, başka metin ekleme:
     "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu; yazı varsa Türkçe olsun
     "highlights": [
       { "position": "top-left|mid-left|bottom-left|top-right|mid-right|bottom-right", "icon": "tek emoji", "title": "max 3 kelime", "description": "max 8 kelime, somut (sayı/isim)" }
-    ]  // 4-6 tane, her position en fazla 1 kez
+    ]  // 6 tane, her position en fazla 1 kez
   }
 }
