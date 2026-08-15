@@ -107,7 +107,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
-  // Her ünite için konu listesi (sayı etiketi + akordeon içeriği)
+  // Her ünite için konu listesi (sayı etiketi + doğrudan görünen liste)
   const unitIds = units.map((u) => u.id);
   let topicsByUnit: Record<number, { id: number; title: string; slug: string | null; order_no: number }[]> = {};
   if (unitIds.length > 0) {

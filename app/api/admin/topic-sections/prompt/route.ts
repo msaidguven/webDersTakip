@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 
-  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && !isQuestionType)) {
+  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && type !== 'image' && !isQuestionType)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -132,12 +132,13 @@ export async function GET(request: NextRequest) {
     ? matchedOutcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
-  if (isQuestionType) {
+  if (isQuestionType || type === 'image') {
     if (!currentSection.body_markdown?.trim()) {
       return NextResponse.json({ error: 'Önce bu alt başlığın ders notu (içeriği) oluşturulmalı' }, { status: 409 });
     }
 
-    const templatePath = path.join(process.cwd(), 'app', 'prompt', QUESTION_TEMPLATES[type as string]);
+    const templateFile = type === 'image' ? '04-section-image.md' : QUESTION_TEMPLATES[type as string];
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
     const template = await readFile(templatePath, 'utf8');
 
     const prompt = template

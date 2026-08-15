@@ -12,9 +12,7 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
 
 Çıktı (sadece JSON):
 {
-  "body_markdown": string,     // 60-120 kelime, markdown
-  "needs_image": boolean,       // bu alt başlık görsel bir örnekle desteklenmeli mi?
-  "image_prompt": string|null   // needs_image true ise, İngilizce, somut/betimleyici görsel üretim promptu. Görselde yazı/etiket olacaksa bu metinler MUTLAKA Türkçe olmalı (promptun kendisi İngilizce kalsın, sadece görsel içindeki yazılar Türkçe olsun)
+  "body_markdown": string      // 60-120 kelime, markdown
 }
 
 ## Kalite çıtası: somut, doygun bilgi
@@ -46,10 +44,6 @@ Zayıf bir çıktı genelde şu belirtileri taşır: tam olarak 5 maddede durur 
 - Sonunda özet/kapanış/toparlama cümlesi yazmak ("Yani...", "Kısacası...", "Bu sayede..." gibi).
 - **Şablon/kalıp kapanış cümlesi.** "Bu [X], [Y] sağlar/gösterir/oluşturur" gibi hemen hemen her konunun altına yapıştırılabilecek, konuya özgü hiçbir bilgi taşımayan genel cümleler yazma. Bir maddenin son cümlesi olacaksa bile, o cümle de somut ve bu konuya özgü bir bilgi içermeli.
 - Aynı body_markdown içinde veya konunun diğer alt başlıklarıyla karşılaştırıldığında aynı cümle kalıbının/açılışının tekrar etmesi (ör. her madde "X, Y'dir" şablonuyla başlıyorsa çeşitlendir: tanım, sayı, örnek, karşılaştırma gibi farklı cümle türlerini karıştır).
-
-## needs_image kararı
-
-Varsayılan olarak `false` yazma. Her alt başlık için gerçekten düşün: "Bu bilgiyi bir görsel, metinden daha hızlı/net anlatır mı?" (ör. bir yapı/mekanizma/karşılaştırma/süreç varsa genelde EVET). Emin değilsen ve konu somut bir nesne/sahne/diyagramla anlatılabiliyorsa `true` seç.
 
 ## Kısıtlar
 

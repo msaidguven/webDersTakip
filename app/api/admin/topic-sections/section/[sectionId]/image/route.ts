@@ -74,6 +74,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
   return NextResponse.json({ ok: true, imageUrl });
 }
 
+export async function PATCH(request: NextRequest, { params }: { params: Promise<Params> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const { sectionId } = await params;
+  const body = await request.json().catch(() => null) as { image_prompt?: unknown } | null;
+
+  if (!body || typeof body.image_prompt !== 'string' || !body.image_prompt.trim()) {
+    return NextResponse.json({ error: 'Geçersiz görsel promptu' }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+
+  const { error } = await supabase
+    .from('topic_content_sections')
+    .update({ image_prompt: body.image_prompt.trim(), updated_at: new Date().toISOString() })
+    .eq('id', sectionId);
+
+  if (error) {
+    return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(request: NextRequest, { params }: { params: Promise<Params> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;

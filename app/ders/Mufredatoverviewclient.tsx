@@ -2,19 +2,14 @@
 
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
-  ArrowRight,
-  BookOpen,
   Calendar,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Circle,
-  PieChart,
   RefreshCw,
 } from 'lucide-react';
 
@@ -64,39 +59,15 @@ function academicYearLabel(): string {
   return now.getMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
-function ProgressRing({ percent, tone }: { percent: number; tone: 'active' | 'done' | 'idle' }) {
-  const size = 44;
-  const stroke = 4;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
-
-  const trackColor = tone === 'idle' ? '#e2e8f0' : tone === 'done' ? '#d1fae5' : '#ede9fe';
-  const barColor = tone === 'done' ? '#10b981' : tone === 'active' ? '#6366f1' : '#94a3b8';
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={barColor}
-          strokeWidth={stroke}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-slate-700">
-        {tone === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : `${percent}%`}
-      </div>
-    </div>
-  );
-}
+// Ünite kartlarına saf görsel çeşitlilik katmak için — herhangi bir ilerleme/durum anlamı taşımaz.
+const UNIT_ACCENTS = [
+  { badge: 'bg-indigo-600', chip: 'bg-indigo-50 text-indigo-600' },
+  { badge: 'bg-purple-600', chip: 'bg-purple-50 text-purple-600' },
+  { badge: 'bg-emerald-600', chip: 'bg-emerald-50 text-emerald-600' },
+  { badge: 'bg-amber-600', chip: 'bg-amber-50 text-amber-600' },
+  { badge: 'bg-rose-600', chip: 'bg-rose-50 text-rose-600' },
+  { badge: 'bg-sky-600', chip: 'bg-sky-50 text-sky-600' },
+];
 
 export default function MufredatOverviewClient({
   gradeName,
@@ -108,18 +79,10 @@ export default function MufredatOverviewClient({
   lessonId,
   units,
   currentWeek,
-  totalWeeks = 38,
   gradeLessons = [],
 }: MufredatOverviewClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const activeUnit = useMemo(
-    () => units.find((u) => currentWeek >= (u.start_week || 1) && currentWeek <= (u.end_week || totalWeeks)),
-    [units, currentWeek, totalWeeks]
-  );
-
-  const [expandedUnitId, setExpandedUnitId] = useState<number | null>(activeUnit?.id ?? null);
 
   const goToWeek = (weekNo: number) => {
     const params = new URLSearchParams(searchParams?.toString());
@@ -152,28 +115,7 @@ export default function MufredatOverviewClient({
 
   const showLessonDropdown = !!gradeSlug && gradeLessons.filter((l) => l.slug).length > 1;
 
-  const unitStats = useMemo(
-    () =>
-      units.map((unit, idx) => {
-        const start = unit.start_week || 1;
-        const end = unit.end_week || totalWeeks;
-        const isCompleted = currentWeek > end;
-        const isActive = currentWeek >= start && currentWeek <= end;
-        const weeksInUnit = Math.max(1, end - start + 1);
-        const weeksDone = Math.min(weeksInUnit, Math.max(0, currentWeek - start));
-        const progressPct = isCompleted ? 100 : Math.round((weeksDone / weeksInUnit) * 100);
-        // unit.order_no müfredat genelinde artan bir sıra numarasıdır (dersin ilk
-        // ünitesinde bile 1'den başlamayabilir); listedeki görünür sıra numarası
-        // bu yüzden dizideki konumdan (1'den başlayarak) hesaplanır.
-        return { unit, displayNo: idx + 1, start, end, isCompleted, isActive, weeksInUnit, progressPct };
-      }),
-    [units, currentWeek, totalWeeks]
-  );
-
-  const weekProgressPct = Math.min(100, Math.max(0, Math.round((currentWeek / totalWeeks) * 100)));
-  const overallProgressPct = unitStats.length
-    ? Math.round(unitStats.reduce((sum, s) => sum + s.progressPct, 0) / unitStats.length)
-    : 0;
+  const totalTopics = units.reduce((sum, u) => sum + (u.topics?.length ?? u.topicCount ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-slate-800 font-sans">
@@ -217,7 +159,7 @@ export default function MufredatOverviewClient({
         </div>
 
         {/* Ders başlığı */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-7 sm:mb-8">
           <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl shrink-0 shadow-lg shadow-indigo-500/20">
             {lessonIcon || '📘'}
           </div>
@@ -226,153 +168,58 @@ export default function MufredatOverviewClient({
               {gradeName}
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 truncate">{lessonName}</h1>
-            <p className="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">{academicYearLabel()} Eğitim Öğretim Yılı</p>
-          </div>
-        </div>
-
-        {/* İstatistik kartları */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-8">
-          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
-            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
-              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">Şu anki hafta</span>
-            </div>
-            <div className="text-base sm:text-2xl font-black text-slate-900 truncate">{currentWeek}. Hafta</div>
-          </div>
-
-          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
-            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
-              <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">İlerleme</span>
-            </div>
-            <div className="text-base sm:text-2xl font-black text-slate-900 truncate">{currentWeek}<span className="text-slate-400 text-[11px] sm:text-sm font-bold">/{totalWeeks}</span></div>
-            <div className="h-1 sm:h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1.5 sm:mt-2">
-              <div className="h-full rounded-full bg-indigo-500" style={{ width: `${weekProgressPct}%` }} />
-            </div>
-          </div>
-
-          <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-4">
-            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-400 mb-1 sm:mb-2">
-              <PieChart className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate">Genel</span>
-            </div>
-            <div className="text-base sm:text-2xl font-black text-slate-900">%{overallProgressPct}</div>
-            <div className="h-1 sm:h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1.5 sm:mt-2">
-              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${overallProgressPct}%` }} />
-            </div>
+            <p className="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">
+              {academicYearLabel()} · {units.length} Ünite · {totalTopics} Konu
+            </p>
           </div>
         </div>
 
         <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-3 sm:mb-4">Üniteler</h2>
 
-        <div className="space-y-3">
-          {unitStats.map(({ unit, displayNo, start, end, isCompleted, isActive, progressPct }) => {
-            const isExpanded = expandedUnitId === unit.id;
-            const statusLabel = isCompleted ? 'Tamamlandı' : isActive ? 'Şu anki ünite' : 'Başlanmadı';
+        <div className="space-y-4">
+          {units.map((unit, unitIdx) => {
+            const displayNo = unitIdx + 1;
             const topics = unit.topics ?? [];
-
-            // Konuları haftalara eşit dağıtarak yaklaşık ilerleme durumu hesapla
-            const weeksInUnit = Math.max(1, end - start + 1);
-            const topicsWithWeek = topics.map((t, idx) => ({
-              ...t,
-              week: Math.min(end, start + Math.floor((idx * weeksInUnit) / Math.max(1, topics.length))),
-            }));
-            const currentTopicIdx = isActive
-              ? topicsWithWeek.findIndex((t) => t.week >= currentWeek)
-              : isCompleted
-                ? -1
-                : 0;
+            const accent = UNIT_ACCENTS[unitIdx % UNIT_ACCENTS.length];
+            const start = unit.start_week;
+            const end = unit.end_week;
 
             return (
-              <div
-                key={unit.id}
-                className={`
-                  rounded-2xl border overflow-hidden transition-shadow
-                  ${isActive ? 'border-indigo-200 bg-indigo-50/40 shadow-sm' : 'border-slate-200 bg-white'}
-                `}
-              >
-                <button
-                  onClick={() => setExpandedUnitId(isExpanded ? null : unit.id)}
-                  className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4"
-                >
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div
-                      className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-lg font-black shrink-0
-                        ${isActive ? 'bg-indigo-600 text-white shadow-sm' : isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
-                    >
-                      {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : displayNo}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">{unit.title}</h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-bold text-slate-400">Hafta {start}&ndash;{end}</span>
-                        {isActive && (
-                          <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> {statusLabel}
-                          </span>
-                        )}
-                      </div>
+              <div key={unit.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4 border-b border-slate-100">
+                  <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-base font-black text-white shrink-0 ${accent.badge}`}>
+                    {displayNo}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">{unit.title}</h3>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {start != null && end != null && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400">
+                          <Calendar className="h-3 w-3" /> Hafta {start}&ndash;{end}
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${accent.chip}`}>
+                        {topics.length} Konu
+                      </span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <ProgressRing percent={progressPct} tone={isCompleted ? 'done' : isActive ? 'active' : 'idle'} />
-                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-                    {topicsWithWeek.length === 0 ? (
-                      <p className="text-xs font-bold text-slate-400 pl-1">Bu ünite için konu bulunamadı.</p>
-                    ) : (
-                      <div className="relative pl-1">
-                        <div className="absolute left-[15px] top-2 bottom-2 w-px bg-slate-200" />
-                        <div className="space-y-1">
-                          {topicsWithWeek.map((topic, idx) => {
-                            const isDone = currentTopicIdx === -1 ? true : idx < currentTopicIdx;
-                            const isCurrent = idx === currentTopicIdx;
-                            const isPending = !isDone && !isCurrent;
-
-                            return (
-                              <div
-                                key={topic.id}
-                                className={`relative flex items-center gap-3 py-2.5 pl-0 pr-2 rounded-xl ${isCurrent ? 'bg-white' : ''}`}
-                              >
-                                <div className="relative z-10 shrink-0 h-[30px] w-[30px] rounded-full flex items-center justify-center bg-[#f9fafb]">
-                                  {isDone ? (
-                                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                                  ) : isCurrent ? (
-                                    <span className="h-3 w-3 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
-                                  ) : (
-                                    <Circle className="h-4 w-4 text-slate-300" />
-                                  )}
-                                </div>
-
-                                <button
-                                  onClick={() => goToTopic(unit.slug, topic.slug, topic.week)}
-                                  className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left"
-                                >
-                                  <div className="min-w-0">
-                                    <div className={`text-sm font-black truncate ${isPending ? 'text-slate-400' : 'text-slate-900'}`}>
-                                      {displayNo}.{idx + 1} {topic.title}
-                                    </div>
-                                    <div className={`text-xs font-bold ${isDone ? 'text-emerald-600' : isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                      {isDone ? 'Tamamlandı' : isCurrent ? `Şu an öğreniyorsun · Hafta ${topic.week}` : 'Başlanmadı'}
-                                    </div>
-                                  </div>
-
-                                  {isCurrent ? (
-                                    <span className="flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 transition-colors">
-                                      Devam Et <ArrowRight className="h-3.5 w-3.5" />
-                                    </span>
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
-                                  )}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                {topics.length === 0 ? (
+                  <p className="text-xs font-bold text-slate-400 px-4 sm:px-5 py-4">Bu ünite için konu bulunamadı.</p>
+                ) : (
+                  <div className="divide-y divide-slate-50">
+                    {topics.map((topic, idx) => (
+                      <button
+                        key={topic.id}
+                        onClick={() => goToTopic(unit.slug, topic.slug, start ?? currentWeek)}
+                        className="w-full flex items-center gap-3 px-4 sm:px-5 py-3 text-left hover:bg-slate-50 transition-colors group"
+                      >
+                        <span className="text-xs font-black text-slate-300 shrink-0 w-8">{displayNo}.{idx + 1}</span>
+                        <div className="min-w-0 flex-1 text-sm font-bold text-slate-900 truncate">{topic.title}</div>
+                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

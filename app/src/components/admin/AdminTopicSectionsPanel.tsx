@@ -1193,25 +1193,17 @@ export function SectionModal({
   section,
   onClose,
   onSaved,
-  onImageChanged,
 }: {
   topicId: number;
   section: SectionModalSection;
   onClose: () => void;
   onSaved: () => void;
-  onImageChanged: () => void;
 }) {
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const [imageUrl, setImageUrl] = useState<string | null>(section.image_url);
-  const [imagePrompt, setImagePrompt] = useState<string | null>(section.image_prompt);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1240,7 +1232,7 @@ export function SectionModal({
       return;
     }
 
-    const obj = parsed as { body_markdown?: unknown; needs_image?: unknown; image_prompt?: unknown };
+    const obj = parsed as { body_markdown?: unknown };
     if (typeof obj.body_markdown !== 'string' || !obj.body_markdown.trim()) {
       setError('JSON içinde "body_markdown" alanı bulunamadı.');
       return;
@@ -1251,21 +1243,127 @@ export function SectionModal({
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body_markdown: obj.body_markdown,
-          needs_image: Boolean(obj.needs_image),
-          image_prompt: typeof obj.image_prompt === 'string' ? obj.image_prompt : null,
-        }),
+        body: JSON.stringify({ body_markdown: obj.body_markdown }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setError(data?.error || 'Kaydedilemedi.');
         return;
       }
-      setImagePrompt(typeof obj.image_prompt === 'string' ? obj.image_prompt : null);
       onSaved();
     } finally {
       setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`İçerik Ekle — ${section.heading}`} onClose={onClose}>
+      <div className="space-y-4">
+        <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={8}
+            placeholder='{"body_markdown": "..."}'
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            İptal
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pasted.trim()}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+const IMAGE_PROMPT_TURKISH_TEXT_SUFFIX =
+  ' If the image includes any text, labels, or signs, they must be written in Turkish.';
+
+export function ImageModal({
+  topicId,
+  section,
+  onClose,
+  onSaved,
+  onImageChanged,
+}: {
+  topicId: number;
+  section: SectionModalSection;
+  onClose: () => void;
+  onSaved: () => void;
+  onImageChanged: () => void;
+}) {
+  const [metaPrompt, setMetaPrompt] = useState('');
+  const [loadingMetaPrompt, setLoadingMetaPrompt] = useState(true);
+  const [metaPromptError, setMetaPromptError] = useState<string | null>(null);
+
+  const [rawPrompt, setRawPrompt] = useState('');
+  const [savedImagePrompt, setSavedImagePrompt] = useState<string | null>(section.image_prompt);
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+
+  const [imageUrl, setImageUrl] = useState<string | null>(section.image_url);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMetaPrompt(true);
+    setMetaPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=image`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setMetaPrompt(data?.prompt || '');
+        } else {
+          setMetaPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingMetaPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, section.id]);
+
+  async function handleSavePrompt() {
+    setPromptError(null);
+    if (!rawPrompt.trim()) {
+      setPromptError('Önce AI\'dan gelen görsel prompt metnini yapıştırın.');
+      return;
+    }
+    const finalPrompt = `${rawPrompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    setPromptSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/image`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_prompt: finalPrompt }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setPromptError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedImagePrompt(finalPrompt);
+      setRawPrompt('');
+      onSaved();
+    } finally {
+      setPromptSaving(false);
     }
   }
 
@@ -1312,31 +1410,47 @@ export function SectionModal({
   }
 
   return (
-    <ModalShell title={`2. Adım: İçerik — ${section.heading}`} onClose={onClose}>
+    <ModalShell title={`Görsel Ekle — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
-        <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+        <p className="text-xs text-[#8b90a7]">
+          Önce bu promptu bir AI&apos;a sorup görsel üretim promptunu alın. Ardından AI&apos;dan gelen metni aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı otomatik olarak sona eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
+        </p>
+
+        {metaPromptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{metaPromptError}</p>
+        ) : (
+          <PromptCopyBox prompt={metaPrompt} loading={loadingMetaPrompt} />
+        )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen görsel prompt metnini buraya yapıştırın</span>
           <textarea
-            value={pasted}
-            onChange={(e) => setPasted(e.target.value)}
-            rows={8}
-            placeholder='{"body_markdown": "...", "needs_image": false, "image_prompt": null}'
+            value={rawPrompt}
+            onChange={(e) => setRawPrompt(e.target.value)}
+            rows={4}
+            placeholder="A clean, educational illustration of ..."
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
+          <button
+            type="button"
+            onClick={handleSavePrompt}
+            disabled={promptSaving || !rawPrompt.trim()}
+            className="mt-2 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {promptSaving ? 'Kaydediliyor...' : 'Promptu Kaydet'}
+          </button>
+          {promptError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{promptError}</p>}
         </div>
 
-        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+        {savedImagePrompt && (
+          <div>
+            <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
+            <PromptCopyBox prompt={savedImagePrompt} loading={false} />
+          </div>
+        )}
 
         <div className="border-t border-[#2e3348] pt-4">
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">3. Adım: Görsel (opsiyonel)</span>
-
-          {imagePrompt && (
-            <div className="mb-3">
-              <PromptCopyBox prompt={imagePrompt} loading={false} />
-            </div>
-          )}
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">Görsel Dosyası</span>
 
           {imageUrl ? (
             <div className="flex items-center gap-3">
@@ -1374,14 +1488,7 @@ export function SectionModal({
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
-            İptal
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !pasted.trim()}
-            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            Kapat
           </button>
         </div>
       </div>

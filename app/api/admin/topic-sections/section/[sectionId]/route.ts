@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!admin.ok) return admin.response;
 
   const { sectionId } = await params;
-  const body = await request.json().catch(() => null) as { body_markdown?: unknown; needs_image?: unknown; image_prompt?: unknown } | null;
+  const body = await request.json().catch(() => null) as { body_markdown?: unknown } | null;
 
   if (!body || typeof body.body_markdown !== 'string' || !body.body_markdown.trim()) {
     return NextResponse.json({ error: 'Geçersiz içerik' }, { status: 400 });
@@ -45,7 +45,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('topic_content_sections')
     .update({
       body_markdown: body.body_markdown.trim(),
-      image_prompt: body.needs_image && typeof body.image_prompt === 'string' ? body.image_prompt : null,
       status: 'content_ready',
       updated_at: new Date().toISOString(),
     })

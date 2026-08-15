@@ -25,6 +25,7 @@ import {
   ListChecks,
   Calendar,
   Pencil,
+  ImagePlus,
 } from 'lucide-react';
 import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
 import {
@@ -32,6 +33,7 @@ import {
   NotebookPlanModal,
   SectionModal,
   QuestionsModal,
+  ImageModal,
   SectionContentEditModal,
   copyText,
   type SectionModalSection,
@@ -275,6 +277,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
+  const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
   const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1057,7 +1060,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                           >
-                            <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
+                            <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setImageModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <ImagePlus className="h-3.5 w-3.5" /> Görsel Ekle
                           </button>
                           <button
                             type="button"
@@ -1442,7 +1459,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                 }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                                               >
-                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Prompt&apos;u
+                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
+                                                  setImageModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <ImagePlus className="h-3.5 w-3.5" /> Görsel Ekle
                                               </button>
                                               <button
                                                 type="button"
@@ -1714,6 +1744,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             setSectionModalTarget(null);
             refreshWeekData();
           }}
+        />
+      )}
+
+      {imageModalTarget && (
+        <ImageModal
+          topicId={imageModalTarget.topicId}
+          section={imageModalTarget.section}
+          onClose={() => setImageModalTarget(null)}
+          onSaved={refreshWeekData}
           onImageChanged={refreshWeekData}
         />
       )}
