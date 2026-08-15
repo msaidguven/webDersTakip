@@ -16,7 +16,7 @@ type TopicContentV11Row = {
   payload: unknown;
   version_no: number;
 };
-type TopicContentRow = { id: number; topic_id: number; hero_image_url: string | null; subtitle: string | null };
+type TopicContentRow = { id: number; topic_id: number; hero_image_url: string | null; subtitle: string | null; generation_meta: unknown };
 type SectionRow = {
   id: number;
   topic_content_id: number;
@@ -25,6 +25,7 @@ type SectionRow = {
   body_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  image_alt: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -35,7 +36,7 @@ type HighlightRow = {
 };
 
 export type LessonWeekOutcome = { id: number; description: string; topicId: number | null; topicTitle: string };
-export type LessonWeekSection = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
+export type LessonWeekSection = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null };
 export type LessonWeekContent = {
   id: number;
   title: string;
@@ -44,9 +45,16 @@ export type LessonWeekContent = {
   orderNo: number;
   sections: LessonWeekSection[];
   heroImageUrl: string | null;
+  heroImageAlt: string | null;
   subtitle: string | null;
   highlights: { icon: string | null; title: string; description: string }[];
 };
+
+function extractHeroImageAlt(generationMeta: unknown): string | null {
+  if (!generationMeta || typeof generationMeta !== 'object') return null;
+  const val = (generationMeta as Record<string, unknown>).heroImageAlt;
+  return typeof val === 'string' && val.trim() ? val : null;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number) {
@@ -102,6 +110,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     orderNo: t.order_no,
     sections: [],
     heroImageUrl: null,
+    heroImageAlt: null,
     subtitle: null,
     highlights: [],
   }));
@@ -141,26 +150,30 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
   if (topicIds.length) {
     const { data: topicContentsData } = await supabase
       .from('topic_contents')
-      .select('id, topic_id, hero_image_url, subtitle')
+      .select('id, topic_id, hero_image_url, subtitle, generation_meta')
       .in('topic_id', topicIds);
 
     const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
     const contentIds = topicContentRows.map((tc) => tc.id);
 
-    const heroByTopic = new Map<number, { heroImageUrl: string | null; subtitle: string | null }>();
+    const heroByTopic = new Map<number, { heroImageUrl: string | null; heroImageAlt: string | null; subtitle: string | null }>();
     for (const tc of topicContentRows) {
-      heroByTopic.set(tc.topic_id, { heroImageUrl: tc.hero_image_url, subtitle: tc.subtitle });
+      heroByTopic.set(tc.topic_id, {
+        heroImageUrl: tc.hero_image_url,
+        heroImageAlt: extractHeroImageAlt(tc.generation_meta),
+        subtitle: tc.subtitle,
+      });
     }
 
     const sectionsByTopic = new Map<number, LessonWeekSection[]>();
     const highlightsByTopic = new Map<number, { icon: string | null; title: string; description: string }[]>();
 
     if (contentIds.length) {
-      const [{ data: sectionsData }, { data: highlightsData }] = await Promise.all([
+      const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt')
+          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, image_alt')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -169,6 +182,13 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
       ]);
+
+      // Sorgu bir sebeple (ör. eksik migration) hata verirse sessizce boş alt başlık
+      // listesine düşmek yerine logluyoruz — aksi halde TÜM konularda alt başlık/içerik
+      // aynı anda kaybolur ve neden anlaşılmaz.
+      if (sectionsError) {
+        console.error('[getLessonWeekData] topic_content_sections sorgusu başarısız:', sectionsError.message);
+      }
 
       for (const row of (sectionsData as SectionRow[] | null) || []) {
         const topicId = topicIdByContentId.get(row.topic_content_id);
@@ -180,6 +200,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
           imageUrl: row.image_url,
           imagePrompt: row.image_prompt,
+          imageAlt: row.image_alt,
         });
         sectionsByTopic.set(topicId, list);
       }
@@ -197,6 +218,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       ...c,
       sections: sectionsByTopic.get(c.id) || [],
       heroImageUrl: heroByTopic.get(c.id)?.heroImageUrl || null,
+      heroImageAlt: heroByTopic.get(c.id)?.heroImageAlt || null,
       subtitle: heroByTopic.get(c.id)?.subtitle || null,
       highlights: highlightsByTopic.get(c.id) || [],
     }));

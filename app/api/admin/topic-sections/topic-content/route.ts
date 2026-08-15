@@ -10,6 +10,7 @@ export async function PATCH(request: NextRequest) {
     topicContentId?: number | string;
     subtitle?: string;
     heroImagePrompt?: string;
+    heroImageAlt?: string;
   } | null;
   const topicContentId = body?.topicContentId;
   if (!topicContentId) {
@@ -26,7 +27,9 @@ export async function PATCH(request: NextRequest) {
     update.subtitle = typeof body?.subtitle === 'string' ? body.subtitle.trim() || null : null;
   }
 
-  if (Object.prototype.hasOwnProperty.call(body || {}, 'heroImagePrompt')) {
+  const hasHeroPrompt = Object.prototype.hasOwnProperty.call(body || {}, 'heroImagePrompt');
+  const hasHeroAlt = Object.prototype.hasOwnProperty.call(body || {}, 'heroImageAlt');
+  if (hasHeroPrompt || hasHeroAlt) {
     const { data: current } = await supabase
       .from('topic_contents')
       .select('generation_meta')
@@ -35,8 +38,16 @@ export async function PATCH(request: NextRequest) {
     const currentMeta = current?.generation_meta && typeof current.generation_meta === 'object'
       ? (current.generation_meta as Record<string, unknown>)
       : {};
-    const trimmed = typeof body?.heroImagePrompt === 'string' ? body.heroImagePrompt.trim() : '';
-    update.generation_meta = { ...currentMeta, heroImagePrompt: trimmed || null };
+    const nextMeta = { ...currentMeta };
+    if (hasHeroPrompt) {
+      const trimmed = typeof body?.heroImagePrompt === 'string' ? body.heroImagePrompt.trim() : '';
+      nextMeta.heroImagePrompt = trimmed || null;
+    }
+    if (hasHeroAlt) {
+      const trimmed = typeof body?.heroImageAlt === 'string' ? body.heroImageAlt.trim() : '';
+      nextMeta.heroImageAlt = trimmed || null;
+    }
+    update.generation_meta = nextMeta;
   }
 
   if (Object.keys(update).length === 0) {

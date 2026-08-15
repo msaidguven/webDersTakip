@@ -33,6 +33,7 @@ type SectionRow = {
   body_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  image_alt: string | null;
   status: string;
 };
 type SectionOutcomeLinkRow = { section_id: number; outcome_id: number };
@@ -122,6 +123,12 @@ export async function GET(request: NextRequest) {
     const val = (meta as Record<string, unknown>).heroImagePrompt;
     return typeof val === 'string' && val.trim() ? val : null;
   })();
+  const heroImageAlt = (() => {
+    const meta = topicContentRow?.generation_meta;
+    if (!meta || typeof meta !== 'object') return null;
+    const val = (meta as Record<string, unknown>).heroImageAlt;
+    return typeof val === 'string' && val.trim() ? val : null;
+  })();
 
   let highlights: HighlightRow[] = [];
   let sections: SectionRow[] = [];
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest) {
   if (topicContentRow) {
     const { data: sectionsData } = await supabase
       .from('topic_content_sections')
-      .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, status')
+      .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, image_alt, status')
       .eq('topic_content_id', topicContentRow.id)
       .order('order_no', { ascending: true });
     sections = (sectionsData as SectionRow[] | null) || [];
@@ -177,6 +184,7 @@ export async function GET(request: NextRequest) {
     missingCodeCount,
     topicContent: topicContentRow,
     heroImagePrompt,
+    heroImageAlt,
     highlights,
     sections: sectionsWithOutcomes,
   });

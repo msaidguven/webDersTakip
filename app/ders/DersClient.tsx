@@ -39,6 +39,7 @@ import {
   TopicCoverImageModal,
   TopicHighlightsModal,
   TopicHighlightQuickAddModal,
+  TopicHighlightEditModal,
   copyText,
   type SectionModalSection,
   type EditableSection,
@@ -54,7 +55,7 @@ type WeekedOutcome = Outcome & {
   code: string | null;
   previewCode: string;
 };
-type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null };
+type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt?: string | null };
 type TopicHighlight = { icon: string | null; title: string; description: string };
 type Content = {
   id: string | number;
@@ -63,6 +64,7 @@ type Content = {
   content?: string | null;
   sections?: TopicSection[];
   heroImageUrl?: string | null;
+  heroImageAlt?: string | null;
   subtitle?: string | null;
   highlights?: TopicHighlight[];
 };
@@ -139,12 +141,19 @@ function buildTopicHref(gradeSlug: string | null, lessonSlug: string | null, uni
   return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
 }
 
-function buildTopicImageAlt(topicTitle: string, unitTitle: string, lessonName: string, gradeName: string) {
-  return `${gradeName} ${lessonName} dersi ${unitTitle} ünitesinde ${topicTitle} konusunu anlatan görsel`;
+// Kısa ve SEO'ya uygun tutmak için ünite adını (en az ayırt edici, en tekrarcı kısım)
+// ve dolgu kelimelerini ("dersi", "ünitesinde", "konusunu anlatan") atlıyoruz. AI, görsel
+// üretilirken görselin GERÇEKTE ne içerdiğine dair kısa bir alt metin de üretiyor
+// (customAlt) — varsa onu tercih ediyoruz, çünkü sadece müfredat metadata'sını
+// tekrarlamak yerine görselin içeriğini anlatıyor; yoksa (eski görseller) bu kalıba düşüyoruz.
+function buildTopicImageAlt(topicTitle: string, lessonName: string, gradeName: string, customAlt?: string | null) {
+  if (customAlt?.trim()) return `${gradeName} ${lessonName} ${customAlt.trim()}`;
+  return `${gradeName} ${lessonName} ${topicTitle} görseli`;
 }
 
-function buildSectionImageAlt(sectionHeading: string, topicTitle: string, unitTitle: string) {
-  return `${topicTitle} konusu içinde ${sectionHeading} alt başlığını açıklayan ${unitTitle} görseli`;
+function buildSectionImageAlt(sectionHeading: string, topicTitle: string, lessonName: string, gradeName: string, customAlt?: string | null) {
+  if (customAlt?.trim()) return `${gradeName} ${lessonName} ${customAlt.trim()}`;
+  return `${gradeName} ${lessonName} ${topicTitle}: ${sectionHeading} görseli`;
 }
 
 // Kazanımlar müfredat yılı içinde neredeyse hiç değişmiyor; 10 günde bir tazelemek yeterli.
@@ -187,14 +196,24 @@ function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel
   );
 }
 
-function HighlightCard({ highlight }: { highlight: TopicHighlight }) {
+function HighlightCard({ highlight, onEdit }: { highlight: TopicHighlight; onEdit?: () => void }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 flex items-start gap-3">
+    <div className={`relative rounded-2xl border border-slate-100 bg-white shadow-sm p-4 flex items-start gap-3 ${onEdit ? 'pr-9' : ''}`}>
       {highlight.icon && <span className="text-2xl leading-none shrink-0">{highlight.icon}</span>}
       <div className="min-w-0">
         <p className="text-sm font-black text-slate-800 leading-snug">{highlight.title}</p>
         <p className="text-xs text-slate-500 font-medium leading-snug mt-0.5">{highlight.description}</p>
       </div>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          title="Anahtar kavramı düzenle"
+          className="absolute top-2 right-2 h-6 w-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
@@ -280,6 +299,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
+  const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
@@ -1096,7 +1116,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               setSectionMenuOpenId(null);
                               setImageModalTarget({
                                 topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt },
                               });
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -1428,7 +1448,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
                         <img
                           src={activeTopic.heroImageUrl}
-                          alt={buildTopicImageAlt(activeTopic.title, unitTitle, lessonName, gradeName)}
+                          alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
                           className="w-full max-h-[420px] object-contain"
                         />
                       </div>
@@ -1462,7 +1482,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         </div>
                         {activeTopic.highlights && activeTopic.highlights.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {activeTopic.highlights.map((h, idx) => <HighlightCard key={idx} highlight={h} />)}
+                            {activeTopic.highlights.map((h, idx) => (
+                              <HighlightCard
+                                key={idx}
+                                highlight={h}
+                                onEdit={isAdmin ? () => setHighlightEditTarget({ topicId: Number(activeTopic.id), index: idx }) : undefined}
+                              />
+                            ))}
                           </div>
                         ) : (
                           <p className="text-xs text-slate-400 italic">Henüz anahtar kavram eklenmemiş.</p>
@@ -1520,7 +1546,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                   setContentSectionMenuOpenId(null);
                                                   setImageModalTarget({
                                                     topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt },
                                                   });
                                                 }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -1552,7 +1578,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                         html={section.html || ''}
                                         imageUrl={section.imageUrl}
                                         caption={section.heading}
-                                        imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, unitTitle)}
+                                        imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
                                       />
                                       <SectionQuizLink sectionId={section.id} />
                                     </>
@@ -1849,6 +1875,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <TopicHighlightQuickAddModal
           topicId={highlightQuickAddTopicId}
           onClose={() => setHighlightQuickAddTopicId(null)}
+          onSaved={refreshWeekData}
+        />
+      )}
+
+      {highlightEditTarget && (
+        <TopicHighlightEditModal
+          topicId={highlightEditTarget.topicId}
+          index={highlightEditTarget.index}
+          onClose={() => setHighlightEditTarget(null)}
           onSaved={refreshWeekData}
         />
       )}

@@ -1069,6 +1069,7 @@ export type SectionModalSection = {
   heading: string;
   image_url: string | null;
   image_prompt: string | null;
+  image_alt?: string | null;
 };
 
 const MIXED_QUESTIONS_PLACEHOLDER =
@@ -1319,6 +1320,7 @@ export function ImageModal({
 
   const [rawPrompt, setRawPrompt] = useState('');
   const [savedImagePrompt, setSavedImagePrompt] = useState<string | null>(section.image_prompt);
+  const [savedImageAlt, setSavedImageAlt] = useState<string | null>(section.image_alt ?? null);
   const [promptSaving, setPromptSaving] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
 
@@ -1349,16 +1351,29 @@ export function ImageModal({
   async function handleSavePrompt() {
     setPromptError(null);
     if (!rawPrompt.trim()) {
-      setPromptError('Önce AI\'dan gelen görsel prompt metnini yapıştırın.');
+      setPromptError('Önce AI\'dan gelen JSON çıktısını yapıştırın.');
       return;
     }
-    const finalPrompt = `${rawPrompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawPrompt);
+    } catch {
+      setPromptError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+    const obj = parsed as { image_prompt?: unknown; alt_text?: unknown };
+    if (typeof obj.image_prompt !== 'string' || !obj.image_prompt.trim()) {
+      setPromptError('JSON içinde "image_prompt" alanı bulunamadı.');
+      return;
+    }
+    const finalPrompt = `${obj.image_prompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    const altText = typeof obj.alt_text === 'string' ? obj.alt_text.trim() : '';
     setPromptSaving(true);
     try {
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}/image`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_prompt: finalPrompt }),
+        body: JSON.stringify({ image_prompt: finalPrompt, image_alt: altText }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -1366,6 +1381,7 @@ export function ImageModal({
         return;
       }
       setSavedImagePrompt(finalPrompt);
+      setSavedImageAlt(altText || null);
       setRawPrompt('');
       onSaved();
     } finally {
@@ -1419,7 +1435,7 @@ export function ImageModal({
     <ModalShell title={`Görsel Ekle — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-[#8b90a7]">
-          Önce bu promptu bir AI&apos;a sorup görsel üretim promptunu alın. Ardından AI&apos;dan gelen metni aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı otomatik olarak sona eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
+          Önce bu promptu bir AI&apos;a sorun; hem görsel üretim promptunu hem de görselin kısa Türkçe alt metnini (SEO/erişilebilirlik için) JSON olarak üretir. Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı image_prompt&apos;un sonuna otomatik eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
         </p>
 
         {metaPromptError ? (
@@ -1429,12 +1445,12 @@ export function ImageModal({
         )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen görsel prompt metnini buraya yapıştırın</span>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={rawPrompt}
             onChange={(e) => setRawPrompt(e.target.value)}
-            rows={4}
-            placeholder="A clean, educational illustration of ..."
+            rows={5}
+            placeholder='{"image_prompt": "A clean, educational illustration of ...", "alt_text": "..."}'
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
           <button
@@ -1453,6 +1469,12 @@ export function ImageModal({
             <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
             <PromptCopyBox prompt={savedImagePrompt} loading={false} />
           </div>
+        )}
+
+        {savedImageAlt && (
+          <p className="text-xs text-[#8b90a7]">
+            <span className="font-bold text-[#6c63ff]">Alt metin:</span> {savedImageAlt}
+          </p>
         )}
 
         <div className="border-t border-[#2e3348] pt-4">
@@ -1517,6 +1539,7 @@ export function TopicCoverImageModal({
   const [topicContentId, setTopicContentId] = useState<number | null>(null);
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
   const [savedPrompt, setSavedPrompt] = useState<string | null>(null);
+  const [savedAlt, setSavedAlt] = useState<string | null>(null);
   const [bundleError, setBundleError] = useState<string | null>(null);
 
   const [metaPrompt, setMetaPrompt] = useState('');
@@ -1544,6 +1567,7 @@ export function TopicCoverImageModal({
       setTopicContentId(data?.topicContent?.id ?? null);
       setHeroUrl(data?.topicContent?.hero_image_url ?? null);
       setSavedPrompt(data?.heroImagePrompt ?? null);
+      setSavedAlt(data?.heroImageAlt ?? null);
     } finally {
       setLoadingBundle(false);
     }
@@ -1576,16 +1600,29 @@ export function TopicCoverImageModal({
     if (!topicContentId) return;
     setPromptError(null);
     if (!rawPrompt.trim()) {
-      setPromptError('Önce AI\'dan gelen görsel prompt metnini yapıştırın.');
+      setPromptError('Önce AI\'dan gelen JSON çıktısını yapıştırın.');
       return;
     }
-    const finalPrompt = `${rawPrompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawPrompt);
+    } catch {
+      setPromptError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+    const obj = parsed as { image_prompt?: unknown; alt_text?: unknown };
+    if (typeof obj.image_prompt !== 'string' || !obj.image_prompt.trim()) {
+      setPromptError('JSON içinde "image_prompt" alanı bulunamadı.');
+      return;
+    }
+    const finalPrompt = `${obj.image_prompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    const altText = typeof obj.alt_text === 'string' ? obj.alt_text.trim() : '';
     setPromptSaving(true);
     try {
       const res = await fetch('/api/admin/topic-sections/topic-content', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicContentId, heroImagePrompt: finalPrompt }),
+        body: JSON.stringify({ topicContentId, heroImagePrompt: finalPrompt, heroImageAlt: altText }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -1593,6 +1630,7 @@ export function TopicCoverImageModal({
         return;
       }
       setSavedPrompt(finalPrompt);
+      setSavedAlt(altText || null);
       setRawPrompt('');
       onSaved();
     } finally {
@@ -1651,7 +1689,7 @@ export function TopicCoverImageModal({
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-[#8b90a7]">
-            Önce bu promptu bir AI&apos;a sorup görsel üretim promptunu alın. Ardından AI&apos;dan gelen metni aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı otomatik olarak sona eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
+            Önce bu promptu bir AI&apos;a sorun; hem görsel üretim promptunu hem de görselin kısa Türkçe alt metnini (SEO/erişilebilirlik için) JSON olarak üretir. Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı image_prompt&apos;un sonuna otomatik eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
           </p>
 
           {metaPromptError ? (
@@ -1661,12 +1699,12 @@ export function TopicCoverImageModal({
           )}
 
           <div>
-            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen görsel prompt metnini buraya yapıştırın</span>
+            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
             <textarea
               value={rawPrompt}
               onChange={(e) => setRawPrompt(e.target.value)}
-              rows={4}
-              placeholder="A clean, educational illustration of ..."
+              rows={5}
+              placeholder='{"image_prompt": "A clean, educational illustration of ...", "alt_text": "..."}'
               className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
             />
             <button
@@ -1685,6 +1723,12 @@ export function TopicCoverImageModal({
               <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
               <PromptCopyBox prompt={savedPrompt} loading={false} />
             </div>
+          )}
+
+          {savedAlt && (
+            <p className="text-xs text-[#8b90a7]">
+              <span className="font-bold text-[#6c63ff]">Alt metin:</span> {savedAlt}
+            </p>
           )}
 
           <div className="border-t border-[#2e3348] pt-4">
@@ -2025,6 +2069,178 @@ export function TopicHighlightQuickAddModal({
             >
               {saving ? 'Ekleniyor...' : 'Ekle'}
             </button>
+          </div>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// Var olan TEK bir anahtar kavramı elle düzenlemek (veya silmek) için. Ders sayfasındaki
+// her anahtar kavram kartının üzerindeki kalem ikonundan açılır. index, o an ekranda
+// gösterilen (order_no'ya göre sıralı) highlights listesindeki konumu; kaydederken
+// güncel listeyi tazeden çekip sadece o pozisyonu değiştiriyoruz.
+export function TopicHighlightEditModal({
+  topicId,
+  index,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  index: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [existing, setExisting] = useState<{ icon: string | null; title: string; description: string }[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [icon, setIcon] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setLoadError(data?.error || 'Konu bilgisi yüklenemedi.');
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+      const list = (data?.highlights || []) as { icon: string | null; title: string; description: string }[];
+      setExisting(list);
+      const current = list[index];
+      if (current) {
+        setIcon(current.icon || '');
+        setTitle(current.title);
+        setDescription(current.description);
+      } else {
+        setLoadError('Bu kavram artık bulunamadı, güncel listeyle uyuşmuyor olabilir.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [topicId, index]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function persist(nextList: { icon: string; title: string; description: string }[]) {
+    if (!topicContentId) return false;
+    setError(null);
+    const res = await fetch('/api/admin/topic-sections/highlights', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topicContentId,
+        highlights: nextList.map((h, idx) => ({ ...h, order_no: idx })),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || 'Kaydedilemedi.');
+      return false;
+    }
+    return true;
+  }
+
+  async function handleSave() {
+    if (!title.trim() || !description.trim()) {
+      setError('Başlık ve açıklama zorunlu.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const next = existing.map((h, i) =>
+        i === index
+          ? { icon: icon.trim(), title: title.trim(), description: description.trim() }
+          : { icon: h.icon || '', title: h.title, description: h.description }
+      );
+      const ok = await persist(next);
+      if (ok) {
+        onSaved();
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Bu anahtar kavramı silmek istediğinize emin misiniz?')) return;
+    setSaving(true);
+    try {
+      const next = existing
+        .filter((_, i) => i !== index)
+        .map((h) => ({ icon: h.icon || '', title: h.title, description: h.description }));
+      const ok = await persist(next);
+      if (ok) {
+        onSaved();
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Anahtar Kavramı Düzenle" onClose={onClose}>
+      {loading ? (
+        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+      ) : loadError ? (
+        <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="🧠"
+              maxLength={4}
+              className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-2 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            />
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Kavram / terim"
+              className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Açıklama / tanım"
+            rows={3}
+            className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+          />
+          {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handleDelete}
+              disabled={saving}
+              className="rounded-xl border border-[#ff6584]/30 bg-[#ff6584]/10 px-4 py-2 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+            >
+              Sil
+            </button>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+                İptal
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !title.trim() || !description.trim()}
+                className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
           </div>
         </div>
       )}

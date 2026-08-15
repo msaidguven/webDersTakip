@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!admin.ok) return admin.response;
 
   const { sectionId } = await params;
-  const body = await request.json().catch(() => null) as { image_prompt?: unknown } | null;
+  const body = await request.json().catch(() => null) as { image_prompt?: unknown; image_alt?: unknown } | null;
 
   if (!body || typeof body.image_prompt !== 'string' || !body.image_prompt.trim()) {
     return NextResponse.json({ error: 'Geçersiz görsel promptu' }, { status: 400 });
@@ -89,7 +89,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { error } = await supabase
     .from('topic_content_sections')
-    .update({ image_prompt: body.image_prompt.trim(), updated_at: new Date().toISOString() })
+    .update({
+      image_prompt: body.image_prompt.trim(),
+      image_alt: typeof body.image_alt === 'string' && body.image_alt.trim() ? body.image_alt.trim() : null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', sectionId);
 
   if (error) {
