@@ -5,7 +5,6 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { logger } from '@/utils/logger';
 import { GradeSelector } from './src/components/home/GradeSelector';
-import AdSlot from './src/components/AdSlot';
 import { Grade } from './src/models/homeTypes';
 import {
   getGradeColor,
@@ -81,7 +80,6 @@ export default function HomeClient({ initialGrades }: HomeClientProps) {
             error={error?.message}
             onSelect={() => {}}
           />
-          <AdSlot slot="0000000000" className="mt-10" />
         </div>
       </main>
     </div>

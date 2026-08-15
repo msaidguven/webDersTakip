@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '../src/context/AuthContext';
-import AdSlot from '../src/components/AdSlot';
 
 
 type QuestionType = 'multiple_choice' | 'blank' | 'matching' | 'classical';
@@ -518,8 +517,6 @@ export default function KarisikTestClient({
             <Link href={exitHref} className="px-6 py-3 rounded-xl bg-surface text-default border border-default">Üniteye Dön</Link>
             <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium">Tekrar Dene</button>
           </div>
-
-          <AdSlot slot="0000000004" />
         </div>
       </div>
     );

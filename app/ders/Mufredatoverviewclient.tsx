@@ -12,7 +12,6 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import AdSlot from '@/app/src/components/AdSlot';
 
 export type UnitTopic = {
   id: number;
@@ -233,8 +232,6 @@ export default function MufredatOverviewClient({
             </div>
           )}
         </div>
-
-        <AdSlot slot="0000000001" className="mt-6" />
 
         <p className="text-[11px] text-slate-400 font-medium mt-6 text-center">
           Haftaların tarih aralıkları MEB takvimine göredir ve değişiklik gösterebilir.
