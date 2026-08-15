@@ -22,6 +22,7 @@ interface ProfilClientProps {
     avatarUrl: string | null;
   };
   profile: ProfileRow | null;
+  gradeName: string | null;
 }
 
 interface UserStats {
@@ -35,10 +36,83 @@ interface UserStats {
   streakDays: number;
 }
 
-export default function ProfilClient({ user, profile }: ProfilClientProps) {
+const STAT_RINGS = [
+  { key: 'accuracy', title: 'Doğruluk', icon: '🎯', from: '#10b981', to: '#14b8a6' },
+  { key: 'coverage', title: 'Kapsam', icon: '📊', from: '#3b82f6', to: '#6366f1' },
+  { key: 'mastery', title: 'Ustalık', icon: '👑', from: '#a855f7', to: '#ec4899' },
+] as const;
+
+function StatRing({ value, title, icon, from, to, gradientId, delay }: {
+  value: number;
+  title: string;
+  icon: string;
+  from: string;
+  to: string;
+  gradientId: string;
+  delay: number;
+}) {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.max(0, Math.min(100, value)) / 100) * circumference;
+
+  return (
+    <div
+      className="relative overflow-hidden bg-surface-elevated border border-default rounded-2xl p-5 flex flex-col items-center text-center card-hover animate-fade-in-up"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="relative w-24 h-24 mb-2">
+        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={from} />
+              <stop offset="100%" stopColor={to} />
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r={radius} fill="none" strokeWidth="8" className="text-muted-foreground/15" stroke="currentColor" />
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            strokeWidth="8"
+            strokeLinecap="round"
+            stroke={`url(#${gradientId})`}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 1.2s ease-out' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg leading-none mb-1">{icon}</span>
+          <span className="text-xl font-black text-default">{value}%</span>
+        </div>
+      </div>
+      <div className="text-default font-bold text-sm">{title}</div>
+    </div>
+  );
+}
+
+function MiniStat({ icon, value, label, delay }: { icon: string; value: string | number; label: string; delay: number }) {
+  return (
+    <div
+      className="bg-surface-elevated border border-default rounded-xl p-3 sm:p-4 flex items-center gap-3 animate-fade-in-up"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center text-lg shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-default font-bold text-base leading-tight truncate">{value}</div>
+        <div className="text-muted-foreground text-xs truncate">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+export default function ProfilClient({ user, profile, gradeName }: ProfilClientProps) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-  
+
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +133,7 @@ export default function ProfilClient({ user, profile }: ProfilClientProps) {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert('Dosya boyutu 2MB dan kucuk olmalidir.');
+      alert('Dosya boyutu 2MB\'dan küçük olmalıdır.');
       return;
     }
 
@@ -86,7 +160,7 @@ export default function ProfilClient({ user, profile }: ProfilClientProps) {
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {
-      alert('Fotograf yuklenirken hata: ' + err.message);
+      alert('Fotoğraf yüklenirken hata: ' + err.message);
     } finally {
       setUploading(false);
     }
@@ -99,78 +173,104 @@ export default function ProfilClient({ user, profile }: ProfilClientProps) {
 
   return (
     <div className="min-h-screen bg-default pb-20">
-      <div className="pt-[72px] pb-6 px-4 sm:px-8 border-b border-default bg-gradient-to-b from-surface to-default">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-4">
+      <div className="relative pt-[72px] pb-10 px-4 sm:px-8 overflow-hidden border-b border-default">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent" />
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 left-1/3 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl" />
+
+        <div className="relative max-w-5xl mx-auto">
+          <div className="flex items-center gap-4 mb-6">
             <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-default transition-colors">
               <span className="text-lg">←</span>
               <span className="hidden sm:inline">Ana Sayfa</span>
             </Link>
             <h1 className="text-xl sm:text-2xl font-bold text-default">Profilim</h1>
           </div>
+
+          {/* User Card */}
+          <div className="bg-surface-elevated/80 backdrop-blur-sm border border-default rounded-2xl p-6 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="relative shrink-0">
+                <div className="p-[3px] rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-surface flex items-center justify-center text-3xl font-bold text-default ring-2 ring-surface-elevated">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        {user.email?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  aria-label="Fotoğraf değiştir"
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-700 border-2 border-surface-elevated flex items-center justify-center shadow-md transition-colors disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-white text-sm">📷</span>
+                  )}
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+              </div>
+
+              <div className="flex-1 text-center sm:text-left min-w-0">
+                <h2 className="text-2xl font-bold text-default mb-1 truncate">{user.fullName}</h2>
+                <p className="text-muted-foreground mb-3 truncate">{user.email}</p>
+                <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                  <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
+                    {gradeName ? `${gradeName}` : 'Sınıf belirtilmemiş'}
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                    Aktif Üye
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-sm border bg-orange-500/10 text-orange-400 border-orange-500/20">
+                    🔥 {stats.streakDays} gün seri
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSignOut}
+                className="shrink-0 px-5 py-2.5 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-all text-sm font-medium"
+              >
+                Çıkış Yap
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          {[
-            { title: 'Accuracy', value: stats.accuracy, color: 'from-emerald-500 to-teal-500', icon: '🎯' },
-            { title: 'Coverage', value: stats.coverage, color: 'from-blue-500 to-indigo-500', icon: '📊' },
-            { title: 'Mastery', value: stats.mastery, color: 'from-purple-500 to-pink-500', icon: '👑' },
-          ].map((stat) => (
-            <div key={stat.title} className="relative overflow-hidden bg-surface-elevated border border-default rounded-2xl p-4 text-center">
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-5`} />
-              <div className="relative">
-                <div className="text-2xl mb-2">{stat.icon}</div>
-                <div className={`text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
-                  {stat.value}%
-                </div>
-                <div className="text-default font-bold text-sm mt-1">{stat.title}</div>
-              </div>
-            </div>
-          ))}
+        {/* Primary Stats */}
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Genel Performans</h3>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {STAT_RINGS.map((ring, i) => (
+              <StatRing
+                key={ring.key}
+                value={stats[ring.key]}
+                title={ring.title}
+                icon={ring.icon}
+                from={ring.from}
+                to={ring.to}
+                gradientId={`ring-${ring.key}`}
+                delay={i * 80}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* User Card */}
-        <div className="bg-surface-elevated border border-default rounded-2xl p-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  user.email?.[0]?.toUpperCase() || 'U'
-                )}
-              </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <span className="text-white text-2xl">📷</span>
-              </button>
-              {uploading && (
-                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-            </div>
-
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-default mb-1">{user.fullName}</h2>
-              <p className="text-muted-foreground mb-3">{user.email}</p>
-              <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">8. Sinif</span>
-                <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Aktif Uye</span>
-              </div>
-            </div>
-
-            <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-all">
-              Cikis Yap
-            </button>
-          </div>
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <MiniStat icon="📝" value={stats.totalTests} label="Toplam Test" delay={240} />
+          <MiniStat icon="❓" value={stats.totalQuestions} label="Çözülen Soru" delay={280} />
+          <MiniStat icon="✅" value={stats.correctAnswers} label="Doğru Cevap" delay={320} />
+          <MiniStat icon="⭐" value={`${stats.averageScore}%`} label="Ortalama Puan" delay={360} />
         </div>
 
         {/* Okul Bilgileri */}
@@ -336,34 +436,46 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
   }
 
   return (
-    <div className="bg-surface-elevated border border-default rounded-2xl p-6">
+    <div className="bg-surface-elevated border border-default rounded-2xl p-6 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-default">Okul Bilgileri</h3>
+        <h3 className="text-lg font-semibold text-default flex items-center gap-2">
+          <span className="text-xl">🏫</span> Okul Bilgileri
+        </h3>
         {!editing && (
-          <button onClick={() => setEditing(true)} className="text-sm text-indigo-500 hover:text-indigo-400">
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm font-medium text-indigo-500 hover:text-indigo-400 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
+          >
             Düzenle
           </button>
         )}
       </div>
 
       {notice && (
-        <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm ${notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+        <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 ${notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+          <span>{notice.kind === 'success' ? '✅' : '⚠️'}</span>
           {notice.text}
         </div>
       )}
 
       {!editing ? (
         <div className="flex flex-wrap gap-2">
-          <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">{currentGradeName || 'Sınıf belirtilmemiş'}</span>
-          <span className="px-3 py-1 rounded-full text-sm border bg-surface text-muted-foreground border-default">{currentCityName ? `${currentCityName}${currentDistrictName ? ' / ' + currentDistrictName : ''}` : 'Şehir belirtilmemiş'}</span>
-          <span className="px-3 py-1 rounded-full text-sm border bg-surface text-muted-foreground border-default">{schoolQuery || 'Okul belirtilmemiş'}</span>
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5">
+            🎓 {currentGradeName || 'Sınıf belirtilmemiş'}
+          </span>
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
+            📍 {currentCityName ? `${currentCityName}${currentDistrictName ? ' / ' + currentDistrictName : ''}` : 'Şehir belirtilmemiş'}
+          </span>
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
+            🏫 {schoolQuery || 'Okul belirtilmemiş'}
+          </span>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-muted-foreground text-xs mb-1">Sınıf</label>
-              <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm">
+              <label className="block text-muted-foreground text-xs font-medium mb-1.5">Sınıf</label>
+              <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow">
                 <option value="">Seçiniz</option>
                 {grades.map((g) => (
                   <option key={g.id} value={g.id}>{g.label}</option>
@@ -371,7 +483,7 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
               </select>
             </div>
             <div>
-              <label className="block text-muted-foreground text-xs mb-1">İl</label>
+              <label className="block text-muted-foreground text-xs font-medium mb-1.5">İl</label>
               <SearchCombobox
                 query={cityQuery}
                 onQueryChange={(q) => { setCityQuery(q); setCityId(''); setDistrictId(''); setDistrictQuery(''); }}
@@ -382,7 +494,7 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
               />
             </div>
             <div>
-              <label className="block text-muted-foreground text-xs mb-1">İlçe</label>
+              <label className="block text-muted-foreground text-xs font-medium mb-1.5">İlçe</label>
               <SearchCombobox
                 query={districtQuery}
                 onQueryChange={(q) => { setDistrictQuery(q); setDistrictId(''); }}
@@ -396,7 +508,7 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
           </div>
 
           <div>
-            <label className="block text-muted-foreground text-xs mb-1">Okul</label>
+            <label className="block text-muted-foreground text-xs font-medium mb-1.5">Okul</label>
             <SearchCombobox
               query={schoolQuery}
               onQueryChange={(q) => { setSchoolQuery(q); setSchoolId(null); }}
@@ -407,16 +519,16 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
               }}
               placeholder="Okul adını yazmaya başlayın..."
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              {schoolId ? 'Listeden seçildi.' : 'Listede bulamazsanız yazdığınız isim olduğu gibi kaydedilir.'}
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {schoolId ? '✓ Listeden seçildi.' : 'Listede bulamazsanız yazdığınız isim olduğu gibi kaydedilir.'}
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-surface-elevated text-sm">
+          <div className="flex gap-3 pt-1">
+            <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-surface-elevated text-sm font-medium transition-colors">
               İptal
             </button>
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 text-sm">
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors">
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </button>
           </div>

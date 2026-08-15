@@ -7,13 +7,14 @@ import ManagementTab, { type EntityKey } from '@/app/src/components/admin/Manage
 import MembersTab from '@/app/src/components/admin/MembersTab';
 import SchoolsSyncPanel from '@/app/src/components/admin/SchoolsSyncPanel';
 import CodeCleanupPanel from '@/app/src/components/admin/CodeCleanupPanel';
+import ContentAuditTab from '@/app/src/components/admin/ContentAuditTab';
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';
 
 // ==================== TYPES ====================
 
-type TabType = 'dashboard' | 'manage' | 'members' | 'schools' | 'code-cleanup';
+type TabType = 'dashboard' | 'manage' | 'members' | 'schools' | 'code-cleanup' | 'content-audit';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -79,6 +80,7 @@ export default function AdminPanel() {
         <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0">
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
+          <NavButton active={activeTab === 'content-audit'} onClick={() => { setActiveTab('content-audit'); setSidebarOpen(false); }} icon="🔍" label="İçerik Kontrol" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
           <NavButton active={activeTab === 'schools'} onClick={() => { setActiveTab('schools'); setSidebarOpen(false); }} icon="🏫" label="Okullar" />
           <NavButton active={activeTab === 'code-cleanup'} onClick={() => { setActiveTab('code-cleanup'); setSidebarOpen(false); }} icon="🧹" label="Kod Temizliği" />
@@ -101,8 +103,9 @@ export default function AdminPanel() {
 
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-10 px-4 sm:px-6 lg:px-8">
-        {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} onGoSchools={() => setActiveTab('schools')} />}
+        {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} onGoSchools={() => setActiveTab('schools')} onGoContentAudit={() => setActiveTab('content-audit')} />}
         {activeTab === 'manage' && <ManagementTab initialEntity={manageEntity} />}
+        {activeTab === 'content-audit' && <ContentAuditTab />}
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'schools' && <SchoolsSyncPanel />}
         {activeTab === 'code-cleanup' && <CodeCleanupPanel />}
@@ -133,7 +136,7 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
 
 type RecentActivityItem = { type: 'question' | 'content'; title: string; date: string };
 
-function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (entity: EntityKey) => void; onGoMembers: () => void; onGoSchools: () => void }) {
+function DashboardTab({ onGoManage, onGoMembers, onGoSchools, onGoContentAudit }: { onGoManage: (entity: EntityKey) => void; onGoMembers: () => void; onGoSchools: () => void; onGoContentAudit: () => void }) {
   const [stats, setStats] = useState({
     grades: 0, lessons: 0, units: 0, topics: 0,
     questions: 0, users: 0, tests: 0, contents: 0
@@ -234,6 +237,7 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
             <QuickActionButton icon="📝" label="İçerikler" onClick={() => onGoManage('contents')} />
             <QuickActionButton icon="🎯" label="Kazanımlar" onClick={() => onGoManage('outcomes')} />
             <QuickActionButton icon="❓" label="Sorular" onClick={() => onGoManage('questions')} />
+            <QuickActionButton icon="🔍" label="İçerik Kontrol" onClick={onGoContentAudit} />
             <QuickActionButton icon="👥" label="Üyeler" onClick={onGoMembers} />
             <QuickActionButton icon="🏫" label="Okullar" onClick={onGoSchools} />
           </div>

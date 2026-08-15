@@ -25,7 +25,14 @@ export async function GET(request: NextRequest) {
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 
-  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && type !== 'image' && !isQuestionType)) {
+  // Bunlar bir alt başlığa değil, doğrudan ana konuya bağlı promptlar (sectionId gerekmez).
+  const TOPIC_LEVEL_TEMPLATES: Record<string, string> = {
+    cover_image: '05-topic-cover-image.md',
+    highlights: '07-topic-highlights.md',
+  };
+  const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
+
+  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && type !== 'image' && !isQuestionType && !isTopicLevelType)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -98,6 +105,41 @@ export async function GET(request: NextRequest) {
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText);
+
+    return NextResponse.json({ prompt });
+  }
+
+  if (isTopicLevelType) {
+    const outcomesText = outcomes.length
+      ? outcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
+      : 'Bu konu için tanımlı kazanım bulunamadı.';
+
+    let topicContentText = '';
+    if (type === 'highlights') {
+      const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
+      if (topicContent) {
+        const { data: sectionsData } = await supabase
+          .from('topic_content_sections')
+          .select('heading, body_markdown, order_no')
+          .eq('topic_content_id', (topicContent as { id: number }).id)
+          .order('order_no', { ascending: true });
+        topicContentText = ((sectionsData as { heading: string; body_markdown: string | null }[] | null) || [])
+          .filter((s) => s.body_markdown?.trim())
+          .map((s) => `### ${s.heading}\n${s.body_markdown}`)
+          .join('\n\n');
+      }
+    }
+
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', TOPIC_LEVEL_TEMPLATES[type as string]);
+    const template = await readFile(templatePath, 'utf8');
+
+    const prompt = template
+      .replaceAll('{grade}', gradeName)
+      .replaceAll('{lesson}', lessonName)
+      .replaceAll('{unit}', unitTitle)
+      .replaceAll('{topic}', topicRow.title)
+      .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
+      .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.');
 
     return NextResponse.json({ prompt });
   }

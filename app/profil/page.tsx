@@ -64,5 +64,15 @@ export default async function ProfilPage() {
     .eq('id', user.id)
     .maybeSingle();
 
-  return <ProfilClient user={userData} profile={profileRow || null} />;
+  let gradeName: string | null = null;
+  if (profileRow?.grade_id) {
+    const { data: gradeRow } = await service
+      .from('grades')
+      .select('name')
+      .eq('id', profileRow.grade_id)
+      .maybeSingle();
+    gradeName = gradeRow?.name || null;
+  }
+
+  return <ProfilClient user={userData} profile={profileRow || null} gradeName={gradeName} />;
 }

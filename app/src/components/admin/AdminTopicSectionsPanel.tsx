@@ -1501,3 +1501,405 @@ export function ImageModal({
     </ModalShell>
   );
 }
+
+// Konu kapak görselini, alt başlıklar/içerikle uğraşmadan tek başına güncellemek için.
+// Sidebar'daki ana konu ⋮ menüsünden açılır.
+export function TopicCoverImageModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingBundle, setLoadingBundle] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  const [savedPrompt, setSavedPrompt] = useState<string | null>(null);
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
+  const [metaPrompt, setMetaPrompt] = useState('');
+  const [loadingMetaPrompt, setLoadingMetaPrompt] = useState(true);
+  const [metaPromptError, setMetaPromptError] = useState<string | null>(null);
+
+  const [rawPrompt, setRawPrompt] = useState('');
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+
+  const [heroFile, setHeroFile] = useState<File | null>(null);
+  const [heroBusy, setHeroBusy] = useState(false);
+  const [heroError, setHeroError] = useState<string | null>(null);
+
+  const loadBundle = useCallback(async () => {
+    setLoadingBundle(true);
+    setBundleError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBundleError(data?.error || 'Konu bilgisi yüklenemedi.');
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+      setHeroUrl(data?.topicContent?.hero_image_url ?? null);
+      setSavedPrompt(data?.heroImagePrompt ?? null);
+    } finally {
+      setLoadingBundle(false);
+    }
+  }, [topicId]);
+
+  useEffect(() => {
+    loadBundle();
+  }, [loadBundle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMetaPrompt(true);
+    setMetaPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=cover_image`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setMetaPrompt(data?.prompt || '');
+        } else {
+          setMetaPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingMetaPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  async function handleSavePrompt() {
+    if (!topicContentId) return;
+    setPromptError(null);
+    if (!rawPrompt.trim()) {
+      setPromptError('Önce AI\'dan gelen görsel prompt metnini yapıştırın.');
+      return;
+    }
+    const finalPrompt = `${rawPrompt.trim()}${IMAGE_PROMPT_TURKISH_TEXT_SUFFIX}`;
+    setPromptSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/topic-content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId, heroImagePrompt: finalPrompt }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setPromptError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedPrompt(finalPrompt);
+      setRawPrompt('');
+      onSaved();
+    } finally {
+      setPromptSaving(false);
+    }
+  }
+
+  async function handleHeroUpload() {
+    if (!heroFile || !topicContentId) return;
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', heroFile);
+      formData.append('topicContentId', String(topicContentId));
+      const res = await fetch('/api/admin/topic-sections/hero-image', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setHeroError(data?.error || 'Yükleme başarısız.');
+        return;
+      }
+      setHeroUrl(data.imageUrl);
+      setHeroFile(null);
+      onSaved();
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
+  async function handleHeroRemove() {
+    if (!topicContentId) return;
+    if (!confirm('Kapak görselini kaldırmak istediğinize emin misiniz?')) return;
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/hero-image?topicContentId=${topicContentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setHeroUrl(null);
+        onSaved();
+      }
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Konu Kapak Görseli" onClose={onClose}>
+      {loadingBundle ? (
+        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+      ) : bundleError ? (
+        <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
+      ) : !topicContentId ? (
+        <p className="text-sm text-[#8b90a7]">
+          Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-xs text-[#8b90a7]">
+            Önce bu promptu bir AI&apos;a sorup görsel üretim promptunu alın. Ardından AI&apos;dan gelen metni aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı otomatik olarak sona eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
+          </p>
+
+          {metaPromptError ? (
+            <p className="text-xs font-bold text-[#ff6584]">{metaPromptError}</p>
+          ) : (
+            <PromptCopyBox prompt={metaPrompt} loading={loadingMetaPrompt} />
+          )}
+
+          <div>
+            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen görsel prompt metnini buraya yapıştırın</span>
+            <textarea
+              value={rawPrompt}
+              onChange={(e) => setRawPrompt(e.target.value)}
+              rows={4}
+              placeholder="A clean, educational illustration of ..."
+              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleSavePrompt}
+              disabled={promptSaving || !rawPrompt.trim()}
+              className="mt-2 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {promptSaving ? 'Kaydediliyor...' : 'Promptu Kaydet'}
+            </button>
+            {promptError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{promptError}</p>}
+          </div>
+
+          {savedPrompt && (
+            <div>
+              <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
+              <PromptCopyBox prompt={savedPrompt} loading={false} />
+            </div>
+          )}
+
+          <div className="border-t border-[#2e3348] pt-4">
+            <span className="text-xs font-bold text-[#8b90a7] block mb-2">Görsel Dosyası</span>
+
+            {heroUrl ? (
+              <div className="flex items-center gap-3">
+                <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
+                <button
+                  type="button"
+                  onClick={handleHeroRemove}
+                  disabled={heroBusy}
+                  className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+                >
+                  {heroBusy ? 'İşleniyor...' : 'Kaldır'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                  className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+                />
+                <button
+                  type="button"
+                  onClick={handleHeroUpload}
+                  disabled={!heroFile || heroBusy}
+                  className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+                >
+                  {heroBusy ? 'Yükleniyor...' : 'Yükle'}
+                </button>
+              </div>
+            )}
+
+            {heroError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{heroError}</p>}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// Anahtar kavramları, konunun geri kalanına (alt başlık, ders notu, kapak görseli) hiç
+// dokunmadan tek başına yeniden üretmek/güncellemek için. Sidebar'daki ana konu ⋮ menüsünden açılır.
+export function TopicHighlightsModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingBundle, setLoadingBundle] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [promptError, setPromptError] = useState<string | null>(null);
+
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  const loadBundle = useCallback(async () => {
+    setLoadingBundle(true);
+    setBundleError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBundleError(data?.error || 'Konu bilgisi yüklenemedi.');
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+    } finally {
+      setLoadingBundle(false);
+    }
+  }, [topicId]);
+
+  useEffect(() => {
+    loadBundle();
+  }, [loadBundle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPrompt(true);
+    setPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=highlights`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setPrompt(data?.prompt || '');
+        } else {
+          setPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  async function handleSave() {
+    if (!topicContentId) return;
+    setError(null);
+    setSavedCount(null);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(pasted);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+
+    const obj = parsed as { highlights?: unknown };
+    if (!Array.isArray(obj.highlights) || !obj.highlights.length) {
+      setError('JSON içinde "highlights" listesi bulunamadı.');
+      return;
+    }
+
+    const payload = (obj.highlights as { icon?: unknown; title?: unknown; description?: unknown }[])
+      .map((h, idx) => ({
+        icon: typeof h.icon === 'string' ? h.icon : '',
+        title: typeof h.title === 'string' ? h.title : '',
+        description: typeof h.description === 'string' ? h.description : '',
+        order_no: idx,
+      }))
+      .filter((h) => h.title.trim() && h.description.trim());
+
+    if (!payload.length) {
+      setError('JSON içindeki kavramların başlık/açıklama alanları boş.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/highlights', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId, highlights: payload }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedCount(payload.length);
+      setPasted('');
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Anahtar Kavramları Güncelle" onClose={onClose}>
+      {loadingBundle ? (
+        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+      ) : bundleError ? (
+        <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
+      ) : !topicContentId ? (
+        <p className="text-sm text-[#8b90a7]">
+          Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-xs text-[#8b90a7]">
+            Bu prompt SADECE anahtar kavramları üretir; konunun diğer alanlarına (alt başlık, ders notu, kapak görseli) dokunmadan sadece bu listeyi günceller. AI çıktısını aşağıya yapıştırıp kaydedin — mevcut kavramların yerine geçer.
+          </p>
+
+          {promptError ? (
+            <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
+          ) : (
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+          )}
+
+          <div>
+            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+            <textarea
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              rows={10}
+              placeholder='{"highlights": [{"icon": "🧠", "title": "...", "description": "..."}]}'
+              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+
+          {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+          {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} kavram kaydedildi.</p>}
+
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              Kapat
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !pasted.trim()}
+              className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            </button>
+          </div>
+        </div>
+      )}
+    </ModalShell>
+  );
+}

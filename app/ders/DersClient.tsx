@@ -35,6 +35,8 @@ import {
   QuestionsModal,
   ImageModal,
   SectionContentEditModal,
+  TopicCoverImageModal,
+  TopicHighlightsModal,
   copyText,
   type SectionModalSection,
   type EditableSection,
@@ -273,6 +275,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
+  const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
+  const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
@@ -1001,6 +1005,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
                         <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Anahtar Kavramlar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setCoverImageModalTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" /> Konu Kapak Görseli
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setTopicHighlightsModalTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Anahtar Kavramları Güncelle
                       </button>
                     </div>
                   </>
@@ -1773,6 +1797,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             setEditingContentSection(null);
             refreshWeekData();
           }}
+        />
+      )}
+
+      {coverImageModalTopicId != null && (
+        <TopicCoverImageModal
+          topicId={coverImageModalTopicId}
+          onClose={() => setCoverImageModalTopicId(null)}
+          onSaved={refreshWeekData}
+        />
+      )}
+
+      {topicHighlightsModalTopicId != null && (
+        <TopicHighlightsModal
+          topicId={topicHighlightsModalTopicId}
+          onClose={() => setTopicHighlightsModalTopicId(null)}
+          onSaved={refreshWeekData}
         />
       )}
     </div>
