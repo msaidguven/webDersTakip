@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
@@ -126,6 +127,7 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
 export default async function GradePage({ params }: { params: Promise<Params> }) {
   const { gradeSlug } = await params;
   const { grade, lessons } = await getGradePageData(gradeSlug);
+  if (!grade) notFound();
   return <GradePageClient gradeSlug={gradeSlug} initialGrade={grade} initialLessons={lessons} />;
 }
 

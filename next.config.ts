@@ -12,6 +12,21 @@ const nextConfig: NextConfig = {
         destination: "/5-sinif/fen-bilimleri/isigin-dunyasi/tam-golgenin-olusumu",
         permanent: true,
       },
+      {
+        source: "/default.aspx",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/Default.aspx",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/about.html",
+        destination: "/hakkimizda",
+        permanent: true,
+      },
     ];
   },
 };
