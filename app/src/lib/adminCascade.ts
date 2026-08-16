@@ -10,6 +10,22 @@ function friendlyError(error: PgError, fallback: string): string {
   return error.message || fallback;
 }
 
+// Çok sayıda id'yi (ör. bir sınıf+dersin tüm kazanımları) sınırsız paralellikle
+// göndermek yerine sınırlı eşzamanlılıkla işler — hem tek tek sıralı işlemden çok
+// daha hızlıdır hem de Supabase'e aynı anda yüzlerce istek açmayı engeller.
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
 // Sorular: seçenek/boşluk/eşleştirme/klasik detaylarını ve bağlantı tablolarını silip
 // ardından soruyu siler. Soru daha önce bir öğrenci tarafından cevaplanmışsa
 // (test_session_answers vb.) FK ihlali oluşur; bunu admin'e okunabilir bir sebep olarak döneriz.
@@ -17,7 +33,7 @@ export async function deleteQuestionsCascade(supabase: SupabaseClient, ids: numb
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 10, async (id) => {
     await supabase.from('question_choices').delete().eq('question_id', id);
     await supabase.from('question_classical').delete().eq('question_id', id);
     await supabase.from('question_blank_options').delete().eq('question_id', id);
@@ -31,7 +47,7 @@ export async function deleteQuestionsCascade(supabase: SupabaseClient, ids: numb
     } else {
       deletedIds.push(id);
     }
-  }
+  });
 
   return { deletedIds, failed };
 }
@@ -40,7 +56,7 @@ export async function deleteOutcomesCascade(supabase: SupabaseClient, ids: numbe
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 10, async (id) => {
     await supabase.from('outcome_weeks').delete().eq('outcome_id', id);
     await supabase.from('topic_content_outcomes').delete().eq('outcome_id', id);
     await supabase.from('topic_content_section_outcomes').delete().eq('outcome_id', id);
@@ -49,7 +65,7 @@ export async function deleteOutcomesCascade(supabase: SupabaseClient, ids: numbe
     const { error } = await supabase.from('outcomes').delete().eq('id', id);
     if (error) failed.push({ id, reason: friendlyError(error, 'Kazanım silinemedi') });
     else deletedIds.push(id);
-  }
+  });
 
   return { deletedIds, failed };
 }
@@ -58,13 +74,13 @@ export async function deleteSectionsCascade(supabase: SupabaseClient, ids: numbe
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 10, async (id) => {
     await supabase.from('topic_content_section_outcomes').delete().eq('section_id', id);
 
     const { error } = await supabase.from('topic_content_sections').delete().eq('id', id);
     if (error) failed.push({ id, reason: friendlyError(error, 'Alt başlık silinemedi') });
     else deletedIds.push(id);
-  }
+  });
 
   return { deletedIds, failed };
 }
@@ -73,7 +89,7 @@ export async function deleteTopicContentsCascade(supabase: SupabaseClient, ids: 
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 10, async (id) => {
     const { data: sectionRows } = await supabase.from('topic_content_sections').select('id').eq('topic_content_id', id);
     const sectionIds = ((sectionRows as { id: number }[] | null) || []).map((r) => r.id);
     if (sectionIds.length) {
@@ -88,7 +104,7 @@ export async function deleteTopicContentsCascade(supabase: SupabaseClient, ids: 
     const { error } = await supabase.from('topic_contents').delete().eq('id', id);
     if (error) failed.push({ id, reason: friendlyError(error, 'İçerik silinemedi') });
     else deletedIds.push(id);
-  }
+  });
 
   return { deletedIds, failed };
 }
@@ -100,7 +116,7 @@ export async function deleteTopicsCascade(supabase: SupabaseClient, ids: number[
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 5, async (id) => {
     try {
       const { data: outcomeRows } = await supabase.from('outcomes').select('id').eq('topic_id', id);
       const outcomeIds = ((outcomeRows as { id: number }[] | null) || []).map((r) => r.id);
@@ -119,7 +135,7 @@ export async function deleteTopicsCascade(supabase: SupabaseClient, ids: number[
     } catch (e) {
       failed.push({ id, reason: e instanceof Error ? e.message : 'Bilinmeyen hata' });
     }
-  }
+  });
 
   return { deletedIds, failed };
 }
@@ -131,7 +147,7 @@ export async function deleteUnitsCascade(supabase: SupabaseClient, ids: number[]
   const deletedIds: number[] = [];
   const failed: { id: number; reason: string }[] = [];
 
-  for (const id of ids) {
+  await mapWithConcurrency(ids, 5, async (id) => {
     try {
       const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', id);
       const topicIds = ((topicRows as { id: number }[] | null) || []).map((r) => r.id);
@@ -140,7 +156,7 @@ export async function deleteUnitsCascade(supabase: SupabaseClient, ids: number[]
         const sub = await deleteTopicsCascade(supabase, topicIds);
         if (sub.failed.length) {
           failed.push({ id, reason: `${sub.failed.length} konu öğrenci verisi nedeniyle silinemediği için ünite silinemedi` });
-          continue;
+          return;
         }
       }
 
@@ -152,7 +168,7 @@ export async function deleteUnitsCascade(supabase: SupabaseClient, ids: number[]
     } catch (e) {
       failed.push({ id, reason: e instanceof Error ? e.message : 'Bilinmeyen hata' });
     }
-  }
+  });
 
   return { deletedIds, failed };
 }

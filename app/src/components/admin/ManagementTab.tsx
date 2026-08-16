@@ -522,8 +522,6 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         <UnitToolsBar
           lessonId={Number(lessonId)}
           gradeId={Number(gradeId)}
-          gradeLabel={grades.find((g) => String(g.id) === gradeId)?.label || ''}
-          lessonLabel={lessons.find((l) => String(l.id) === lessonId)?.label || ''}
           showNotice={showNotice}
           onImported={loadList}
         />
@@ -677,27 +675,22 @@ function StaticFilterSelect({ label, value, onChange, options }: { label: string
   );
 }
 
-// ==================== UNIT TOOLS (JSON İÇE AKTAR + HAFTA HESAPLAMA) ====================
+// ==================== UNIT TOOLS (HAFTA HESAPLAMA) ====================
 
 function UnitToolsBar({
   lessonId,
   gradeId,
-  gradeLabel,
-  lessonLabel,
   showNotice,
   onImported,
 }: {
   lessonId: number;
   gradeId: number;
-  gradeLabel: string;
-  lessonLabel: string;
   showNotice: (kind: 'success' | 'error', text: string) => void;
   onImported: () => void;
 }) {
   const [weeklyHoursInput, setWeeklyHoursInput] = useState('');
   const [savingHours, setSavingHours] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -773,164 +766,7 @@ function UnitToolsBar({
       >
         {recalculating ? 'Hesaplanıyor...' : 'Haftaları Yeniden Hesapla'}
       </button>
-      <button onClick={() => setShowImportModal(true)} className="px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg text-sm ml-auto">
-        JSON&apos;dan İçe Aktar
-      </button>
-
-      {showImportModal && (
-        <UnitImportModal
-          lessonId={lessonId}
-          gradeId={gradeId}
-          gradeLabel={gradeLabel}
-          lessonLabel={lessonLabel}
-          onClose={() => setShowImportModal(false)}
-          onImported={() => {
-            setShowImportModal(false);
-            onImported();
-          }}
-          showNotice={showNotice}
-        />
-      )}
     </div>
-  );
-}
-
-type ImportOutcomeInput = { code?: string; description: string };
-type ImportTopicInput = { title: string; curriculum_code?: string | null; outcomes?: ImportOutcomeInput[] };
-type ImportUnitInput = { title: string; curriculum_code?: string | null; duration_hours: number; topics: ImportTopicInput[] };
-
-function UnitImportModal({
-  lessonId,
-  gradeId,
-  gradeLabel,
-  lessonLabel,
-  onClose,
-  onImported,
-  showNotice,
-}: {
-  lessonId: number;
-  gradeId: number;
-  gradeLabel: string;
-  lessonLabel: string;
-  onClose: () => void;
-  onImported: () => void;
-  showNotice: (kind: 'success' | 'error', text: string) => void;
-}) {
-  const [urlInput, setUrlInput] = useState('');
-  const [copyingPrompt, setCopyingPrompt] = useState(false);
-  const [jsonText, setJsonText] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  async function handleCopyPrompt() {
-    if (!urlInput.trim()) {
-      showNotice('error', 'Önce MEB ünite linkini girin');
-      return;
-    }
-    setCopyingPrompt(true);
-    try {
-      const params = new URLSearchParams({ url: urlInput.trim(), gradeLabel, lessonLabel });
-      const res = await fetch(`/api/admin/manage/units/import-prompt?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) {
-        showNotice('error', data.error || 'Prompt oluşturulamadı');
-        return;
-      }
-      await navigator.clipboard.writeText(data.prompt);
-      showNotice('success', 'Prompt panoya kopyalandı — AI sohbetinize yapıştırıp JSON çıktısını alın');
-    } catch {
-      showNotice('error', 'Prompt kopyalanamadı');
-    } finally {
-      setCopyingPrompt(false);
-    }
-  }
-
-  let parsed: ImportUnitInput | null = null;
-  let parseError = '';
-  if (jsonText.trim()) {
-    try {
-      const raw = JSON.parse(jsonText);
-      const unit = raw?.unit ?? raw;
-      if (!unit || typeof unit.title !== 'string' || !Array.isArray(unit.topics)) {
-        parseError = 'JSON şeması beklendiği gibi değil (unit.title / unit.topics eksik)';
-      } else {
-        parsed = unit as ImportUnitInput;
-      }
-    } catch {
-      parseError = 'Geçersiz JSON';
-    }
-  }
-
-  const totalOutcomes = parsed ? parsed.topics.reduce((sum, t) => sum + (t.outcomes?.length || 0), 0) : 0;
-
-  async function handleSave() {
-    if (!parsed) {
-      showNotice('error', 'Kaydetmeden önce geçerli bir JSON yapıştırın');
-      return;
-    }
-    setSaving(true);
-    const res = await fetch('/api/admin/manage/units/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lessonId, gradeId, unit: parsed }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      showNotice('error', data.error || 'İçe aktarılamadı');
-      return;
-    }
-    const parts = [`${parsed.topics.length} konu, ${totalOutcomes} kazanım eklendi`];
-    if (data.warnings?.length) parts.push(...data.warnings);
-    if (data.weekRecalc?.warnings?.length) parts.push(...data.weekRecalc.warnings);
-    showNotice(data.warnings?.length || data.weekRecalc?.warnings?.length ? 'error' : 'success', parts.join(' • '));
-    onImported();
-  }
-
-  return (
-    <ModalShell title="Ünite JSON'dan İçe Aktar" onClose={onClose} wide>
-      <div className="space-y-3 sm:space-y-4">
-        <div>
-          <label className="block text-gray-400 text-xs sm:text-sm mb-1">1. Adım — MEB Ünite Linki</label>
-          <div className="flex gap-1">
-            <input
-              type="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://tymm.meb.gov.tr/.../unite/73"
-              className="flex-1 bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
-            />
-            <button
-              onClick={handleCopyPrompt}
-              disabled={copyingPrompt}
-              className="px-3 sm:px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg sm:rounded-xl text-sm whitespace-nowrap disabled:opacity-50"
-            >
-              {copyingPrompt ? 'Kopyalanıyor...' : 'Promptu Kopyala'}
-            </button>
-          </div>
-          <p className="text-gray-500 text-xs mt-1">Kopyalanan promptu AI sohbetinize yapıştırıp gelen JSON çıktısını aşağıya yapıştırın.</p>
-        </div>
-        <div>
-          <label className="block text-gray-400 text-xs sm:text-sm mb-1">2. Adım — AI&apos;dan Gelen JSON</label>
-          <textarea
-            value={jsonText}
-            onChange={(e) => setJsonText(e.target.value)}
-            rows={12}
-            placeholder='{ "unit": { "title": "...", "duration_hours": 16, "topics": [...] } }'
-            className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none resize-y font-mono"
-          />
-        </div>
-        {parseError && <p className="text-red-300 text-sm">{parseError}</p>}
-        {parsed && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-200">
-            <p className="font-medium">{parsed.title}</p>
-            <p className="text-emerald-300/80">
-              {parsed.duration_hours} ders saati • {parsed.topics.length} konu • {totalOutcomes} kazanım
-            </p>
-          </div>
-        )}
-      </div>
-      <ModalActions onCancel={onClose} onSave={handleSave} saving={saving} />
-    </ModalShell>
   );
 }
 
