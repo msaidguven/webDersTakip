@@ -4,61 +4,33 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // (soru eklenince/silinince senkron kalmıyordu), bu yüzden kaldırıldı — bunun yerine bu dosya
 // gerçek soru sayısını canlı hesaplar.
 //
-// Bir soru üç farklı yoldan bir konuya (topic) bağlı olabilir:
-// - question_usages(question_id, topic_id): "ünite testi" havuzu, bu repo'nun dışında bir
-//   süreçle (ör. başka bir istemci) doldurulan eski/harici bağlantı.
-// - question_outcomes(question_id, outcome_id) -> outcomes.topic_id: "kavrama testi" havuzu,
-//   admin panelindeki alt başlık soru ekleme akışının kazanım üzerinden kurduğu bağlantı.
-// - questions.topic_id: yeni eklenen sorularda doğrudan tutulan, hiyerarşinin tek kaynağı olan alan.
-// Bir soru bu üçünden birkaçına aynı anda bağlı olabilir (aynı question_id), o yüzden konu
-// başına DISTINCT question_id sayısı alınır.
+// Bir sorunun bir konuya (topic) bağlantısı artık TEK kaynaktan: questions.topic_id (bkz.
+// add_question_scope_and_source.sql). question_usages (eski/harici bir bağlantıydı) ve
+// kazanım-üzerinden bağlantı (question_outcomes) hiyerarşi hesaplamak için kullanılmıyor —
+// kazanım artık sadece etiketleme/raporlama amaçlı, questions.topic_id/section_id'yi asla
+// geçersiz kılmaz veya ona ek bir kaynak oluşturmaz.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+// Verilen topic id'lerine doğrudan bağlı (questions.topic_id) soruların id listesini döner.
+// Silme/listeleme akışlarının ortak kaynağı — hiçbir yerde question_usages'a bakılmaz.
+export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topicIds: number[]): Promise<number[]> {
+  if (!topicIds.length) return [];
+  const { data } = await supabase.from('questions').select('id').in('topic_id', topicIds);
+  return ((data as { id: number }[] | null) || []).map((r) => r.id);
+}
+
 export async function getQuestionCountsByTopicId(supabase: AnySupabaseClient, topicIds: number[]): Promise<Map<number, number>> {
-  const questionIdsByTopic = new Map<number, Set<number>>();
   if (!topicIds.length) return new Map();
 
-  const ensure = (topicId: number) => {
-    let set = questionIdsByTopic.get(topicId);
-    if (!set) {
-      set = new Set<number>();
-      questionIdsByTopic.set(topicId, set);
-    }
-    return set;
-  };
-
-  const [{ data: usagesData }, { data: outcomesData }, { data: directData }] = await Promise.all([
-    supabase.from('question_usages').select('topic_id, question_id').in('topic_id', topicIds),
-    supabase.from('outcomes').select('id, topic_id').in('topic_id', topicIds),
-    supabase.from('questions').select('id, topic_id').in('topic_id', topicIds),
-  ]);
-
-  for (const u of (usagesData as { topic_id: number; question_id: number }[] | null) || []) {
-    ensure(u.topic_id).add(u.question_id);
-  }
-
-  const outcomeRows = (outcomesData as { id: number; topic_id: number }[] | null) || [];
-  const topicIdByOutcomeId = new Map(outcomeRows.map((o) => [o.id, o.topic_id]));
-  const outcomeIds = outcomeRows.map((o) => o.id);
-  if (outcomeIds.length) {
-    const { data: questionOutcomesData } = await supabase
-      .from('question_outcomes')
-      .select('outcome_id, question_id')
-      .in('outcome_id', outcomeIds);
-    for (const qo of (questionOutcomesData as { outcome_id: number; question_id: number }[] | null) || []) {
-      const topicId = topicIdByOutcomeId.get(qo.outcome_id);
-      if (topicId != null) ensure(topicId).add(qo.question_id);
-    }
-  }
-
-  for (const q of (directData as { id: number; topic_id: number | null }[] | null) || []) {
-    if (q.topic_id != null) ensure(q.topic_id).add(q.id);
-  }
+  const { data } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds);
 
   const counts = new Map<number, number>();
-  for (const [topicId, set] of questionIdsByTopic) counts.set(topicId, set.size);
+  for (const q of (data as { id: number; topic_id: number | null }[] | null) || []) {
+    if (q.topic_id == null) continue;
+    counts.set(q.topic_id, (counts.get(q.topic_id) ?? 0) + 1);
+  }
   return counts;
 }
 

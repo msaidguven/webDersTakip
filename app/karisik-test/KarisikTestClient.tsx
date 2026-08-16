@@ -72,22 +72,17 @@ async function fetchUnitQuestions(
   if (!topics?.length) return [];
   const topicIds = topics.map(t => t.id);
 
-  // 2. Ünitedeki tüm konu sorularını bul
-  const { data: usages } = await supabase
-    .from('question_usages')
-    .select('question_id, topic_id')
-    .in('topic_id', topicIds);
-
-  if (!usages?.length) return [];
-  const questionIds = Array.from(new Set(usages.map(u => u.question_id)));
-
-  // 4. Soruları çek (tip ID'si önemli değil, ilişkili tabloya göre belirleyeceğiz)
+  // 2. Ünitedeki tüm konu sorularını bul — bağlantı doğrudan questions.topic_id
+  // üzerinden (bkz. add_question_scope_and_source.sql); section_id'si dolu ya da
+  // boş (konunun geneline ait) fark etmeksizin ünite testine dahil edilir.
   const { data: questions } = await supabase
     .from('questions')
     .select('id, question_text, difficulty, score')
-    .in('id', questionIds);
+    .in('topic_id', topicIds);
 
   if (!questions?.length) return [];
+
+  const questionIds = questions.map(q => q.id);
 
   // Tüm soruların detaylarını paralel çek
   const result: Question[] = [];

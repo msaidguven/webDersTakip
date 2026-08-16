@@ -162,10 +162,10 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
 
   // "Ünite Testi" bağlantısı yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
   // sidebar üzerinden ünite değiştirmek sayfayı yeniden yüklemediği için bunu tüm
-  // üniteler için tek seferde (topics -> question_usages) hesaplayıp Unit'e ekliyoruz.
+  // üniteler için tek seferde (topics -> questions.topic_id) hesaplayıp Unit'e ekliyoruz.
   // Admin için buton yanında gerçek soru sayısını da göstermek üzere ayrıca sayıyoruz.
   const unitIds = units.map((u) => u.id);
-  const questionIdsByUnit = new Map<number, Set<number>>();
+  const questionCountByUnit = new Map<number, number>();
   if (unitIds.length) {
     const { data: allTopicsData } = await supabase
       .from('topics')
@@ -175,21 +175,19 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     const unitIdByTopicId = new Map(((allTopicsData as { id: number; unit_id: number }[] | null) || []).map((t) => [t.id, t.unit_id]));
     const topicIds = Array.from(unitIdByTopicId.keys());
     if (topicIds.length) {
-      const { data: usagesData } = await supabase
-        .from('question_usages')
-        .select('topic_id, question_id')
+      const { data: questionsData } = await supabase
+        .from('questions')
+        .select('id, topic_id')
         .in('topic_id', topicIds);
-      for (const u of (usagesData as { topic_id: number; question_id: number }[] | null) || []) {
-        const unitId = unitIdByTopicId.get(u.topic_id);
+      for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
+        const unitId = unitIdByTopicId.get(q.topic_id);
         if (unitId == null) continue;
-        const set = questionIdsByUnit.get(unitId) || new Set<number>();
-        set.add(u.question_id);
-        questionIdsByUnit.set(unitId, set);
+        questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) ?? 0) + 1);
       }
     }
   }
   const unitsWithQuestionFlag = units.map((u) => {
-    const testQuestionCount = questionIdsByUnit.get(u.id)?.size ?? 0;
+    const testQuestionCount = questionCountByUnit.get(u.id) ?? 0;
     return { ...u, has_questions: testQuestionCount > 0, test_question_count: testQuestionCount };
   });
 

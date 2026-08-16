@@ -7,9 +7,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
+  BookOpen,
   Calendar,
   ChevronDown,
   ChevronRight,
+  GraduationCap,
   RefreshCw,
 } from 'lucide-react';
 
@@ -39,6 +41,13 @@ export type GradeLessonOption = {
   icon: string | null;
 };
 
+export type GradeOption = {
+  id: number;
+  name: string;
+  slug: string | null;
+  icon?: string | null;
+};
+
 interface MufredatOverviewClientProps {
   gradeName: string;
   lessonName: string;
@@ -51,6 +60,7 @@ interface MufredatOverviewClientProps {
   currentWeek: number;
   totalWeeks?: number;
   gradeLessons?: GradeLessonOption[];
+  allGrades?: GradeOption[];
 }
 
 function academicYearLabel(): string {
@@ -81,6 +91,7 @@ export default function MufredatOverviewClient({
   units,
   currentWeek,
   gradeLessons = [],
+  allGrades = [],
 }: MufredatOverviewClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,50 +125,137 @@ export default function MufredatOverviewClient({
     router.push(`/${gradeSlug}/${selectedSlug}`);
   };
 
+  // Sınıf değişince aynı dersi yeni sınıfta açmayı dener — o sınıfta bu ders yoksa
+  // hedef sayfa zaten "Ders bulunamadı" durumunu gösteriyor.
+  const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedSlug = e.target.value;
+    if (!selectedSlug || selectedSlug === gradeSlug) return;
+    router.push(lessonSlug ? `/${selectedSlug}/${lessonSlug}` : `/${selectedSlug}`);
+  };
+
   const showLessonDropdown = !!gradeSlug && gradeLessons.filter((l) => l.slug).length > 1;
+  const showGradeDropdown = allGrades.filter((g) => g.slug).length > 1;
 
   const totalTopics = units.reduce((sum, u) => sum + (u.topics?.length ?? u.topicCount ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-slate-800 font-sans">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
 
-        {/* Üst gezinme */}
-        <div className="flex items-center justify-between mb-5 sm:mb-6">
+        {/* Üst gezinme — sadece mobil/tablet; masaüstünde yerini soldaki sabit sidebar'lar alır */}
+        <div className="flex items-center justify-between gap-2 mb-5 sm:mb-6 lg:hidden">
           <Link
             href={changeLessonsHref}
-            className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors shrink-0"
           >
             <span className="h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
               <ArrowLeft className="h-4 w-4" />
             </span>
             Dersler
           </Link>
-          {showLessonDropdown ? (
-            <div className="relative shrink-0">
-              <select
-                value={lessonSlug ?? ''}
-                onChange={handleLessonChange}
-                aria-label="Ders değiştir"
-                className="appearance-none max-w-[150px] sm:max-w-[220px] truncate pl-3 pr-8 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+          <div className="flex items-center gap-2">
+            {showGradeDropdown && (
+              <div className="relative shrink-0">
+                <select
+                  value={gradeSlug ?? ''}
+                  onChange={handleGradeChange}
+                  aria-label="Sınıf değiştir"
+                  className="appearance-none max-w-[110px] truncate pl-3 pr-7 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+                >
+                  {allGrades.filter((g) => g.slug).map((g) => (
+                    <option key={g.id} value={g.slug ?? ''}>{g.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            )}
+            {showLessonDropdown ? (
+              <div className="relative shrink-0">
+                <select
+                  value={lessonSlug ?? ''}
+                  onChange={handleLessonChange}
+                  aria-label="Ders değiştir"
+                  className="appearance-none max-w-[150px] sm:max-w-[220px] truncate pl-3 pr-8 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+                >
+                  {gradeLessons.filter((l) => l.slug).map((l) => (
+                    <option key={l.id} value={l.slug ?? ''}>
+                      {l.icon || '📘'} {l.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            ) : (
+              <Link
+                href={changeLessonsHref}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
               >
-                {gradeLessons.filter((l) => l.slug).map((l) => (
-                  <option key={l.id} value={l.slug ?? ''}>
-                    {l.icon || '📘'} {l.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          ) : (
-            <Link
-              href={changeLessonsHref}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs sm:text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Dersleri Değiştir
-            </Link>
-          )}
+                <RefreshCw className="h-3.5 w-3.5" /> Dersleri Değiştir
+              </Link>
+            )}
+          </div>
         </div>
+
+        <div className="lg:grid lg:grid-cols-[200px_230px_1fr] lg:gap-6 lg:items-start">
+
+          {/* Sınıflar sidebar — sadece masaüstü, her zaman açık (aç/kapa yok) */}
+          <aside className="hidden lg:block sticky top-[96px]">
+            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 p-3">
+              <h2 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 mb-2">
+                <GraduationCap className="h-3.5 w-3.5" /> Sınıflar
+              </h2>
+              <nav className="space-y-1">
+                {allGrades.filter((g) => g.slug).map((g) => {
+                  const active = g.slug === gradeSlug;
+                  return (
+                    <Link
+                      key={g.id}
+                      href={lessonSlug ? `/${g.slug}/${lessonSlug}` : `/${g.slug}`}
+                      className={`flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-bold truncate transition-all ${
+                        active
+                          ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      <span className="text-base leading-none shrink-0">{g.icon || '📘'}</span>
+                      <span className="truncate">{g.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          {/* Dersler sidebar — seçili sınıfın dersleri, sadece masaüstü */}
+          <aside className="hidden lg:block sticky top-[96px]">
+            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 p-3">
+              <h2 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 mb-2">
+                <BookOpen className="h-3.5 w-3.5" /> Dersler
+              </h2>
+              <nav className="space-y-1">
+                {gradeLessons.filter((l) => l.slug).map((l) => {
+                  const active = l.slug === lessonSlug;
+                  return (
+                    <Link
+                      key={l.id}
+                      href={`/${gradeSlug}/${l.slug}`}
+                      className={`flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-bold truncate transition-all ${
+                        active
+                          ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      <span className="text-base leading-none shrink-0">{l.icon || '📘'}</span>
+                      <span className="truncate">{l.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          {/* İçerik */}
+          <div className="min-w-0">
 
         {/* Ders başlığı */}
         <div className="flex items-center gap-4 mb-7 sm:mb-8">
@@ -247,6 +345,9 @@ export default function MufredatOverviewClient({
         <p className="text-[11px] text-slate-400 font-medium mt-6 text-center">
           Haftaların tarih aralıkları MEB takvimine göredir ve değişiklik gösterebilir.
         </p>
+
+          </div>
+        </div>
       </div>
     </div>
   );

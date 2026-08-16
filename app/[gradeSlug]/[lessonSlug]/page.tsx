@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
+import { getGradeIcon } from '@/app/src/lib/homeMapping';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
 export const dynamic = 'force-dynamic';
@@ -147,6 +148,19 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     topics: topicsByUnit[u.id] ?? [],
   }));
 
+  // Tüm sınıflar (sınıf değiştirme sidebar/dropdown'u için)
+  const { data: allGradesData } = await supabase
+    .from('grades')
+    .select('id, name, slug, order_no')
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+  const allGrades = ((allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || []).map((g) => ({
+    id: g.id,
+    name: g.name,
+    slug: g.slug,
+    icon: getGradeIcon(g.order_no),
+  }));
+
   // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
   let siblingLessonGradesQuery = supabase
     .from('lesson_grades')
@@ -183,6 +197,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     units: unitsWithTopicCount,
     totalWeeks,
     gradeLessons,
+    allGrades,
   };
 });
 
@@ -220,6 +235,7 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
       currentWeek={hafta}
       totalWeeks={data.totalWeeks}
       gradeLessons={data.gradeLessons}
+      allGrades={data.allGrades}
     />
   );
 }

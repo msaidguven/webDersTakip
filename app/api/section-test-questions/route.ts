@@ -33,21 +33,14 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   const heading = (sectionRow as { heading?: string } | null)?.heading || '';
 
-  const { data: linkRows } = await supabase
-    .from('topic_content_section_outcomes')
-    .select('outcome_id')
+  // Bir sorunun bu alt başlığa ait sayılması artık tek kaynaktan: questions.section_id
+  // (bkz. add_question_scope_and_source.sql) — kazanım (question_outcomes) üzerinden
+  // dolaylı bağlantı, bir kazanım birden çok alt başlığa yayılabildiği için düşük isabetliydi.
+  const { data: questionIdRows } = await supabase
+    .from('questions')
+    .select('id')
     .eq('section_id', sectionId);
-  const outcomeIds = ((linkRows as { outcome_id: number }[] | null) || []).map((r) => r.outcome_id);
-
-  if (!outcomeIds.length) {
-    return NextResponse.json({ heading, questions: [] as Question[] });
-  }
-
-  const { data: qoRows } = await supabase
-    .from('question_outcomes')
-    .select('question_id')
-    .in('outcome_id', outcomeIds);
-  const questionIds = Array.from(new Set(((qoRows as { question_id: number }[] | null) || []).map((r) => r.question_id)));
+  const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 
   if (!questionIds.length) {
     return NextResponse.json({ heading, questions: [] as Question[] });

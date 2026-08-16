@@ -66,23 +66,15 @@ export async function GET(request: NextRequest) {
     if (!topicIds.length) return NextResponse.json({ items: [] });
   }
 
-  let questionIds: number[] | null = null;
-  if (topicId || topicIds) {
-    let usageQuery = supabase.from('question_usages').select('question_id');
-    if (topicId) usageQuery = usageQuery.eq('topic_id', topicId);
-    else if (topicIds) usageQuery = usageQuery.in('topic_id', topicIds);
-    const { data: usageRows } = await usageQuery;
-    questionIds = Array.from(new Set(((usageRows as { question_id: number }[] | null) || []).map((r) => r.question_id)));
-    if (!questionIds.length) return NextResponse.json({ items: [] });
-  }
-
   let query = supabase
     .from('questions')
     .select('id, question_type_id, question_text, difficulty, score, created_at, question_types(code)')
     .order('created_at', { ascending: false })
     .limit(200);
 
-  if (questionIds) query = query.in('id', questionIds);
+  // Bağlantı doğrudan questions.topic_id üzerinden (bkz. add_question_scope_and_source.sql).
+  if (topicId) query = query.eq('topic_id', topicId);
+  else if (topicIds) query = query.in('topic_id', topicIds);
   if (search) query = query.ilike('question_text', `%${search}%`);
   if (difficulty) query = query.eq('difficulty', difficulty);
   if (typeId) query = query.eq('question_type_id', typeId);

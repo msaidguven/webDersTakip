@@ -13,13 +13,11 @@ type Scope = 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-
 
 type ResolveResult = { table: 'questions' | 'topic_contents' | 'topics' | 'units' | 'outcomes'; ids: number[] };
 
-// questions tablosunda topic_id yok — bağlantı question_usages (question_id + topic_id)
-// üzerinden kuruluyor, aynı soru birden fazla topic_id'de kullanılmış olabilir (distinct).
+// Bağlantı doğrudan questions.topic_id üzerinden (bkz. add_question_scope_and_source.sql).
 async function questionIdsForTopics(supabase: ReturnType<typeof createServiceClient>, topicIds: number[]): Promise<number[]> {
   if (!topicIds.length) return [];
-  const { data } = await supabase.from('question_usages').select('question_id').in('topic_id', topicIds);
-  const ids = ((data as { question_id: number }[] | null) || []).map((r) => r.question_id);
-  return Array.from(new Set(ids));
+  const { data } = await supabase.from('questions').select('id').in('topic_id', topicIds);
+  return ((data as { id: number }[] | null) || []).map((r) => r.id);
 }
 
 async function resolveIds(

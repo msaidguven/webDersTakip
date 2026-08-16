@@ -96,20 +96,13 @@ const getSectionTestPageData = cache(async function getSectionTestPageData(
   const section = sectionData as SectionRow | null;
   if (!section || section.topic_content_id !== topicContent.id) return null;
 
-  // Gerçek soru sayısı: section -> outcomes -> question_outcomes -> distinct question_id
-  // (bu ilişki /api/section-test-questions ile aynı; units.question_count gibi elle
-  // girilen bir alan olmadığı için burada güvenilir).
-  const { data: linkRows } = await supabase
-    .from('topic_content_section_outcomes')
-    .select('outcome_id')
+  // Gerçek soru sayısı: questions.section_id (bu ilişki /api/section-test-questions ile
+  // aynı; units.question_count gibi elle girilen bir alan olmadığı için burada güvenilir).
+  const { count: sectionQuestionCount } = await supabase
+    .from('questions')
+    .select('id', { count: 'exact', head: true })
     .eq('section_id', section.id);
-  const outcomeIds = ((linkRows as { outcome_id: number }[] | null) || []).map((r) => r.outcome_id);
-
-  let questionCount = 0;
-  if (outcomeIds.length) {
-    const { data: qoRows } = await supabase.from('question_outcomes').select('question_id').in('outcome_id', outcomeIds);
-    questionCount = new Set(((qoRows as { question_id: number }[] | null) || []).map((r) => r.question_id)).size;
-  }
+  const questionCount = sectionQuestionCount ?? 0;
 
   if (!isAdmin && questionCount === 0) return null;
 

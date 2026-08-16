@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
   const topicIds = topics.map((t) => t.id);
   const topicToUnit = new Map(topics.map((t) => [t.id, t.unit_id]));
 
-  const [{ data: outcomeRows }, { data: usageRows }, { data: contentRows }] = topicIds.length
+  const [{ data: outcomeRows }, { data: questionRows }, { data: contentRows }] = topicIds.length
     ? await Promise.all([
         supabase.from('outcomes').select('topic_id').in('topic_id', topicIds),
-        supabase.from('question_usages').select('topic_id, question_id').in('topic_id', topicIds),
+        supabase.from('questions').select('topic_id, id').in('topic_id', topicIds),
         supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];
@@ -52,11 +52,11 @@ export async function GET(request: NextRequest) {
   }
 
   const questionIdsByUnit = new Map<number, Set<number>>();
-  for (const r of (usageRows as { topic_id: number; question_id: number }[] | null) || []) {
+  for (const r of (questionRows as { topic_id: number; id: number }[] | null) || []) {
     const unitId = topicToUnit.get(r.topic_id);
     if (unitId == null) continue;
     if (!questionIdsByUnit.has(unitId)) questionIdsByUnit.set(unitId, new Set());
-    questionIdsByUnit.get(unitId)!.add(r.question_id);
+    questionIdsByUnit.get(unitId)!.add(r.id);
   }
 
   const contentCountByUnit = new Map<number, number>();

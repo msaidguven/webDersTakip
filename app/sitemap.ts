@@ -9,11 +9,9 @@ type LessonRow = { id: number; slug: string | null };
 type LessonGradeRow = { lesson_id: number; grade_id: number };
 type UnitRow = { id: number; slug: string | null; lesson_id: number; grade_id: number };
 type TopicRow = { id: number; slug: string | null; unit_id: number };
-type QuestionUsageRow = { topic_id: number };
+type QuestionRow = { id: number; topic_id: number | null; section_id: number | null };
 type TopicContentRow = { id: number; topic_id: number };
 type SectionRow = { id: number; heading: string; topic_content_id: number };
-type SectionOutcomeRow = { section_id: number; outcome_id: number };
-type QuestionOutcomeRow = { outcome_id: number; question_id: number };
 
 const excludedSitemapUrls = new Set([
   `${SITE_URL}/5-sinif/fen-bilimleri/isigin-dunyasi/fb-5-4-3-tam-golgenin-olusumu`,
@@ -53,17 +51,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // Ünite testi sayfası (ve sitemap girdisi) yalnızca en az bir sorusu olan
     // ünitelerde gösterilmeli; boş bir testi listelemek 404'e/boş sayfaya götürür.
+    // Bağlantı doğrudan questions.topic_id/section_id üzerinden (bkz.
+    // add_question_scope_and_source.sql) — tek sorgu hem ünite hem alt başlık
+    // (kavrama testi) kontrolünde aşağıda tekrar kullanılıyor.
     const unitIdByTopicId = new Map(topics.map((t) => [t.id, t.unit_id]));
     const topicIds = topics.map((t) => t.id);
     const unitIdsWithQuestions = new Set<number>();
+    const sectionIdsWithQuestions = new Set<number>();
     if (topicIds.length) {
-      const { data: usagesData } = await supabase
-        .from('question_usages')
-        .select('topic_id')
+      const { data: questionsData } = await supabase
+        .from('questions')
+        .select('id, topic_id, section_id')
         .in('topic_id', topicIds);
-      for (const u of (usagesData as QuestionUsageRow[] | null) || []) {
-        const unitId = unitIdByTopicId.get(u.topic_id);
+      for (const q of (questionsData as QuestionRow[] | null) || []) {
+        if (q.topic_id == null) continue;
+        const unitId = unitIdByTopicId.get(q.topic_id);
         if (unitId != null) unitIdsWithQuestions.add(unitId);
+        if (q.section_id != null) sectionIdsWithQuestions.add(q.section_id);
       }
     }
 
@@ -124,8 +128,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     // Alt başlık (kavrama testi) sayfaları da yalnızca gerçekten sorusu olan
-    // section'larda gösterilmeli — bu yüzden topic_contents -> sections ->
-    // outcomes -> question_outcomes zincirini tek seferde topluca hesaplıyoruz.
+    // section'larda gösterilmeli — questions.section_id direkt kontrolü (sectionIdsWithQuestions,
+    // yukarıda hesaplandı) bunun için yeterli; sadece section->topic yolunu (URL üretmek için) çekiyoruz.
     const topicIdsWithPath = Array.from(topicPathById.keys());
     if (topicIdsWithPath.length) {
       const { data: topicContentsData } = await supabase
@@ -143,32 +147,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           .select('id, heading, topic_content_id')
           .in('topic_content_id', contentIds);
         const sections = (sectionsData as SectionRow[] | null) || [];
-        const sectionIds = sections.map((s) => s.id);
 
-        if (sectionIds.length) {
-          const { data: sectionOutcomesData } = await supabase
-            .from('topic_content_section_outcomes')
-            .select('section_id, outcome_id')
-            .in('section_id', sectionIds);
-          const sectionOutcomes = (sectionOutcomesData as SectionOutcomeRow[] | null) || [];
-          const outcomeIds = Array.from(new Set(sectionOutcomes.map((so) => so.outcome_id)));
-
-          const questionCountByOutcome = new Map<number, boolean>();
-          if (outcomeIds.length) {
-            const { data: questionOutcomesData } = await supabase
-              .from('question_outcomes')
-              .select('outcome_id, question_id')
-              .in('outcome_id', outcomeIds);
-            for (const qo of (questionOutcomesData as QuestionOutcomeRow[] | null) || []) {
-              questionCountByOutcome.set(qo.outcome_id, true);
-            }
-          }
-
-          const sectionIdsWithQuestions = new Set<number>();
-          for (const so of sectionOutcomes) {
-            if (questionCountByOutcome.has(so.outcome_id)) sectionIdsWithQuestions.add(so.section_id);
-          }
-
+        if (sections.length) {
           for (const s of sections) {
             if (!sectionIdsWithQuestions.has(s.id)) continue;
             const topicId = topicIdByContentId.get(s.topic_content_id);

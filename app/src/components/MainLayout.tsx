@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +13,6 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, signOut } = useAuth();
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
   const pathname = usePathname();
   // Konu okuma sayfası (DersClient) kendi sabit header/footer çerçevesini
   // yönetir; bu yüzden global nav ve LegalFooter burada devre dışı bırakılır.
@@ -25,45 +23,16 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isTopicContentRoute = pathSegments.length === 4;
   const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute;
 
-  useEffect(() => {
-    const controlNavbar = () => {
-      const currentScrollY = window.scrollY;
-      
-      // Sayfa en üstteyse her zaman göster
-      if (currentScrollY < 10) {
-        setIsVisible(true);
-        return;
-      }
-      
-      // Aşağı scroll edince gizle, yukarı scroll edince göster
-      if (currentScrollY > lastScrollY) {
-        setIsVisible(false);
-      } else {
-        setIsVisible(true);
-      }
-      
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', controlNavbar, { passive: true });
-    
-    return () => {
-      window.removeEventListener('scroll', controlNavbar);
-    };
-  }, [lastScrollY]);
-
   return (
     <div className="min-h-screen bg-default">
-      {/* Auto-hide Header */}
+      {/* Header — her zaman sabit, scroll yönüne göre gizlenmez */}
       {!hideHeader && (
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px]
-          bg-white/80 dark:bg-surface/95 
-          backdrop-blur-xl 
+        className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px]
+          bg-white/80 dark:bg-surface/95
+          backdrop-blur-xl
           border-b border-zinc-200 dark:border-default
-          shadow-sm dark:shadow-none
-          transition-all duration-300 ease-in-out
-          ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+          shadow-sm dark:shadow-none"
       >
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           
@@ -150,7 +119,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       )}
 
       {/* Ana İçerik */}
-      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
+      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px] pb-24 sm:pb-16'}>
         {children}
       </main>
 

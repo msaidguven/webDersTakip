@@ -27,7 +27,6 @@ type UnitRow = {
   grade_id: number;
 };
 type TopicRow = { id: number; slug: string | null; order_no: number };
-type QuestionUsageRow = { question_id: number };
 
 const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
   const supabase = await createClient();
@@ -85,15 +84,15 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
 
   // Ünite testi sayfası yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
   // units.question_count elle girilen bir alan olduğu için burada gerçek soru
-  // sayısını topics -> question_usages -> questions ilişkisinden hesaplıyoruz.
+  // sayısını doğrudan topics -> questions.topic_id ilişkisinden hesaplıyoruz.
   const topicIds = topicRows.map((t) => t.id);
   let realQuestionCount = 0;
   if (topicIds.length) {
-    const { data: usagesData } = await supabase
-      .from('question_usages')
-      .select('question_id')
+    const { count } = await supabase
+      .from('questions')
+      .select('id', { count: 'exact', head: true })
       .in('topic_id', topicIds);
-    realQuestionCount = new Set(((usagesData as QuestionUsageRow[] | null) || []).map((u) => u.question_id)).size;
+    realQuestionCount = count ?? 0;
   }
 
   if (!isAdmin && realQuestionCount === 0) return null;

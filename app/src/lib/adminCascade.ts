@@ -76,6 +76,9 @@ export async function deleteSectionsCascade(supabase: SupabaseClient, ids: numbe
 
   await mapWithConcurrency(ids, 10, async (id) => {
     await supabase.from('topic_content_section_outcomes').delete().eq('section_id', id);
+    // Bu alt başlığa özel etiketlenmiş sorular silinmez; konunun geneline ait hale gelir
+    // (questions.section_id null → hâlâ ünite testinde gösterilir, bkz. add_question_scope_and_source.sql).
+    await supabase.from('questions').update({ section_id: null }).eq('section_id', id);
 
     const { error } = await supabase.from('topic_content_sections').delete().eq('id', id);
     if (error) failed.push({ id, reason: friendlyError(error, 'Alt başlık silinemedi') });
@@ -126,7 +129,12 @@ export async function deleteTopicsCascade(supabase: SupabaseClient, ids: number[
       const contentIds = ((contentRows as { id: number }[] | null) || []).map((r) => r.id);
       if (contentIds.length) await deleteTopicContentsCascade(supabase, contentIds);
 
-      await supabase.from('question_usages').delete().eq('topic_id', id);
+      // Bu konuya doğrudan bağlı (questions.topic_id) sorular da silinmeli — aksi halde
+      // FK kısıtı konu silmeyi engeller (bkz. add_question_scope_and_source.sql).
+      const { data: directQuestionRows } = await supabase.from('questions').select('id').eq('topic_id', id);
+      const directQuestionIds = ((directQuestionRows as { id: number }[] | null) || []).map((r) => r.id);
+      if (directQuestionIds.length) await deleteQuestionsCascade(supabase, directQuestionIds);
+
       await supabase.from('user_topic_content_progress').delete().eq('topic_id', id);
 
       const { error } = await supabase.from('topics').delete().eq('id', id);
