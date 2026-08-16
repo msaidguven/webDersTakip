@@ -70,7 +70,7 @@ type Content = {
   subtitle?: string | null;
   highlights?: TopicHighlight[];
 };
-type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean };
+type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 type ProfileRoleRow = { role: string | null };
 
 interface DersClientProps {
@@ -141,6 +141,20 @@ function unitTopicsCacheKey(gradeId: string, lessonId: string, unitId: number | 
 function buildTopicHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
   if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
   return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
+}
+
+function buildSectionTestHref(
+  gradeSlug: string | null,
+  lessonSlug: string | null,
+  unitSlug: string | null,
+  topicSlug: string | null,
+  sectionId: string | number,
+  sectionHeading: string
+) {
+  const topicHref = buildTopicHref(gradeSlug, lessonSlug, unitSlug, topicSlug);
+  if (!topicHref) return null;
+  const slug = slugifyHeading(sectionHeading) || 'test';
+  return `${topicHref}/kavrama-testi/${sectionId}-${slug}`;
 }
 
 // Kısa ve SEO'ya uygun tutmak için ünite adını (en az ayırt edici, en tekrarcı kısım)
@@ -220,8 +234,8 @@ function HighlightCard({ highlight, onEdit }: { highlight: TopicHighlight; onEdi
   );
 }
 
-// Her alt başlığın altında, o alt başlığa özel soru sayısı varsa mini test linki gösterir.
-function SectionQuizLink({ sectionId }: { sectionId: string | number }) {
+// Her alt başlığın altında, o alt başlığa özel soru sayısı varsa mini kavrama testi linki gösterir.
+function SectionQuizLink({ sectionId, href }: { sectionId: string | number; href: string | null }) {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -240,15 +254,15 @@ function SectionQuizLink({ sectionId }: { sectionId: string | number }) {
     };
   }, [sectionId]);
 
-  if (count === 0) return null;
+  if (count === 0 || !href) return null;
 
   return (
     <Link
-      href={`/ders/alt-baslik-test?sectionId=${sectionId}`}
+      href={href}
       className="not-prose mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 sm:px-5"
     >
       <span className="flex items-center gap-2 text-sm font-black text-amber-700">
-        <Trophy className="h-4 w-4 text-amber-600 shrink-0" /> Bu Konuyla İlgili Sorular Çöz
+        <Trophy className="h-4 w-4 text-amber-600 shrink-0" /> Konu Kavrama Testi Çöz
       </span>
       {count != null && (
         <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800 shrink-0">
@@ -300,10 +314,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
-  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
+  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
-  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string } } | null>(null);
+  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [diagramModalTarget, setDiagramModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
@@ -393,18 +407,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
   const activeUnitSlug = activeUnit?.slug || unitSlug || null;
   const activeTopicHref = buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic?.slug || null);
-  const relatedTopics = useMemo(
-    () =>
-      contents
-        .filter((topic) => String(topic.id) !== String(activeTopic?.id))
-        .map((topic) => ({
-          topic,
-          href: buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, topic.slug || null),
-        }))
-        .filter((item): item is { topic: Content; href: string } => Boolean(item.href))
-        .slice(0, 6),
-    [contents, activeTopic?.id, gradeSlug, lessonSlug, activeUnitSlug]
-  );
 
   // Aktif ünite değiştikçe sidebar index'inde SADECE o ünite açık kalsın (akordeon)
   useEffect(() => {
@@ -1173,12 +1175,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             <Target className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Kazanımlar</span>
           </button>
 
-          <Link
-            href={gradeSlug && lessonSlug && activeUnitSlug ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi` : `/karisik-test?lesson_id=${lessonId}&week=${week}`}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 sm:px-4 text-xs font-black text-amber-600 shadow-sm hover:bg-amber-100 transition-colors"
-          >
-            <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ünite Testi</span>
-          </Link>
+          {(activeUnit?.has_questions !== false || isAdmin) && (
+            <Link
+              href={gradeSlug && lessonSlug && activeUnitSlug ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi` : `/karisik-test?lesson_id=${lessonId}&week=${week}`}
+              className="flex h-9 items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 sm:px-4 text-xs font-black text-amber-600 shadow-sm hover:bg-amber-100 transition-colors"
+            >
+              <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ünite Testi</span>
+              {isAdmin && activeUnit?.has_questions && (
+                <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-black text-amber-800">
+                  {activeUnit.test_question_count}
+                </span>
+              )}
+            </Link>
+          )}
 
           <Link
             href="/profil"
@@ -1517,11 +1526,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                   setSectionModalTarget({
                                                     topicId: Number(activeTopic.id),
                                                     section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                                    variant: 'notebooklm',
                                                   });
                                                 }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                                               >
-                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle
+                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle (NotebookLM)
                                               </button>
                                               <button
                                                 type="button"
@@ -1556,11 +1566,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                   setQuestionsModalTarget({
                                                     topicId: Number(activeTopic.id),
                                                     section: { id: Number(section.id), heading: section.heading },
+                                                    variant: 'notebooklm',
                                                   });
                                                 }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                                               >
-                                                <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
+                                                <ListChecks className="h-3.5 w-3.5" /> Soru Ekle (NotebookLM)
                                               </button>
                                             </div>
                                           </>
@@ -1577,7 +1588,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                         imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
                                         diagramSvg={section.diagramSvg}
                                       />
-                                      <SectionQuizLink sectionId={section.id} />
+                                      <SectionQuizLink
+                                        sectionId={section.id}
+                                        href={buildSectionTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null, section.id, section.heading)}
+                                      />
                                     </>
                                   ) : (
                                     <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
@@ -1629,31 +1643,31 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">
                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">Bu konudan sonra</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <Link
-                            href={overviewHref}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                          >
-                            {unitTitle}
-                          </Link>
-                          {relatedTopics.map(({ topic, href }) => (
-                            <Link
-                              key={topic.id}
-                              href={href}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                            >
-                              {topic.title}
-                            </Link>
-                          ))}
-                          {sections.slice(0, 3).map((section) => (
-                            <Link
-                              key={`test-${section.id}`}
-                              href={`/ders/alt-baslik-test?sectionId=${section.id}`}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700 transition-colors hover:bg-amber-100"
-                            >
-                              <Trophy className="h-3.5 w-3.5" />
-                              {section.heading} testi
-                            </Link>
-                          ))}
+                          {contents.map((topic) => {
+                            const isCurrentTopic = String(topic.id) === String(activeTopic?.id);
+                            if (isCurrentTopic) {
+                              return (
+                                <span
+                                  key={topic.id}
+                                  aria-current="page"
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-700"
+                                >
+                                  {topic.title}
+                                </span>
+                              );
+                            }
+                            const href = buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, topic.slug || null);
+                            if (!href) return null;
+                            return (
+                              <Link
+                                key={topic.id}
+                                href={href}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                              >
+                                {topic.title}
+                              </Link>
+                            );
+                          })}
                         </div>
                       </nav>
                     )}
@@ -1815,6 +1829,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <SectionModal
           topicId={sectionModalTarget.topicId}
           section={sectionModalTarget.section}
+          variant={sectionModalTarget.variant}
           onClose={() => setSectionModalTarget(null)}
           onSaved={() => {
             setSectionModalTarget(null);
@@ -1846,6 +1861,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <QuestionsModal
           topicId={questionsModalTarget.topicId}
           section={questionsModalTarget.section}
+          variant={questionsModalTarget.variant}
           onClose={() => setQuestionsModalTarget(null)}
         />
       )}

@@ -84,7 +84,35 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
     return NextResponse.json({ error: INVALID_MESSAGE }, { status: 400 });
   }
 
+  const rawAiModel = (body as { ai_model?: unknown } | null)?.ai_model;
+  const aiModel = typeof rawAiModel === 'string' && rawAiModel.trim() ? rawAiModel.trim() : null;
+  const source: 'manual' | 'ai_generated' = aiModel ? 'ai_generated' : 'manual';
+
   const supabase = createServiceClient();
+
+  // topic_id hiyerarşinin (ünite/ders/sınıf) tek kaynağı olacağı için client'tan değil,
+  // section -> topic_content -> topic zincirinden sunucu tarafında çıkarıyoruz.
+  const { data: sectionRow, error: sectionError } = await supabase
+    .from('topic_content_sections')
+    .select('id, topic_content_id')
+    .eq('id', sectionId)
+    .maybeSingle();
+
+  if (sectionError || !sectionRow) {
+    return NextResponse.json({ error: 'Alt başlık bulunamadı' }, { status: 404 });
+  }
+
+  const { data: topicContentRow, error: topicContentError } = await supabase
+    .from('topic_contents')
+    .select('id, topic_id')
+    .eq('id', (sectionRow as { topic_content_id: number }).topic_content_id)
+    .maybeSingle();
+
+  if (topicContentError || !topicContentRow) {
+    return NextResponse.json({ error: 'Konu içeriği bulunamadı' }, { status: 404 });
+  }
+
+  const topicId = (topicContentRow as { topic_id: number }).topic_id;
 
   const { data: linkRows, error: linkError } = await supabase
     .from('topic_content_section_outcomes')
@@ -108,7 +136,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
     const { data: questionRow, error: qError } = await supabase
       .from('questions')
-      .insert({ question_type_id: TYPE_ID[q.kind], question_text: questionText, solution_text: solutionText })
+      .insert({
+        question_type_id: TYPE_ID[q.kind],
+        question_text: questionText,
+        solution_text: solutionText,
+        topic_id: topicId,
+        section_id: Number(sectionId),
+        source,
+        ai_model: aiModel,
+      })
       .select('id')
       .single();
 

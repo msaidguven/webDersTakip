@@ -27,6 +27,7 @@ export type Unit = {
   order_no: number;
   start_week: number | null;
   end_week: number | null;
+  is_active?: boolean;
   topicCount?: number | null;
   topics?: UnitTopic[];
 };
@@ -183,16 +184,26 @@ export default function MufredatOverviewClient({
             const accent = UNIT_ACCENTS[unitIdx % UNIT_ACCENTS.length];
             const start = unit.start_week;
             const end = unit.end_week;
+            const isDraftUnit = unit.is_active === false;
 
             return (
-              <div key={unit.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <div className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4 border-b border-slate-100">
-                  <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-base font-black text-white shrink-0 ${accent.badge}`}>
+              <div
+                key={unit.id}
+                id={unit.slug ?? undefined}
+                className={`scroll-mt-4 rounded-2xl border overflow-hidden ${isDraftUnit ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200 bg-white'}`}
+              >
+                <div className={`p-4 sm:p-5 flex items-center gap-3 sm:gap-4 border-b ${isDraftUnit ? 'border-amber-100' : 'border-slate-100'}`}>
+                  <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-base font-black text-white shrink-0 ${isDraftUnit ? 'bg-amber-500' : accent.badge}`}>
                     {displayNo}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">{unit.title}</h3>
+                    <h3 className={`text-base sm:text-lg font-black truncate ${isDraftUnit ? 'text-amber-800' : 'text-slate-900'}`}>{unit.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {isDraftUnit && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                          Taslak
+                        </span>
+                      )}
                       {start != null && end != null && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400">
                           <Calendar className="h-3 w-3" /> Hafta {start}&ndash;{end}

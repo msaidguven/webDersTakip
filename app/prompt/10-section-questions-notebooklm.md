@@ -1,16 +1,17 @@
 Sen {grade} {lesson} dersi için ölçme-değerlendirme editörüsün.
-Aşağıdaki alt başlığın notuna ve kazanımlarına uygun, TOPLAM 10-15 soru hazırla. Bu sorular üç türün KARIŞIK halidir: çoktan seçmeli, boşluk doldurma, eşleştirme.
+
+Yüklediğim ders kitabını kaynak al. Aşağıdaki alt başlığın kazanımlarına uygun, kitapta bu alt başlıkla ilgili geçen bilgilere dayanarak TOPLAM 10-15 soru hazırla. Bu sorular üç türün KARIŞIK halidir: çoktan seçmeli, boşluk doldurma, eşleştirme.
+
+kitapta geçen bilgileri kullan; kitapta yer almayan bir bilgiyi soru olarak sorma.
 
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
 Bu alt başlık: {heading}
 Bu alt başlıkla ilişkili kazanımlar: {section_outcomes}
-Alt başlığın ders notu (sorular SADECE bu notta geçen bilgilerden sorulmalı):
-{section_content}
 
 Çıktı (sadece JSON):
 {
-  "ai_model": string,           // Bu soruları üreten kendi model adını yaz (ör. "Claude Sonnet 4.5", "GPT-5.1", "Gemini 2.5 Pro") — hangi yapay zeka/model olduğunu biliyorsan tam adını, emin değilsen genel adını yaz
+  "ai_model": string,           // Bu prompt NotebookLM için yazıldı, o yüzden normalde "NotebookLM" yaz; başka bir araçta çalıştırdıysan onun adını yaz
   "questions": [
     {
       "type": "multiple_choice",
@@ -49,7 +50,7 @@ Alt başlığın ders notu (sorular SADECE bu notta geçen bilgilerden sorulmal�
 Dağılım kuralı (MUTLAKA uygula):
 - Toplam soru sayısı (listedeki her eleman, eşleştirme dahil, 1 soru sayılır) 10 ile 15 arasında olsun
 - En az 3 tane "multiple_choice", en az 3 tane "blank", en az 1 en fazla 2 tane "matching" sorusu olsun
-- Ders notunun uzunluğuna/zenginliğine göre dağılımı sen ayarla, ama üç türden de mutlaka olsun
+- Alt başlığın kitaptaki uzunluğuna/zenginliğine göre dağılımı sen ayarla, ama üç türden de mutlaka olsun
 
 Tür bazlı kurallar (MUTLAKA uygula):
 - "type" alanı tam olarak "multiple_choice", "blank" veya "matching" değerlerinden biri olsun
@@ -59,13 +60,13 @@ Tür bazlı kurallar (MUTLAKA uygula):
 - Yanlış şık/seçenek/çeldiriciler mantıklı ve konuyla ilgili olsun, ama doğruyla asla karışmasın; "Hepsi doğru" / "Hiçbiri" gibi seçenek KULLANMA
 
 Genel kurallar (MUTLAKA uygula):
-- Sorular SADECE yukarıdaki ders notunda geçen bilgi/tanım/kavramlardan sorulsun — notta olmayan bir bilgiyi sorma
+- Sorular SADECE kitapta bu alt başlıkla ilgili geçen bilgi/tanım/kavramlardan sorulsun — kitapta olmayan bir bilgiyi sorma
 - Her soru farklı bir bilgi/kavramı ölçsün, aynı şeyi farklı türlerde veya farklı cümlelerle tekrar sorma
-- solution_text (matching hariç), doğru cevabı ders notundaki bilgiye dayanarak kısaca açıklasın (1-2 cümle), yeni bilgi ekleme
+- solution_text (matching hariç), doğru cevabı kitaptaki bilgiye dayanarak kısaca açıklasın (1-2 cümle), yeni bilgi ekleme
 - {grade} seviyesine uygun, basit ve net kelimeler kullan
 
 KESİNLİKLE YASAK:
-- Notta geçmeyen bir bilgiyi soru/şık/seçenek/çift olarak kullanmak
+- Kitapta geçmeyen bir bilgiyi soru/şık/seçenek/çift olarak kullanmak
 - Öğrenciye doğrudan hitap etmek ("sence", "senin fikrin" gibi)
 - Şıkların/seçeneklerin hepsini doğru ya da hepsini yanlış yazmak
 - blank sorularında "_____" dışında bir boşluk işareti kullanmak (örn. "..." veya "(...)")

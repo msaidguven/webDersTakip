@@ -29,6 +29,7 @@ type UnitRow = {
   order_no: number;
   start_week: number | null;
   end_week: number | null;
+  is_active: boolean;
 };
 type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number };
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
@@ -108,7 +109,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
 
   let unitsQuery = supabase
     .from('units')
-    .select('id, title, slug, order_no, start_week, end_week')
+    .select('id, title, slug, order_no, start_week, end_week, is_active')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
     .order('order_no', { ascending: true });

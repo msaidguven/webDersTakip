@@ -25,6 +25,13 @@ export async function GET(request: NextRequest) {
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 
+  // NotebookLM'e özel soru promptu: genel promptun aksine bizim ürettiğimiz notu değil,
+  // yüklenen kaynak kitabı temel alır — bu yüzden section_content gerekmez.
+  const NOTEBOOK_QUESTION_TEMPLATES: Record<string, string> = {
+    questions_notebooklm: '10-section-questions-notebooklm.md',
+  };
+  const isNotebookQuestionType = !!type && type in NOTEBOOK_QUESTION_TEMPLATES;
+
   // Bunlar bir alt başlığa değil, doğrudan ana konuya bağlı promptlar (sectionId gerekmez).
   const TOPIC_LEVEL_TEMPLATES: Record<string, string> = {
     cover_image: '05-topic-cover-image.md',
@@ -32,7 +39,11 @@ export async function GET(request: NextRequest) {
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
-  if (!topicId || (type !== 'plan' && type !== 'full' && type !== 'section' && type !== 'image' && type !== 'diagram' && !isQuestionType && !isTopicLevelType)) {
+  const VALID_TYPES = new Set([
+    'plan', 'full', 'section', 'section_notebooklm', 'image', 'diagram',
+  ]);
+
+  if (!topicId || (!VALID_TYPES.has(type || '') && !isQuestionType && !isNotebookQuestionType && !isTopicLevelType)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
@@ -174,6 +185,21 @@ export async function GET(request: NextRequest) {
     ? matchedOutcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
+  if (isNotebookQuestionType) {
+    const templatePath = path.join(process.cwd(), 'app', 'prompt', NOTEBOOK_QUESTION_TEMPLATES[type as string]);
+    const template = await readFile(templatePath, 'utf8');
+
+    const prompt = template
+      .replaceAll('{grade}', gradeName)
+      .replaceAll('{lesson}', lessonName)
+      .replaceAll('{unit}', unitTitle)
+      .replaceAll('{topic}', topicRow.title)
+      .replaceAll('{heading}', currentSection.heading)
+      .replaceAll('{section_outcomes}', sectionOutcomesText);
+
+    return NextResponse.json({ prompt });
+  }
+
   if (isQuestionType || type === 'image' || type === 'diagram') {
     if (!currentSection.body_markdown?.trim()) {
       return NextResponse.json({ error: 'Önce bu alt başlığın ders notu (içeriği) oluşturulmalı' }, { status: 409 });
@@ -201,7 +227,12 @@ export async function GET(request: NextRequest) {
     .map((s) => s.heading)
     .join(', ') || 'Yok';
 
-  const templatePath = path.join(process.cwd(), 'app', 'prompt', '02-section-content.md');
+  const templatePath = path.join(
+    process.cwd(),
+    'app',
+    'prompt',
+    type === 'section_notebooklm' ? '09-section-content-notebooklm.md' : '02-section-content.md'
+  );
   const template = await readFile(templatePath, 'utf8');
 
   const prompt = template

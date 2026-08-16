@@ -27,7 +27,8 @@ type UnitRow = {
   grade_id: number;
   question_count: number | null;
 };
-type TopicRow = { slug: string | null; order_no: number };
+type TopicRow = { id: number; slug: string | null; order_no: number };
+type QuestionUsageRow = { question_id: number };
 
 const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
   const supabase = await createClient();
@@ -72,16 +73,31 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
 
   const { data: topicData, count: topicCount } = await supabase
     .from('topics')
-    .select('slug, order_no', { count: 'exact' })
+    .select('id, slug, order_no', { count: 'exact' })
     .eq('unit_id', unit.id)
     .eq('is_active', true)
-    .order('order_no', { ascending: true })
-    .limit(1);
+    .order('order_no', { ascending: true });
 
-  const firstTopic = ((topicData as TopicRow[] | null) || []).find((topic) => topic.slug) || null;
+  const topicRows = (topicData as TopicRow[] | null) || [];
+  const firstTopic = topicRows.find((topic) => topic.slug) || null;
   const exitHref = firstTopic?.slug
     ? `/${grade.slug}/${lesson.slug}/${unit.slug}/${firstTopic.slug}`
     : `/${grade.slug}/${lesson.slug}`;
+
+  // Ünite testi sayfası yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
+  // units.question_count elle girilen bir alan olduğu için burada gerçek soru
+  // sayısını topics -> question_usages -> questions ilişkisinden hesaplıyoruz.
+  const topicIds = topicRows.map((t) => t.id);
+  let realQuestionCount = 0;
+  if (topicIds.length) {
+    const { data: usagesData } = await supabase
+      .from('question_usages')
+      .select('question_id')
+      .in('topic_id', topicIds);
+    realQuestionCount = new Set(((usagesData as QuestionUsageRow[] | null) || []).map((u) => u.question_id)).size;
+  }
+
+  if (!isAdmin && realQuestionCount === 0) return null;
 
   return {
     gradeId: grade.id,
@@ -91,12 +107,13 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
     lessonName: lesson.name,
     unitTitle: unit.title,
     unitDescription: unit.description,
-    questionCount: unit.question_count ?? null,
+    questionCount: realQuestionCount,
     topicCount: topicCount ?? null,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
     unitSlug: unit.slug,
     exitHref,
+    hasQuestions: realQuestionCount > 0,
   };
 });
 
@@ -180,6 +197,11 @@ export default async function UnitTestPage({ params }: PageProps) {
 
   return (
     <>
+      {!data.hasQuestions && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
+          Taslak — bu ünitede henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
+        </div>
+      )}
       <script
         id="structured-data-unit-test-breadcrumb"
         type="application/ld+json"
@@ -232,11 +254,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       'ders takip',
     ],
     robots: {
-      index: true,
-      follow: true,
+      index: data.hasQuestions,
+      follow: data.hasQuestions,
       googleBot: {
-        index: true,
-        follow: true,
+        index: data.hasQuestions,
+        follow: data.hasQuestions,
         'max-snippet': -1,
         'max-image-preview': 'large',
         'max-video-preview': -1,

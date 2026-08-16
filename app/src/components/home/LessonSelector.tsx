@@ -22,6 +22,7 @@ interface LessonUnit {
   title: string;
   slug: string | null;
   orderNo: number;
+  isActive?: boolean;
   firstTopicSlug: string | null;
 }
 
@@ -308,35 +309,57 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
                       </p>
                     ) : (
                       <div className="space-y-1 sm:space-y-2">
-                        {units.map((unit, unitIndex) =>
-                          unit.firstTopicSlug && unit.slug ? (
+                        {units.map((unit, unitIndex) => {
+                          const isDraftUnit = unit.isActive === false;
+                          return unit.firstTopicSlug && unit.slug ? (
                             <Link
                               key={unit.id}
                               href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
-                              className="group/unit flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border border-transparent bg-surface px-2 sm:px-3 py-1.5 sm:py-2.5 transition-all duration-200 hover:border-default hover:bg-surface-elevated hover:shadow-md animate-fade-in-up"
+                              className={`group/unit flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2.5 transition-all duration-200 hover:shadow-md animate-fade-in-up ${
+                                isDraftUnit
+                                  ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10 hover:border-amber-400'
+                                  : 'border-transparent bg-surface hover:border-default hover:bg-surface-elevated'
+                              }`}
                               style={{ animationDelay: `${index * 70 + unitIndex * 40}ms` }}
                             >
                               <span
-                                className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full bg-gradient-to-br ${lesson.color} text-white flex items-center justify-center text-[9px] sm:text-[11px] font-black shadow-sm`}
+                                className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full text-white flex items-center justify-center text-[9px] sm:text-[11px] font-black shadow-sm ${
+                                  isDraftUnit ? 'bg-amber-500' : `bg-gradient-to-br ${lesson.color}`
+                                }`}
                               >
                                 {unitIndex + 1}
                               </span>
-                              <span className="flex-1 min-w-0 text-[11px] sm:text-sm font-bold text-default truncate">{unit.title}</span>
+                              <span className={`flex-1 min-w-0 text-[11px] sm:text-sm font-bold truncate ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-default'}`}>{unit.title}</span>
+                              {isDraftUnit && (
+                                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-500/20 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                  Taslak
+                                </span>
+                              )}
                               <ArrowRight className="hidden sm:block h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-indigo-500" />
                             </Link>
                           ) : (
                             <div
                               key={unit.id}
-                              className="flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border border-transparent bg-surface px-2 sm:px-3 py-1.5 sm:py-2.5 opacity-50"
+                              className={`flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2.5 ${
+                                isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : 'border-transparent bg-surface opacity-50'
+                              }`}
                             >
-                              <span className="h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full bg-slate-500/10 text-slate-400 flex items-center justify-center text-[9px] sm:text-[11px] font-black">
+                              <span className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full flex items-center justify-center text-[9px] sm:text-[11px] font-black ${
+                                isDraftUnit ? 'bg-amber-500 text-white' : 'bg-slate-500/10 text-slate-400'
+                              }`}>
                                 {unitIndex + 1}
                               </span>
-                              <span className="flex-1 min-w-0 text-[11px] sm:text-sm font-bold text-muted-foreground truncate">{unit.title}</span>
-                              <span className="hidden sm:inline text-[10px] text-muted-foreground shrink-0">Konu yok</span>
+                              <span className={`flex-1 min-w-0 text-[11px] sm:text-sm font-bold truncate ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>{unit.title}</span>
+                              {isDraftUnit ? (
+                                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-500/20 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                  Taslak
+                                </span>
+                              ) : (
+                                <span className="hidden sm:inline text-[10px] text-muted-foreground shrink-0">Konu yok</span>
+                              )}
                             </div>
-                          )
-                        )}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

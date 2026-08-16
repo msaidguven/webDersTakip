@@ -1176,7 +1176,7 @@ export type SectionModalSection = {
 };
 
 const MIXED_QUESTIONS_PLACEHOLDER =
-  '{"questions": [' +
+  '{"ai_model": "...", "questions": [' +
   '{"type": "multiple_choice", "question_text": "...", "solution_text": "...", "choices": [{"text": "...", "is_correct": true}, ...]}, ' +
   '{"type": "blank", "question_text": "... _____ ...", "solution_text": "...", "options": [{"text": "...", "is_correct": true}, ...]}, ' +
   '{"type": "matching", "pairs": [{"left_text": "...", "right_text": "..."}, ...]}' +
@@ -1185,16 +1185,20 @@ const MIXED_QUESTIONS_PLACEHOLDER =
 export function QuestionsModal({
   topicId,
   section,
+  variant = 'general',
   onClose,
 }: {
   topicId: number;
   section: { id: number; heading: string };
+  variant?: 'general' | 'notebooklm';
   onClose: () => void;
 }) {
+  const isNotebook = variant === 'notebooklm';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
   const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState(isNotebook ? 'NotebookLM' : '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
@@ -1203,8 +1207,9 @@ export function QuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
+    const promptType = isNotebook ? 'questions_notebooklm' : 'mixed_questions';
     (async () => {
-      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=mixed_questions`);
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${promptType}`);
       const data = await res.json().catch(() => null);
       if (!cancelled) {
         if (res.ok) {
@@ -1216,7 +1221,22 @@ export function QuestionsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, section.id]);
+  }, [topicId, section.id, isNotebook]);
+
+  // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
+  // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
+  // (admin yine de elle düzeltebilir, o yüzden state olarak tutmaya devam ediyoruz).
+  useEffect(() => {
+    if (!pasted.trim()) return;
+    try {
+      const obj = extractJson(pasted) as { ai_model?: unknown };
+      if (typeof obj.ai_model === 'string' && obj.ai_model.trim()) {
+        setAiModel(obj.ai_model.trim());
+      }
+    } catch {
+      // henüz geçerli JSON değil, sessizce yoksay
+    }
+  }, [pasted]);
 
   async function handleSave() {
     setError(null);
@@ -1240,7 +1260,7 @@ export function QuestionsModal({
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions: obj.questions }),
+        body: JSON.stringify({ questions: obj.questions, ai_model: aiModel.trim() || null }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1255,10 +1275,12 @@ export function QuestionsModal({
   }
 
   return (
-    <ModalShell title={`Soru Ekle — ${section.heading}`} onClose={onClose}>
+    <ModalShell title={`Soru Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-[#8b90a7]">
-          Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
+          {isNotebook
+            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : 'Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
         </p>
 
         {promptError ? (
@@ -1276,6 +1298,29 @@ export function QuestionsModal({
             placeholder={MIXED_QUESTIONS_PLACEHOLDER}
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
+        </div>
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+          <input
+            list={isNotebook ? 'ai-model-options-notebook-questions' : 'ai-model-options-questions'}
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+          />
+          {isNotebook ? (
+            <datalist id="ai-model-options-notebook-questions">
+              <option value="NotebookLM" />
+            </datalist>
+          ) : (
+            <datalist id="ai-model-options-questions">
+              <option value="Claude Sonnet 5" />
+              <option value="Claude Opus 5" />
+              <option value="GPT-5.1" />
+              <option value="Gemini 3 Pro" />
+            </datalist>
+          )}
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
@@ -1301,25 +1346,29 @@ export function QuestionsModal({
 export function SectionModal({
   topicId,
   section,
+  variant = 'general',
   onClose,
   onSaved,
 }: {
   topicId: number;
   section: SectionModalSection;
+  variant?: 'general' | 'notebooklm';
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const isNotebook = variant === 'notebooklm';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
-  const [aiModel, setAiModel] = useState('');
+  const [aiModel, setAiModel] = useState(isNotebook ? 'NotebookLM' : '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const promptType = isNotebook ? 'section_notebooklm' : 'section';
     (async () => {
-      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=section`);
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${promptType}`);
       const data = await res.json().catch(() => null);
       if (!cancelled) {
         if (res.ok) {
@@ -1331,9 +1380,10 @@ export function SectionModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, section.id]);
+  }, [topicId, section.id, isNotebook]);
 
   useEffect(() => {
+    if (isNotebook) return;
     let cancelled = false;
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}`);
@@ -1343,7 +1393,7 @@ export function SectionModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [section.id]);
+  }, [section.id, isNotebook]);
 
   // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
   // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
@@ -1399,8 +1449,14 @@ export function SectionModal({
   }
 
   return (
-    <ModalShell title={`İçerik Ekle — ${section.heading}`} onClose={onClose}>
+    <ModalShell title={`İçerik Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
+        {isNotebook && (
+          <p className="text-xs text-[#8b90a7]">
+            Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun; içerik kitaba dayanarak üretilir.
+          </p>
+        )}
+
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
         <div>
@@ -1417,18 +1473,24 @@ export function SectionModal({
         <div>
           <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
-            list="ai-model-options"
+            list={isNotebook ? 'ai-model-options-notebook-section' : 'ai-model-options'}
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
-            placeholder="ör. Claude Sonnet 5"
+            placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
           />
-          <datalist id="ai-model-options">
-            <option value="Claude Sonnet 5" />
-            <option value="Claude Opus 5" />
-            <option value="GPT-5.1" />
-            <option value="Gemini 3 Pro" />
-          </datalist>
+          {isNotebook ? (
+            <datalist id="ai-model-options-notebook-section">
+              <option value="NotebookLM" />
+            </datalist>
+          ) : (
+            <datalist id="ai-model-options">
+              <option value="Claude Sonnet 5" />
+              <option value="Claude Opus 5" />
+              <option value="GPT-5.1" />
+              <option value="Gemini 3 Pro" />
+            </datalist>
+          )}
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}

@@ -5,7 +5,7 @@ import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 // Bir sınıf+ders için üniteleri, her ünitenin ilk konusunun slug'ıyla birlikte döner.
 // Anasayfa -> sınıf -> dersler sayfasında, ünite listesini (ünite sayfasına gitmeden)
 // doğrudan orada gösterip her üniteye tıklandığında ilk konusuna link vermek için kullanılır.
-type UnitRow = { id: number; title: string; slug: string | null; order_no: number };
+type UnitRow = { id: number; title: string; slug: string | null; order_no: number; is_active: boolean };
 type TopicRow = { id: number; unit_id: number; slug: string | null; order_no: number };
 
 export async function GET(request: Request) {
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   let unitsQuery = supabase
     .from('units')
-    .select('id, title, slug, order_no')
+    .select('id, title, slug, order_no, is_active')
     .eq('grade_id', gradeId)
     .eq('lesson_id', lessonId)
     .order('order_no', { ascending: true });
@@ -63,6 +63,7 @@ export async function GET(request: Request) {
     title: u.title,
     slug: u.slug,
     orderNo: u.order_no,
+    isActive: u.is_active,
     firstTopicSlug: firstTopicByUnit.get(u.id)?.slug ?? null,
   }));
 
