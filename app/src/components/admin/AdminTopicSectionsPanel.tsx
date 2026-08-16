@@ -2482,7 +2482,7 @@ export function TopicHighlightsModal({
   );
 }
 
-// Alt başlıklara değil, doğrudan konunun geneline ait (section_id boş) 3-5 sentez/genel
+// Alt başlıklara değil, doğrudan konunun geneline ait (section_id boş) 10-15 sentez/genel
 // tekrar sorusu üretir — ünite testinde kullanılacak. QuestionsModal'dan farkı: promptun
 // tek bir alt başlığın notuna değil, konunun TÜM alt başlıklarının notuna dayanması ve
 // kaydederken sectionId gerektirmemesi (bkz. api/admin/topic-sections/topic/[topicId]/questions).
@@ -2575,7 +2575,7 @@ export function TopicQuestionsModal({
     <ModalShell title={`Genel Sorular (Ünite Testi) — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-[#8b90a7]">
-          Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 3-5 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
+          Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
         </p>
 
         {promptError ? (

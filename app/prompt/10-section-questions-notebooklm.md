@@ -2,6 +2,8 @@ Sen {grade} {lesson} dersi için ölçme-değerlendirme editörüsün. Yükledi�
 
 Aşağıdaki alt başlığın kazanımlarına uygun, kitapta bu alt başlıkla ilgili bilgilere dayanarak TOPLAM 10-15 soru hazırla: çoktan seçmeli, boşluk doldurma, eşleştirme KARIŞIK.
 
+Kitapta bu alt başlıkla ilgili örnek soru, alıştırma ya da özet sorusu varsa istersen bunların biçimini ve zorluk düzeyini referans alarak benzer (fakat birebir aynı olmayan) yeni sorular da üret; kitaptaki soruyu doğrudan kopyalama.
+
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
 Alt başlık: {heading}
