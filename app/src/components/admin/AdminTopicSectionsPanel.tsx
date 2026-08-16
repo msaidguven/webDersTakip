@@ -2482,6 +2482,153 @@ export function TopicHighlightsModal({
   );
 }
 
+// Alt başlıklara değil, doğrudan konunun geneline ait (section_id boş) 3-5 sentez/genel
+// tekrar sorusu üretir — ünite testinde kullanılacak. QuestionsModal'dan farkı: promptun
+// tek bir alt başlığın notuna değil, konunun TÜM alt başlıklarının notuna dayanması ve
+// kaydederken sectionId gerektirmemesi (bkz. api/admin/topic-sections/topic/[topicId]/questions).
+export function TopicQuestionsModal({
+  topicId,
+  topicTitle,
+  onClose,
+}: {
+  topicId: number;
+  topicTitle: string;
+  onClose: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState('NotebookLM');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPrompt(true);
+    setPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=topic_questions`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setPrompt(data?.prompt || '');
+        } else {
+          setPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  useEffect(() => {
+    if (!pasted.trim()) return;
+    try {
+      const obj = extractJson(pasted) as { ai_model?: unknown };
+      if (typeof obj.ai_model === 'string' && obj.ai_model.trim()) {
+        setAiModel(obj.ai_model.trim());
+      }
+    } catch {
+      // henüz geçerli JSON değil, sessizce yoksay
+    }
+  }, [pasted]);
+
+  async function handleSave() {
+    setError(null);
+    setSavedCount(null);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(pasted);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+
+    const obj = parsed as { questions?: unknown };
+    if (!Array.isArray(obj.questions) || !obj.questions.length) {
+      setError('JSON içinde "questions" listesi bulunamadı.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/topic/${topicId}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: obj.questions, ai_model: aiModel.trim() || null }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedCount(data?.savedCount ?? obj.questions.length);
+      setPasted('');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Genel Sorular (Ünite Testi) — ${topicTitle}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-[#8b90a7]">
+          Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 3-5 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
+        </p>
+
+        {promptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
+        ) : (
+          <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={12}
+            placeholder={MIXED_QUESTIONS_PLACEHOLDER}
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+          <input
+            list="ai-model-options-topic-questions"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder="ör. NotebookLM"
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+          />
+          <datalist id="ai-model-options-topic-questions">
+            <option value="NotebookLM" />
+          </datalist>
+        </div>
+
+        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            Kapat
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pasted.trim()}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 // Tek bir anahtar kavramı, AI'a gitmeden, elle hızlıca eklemek için. Ders sayfasındaki
 // "Anahtar Kavramlar" başlığının yanındaki + butonundan açılır; mevcut kavramların üzerine
 // yenisini ekler (listeyi sıfırlamaz).

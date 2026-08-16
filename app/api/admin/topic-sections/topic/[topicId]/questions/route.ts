@@ -4,16 +4,18 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { parseQuestions, TYPE_ID, INVALID_MESSAGE } from '@/app/src/lib/parseMixedQuestions';
 
 interface Params {
-  sectionId: string;
+  topicId: string;
 }
 
+// Alt başlığa değil, doğrudan konunun geneline ait (section_id boş) sentez/genel tekrar
+// soruları kaydeder — ünite testinde bu şekilde de gösterilir (bkz. add_question_scope_and_source.sql).
 export async function POST(request: NextRequest, { params }: { params: Promise<Params> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const { sectionId } = await params;
+  const { topicId } = await params;
   const body = await request.json().catch(() => null);
-  const questions = parseQuestions(body, 20);
+  const questions = parseQuestions(body, 8);
 
   if (!questions) {
     return NextResponse.json({ error: INVALID_MESSAGE }, { status: 400 });
@@ -25,42 +27,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const supabase = createServiceClient();
 
-  // topic_id hiyerarşinin (ünite/ders/sınıf) tek kaynağı olacağı için client'tan değil,
-  // section -> topic_content -> topic zincirinden sunucu tarafında çıkarıyoruz.
-  const { data: sectionRow, error: sectionError } = await supabase
-    .from('topic_content_sections')
-    .select('id, topic_content_id')
-    .eq('id', sectionId)
+  const { data: topicRow, error: topicError } = await supabase
+    .from('topics')
+    .select('id')
+    .eq('id', topicId)
     .maybeSingle();
 
-  if (sectionError || !sectionRow) {
-    return NextResponse.json({ error: 'Alt başlık bulunamadı' }, { status: 404 });
+  if (topicError || !topicRow) {
+    return NextResponse.json({ error: 'Konu bulunamadı' }, { status: 404 });
   }
 
-  const { data: topicContentRow, error: topicContentError } = await supabase
-    .from('topic_contents')
-    .select('id, topic_id')
-    .eq('id', (sectionRow as { topic_content_id: number }).topic_content_id)
-    .maybeSingle();
+  const { data: outcomeRows, error: outcomeError } = await supabase
+    .from('outcomes')
+    .select('id')
+    .eq('topic_id', topicId);
 
-  if (topicContentError || !topicContentRow) {
-    return NextResponse.json({ error: 'Konu içeriği bulunamadı' }, { status: 404 });
+  if (outcomeError) {
+    return NextResponse.json({ error: 'Konu kazanımları okunamadı' }, { status: 500 });
   }
 
-  const topicId = (topicContentRow as { topic_id: number }).topic_id;
-
-  const { data: linkRows, error: linkError } = await supabase
-    .from('topic_content_section_outcomes')
-    .select('outcome_id')
-    .eq('section_id', sectionId);
-
-  if (linkError) {
-    return NextResponse.json({ error: 'Alt başlık kazanımları okunamadı' }, { status: 500 });
-  }
-
-  const outcomeIds = ((linkRows as { outcome_id: number }[] | null) || []).map((r) => r.outcome_id);
+  const outcomeIds = ((outcomeRows as { id: number }[] | null) || []).map((r) => r.id);
   if (!outcomeIds.length) {
-    return NextResponse.json({ error: 'Bu alt başlığa bağlı kazanım yok — önce alt başlık planını oluşturun' }, { status: 409 });
+    return NextResponse.json({ error: 'Bu konuya bağlı kazanım yok' }, { status: 409 });
   }
 
   let savedCount = 0;
@@ -75,8 +63,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
         question_type_id: TYPE_ID[q.kind],
         question_text: questionText,
         solution_text: solutionText,
-        topic_id: topicId,
-        section_id: Number(sectionId),
+        topic_id: Number(topicId),
+        section_id: null,
         source,
         ai_model: aiModel,
       })

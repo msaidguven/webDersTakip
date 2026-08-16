@@ -40,6 +40,7 @@ import {
   SectionContentEditModal,
   TopicCoverImageModal,
   TopicHighlightsModal,
+  TopicQuestionsModal,
   TopicHighlightQuickAddModal,
   TopicHighlightEditModal,
   copyText,
@@ -312,6 +313,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
+  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
@@ -1429,6 +1431,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               <Clipboard className="h-3 w-3" /> NotebookLM Prompt&apos;u
                             </button>
                           )}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title })}
+                              title="Konunun geneline ait, ünite testinde kullanılacak sentez soruları üret"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <ListChecks className="h-3 w-3" /> Genel Sorular
+                            </button>
+                          )}
                         </div>
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
                         {activeTopic.subtitle && (
@@ -1890,6 +1902,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={topicHighlightsModalTopicId}
           onClose={() => setTopicHighlightsModalTopicId(null)}
           onSaved={refreshWeekData}
+        />
+      )}
+
+      {topicQuestionsModalTopic && (
+        <TopicQuestionsModal
+          topicId={topicQuestionsModalTopic.id}
+          topicTitle={topicQuestionsModalTopic.title}
+          onClose={() => setTopicQuestionsModalTopic(null)}
         />
       )}
 

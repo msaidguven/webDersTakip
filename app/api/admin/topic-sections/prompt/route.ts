@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const TOPIC_LEVEL_TEMPLATES: Record<string, string> = {
     cover_image: '05-topic-cover-image.md',
     highlights: '07-topic-highlights.md',
+    topic_questions: '11-topic-general-questions.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
       : 'Bu konu için tanımlı kazanım bulunamadı.';
 
     let topicContentText = '';
+    let sectionHeadingsText = '';
     if (type === 'highlights') {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
@@ -141,6 +143,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // NotebookLM zaten kaynak kitabı bildiği için topic_questions promptuna içerik
+    // gömmüyoruz (uzunluk/karakter sınırı yüzünden) — sadece hangi alt başlıkları
+    // kapsaması gerektiğini kısa bir liste olarak veriyoruz.
+    if (type === 'topic_questions') {
+      const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
+      if (topicContent) {
+        const { data: sectionsData } = await supabase
+          .from('topic_content_sections')
+          .select('heading, order_no')
+          .eq('topic_content_id', (topicContent as { id: number }).id)
+          .order('order_no', { ascending: true });
+        sectionHeadingsText = ((sectionsData as { heading: string }[] | null) || []).map((s) => s.heading).join(', ');
+      }
+      if (!sectionHeadingsText.trim()) {
+        return NextResponse.json({ error: 'Önce alt başlık planı oluşturulmalı' }, { status: 409 });
+      }
+    }
+
     const templatePath = path.join(process.cwd(), 'app', 'prompt', TOPIC_LEVEL_TEMPLATES[type as string]);
     const template = await readFile(templatePath, 'utf8');
 
@@ -150,7 +170,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
-      .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.');
+      .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
+      .replaceAll('{section_headings}', sectionHeadingsText);
 
     return NextResponse.json({ prompt });
   }
