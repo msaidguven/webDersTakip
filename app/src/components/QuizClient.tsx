@@ -228,6 +228,56 @@ function ClassicalView({
   );
 }
 
+// Google, aktif quiz akışında tek anda tek soru render edildiği için diğer soruları DOM'da
+// hiç görmüyor (veri initialQuestions ile ilk HTML'e geliyor ama ekrana basılmıyor).
+// Bu bölüm etkileşimli akışı bozmadan, kapalı bir <details> içinde TÜM soru ve doğru
+// cevapları gerçek DOM metni olarak sunar — native <details> Google tarafından tartışmasız
+// indexlenir, JS ile aç/kapa yapılan içerik gibi belirsizlik taşımaz.
+function AnswerKeySection({ questions }: { questions: QuizQuestion[] }) {
+  return (
+    <details className="mx-auto mt-6 max-w-lg rounded-2xl border border-default bg-surface-elevated p-4 sm:p-6">
+      <summary className="cursor-pointer text-sm font-black text-default">Tüm Sorular ve Cevaplar ({questions.length} soru)</summary>
+      <div className="mt-4 space-y-4">
+        {questions.map((q, i) => (
+          <div key={q.id} className="border-t border-default pt-4 first:border-t-0 first:pt-0">
+            <p className="text-sm font-bold text-default">
+              {i + 1}. {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
+            </p>
+            {q.type === 'multiple_choice' && (
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {q.choices.map((c) => (
+                  <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
+                    {c.is_correct ? '✓ ' : ''}
+                    {c.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {q.type === 'blank' && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
+              </p>
+            )}
+            {q.type === 'matching' && (
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {q.pairs.map((p) => (
+                  <li key={p.id}>
+                    <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
+            {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+              <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 interface QuizIntro {
   subLabel: string;
   description: string | null;
@@ -374,6 +424,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   };
 
   const retry = () => setReloadKey((k) => k + 1);
+  const answerKey = questions.length > 0 ? <AnswerKeySection questions={questions} /> : null;
 
   if (loading) {
     return (
@@ -405,6 +456,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   if (showResult) {
     const percent = gradedQuestions.length ? Math.round((score / gradedQuestions.length) * 100) : 0;
     return (
+      <>
       <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
         <div className="rounded-2xl border border-default bg-surface-elevated p-6 text-center shadow-sm sm:p-8">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm">
@@ -462,6 +514,8 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
           </div>
         </div>
       </div>
+      {answerKey}
+      </>
     );
   }
 
@@ -469,6 +523,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   const isCorrect = !!correct[current.id];
 
   return (
+    <>
     <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
       <Link href={exitHref} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500">
         <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
@@ -588,5 +643,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
         </div>
       </div>
     </div>
+    {answerKey}
+    </>
   );
 }
