@@ -47,7 +47,7 @@ Zayıf bir çıktı genelde şu belirtileri taşır: tam olarak 5 maddede durur 
 
 ## Kısıtlar
 
-- {grade}. sınıf seviyesine uygun, basit ve net kelimeler kullan.
+- {grade} seviyesine uygun, basit ve net kelimeler kullan.
 - Diğer alt başlıkların konusuna girme (heading'lerini biliyorsun, oraya bırak).
 - Kazanım metninde yazmayan, spesifik bir sonuç/ilişki önermesi ("X arttıkça Y artar/azalır" tipi bir bulgu gibi) üretme. Bu tür spesifik sonuçlar genelde müfredatta BAŞKA bir konunun kendi kazanımıdır. Bu alt başlığın kazanımı genel bir süreç/beceri tanımlıyorsa (ör. "verilerin analizini yapar", "araştırır", "değerlendirir"), o süreci anlat (nasıl karşılaştırılır, nasıl kayıt tutulur, hata nasıl ayıklanır) — kazanımın kendisinin söylemediği somut bir sonucu uydurma.
 - Bu alt başlığa birden fazla kazanım bağlıysa (section_outcomes'ta birden fazla satır varsa), her kazanımı en az 1-2 maddeyle karşıla; içerik tek bir kazanıma yığılıp diğeri es geçilmesin.

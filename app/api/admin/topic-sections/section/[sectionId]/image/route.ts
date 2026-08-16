@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, convertToWebp } from '@/app/src/lib/imageUpload';
+import { CONTENT_IMAGE_BUCKET, buildSectionFolderPrefix, buildSectionImagePath, extractHierarchy } from '@/app/src/lib/contentImageStorage';
 
-const BUCKET = 'topic-content-images';
+const BUCKET = CONTENT_IMAGE_BUCKET;
 
 interface Params {
   sectionId: string;
@@ -17,45 +18,72 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get('file');
-  if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 });
-  }
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: 'Sadece PNG, JPEG, WEBP veya GIF yükleyebilirsiniz' }, { status: 400 });
-  }
-  if (file.size > MAX_IMAGE_SIZE) {
-    return NextResponse.json({ error: 'Dosya 4MB\'tan büyük olamaz' }, { status: 400 });
-  }
-
-  let webpBuffer: Buffer;
-  try {
-    webpBuffer = await convertToWebp(file);
-  } catch {
-    return NextResponse.json({ error: 'Görsel işlenemedi. Dosya bozuk olabilir.' }, { status: 400 });
-  }
+  const existingPath = formData?.get('existingPath');
 
   const supabase = createServiceClient();
 
-  const path = `sections/${sectionId}-${Date.now()}.webp`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, new Blob([new Uint8Array(webpBuffer)], { type: 'image/webp' }), { contentType: 'image/webp', upsert: false });
-
-  if (uploadError) {
-    return NextResponse.json({ error: `Yükleme başarısız: ${uploadError.message}` }, { status: 500 });
-  }
-
-  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  const imageUrl = publicUrlData.publicUrl;
-
   const { data: sectionRow } = await supabase
     .from('topic_content_sections')
-    .select('status')
+    .select('status, topic_contents(topics(unit_id, units(slug, grades(slug), lessons(slug))))')
     .eq('id', sectionId)
     .maybeSingle();
 
-  const currentStatus = (sectionRow as { status: string } | null)?.status;
+  if (!sectionRow) {
+    return NextResponse.json({ error: 'Bölüm bulunamadı' }, { status: 404 });
+  }
+
+  type SectionHierarchyRow = {
+    status: string;
+    topic_contents: { topics: { unit_id: number; units: Parameters<typeof extractHierarchy>[0] } | null } | null;
+  };
+  const row = sectionRow as unknown as SectionHierarchyRow;
+  const topics = row.topic_contents?.topics ?? null;
+  const hierarchy = topics ? extractHierarchy(topics.units, topics.unit_id) : null;
+
+  if (!hierarchy) {
+    return NextResponse.json({ error: 'Bu bölüm için sınıf/ders/ünite bilgisi çözümlenemedi' }, { status: 400 });
+  }
+
+  let imageUrl: string;
+
+  if (typeof existingPath === 'string' && existingPath) {
+    // Galeriden seçim: dosya zaten storage'da, sadece bu bölümün klasörüne ait olduğunu doğrulayıp bağla.
+    if (!existingPath.startsWith(`${buildSectionFolderPrefix(hierarchy)}/`)) {
+      return NextResponse.json({ error: 'Geçersiz galeri görseli' }, { status: 400 });
+    }
+    imageUrl = supabase.storage.from(BUCKET).getPublicUrl(existingPath).data.publicUrl;
+  } else {
+    if (!file || !(file instanceof File)) {
+      return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 });
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: 'Sadece PNG, JPEG, WEBP veya GIF yükleyebilirsiniz' }, { status: 400 });
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      return NextResponse.json({ error: 'Dosya 4MB\'tan büyük olamaz' }, { status: 400 });
+    }
+
+    let webpBuffer: Buffer;
+    try {
+      webpBuffer = await convertToWebp(file);
+    } catch {
+      return NextResponse.json({ error: 'Görsel işlenemedi. Dosya bozuk olabilir.' }, { status: 400 });
+    }
+
+    const path = buildSectionImagePath(hierarchy, sectionId);
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, new Blob([new Uint8Array(webpBuffer)], { type: 'image/webp' }), { contentType: 'image/webp', upsert: false });
+
+    if (uploadError) {
+      return NextResponse.json({ error: `Yükleme başarısız: ${uploadError.message}` }, { status: 500 });
+    }
+
+    imageUrl = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  const currentStatus = row.status;
   const nextStatus = currentStatus === 'content_ready' ? 'image_ready' : undefined;
 
   const { error: updateError } = await supabase
@@ -119,6 +147,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const currentStatus = (sectionRow as { status: string } | null)?.status;
   const nextStatus = currentStatus === 'image_ready' ? 'content_ready' : undefined;
 
+  // Dosya storage'dan silinmiyor — galeri için kalıyor, isterse başka bir bölüme
+  // veya tekrar buna bağlanabilir. Kalıcı silme sadece image-gallery DELETE'i ile yapılır.
   const { error } = await supabase
     .from('topic_content_sections')
     .update({

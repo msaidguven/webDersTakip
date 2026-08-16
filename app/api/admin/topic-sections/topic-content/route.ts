@@ -11,6 +11,7 @@ export async function PATCH(request: NextRequest) {
     subtitle?: string;
     heroImagePrompt?: string;
     heroImageAlt?: string;
+    isPublished?: boolean;
   } | null;
   const topicContentId = body?.topicContentId;
   if (!topicContentId) {
@@ -25,6 +26,10 @@ export async function PATCH(request: NextRequest) {
 
   if (Object.prototype.hasOwnProperty.call(body || {}, 'subtitle')) {
     update.subtitle = typeof body?.subtitle === 'string' ? body.subtitle.trim() || null : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'isPublished')) {
+    update.is_published = Boolean(body?.isPublished);
   }
 
   const hasHeroPrompt = Object.prototype.hasOwnProperty.call(body || {}, 'heroImagePrompt');

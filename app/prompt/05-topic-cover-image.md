@@ -9,7 +9,7 @@ Konunun kazanımları:
 
 Kurallar (image_prompt için):
 - Prompt İngilizce yazılsın.
-- {grade}. sınıf öğrencisine uygun, sade, çocuk dostu, eğitici bir illüstrasyon stili iste (fotogerçekçi değil, temiz çizim/vektör tarzı).
+- {grade} öğrencisine uygun, sade, çocuk dostu, eğitici bir illüstrasyon stili iste (fotogerçekçi değil, temiz çizim/vektör tarzı).
 - Konunun en karakteristik/somut öğesini betimle (soyut kavram anlatma); jenerik, konuyla doğrudan ilgisi olmayan sahneler ("bir öğrenci ders çalışıyor" gibi) önerme.
 - Görselde mutlaka geçmesi gereken bir yazı/etiket varsa ne yazması gerektiğini belirt ve o yazının Türkçe olması gerektiğini prompt içine ekle.
 

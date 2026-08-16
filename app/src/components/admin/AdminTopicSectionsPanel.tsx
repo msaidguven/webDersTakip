@@ -107,6 +107,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
   const [deletingSectionId, setDeletingSectionId] = useState<number | null>(null);
+  const [publishSaving, setPublishSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -147,6 +148,21 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
     }
   }
 
+  async function handleTogglePublish() {
+    if (!bundle?.topicContent) return;
+    setPublishSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/topic-content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId: bundle.topicContent.id, isPublished: !bundle.topicContent.is_published }),
+      });
+      if (res.ok) await load();
+    } finally {
+      setPublishSaving(false);
+    }
+  }
+
   async function handleDeleteSection(sectionId: number) {
     if (!confirm('Bu alt başlığı silmek istediğinize emin misiniz?')) return;
     setDeletingSectionId(sectionId);
@@ -181,6 +197,20 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           <div className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-[#b5b0ff]">Admin</div>
           <h3 className="text-lg font-black text-[#e8eaf0]">Alt Başlık &amp; İçerik Yönetimi</h3>
         </div>
+        {bundle.topicContent && (
+          <button
+            onClick={handleTogglePublish}
+            disabled={publishSaving}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-extrabold transition-colors disabled:opacity-50 ${
+              bundle.topicContent.is_published
+                ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                : 'border-slate-500/30 bg-slate-500/15 text-slate-300 hover:bg-slate-500/25'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${bundle.topicContent.is_published ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+            {publishSaving ? '...' : bundle.topicContent.is_published ? 'Yayında — Taslağa Al' : 'Taslak — Yayınla'}
+          </button>
+        )}
       </div>
 
       {/* Kazanımlar */}
@@ -307,6 +337,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       {bundle.topicContent && (
         <HeroHighlightsPanel
           key={`${bundle.topicContent.id}-${reloadCount}`}
+          topicId={topicId}
           topicContent={bundle.topicContent}
           highlights={bundle.highlights}
           heroImagePrompt={bundle.heroImagePrompt}
@@ -444,11 +475,13 @@ export function SectionContentEditModal({
 }
 
 function HeroHighlightsPanel({
+  topicId,
   topicContent,
   highlights,
   heroImagePrompt,
   onSaved,
 }: {
+  topicId: number;
   topicContent: NonNullable<TopicContent>;
   highlights: Highlight[];
   heroImagePrompt: string | null;
@@ -462,6 +495,7 @@ function HeroHighlightsPanel({
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [heroBusy, setHeroBusy] = useState(false);
   const [heroError, setHeroError] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   const [concepts, setConcepts] = useState<{ icon: string; title: string; description: string }[]>(() =>
     highlights.length
@@ -512,8 +546,29 @@ function HeroHighlightsPanel({
     }
   }
 
+  async function handleHeroGallerySelect(path: string) {
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const formData = new FormData();
+      formData.append('existingPath', path);
+      formData.append('topicContentId', String(topicContent.id));
+      const res = await fetch('/api/admin/topic-sections/hero-image', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setHeroError(data?.error || 'Seçilemedi.');
+        return;
+      }
+      setHeroUrl(data.imageUrl);
+      setShowGallery(false);
+      onSaved();
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
   async function handleHeroRemove() {
-    if (!confirm('Kapak görselini kaldırmak istediğinize emin misiniz?')) return;
+    if (!confirm('Kapak görselini bu konudan kaldırmak istediğinize emin misiniz? (Dosya galeride kalır, silinmez.)')) return;
     setHeroBusy(true);
     setHeroError(null);
     try {
@@ -596,18 +651,19 @@ function HeroHighlightsPanel({
             <PromptCopyBox prompt={heroImagePrompt} loading={false} />
           </div>
         )}
-        {heroUrl ? (
-          <div className="flex items-center gap-3">
-            <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
-            <button
-              onClick={handleHeroRemove}
-              disabled={heroBusy}
-              className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
-            >
-              {heroBusy ? 'İşleniyor...' : 'Kaldır'}
-            </button>
-          </div>
-        ) : (
+        <div className="space-y-3">
+          {heroUrl && (
+            <div className="flex items-center gap-3">
+              <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
+              <button
+                onClick={handleHeroRemove}
+                disabled={heroBusy}
+                className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+              >
+                {heroBusy ? 'İşleniyor...' : 'Bu Konudan Kaldır'}
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="file"
@@ -620,10 +676,20 @@ function HeroHighlightsPanel({
               disabled={!heroFile || heroBusy}
               className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
             >
-              {heroBusy ? 'Yükleniyor...' : 'Yükle'}
+              {heroBusy ? 'Yükleniyor...' : 'Yeni Dosya Yükle'}
             </button>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setShowGallery((v) => !v)}
+            className="text-xs font-bold text-[#6c63ff] hover:underline"
+          >
+            {showGallery ? 'Galeriyi gizle' : 'Galeriden Seç'}
+          </button>
+          {showGallery && (
+            <ImageGalleryGrid topicId={topicId} kind="hero" onSelect={handleHeroGallerySelect} />
+          )}
+        </div>
         {heroError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{heroError}</p>}
       </div>
 
@@ -1212,6 +1278,7 @@ export function SectionModal({
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1231,6 +1298,18 @@ export function SectionModal({
     })();
     return () => { cancelled = true; };
   }, [topicId, section.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled && res.ok && data?.source === 'ai_generated' && data?.ai_model) {
+        setAiModel(data.ai_model);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [section.id]);
 
   async function handleSave() {
     setError(null);
@@ -1253,7 +1332,11 @@ export function SectionModal({
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body_markdown: obj.body_markdown }),
+        body: JSON.stringify({
+          body_markdown: obj.body_markdown,
+          source: aiModel.trim() ? 'ai_generated' : 'manual',
+          ai_model: aiModel.trim() || null,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -1282,6 +1365,23 @@ export function SectionModal({
           />
         </div>
 
+        <div>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">Hangi AI modelini kullandınız? (boş bırakılırsa Manuel sayılır)</span>
+          <input
+            list="ai-model-options"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder="ör. Claude Sonnet 5"
+            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+          />
+          <datalist id="ai-model-options">
+            <option value="Claude Sonnet 5" />
+            <option value="Claude Opus 5" />
+            <option value="GPT-5.1" />
+            <option value="Gemini 3 Pro" />
+          </datalist>
+        </div>
+
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
 
         <div className="flex justify-end gap-2">
@@ -1303,6 +1403,94 @@ export function SectionModal({
 
 const IMAGE_PROMPT_TURKISH_TEXT_SUFFIX =
   ' If the image includes any text, labels, or signs, they must be written in Turkish.';
+
+type GalleryItem = { path: string; url: string; inUse: boolean };
+
+// Aynı ünitede daha önce yüklenmiş görselleri (kullanılan/kullanılmayan hepsi) listeleyip
+// tekrar seçilebilmesini sağlar. Hem bölüm görselleri hem konu kapak görselleri için ortak.
+function ImageGalleryGrid({
+  topicId,
+  kind,
+  onSelect,
+}: {
+  topicId: number;
+  kind: 'hero' | 'section';
+  onSelect: (path: string) => void;
+}) {
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/image-gallery?topicId=${topicId}&kind=${kind}`);
+      const data = await res.json().catch(() => null);
+      if (cancelled) return;
+      if (res.ok) {
+        setItems(data?.items || []);
+      } else {
+        setError(data?.error || 'Galeri yüklenemedi.');
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, kind]);
+
+  async function handleDelete(path: string) {
+    if (!confirm('Bu görseli galeriden kalıcı olarak silmek istediğinize emin misiniz?')) return;
+    setDeletingPath(path);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/image-gallery?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i.path !== path));
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.error || 'Silinemedi.');
+      }
+    } finally {
+      setDeletingPath(null);
+    }
+  }
+
+  if (loading) return <p className="text-xs text-[#8b90a7]">Galeri yükleniyor...</p>;
+  if (error) return <p className="text-xs font-bold text-[#ff6584]">{error}</p>;
+  if (!items.length) return <p className="text-xs text-[#8b90a7]">Bu ünitede henüz başka görsel yok.</p>;
+
+  return (
+    <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+      {items.map((item) => (
+        <div key={item.path} className="relative group">
+          <button
+            type="button"
+            onClick={() => onSelect(item.path)}
+            className="block w-full aspect-square overflow-hidden rounded-lg border border-[#2e3348] hover:border-[#6c63ff] transition-colors"
+            title={item.inUse ? 'Kullanımda' : 'Kullanılmıyor'}
+          >
+            <img src={item.url} alt="" className="h-full w-full object-cover" />
+          </button>
+          {item.inUse && (
+            <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-bold text-[#c8cad8]">
+              kullanımda
+            </span>
+          )}
+          {!item.inUse && (
+            <button
+              type="button"
+              onClick={() => handleDelete(item.path)}
+              disabled={deletingPath === item.path}
+              className="absolute top-1 right-1 rounded bg-black/70 p-1 text-[#ff6584] opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+              title="Kalıcı sil"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function ImageModal({
   topicId,
@@ -1331,6 +1519,7 @@ export function ImageModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1416,8 +1605,31 @@ export function ImageModal({
     }
   }
 
+  async function handleGallerySelect(path: string) {
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const formData = new FormData();
+      formData.append('existingPath', path);
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/image`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setImageError(data?.error || 'Seçilemedi.');
+        return;
+      }
+      setImageUrl(data.imageUrl);
+      setShowGallery(false);
+      onImageChanged();
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
   async function handleImageRemove() {
-    if (!confirm('Görseli kaldırmak istediğinize emin misiniz?')) return;
+    if (!confirm('Görseli bu bölümden kaldırmak istediğinize emin misiniz? (Dosya galeride kalır, silinmez.)')) return;
     setImageBusy(true);
     setImageError(null);
     try {
@@ -1480,10 +1692,10 @@ export function ImageModal({
           </p>
         )}
 
-        <div className="border-t border-[#2e3348] pt-4">
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">Görsel Dosyası</span>
+        <div className="border-t border-[#2e3348] pt-4 space-y-3">
+          <span className="text-xs font-bold text-[#8b90a7] block">Görsel Dosyası</span>
 
-          {imageUrl ? (
+          {imageUrl && (
             <div className="flex items-center gap-3">
               <img src={imageUrl} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#2e3348]" />
               <button
@@ -1492,29 +1704,40 @@ export function ImageModal({
                 disabled={imageBusy}
                 className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
               >
-                {imageBusy ? 'İşleniyor...' : 'Görseli Kaldır'}
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
-              />
-              <button
-                type="button"
-                onClick={handleImageUpload}
-                disabled={!imageFile || imageBusy}
-                className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-              >
-                {imageBusy ? 'Yükleniyor...' : 'Yükle'}
+                {imageBusy ? 'İşleniyor...' : 'Bu Bölümden Kaldır'}
               </button>
             </div>
           )}
 
-          {imageError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{imageError}</p>}
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+            />
+            <button
+              type="button"
+              onClick={handleImageUpload}
+              disabled={!imageFile || imageBusy}
+              className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {imageBusy ? 'Yükleniyor...' : 'Yeni Dosya Yükle'}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowGallery((v) => !v)}
+            className="text-xs font-bold text-[#6c63ff] hover:underline"
+          >
+            {showGallery ? 'Galeriyi gizle' : 'Galeriden Seç'}
+          </button>
+          {showGallery && (
+            <ImageGalleryGrid topicId={topicId} kind="section" onSelect={handleGallerySelect} />
+          )}
+
+          {imageError && <p className="text-xs font-bold text-[#ff6584]">{imageError}</p>}
         </div>
 
         <div className="flex justify-end gap-2">
@@ -1719,6 +1942,7 @@ export function TopicCoverImageModal({
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [heroBusy, setHeroBusy] = useState(false);
   const [heroError, setHeroError] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   const loadBundle = useCallback(async () => {
     setLoadingBundle(true);
@@ -1826,9 +2050,31 @@ export function TopicCoverImageModal({
     }
   }
 
+  async function handleHeroGallerySelect(path: string) {
+    if (!topicContentId) return;
+    setHeroBusy(true);
+    setHeroError(null);
+    try {
+      const formData = new FormData();
+      formData.append('existingPath', path);
+      formData.append('topicContentId', String(topicContentId));
+      const res = await fetch('/api/admin/topic-sections/hero-image', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setHeroError(data?.error || 'Seçilemedi.');
+        return;
+      }
+      setHeroUrl(data.imageUrl);
+      setShowGallery(false);
+      onSaved();
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
   async function handleHeroRemove() {
     if (!topicContentId) return;
-    if (!confirm('Kapak görselini kaldırmak istediğinize emin misiniz?')) return;
+    if (!confirm('Kapak görselini bu konudan kaldırmak istediğinize emin misiniz? (Dosya galeride kalır, silinmez.)')) return;
     setHeroBusy(true);
     setHeroError(null);
     try {
@@ -1897,10 +2143,10 @@ export function TopicCoverImageModal({
             </p>
           )}
 
-          <div className="border-t border-[#2e3348] pt-4">
-            <span className="text-xs font-bold text-[#8b90a7] block mb-2">Görsel Dosyası</span>
+          <div className="border-t border-[#2e3348] pt-4 space-y-3">
+            <span className="text-xs font-bold text-[#8b90a7] block">Görsel Dosyası</span>
 
-            {heroUrl ? (
+            {heroUrl && (
               <div className="flex items-center gap-3">
                 <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
                 <button
@@ -1909,29 +2155,40 @@ export function TopicCoverImageModal({
                   disabled={heroBusy}
                   className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
                 >
-                  {heroBusy ? 'İşleniyor...' : 'Kaldır'}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-                  className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
-                />
-                <button
-                  type="button"
-                  onClick={handleHeroUpload}
-                  disabled={!heroFile || heroBusy}
-                  className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-                >
-                  {heroBusy ? 'Yükleniyor...' : 'Yükle'}
+                  {heroBusy ? 'İşleniyor...' : 'Bu Konudan Kaldır'}
                 </button>
               </div>
             )}
 
-            {heroError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{heroError}</p>}
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+              />
+              <button
+                type="button"
+                onClick={handleHeroUpload}
+                disabled={!heroFile || heroBusy}
+                className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                {heroBusy ? 'Yükleniyor...' : 'Yeni Dosya Yükle'}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowGallery((v) => !v)}
+              className="text-xs font-bold text-[#6c63ff] hover:underline"
+            >
+              {showGallery ? 'Galeriyi gizle' : 'Galeriden Seç'}
+            </button>
+            {showGallery && (
+              <ImageGalleryGrid topicId={topicId} kind="hero" onSelect={handleHeroGallerySelect} />
+            )}
+
+            {heroError && <p className="text-xs font-bold text-[#ff6584]">{heroError}</p>}
           </div>
 
           <div className="flex justify-end gap-2">

@@ -111,7 +111,8 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     const { data: topicContentsData } = await supabase
       .from('topic_contents')
       .select('id, topic_id, hero_image_url, subtitle, generation_meta')
-      .in('topic_id', topicIds);
+      .in('topic_id', topicIds)
+      .eq('is_published', true);
 
     const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));

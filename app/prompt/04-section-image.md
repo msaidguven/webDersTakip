@@ -10,7 +10,7 @@ Alt başlığın ders notu:
 
 Kurallar (image_prompt için):
 - Prompt İngilizce yazılsın.
-- {grade}. sınıf öğrencisine uygun, sade, eğitici bir illüstrasyon stili iste (fotogerçekçi değil, temiz/çocuk dostu çizim tarzı).
+- {grade} öğrencisine uygun, sade, eğitici bir illüstrasyon stili iste (fotogerçekçi değil, temiz/çocuk dostu çizim tarzı).
 - Ders notunda geçen somut bir bilgiyi/nesneyi/sahneyi tarif et; jenerik, konuyla doğrudan ilgisi olmayan sahneler ("bir öğrenci ders çalışıyor" gibi) önerme.
 - Görselde mutlaka geçmesi gereken bir yazı/etiket varsa (ör. parça adı, tabela) ne yazması gerektiğini prompt içinde belirt.
 

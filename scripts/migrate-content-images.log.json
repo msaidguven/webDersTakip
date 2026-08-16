@@ -1,0 +1,183 @@
+{
+  "ranAt": "2026-08-16T10:23:01.908Z",
+  "apply": true,
+  "moves": [
+    {
+      "kind": "section",
+      "id": 396,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/396-1786736098010.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/yazilim-tasarimi-ve-programlama/sections/396.webp"
+    },
+    {
+      "kind": "section",
+      "id": 307,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/307-1786749910943.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/sections/307.webp"
+    },
+    {
+      "kind": "section",
+      "id": 429,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/429-1786740821057.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/sections/429.webp"
+    },
+    {
+      "kind": "section",
+      "id": 291,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/291-1786732864719.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/sections/291.webp"
+    },
+    {
+      "kind": "section",
+      "id": 300,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/300-1786735114356.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/sections/300.webp"
+    },
+    {
+      "kind": "section",
+      "id": 428,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/428-1786740463257.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/sections/428.webp"
+    },
+    {
+      "kind": "section",
+      "id": 308,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/308-1786750163895.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/sections/308.webp"
+    },
+    {
+      "kind": "section",
+      "id": 431,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/431-1786741044604.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/sections/431.webp"
+    },
+    {
+      "kind": "section",
+      "id": 326,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/326-1786702961615.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/dijital-urun-tasarimi-ve-gelistirme/sections/326.webp"
+    },
+    {
+      "kind": "section",
+      "id": 290,
+      "table": "topic_content_sections",
+      "column": "image_url",
+      "oldPath": "sections/290-1786705775475.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/sections/290.webp"
+    },
+    {
+      "kind": "hero",
+      "id": 437,
+      "table": "topic_contents",
+      "column": "hero_image_url",
+      "oldPath": "hero/437-1786484276780.webp",
+      "newPath": "5-sinif/bilisim-teknolojileri-ve-yazilim/bilisim-teknolojilerinin-hayatimizdaki-yeri/hero/437.webp"
+    },
+    {
+      "kind": "hero",
+      "id": 452,
+      "table": "topic_contents",
+      "column": "hero_image_url",
+      "oldPath": "hero/452-1786673895479.webp",
+      "newPath": "5-sinif/fen-bilimleri/gokyuzundeki-komsularimiz-ve-biz/hero/452.webp"
+    },
+    {
+      "kind": "hero",
+      "id": 487,
+      "table": "topic_contents",
+      "column": "hero_image_url",
+      "oldPath": "hero/487-1786740339905.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/hero/487.webp"
+    },
+    {
+      "kind": "hero",
+      "id": 488,
+      "table": "topic_contents",
+      "column": "hero_image_url",
+      "oldPath": "hero/488-1786741771590.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/hero/488.webp"
+    },
+    {
+      "kind": "hero",
+      "id": 489,
+      "table": "topic_contents",
+      "column": "hero_image_url",
+      "oldPath": "hero/489-1786741336358.webp",
+      "newPath": "5-sinif/sosyal-bilgiler/birlikte-yasamak/hero/489.webp"
+    }
+  ],
+  "unresolved": [],
+  "orphanPaths": [
+    "sections/1-1786408392784.webp",
+    "sections/2-1786474776586.webp",
+    "sections/21-1786436703180.webp",
+    "sections/22-1786475143281.webp",
+    "sections/220-1786673971463.webp",
+    "sections/221-1786674304099.webp",
+    "sections/23-1786476981120.webp",
+    "sections/24-1786477554994.webp",
+    "sections/25-1786619127279.webp",
+    "sections/26-1786619309318.webp",
+    "sections/27-1786619407988.webp",
+    "sections/28-1786619504761.webp",
+    "sections/29-1786531750989.webp",
+    "sections/29-1786531807587.webp",
+    "sections/29-1786531943907.webp",
+    "sections/29-1786563447494.webp",
+    "sections/290-1786705323108.webp",
+    "sections/3-1786474632656.webp",
+    "sections/30-1786557332145.webp",
+    "sections/30-1786560186227.webp",
+    "sections/30-1786560428407.webp",
+    "sections/30-1786561005571.webp",
+    "sections/30-1786561740838.webp",
+    "sections/30-1786562392226.webp",
+    "sections/30-1786563274065.webp",
+    "sections/308-1786749987617.webp",
+    "sections/308-1786749995870.webp",
+    "sections/31-1786564230440.webp",
+    "sections/317-1786703084009.webp",
+    "sections/318-1786703150319.webp",
+    "sections/32-1786564296089.webp",
+    "sections/33-1786564379957.webp",
+    "sections/34-1786564430759.webp",
+    "sections/35-1786564591714.webp",
+    "sections/36-1786564711093.webp",
+    "sections/37-1786564764119.webp",
+    "sections/38-1786564931519.webp",
+    "sections/422-1786739264067.webp",
+    "sections/423-1786739371642.webp",
+    "sections/433-1786740014856.webp",
+    "sections/434-1786741834555.webp",
+    "sections/436-1786742033851.webp",
+    "sections/437-1786741556479.webp",
+    "sections/438-1786741507705.webp",
+    "sections/439-1786741600121.webp",
+    "sections/472-1786781614206.webp",
+    "sections/52-1786662225840.webp",
+    "sections/53-1786662683397.webp",
+    "hero/412-1786410683139.webp",
+    "hero/435-1786412928789.webp",
+    "hero/436-1786436551380.webp",
+    "hero/438-1786518357685.webp",
+    "hero/439-1786518458312.webp",
+    "hero/440-1786653613930.webp"
+  ]
+}

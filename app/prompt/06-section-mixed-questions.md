@@ -61,7 +61,7 @@ Genel kurallar (MUTLAKA uygula):
 - Sorular SADECE yukarıdaki ders notunda geçen bilgi/tanım/kavramlardan sorulsun — notta olmayan bir bilgiyi sorma
 - Her soru farklı bir bilgi/kavramı ölçsün, aynı şeyi farklı türlerde veya farklı cümlelerle tekrar sorma
 - solution_text (matching hariç), doğru cevabı ders notundaki bilgiye dayanarak kısaca açıklasın (1-2 cümle), yeni bilgi ekleme
-- {grade}. sınıf seviyesine uygun, basit ve net kelimeler kullan
+- {grade} seviyesine uygun, basit ve net kelimeler kullan
 
 KESİNLİKLE YASAK:
 - Notta geçmeyen bir bilgiyi soru/şık/seçenek/çift olarak kullanmak
