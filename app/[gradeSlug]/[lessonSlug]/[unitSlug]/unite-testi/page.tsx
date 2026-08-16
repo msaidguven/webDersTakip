@@ -25,7 +25,6 @@ type UnitRow = {
   slug: string | null;
   lesson_id: number;
   grade_id: number;
-  question_count: number | null;
 };
 type TopicRow = { id: number; slug: string | null; order_no: number };
 type QuestionUsageRow = { question_id: number };
@@ -61,7 +60,7 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
 
   let unitQuery = supabase
     .from('units')
-    .select('id, title, description, slug, lesson_id, grade_id, question_count')
+    .select('id, title, description, slug, lesson_id, grade_id')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug);

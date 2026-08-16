@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteTopicsCascade } from '@/app/src/lib/adminCascade';
+import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active'] as const;
 
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('topics')
-    .select('id, unit_id, title, subtitle, slug, order_no, is_active, curriculum_code, icon, question_count, units(title)')
+    .select('id, unit_id, title, subtitle, slug, order_no, is_active, curriculum_code, icon, units(title)')
     .order('unit_id', { ascending: true })
     .order('order_no', { ascending: true })
     .limit(500);
@@ -41,7 +42,11 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ items: data || [] });
+  const topics = data || [];
+  const questionCountByTopic = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id));
+  const items = topics.map((t) => ({ ...t, question_count: questionCountByTopic.get(t.id) ?? 0 }));
+
+  return NextResponse.json({ items });
 }
 
 export async function PATCH(request: NextRequest) {

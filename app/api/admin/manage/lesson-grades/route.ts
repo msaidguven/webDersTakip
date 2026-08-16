@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('lesson_grades')
-    .select('lesson_id, grade_id, weekly_hours, question_count, is_active')
+    .select('lesson_id, grade_id, weekly_hours, is_active')
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId)
     .maybeSingle();

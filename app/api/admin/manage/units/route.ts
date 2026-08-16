@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteUnitsCascade } from '@/app/src/lib/adminCascade';
+import { getQuestionCountsByUnitId } from '@/app/src/lib/questionCounts';
 
 const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active', 'duration_hours', 'curriculum_code'] as const;
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('units')
-    .select('id, lesson_id, grade_id, title, slug, description, order_no, is_active, start_week, end_week, curriculum_code, duration_hours, question_count, lessons(name)')
+    .select('id, lesson_id, grade_id, title, slug, description, order_no, is_active, start_week, end_week, curriculum_code, duration_hours, lessons(name)')
     .order('grade_id', { ascending: true })
     .order('order_no', { ascending: true })
     .limit(500);
@@ -30,7 +31,11 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ items: data || [] });
+  const units = data || [];
+  const questionCountByUnit = await getQuestionCountsByUnitId(supabase, units.map((u) => u.id));
+  const items = units.map((u) => ({ ...u, question_count: questionCountByUnit.get(u.id) ?? 0 }));
+
+  return NextResponse.json({ items });
 }
 
 export async function PATCH(request: NextRequest) {

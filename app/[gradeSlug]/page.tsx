@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
+import { getQuestionCountsByLessonGrade } from '@/app/src/lib/questionCounts';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
 import { Grade, Lesson } from '../src/models/homeTypes';
 import GradePageClient from './GradePageClient';
@@ -15,7 +16,7 @@ interface Params {
 }
 
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
-type LessonGradeRow = { lesson_id: number; question_count?: number | null };
+type LessonGradeRow = { lesson_id: number };
 type LessonRow = {
   id: number;
   name: string;
@@ -81,18 +82,22 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
 
   let lessonGradesQuery = supabase
     .from('lesson_grades')
-    .select('lesson_id, question_count')
+    .select('lesson_id')
     .eq('grade_id', gradeData.id);
   if (!isAdmin) lessonGradesQuery = lessonGradesQuery.eq('is_active', true);
   const { data: lessonGrades } = await lessonGradesQuery;
 
   const lessonGradeRows = (lessonGrades as LessonGradeRow[] | null) || [];
   const ids = lessonGradeRows.map((x) => x.lesson_id);
-  const questionCountByLesson = new Map(lessonGradeRows.map((x) => [x.lesson_id, x.question_count ?? 0]));
 
   if (!ids.length) {
     return { grade, lessons: [] };
   }
+
+  const questionCountByLesson = await getQuestionCountsByLessonGrade(
+    supabase,
+    ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id }))
+  );
 
   const { data: lessonRows } = await supabase
     .from('lessons')
@@ -122,7 +127,7 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     icon: lesson.icon || '📘',
     color: getLessonColor(lesson.order_no ?? 0),
     unitCount: unitCountByLesson.get(lesson.id) ?? 0,
-    questionCount: questionCountByLesson.get(lesson.id) ?? 0,
+    questionCount: questionCountByLesson.get(`${lesson.id}:${gradeData.id}`) ?? 0,
     slug: lesson.slug,
   }));
 
