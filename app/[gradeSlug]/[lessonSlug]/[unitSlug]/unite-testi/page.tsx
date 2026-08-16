@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
 import KarisikTestClient from '@/app/karisik-test/KarisikTestClient';
 
@@ -44,14 +45,27 @@ const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: 
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
-  const { data: unitData } = await supabase
+  const isAdmin = await isViewerAdmin(supabase);
+
+  const { data: lessonGradeData } = await supabase
+    .from('lesson_grades')
+    .select('is_active')
+    .eq('lesson_id', lesson.id)
+    .eq('grade_id', grade.id)
+    .maybeSingle();
+
+  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+    return null;
+  }
+
+  let unitQuery = supabase
     .from('units')
     .select('id, title, description, slug, lesson_id, grade_id, question_count')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
-    .eq('slug', decodedUnitSlug)
-    .eq('is_active', true)
-    .maybeSingle();
+    .eq('slug', decodedUnitSlug);
+  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
+  const { data: unitData } = await unitQuery.maybeSingle();
 
   const unit = unitData as UnitRow | null;
   if (!unit) return null;

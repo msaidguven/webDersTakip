@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
 import { Grade, Lesson } from '../src/models/homeTypes';
 import GradePageClient from './GradePageClient';
@@ -76,11 +77,14 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     color: getGradeColor(gradeData.order_no),
   };
 
-  const { data: lessonGrades } = await supabase
+  const isAdmin = await isViewerAdmin(supabase);
+
+  let lessonGradesQuery = supabase
     .from('lesson_grades')
     .select('lesson_id, question_count')
-    .eq('grade_id', gradeData.id)
-    .eq('is_active', true);
+    .eq('grade_id', gradeData.id);
+  if (!isAdmin) lessonGradesQuery = lessonGradesQuery.eq('is_active', true);
+  const { data: lessonGrades } = await lessonGradesQuery;
 
   const lessonGradeRows = (lessonGrades as LessonGradeRow[] | null) || [];
   const ids = lessonGradeRows.map((x) => x.lesson_id);
@@ -97,12 +101,13 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     .eq('is_active', true)
     .order('order_no');
 
-  const { data: unitRows } = await supabase
+  let unitRowsQuery = supabase
     .from('units')
     .select('lesson_id')
     .eq('grade_id', gradeData.id)
-    .eq('is_active', true)
     .in('lesson_id', ids);
+  if (!isAdmin) unitRowsQuery = unitRowsQuery.eq('is_active', true);
+  const { data: unitRows } = await unitRowsQuery;
 
   const unitCountByLesson = new Map<number, number>();
   for (const u of (unitRows as { lesson_id: number }[] | null) || []) {

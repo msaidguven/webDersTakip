@@ -981,6 +981,7 @@ export function NotebookPlanModal({
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState('NotebookLM');
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1046,7 +1047,7 @@ export function NotebookPlanModal({
       const res = await fetch('/api/admin/topic-sections/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover }),
+        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover, ai_model: aiModel.trim() || null }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1096,6 +1097,24 @@ export function NotebookPlanModal({
                 placeholder='{"sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
                 className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
+            </div>
+
+            <div>
+              <span className="text-xs font-bold text-[#8b90a7] block mb-2">Hangi AI modelini kullandınız? (boş bırakılırsa Manuel sayılır)</span>
+              <input
+                list="ai-model-options-notebook"
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                placeholder="ör. NotebookLM"
+                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+              />
+              <datalist id="ai-model-options-notebook">
+                <option value="NotebookLM" />
+                <option value="Claude Sonnet 5" />
+                <option value="Claude Opus 5" />
+                <option value="GPT-5.1" />
+                <option value="Gemini 3 Pro" />
+              </datalist>
             </div>
 
             {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}

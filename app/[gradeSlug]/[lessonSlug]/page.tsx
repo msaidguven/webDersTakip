@@ -6,6 +6,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
 export const dynamic = 'force-dynamic';
@@ -92,13 +93,27 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   const gId = grade.id;
   const lId = lesson.id;
 
-  const { data: unitsData } = await supabase
+  const isAdmin = await isViewerAdmin(supabase);
+
+  const { data: lessonGradeData } = await supabase
+    .from('lesson_grades')
+    .select('is_active')
+    .eq('lesson_id', lId)
+    .eq('grade_id', gId)
+    .maybeSingle();
+
+  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+    return null;
+  }
+
+  let unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
-    .eq('is_active', true)
     .order('order_no', { ascending: true });
+  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
+  const { data: unitsData } = await unitsQuery;
 
   const units = (unitsData as UnitRow[] | null) || [];
 
@@ -132,11 +147,12 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   }));
 
   // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
-  const { data: lessonGradesData } = await supabase
+  let siblingLessonGradesQuery = supabase
     .from('lesson_grades')
     .select('lesson_id')
-    .eq('grade_id', gId)
-    .eq('is_active', true);
+    .eq('grade_id', gId);
+  if (!isAdmin) siblingLessonGradesQuery = siblingLessonGradesQuery.eq('is_active', true);
+  const { data: lessonGradesData } = await siblingLessonGradesQuery;
 
   const siblingLessonIds = ((lessonGradesData as LessonGradeRow[] | null) || []).map((lg) => lg.lesson_id);
   let gradeLessons: GradeLessonOption[] = [];

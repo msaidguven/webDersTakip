@@ -29,10 +29,12 @@ export async function POST(request: NextRequest) {
     topicId?: number | string;
     sections?: IncomingSection[];
     cover?: IncomingCover;
+    ai_model?: unknown;
   } | null;
   const topicId = body?.topicId;
   const sections = body?.sections;
   const cover = body?.cover;
+  const aiModel = typeof body?.ai_model === 'string' && body.ai_model.trim() ? body.ai_model.trim() : null;
 
   if (!topicId || !Array.isArray(sections) || sections.length === 0) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
@@ -145,6 +147,10 @@ export async function POST(request: NextRequest) {
         body_markdown: s.body_markdown,
         image_prompt: s.image_prompt,
         status: s.body_markdown ? 'content_ready' : 'planned',
+        // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;
+        // sadece başlık planı yapan akışta (body_markdown yok) source varsayılanında kalır,
+        // içerik daha sonra ayrı bir promptla eklenirken kendi kaynağını işaretler.
+        ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
       }))
     )
     .select('id, order_no, heading');

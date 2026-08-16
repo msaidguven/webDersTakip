@@ -28,23 +28,37 @@ export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = (await request.json().catch(() => null)) as { lessonId?: unknown; gradeId?: unknown; weeklyHours?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { lessonId?: unknown; gradeId?: unknown; weeklyHours?: unknown; isActive?: unknown } | null;
   const lessonId = Number(body?.lessonId);
   const gradeId = Number(body?.gradeId);
-  const weeklyHoursRaw = body?.weeklyHours;
-  const weeklyHours = weeklyHoursRaw === null ? null : Number(weeklyHoursRaw);
 
   if (!Number.isFinite(lessonId) || !Number.isFinite(gradeId)) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
-  if (weeklyHours !== null && (!Number.isFinite(weeklyHours) || weeklyHours < 1)) {
-    return NextResponse.json({ error: 'Haftalık saat pozitif bir sayı olmalı' }, { status: 400 });
+
+  const update: Record<string, unknown> = {};
+
+  if (body && Object.prototype.hasOwnProperty.call(body, 'weeklyHours')) {
+    const weeklyHoursRaw = body.weeklyHours;
+    const weeklyHours = weeklyHoursRaw === null ? null : Number(weeklyHoursRaw);
+    if (weeklyHours !== null && (!Number.isFinite(weeklyHours) || weeklyHours < 1)) {
+      return NextResponse.json({ error: 'Haftalık saat pozitif bir sayı olmalı' }, { status: 400 });
+    }
+    update.weekly_hours = weeklyHours;
+  }
+
+  if (typeof body?.isActive === 'boolean') {
+    update.is_active = body.isActive;
+  }
+
+  if (!Object.keys(update).length) {
+    return NextResponse.json({ error: 'Güncellenecek alan yok' }, { status: 400 });
   }
 
   const supabase = createServiceClient();
   const { error } = await supabase
     .from('lesson_grades')
-    .update({ weekly_hours: weeklyHours })
+    .update(update)
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId);
 

@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
@@ -31,6 +32,7 @@ type UnitRow = {
   order_no: number;
   start_week: number | null;
   end_week: number | null;
+  is_active: boolean;
 };
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
@@ -129,13 +131,27 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const gId = grade.id;
   const lId = lesson.id;
 
-  const { data: unitsData } = await supabase
-    .from('units')
-    .select('id, title, slug, order_no, start_week, end_week')
+  const isAdmin = await isViewerAdmin(supabase);
+
+  const { data: lessonGradeData } = await supabase
+    .from('lesson_grades')
+    .select('is_active')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
-    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+    return null;
+  }
+
+  let unitsQuery = supabase
+    .from('units')
+    .select('id, title, slug, order_no, start_week, end_week, is_active')
+    .eq('lesson_id', lId)
+    .eq('grade_id', gId)
     .order('order_no', { ascending: true });
+  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
+  const { data: unitsData } = await unitsQuery;
 
   const units = (unitsData as UnitRow[] | null) || [];
 
@@ -164,6 +180,8 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     return null;
   }
 
+  const isDraft = activeUnit.is_active === false || (lessonGradeData as { is_active: boolean } | null)?.is_active === false;
+
   return {
     gradeId: gId.toString(),
     lessonId: lId.toString(),
@@ -180,6 +198,8 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     unitSlug: activeUnit.slug,
     topicTitle: activeTopic.title,
     topicSlug: activeTopic.slug,
+    isAdmin,
+    isDraft,
   };
 });
 
@@ -201,6 +221,11 @@ export default async function TopicPage({ params }: PageProps) {
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
+      {data.isAdmin && data.isDraft && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
+          Taslak — bu ders/ünite şu anda yayında değil, sadece adminler görebiliyor.
+        </div>
+      )}
       <DersClient
         initialData={data}
         gradeId={data.gradeId}

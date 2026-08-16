@@ -48,6 +48,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const gradeSlugById = new Map(grades.filter((g) => g.slug).map((g) => [g.id, g.slug as string]));
     const lessonSlugById = new Map(lessons.filter((l) => l.slug).map((l) => [l.id, l.slug as string]));
+    // Bir ünite kendi is_active'i true olsa bile, bağlı olduğu ders bu sınıf için
+    // yayından kaldırılmışsa (lesson_grades.is_active=false) sitemap'te görünmemeli —
+    // yoksa gerçek sayfa 404 verirken sitemap o URL'i listelemeye devam eder.
+    const publishedLessonGradeKeys = new Set(lessonGrades.map((lg) => `${lg.lesson_id}:${lg.grade_id}`));
 
     for (const g of grades) {
       if (g.slug) entries.push({ url: `${SITE_URL}/${g.slug}`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 });
@@ -68,6 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const unitPathById = new Map<number, { gradeSlug: string; lessonSlug: string; unitSlug: string }>();
     for (const u of units) {
+      if (!publishedLessonGradeKeys.has(`${u.lesson_id}:${u.grade_id}`)) continue;
       const gradeSlug = gradeSlugById.get(u.grade_id);
       const lessonSlug = lessonSlugById.get(u.lesson_id);
       if (gradeSlug && lessonSlug && u.slug) {
