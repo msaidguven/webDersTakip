@@ -9,7 +9,8 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL, slugifyHeading } from '@/app/src/lib/site';
-import SectionQuizClient from '@/app/src/components/SectionQuizClient';
+import { getSectionTestQuestions } from '@/app/src/lib/quizQuestions';
+import QuizClient from '@/app/src/components/QuizClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -211,6 +212,8 @@ export default async function SectionTestPage({ params }: PageProps) {
     permanentRedirect(buildSectionTestPath(data));
   }
 
+  const initialQuestions = data.hasQuestions ? await getSectionTestQuestions(data.sectionId) : [];
+
   return (
     <>
       {!data.hasQuestions && (
@@ -232,11 +235,13 @@ export default async function SectionTestPage({ params }: PageProps) {
           __html: JSON.stringify(buildQuizJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      <SectionQuizClient
-        sectionId={data.sectionId}
-        heading={data.sectionHeading}
+      <QuizClient
+        key={data.sectionId}
+        scopeLabel={data.sectionHeading}
         exitHref={buildExitHref(data)}
         exitLabel="Konuya Dön"
+        initialQuestions={initialQuestions}
+        reloadEndpoint={`/api/section-test-questions?sectionId=${data.sectionId}`}
       />
     </>
   );

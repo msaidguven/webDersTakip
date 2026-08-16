@@ -4,7 +4,10 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
-import KarisikTestClient from '@/app/karisik-test/KarisikTestClient';
+import { getUnitTestQuestions } from '@/app/src/lib/quizQuestions';
+import QuizClient from '@/app/src/components/QuizClient';
+
+const UNIT_TEST_TIME_LIMIT_SECONDS = 3600;
 
 interface Params {
   gradeSlug: string;
@@ -193,6 +196,8 @@ export default async function UnitTestPage({ params }: PageProps) {
     notFound();
   }
 
+  const initialQuestions = data.hasQuestions ? await getUnitTestQuestions(data.unitId) : [];
+
   return (
     <>
       {!data.hasQuestions && (
@@ -214,17 +219,20 @@ export default async function UnitTestPage({ params }: PageProps) {
           __html: JSON.stringify(buildLearningResourceJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      <KarisikTestClient
-        unitId={data.unitId}
-        lessonId={data.lessonId}
-        gradeId={data.gradeId}
-        unitTitle={data.unitTitle}
-        lessonName={data.lessonName}
-        gradeName={data.gradeName}
-        unitDescription={data.unitDescription}
-        questionCount={data.questionCount}
-        topicCount={data.topicCount}
+      <QuizClient
+        key={data.unitId}
+        scopeLabel={`${data.unitTitle} Ünite Testi`}
         exitHref={data.exitHref}
+        exitLabel="Üniteye Dön"
+        initialQuestions={initialQuestions}
+        reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
+        timeLimitSeconds={UNIT_TEST_TIME_LIMIT_SECONDS}
+        intro={{
+          subLabel: `${data.gradeName} / ${data.lessonName}`,
+          description: data.unitDescription,
+          topicCount: data.topicCount,
+          questionCount: data.questionCount,
+        }}
       />
     </>
   );
