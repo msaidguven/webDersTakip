@@ -12,6 +12,7 @@ Kazanımlar:
 
 SADECE bu JSON'u döndür, başka metin ekleme:
 {
+  "ai_model": string,           // Bu içeriği ürettiğin aracın adı (bu prompt NotebookLM için yazıldı, o yüzden normalde "NotebookLM" yaz; başka bir araçta çalıştırdıysan onun adını yaz)
   "sections": [
     {
       "heading": string,

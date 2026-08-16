@@ -1004,6 +1004,21 @@ export function NotebookPlanModal({
     loadPrompt();
   }, [loadPrompt]);
 
+  // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
+  // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
+  // (admin yine de elle düzeltebilir, o yüzden state olarak tutmaya devam ediyoruz).
+  useEffect(() => {
+    if (!pasted.trim()) return;
+    try {
+      const obj = extractJson(pasted) as { ai_model?: unknown };
+      if (typeof obj.ai_model === 'string' && obj.ai_model.trim()) {
+        setAiModel(obj.ai_model.trim());
+      }
+    } catch {
+      // henüz geçerli JSON değil, sessizce yoksay
+    }
+  }, [pasted]);
+
   async function handleAssignCodes() {
     setAssigningCodes(true);
     try {
@@ -1094,13 +1109,13 @@ export function NotebookPlanModal({
                 value={pasted}
                 onChange={(e) => setPasted(e.target.value)}
                 rows={10}
-                placeholder='{"sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
+                placeholder='{"ai_model": "...", "sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
                 className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-[#8b90a7] block mb-2">Hangi AI modelini kullandınız? (boş bırakılırsa Manuel sayılır)</span>
+              <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
               <input
                 list="ai-model-options-notebook"
                 value={aiModel}
@@ -1330,6 +1345,21 @@ export function SectionModal({
     return () => { cancelled = true; };
   }, [section.id]);
 
+  // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
+  // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
+  // (admin yine de elle düzeltebilir, o yüzden state olarak tutmaya devam ediyoruz).
+  useEffect(() => {
+    if (!pasted.trim()) return;
+    try {
+      const obj = extractJson(pasted) as { ai_model?: unknown };
+      if (typeof obj.ai_model === 'string' && obj.ai_model.trim()) {
+        setAiModel(obj.ai_model.trim());
+      }
+    } catch {
+      // henüz geçerli JSON değil, sessizce yoksay
+    }
+  }, [pasted]);
+
   async function handleSave() {
     setError(null);
     let parsed: unknown;
@@ -1379,13 +1409,13 @@ export function SectionModal({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={8}
-            placeholder='{"body_markdown": "..."}'
+            placeholder='{"body_markdown": "...", "ai_model": "..."}'
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">Hangi AI modelini kullandınız? (boş bırakılırsa Manuel sayılır)</span>
+          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
             list="ai-model-options"
             value={aiModel}

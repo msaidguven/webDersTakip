@@ -70,7 +70,7 @@ type Content = {
   subtitle?: string | null;
   highlights?: TopicHighlight[];
 };
-type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null };
+type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean };
 type ProfileRoleRow = { role: string | null };
 
 interface DersClientProps {
@@ -1235,6 +1235,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               )
             ) : sortedUnits.length > 0 ? sortedUnits.map((unit) => {
               const isActiveUnit = String(unit.id) === String(activeUnit?.id);
+              const isDraftUnit = unit.is_active === false;
               const unitKey = String(unit.id);
               const isUnitExpanded = expandedUnitIds.has(unitKey);
               const unitTopics = isActiveUnit ? contents : (unitTopicsCache[unitKey] || []);
@@ -1245,13 +1246,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     type="button"
                     onClick={() => handleUnitHeaderClick(unit)}
                     className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                      isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                      isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
                     }`}
                   >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
-                    <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                    <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {unit.title}
                     </span>
+                    {isDraftUnit && (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                        Taslak
+                      </span>
+                    )}
                     <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
                   </button>
 

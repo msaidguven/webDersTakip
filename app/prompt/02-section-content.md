@@ -12,7 +12,8 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
 
 Çıktı (sadece JSON):
 {
-  "body_markdown": string      // 60-120 kelime, markdown
+  "body_markdown": string,     // 60-120 kelime, markdown
+  "ai_model": string           // Bu içeriği üreten kendi model adını yaz (ör. "Claude Sonnet 4.5", "GPT-5.1", "Gemini 2.5 Pro") — hangi yapay zeka/model olduğunu biliyorsan tam adını, emin değilsen genel adını yaz
 }
 
 ## Kalite çıtası: somut, doygun bilgi
