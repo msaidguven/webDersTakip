@@ -44,14 +44,15 @@ export async function GET(request: Request) {
   const units = (unitsData as UnitRow[] | null) || [];
   const unitIds = units.map((u) => u.id);
 
-  let firstTopicByUnit = new Map<number, TopicRow>();
+  const firstTopicByUnit = new Map<number, TopicRow>();
   if (unitIds.length) {
-    const { data: topicsData } = await supabase
+    let topicsQuery = supabase
       .from('topics')
       .select('id, unit_id, slug, order_no')
       .in('unit_id', unitIds)
-      .eq('is_active', true)
       .order('order_no', { ascending: true });
+    if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
+    const { data: topicsData } = await topicsQuery;
 
     for (const t of (topicsData as TopicRow[] | null) || []) {
       if (!firstTopicByUnit.has(t.unit_id)) firstTopicByUnit.set(t.unit_id, t);

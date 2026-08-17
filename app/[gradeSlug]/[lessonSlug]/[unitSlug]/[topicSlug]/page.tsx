@@ -204,7 +204,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
 
   // Konu içeriğini (alt başlıklar, ders notu, kazanımlar) SUNUCU tarafında çekiyoruz
   // ki Google ve diğer arama motorları sayfayı ilk yüklemede tam içerikle görsün.
-  const { outcomes, contents } = await getLessonWeekData(supabase, activeUnit.id, week);
+  const { outcomes, contents } = await getLessonWeekData(supabase, activeUnit.id, week, isAdmin);
 
   const activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
   if (!activeTopic) {

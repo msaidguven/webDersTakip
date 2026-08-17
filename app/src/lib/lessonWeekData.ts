@@ -51,17 +51,19 @@ function extractHeroImageAlt(generationMeta: unknown): string | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number) {
+export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number, isAdmin = false) {
+  let topicsQuery = supabase
+    .from('topics')
+    .select('id, title, slug, order_no')
+    .eq('unit_id', unitId)
+    .order('order_no', { ascending: true });
+  if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
+
   const [
     { data: topicsData },
     { data: weekOutcomes },
   ] = await Promise.all([
-    supabase
-      .from('topics')
-      .select('id, title, slug, order_no')
-      .eq('unit_id', unitId)
-      .eq('is_active', true)
-      .order('order_no', { ascending: true }),
+    topicsQuery,
     supabase
       .from('outcome_weeks')
       .select('outcome_id')
@@ -108,11 +110,12 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
   }));
 
   if (topicIds.length) {
-    const { data: topicContentsData } = await supabase
+    let topicContentsQuery = supabase
       .from('topic_contents')
       .select('id, topic_id, hero_image_url, subtitle, generation_meta')
-      .in('topic_id', topicIds)
-      .eq('is_published', true);
+      .in('topic_id', topicIds);
+    if (!isAdmin) topicContentsQuery = topicContentsQuery.eq('is_published', true);
+    const { data: topicContentsData } = await topicContentsQuery;
 
     const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));

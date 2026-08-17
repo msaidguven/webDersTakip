@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { withPreviewCodes } from '@/app/src/lib/outcomeCodes';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 
 type UnitRow = { id: number };
 type TopicRow = { id: number; title: string };
@@ -22,24 +23,27 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
+  const isAdmin = await isViewerAdmin(supabase);
 
-  const { data: unitsData } = await supabase
+  let unitsQuery = supabase
     .from('units')
     .select('id')
     .eq('grade_id', gradeId)
-    .eq('lesson_id', lessonId)
-    .eq('is_active', true);
+    .eq('lesson_id', lessonId);
+  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
+  const { data: unitsData } = await unitsQuery;
 
   const unitIds = ((unitsData as UnitRow[] | null) || []).map((u) => u.id);
   if (!unitIds.length) {
     return NextResponse.json({ outcomes: [] });
   }
 
-  const { data: topicsData } = await supabase
+  let topicsQuery = supabase
     .from('topics')
     .select('id, title')
-    .in('unit_id', unitIds)
-    .eq('is_active', true);
+    .in('unit_id', unitIds);
+  if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
+  const { data: topicsData } = await topicsQuery;
 
   const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);

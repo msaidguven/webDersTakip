@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +15,8 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { outcomes, contents } = await getLessonWeekData(supabase, unitId, week);
+  const isAdmin = await isViewerAdmin(supabase);
+  const { outcomes, contents } = await getLessonWeekData(supabase, unitId, week, isAdmin);
 
   return NextResponse.json({ outcomes, contents });
 }
