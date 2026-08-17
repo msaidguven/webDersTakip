@@ -603,11 +603,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const ensureAllKazanimlarLoaded = useCallback((): Promise<WeekedOutcome[]> => {
     if (allKazanimlar) return Promise.resolve(allKazanimlar);
 
-    const persisted = readPersistentCache<WeekedOutcome[]>(kazanimlarCacheKey(gradeId, lessonId), KAZANIMLAR_CACHE_TTL_MS);
-    if (persisted) {
-      setAllKazanimlar(persisted);
-      return Promise.resolve(persisted);
-    }
+    // localStorage önbelleği (10 gün) şimdilik devre dışı — yıllık plan aracıyla
+    // kazanımlar aktif olarak eklenip test edildiği için eski önbellek yeni
+    // eklenenleri günlerce gizleyebiliyordu. Bellek içi state + single-flight
+    // dedup zaten aynı sayfa oturumu içinde tekrar isteği önlüyor.
+    // TODO: kazanımlar stabilize olunca readPersistentCache/writePersistentCache'i geri aç.
 
     if (inFlightAllKazanimlarFetchRef.current) {
       return inFlightAllKazanimlarFetchRef.current;
@@ -620,7 +620,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         const data = response.ok ? await response.json() as { outcomes?: WeekedOutcome[] } : null;
         const outcomes = data?.outcomes || [];
         setAllKazanimlar(outcomes);
-        writePersistentCache(kazanimlarCacheKey(gradeId, lessonId), outcomes);
         return outcomes;
       } catch {
         setAllKazanimlar([]);
