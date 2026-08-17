@@ -144,18 +144,10 @@ function buildTopicHref(gradeSlug: string | null, lessonSlug: string | null, uni
   return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
 }
 
-function buildSectionTestHref(
-  gradeSlug: string | null,
-  lessonSlug: string | null,
-  unitSlug: string | null,
-  topicSlug: string | null,
-  sectionId: string | number,
-  sectionHeading: string
-) {
+function buildTopicTestHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
   const topicHref = buildTopicHref(gradeSlug, lessonSlug, unitSlug, topicSlug);
   if (!topicHref) return null;
-  const slug = slugifyHeading(sectionHeading) || 'test';
-  return `${topicHref}/kavrama-testi/${sectionId}-${slug}`;
+  return `${topicHref}/kavrama-testi`;
 }
 
 // Kısa ve SEO'ya uygun tutmak için ünite adını (en az ayırt edici, en tekrarcı kısım)
@@ -235,14 +227,15 @@ function HighlightCard({ highlight, onEdit }: { highlight: TopicHighlight; onEdi
   );
 }
 
-// Her alt başlığın altında, o alt başlığa özel soru sayısı varsa mini kavrama testi linki gösterir.
-function SectionQuizLink({ sectionId, href }: { sectionId: string | number; href: string | null }) {
+// Sayfanın en altında, konunun (alt başlıklar + konu geneli) tüm sorularını kapsayan
+// tek kavrama testi linkini gösterir; soru yoksa hiç görünmez.
+function TopicQuizLink({ topicId, href }: { topicId: string | number; href: string | null }) {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setCount(null);
-    fetch(`/api/section-test-questions?sectionId=${sectionId}`)
+    fetch(`/api/topic-test-questions?topicId=${topicId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { questions?: unknown[] } | null) => {
         if (!cancelled) setCount(data?.questions?.length ?? 0);
@@ -253,14 +246,14 @@ function SectionQuizLink({ sectionId, href }: { sectionId: string | number; href
     return () => {
       cancelled = true;
     };
-  }, [sectionId]);
+  }, [topicId]);
 
   if (count === 0 || !href) return null;
 
   return (
     <Link
       href={href}
-      className="not-prose mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 sm:px-5"
+      className="not-prose mt-10 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 sm:px-5"
     >
       <span className="flex items-center gap-2 text-sm font-black text-amber-700">
         <Trophy className="h-4 w-4 text-amber-600 shrink-0" /> Konu Kavrama Testi Çöz
@@ -1592,19 +1585,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     )}
                                   </div>
                                   {section.html || section.imageUrl || section.diagramSvg ? (
-                                    <>
-                                      <SectionContent
-                                        html={section.html || ''}
-                                        imageUrl={section.imageUrl}
-                                        caption={section.heading}
-                                        imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
-                                        diagramSvg={section.diagramSvg}
-                                      />
-                                      <SectionQuizLink
-                                        sectionId={section.id}
-                                        href={buildSectionTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null, section.id, section.heading)}
-                                      />
-                                    </>
+                                    <SectionContent
+                                      html={section.html || ''}
+                                      imageUrl={section.imageUrl}
+                                      caption={section.heading}
+                                      imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
+                                      diagramSvg={section.diagramSvg}
+                                    />
                                   ) : (
                                     <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
                                   )}
@@ -1650,6 +1637,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
+                    )}
+                    {activeTopic && (
+                      <TopicQuizLink
+                        topicId={activeTopic.id}
+                        href={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
+                      />
                     )}
                     {activeTopic && (
                       <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">

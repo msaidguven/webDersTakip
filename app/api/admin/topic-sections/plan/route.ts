@@ -75,13 +75,17 @@ export async function POST(request: NextRequest) {
   let topicContentId = (existingContent as { id: number } | null)?.id;
 
   if (!topicContentId) {
+    // Bu akış (NotebookLM tek prompt) alt başlık + içeriği tek seferde tamamlıyor,
+    // taslak bırakmak yerine direkt yayınlıyoruz — aksi halde admin ders sayfasında
+    // hiçbir değişiklik görmez ve kaydın DB'ye gitmediğini sanır (ayrı bir "yayınla"
+    // adımı yalnızca "Kazanım / kapak görseli yönetimi" panelinde var, burada gösterilmiyor).
     const { data: created, error: createError } = await supabase
       .from('topic_contents')
       .insert({
         topic_id: topicRow.id,
         title: topicRow.title,
         body_markdown: '',
-        is_published: false,
+        is_published: true,
         source: 'ai_generated',
       })
       .select('id')

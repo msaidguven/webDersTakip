@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const { topicId } = await params;
   const body = await request.json().catch(() => null);
-  const questions = parseQuestions(body, 8);
+  const questions = parseQuestions(body, 20);
 
   if (!questions) {
     return NextResponse.json({ error: INVALID_MESSAGE }, { status: 400 });

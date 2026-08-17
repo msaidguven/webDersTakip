@@ -88,11 +88,11 @@ async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> 
   return shuffle(all);
 }
 
-// Bir alt başlığın (topic_content_sections) kavrama testi soruları — questions.section_id
-// tek kaynak (bkz. add_question_scope_and_source.sql).
-export async function getSectionTestQuestions(sectionId: number | string): Promise<QuizQuestion[]> {
+// Bir konunun (topic) tüm alt başlıklarına ve konu geneline ait sorular (konu kavrama
+// testi) — questions.topic_id üzerinden, section_id'si dolu ya da boş fark etmeksizin.
+export async function getTopicTestQuestions(topicId: number | string): Promise<QuizQuestion[]> {
   const supabase = createServiceClient();
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('section_id', sectionId);
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
   return resolveQuestions(questionIds);
 }
