@@ -4,7 +4,7 @@
 // olarak Supabase'e aktarır. Eski yillik_plan/ (Python/Flask) aracının React portu;
 // topic_contents'e hiç dokunmaz — bkz. app/src/lib/yillikPlan/importer.ts üstündeki not.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 
 type ParsedRow = {
@@ -15,6 +15,14 @@ type ParsedRow = {
   kazanım: string[];
   saat: number | null;
 };
+
+// Tablo satırlarını index yerine kalıcı bir _id ile takip ediyoruz: satır silindiğinde
+// React DOM node'larını index'e göre eşleştirip (defaultValue'lu, kontrolsüz inputlarla
+// birleşince) yanlış satırın içeriğini gösterebiliyordu — sanki farklı bir satır
+// silinmiş gibi görünüyordu. _id, React key'i olarak kullanılınca her satırın kendi DOM
+// node'u kalıyor, silme her zaman doğru satırı hedefliyor. Sunucuya gönderilmeden önce
+// _id ayıklanıyor (API sadece ParsedRow şeklini bekliyor).
+type EditableRow = ParsedRow & { _id: number };
 
 type LogLevel = 'info' | 'success' | 'warning' | 'error';
 type LogEntry = { msg: string; level: LogLevel };
@@ -39,7 +47,9 @@ export default function YillikPlanPanel() {
   const [fileName, setFileName] = useState('');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [rows, setRows] = useState<ParsedRow[] | null>(null);
+  const [rows, setRows] = useState<EditableRow[] | null>(null);
+  const nextRowId = useRef(0);
+  const withIds = useCallback((list: ParsedRow[]): EditableRow[] => list.map((r) => ({ ...r, _id: nextRowId.current++ })), []);
   const [uniteler, setUniteler] = useState<string[]>([]);
   const [konuCount, setKonuCount] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -85,7 +95,7 @@ export default function YillikPlanPanel() {
         setParseError(data?.error || 'Ayrıştırma başarısız.');
         return;
       }
-      setRows(data.rows);
+      setRows(withIds(data.rows));
       setUniteler(data.uniteler || []);
       setKonuCount(data.konu_count || 0);
       setRawJson(JSON.stringify(data.rows, null, 2));
@@ -94,17 +104,18 @@ export default function YillikPlanPanel() {
     } finally {
       setParsing(false);
     }
-  }, []);
+  }, [withIds]);
 
   async function runStep(step: StepKey) {
     if (!rows || !lessonId || !gradeId) return;
     setStepRunning((s) => ({ ...s, [step]: true }));
     setStepLogs((s) => ({ ...s, [step]: [{ msg: 'Başlıyor…', level: 'info' }] }));
     try {
+      const cleanRows = rows.map(({ _id, ...rest }) => rest);
       const res = await fetch(STEP_ENDPOINTS[step], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows, lessonId, gradeId }),
+        body: JSON.stringify({ rows: cleanRows, lessonId, gradeId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -124,50 +135,50 @@ export default function YillikPlanPanel() {
     try {
       const parsed = JSON.parse(rawJson);
       if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
-      setRows(parsed);
+      setRows(withIds(parsed));
       setRawJsonError(null);
     } catch (e) {
       setRawJsonError(e instanceof Error ? e.message : 'Geçersiz JSON');
     }
   }
 
-  function updateRow(i: number, field: keyof ParsedRow, value: string) {
+  function updateRow(id: number, field: keyof ParsedRow, value: string) {
     if (!rows) return;
-    const next = rows.slice();
-    if (field === 'week_no' || field === 'saat') {
-      next[i] = { ...next[i], [field]: value.trim() ? parseInt(value, 10) : null };
-    } else {
-      next[i] = { ...next[i], [field]: value };
-    }
+    const next = rows.map((r) => {
+      if (r._id !== id) return r;
+      if (field === 'week_no' || field === 'saat') {
+        return { ...r, [field]: value.trim() ? parseInt(value, 10) : null };
+      }
+      return { ...r, [field]: value };
+    });
     setRows(next);
-    setRawJson(JSON.stringify(next, null, 2));
+    setRawJson(JSON.stringify(next.map(({ _id, ...rest }) => rest), null, 2));
   }
 
-  function updateKazanim(i: number, value: string) {
+  function updateKazanim(id: number, value: string) {
     if (!rows) return;
     try {
       const parsed = JSON.parse(value);
       if (!Array.isArray(parsed)) throw new Error();
-      const next = rows.slice();
-      next[i] = { ...next[i], kazanım: parsed };
+      const next = rows.map((r) => (r._id === id ? { ...r, kazanım: parsed } : r));
       setRows(next);
-      setRawJson(JSON.stringify(next, null, 2));
+      setRawJson(JSON.stringify(next.map(({ _id, ...rest }) => rest), null, 2));
     } catch {
       // geçersiz JSON — sessizce yoksay, kullanıcı düzeltene kadar bekle
     }
   }
 
-  function deleteRow(i: number) {
+  function deleteRow(id: number) {
     if (!rows) return;
-    const next = rows.filter((_, idx) => idx !== i);
+    const next = rows.filter((r) => r._id !== id);
     setRows(next);
-    setRawJson(JSON.stringify(next, null, 2));
+    setRawJson(JSON.stringify(next.map(({ _id, ...rest }) => rest), null, 2));
   }
 
   function addRow() {
-    const next = [...(rows || []), { week_no: null, Hafta: '', ünite: '', konu: '', kazanım: [], saat: null }];
+    const next = [...(rows || []), { week_no: null, Hafta: '', ünite: '', konu: '', kazanım: [], saat: null, _id: nextRowId.current++ }];
     setRows(next);
-    setRawJson(JSON.stringify(next, null, 2));
+    setRawJson(JSON.stringify(next.map(({ _id, ...rest }) => rest), null, 2));
   }
 
   const ready = !!rows && rows.length > 0 && lessonId != null && gradeId != null;
@@ -319,7 +330,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StepFlow({ rows, results }: { rows: ParsedRow[] | null; results: Record<StepKey, StepResult | null> }) {
+function StepFlow({ rows, results }: { rows: EditableRow[] | null; results: Record<StepKey, StepResult | null> }) {
   const steps: { key: string; label: string; done: boolean }[] = [
     { key: 'docx', label: 'DOCX→JSON', done: !!rows },
     { key: 'units', label: 'Üniteler', done: !!results.units },
@@ -455,10 +466,10 @@ function RowTable({
   onDelete,
   onAdd,
 }: {
-  rows: ParsedRow[];
-  onUpdate: (i: number, field: keyof ParsedRow, value: string) => void;
-  onUpdateKazanim: (i: number, value: string) => void;
-  onDelete: (i: number) => void;
+  rows: EditableRow[];
+  onUpdate: (id: number, field: keyof ParsedRow, value: string) => void;
+  onUpdateKazanim: (id: number, value: string) => void;
+  onDelete: (id: number) => void;
   onAdd: () => void;
 }) {
   return (
@@ -475,40 +486,40 @@ function RowTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-t border-white/5">
+            {rows.map((r) => (
+              <tr key={r._id} className="border-t border-white/5">
                 <td className="p-1.5">
                   <input
                     type="number"
-                    defaultValue={r.week_no ?? ''}
-                    onBlur={(e) => onUpdate(i, 'week_no', e.target.value)}
+                    value={r.week_no ?? ''}
+                    onChange={(e) => onUpdate(r._id, 'week_no', e.target.value)}
                     className="w-14 bg-black/30 border border-white/10 rounded px-1.5 py-1 text-white outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
                   <input
-                    defaultValue={r.ünite}
-                    onBlur={(e) => onUpdate(i, 'ünite', e.target.value)}
+                    value={r.ünite}
+                    onChange={(e) => onUpdate(r._id, 'ünite', e.target.value)}
                     className="w-full bg-black/30 border border-white/10 rounded px-1.5 py-1 text-white outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
                   <input
-                    defaultValue={r.konu}
-                    onBlur={(e) => onUpdate(i, 'konu', e.target.value)}
+                    value={r.konu}
+                    onChange={(e) => onUpdate(r._id, 'konu', e.target.value)}
                     className="w-full bg-black/30 border border-white/10 rounded px-1.5 py-1 text-white outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
                   <textarea
                     defaultValue={JSON.stringify(r.kazanım)}
-                    onBlur={(e) => onUpdateKazanim(i, e.target.value)}
+                    onBlur={(e) => onUpdateKazanim(r._id, e.target.value)}
                     rows={2}
                     className="w-full bg-black/30 border border-white/10 rounded px-1.5 py-1 text-gray-300 font-mono text-[10px] outline-none focus:border-indigo-400 resize-y"
                   />
                 </td>
                 <td className="p-1.5 text-center">
-                  <button onClick={() => onDelete(i)} className="text-red-400 hover:text-red-300 text-sm" title="Satırı sil">
+                  <button onClick={() => onDelete(r._id)} className="text-red-400 hover:text-red-300 text-sm" title="Satırı sil">
                     🗑
                   </button>
                 </td>
