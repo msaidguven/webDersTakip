@@ -18,7 +18,7 @@ type SectionNode = SectionRow;
 type ContentNode = ContentRow & { sections: SectionNode[] };
 type TopicNode = TopicRow & { outcomesCount: number; content: ContentNode | null; hasIssue: boolean };
 type UnitNode = UnitRow & { topics: TopicNode[]; hasIssue: boolean; issueCount: number };
-type LessonNode = { lessonId: number; name: string; order_no: number; units: UnitNode[]; hasIssue: boolean; issueCount: number };
+type LessonNode = { lessonId: number; name: string; order_no: number; isActive: boolean; units: UnitNode[]; hasIssue: boolean; issueCount: number };
 type GradeNode = GradeRow & { lessons: LessonNode[]; hasIssue: boolean; issueCount: number };
 
 type RawData = {
@@ -95,9 +95,10 @@ function buildTree(raw: RawData): GradeNode[] {
     lessonGradesByGrade.set(lg.grade_id, arr);
   });
 
-  return raw.grades.filter((g) => g.is_active).map((g) => {
+  // Yayında olmayan sınıf/ders/ünite/konular da gösterilir (aksi halde eksiklerin
+  // nerede olduğu görünmez); is_active durumu InactiveTag ile ayrıca işaretlenir.
+  return raw.grades.map((g) => {
     const lgs = (lessonGradesByGrade.get(g.id) || [])
-      .filter((lg) => lg.is_active && lessonById.get(lg.lesson_id)?.is_active)
       .slice()
       .sort((a, b) => {
         const la = lessonById.get(a.lesson_id);
@@ -112,6 +113,7 @@ function buildTree(raw: RawData): GradeNode[] {
         lessonId: lg.lesson_id,
         name: lesson?.name || `#${lg.lesson_id}`,
         order_no: lesson?.order_no ?? 0,
+        isActive: lg.is_active && (lesson?.is_active ?? true),
         units,
         hasIssue: issueCount > 0,
         issueCount,
@@ -265,6 +267,7 @@ export default function ContentAuditTab() {
   const effectiveLessonId = selectedLessonId ?? defaultLessonId;
   const selectedLesson = selectedGrade?.lessons.find((l) => l.lessonId === effectiveLessonId) || null;
 
+  // Genel özet — sayfa ilk açıldığında (henüz bir ders tıklanmadıysa) gösterilir.
   const summary = useMemo(() => {
     const allLessons = tree.flatMap((g) => g.lessons);
     const allTopics = tree.flatMap((g) => g.lessons.flatMap((l) => l.units.flatMap((u) => u.topics)));
@@ -280,6 +283,28 @@ export default function ContentAuditTab() {
       contentsWithoutSections: allTopics.filter((t) => t.content && t.content.sections.length === 0).length,
     };
   }, [tree]);
+
+  // Özel özet — kullanıcı bir sınıf VE ders seçtiğinde (genelden özele) sadece o
+  // dersin kapsamındaki sayılar gösterilir. selectedLessonId (effectiveLessonId değil)
+  // kullanılıyor ki otomatik varsayılan seçim "tıklanmış" sayılmasın.
+  const scopeActive = selectedLessonId != null && !!selectedLesson;
+  const scopedSummary = useMemo(() => {
+    if (!selectedLesson) return null;
+    const allTopics = selectedLesson.units.flatMap((u) => u.topics);
+    return {
+      units: selectedLesson.units.length,
+      topics: allTopics.length,
+      unitsWithoutTopics: selectedLesson.units.filter((u) => u.topics.length === 0).length,
+      topicsWithoutOutcomes: allTopics.filter((t) => t.outcomesCount === 0).length,
+      topicsWithoutContent: allTopics.filter((t) => !t.content).length,
+      contentsWithoutSections: allTopics.filter((t) => t.content && t.content.sections.length === 0).length,
+    };
+  }, [selectedLesson]);
+
+  function resetScope() {
+    setSelectedGradeId(null);
+    setSelectedLessonId(null);
+  }
 
   const filteredUnits = useMemo(() => {
     if (!selectedLesson) return [];
@@ -339,16 +364,37 @@ export default function ContentAuditTab() {
         </button>
       </header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <MiniStat icon="🎓" label="Sınıf" value={summary.grades} tone="ok" />
-        <MiniStat icon="📚" label="Ders" value={summary.lessons} tone="ok" />
-        <MiniStat icon="📁" label="Ünite" value={summary.units} tone="ok" />
-        <MiniStat icon="📄" label="Konu" value={summary.topics} tone="ok" />
-        <MiniStat icon="📁" label="Konusuz Ünite" value={summary.unitsWithoutTopics} tone="warn" />
-        <MiniStat icon="🎯" label="Kazanımsız Konu" value={summary.topicsWithoutOutcomes} tone="warn" />
-        <MiniStat icon="📝" label="İçeriksiz Konu" value={summary.topicsWithoutContent} tone="warn" />
-        <MiniStat icon="🧩" label="Alt Konusuz İçerik" value={summary.contentsWithoutSections} tone="warn" />
-      </div>
+      {scopeActive && scopedSummary ? (
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <p className="text-xs text-gray-400">
+              <span className="text-white font-semibold">{selectedGrade?.name}. Sınıf → {selectedLesson?.name}</span> için özet
+            </p>
+            <button onClick={resetScope} className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300">
+              ← Genel özete dön
+            </button>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MiniStat icon="📁" label="Ünite" value={scopedSummary.units} tone="ok" />
+            <MiniStat icon="📄" label="Konu" value={scopedSummary.topics} tone="ok" />
+            <MiniStat icon="📁" label="Konusuz Ünite" value={scopedSummary.unitsWithoutTopics} tone="warn" />
+            <MiniStat icon="🎯" label="Kazanımsız Konu" value={scopedSummary.topicsWithoutOutcomes} tone="warn" />
+            <MiniStat icon="📝" label="İçeriksiz Konu" value={scopedSummary.topicsWithoutContent} tone="warn" />
+            <MiniStat icon="🧩" label="Alt Konusuz İçerik" value={scopedSummary.contentsWithoutSections} tone="warn" />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <MiniStat icon="🎓" label="Sınıf" value={summary.grades} tone="ok" />
+          <MiniStat icon="📚" label="Ders" value={summary.lessons} tone="ok" />
+          <MiniStat icon="📁" label="Ünite" value={summary.units} tone="ok" />
+          <MiniStat icon="📄" label="Konu" value={summary.topics} tone="ok" />
+          <MiniStat icon="📁" label="Konusuz Ünite" value={summary.unitsWithoutTopics} tone="warn" />
+          <MiniStat icon="🎯" label="Kazanımsız Konu" value={summary.topicsWithoutOutcomes} tone="warn" />
+          <MiniStat icon="📝" label="İçeriksiz Konu" value={summary.topicsWithoutContent} tone="warn" />
+          <MiniStat icon="🧩" label="Alt Konusuz İçerik" value={summary.contentsWithoutSections} tone="warn" />
+        </div>
+      )}
 
       {/* Üst: Sınıf sekmeleri */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
@@ -364,11 +410,12 @@ export default function ContentAuditTab() {
             >
               <span>🎓</span>
               <span>{g.name}. Sınıf</span>
+              <InactiveTag active={g.is_active} />
               <IssueBadge count={g.issueCount} />
             </button>
           );
         })}
-        {tree.length === 0 && <p className="text-gray-500 text-xs py-2">Yayınlanmış sınıf bulunamadı</p>}
+        {tree.length === 0 && <p className="text-gray-500 text-xs py-2">Sınıf bulunamadı</p>}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
@@ -386,12 +433,13 @@ export default function ContentAuditTab() {
               >
                 <span>📚</span>
                 <span className="truncate flex-1">{l.name}</span>
+                <InactiveTag active={l.isActive} />
                 <IssueBadge count={l.issueCount} />
               </button>
             );
           })}
           {selectedGrade && selectedGrade.lessons.length === 0 && (
-            <p className="text-gray-500 text-xs text-center py-6">Yayınlanmış ders bulunamadı</p>
+            <p className="text-gray-500 text-xs text-center py-6">Ders bulunamadı</p>
           )}
           {!selectedGrade && <p className="text-gray-500 text-xs text-center py-6">Üstten bir sınıf seçin</p>}
         </nav>

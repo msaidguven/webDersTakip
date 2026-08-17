@@ -14,14 +14,16 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, signOut } = useAuth();
   const pathname = usePathname();
-  // Konu okuma sayfası (DersClient) kendi sabit header/footer çerçevesini
-  // yönetir; bu yüzden global nav ve LegalFooter burada devre dışı bırakılır.
-  // /ders?... rotası (query tabanlı) ve karşılık gelen /[grade]/[lesson]/[unit]/[topic]
-  // pretty-URL rotası (DersClient içeriği yüklendikten sonra history.replaceState ile
-  // bu formata geçiyor) aynı sayfa olduğu için ikisi de eşleşmeli.
+  // Konu okuma sayfası (DersClient) ve admin paneli kendi sabit header/footer
+  // çerçevesini yönetir; bu yüzden global nav ve LegalFooter burada devre dışı
+  // bırakılır. /ders?... rotası (query tabanlı) ve karşılık gelen
+  // /[grade]/[lesson]/[unit]/[topic] pretty-URL rotası (DersClient içeriği
+  // yüklendikten sonra history.replaceState ile bu formata geçiyor) aynı sayfa
+  // olduğu için ikisi de eşleşmeli.
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
   const isTopicContentRoute = pathSegments.length === 4;
-  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute;
+  const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
+  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute;
 
   return (
     <div className="min-h-screen bg-default">
