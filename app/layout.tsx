@@ -1,5 +1,4 @@
 import type { Viewport } from "next";
-import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
@@ -35,11 +34,10 @@ export default function RootLayout({
           suppressHydrationWarning
         />
         {ADSENSE_CLIENT && (
-          <Script
+          <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
           />
         )}
       </head>
