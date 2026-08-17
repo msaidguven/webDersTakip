@@ -474,14 +474,14 @@ function RowTable({
 }) {
   return (
     <div className="space-y-3">
-      <div className="max-h-[420px] overflow-auto rounded-lg border border-white/5">
+      <div className="max-h-[600px] overflow-auto rounded-lg border border-white/5">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-[#1a1a20]">
             <tr>
               <th className="text-left font-bold text-gray-400 p-2 w-16">Hafta</th>
-              <th className="text-left font-bold text-gray-400 p-2 min-w-[160px]">Ünite</th>
-              <th className="text-left font-bold text-gray-400 p-2 min-w-[160px]">Konu</th>
-              <th className="text-left font-bold text-gray-400 p-2 min-w-[220px]">Kazanımlar (JSON)</th>
+              <th className="text-left font-bold text-gray-400 p-2 min-w-[140px]">Ünite</th>
+              <th className="text-left font-bold text-gray-400 p-2 min-w-[140px]">Konu</th>
+              <th className="text-left font-bold text-gray-400 p-2 min-w-[480px]">Kazanımlar (JSON)</th>
               <th className="p-2 w-10" />
             </tr>
           </thead>
@@ -512,10 +512,10 @@ function RowTable({
                 </td>
                 <td className="p-1.5">
                   <textarea
-                    defaultValue={JSON.stringify(r.kazanım)}
+                    defaultValue={JSON.stringify(r.kazanım, null, 2)}
                     onBlur={(e) => onUpdateKazanim(r._id, e.target.value)}
-                    rows={2}
-                    className="w-full bg-black/30 border border-white/10 rounded px-1.5 py-1 text-gray-300 font-mono text-[10px] outline-none focus:border-indigo-400 resize-y"
+                    rows={6}
+                    className="w-full min-w-[460px] bg-black/30 border border-white/10 rounded px-2 py-1.5 text-gray-200 font-mono text-xs leading-relaxed outline-none focus:border-indigo-400 resize-y"
                   />
                 </td>
                 <td className="p-1.5 text-center">
