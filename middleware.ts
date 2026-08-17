@@ -8,6 +8,12 @@ import type { NextRequest } from 'next/server';
 // kalıcı olarak yeni adrese yönlendiriyoruz.
 const LEGACY_TOPIC_SLUG = /^[a-z]{2,5}-\d+-\d+-\d+-(.+)$/;
 
+// Eski site sürümünde bir konunun soru/test sayfası, konu slug'ının sonuna
+// "-sorular" eklenerek adresleniyordu (ör. .../gruplar-ve-roller-sorular).
+// Artık konu testi ayrı bir "kavrama-testi" alt adresinde; bu önekli eski
+// adresler gelirse eki atıp yeni konu kavrama testi adresine yönlendiriyoruz.
+const LEGACY_SORULAR_SUFFIX = /^(.+)-sorular$/;
+
 export function middleware(request: NextRequest) {
   // Admin sayfalarına erişimi kontrol et
   if (request.nextUrl.pathname.startsWith('/admin')) {
@@ -17,9 +23,15 @@ export function middleware(request: NextRequest) {
 
   const segments = request.nextUrl.pathname.split('/').filter(Boolean);
   if (segments.length === 4) {
-    const match = segments[3].match(LEGACY_TOPIC_SLUG);
-    if (match) {
-      const newPath = `/${segments[0]}/${segments[1]}/${segments[2]}/${match[1]}`;
+    const prefixMatch = segments[3].match(LEGACY_TOPIC_SLUG);
+    if (prefixMatch) {
+      const newPath = `/${segments[0]}/${segments[1]}/${segments[2]}/${prefixMatch[1]}`;
+      return NextResponse.redirect(new URL(newPath, request.url), 308);
+    }
+
+    const sorularMatch = segments[3].match(LEGACY_SORULAR_SUFFIX);
+    if (sorularMatch) {
+      const newPath = `/${segments[0]}/${segments[1]}/${segments[2]}/${sorularMatch[1]}/kavrama-testi`;
       return NextResponse.redirect(new URL(newPath, request.url), 308);
     }
   }
