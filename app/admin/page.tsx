@@ -90,6 +90,13 @@ export default function AdminPanel() {
             <span className="text-base sm:text-lg">🚀</span>
             <span className="font-medium truncate">Yayın Yönetimi</span>
           </Link>
+          <Link
+            href="/admin/yillik-plan"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+          >
+            <span className="text-base sm:text-lg">📅</span>
+            <span className="font-medium truncate">Yıllık Plan Yükleme</span>
+          </Link>
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/5">
