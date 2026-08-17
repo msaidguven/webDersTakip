@@ -74,11 +74,12 @@ export async function POST(request: NextRequest) {
 
   let topicContentId = (existingContent as { id: number } | null)?.id;
 
+  // Bu akış (NotebookLM tek prompt) alt başlık + içeriği tek seferde tamamlıyor,
+  // taslak bırakmak yerine direkt yayınlıyoruz — aksi halde admin ders sayfasında
+  // hiçbir değişiklik görmez ve kaydın DB'ye gitmediğini sanır (ayrı bir "yayınla"
+  // adımı yalnızca "Kazanım / kapak görseli yönetimi" panelinde var, burada gösterilmiyor).
+  // Bu, ilk kayıtta olduğu kadar aynı konuya sonraki her yeniden kayıtta da geçerli.
   if (!topicContentId) {
-    // Bu akış (NotebookLM tek prompt) alt başlık + içeriği tek seferde tamamlıyor,
-    // taslak bırakmak yerine direkt yayınlıyoruz — aksi halde admin ders sayfasında
-    // hiçbir değişiklik görmez ve kaydın DB'ye gitmediğini sanır (ayrı bir "yayınla"
-    // adımı yalnızca "Kazanım / kapak görseli yönetimi" panelinde var, burada gösterilmiyor).
     const { data: created, error: createError } = await supabase
       .from('topic_contents')
       .insert({
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
     }
     topicContentId = (created as { id: number }).id;
   } else {
+    await supabase.from('topic_contents').update({ is_published: true }).eq('id', topicContentId);
+
     const { data: oldSections } = await supabase
       .from('topic_content_sections')
       .select('id')

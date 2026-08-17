@@ -1279,8 +1279,8 @@ export function QuestionsModal({
       <div className="space-y-4">
         <p className="text-xs text-[#8b90a7]">
           {isNotebook
-            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
-            : 'Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 10-15 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
+            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : 'Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
         </p>
 
         {promptError ? (
