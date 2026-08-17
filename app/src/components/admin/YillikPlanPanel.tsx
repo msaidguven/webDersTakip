@@ -297,7 +297,7 @@ export default function YillikPlanPanel() {
           <StepRunner
             step="outcomes"
             title="Kazanımlar"
-            description="Kazanımlar outcomes tablosuna, geçtiği haftalar outcome_weeks'e (start/end) eklenir."
+            description="Kazanımlar outcomes tablosuna (baştaki a), b) numaralandırması silinip) eklenir, geçtiği haftalar outcome_weeks'e (start/end) yazılır, kod (a, b, c...) otomatik atanır."
             ready={ready}
             running={stepRunning.outcomes}
             logs={stepLogs.outcomes}
