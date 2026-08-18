@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 
 const DOT_COLORS = ['bg-indigo-400', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-sky-400'];
@@ -141,6 +142,7 @@ export default function SectionContent({
 }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
   const [cleanSvg, setCleanSvg] = useState<string | null>(null);
+  const [diagramZoomed, setDiagramZoomed] = useState(false);
 
   useEffect(() => {
     setBlocks(html ? buildBlocks(html) : []);
@@ -149,6 +151,15 @@ export default function SectionContent({
   useEffect(() => {
     setCleanSvg(diagramSvg ? sanitizeMathSvg(diagramSvg) : null);
   }, [diagramSvg]);
+
+  useEffect(() => {
+    if (!diagramZoomed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDiagramZoomed(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [diagramZoomed]);
 
   return (
     <div className="not-prose space-y-4">
@@ -160,12 +171,39 @@ export default function SectionContent({
         />
       )}
       {cleanSvg && (
-        <div
-          role="img"
-          aria-label={caption || 'Konu anlatım diyagramı'}
-          className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md"
-          dangerouslySetInnerHTML={{ __html: cleanSvg }}
-        />
+        <>
+          <button
+            type="button"
+            onClick={() => setDiagramZoomed(true)}
+            title="Büyütmek için tıkla"
+            role="img"
+            aria-label={caption || 'Konu anlatım diyagramı'}
+            className="block w-full cursor-zoom-in rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-slate-200 hover:shadow-md [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md"
+            dangerouslySetInnerHTML={{ __html: cleanSvg }}
+          />
+          {diagramZoomed && typeof document !== 'undefined' && createPortal(
+            <div
+              className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 sm:p-8"
+              onClick={() => setDiagramZoomed(false)}
+            >
+              <div
+                className="relative max-h-full w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setDiagramZoomed(false)}
+                  aria-label="Kapat"
+                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                >
+                  ✕
+                </button>
+                <div role="img" aria-label={caption || 'Konu anlatım diyagramı'} dangerouslySetInnerHTML={{ __html: cleanSvg }} />
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
       )}
       <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-[#fffdf6] shadow-sm">
         <div className="absolute inset-y-0 left-0 hidden w-12 flex-col items-center justify-evenly py-5 sm:flex">

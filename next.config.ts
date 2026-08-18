@@ -27,6 +27,11 @@ const nextConfig: NextConfig = {
         destination: "/hakkimizda",
         permanent: true,
       },
+      {
+        source: "/about",
+        destination: "/hakkimizda",
+        permanent: true,
+      },
     ];
   },
 };
