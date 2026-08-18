@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import DersClient from './DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +72,8 @@ type TopicRow = { id: number; title: string; slug: string; order_no: number };
 
 async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
-  
+  const isAdmin = await isViewerAdmin(supabase);
+
   const gId = parseInt(sinifId);
   
   // Ders slug veya ID olabilir
@@ -123,13 +125,14 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
   if (lessonError) console.error('[getDersData] Lesson sorgu hatasi:', lessonError);
 
   // Üniteleri çek (hafta sayısını ve aktif üniteyi belirlemek için)
-  const { data: unitsData } = await supabase
+  let unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
-    .eq('is_active', true)
     .order('order_no', { ascending: true });
+  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
+  const { data: unitsData } = await unitsQuery;
 
   const units = (unitsData as UnitRow[] | null) || [];
 
@@ -156,14 +159,15 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
   const unitSlug = activeUnit?.slug ?? null;
 
   // Ünitedeki konuları çek (kazanım/icerik filtreleri için)
-  const { data: topicsData } = unitId
-    ? await supabase
+  let topicsQuery = unitId
+    ? supabase
         .from('topics')
         .select('id, title, slug, order_no')
         .eq('unit_id', unitId)
-        .eq('is_active', true)
         .order('order_no', { ascending: true })
-    : { data: null };
+    : null;
+  if (topicsQuery && !isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
+  const { data: topicsData } = topicsQuery ? await topicsQuery : { data: null };
 
   const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);
