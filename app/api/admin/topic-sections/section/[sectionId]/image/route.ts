@@ -11,10 +11,20 @@ interface Params {
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<Params> }) {
+  try {
+    return await handlePost(request, params);
+  } catch (err) {
+    console.error('section image POST failed', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Sunucu hatası: ${message}` }, { status: 500 });
+  }
+}
+
+async function handlePost(request: NextRequest, paramsPromise: Promise<Params>) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const { sectionId } = await params;
+  const { sectionId } = await paramsPromise;
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get('file');
@@ -66,8 +76,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
     let webpBuffer: Buffer;
     try {
       webpBuffer = await convertToWebp(file);
-    } catch {
-      return NextResponse.json({ error: 'Görsel işlenemedi. Dosya bozuk olabilir.' }, { status: 400 });
+    } catch (err) {
+      console.error('convertToWebp failed', err);
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: `Görsel işlenemedi: ${message}` }, { status: 400 });
     }
 
     const path = buildSectionImagePath(hierarchy, sectionId);

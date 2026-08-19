@@ -7,6 +7,16 @@ import { CONTENT_IMAGE_BUCKET, buildHeroFolderPrefix, buildHeroImagePath, extrac
 const BUCKET = CONTENT_IMAGE_BUCKET;
 
 export async function POST(request: NextRequest) {
+  try {
+    return await handlePost(request);
+  } catch (err) {
+    console.error('hero-image POST failed', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Sunucu hatası: ${message}` }, { status: 500 });
+  }
+}
+
+async function handlePost(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
@@ -63,8 +73,10 @@ export async function POST(request: NextRequest) {
     let webpBuffer: Buffer;
     try {
       webpBuffer = await convertToWebp(file);
-    } catch {
-      return NextResponse.json({ error: 'Görsel işlenemedi. Dosya bozuk olabilir.' }, { status: 400 });
+    } catch (err) {
+      console.error('convertToWebp failed', err);
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: `Görsel işlenemedi: ${message}` }, { status: 400 });
     }
 
     const path = buildHeroImagePath(hierarchy, topicContentId);
