@@ -60,18 +60,20 @@ export async function getQuestionCountsByLessonGrade(
   const lessonIds = Array.from(new Set(pairs.map((p) => p.lessonId)));
   const gradeIds = Array.from(new Set(pairs.map((p) => p.gradeId)));
 
+  // Tek istekte units -> topics -> questions'ı nested embed ile çekip JS'de
+  // sayıyoruz; ayrı ayrı sıralı sorgular yerine tek round-trip.
   const { data: unitsData } = await supabase
     .from('units')
-    .select('id, lesson_id, grade_id')
+    .select('lesson_id, grade_id, topics(questions(id))')
     .in('lesson_id', lessonIds)
     .in('grade_id', gradeIds);
-  const units = (unitsData as { id: number; lesson_id: number; grade_id: number }[] | null) || [];
-  const unitCounts = await getQuestionCountsByUnitId(supabase, units.map((u) => u.id));
+  const units = (unitsData as { lesson_id: number; grade_id: number; topics: { questions: { id: number }[] }[] }[] | null) || [];
 
   const result = new Map<string, number>();
   for (const u of units) {
+    const questionCount = (u.topics ?? []).reduce((sum, t) => sum + (t.questions?.length ?? 0), 0);
     const key = `${u.lesson_id}:${u.grade_id}`;
-    result.set(key, (result.get(key) ?? 0) + (unitCounts.get(u.id) ?? 0));
+    result.set(key, (result.get(key) ?? 0) + questionCount);
   }
   return result;
 }

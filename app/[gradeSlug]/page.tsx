@@ -16,7 +16,7 @@ interface Params {
 }
 
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
-type LessonGradeRow = { lesson_id: number };
+type LessonGradeRow = { lesson_id: number; is_active: boolean };
 type LessonRow = {
   id: number;
   name: string;
@@ -78,33 +78,17 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     color: getGradeColor(gradeData.order_no),
   };
 
-  const isAdmin = await isViewerAdmin(supabase);
-
-  let lessonGradesQuery = supabase
-    .from('lesson_grades')
-    .select('lesson_id')
-    .eq('grade_id', gradeData.id);
-  if (!isAdmin) lessonGradesQuery = lessonGradesQuery.eq('is_active', true);
-  const { data: lessonGrades } = await lessonGradesQuery;
+  const [isAdmin, { data: lessonGrades }] = await Promise.all([
+    isViewerAdmin(supabase),
+    supabase.from('lesson_grades').select('lesson_id, is_active').eq('grade_id', gradeData.id),
+  ]);
 
   const lessonGradeRows = (lessonGrades as LessonGradeRow[] | null) || [];
-  const ids = lessonGradeRows.map((x) => x.lesson_id);
+  const ids = lessonGradeRows.filter((row) => isAdmin || row.is_active).map((x) => x.lesson_id);
 
   if (!ids.length) {
     return { grade, lessons: [] };
   }
-
-  const questionCountByLesson = await getQuestionCountsByLessonGrade(
-    supabase,
-    ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id }))
-  );
-
-  const { data: lessonRows } = await supabase
-    .from('lessons')
-    .select('id, name, icon, description, slug, order_no')
-    .in('id', ids)
-    .eq('is_active', true)
-    .order('order_no');
 
   let unitRowsQuery = supabase
     .from('units')
@@ -112,7 +96,17 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     .eq('grade_id', gradeData.id)
     .in('lesson_id', ids);
   if (!isAdmin) unitRowsQuery = unitRowsQuery.eq('is_active', true);
-  const { data: unitRows } = await unitRowsQuery;
+
+  const [questionCountByLesson, { data: lessonRows }, { data: unitRows }] = await Promise.all([
+    getQuestionCountsByLessonGrade(supabase, ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id }))),
+    supabase
+      .from('lessons')
+      .select('id, name, icon, description, slug, order_no')
+      .in('id', ids)
+      .eq('is_active', true)
+      .order('order_no'),
+    unitRowsQuery,
+  ]);
 
   const unitCountByLesson = new Map<number, number>();
   for (const u of (unitRows as { lesson_id: number }[] | null) || []) {
