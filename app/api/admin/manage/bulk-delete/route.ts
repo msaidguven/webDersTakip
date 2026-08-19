@@ -102,19 +102,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ deletedCount: 0, failed: [] });
   }
 
-  // Konu/ünite silmeden önce altlarındaki sorular temizlenmezse, sorular topic_id'ye
-  // bağlı kaldığı için silme FK hatasıyla engellenir. "Tüm Konuları/Üniteleri Sil"
-  // gerçek anlamda o kapsamı tamamen temizlemeyi vaat ettiği için, engelleyici sorular
-  // önce otomatik silinir — admin'in ayrıca "Soruları Sil"e basmasına gerek kalmaz.
-  if (scope === 'unit-topics' || scope === 'grade-lesson-units') {
-    const topicIds =
-      scope === 'unit-topics'
-        ? resolved.ids
-        : ((await supabase.from('topics').select('id').in('unit_id', resolved.ids)).data as { id: number }[] | null || []).map((r) => r.id);
-    const questionIds = await questionIdsForTopics(supabase, topicIds);
-    if (questionIds.length) await deleteQuestionsCascade(supabase, questionIds);
-  }
-
+  // Konu/ünite silme artık DB tarafında tek transaction içinde tüm alt sorularıyla
+  // birlikte atomik cascade oluyor (bkz. supabase/migrations/admin_cascade_delete.sql),
+  // bu yüzden burada ayrıca soruları önden temizlemeye gerek kalmadı.
   const result =
     resolved.table === 'questions'
       ? await deleteQuestionsCascade(supabase, resolved.ids)

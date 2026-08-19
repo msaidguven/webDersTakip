@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { deleteSectionsCascade } from '@/app/src/lib/adminCascade';
 
 interface Params {
   sectionId: string;
@@ -76,11 +77,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { sectionId } = await params;
   const supabase = createServiceClient();
 
-  await supabase.from('topic_content_section_outcomes').delete().eq('section_id', sectionId);
-
-  const { error } = await supabase.from('topic_content_sections').delete().eq('id', sectionId);
-  if (error) {
-    return NextResponse.json({ error: 'Silinemedi' }, { status: 500 });
+  const { failed } = await deleteSectionsCascade(supabase, [Number(sectionId)]);
+  if (failed.length) {
+    return NextResponse.json({ error: failed[0].reason }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
