@@ -295,6 +295,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
+  const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
@@ -629,6 +630,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     [unitStartWeek, unitEndWeek, totalWeeks]
   );
 
+  // Sağ sidebar'daki "Ünite Özeti" kartı için: aktif ünitenin konuları + arka planda
+  // önceden çekilmiş soru sayıları (topicQuestionCounts) birleştirilir. Sayılar henüz
+  // gelmediyse (ilk 1-2sn) kart hiç gösterilmez.
+  const unitQuestionSummary = useMemo(() => {
+    if (!topicQuestionCounts) return null;
+    const topics = contents.map((topic) => ({
+      id: topic.id,
+      title: topic.title,
+      count: topicQuestionCounts[String(topic.id)] ?? 0,
+    }));
+    const total = topics.reduce((sum, t) => sum + t.count, 0);
+    return { topics, total };
+  }, [contents, topicQuestionCounts]);
+
   const openKazanimlarModal = () => {
     setKazanimlarWeek(week);
     setKazanimlarOpen(true);
@@ -702,6 +717,34 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
     return () => window.clearTimeout(timeoutId);
   }, [isWeekDataLoading, units.length, ensureAllKazanimlarLoaded]);
+
+  // Sağ sidebar'daki "Ünite Özeti" kartı için: bu dersin (gradeId+lessonId) TÜM
+  // ünitelerindeki TÜM konuların soru sayılarını tek istekte, sayfa açıldıktan 1.5sn
+  // sonra arka planda çeker. Bu veri sadece istemci tarafında (useEffect içinde)
+  // çekildiği için SEO'yu etkilemez ve ilk sayfa render'ını yavaşlatmaz.
+  const hasStartedQuestionCountsPrefetchRef = useRef(false);
+  useEffect(() => {
+    hasStartedQuestionCountsPrefetchRef.current = false;
+    setTopicQuestionCounts(null);
+  }, [gradeId, lessonId]);
+
+  useEffect(() => {
+    if (isWeekDataLoading) return;
+    if (hasStartedQuestionCountsPrefetchRef.current) return;
+    hasStartedQuestionCountsPrefetchRef.current = true;
+
+    const timeoutId = window.setTimeout(() => {
+      const params = new URLSearchParams({ gradeId, lessonId });
+      fetch(`/api/lesson-topic-question-counts?${params.toString()}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { byTopic?: Record<string, number> } | null) => {
+          if (data?.byTopic) setTopicQuestionCounts(data.byTopic);
+        })
+        .catch(() => {});
+    }, 1500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isWeekDataLoading, gradeId, lessonId]);
 
   // Kazanımlar modalinde gösterilecek liste: tek seferde çekilen tüm kazanımlardan,
   // seçili haftanın aralığına (start_week–end_week) düşenler — ağ isteği gerektirmez.
@@ -1787,8 +1830,31 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 </div>
 
-                {/* RIGHT SIDEBAR: MEB takvimi + ipucu */}
+                {/* RIGHT SIDEBAR: ünite özeti + MEB takvimi + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+                  {unitQuestionSummary && (
+                    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 text-violet-600 font-black text-xs uppercase tracking-widest">
+                          <ListChecks className="h-4 w-4" /> Ünite Özeti
+                        </div>
+                        <span className="inline-flex items-center justify-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-black text-violet-700 shrink-0">
+                          {unitQuestionSummary.total} Soru
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {unitQuestionSummary.topics.map((t) => (
+                          <li key={t.id} className="flex items-center justify-between gap-2 text-xs font-medium">
+                            <span className={`truncate ${String(t.id) === String(activeTopic?.id) ? 'text-violet-700 font-black' : 'text-slate-500'}`}>
+                              {t.title}
+                            </span>
+                            <span className="shrink-0 font-black text-slate-700">{t.count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {activeTopic && (
                     <CurriculumWeekCard weekRangeLabel={curriculumWeekRangeLabel} dateRangeLabel={curriculumDateRangeLabel} />
                   )}
