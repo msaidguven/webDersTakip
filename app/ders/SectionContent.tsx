@@ -143,6 +143,7 @@ export default function SectionContent({
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
   const [cleanSvg, setCleanSvg] = useState<string | null>(null);
   const [diagramZoomed, setDiagramZoomed] = useState(false);
+  const [imageZoomed, setImageZoomed] = useState(false);
 
   useEffect(() => {
     setBlocks(html ? buildBlocks(html) : []);
@@ -153,22 +154,60 @@ export default function SectionContent({
   }, [diagramSvg]);
 
   useEffect(() => {
-    if (!diagramZoomed) return;
+    if (!diagramZoomed && !imageZoomed) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDiagramZoomed(false);
+      if (e.key === 'Escape') {
+        setDiagramZoomed(false);
+        setImageZoomed(false);
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [diagramZoomed]);
+  }, [diagramZoomed, imageZoomed]);
 
   return (
     <div className="not-prose space-y-4">
       {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={imageAlt || caption || 'Konu anlatım görseli'}
-          className="w-full max-h-[420px] object-contain rounded-2xl border border-slate-100 bg-slate-50 shadow-sm"
-        />
+        <>
+          <button
+            type="button"
+            onClick={() => setImageZoomed(true)}
+            title="Büyütmek için tıkla"
+            className="block w-full cursor-zoom-in rounded-2xl border border-slate-100 bg-slate-50 shadow-sm transition hover:border-slate-200 hover:shadow-md"
+          >
+            <img
+              src={imageUrl}
+              alt={imageAlt || caption || 'Konu anlatım görseli'}
+              className="w-full max-h-[420px] object-contain rounded-2xl"
+            />
+          </button>
+          {imageZoomed && typeof document !== 'undefined' && createPortal(
+            <div
+              className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 sm:p-8"
+              onClick={() => setImageZoomed(false)}
+            >
+              <div
+                className="relative max-h-full w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setImageZoomed(false)}
+                  aria-label="Kapat"
+                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                >
+                  ✕
+                </button>
+                <img
+                  src={imageUrl}
+                  alt={imageAlt || caption || 'Konu anlatım görseli'}
+                  className="mx-auto h-auto w-full max-h-[80vh] object-contain"
+                />
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
       )}
       {cleanSvg && (
         <>
