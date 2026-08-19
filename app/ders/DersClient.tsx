@@ -2064,6 +2064,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         {dateLabel && <span className="text-[11px] font-semibold opacity-70 shrink-0">{dateLabel}</span>}
                       </div>
                       {sw.subtitle && <p className="text-xs font-medium opacity-80 mt-0.5">{sw.subtitle}</p>}
+                      {sw.contentHtml && (
+                        <div
+                          className="text-xs font-medium opacity-90 mt-1.5 leading-relaxed whitespace-pre-line [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5"
+                          dangerouslySetInnerHTML={{ __html: sw.contentHtml }}
+                        />
+                      )}
                     </div>
                   </div>
                 );
