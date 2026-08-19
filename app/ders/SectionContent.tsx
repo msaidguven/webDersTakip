@@ -179,6 +179,8 @@ export default function SectionContent({
               src={imageUrl}
               alt={imageAlt || caption || 'Konu anlatım görseli'}
               className="w-full max-h-[420px] object-contain rounded-2xl"
+              loading="lazy"
+              decoding="async"
             />
           </button>
           {imageZoomed && typeof document !== 'undefined' && createPortal(
@@ -202,6 +204,7 @@ export default function SectionContent({
                   src={imageUrl}
                   alt={imageAlt || caption || 'Konu anlatım görseli'}
                   className="mx-auto h-auto w-full max-h-[80vh] object-contain"
+                  decoding="async"
                 />
               </div>
             </div>,

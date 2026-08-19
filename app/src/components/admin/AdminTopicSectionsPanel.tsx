@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
+import { copyText } from '@/app/src/lib/clipboard';
 import SectionContent from '@/app/ders/SectionContent';
 
 type Outcome = {
@@ -68,25 +69,6 @@ const STATUS_COLORS: Record<Section['status'], string> = {
   image_ready: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   published: 'bg-[#6c63ff]/15 text-[#b5b0ff] border-[#6c63ff]/30',
 };
-
-export async function copyText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch {
-      // düşer: aşağıdaki execCommand fallback'i dener
-    }
-  }
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
-}
 
 export function extractJson(raw: string): unknown {
   const trimmed = raw.trim();

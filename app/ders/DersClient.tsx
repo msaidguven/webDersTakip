@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
 import {
@@ -30,24 +31,27 @@ import {
   Shapes,
   Plus,
 } from 'lucide-react';
-import AdminTopicSectionsModal from '@/app/src/components/admin/AdminTopicSectionsModal';
-import {
-  PlanModal,
-  NotebookPlanModal,
-  SectionModal,
-  QuestionsModal,
-  ImageModal,
-  DiagramModal,
-  SectionContentEditModal,
-  TopicCoverImageModal,
-  TopicHighlightsModal,
-  TopicQuestionsModal,
-  TopicHighlightQuickAddModal,
-  TopicHighlightEditModal,
-  copyText,
-  type SectionModalSection,
-  type EditableSection,
+import type {
+  SectionModalSection,
+  EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
+
+// Admin düzenleme paneli (~3000 satır) ve modalları sadece admin gerçekten bir
+// düzenleme aksiyonu tetiklediğinde indirilsin diye lazy-load ediliyor; aksi halde
+// bu kod her öğrencinin konu sayfası ziyaretinde ana bundle'a dahil oluyordu.
+const AdminTopicSectionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsModal'), { ssr: false });
+const PlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.PlanModal), { ssr: false });
+const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.NotebookPlanModal), { ssr: false });
+const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
+const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
+const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
+const DiagramModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.DiagramModal), { ssr: false });
+const SectionContentEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionContentEditModal), { ssr: false });
+const TopicCoverImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicCoverImageModal), { ssr: false });
+const TopicHighlightsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightsModal), { ssr: false });
+const TopicQuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicQuestionsModal), { ssr: false });
+const TopicHighlightQuickAddModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightQuickAddModal), { ssr: false });
+const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightEditModal), { ssr: false });
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
@@ -1696,6 +1700,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             src={activeTopic.heroImageUrl}
                             alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
                             className="w-full max-h-[420px] object-contain"
+                            fetchPriority="high"
+                            decoding="async"
                           />
                         </button>
                         {heroImageZoomed && typeof document !== 'undefined' && createPortal(
@@ -1719,6 +1725,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 src={activeTopic.heroImageUrl}
                                 alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
                                 className="mx-auto h-auto w-full max-h-[80vh] object-contain"
+                                decoding="async"
                               />
                             </div>
                           </div>,
