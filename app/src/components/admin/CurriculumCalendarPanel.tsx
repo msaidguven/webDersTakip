@@ -10,8 +10,7 @@ type EventType = 'break' | 'special_content' | 'social_activity';
 
 type SpecialWeek = {
   id: number;
-  gradeId: number | null;
-  gradeName: string | null;
+  gradeIds: number[] | null;
   lessonId: number | null;
   lessonName: string | null;
   curriculumWeek: number | null;
@@ -34,7 +33,7 @@ type FormState = {
   title: string;
   subtitle: string;
   contentHtml: string;
-  gradeId: string;
+  gradeIds: number[];
   lessonId: string;
   isActive: boolean;
   priority: string;
@@ -55,7 +54,7 @@ const EMPTY_FORM: FormState = {
   title: '',
   subtitle: '',
   contentHtml: '',
-  gradeId: '',
+  gradeIds: [],
   lessonId: '',
   isActive: true,
   priority: '0',
@@ -69,6 +68,12 @@ function fmtDateInput(iso: string) {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return fmtDay(d);
+}
+
+function gradeLabel(gradeIds: number[] | null, grades: Option[]): string {
+  if (!gradeIds || !gradeIds.length) return 'Tüm sınıflar';
+  const byId = new Map(grades.map((g) => [g.id, g.name]));
+  return gradeIds.map((id) => byId.get(id) || `#${id}`).join(', ');
 }
 
 export default function CurriculumCalendarPanel() {
@@ -212,7 +217,7 @@ export default function CurriculumCalendarPanel() {
       title: item.title,
       subtitle: item.subtitle || '',
       contentHtml: item.contentHtml || '',
-      gradeId: item.gradeId != null ? String(item.gradeId) : '',
+      gradeIds: item.gradeIds || [],
       lessonId: item.lessonId != null ? String(item.lessonId) : '',
       isActive: item.isActive,
       priority: String(item.priority),
@@ -229,7 +234,7 @@ export default function CurriculumCalendarPanel() {
       title: f.title.trim(),
       subtitle: f.subtitle.trim() || null,
       contentHtml: f.contentHtml.trim() || null,
-      gradeId: f.gradeId ? Number(f.gradeId) : null,
+      gradeIds: f.gradeIds.length ? f.gradeIds : null,
       lessonId: f.lessonId ? Number(f.lessonId) : null,
       isActive: f.isActive,
       priority: Number(f.priority) || 0,
@@ -295,7 +300,7 @@ export default function CurriculumCalendarPanel() {
           title: item.title,
           subtitle: item.subtitle,
           contentHtml: item.contentHtml,
-          gradeId: item.gradeId,
+          gradeIds: item.gradeIds,
           lessonId: item.lessonId,
           isActive: !item.isActive,
           priority: item.priority,
@@ -487,7 +492,7 @@ export default function CurriculumCalendarPanel() {
                     <div className="flex items-center gap-2 flex-wrap mt-1">
                       {item.subtitle && <p className="text-gray-400 text-xs truncate">{item.subtitle}</p>}
                       <span className="text-gray-600 text-xs">
-                        {item.gradeName || 'Tüm sınıflar'} · {item.lessonName || 'Tüm dersler'}
+                        {gradeLabel(item.gradeIds, grades)} · {item.lessonName || 'Tüm dersler'}
                       </span>
                     </div>
                   </div>
@@ -569,6 +574,20 @@ function FilterPill({ active, label, onClick }: { active: boolean; label: string
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
         active ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ChipToggle({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
+        active ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
       }`}
     >
       {label}
@@ -686,33 +705,35 @@ function FormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Sınıf</label>
-              <select
-                value={form.gradeId}
-                onChange={(e) => update('gradeId', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              >
-                <option value="" className="bg-[#111114]">Tüm sınıflar</option>
-                {grades.map((g) => (
-                  <option key={g.id} value={g.id} className="bg-[#111114]">{g.name}</option>
-                ))}
-              </select>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Sınıf(lar)</label>
+            <div className="flex flex-wrap gap-1.5">
+              <ChipToggle active={form.gradeIds.length === 0} label="Tüm sınıflar" onClick={() => update('gradeIds', [])} />
+              {grades.map((g) => (
+                <ChipToggle
+                  key={g.id}
+                  active={form.gradeIds.includes(g.id)}
+                  label={g.name}
+                  onClick={() =>
+                    update('gradeIds', form.gradeIds.includes(g.id) ? form.gradeIds.filter((id) => id !== g.id) : [...form.gradeIds, g.id])
+                  }
+                />
+              ))}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Ders</label>
-              <select
-                value={form.lessonId}
-                onChange={(e) => update('lessonId', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              >
-                <option value="" className="bg-[#111114]">Tüm dersler</option>
-                {lessons.map((l) => (
-                  <option key={l.id} value={l.id} className="bg-[#111114]">{l.name}</option>
-                ))}
-              </select>
-            </div>
+          </div>
+
+          <div className="max-w-[calc(50%-0.375rem)]">
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Ders</label>
+            <select
+              value={form.lessonId}
+              onChange={(e) => update('lessonId', e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="" className="bg-[#111114]">Tüm dersler</option>
+              {lessons.map((l) => (
+                <option key={l.id} value={l.id} className="bg-[#111114]">{l.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>

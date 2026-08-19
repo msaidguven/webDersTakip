@@ -16,7 +16,7 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('special_week_events')
-    .select('id, grade_id, lesson_id, curriculum_week, event_type, title, subtitle, content_html, is_active, priority, start_date, end_date, grades(name), lessons(name)')
+    .select('id, grade_ids, lesson_id, curriculum_week, event_type, title, subtitle, content_html, is_active, priority, start_date, end_date, lessons(name)')
     .order('start_date', { ascending: true, nullsFirst: false })
     .order('curriculum_week', { ascending: true })
     .order('priority', { ascending: false });
@@ -24,15 +24,14 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {
-    id: number; grade_id: number | null; lesson_id: number | null; curriculum_week: number | null;
+    id: number; grade_ids: number[] | null; lesson_id: number | null; curriculum_week: number | null;
     event_type: EventType; title: string; subtitle: string | null; content_html: string | null;
     is_active: boolean; priority: number; start_date: string | null; end_date: string | null;
-    grades: { name: string } | null; lessons: { name: string } | null;
+    lessons: { name: string } | null;
   };
   const items = ((data as unknown as Row[] | null) || []).map((r) => ({
     id: r.id,
-    gradeId: r.grade_id,
-    gradeName: r.grades?.name ?? null,
+    gradeIds: r.grade_ids && r.grade_ids.length ? r.grade_ids : null,
     lessonId: r.lesson_id,
     lessonName: r.lessons?.name ?? null,
     curriculumWeek: r.curriculum_week,
@@ -67,9 +66,13 @@ function parseEventPayload(body: Record<string, unknown> | null) {
     return { error: 'Başlık zorunlu' as const };
   }
 
-  const gradeId = body.gradeId === null || body.gradeId === undefined || body.gradeId === '' ? null : Number(body.gradeId);
+  let gradeIds: number[] | null = null;
+  if (Array.isArray(body.gradeIds) && body.gradeIds.length) {
+    gradeIds = body.gradeIds.map((v) => Number(v));
+    if (gradeIds.some((v) => !Number.isFinite(v))) return { error: 'Geçersiz sınıf' as const };
+  }
+
   const lessonId = body.lessonId === null || body.lessonId === undefined || body.lessonId === '' ? null : Number(body.lessonId);
-  if (gradeId !== null && !Number.isFinite(gradeId)) return { error: 'Geçersiz sınıf' as const };
   if (lessonId !== null && !Number.isFinite(lessonId)) return { error: 'Geçersiz ders' as const };
 
   const subtitle = typeof body.subtitle === 'string' && body.subtitle.trim() ? body.subtitle.trim() : null;
@@ -104,7 +107,7 @@ function parseEventPayload(body: Record<string, unknown> | null) {
       title,
       subtitle,
       content_html: contentHtml,
-      grade_id: gradeId,
+      grade_ids: gradeIds,
       lesson_id: lessonId,
       is_active: isActive,
       priority,

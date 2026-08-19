@@ -48,54 +48,61 @@ function resolveTermStart(referenceDate: Date, termStartDate?: string | null): D
   return defaultTermStart(referenceDate);
 }
 
-// date bir tatilin içine düşüyorsa, tatilin bitişinin ertesi gününe iter (art arda
-// tatiller için while ile tekrar kontrol eder — biri diğerinin bitişinin hemen ertesi
-// gününe denk gelebilir).
-function skipPastBreaks(date: Date, breaks: CurriculumBreak[]): Date {
-  let cursor = date;
-  let moved = true;
-  while (moved) {
-    moved = false;
-    for (const b of breaks) {
-      const start = new Date(`${b.startDate}T00:00:00`);
-      const end = new Date(`${b.endDate}T00:00:00`);
-      if (cursor >= start && cursor <= end) {
-        cursor = addDays(end, 1);
-        moved = true;
-      }
-    }
-  }
-  return cursor;
+// weekStart (Pazartesi) ile başlayan Pazartesi–Cuma öğretim haftası, verilen tatillerden
+// herhangi biriyle çakışıyor mu (tek bir gün bile çakışsa yeterli — o hafta "tatil haftası"
+// sayılır ve bir öğretim haftası numarası tüketmez, bkz. dosya başındaki açıklama).
+function isWeekInBreak(weekStart: Date, breaks: CurriculumBreak[]): boolean {
+  const weekEnd = addDays(weekStart, 4);
+  return breaks.some((b) => {
+    const start = new Date(`${b.startDate}T00:00:00`);
+    const end = new Date(`${b.endDate}T00:00:00`);
+    return weekStart <= end && weekEnd >= start;
+  });
 }
 
-// week. öğretim haftasının Pazartesi tarihini, termStart'tan başlayıp haftaları tek tek
-// ilerleterek (her adımda aradaki tatilleri atlayarak) hesaplar.
-function computeWeekStart(termStart: Date, week: number, breaks: CurriculumBreak[]): Date {
-  let weekStart = termStart;
-  for (let w = 2; w <= week; w++) {
-    weekStart = skipPastBreaks(addDays(weekStart, 7), breaks);
+// termStart'tan başlayarak, tatile denk gelen Pazartesileri ATLAYIP sırayla öğretim
+// haftalarının (1, 2, 3...) gerçek Pazartesi tarihlerini üretir — her hafta her zaman bir
+// önceki haftanın +7 günü olduğu için Pazartesi hizası hep korunur ("Pazartesi'den
+// Pazartesi'ye"); bir tatil bir haftanın ortasında bitse bile bir sonraki öğretim haftası
+// yine bir sonraki Pazartesi'den başlar, ortada kalan gün(ler) heba edilir.
+function* teachingWeekStarts(termStart: Date, breaks: CurriculumBreak[]): Generator<Date> {
+  let cursor = termStart;
+  while (isWeekInBreak(cursor, breaks)) cursor = addDays(cursor, 7);
+  while (true) {
+    yield cursor;
+    do {
+      cursor = addDays(cursor, 7);
+    } while (isWeekInBreak(cursor, breaks));
   }
-  return weekStart;
+}
+
+// week. öğretim haftasının Pazartesi tarihini bulur.
+function computeWeekStart(termStart: Date, week: number, breaks: CurriculumBreak[]): Date {
+  const gen = teachingWeekStarts(termStart, breaks);
+  let start = gen.next().value as Date;
+  for (let w = 2; w <= week; w++) start = gen.next().value as Date;
+  return start;
 }
 
 /**
  * MEB müfredat takviminde bugün kaçıncı öğretim haftasına denk geliyor. termStartDate
  * verilirse (admin /admin/takvim'de ayarlanan "1. hafta başlangıcı") o tarih baz alınır;
  * verilmezse eğitim-öğretim yılının Eylül ayının ilk Pazartesi günü başladığı varsayılır.
- * breaks verilirse (special_week_events, event_type='break') tatil günleri hafta
- * tarihlerine eklenir — tatildeyken bir önceki (son biten) öğretim haftasında kalınır.
- * Yaz tatilinde 1. haftaya, yıl sonunda son haftaya sabitlenir.
+ * breaks verilirse (special_week_events, event_type='break') tatile denk gelen haftalar
+ * atlanır — tatildeyken bir önceki (son biten) öğretim haftasında kalınır. Yaz tatilinde
+ * 1. haftaya, yıl sonunda son haftaya sabitlenir.
  */
 export function getCurrentCurriculumWeek(totalWeeks: number = 38, termStartDate?: string | null, breaks: CurriculumBreak[] = []): number {
   const now = new Date();
   const termStart = resolveTermStart(now, termStartDate);
   const clampedTotal = Math.max(1, totalWeeks);
 
-  let weekStart = termStart;
-  for (let w = 1; w <= clampedTotal; w++) {
-    if (w > 1) weekStart = skipPastBreaks(addDays(weekStart, 7), breaks);
-    if (now < weekStart) return Math.max(1, w - 1);
-    if (now < addDays(weekStart, 7)) return w;
+  let weekNum = 0;
+  for (const start of teachingWeekStarts(termStart, breaks)) {
+    weekNum++;
+    if (weekNum > clampedTotal) break;
+    if (now < start) return Math.max(1, weekNum - 1);
+    if (now < addDays(start, 7)) return weekNum;
   }
   return clampedTotal;
 }
