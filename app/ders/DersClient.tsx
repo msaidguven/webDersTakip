@@ -401,24 +401,32 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [heroImageZoomed]);
 
+  // Sadece aktif ünitenin değil, sidebar'da "İçindekiler" ağacında o an görünen
+  // (arkaplanda önceden ısıtılmış) tüm ünitelerin konularını kapsar — yoksa başka
+  // bir ünitedeki konuya daha önce eklenmiş soruların tiki hiç görünmez.
+  const allVisibleTopicIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    contents.forEach((c) => ids.add(String(c.id)));
+    Object.values(unitTopicsCache).forEach((topics) => topics.forEach((c) => ids.add(String(c.id))));
+    return Array.from(ids).join(',');
+  }, [contents, unitTopicsCache]);
+
   const loadQuestionStatus = useCallback(async () => {
-    if (!isAdmin || !contents.length) return;
-    const topicIds = contents.map((c) => c.id).join(',');
-    const res = await fetch(`/api/admin/topic-sections/question-status?topicIds=${topicIds}`);
+    if (!isAdmin || !allVisibleTopicIdsKey) return;
+    const res = await fetch(`/api/admin/topic-sections/question-status?topicIds=${allVisibleTopicIdsKey}`);
     if (res.ok) {
       const data = await res.json();
       setQuestionStatusByTopic(data?.byTopic || {});
     }
-  }, [isAdmin, contents]);
+  }, [isAdmin, allVisibleTopicIdsKey]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!isAdmin || !contents.length) {
+    if (!isAdmin || !allVisibleTopicIdsKey) {
       setQuestionStatusByTopic({});
       return;
     }
-    const topicIds = contents.map((c) => c.id).join(',');
-    fetch(`/api/admin/topic-sections/question-status?topicIds=${topicIds}`)
+    fetch(`/api/admin/topic-sections/question-status?topicIds=${allVisibleTopicIdsKey}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { byTopic?: Record<string, { general: boolean; sectionIds: number[] }> } | null) => {
         if (!cancelled) setQuestionStatusByTopic(data?.byTopic || {});
@@ -426,7 +434,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, contents]);
+  }, [isAdmin, allVisibleTopicIdsKey]);
 
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
