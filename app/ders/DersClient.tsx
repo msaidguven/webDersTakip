@@ -48,7 +48,7 @@ import {
   type SectionModalSection,
   type EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
-import { formatWeekDateRangeLabel } from '@/app/src/lib/routeParsing';
+import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
@@ -85,6 +85,7 @@ interface DersClientProps {
     units?: Unit[];
     totalWeeks: number;
     termStartDate?: string | null;
+    breaks?: CurriculumBreak[];
     gradeSlug: string | null;
     lessonSlug: string | null;
     unitSlug: string | null;
@@ -627,14 +628,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const unitEndWeek = activeUnit?.end_week || totalWeeks;
   const curriculumWeekRangeLabel = unitStartWeek === unitEndWeek ? `${unitStartWeek}. Hafta` : `${unitStartWeek}–${unitEndWeek}. Hafta`;
   const curriculumDateRangeLabel = useMemo(
-    () => formatWeekDateRangeLabel(unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate),
-    [unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate]
+    () => formatWeekDateRangeLabel(unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate, initialData.breaks || []),
+    [unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate, initialData.breaks]
   );
 
   // Kazanımlar modalinde gösterilen haftanın (kazanimlarWeek) takvim tarih aralığı
   const kazanimlarWeekDateLabel = useMemo(
-    () => formatWeekDateRangeLabel(kazanimlarWeek, kazanimlarWeek, totalWeeks, initialData.termStartDate),
-    [kazanimlarWeek, totalWeeks, initialData.termStartDate]
+    () => formatWeekDateRangeLabel(kazanimlarWeek, kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks || []),
+    [kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks]
   );
 
   // Sağ sidebar'daki "Ünite Özeti" kartı için: aktif ünitenin konuları + arka planda

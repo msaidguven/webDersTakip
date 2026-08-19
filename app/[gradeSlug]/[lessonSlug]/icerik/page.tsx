@@ -6,7 +6,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
-import { getCurriculumTermStartDate } from '@/app/src/lib/curriculumCalendar';
+import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -100,13 +100,14 @@ export default async function LegacyIcerikRedirectPage({ params, searchParams }:
     const maxFromUnits = units.reduce((max, u) => Math.max(max, u.end_week ?? u.start_week ?? 0), 0);
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
+  const calendar = await getCurriculumCalendar(supabase);
 
   const rawHafta = sp.hafta;
   const week = Array.isArray(rawHafta)
     ? parseInt(rawHafta[0])
     : rawHafta
       ? parseInt(rawHafta)
-      : getCurrentCurriculumWeek(totalWeeks, await getCurriculumTermStartDate(supabase));
+      : getCurrentCurriculumWeek(totalWeeks, calendar.termStartDate, calendar.breaks);
 
   const activeUnit = units.find((u) => {
     const sw = u.start_week ?? 1;

@@ -8,7 +8,7 @@ import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getGradeIcon } from '@/app/src/lib/homeMapping';
-import { getCurriculumTermStartDate } from '@/app/src/lib/curriculumCalendar';
+import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
 export const dynamic = 'force-dynamic';
@@ -197,7 +197,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     lessonSlug: lesson.slug,
     units: unitsWithTopicCount,
     totalWeeks,
-    termStartDate: await getCurriculumTermStartDate(supabase),
+    ...(await getCurriculumCalendar(supabase)),
     gradeLessons,
     allGrades,
   };
@@ -222,7 +222,7 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
     ? parseInt(rawHafta[0])
     : rawHafta
       ? parseInt(rawHafta)
-      : getCurrentCurriculumWeek(data.totalWeeks, data.termStartDate);
+      : getCurrentCurriculumWeek(data.totalWeeks, data.termStartDate, data.breaks);
 
   return (
     <MufredatOverviewClient

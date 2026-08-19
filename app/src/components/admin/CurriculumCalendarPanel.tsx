@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { getCurrentCurriculumWeek, getWeekDateRange } from '@/app/src/lib/routeParsing';
+import { getCurrentCurriculumWeek, getWeekDateRange, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 
 type Option = { id: number; name: string };
 
@@ -14,18 +14,22 @@ type SpecialWeek = {
   gradeName: string | null;
   lessonId: number | null;
   lessonName: string | null;
-  curriculumWeek: number;
+  curriculumWeek: number | null;
   eventType: EventType;
   title: string;
   subtitle: string | null;
   contentHtml: string | null;
   isActive: boolean;
   priority: number;
+  startDate: string | null;
+  endDate: string | null;
 };
 
 type FormState = {
   id: number | null;
   curriculumWeek: string;
+  startDate: string;
+  endDate: string;
   eventType: EventType;
   title: string;
   subtitle: string;
@@ -45,6 +49,8 @@ const EVENT_TYPE_META: Record<EventType, { label: string; icon: string; badge: s
 const EMPTY_FORM: FormState = {
   id: null,
   curriculumWeek: '',
+  startDate: '',
+  endDate: '',
   eventType: 'break',
   title: '',
   subtitle: '',
@@ -57,6 +63,12 @@ const EMPTY_FORM: FormState = {
 
 function fmtDay(d: Date) {
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+}
+
+function fmtDateInput(iso: string) {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return fmtDay(d);
 }
 
 export default function CurriculumCalendarPanel() {
@@ -111,26 +123,6 @@ export default function CurriculumCalendarPanel() {
     }
   }
 
-  const previewWeek = useMemo(() => {
-    if (!termStartInput) return null;
-    return getCurrentCurriculumWeek(52, termStartInput);
-  }, [termStartInput]);
-
-  const previewRange = useMemo(() => {
-    if (!termStartInput || !previewWeek) return null;
-    const { start, end } = getWeekDateRange(previewWeek, 52, termStartInput);
-    return `${fmtDay(start)} – ${fmtDay(end)}`;
-  }, [termStartInput, previewWeek]);
-
-  const weekDateHint = useCallback(
-    (week: number) => {
-      if (!termStartDate) return null;
-      const { start, end } = getWeekDateRange(week, 52, termStartDate);
-      return `${fmtDay(start)} – ${fmtDay(end)}`;
-    },
-    [termStartDate]
-  );
-
   // ---- Özel haftalar (tatiller vb.) ----
   const [grades, setGrades] = useState<Option[]>([]);
   const [lessons, setLessons] = useState<Option[]>([]);
@@ -170,6 +162,37 @@ export default function CurriculumCalendarPanel() {
     loadItems();
   }, [loadItems]);
 
+  // Hafta N'nin gerçek takvim tarihinin doğru hesaplanması için aktif tatillerin tarih
+  // aralığı gerekiyor — kazanımlar tatil için hafta numarası atlamıyor (bkz. routeParsing.ts),
+  // dolayısıyla tatilden sonraki haftalar takvimde bu kadar gün ileri kayıyor.
+  const breaks: CurriculumBreak[] = useMemo(
+    () =>
+      items
+        .filter((it): it is SpecialWeek & { startDate: string; endDate: string } => it.eventType === 'break' && it.isActive && !!it.startDate && !!it.endDate)
+        .map((it) => ({ startDate: it.startDate, endDate: it.endDate })),
+    [items]
+  );
+
+  const previewWeek = useMemo(() => {
+    if (!termStartInput) return null;
+    return getCurrentCurriculumWeek(52, termStartInput, breaks);
+  }, [termStartInput, breaks]);
+
+  const previewRange = useMemo(() => {
+    if (!termStartInput || !previewWeek) return null;
+    const { start, end } = getWeekDateRange(previewWeek, 52, termStartInput, breaks);
+    return `${fmtDay(start)} – ${fmtDay(end)}`;
+  }, [termStartInput, previewWeek, breaks]);
+
+  const weekDateHint = useCallback(
+    (week: number) => {
+      if (!termStartDate) return null;
+      const { start, end } = getWeekDateRange(week, 52, termStartDate, breaks);
+      return `${fmtDay(start)} – ${fmtDay(end)}`;
+    },
+    [termStartDate, breaks]
+  );
+
   function showNotice(kind: 'success' | 'error', text: string) {
     setNotice({ kind, text });
     window.setTimeout(() => setNotice((n) => (n?.text === text ? null : n)), 6000);
@@ -182,7 +205,9 @@ export default function CurriculumCalendarPanel() {
   function openEdit(item: SpecialWeek) {
     setForm({
       id: item.id,
-      curriculumWeek: String(item.curriculumWeek),
+      curriculumWeek: item.curriculumWeek != null ? String(item.curriculumWeek) : '',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
       eventType: item.eventType,
       title: item.title,
       subtitle: item.subtitle || '',
@@ -194,36 +219,52 @@ export default function CurriculumCalendarPanel() {
     });
   }
 
+  function buildPayload(f: FormState) {
+    return {
+      id: f.id ?? undefined,
+      eventType: f.eventType,
+      curriculumWeek: f.eventType === 'break' ? null : Number(f.curriculumWeek),
+      startDate: f.eventType === 'break' ? f.startDate : null,
+      endDate: f.eventType === 'break' ? f.endDate : null,
+      title: f.title.trim(),
+      subtitle: f.subtitle.trim() || null,
+      contentHtml: f.contentHtml.trim() || null,
+      gradeId: f.gradeId ? Number(f.gradeId) : null,
+      lessonId: f.lessonId ? Number(f.lessonId) : null,
+      isActive: f.isActive,
+      priority: Number(f.priority) || 0,
+    };
+  }
+
   async function submitForm() {
     if (!form) return;
-    const week = Number(form.curriculumWeek);
-    if (!Number.isFinite(week) || week < 1 || week > 52) {
-      showNotice('error', 'Hafta 1-52 arasında olmalı');
-      return;
-    }
     if (!form.title.trim()) {
       showNotice('error', 'Başlık zorunlu');
       return;
     }
+    if (form.eventType === 'break') {
+      if (!form.startDate || !form.endDate) {
+        showNotice('error', 'Tatil için başlangıç ve bitiş tarihi zorunlu');
+        return;
+      }
+      if (form.endDate < form.startDate) {
+        showNotice('error', 'Bitiş tarihi başlangıçtan önce olamaz');
+        return;
+      }
+    } else {
+      const week = Number(form.curriculumWeek);
+      if (!Number.isFinite(week) || week < 1 || week > 52) {
+        showNotice('error', 'Hafta 1-52 arasında olmalı');
+        return;
+      }
+    }
 
     setSaving(true);
     try {
-      const payload = {
-        id: form.id ?? undefined,
-        curriculumWeek: week,
-        eventType: form.eventType,
-        title: form.title.trim(),
-        subtitle: form.subtitle.trim() || null,
-        contentHtml: form.contentHtml.trim() || null,
-        gradeId: form.gradeId ? Number(form.gradeId) : null,
-        lessonId: form.lessonId ? Number(form.lessonId) : null,
-        isActive: form.isActive,
-        priority: Number(form.priority) || 0,
-      };
       const res = await fetch('/api/admin/manage/special-weeks', {
         method: form.id ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload(form)),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -249,6 +290,8 @@ export default function CurriculumCalendarPanel() {
           id: item.id,
           curriculumWeek: item.curriculumWeek,
           eventType: item.eventType,
+          startDate: item.startDate,
+          endDate: item.endDate,
           title: item.title,
           subtitle: item.subtitle,
           contentHtml: item.contentHtml,
@@ -298,7 +341,7 @@ export default function CurriculumCalendarPanel() {
           <div>
             <h2 className="text-base sm:text-lg font-bold text-white">Eğitim-Öğretim Yılı Başlangıcı</h2>
             <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
-              1. haftanın Pazartesi tarihi. Sitedeki tüm &quot;kaçıncı hafta&quot; hesapları buna göre yapılır.
+              1. haftanın Pazartesi tarihi. Sitedeki tüm &quot;kaçıncı hafta&quot; hesapları — aşağıdaki tatiller de dahil edilerek — buna göre yapılır.
             </p>
           </div>
         </div>
@@ -360,7 +403,10 @@ export default function CurriculumCalendarPanel() {
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white">Özel Haftalar</h2>
-              <p className="text-gray-400 text-xs sm:text-sm mt-0.5">Bayram tatilleri, ara tatiller ve diğer özel haftalar</p>
+              <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
+                Tatiller gerçek takvim tarihiyle girilir — kazanımlar hafta atlamadığı için sonraki haftaların
+                tarihi bu tatili otomatik hesaba katar.
+              </p>
             </div>
           </div>
           <button
@@ -398,7 +444,16 @@ export default function CurriculumCalendarPanel() {
           <div className="space-y-2">
             {visibleItems.map((item) => {
               const meta = EVENT_TYPE_META[item.eventType];
-              const dateHint = weekDateHint(item.curriculumWeek);
+              const isBreak = item.eventType === 'break';
+              const dateLabel = isBreak
+                ? item.startDate && item.endDate
+                  ? item.startDate === item.endDate
+                    ? fmtDateInput(item.startDate)
+                    : `${fmtDateInput(item.startDate)} – ${fmtDateInput(item.endDate)}`
+                  : null
+                : item.curriculumWeek != null
+                  ? weekDateHint(item.curriculumWeek)
+                  : null;
               return (
                 <div
                   key={item.id}
@@ -406,15 +461,21 @@ export default function CurriculumCalendarPanel() {
                     item.isActive ? 'bg-white/[0.03] border-white/5' : 'bg-white/[0.01] border-white/5 opacity-50'
                   }`}
                 >
-                  <div className="flex items-center gap-3 sm:w-28 shrink-0">
-                    <div className="w-11 h-11 rounded-lg bg-white/5 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[9px] text-gray-500 font-bold uppercase leading-none">Hafta</span>
-                      <span className="text-white font-bold text-sm leading-tight">{item.curriculumWeek}</span>
-                    </div>
-                    {dateHint && <span className="text-gray-500 text-xs sm:hidden">{dateHint}</span>}
+                  <div className="flex items-center gap-3 sm:w-32 shrink-0">
+                    {isBreak ? (
+                      <div className="w-11 h-11 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-lg">
+                        📅
+                      </div>
+                    ) : (
+                      <div className="w-11 h-11 rounded-lg bg-white/5 flex flex-col items-center justify-center shrink-0">
+                        <span className="text-[9px] text-gray-500 font-bold uppercase leading-none">Hafta</span>
+                        <span className="text-white font-bold text-sm leading-tight">{item.curriculumWeek}</span>
+                      </div>
+                    )}
+                    {dateLabel && <span className="text-gray-500 text-xs sm:hidden">{dateLabel}</span>}
                   </div>
 
-                  <div className="hidden sm:block text-gray-500 text-xs w-28 shrink-0">{dateHint || '—'}</div>
+                  <div className="hidden sm:block text-gray-500 text-xs w-32 shrink-0">{dateLabel || '—'}</div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -534,8 +595,9 @@ function FormModal({
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  const isBreak = form.eventType === 'break';
   const week = Number(form.curriculumWeek);
-  const dateHint = Number.isFinite(week) && week >= 1 && week <= 52 ? weekDateHint(week) : null;
+  const dateHint = !isBreak && Number.isFinite(week) && week >= 1 && week <= 52 ? weekDateHint(week) : null;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -547,7 +609,46 @@ function FormModal({
         <h3 className="text-lg font-bold text-white mb-4">{form.id ? 'Özel Haftayı Düzenle' : 'Yeni Özel Hafta'}</h3>
 
         <div className="space-y-3.5">
-          <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Tür</label>
+            <select
+              value={form.eventType}
+              onChange={(e) => update('eventType', e.target.value as EventType)}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {(Object.keys(EVENT_TYPE_META) as EventType[]).map((t) => (
+                <option key={t} value={t} className="bg-[#111114]">
+                  {EVENT_TYPE_META[t].icon} {EVENT_TYPE_META[t].label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {isBreak ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlangıç Tarihi</label>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => update('startDate', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Bitiş Tarihi</label>
+                <input
+                  type="date"
+                  value={form.endDate}
+                  onChange={(e) => update('endDate', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                />
+              </div>
+              <p className="col-span-2 text-gray-500 text-xs">
+                Öğretim haftaları bu tarih aralığını atlamaz, sadece sonraki haftaların takvim tarihi bu kadar ileri kayar.
+              </p>
+            </div>
+          ) : (
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1.5">Hafta No (1-52)</label>
               <input
@@ -561,21 +662,7 @@ function FormModal({
               />
               {dateHint && <p className="text-gray-500 text-xs mt-1">{dateHint}</p>}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Tür</label>
-              <select
-                value={form.eventType}
-                onChange={(e) => update('eventType', e.target.value as EventType)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              >
-                {(Object.keys(EVENT_TYPE_META) as EventType[]).map((t) => (
-                  <option key={t} value={t} className="bg-[#111114]">
-                    {EVENT_TYPE_META[t].icon} {EVENT_TYPE_META[t].label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlık</label>

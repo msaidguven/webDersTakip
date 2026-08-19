@@ -16,16 +16,17 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('special_week_events')
-    .select('id, grade_id, lesson_id, curriculum_week, event_type, title, subtitle, content_html, is_active, priority, grades(name), lessons(name)')
+    .select('id, grade_id, lesson_id, curriculum_week, event_type, title, subtitle, content_html, is_active, priority, start_date, end_date, grades(name), lessons(name)')
+    .order('start_date', { ascending: true, nullsFirst: false })
     .order('curriculum_week', { ascending: true })
     .order('priority', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {
-    id: number; grade_id: number | null; lesson_id: number | null; curriculum_week: number;
+    id: number; grade_id: number | null; lesson_id: number | null; curriculum_week: number | null;
     event_type: EventType; title: string; subtitle: string | null; content_html: string | null;
-    is_active: boolean; priority: number;
+    is_active: boolean; priority: number; start_date: string | null; end_date: string | null;
     grades: { name: string } | null; lessons: { name: string } | null;
   };
   const items = ((data as unknown as Row[] | null) || []).map((r) => ({
@@ -41,18 +42,21 @@ export async function GET() {
     contentHtml: r.content_html,
     isActive: r.is_active,
     priority: r.priority,
+    startDate: r.start_date,
+    endDate: r.end_date,
   }));
 
   return NextResponse.json({ items });
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// 'break' (tatil): gerçek takvim tarih aralığı zorunlu, hafta no'suna gerek yok — o
+// dönemde zaten hiçbir öğretim haftası/kazanım yok (bkz. routeParsing.ts açıklaması).
+// 'special_content'/'social_activity': gerçek bir öğretim haftasını işaretlediği için
+// hafta no zorunlu, tarih aralığı kullanılmaz.
 function parseEventPayload(body: Record<string, unknown> | null) {
   if (!body) return { error: 'Geçersiz istek' as const };
-
-  const curriculumWeek = Number(body.curriculumWeek);
-  if (!Number.isFinite(curriculumWeek) || curriculumWeek < 1 || curriculumWeek > 52) {
-    return { error: 'Hafta 1-52 arasında olmalı' as const };
-  }
 
   if (!isEventType(body.eventType)) {
     return { error: 'Geçersiz tür' as const };
@@ -73,6 +77,26 @@ function parseEventPayload(body: Record<string, unknown> | null) {
   const isActive = typeof body.isActive === 'boolean' ? body.isActive : true;
   const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 0;
 
+  let curriculumWeek: number | null = null;
+  let startDate: string | null = null;
+  let endDate: string | null = null;
+
+  if (body.eventType === 'break') {
+    startDate = typeof body.startDate === 'string' ? body.startDate : '';
+    endDate = typeof body.endDate === 'string' ? body.endDate : '';
+    if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
+      return { error: 'Tatil için başlangıç ve bitiş tarihi (YYYY-MM-DD) zorunlu' as const };
+    }
+    if (endDate < startDate) {
+      return { error: 'Bitiş tarihi başlangıçtan önce olamaz' as const };
+    }
+  } else {
+    curriculumWeek = Number(body.curriculumWeek);
+    if (!Number.isFinite(curriculumWeek) || curriculumWeek < 1 || curriculumWeek > 52) {
+      return { error: 'Hafta 1-52 arasında olmalı' as const };
+    }
+  }
+
   return {
     value: {
       curriculum_week: curriculumWeek,
@@ -84,6 +108,8 @@ function parseEventPayload(body: Record<string, unknown> | null) {
       lesson_id: lessonId,
       is_active: isActive,
       priority,
+      start_date: startDate,
+      end_date: endDate,
     },
   };
 }

@@ -7,10 +7,13 @@ export type RecalculateWeeksResult = {
 
 type LessonGradeRow = { weekly_hours: number | null };
 type UnitRow = { id: number; title: string; order_no: number; duration_hours: number | null };
-type BreakRow = { curriculum_week: number };
 
 // lesson_id + grade_id için aktif üniteleri order_no sırasına göre haftalara yerleştirir.
-// special_week_events'teki (event_type='break') tatil haftaları atlanır.
+// Hafta numaraları (start_week/end_week) burada ARDIŞIK ilerler — tatiller (special_week_events,
+// event_type='break') bir öğretim haftası numarası tüketmez, sadece takvimde ekstra gün
+// kaplar (bkz. app/src/lib/routeParsing.ts açıklaması). Yani "9. hafta" her zaman 9. öğretim
+// haftasıdır, tatil olsa da olmasa da atlanmaz — MEB'in yıllık plan belgesindeki kazanım
+// hafta numaralandırmasıyla (outcome_weeks) tutarlı kalması için.
 // Bir ünitede duration_hours eksikse hesaplama hiç yapılmaz (bkz. plan: bunu sessizce
 // atlamak, o ünitenin eski haftalarıyla sonraki ünitelerin çakışmasına yol açardı).
 export async function recalculateUnitWeeks(
@@ -49,34 +52,15 @@ export async function recalculateUnitWeeks(
     };
   }
 
-  const { data: breakRows } = await supabase
-    .from('special_week_events')
-    .select('curriculum_week')
-    .eq('event_type', 'break')
-    .eq('is_active', true)
-    .or(`grade_id.is.null,grade_id.eq.${gradeId}`)
-    .or(`lesson_id.is.null,lesson_id.eq.${lessonId}`);
-
-  const breakWeeks = new Set(((breakRows as BreakRow[] | null) || []).map((r) => r.curriculum_week));
-
   const updated: { id: number; start_week: number; end_week: number }[] = [];
   let cursor = 1;
 
   for (const unit of units) {
     const needed = Math.ceil((unit.duration_hours as number) / weeklyHours);
 
-    while (breakWeeks.has(cursor)) cursor++;
     const startWeek = cursor;
-
-    let assigned = 0;
-    let endWeek = startWeek;
-    while (assigned < needed) {
-      if (!breakWeeks.has(cursor)) {
-        assigned++;
-        endWeek = cursor;
-      }
-      cursor++;
-    }
+    const endWeek = startWeek + needed - 1;
+    cursor = endWeek + 1;
 
     updated.push({ id: unit.id, start_week: startWeek, end_week: endWeek });
   }

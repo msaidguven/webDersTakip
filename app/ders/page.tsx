@@ -2,7 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
-import { getCurriculumTermStartDate } from '@/app/src/lib/curriculumCalendar';
+import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import DersClient from './DersClient';
 
 export const dynamic = 'force-dynamic';
@@ -74,7 +74,7 @@ type TopicRow = { id: number; title: string; slug: string; order_no: number };
 async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
   const isAdmin = await isViewerAdmin(supabase);
-  const termStartDate = await getCurriculumTermStartDate(supabase);
+  const { termStartDate, breaks } = await getCurriculumCalendar(supabase);
 
   const gId = parseInt(sinifId);
   
@@ -108,8 +108,9 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
       unitSlug: null,
       topicTitle: null,
       topicSlug: null,
-      week: requestedWeek ?? getCurrentCurriculumWeek(38, termStartDate),
+      week: requestedWeek ?? getCurrentCurriculumWeek(38, termStartDate, breaks),
       termStartDate,
+      breaks,
     };
   }
 
@@ -148,7 +149,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
-  const week = requestedWeek ?? getCurrentCurriculumWeek(totalWeeks, termStartDate);
+  const week = requestedWeek ?? getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
 
   const activeUnit =
     units.find((u) => {
@@ -302,6 +303,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
     topicSlug: activeTopic?.slug || null,
     week,
     termStartDate,
+    breaks,
   };
 }
 

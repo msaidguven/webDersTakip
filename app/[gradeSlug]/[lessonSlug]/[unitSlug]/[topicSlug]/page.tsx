@@ -8,7 +8,7 @@ import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
-import { getCurriculumTermStartDate } from '@/app/src/lib/curriculumCalendar';
+import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
 
@@ -200,8 +200,8 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
   const unitStart = activeUnit.start_week ?? 1;
   const unitEnd = activeUnit.end_week ?? totalWeeks;
-  const termStartDate = await getCurriculumTermStartDate(supabase);
-  const suggestedWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate);
+  const { termStartDate, breaks } = await getCurriculumCalendar(supabase);
+  const suggestedWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
   const week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
 
   // Konu içeriğini (alt başlıklar, ders notu, kazanımlar) SUNUCU tarafında çekiyoruz
@@ -227,6 +227,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     totalWeeks,
     week,
     termStartDate,
+    breaks,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
     unitSlug: activeUnit.slug,
