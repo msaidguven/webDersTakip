@@ -84,6 +84,7 @@ interface DersClientProps {
     contents: Content[];
     units?: Unit[];
     totalWeeks: number;
+    termStartDate?: string | null;
     gradeSlug: string | null;
     lessonSlug: string | null;
     unitSlug: string | null;
@@ -626,8 +627,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const unitEndWeek = activeUnit?.end_week || totalWeeks;
   const curriculumWeekRangeLabel = unitStartWeek === unitEndWeek ? `${unitStartWeek}. Hafta` : `${unitStartWeek}–${unitEndWeek}. Hafta`;
   const curriculumDateRangeLabel = useMemo(
-    () => formatWeekDateRangeLabel(unitStartWeek, unitEndWeek, totalWeeks),
-    [unitStartWeek, unitEndWeek, totalWeeks]
+    () => formatWeekDateRangeLabel(unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate),
+    [unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate]
   );
 
   // Sağ sidebar'daki "Ünite Özeti" kartı için: aktif ünitenin konuları + arka planda

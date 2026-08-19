@@ -6,6 +6,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { getCurriculumTermStartDate } from '@/app/src/lib/curriculumCalendar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -105,7 +106,7 @@ export default async function LegacyIcerikRedirectPage({ params, searchParams }:
     ? parseInt(rawHafta[0])
     : rawHafta
       ? parseInt(rawHafta)
-      : getCurrentCurriculumWeek(totalWeeks);
+      : getCurrentCurriculumWeek(totalWeeks, await getCurriculumTermStartDate(supabase));
 
   const activeUnit = units.find((u) => {
     const sw = u.start_week ?? 1;
