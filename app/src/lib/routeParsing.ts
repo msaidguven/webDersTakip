@@ -147,6 +147,47 @@ export function getCurriculumWeekFromDate(dateStr: string, totalWeeks: number = 
 }
 
 /**
+ * Kazanımlar modalinde gezinilen "takvim haftası" (okulun açılışından itibaren gerçek,
+ * atlamasız hafta sayısı — 1, 2, 3... tatil haftaları da dahil sayılır) hangi öğretim
+ * haftasına (outcome_weeks'teki hafta numarasına) denk geliyor bulur. Takvim haftası bir
+ * tatile denk geliyorsa null döner — modal o zaman kazanım yerine tatil bilgisini gösterir.
+ * Örnek: termStart'tan 9 takvim haftası sonrası tatilse, resolveTeachingWeek(9,...) → null,
+ * resolveTeachingWeek(10,...) → 9 (tatilden önceki son öğretim haftası hâlâ 9'du, tatil bir
+ * öğretim haftası numarası tüketmediği için 10. takvim haftası 9. öğretim haftasını gösterir).
+ */
+export function resolveTeachingWeek(calendarWeek: number, termStartDate?: string | null, breaks: CurriculumBreak[] = []): number | null {
+  const termStart = resolveTermStart(new Date(), termStartDate);
+  let cursor = termStart;
+  let teachingWeek = 0;
+  for (let cw = 1; cw <= calendarWeek; cw++) {
+    const inBreak = isWeekInBreak(cursor, breaks);
+    if (!inBreak) teachingWeek++;
+    if (cw === calendarWeek) return inBreak ? null : teachingWeek;
+    cursor = addDays(cursor, 7);
+  }
+  return null;
+}
+
+/**
+ * resolveTeachingWeek'in tersi: verilen bir öğretim haftasının (ör. outcome_weeks'teki 9)
+ * kaçıncı takvim haftasına denk geldiğini bulur. Kazanımlar modalinin "toplam hafta" sınırını
+ * (öğretim haftası sayısını takvim haftası sayısına çevirmek için) ve modal ilk açıldığında
+ * bugünün öğretim haftasını takvim haftasına çevirmek için kullanılır.
+ */
+export function teachingWeekToCalendarWeek(teachingWeek: number, termStartDate?: string | null, breaks: CurriculumBreak[] = []): number {
+  const termStart = resolveTermStart(new Date(), termStartDate);
+  let cursor = termStart;
+  let tw = 0;
+  let cw = 0;
+  while (tw < teachingWeek) {
+    cw++;
+    if (!isWeekInBreak(cursor, breaks)) tw++;
+    cursor = addDays(cursor, 7);
+  }
+  return cw;
+}
+
+/**
  * startWeek. haftanın Pazartesi'sinden endWeek. haftanın Cuma'sına kadar
  * olan tarih aralığını "13 Ekim – 24 Ekim" biçiminde okunabilir metne çevirir.
  */

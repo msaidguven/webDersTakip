@@ -48,7 +48,7 @@ import {
   type SectionModalSection,
   type EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
-import { formatWeekDateRangeLabel, getWeekDateRange, type CurriculumBreak } from '@/app/src/lib/routeParsing';
+import { formatWeekDateRangeLabel, getWeekDateRange, resolveTeachingWeek, teachingWeekToCalendarWeek, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
@@ -311,7 +311,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
-  const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
+  // kazanimlarWeek "takvim haftası"dır (week prop'u öğretim haftasıdır) — bkz. totalCalendarWeeks
+  // yorumu. Modal ilk kez bugünün öğretim haftasını (week) gösterecek şekilde açılsın diye
+  // takvim haftasına çevrilerek başlatılır.
+  const [kazanimlarWeek, setKazanimlarWeek] = useState(() => teachingWeekToCalendarWeek(week, initialData.termStartDate, initialData.breaks || []));
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [specialWeeks, setSpecialWeeks] = useState<SpecialWeekEvent[] | null>(null);
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
@@ -641,6 +644,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const totalTopics = contents.length;
   const totalWeeks = initialData.totalWeeks || 38;
 
+  // Kazanımlar modali "takvim haftası" (okulun açılışından itibaren gerçek, atlamasız hafta
+  // sayısı — tatil haftaları da dahil sayılır) üzerinden gezinir; sitenin geri kalanı
+  // (aktif ünite/konu seçimi, URL) öğretim haftası (outcome_weeks'teki hafta) üzerinden
+  // çalışmaya devam eder. totalCalendarWeeks, en son öğretim haftasının kaçıncı takvim
+  // haftasına denk geldiğini bularak modalin üst sınırını (gezinme oku, "Hafta X / Y") verir.
+  const totalCalendarWeeks = useMemo(
+    () => teachingWeekToCalendarWeek(totalWeeks, initialData.termStartDate, initialData.breaks || []),
+    [totalWeeks, initialData.termStartDate, initialData.breaks]
+  );
+
   const unitStartWeek = activeUnit?.start_week || 1;
   const unitEndWeek = activeUnit?.end_week || totalWeeks;
   const curriculumWeekRangeLabel = unitStartWeek === unitEndWeek ? `${unitStartWeek}. Hafta` : `${unitStartWeek}–${unitEndWeek}. Hafta`;
@@ -649,10 +662,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     [unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate, initialData.breaks]
   );
 
-  // Kazanımlar modalinde gösterilen haftanın (kazanimlarWeek) takvim tarih aralığı
+  // Kazanımlar modalinde gösterilen haftanın (kazanimlarWeek, takvim haftası) tarih
+  // aralığı — kazanimlarWeek zaten takvim haftası olduğu için breaks'e gerek yok, düz
+  // (termStart'tan +7'şer günlük) hesap yeterli.
   const kazanimlarWeekDateLabel = useMemo(
-    () => formatWeekDateRangeLabel(kazanimlarWeek, kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks || []),
-    [kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks]
+    () => formatWeekDateRangeLabel(kazanimlarWeek, kazanimlarWeek, totalCalendarWeeks, initialData.termStartDate),
+    [kazanimlarWeek, totalCalendarWeeks, initialData.termStartDate]
   );
 
   // Sağ sidebar'daki "Ünite Özeti" kartı için: aktif ünitenin konuları + arka planda
@@ -670,12 +685,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   }, [contents, topicQuestionCounts]);
 
   const openKazanimlarModal = () => {
-    setKazanimlarWeek(week);
+    setKazanimlarWeek(teachingWeekToCalendarWeek(week, initialData.termStartDate, initialData.breaks || []));
     setKazanimlarOpen(true);
   };
 
   const goToKazanimlarWeek = (targetWeek: number) => {
-    if (targetWeek < 1 || targetWeek > totalWeeks) return;
+    if (targetWeek < 1 || targetWeek > totalCalendarWeeks) return;
     setKazanimlarWeek(targetWeek);
   };
 
@@ -808,25 +823,36 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => window.clearTimeout(timeoutId);
   }, [isWeekDataLoading, gradeId, lessonId]);
 
+  // kazanimlarWeek bir takvim haftası; kazanımlar ise outcome_weeks'teki öğretim haftası
+  // numarasıyla saklı — önce takvim haftasının hangi öğretim haftasına denk geldiğini buluyoruz
+  // (tatile denk geliyorsa null: o hafta hiç kazanım yok, sadece tatil kartı gösterilir).
+  const kazanimlarTeachingWeek = useMemo(
+    () => resolveTeachingWeek(kazanimlarWeek, initialData.termStartDate, initialData.breaks || []),
+    [kazanimlarWeek, initialData.termStartDate, initialData.breaks]
+  );
+
   // Kazanımlar modalinde gösterilecek liste: tek seferde çekilen tüm kazanımlardan,
-  // seçili haftanın aralığına (start_week–end_week) düşenler — ağ isteği gerektirmez.
+  // seçili takvim haftasının denk geldiği öğretim haftasının aralığına (start_week–end_week)
+  // düşenler — ağ isteği gerektirmez.
   const kazanimlarForSelectedWeek = useMemo(() => {
     if (!allKazanimlar) return null;
+    if (kazanimlarTeachingWeek == null) return [];
     return allKazanimlar.filter(
-      (o) => o.startWeek != null && o.endWeek != null && kazanimlarWeek >= o.startWeek && kazanimlarWeek <= o.endWeek
+      (o) => o.startWeek != null && o.endWeek != null && kazanimlarTeachingWeek >= o.startWeek && kazanimlarTeachingWeek <= o.endWeek
     );
-  }, [allKazanimlar, kazanimlarWeek]);
+  }, [allKazanimlar, kazanimlarTeachingWeek]);
 
-  // Kazanımlar modalinde gösterilen haftayla (Pazartesi-Cuma) tarih aralığı çakışan özel
-  // haftaları (tatil/özel içerik/sosyal etkinlik) bulur — hepsi API'den gerçek tarihiyle geldiği
-  // için hafta numarasına değil, doğrudan tarih çakışmasına bakılır.
+  // Kazanımlar modalinde gösterilen takvim haftasıyla (Pazartesi-Cuma) tarih aralığı çakışan
+  // özel haftaları (tatil/özel içerik/sosyal etkinlik) bulur — hepsi API'den gerçek tarihiyle
+  // geldiği için hafta numarasına değil, doğrudan tarih çakışmasına bakılır. kazanimlarWeek
+  // zaten takvim haftası olduğu için breaks'e (dolayısıyla öğretim haftası kaymasına) gerek yok.
   const specialWeeksForSelectedWeek = useMemo(() => {
     if (!specialWeeks) return null;
-    const { start, end } = getWeekDateRange(kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks || []);
+    const { start, end } = getWeekDateRange(kazanimlarWeek, totalCalendarWeeks, initialData.termStartDate);
     const weekStartIso = start.toISOString().slice(0, 10);
     const weekEndIso = end.toISOString().slice(0, 10);
     return specialWeeks.filter((sw) => sw.startDate && sw.endDate && sw.startDate <= weekEndIso && sw.endDate >= weekStartIso);
-  }, [specialWeeks, kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks]);
+  }, [specialWeeks, kazanimlarWeek, totalCalendarWeeks, initialData.termStartDate]);
 
   const kazanimlarTouchStartX = useRef<number | null>(null);
   const handleKazanimlarTouchStart = (e: React.TouchEvent) => {
@@ -915,7 +941,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setActiveTopicId(pickInitialTopicId(initialData.contents, initialData.topicSlug));
     setIsWeekDataLoading(true);
     setManualUnitId(null);
-    setKazanimlarWeek(week);
+    setKazanimlarWeek(teachingWeekToCalendarWeek(week, initialData.termStartDate, initialData.breaks || []));
   }, [initialData, week]);
 
   // allKazanimlar tüm ders (gradeId+lessonId) için tek seferde çekildiği için sadece
@@ -2007,13 +2033,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="flex flex-col items-center leading-tight">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hafta {kazanimlarWeek} / {totalWeeks}</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hafta {kazanimlarWeek} / {totalCalendarWeeks}</span>
                 <span className="text-[10px] font-medium text-slate-400">{kazanimlarWeekDateLabel}</span>
               </span>
               <button
                 type="button"
                 onClick={() => goToKazanimlarWeek(kazanimlarWeek + 1)}
-                disabled={kazanimlarWeek >= totalWeeks}
+                disabled={kazanimlarWeek >= totalCalendarWeeks}
                 className="h-8 w-8 flex items-center justify-center rounded-full text-slate-500 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -2044,7 +2070,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               })}
               {kazanimlarForSelectedWeek === null ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Yükleniyor...</div>
-              ) : kazanimlarForSelectedWeek.length === 0 ? (
+              ) : kazanimlarForSelectedWeek.length === 0 && kazanimlarTeachingWeek != null ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Bu hafta için kazanım bulunamadı.</div>
               ) : (
                 kazanimlarForSelectedWeek.map((o, idx) => (
