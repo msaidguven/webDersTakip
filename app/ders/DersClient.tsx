@@ -48,7 +48,7 @@ import {
   type SectionModalSection,
   type EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
-import { formatWeekDateRangeLabel, getWeekDateRange, resolveTeachingWeek, teachingWeekToCalendarWeek, type CurriculumBreak } from '@/app/src/lib/routeParsing';
+import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
@@ -95,6 +95,7 @@ interface DersClientProps {
     units?: Unit[];
     totalWeeks: number;
     termStartDate?: string | null;
+    termEndDate?: string | null;
     breaks?: CurriculumBreak[];
     gradeSlug: string | null;
     lessonSlug: string | null;
@@ -644,15 +645,34 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const totalTopics = contents.length;
   const totalWeeks = initialData.totalWeeks || 38;
 
+  // Bu ders+sınıf için geçerli özel haftalardan (tatil/özel içerik/sosyal etkinlik — ör.
+  // "Sosyal Etkinlik Haftası" tüm derslere tek kayıtla uygulanıyor) en geç tarihlisinin
+  // hangi takvim haftasına denk geldiğini bulur. Bu ders kendi ünitelerini daha erken
+  // bitirse bile modal navigasyonu bu haftaya kadar açık kalmalı — aksi halde derse özel
+  // olmayan (grade_ids/lesson_id boş) genel bir özel hafta, içeriği erken biten bir dersin
+  // modalinde asla ulaşılamaz kalır.
+  const maxSpecialWeekCalendarWeek = useMemo(() => {
+    if (!specialWeeks?.length) return 0;
+    return specialWeeks.reduce((max, sw) => {
+      if (!sw.endDate) return max;
+      const cw = getCurriculumWeekFromDate(sw.endDate, 60, initialData.termStartDate);
+      return cw != null ? Math.max(max, cw) : max;
+    }, 0);
+  }, [specialWeeks, initialData.termStartDate]);
+
   // Kazanımlar modali "takvim haftası" (okulun açılışından itibaren gerçek, atlamasız hafta
   // sayısı — tatil haftaları da dahil sayılır) üzerinden gezinir; sitenin geri kalanı
   // (aktif ünite/konu seçimi, URL) öğretim haftası (outcome_weeks'teki hafta) üzerinden
-  // çalışmaya devam eder. totalCalendarWeeks, en son öğretim haftasının kaçıncı takvim
-  // haftasına denk geldiğini bularak modalin üst sınırını (gezinme oku, "Hafta X / Y") verir.
-  const totalCalendarWeeks = useMemo(
-    () => teachingWeekToCalendarWeek(totalWeeks, initialData.termStartDate, initialData.breaks || []),
-    [totalWeeks, initialData.termStartDate, initialData.breaks]
-  );
+  // çalışmaya devam eder. Admin /admin/takvim'de okul bitiş tarihini girdiyse modalin üst
+  // sınırı doğrudan başlangıç-bitiş arasındaki gerçek takvim haftası sayısından hesaplanır
+  // (en güvenilir kaynak); girilmemişse eskisi gibi ünitelerin/özel haftaların nereye kadar
+  // uzandığından dolaylı tahmin edilir.
+  const totalCalendarWeeks = useMemo(() => {
+    const fromTermDates = calendarWeeksBetween(initialData.termStartDate, initialData.termEndDate);
+    if (fromTermDates != null) return fromTermDates;
+    const unitBased = teachingWeekToCalendarWeek(totalWeeks, initialData.termStartDate, initialData.breaks || []);
+    return Math.max(unitBased, maxSpecialWeekCalendarWeek);
+  }, [totalWeeks, initialData.termStartDate, initialData.termEndDate, initialData.breaks, maxSpecialWeekCalendarWeek]);
 
   const unitStartWeek = activeUnit?.start_week || 1;
   const unitEndWeek = activeUnit?.end_week || totalWeeks;
@@ -853,6 +873,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const weekEndIso = end.toISOString().slice(0, 10);
     return specialWeeks.filter((sw) => sw.startDate && sw.endDate && sw.startDate <= weekEndIso && sw.endDate >= weekStartIso);
   }, [specialWeeks, kazanimlarWeek, totalCalendarWeeks, initialData.termStartDate]);
+
+  // Sadece adminlere: seçili takvim haftası tatil değil ama ne kazanım ne de özel hafta
+  // (tatil/özel içerik/sosyal etkinlik) bulunuyorsa — yıllık plan verisinde veya özel hafta
+  // girişlerinde bir eksiklik olabileceğine işaret eder.
+  const isAdminGapWeek =
+    isAdmin &&
+    kazanimlarTeachingWeek != null &&
+    kazanimlarForSelectedWeek != null &&
+    kazanimlarForSelectedWeek.length === 0 &&
+    specialWeeksForSelectedWeek != null &&
+    specialWeeksForSelectedWeek.length === 0;
 
   const kazanimlarTouchStartX = useRef<number | null>(null);
   const handleKazanimlarTouchStart = (e: React.TouchEvent) => {
@@ -2074,9 +2105,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
                 );
               })}
+              {isAdminGapWeek && (
+                <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2.5">
+                  <span className="text-lg leading-none shrink-0">⚠️</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold leading-relaxed">Bu hafta için içerik tanımlı değil</p>
+                    <p className="text-xs font-medium opacity-80 mt-0.5">
+                      Ne kazanım ne de özel hafta (tatil/içerik/etkinlik) bulundu — yıllık plan veya özel hafta
+                      girişlerinde bir eksiklik olabilir. Sadece adminler görür.
+                    </p>
+                  </div>
+                </div>
+              )}
               {kazanimlarForSelectedWeek === null ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Yükleniyor...</div>
-              ) : kazanimlarForSelectedWeek.length === 0 && kazanimlarTeachingWeek != null ? (
+              ) : kazanimlarForSelectedWeek.length === 0 && kazanimlarTeachingWeek != null && !isAdminGapWeek ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Bu hafta için kazanım bulunamadı.</div>
               ) : (
                 kazanimlarForSelectedWeek.map((o, idx) => (

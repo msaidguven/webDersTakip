@@ -188,6 +188,22 @@ export function teachingWeekToCalendarWeek(teachingWeek: number, termStartDate?:
 }
 
 /**
+ * termStartDate ile termEndDate (admin /admin/takvim'de ayarlanan "okul bitiş tarihi")
+ * arasında kaç takvim haftası olduğunu bulur. Kazanımlar modalinin gezinme sınırı bundan
+ * hesaplanır — ünitelerin/özel haftaların nereye kadar uzandığını dolaylı tahmin etmek
+ * yerine tek, doğrudan bir kaynak. Biri eksikse null döner; çağıran taraf o zaman eski
+ * (ünite bazlı) tahmine düşer.
+ */
+export function calendarWeeksBetween(termStartDate?: string | null, termEndDate?: string | null): number | null {
+  if (!termStartDate || !termEndDate) return null;
+  const start = new Date(`${termStartDate}T00:00:00`);
+  const end = new Date(`${termEndDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return null;
+  const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.floor(diffDays / 7) + 1;
+}
+
+/**
  * startWeek. haftanın Pazartesi'sinden endWeek. haftanın Cuma'sına kadar
  * olan tarih aralığını "13 Ekim – 24 Ekim" biçiminde okunabilir metne çevirir.
  */

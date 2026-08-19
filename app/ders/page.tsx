@@ -74,7 +74,7 @@ type TopicRow = { id: number; title: string; slug: string; order_no: number };
 async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
   const isAdmin = await isViewerAdmin(supabase);
-  const { termStartDate, breaks } = await getCurriculumCalendar(supabase);
+  const { termStartDate, termEndDate, breaks } = await getCurriculumCalendar(supabase);
 
   const gId = parseInt(sinifId);
   
@@ -110,6 +110,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
       topicSlug: null,
       week: requestedWeek ?? getCurrentCurriculumWeek(38, termStartDate, breaks),
       termStartDate,
+      termEndDate,
       breaks,
     };
   }
@@ -303,6 +304,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
     topicSlug: activeTopic?.slug || null,
     week,
     termStartDate,
+    termEndDate,
     breaks,
   };
 }

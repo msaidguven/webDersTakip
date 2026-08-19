@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { getCurrentCurriculumWeek, getWeekDateRange, getCurriculumWeekFromDate, type CurriculumBreak } from '@/app/src/lib/routeParsing';
+import { getCurrentCurriculumWeek, getWeekDateRange, getCurriculumWeekFromDate, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 
 type Option = { id: number; name: string };
 
@@ -75,9 +75,11 @@ function gradeLabel(gradeIds: number[] | null, grades: Option[]): string {
 }
 
 export default function CurriculumCalendarPanel() {
-  // ---- Eğitim-öğretim yılı başlangıcı ----
+  // ---- Eğitim-öğretim yılı başlangıcı/bitişi ----
   const [termStartDate, setTermStartDate] = useState<string | null>(null);
   const [termStartInput, setTermStartInput] = useState('');
+  const [termEndDate, setTermEndDate] = useState<string | null>(null);
+  const [termEndInput, setTermEndInput] = useState('');
   const [termUpdatedAt, setTermUpdatedAt] = useState<string | null>(null);
   const [loadingTerm, setLoadingTerm] = useState(true);
   const [savingTerm, setSavingTerm] = useState(false);
@@ -91,6 +93,8 @@ export default function CurriculumCalendarPanel() {
       if (res.ok) {
         setTermStartDate(data.termStartDate);
         setTermStartInput(data.termStartDate || '');
+        setTermEndDate(data.termEndDate);
+        setTermEndInput(data.termEndDate || '');
         setTermUpdatedAt(data.updatedAt);
       }
     } finally {
@@ -104,20 +108,24 @@ export default function CurriculumCalendarPanel() {
 
   async function saveTermStart() {
     if (!termStartInput) return;
+    if (termEndInput && termEndInput < termStartInput) {
+      setTermNotice({ kind: 'error', text: 'Bitiş tarihi başlangıçtan önce olamaz' });
+      return;
+    }
     setSavingTerm(true);
     setTermNotice(null);
     try {
       const res = await fetch('/api/admin/manage/calendar-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ termStartDate: termStartInput }),
+        body: JSON.stringify({ termStartDate: termStartInput, termEndDate: termEndInput || null }),
       });
       const data = await res.json();
       if (!res.ok) {
         setTermNotice({ kind: 'error', text: data.error || 'Kaydedilemedi' });
         return;
       }
-      setTermNotice({ kind: 'success', text: 'Başlangıç tarihi güncellendi' });
+      setTermNotice({ kind: 'success', text: 'Takvim güncellendi' });
       loadTermStart();
     } catch {
       setTermNotice({ kind: 'error', text: 'Kaydedilirken hata oluştu (ağ hatası)' });
@@ -186,6 +194,8 @@ export default function CurriculumCalendarPanel() {
     const { start, end } = getWeekDateRange(previewWeek, 52, termStartInput, breaks);
     return `${fmtDay(start)} – ${fmtDay(end)}`;
   }, [termStartInput, previewWeek, breaks]);
+
+  const totalCalendarWeeksPreview = useMemo(() => calendarWeeksBetween(termStartInput, termEndInput), [termStartInput, termEndInput]);
 
   const computeWeekForDate = useCallback(
     (dateStr: string) => getCurriculumWeekFromDate(dateStr, 52, termStartDate, breaks),
@@ -327,9 +337,11 @@ export default function CurriculumCalendarPanel() {
             🗓️
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-white">Eğitim-Öğretim Yılı Başlangıcı</h2>
+            <h2 className="text-base sm:text-lg font-bold text-white">Eğitim-Öğretim Yılı Başlangıcı / Bitişi</h2>
             <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
-              1. haftanın Pazartesi tarihi. Sitedeki tüm &quot;kaçıncı hafta&quot; hesapları — aşağıdaki tatiller de dahil edilerek — buna göre yapılır.
+              1. haftanın Pazartesi tarihi ve okulun bittiği tarih. Sitedeki tüm &quot;kaçıncı hafta&quot; hesapları
+              — aşağıdaki tatiller de dahil edilerek — buna göre yapılır; bitiş tarihi Kazanımlar modalinin
+              gezinme sınırını belirler.
             </p>
           </div>
         </div>
@@ -337,8 +349,8 @@ export default function CurriculumCalendarPanel() {
         {loadingTerm ? (
           <p className="text-gray-500 text-sm">Yükleniyor...</p>
         ) : (
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
-            <div className="flex-1 max-w-xs">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4 flex-wrap">
+            <div className="flex-1 min-w-[140px] max-w-xs">
               <label className="block text-xs font-medium text-gray-400 mb-1.5">1. Hafta Başlangıcı</label>
               <input
                 type="date"
@@ -348,16 +360,27 @@ export default function CurriculumCalendarPanel() {
               />
             </div>
 
+            <div className="flex-1 min-w-[140px] max-w-xs">
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Okul Bitiş Tarihi</label>
+              <input
+                type="date"
+                value={termEndInput}
+                onChange={(e) => setTermEndInput(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+              />
+            </div>
+
             {previewWeek && previewRange && (
               <div className="px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm">
                 <span className="text-indigo-300 font-semibold">Bugün {previewWeek}. hafta</span>
                 <span className="text-indigo-300/60"> · {previewRange}</span>
+                {totalCalendarWeeksPreview && <span className="text-indigo-300/60"> · toplam {totalCalendarWeeksPreview} hafta</span>}
               </div>
             )}
 
             <button
               onClick={saveTermStart}
-              disabled={savingTerm || !termStartInput || termStartInput === termStartDate}
+              disabled={savingTerm || !termStartInput || (termStartInput === termStartDate && termEndInput === (termEndDate || ''))}
               className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-medium text-sm transition-all shrink-0"
             >
               {savingTerm ? 'Kaydediliyor...' : 'Kaydet'}

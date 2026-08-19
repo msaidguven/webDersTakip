@@ -200,7 +200,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
   const unitStart = activeUnit.start_week ?? 1;
   const unitEnd = activeUnit.end_week ?? totalWeeks;
-  const { termStartDate, breaks } = await getCurriculumCalendar(supabase);
+  const { termStartDate, termEndDate, breaks } = await getCurriculumCalendar(supabase);
   const suggestedWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
   const week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
 
@@ -227,6 +227,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     totalWeeks,
     week,
     termStartDate,
+    termEndDate,
     breaks,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
