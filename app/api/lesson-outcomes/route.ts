@@ -4,7 +4,7 @@ import { withPreviewCodes } from '@/app/src/lib/outcomeCodes';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 
 type UnitRow = { id: number };
-type TopicRow = { id: number; title: string };
+type TopicRow = { id: number; title: string; order_no: number };
 type OutcomeRow = { id: number; description: string; topic_id: number; order_index: number | null; code: string | null };
 type OutcomeWeekRow = { outcome_id: number; start_week: number; end_week: number };
 
@@ -40,14 +40,14 @@ export async function GET(request: Request) {
 
   let topicsQuery = supabase
     .from('topics')
-    .select('id, title')
-    .in('unit_id', unitIds);
+    .select('id, title, order_no')
+    .in('unit_id', unitIds)
+    .order('order_no', { ascending: true });
   if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
   const { data: topicsData } = await topicsQuery;
 
   const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);
-  const topicTitleById = new Map(topics.map((t) => [t.id, t.title]));
   if (!topicIds.length) {
     return NextResponse.json({ outcomes: [] });
   }
@@ -81,18 +81,25 @@ export async function GET(request: Request) {
     rowsByTopic.set(o.topic_id, list);
   }
 
-  const outcomes = Array.from(rowsByTopic.entries()).flatMap(([topicId, rows]) =>
-    withPreviewCodes(rows).map((o) => ({
+  // Kazanımlar modali konuları müfredat sırasına (topics.order_no) göre gruplu gösterir;
+  // rowsByTopic'i order_index'in (her konuda 1'den başlayan) global sıralamada bıraktığı
+  // ilk-görülme sırasıyla dolaşmak konuları rastgele karıştırıyordu (ör. hafta 6-7'nin
+  // konusu hafta 4-6'nınkinden önce görünüyordu) — bunun yerine topics dizisini (zaten
+  // order_no'ya göre sıralı) baz alıyoruz.
+  const outcomes = topics.flatMap((topic) => {
+    const rows = rowsByTopic.get(topic.id);
+    if (!rows) return [];
+    return withPreviewCodes(rows).map((o) => ({
       id: o.id,
       description: o.description,
-      topicId,
-      topicTitle: topicTitleById.get(topicId) || '',
+      topicId: topic.id,
+      topicTitle: topic.title,
       startWeek: o.startWeek,
       endWeek: weekByOutcomeId.get(o.id)?.endWeek ?? null,
       code: o.code,
       previewCode: o.previewCode,
-    }))
-  );
+    }));
+  });
 
   return NextResponse.json({ outcomes });
 }
