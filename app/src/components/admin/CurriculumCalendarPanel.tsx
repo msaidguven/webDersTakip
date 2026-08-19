@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { getCurrentCurriculumWeek, getWeekDateRange, type CurriculumBreak } from '@/app/src/lib/routeParsing';
+import { getCurrentCurriculumWeek, getWeekDateRange, getCurriculumWeekFromDate, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 
 type Option = { id: number; name: string };
 
@@ -26,7 +26,6 @@ type SpecialWeek = {
 
 type FormState = {
   id: number | null;
-  curriculumWeek: string;
   startDate: string;
   endDate: string;
   eventType: EventType;
@@ -47,7 +46,6 @@ const EVENT_TYPE_META: Record<EventType, { label: string; icon: string; badge: s
 
 const EMPTY_FORM: FormState = {
   id: null,
-  curriculumWeek: '',
   startDate: '',
   endDate: '',
   eventType: 'break',
@@ -189,12 +187,8 @@ export default function CurriculumCalendarPanel() {
     return `${fmtDay(start)} – ${fmtDay(end)}`;
   }, [termStartInput, previewWeek, breaks]);
 
-  const weekDateHint = useCallback(
-    (week: number) => {
-      if (!termStartDate) return null;
-      const { start, end } = getWeekDateRange(week, 52, termStartDate, breaks);
-      return `${fmtDay(start)} – ${fmtDay(end)}`;
-    },
+  const computeWeekForDate = useCallback(
+    (dateStr: string) => getCurriculumWeekFromDate(dateStr, 52, termStartDate, breaks),
     [termStartDate, breaks]
   );
 
@@ -210,7 +204,6 @@ export default function CurriculumCalendarPanel() {
   function openEdit(item: SpecialWeek) {
     setForm({
       id: item.id,
-      curriculumWeek: item.curriculumWeek != null ? String(item.curriculumWeek) : '',
       startDate: item.startDate || '',
       endDate: item.endDate || '',
       eventType: item.eventType,
@@ -228,9 +221,8 @@ export default function CurriculumCalendarPanel() {
     return {
       id: f.id ?? undefined,
       eventType: f.eventType,
-      curriculumWeek: f.eventType === 'break' ? null : Number(f.curriculumWeek),
-      startDate: f.eventType === 'break' ? f.startDate : null,
-      endDate: f.eventType === 'break' ? f.endDate : null,
+      startDate: f.startDate,
+      endDate: f.endDate || f.startDate,
       title: f.title.trim(),
       subtitle: f.subtitle.trim() || null,
       contentHtml: f.contentHtml.trim() || null,
@@ -247,21 +239,13 @@ export default function CurriculumCalendarPanel() {
       showNotice('error', 'Başlık zorunlu');
       return;
     }
-    if (form.eventType === 'break') {
-      if (!form.startDate || !form.endDate) {
-        showNotice('error', 'Tatil için başlangıç ve bitiş tarihi zorunlu');
-        return;
-      }
-      if (form.endDate < form.startDate) {
-        showNotice('error', 'Bitiş tarihi başlangıçtan önce olamaz');
-        return;
-      }
-    } else {
-      const week = Number(form.curriculumWeek);
-      if (!Number.isFinite(week) || week < 1 || week > 52) {
-        showNotice('error', 'Hafta 1-52 arasında olmalı');
-        return;
-      }
+    if (!form.startDate) {
+      showNotice('error', 'Başlangıç tarihi zorunlu');
+      return;
+    }
+    if (form.endDate && form.endDate < form.startDate) {
+      showNotice('error', 'Bitiş tarihi başlangıçtan önce olamaz');
+      return;
     }
 
     setSaving(true);
@@ -293,7 +277,6 @@ export default function CurriculumCalendarPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: item.id,
-          curriculumWeek: item.curriculumWeek,
           eventType: item.eventType,
           startDate: item.startDate,
           endDate: item.endDate,
@@ -450,14 +433,11 @@ export default function CurriculumCalendarPanel() {
             {visibleItems.map((item) => {
               const meta = EVENT_TYPE_META[item.eventType];
               const isBreak = item.eventType === 'break';
-              const dateLabel = isBreak
-                ? item.startDate && item.endDate
+              const dateLabel =
+                item.startDate && item.endDate
                   ? item.startDate === item.endDate
                     ? fmtDateInput(item.startDate)
                     : `${fmtDateInput(item.startDate)} – ${fmtDateInput(item.endDate)}`
-                  : null
-                : item.curriculumWeek != null
-                  ? weekDateHint(item.curriculumWeek)
                   : null;
               return (
                 <div
@@ -538,7 +518,7 @@ export default function CurriculumCalendarPanel() {
           grades={grades}
           lessons={lessons}
           saving={saving}
-          weekDateHint={weekDateHint}
+          computeWeekForDate={computeWeekForDate}
           onCancel={() => setForm(null)}
           onSubmit={submitForm}
         />
@@ -601,7 +581,7 @@ function FormModal({
   grades,
   lessons,
   saving,
-  weekDateHint,
+  computeWeekForDate,
   onCancel,
   onSubmit,
 }: {
@@ -610,13 +590,12 @@ function FormModal({
   grades: Option[];
   lessons: Option[];
   saving: boolean;
-  weekDateHint: (week: number) => string | null;
+  computeWeekForDate: (dateStr: string) => number | null;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
   const isBreak = form.eventType === 'break';
-  const week = Number(form.curriculumWeek);
-  const dateHint = !isBreak && Number.isFinite(week) && week >= 1 && week <= 52 ? weekDateHint(week) : null;
+  const dateHint = !isBreak && form.startDate ? computeWeekForDate(form.startDate) : null;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -643,44 +622,37 @@ function FormModal({
             </select>
           </div>
 
-          {isBreak ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlangıç Tarihi</label>
-                <input
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => update('startDate', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1.5">Bitiş Tarihi</label>
-                <input
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => update('endDate', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
-                />
-              </div>
-              <p className="col-span-2 text-gray-500 text-xs">
-                Öğretim haftaları bu tarih aralığını atlamaz, sadece sonraki haftaların takvim tarihi bu kadar ileri kayar.
-              </p>
-            </div>
-          ) : (
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Hafta No (1-52)</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlangıç Tarihi</label>
               <input
-                type="number"
-                min={1}
-                max={52}
-                value={form.curriculumWeek}
-                onChange={(e) => update('curriculumWeek', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                placeholder="ör. 12"
+                type="date"
+                value={form.startDate}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setForm((prev) => (prev ? { ...prev, startDate: value, endDate: prev.endDate || value } : prev));
+                }}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
               />
-              {dateHint && <p className="text-gray-500 text-xs mt-1">{dateHint}</p>}
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Bitiş Tarihi {isBreak ? '' : '(opsiyonel)'}</label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => update('endDate', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+              />
+            </div>
+          </div>
+          {isBreak ? (
+            <p className="text-gray-500 text-xs -mt-2">
+              Öğretim haftaları bu tarih aralığını atlamaz, sadece sonraki haftaların takvim tarihi bu kadar ileri kayar.
+            </p>
+          ) : (
+            <p className="text-gray-500 text-xs -mt-2">
+              {dateHint ? <>→ Bu tarih <span className="text-indigo-300 font-semibold">{dateHint}. haftaya</span> denk geliyor.</> : 'Başlangıç tarihini girin, hangi öğretim haftasına denk geldiği otomatik hesaplanacak.'}
+            </p>
           )}
 
           <div>

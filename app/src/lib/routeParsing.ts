@@ -123,6 +123,30 @@ export function getWeekDateRange(week: number, totalWeeks: number = 38, termStar
 }
 
 /**
+ * Verilen bir takvim tarihinin (YYYY-MM-DD) kaçıncı öğretim haftasına denk geldiğini bulur —
+ * getCurrentCurriculumWeek'in tersi. Admin panelinde özel hafta (tatil dışı) girerken hafta
+ * numarasını ezbere hesaplamak yerine doğrudan tarih girilebilsin diye kullanılır. Tarih bir
+ * tatile denk geliyorsa veya dönem başlamadan önceyse null döner (o tarihin bir öğretim
+ * haftası yoktur).
+ */
+export function getCurriculumWeekFromDate(dateStr: string, totalWeeks: number = 52, termStartDate?: string | null, breaks: CurriculumBreak[] = []): number | null {
+  const target = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+
+  const termStart = resolveTermStart(target, termStartDate);
+  const clampedTotal = Math.max(1, totalWeeks);
+
+  let weekNum = 0;
+  for (const start of teachingWeekStarts(termStart, breaks)) {
+    weekNum++;
+    if (weekNum > clampedTotal) return null;
+    if (target < start) return null;
+    if (target < addDays(start, 7)) return weekNum;
+  }
+  return null;
+}
+
+/**
  * startWeek. haftanın Pazartesi'sinden endWeek. haftanın Cuma'sına kadar
  * olan tarih aralığını "13 Ekim – 24 Ekim" biçiminde okunabilir metne çevirir.
  */

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
+import { getCurriculumWeekFromDate } from '@/app/src/lib/routeParsing';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const EVENT_TYPES = ['break', 'special_content', 'social_activity'] as const;
 type EventType = (typeof EVENT_TYPES)[number];
@@ -50,11 +53,13 @@ export async function GET() {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// 'break' (tatil): gerçek takvim tarih aralığı zorunlu, hafta no'suna gerek yok — o
-// dönemde zaten hiçbir öğretim haftası/kazanım yok (bkz. routeParsing.ts açıklaması).
-// 'special_content'/'social_activity': gerçek bir öğretim haftasını işaretlediği için
-// hafta no zorunlu, tarih aralığı kullanılmaz.
-function parseEventPayload(body: Record<string, unknown> | null) {
+// Tüm türler artık gerçek takvim tarihiyle giriliyor — admin hafta numarasını ezbere
+// hesaplamak zorunda kalmasın diye (bkz. routeParsing.ts:getCurriculumWeekFromDate).
+// 'break' (tatil): sadece tarih aralığı saklanır, curriculum_week hep null kalır — o
+// dönemde zaten hiçbir öğretim haftası yok. 'special_content'/'social_activity': girilen
+// başlangıç tarihinden hangi öğretim haftasına denk geldiği burada, sunucu tarafında
+// hesaplanıp curriculum_week'e yazılır (tek doğru kaynak sunucu olsun diye).
+async function parseEventPayload(body: Record<string, unknown> | null, supabase: SupabaseClient) {
   if (!body) return { error: 'Geçersiz istek' as const };
 
   if (!isEventType(body.eventType)) {
@@ -80,23 +85,21 @@ function parseEventPayload(body: Record<string, unknown> | null) {
   const isActive = typeof body.isActive === 'boolean' ? body.isActive : true;
   const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 0;
 
-  let curriculumWeek: number | null = null;
-  let startDate: string | null = null;
-  let endDate: string | null = null;
+  const startDate = typeof body.startDate === 'string' ? body.startDate : '';
+  const endDate = typeof body.endDate === 'string' && body.endDate ? body.endDate : startDate;
+  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
+    return { error: 'Başlangıç (ve varsa bitiş) tarihi (YYYY-MM-DD) zorunlu' as const };
+  }
+  if (endDate < startDate) {
+    return { error: 'Bitiş tarihi başlangıçtan önce olamaz' as const };
+  }
 
-  if (body.eventType === 'break') {
-    startDate = typeof body.startDate === 'string' ? body.startDate : '';
-    endDate = typeof body.endDate === 'string' ? body.endDate : '';
-    if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
-      return { error: 'Tatil için başlangıç ve bitiş tarihi (YYYY-MM-DD) zorunlu' as const };
-    }
-    if (endDate < startDate) {
-      return { error: 'Bitiş tarihi başlangıçtan önce olamaz' as const };
-    }
-  } else {
-    curriculumWeek = Number(body.curriculumWeek);
-    if (!Number.isFinite(curriculumWeek) || curriculumWeek < 1 || curriculumWeek > 52) {
-      return { error: 'Hafta 1-52 arasında olmalı' as const };
+  let curriculumWeek: number | null = null;
+  if (body.eventType !== 'break') {
+    const { termStartDate, breaks } = await getCurriculumCalendar(supabase);
+    curriculumWeek = getCurriculumWeekFromDate(startDate, 52, termStartDate, breaks);
+    if (curriculumWeek == null) {
+      return { error: 'Bu tarih için öğretim haftası hesaplanamadı — bir tatile denk geliyor olabilir ya da dönem henüz başlamamış' as const };
     }
   }
 
@@ -122,10 +125,10 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const parsed = parseEventPayload(body);
+  const supabase = createServiceClient();
+  const parsed = await parseEventPayload(body, supabase);
   if ('error' in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('special_week_events')
     .insert({ ...parsed.value, created_by: admin.user.id })
@@ -144,10 +147,10 @@ export async function PATCH(request: NextRequest) {
   const id = Number(body?.id);
   if (!Number.isFinite(id)) return NextResponse.json({ error: 'Geçersiz id' }, { status: 400 });
 
-  const parsed = parseEventPayload(body);
+  const supabase = createServiceClient();
+  const parsed = await parseEventPayload(body, supabase);
   if ('error' in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const supabase = createServiceClient();
   const { error } = await supabase
     .from('special_week_events')
     .update({ ...parsed.value, updated_at: new Date().toISOString() })

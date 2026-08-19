@@ -48,7 +48,7 @@ import {
   type SectionModalSection,
   type EditableSection,
 } from '@/app/src/components/admin/AdminTopicSectionsPanel';
-import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
+import { formatWeekDateRangeLabel, getWeekDateRange, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 
@@ -58,6 +58,16 @@ type WeekedOutcome = Outcome & {
   endWeek: number | null;
   code: string | null;
   previewCode: string;
+};
+type SpecialWeekEvent = {
+  id: number;
+  eventType: 'break' | 'special_content' | 'social_activity';
+  title: string;
+  subtitle: string | null;
+  contentHtml: string | null;
+  curriculumWeek: number | null;
+  startDate: string | null;
+  endDate: string | null;
 };
 type TopicSection = { id: string | number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt?: string | null; diagramSvg?: string | null };
 type TopicHighlight = { icon: string | null; title: string; description: string };
@@ -174,6 +184,12 @@ const KAZANIMLAR_CACHE_TTL_MS = 10 * 24 * 60 * 60 * 1000; // 10 gün
 function kazanimlarCacheKey(gradeId: string, lessonId: string) {
   return `ders-kazanimlar-all:${gradeId}:${lessonId}`;
 }
+
+const SPECIAL_WEEK_META: Record<SpecialWeekEvent['eventType'], { icon: string; card: string }> = {
+  break: { icon: '🏖️', card: 'bg-amber-50 border-amber-200 text-amber-800' },
+  special_content: { icon: '✨', card: 'bg-indigo-50 border-indigo-200 text-indigo-800' },
+  social_activity: { icon: '🎉', card: 'bg-violet-50 border-violet-200 text-violet-800' },
+};
 
 const STUDY_TIPS = [
   'Bir konuyu okuduktan sonra kendi cümlelerinle özetlemek, kalıcılığı artırır.',
@@ -297,6 +313,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
+  const [specialWeeks, setSpecialWeeks] = useState<SpecialWeekEvent[] | null>(null);
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
@@ -708,6 +725,43 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     ensureAllKazanimlarLoaded();
   }, [kazanimlarOpen, ensureAllKazanimlarLoaded]);
 
+  // Kazanımlar modali açıldığında, bu sınıf+ders için geçerli özel haftaları (tatil/özel
+  // içerik/sosyal etkinlik) da tek seferde çeker — modal her hafta için ayrıca istek atmaz,
+  // liste zaten tarihiyle geldiği için haftaya göre kendi içinde filtrelenir.
+  const inFlightSpecialWeeksFetchRef = useRef<Promise<SpecialWeekEvent[]> | null>(null);
+  const ensureSpecialWeeksLoaded = useCallback((): Promise<SpecialWeekEvent[]> => {
+    if (specialWeeks) return Promise.resolve(specialWeeks);
+    if (inFlightSpecialWeeksFetchRef.current) return inFlightSpecialWeeksFetchRef.current;
+
+    const fetchPromise = (async (): Promise<SpecialWeekEvent[]> => {
+      try {
+        const params = new URLSearchParams({ gradeId, lessonId });
+        const response = await fetch(`/api/curriculum-special-weeks?${params.toString()}`);
+        const data = response.ok ? await response.json() as { items?: SpecialWeekEvent[] } : null;
+        const items = data?.items || [];
+        setSpecialWeeks(items);
+        return items;
+      } catch {
+        setSpecialWeeks([]);
+        return [];
+      } finally {
+        inFlightSpecialWeeksFetchRef.current = null;
+      }
+    })();
+
+    inFlightSpecialWeeksFetchRef.current = fetchPromise;
+    return fetchPromise;
+  }, [specialWeeks, gradeId, lessonId]);
+
+  useEffect(() => {
+    if (!kazanimlarOpen) return;
+    ensureSpecialWeeksLoaded();
+  }, [kazanimlarOpen, ensureSpecialWeeksLoaded]);
+
+  useEffect(() => {
+    setSpecialWeeks(null);
+  }, [gradeId, lessonId]);
+
   // Sayfa açıldıktan 5 saniye sonra (kullanıcı "Kazanımlar"a hiç tıklamamış olsa bile),
   // bu dersin tüm haftalarına ait kazanımlarını arkaplanda sessizce ısıtır — böylece butona
   // tıklanıp herhangi bir haftaya geçildiğinde hep anında açılır. 5sn gecikme, ilk sayfa
@@ -762,6 +816,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       (o) => o.startWeek != null && o.endWeek != null && kazanimlarWeek >= o.startWeek && kazanimlarWeek <= o.endWeek
     );
   }, [allKazanimlar, kazanimlarWeek]);
+
+  // Kazanımlar modalinde gösterilen haftayla (Pazartesi-Cuma) tarih aralığı çakışan özel
+  // haftaları (tatil/özel içerik/sosyal etkinlik) bulur — hepsi API'den gerçek tarihiyle geldiği
+  // için hafta numarasına değil, doğrudan tarih çakışmasına bakılır.
+  const specialWeeksForSelectedWeek = useMemo(() => {
+    if (!specialWeeks) return null;
+    const { start, end } = getWeekDateRange(kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks || []);
+    const weekStartIso = start.toISOString().slice(0, 10);
+    const weekEndIso = end.toISOString().slice(0, 10);
+    return specialWeeks.filter((sw) => sw.startDate && sw.endDate && sw.startDate <= weekEndIso && sw.endDate >= weekStartIso);
+  }, [specialWeeks, kazanimlarWeek, totalWeeks, initialData.termStartDate, initialData.breaks]);
 
   const kazanimlarTouchStartX = useRef<number | null>(null);
   const handleKazanimlarTouchStart = (e: React.TouchEvent) => {
@@ -1956,6 +2021,27 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             </div>
 
             <div className="h-[60vh] overflow-y-auto p-4 space-y-2">
+              {specialWeeksForSelectedWeek?.map((sw) => {
+                const meta = SPECIAL_WEEK_META[sw.eventType];
+                const dateLabel =
+                  sw.startDate && sw.endDate
+                    ? sw.startDate === sw.endDate
+                      ? new Date(`${sw.startDate}T00:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+                      : `${new Date(`${sw.startDate}T00:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} – ${new Date(`${sw.endDate}T00:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}`
+                    : null;
+                return (
+                  <div key={sw.id} className={`p-3 rounded-xl border flex items-start gap-2.5 ${meta.card}`}>
+                    <span className="text-lg leading-none shrink-0">{meta.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold leading-relaxed">{sw.title}</p>
+                        {dateLabel && <span className="text-[11px] font-semibold opacity-70 shrink-0">{dateLabel}</span>}
+                      </div>
+                      {sw.subtitle && <p className="text-xs font-medium opacity-80 mt-0.5">{sw.subtitle}</p>}
+                    </div>
+                  </div>
+                );
+              })}
               {kazanimlarForSelectedWeek === null ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Yükleniyor...</div>
               ) : kazanimlarForSelectedWeek.length === 0 ? (
