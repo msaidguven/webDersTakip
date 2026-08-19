@@ -306,7 +306,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
-  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string } | null>(null);
+  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
@@ -1023,6 +1023,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       >
                         <Sparkles className="h-3.5 w-3.5" /> Anahtar Kavramları Güncelle
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setTopicQuestionsModalTopic({ id: Number(topic.id), title: topic.title, variant: 'general' });
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <ListChecks className="h-3.5 w-3.5" /> Genel Sorular (Diğer AI)
+                      </button>
                     </div>
                   </>
                 )}
@@ -1426,7 +1436,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           {isAdmin && (
                             <button
                               type="button"
-                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title })}
+                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'notebooklm' })}
                               title="Konunun geneline ait, ünite testinde kullanılacak sentez soruları üret"
                               className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
                             >
@@ -1901,6 +1911,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <TopicQuestionsModal
           topicId={topicQuestionsModalTopic.id}
           topicTitle={topicQuestionsModalTopic.title}
+          variant={topicQuestionsModalTopic.variant}
           onClose={() => setTopicQuestionsModalTopic(null)}
         />
       )}

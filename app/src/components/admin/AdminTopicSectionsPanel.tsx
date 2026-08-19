@@ -2489,17 +2489,20 @@ export function TopicHighlightsModal({
 export function TopicQuestionsModal({
   topicId,
   topicTitle,
+  variant = 'notebooklm',
   onClose,
 }: {
   topicId: number;
   topicTitle: string;
+  variant?: 'general' | 'notebooklm';
   onClose: () => void;
 }) {
+  const isNotebook = variant === 'notebooklm';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
   const [pasted, setPasted] = useState('');
-  const [aiModel, setAiModel] = useState('NotebookLM');
+  const [aiModel, setAiModel] = useState(isNotebook ? 'NotebookLM' : '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
@@ -2508,8 +2511,9 @@ export function TopicQuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
+    const promptType = isNotebook ? 'topic_questions' : 'topic_questions_mixed';
     (async () => {
-      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=topic_questions`);
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=${promptType}`);
       const data = await res.json().catch(() => null);
       if (!cancelled) {
         if (res.ok) {
@@ -2521,7 +2525,7 @@ export function TopicQuestionsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId]);
+  }, [topicId, isNotebook]);
 
   useEffect(() => {
     if (!pasted.trim()) return;
@@ -2572,10 +2576,12 @@ export function TopicQuestionsModal({
   }
 
   return (
-    <ModalShell title={`Genel Sorular (Ünite Testi) — ${topicTitle}`} onClose={onClose}>
+    <ModalShell title={`Genel Sorular (Ünite Testi)${isNotebook ? '' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-[#8b90a7]">
-          Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.
+          {isNotebook
+            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : 'Bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI\'a sorun — konunun tüm alt başlıklarının ders notu prompt içine gömülür. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
         </p>
 
         {promptError ? (
@@ -2598,15 +2604,24 @@ export function TopicQuestionsModal({
         <div>
           <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
-            list="ai-model-options-topic-questions"
+            list={isNotebook ? 'ai-model-options-topic-questions-notebook' : 'ai-model-options-topic-questions'}
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
-            placeholder="ör. NotebookLM"
+            placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
             className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
           />
-          <datalist id="ai-model-options-topic-questions">
-            <option value="NotebookLM" />
-          </datalist>
+          {isNotebook ? (
+            <datalist id="ai-model-options-topic-questions-notebook">
+              <option value="NotebookLM" />
+            </datalist>
+          ) : (
+            <datalist id="ai-model-options-topic-questions">
+              <option value="Claude Sonnet 5" />
+              <option value="Claude Opus 5" />
+              <option value="GPT-5.1" />
+              <option value="Gemini 3 Pro" />
+            </datalist>
+          )}
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}

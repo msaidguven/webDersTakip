@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
     cover_image: '05-topic-cover-image.md',
     highlights: '07-topic-highlights.md',
     topic_questions: '11-topic-general-questions.md',
+    topic_questions_mixed: '12-topic-mixed-questions.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -128,7 +129,8 @@ export async function GET(request: NextRequest) {
 
     let topicContentText = '';
     let sectionHeadingsText = '';
-    if (type === 'highlights') {
+    let sectionRows: { heading: string; body_markdown: string | null }[] = [];
+    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed') {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
         const { data: sectionsData } = await supabase
@@ -136,28 +138,35 @@ export async function GET(request: NextRequest) {
           .select('heading, body_markdown, order_no')
           .eq('topic_content_id', (topicContent as { id: number }).id)
           .order('order_no', { ascending: true });
-        topicContentText = ((sectionsData as { heading: string; body_markdown: string | null }[] | null) || [])
-          .filter((s) => s.body_markdown?.trim())
-          .map((s) => `### ${s.heading}\n${s.body_markdown}`)
-          .join('\n\n');
+        sectionRows = (sectionsData as { heading: string; body_markdown: string | null }[] | null) || [];
       }
+    }
+
+    if (type === 'highlights') {
+      topicContentText = sectionRows
+        .filter((s) => s.body_markdown?.trim())
+        .map((s) => `### ${s.heading}\n${s.body_markdown}`)
+        .join('\n\n');
     }
 
     // NotebookLM zaten kaynak kitabı bildiği için topic_questions promptuna içerik
     // gömmüyoruz (uzunluk/karakter sınırı yüzünden) — sadece hangi alt başlıkları
-    // kapsaması gerektiğini kısa bir liste olarak veriyoruz.
-    if (type === 'topic_questions') {
-      const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
-      if (topicContent) {
-        const { data: sectionsData } = await supabase
-          .from('topic_content_sections')
-          .select('heading, order_no')
-          .eq('topic_content_id', (topicContent as { id: number }).id)
-          .order('order_no', { ascending: true });
-        sectionHeadingsText = ((sectionsData as { heading: string }[] | null) || []).map((s) => s.heading).join(', ');
-      }
+    // kapsaması gerektiğini kısa bir liste olarak veriyoruz. Diğer AI'lar (topic_questions_mixed)
+    // kitaba erişemediği için onlara alt başlıkların tam ders notunu gömüyoruz.
+    if (type === 'topic_questions' || type === 'topic_questions_mixed') {
+      sectionHeadingsText = sectionRows.map((s) => s.heading).join(', ');
       if (!sectionHeadingsText.trim()) {
         return NextResponse.json({ error: 'Önce alt başlık planı oluşturulmalı' }, { status: 409 });
+      }
+    }
+
+    if (type === 'topic_questions_mixed') {
+      topicContentText = sectionRows
+        .filter((s) => s.body_markdown?.trim())
+        .map((s) => `### ${s.heading}\n${s.body_markdown}`)
+        .join('\n\n');
+      if (!topicContentText.trim()) {
+        return NextResponse.json({ error: 'Önce alt başlıkların ders notu (içeriği) oluşturulmalı' }, { status: 409 });
       }
     }
 
