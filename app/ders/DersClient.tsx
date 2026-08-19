@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
 import {
@@ -295,6 +296,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [heroImageZoomed, setHeroImageZoomed] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
@@ -389,6 +391,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       cancelled = true;
     };
   }, [supabase, user]);
+
+  useEffect(() => {
+    if (!heroImageZoomed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHeroImageZoomed(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [heroImageZoomed]);
 
   const loadQuestionStatus = useCallback(async () => {
     if (!isAdmin || !contents.length) return;
@@ -1493,13 +1504,46 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </div>
                     )}
                     {activeTopic?.heroImageUrl && (
-                      <div className="not-prose mb-8 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
-                        <img
-                          src={activeTopic.heroImageUrl}
-                          alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
-                          className="w-full max-h-[420px] object-contain"
-                        />
-                      </div>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setHeroImageZoomed(true)}
+                          title="Büyütmek için tıkla"
+                          className="not-prose mb-8 block w-full cursor-zoom-in rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 transition hover:border-slate-200 hover:shadow-md"
+                        >
+                          <img
+                            src={activeTopic.heroImageUrl}
+                            alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
+                            className="w-full max-h-[420px] object-contain"
+                          />
+                        </button>
+                        {heroImageZoomed && typeof document !== 'undefined' && createPortal(
+                          <div
+                            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 sm:p-8"
+                            onClick={() => setHeroImageZoomed(false)}
+                          >
+                            <div
+                              className="relative max-h-full w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setHeroImageZoomed(false)}
+                                aria-label="Kapat"
+                                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                              >
+                                ✕
+                              </button>
+                              <img
+                                src={activeTopic.heroImageUrl}
+                                alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
+                                className="mx-auto h-auto w-full max-h-[80vh] object-contain"
+                              />
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+                      </>
                     )}
                     {activeTopic && (isAdmin || (activeTopic.highlights && activeTopic.highlights.length > 0)) && (
                       <div className="not-prose mb-8">
