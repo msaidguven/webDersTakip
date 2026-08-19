@@ -631,6 +631,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     [unitStartWeek, unitEndWeek, totalWeeks, initialData.termStartDate]
   );
 
+  // Kazanımlar modalinde gösterilen haftanın (kazanimlarWeek) takvim tarih aralığı
+  const kazanimlarWeekDateLabel = useMemo(
+    () => formatWeekDateRangeLabel(kazanimlarWeek, kazanimlarWeek, totalWeeks, initialData.termStartDate),
+    [kazanimlarWeek, totalWeeks, initialData.termStartDate]
+  );
+
   // Sağ sidebar'daki "Ünite Özeti" kartı için: aktif ünitenin konuları + arka planda
   // önceden çekilmiş soru sayıları (topicQuestionCounts) birleştirilir. Sayılar henüz
   // gelmediyse (ilk 1-2sn) kart hiç gösterilmez.
@@ -1934,7 +1940,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hafta {kazanimlarWeek} / {totalWeeks}</span>
+              <span className="flex flex-col items-center leading-tight">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hafta {kazanimlarWeek} / {totalWeeks}</span>
+                <span className="text-[10px] font-medium text-slate-400">{kazanimlarWeekDateLabel}</span>
+              </span>
               <button
                 type="button"
                 onClick={() => goToKazanimlarWeek(kazanimlarWeek + 1)}
