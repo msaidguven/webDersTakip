@@ -295,6 +295,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarWeek, setKazanimlarWeek] = useState(week);
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
@@ -388,6 +389,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       cancelled = true;
     };
   }, [supabase, user]);
+
+  const loadQuestionStatus = useCallback(async () => {
+    if (!isAdmin || !contents.length) return;
+    const topicIds = contents.map((c) => c.id).join(',');
+    const res = await fetch(`/api/admin/topic-sections/question-status?topicIds=${topicIds}`);
+    if (res.ok) {
+      const data = await res.json();
+      setQuestionStatusByTopic(data?.byTopic || {});
+    }
+  }, [isAdmin, contents]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !contents.length) {
+      setQuestionStatusByTopic({});
+      return;
+    }
+    const topicIds = contents.map((c) => c.id).join(',');
+    fetch(`/api/admin/topic-sections/question-status?topicIds=${topicIds}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { byTopic?: Record<string, { general: boolean; sectionIds: number[] }> } | null) => {
+        if (!cancelled) setQuestionStatusByTopic(data?.byTopic || {});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, contents]);
 
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
@@ -1032,6 +1060,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
                         <ListChecks className="h-3.5 w-3.5" /> Genel Sorular (Diğer AI)
+                        {questionStatusByTopic[topic.id]?.general && (
+                          <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
+                        )}
                       </button>
                     </div>
                   </>
@@ -1053,13 +1084,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   type="button"
                   onClick={() => handleSectionClick(slug)}
                   title={section.heading}
-                  className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
+                  className={`flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
                     isSectionActive
                       ? 'bg-indigo-100 text-indigo-700 font-black'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
                   }`}
                 >
-                  {sIdx + 1}. {section.heading}
+                  <span className="truncate">{sIdx + 1}. {section.heading}</span>
+                  {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
+                    <span title="Bu alt başlığa soru eklenmiş" className="shrink-0">
+                      <Check className="h-3 w-3 text-emerald-500" />
+                    </span>
+                  )}
                 </button>
 
                 {isAdmin && (
@@ -1134,6 +1170,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                           >
                             <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
+                            {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
+                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
+                            )}
                           </button>
                         </div>
                       </>
@@ -1441,6 +1480,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
                             >
                               <ListChecks className="h-3 w-3" /> Genel Sorular
+                              {questionStatusByTopic[activeTopic.id]?.general && (
+                                <Check className="h-3 w-3 text-emerald-600" />
+                              )}
                             </button>
                           )}
                         </div>
@@ -1515,8 +1557,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   className="scroll-mt-4 mt-10 border-t-2 border-rose-100 pt-10 first:mt-0 first:border-t-0 first:pt-0"
                                 >
                                   <div className="flex items-start justify-between gap-2 mb-5">
-                                    <h2 className="not-prose flex-1 min-w-0 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
+                                    <h2 className="not-prose flex-1 min-w-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
                                       {section.heading}
+                                      {isAdmin && questionStatusByTopic[activeTopic.id]?.sectionIds.includes(Number(section.id)) && (
+                                        <span title="Bu alt başlığa soru eklenmiş" className="shrink-0">
+                                          <Check className="h-4 w-4 text-emerald-500" />
+                                        </span>
+                                      )}
                                     </h2>
 
                                     {isAdmin && (
@@ -1876,7 +1923,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={questionsModalTarget.topicId}
           section={questionsModalTarget.section}
           variant={questionsModalTarget.variant}
-          onClose={() => setQuestionsModalTarget(null)}
+          onClose={() => {
+            setQuestionsModalTarget(null);
+            loadQuestionStatus();
+          }}
         />
       )}
 
@@ -1912,7 +1962,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={topicQuestionsModalTopic.id}
           topicTitle={topicQuestionsModalTopic.title}
           variant={topicQuestionsModalTopic.variant}
-          onClose={() => setTopicQuestionsModalTopic(null)}
+          onClose={() => {
+            setTopicQuestionsModalTopic(null);
+            loadQuestionStatus();
+          }}
         />
       )}
 
