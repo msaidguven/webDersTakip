@@ -83,7 +83,22 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       .in('topic_id', topicIds)
       .order('order_index', { ascending: true });
 
-    const allTopicOutcomes = (outcomesData as OutcomeRow[] | null) || [];
+    const allTopicOutcomesRaw = (outcomesData as OutcomeRow[] | null) || [];
+
+    // order_index her konuda 1'den başlar (konuya özel) — birden fazla konunun kazanımlarını
+    // tek sorguda çekip SADECE order_index'e göre sıralamak, aynı order_index değerine sahip
+    // farklı konuların kazanımlarını birbirine karıştırır (ör. konu A'nın 2. kazanımı, konu
+    // B'nin 1. kazanımından önce/sonra rastgele düşebilir). Bunun yerine kazanımları önce
+    // konuya göre grupluyor, sonra topics dizisini (zaten order_no'ya göre sıralı) baz alarak
+    // doğru müfredat sırasıyla diziyoruz (bkz. app/api/lesson-outcomes/route.ts'teki aynı düzeltme).
+    const outcomesByTopic = new Map<number, OutcomeRow[]>();
+    for (const o of allTopicOutcomesRaw) {
+      const list = outcomesByTopic.get(o.topic_id) || [];
+      list.push(o);
+      outcomesByTopic.set(o.topic_id, list);
+    }
+    const allTopicOutcomes = topics.flatMap((t) => outcomesByTopic.get(t.id) || []);
+
     const weekOutcomeIds = new Set(((weekOutcomes as WeekOutcomeRow[] | null) || []).map((w) => w.outcome_id));
     const weekMatchedOutcomes = allTopicOutcomes.filter((outcome) => weekOutcomeIds.has(outcome.id));
     const filtered = weekMatchedOutcomes.length ? weekMatchedOutcomes : allTopicOutcomes;

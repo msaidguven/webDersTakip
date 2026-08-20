@@ -322,6 +322,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [kazanimlarWeek, setKazanimlarWeek] = useState(() => teachingWeekToCalendarWeek(week, initialData.termStartDate, initialData.breaks || []));
   const [allKazanimlar, setAllKazanimlar] = useState<WeekedOutcome[] | null>(null);
   const [specialWeeks, setSpecialWeeks] = useState<SpecialWeekEvent[] | null>(null);
+  const [editingOutcomeId, setEditingOutcomeId] = useState<string | number | null>(null);
+  const [outcomeEditForm, setOutcomeEditForm] = useState<{ description: string; startWeek: string; endWeek: string }>({ description: '', startWeek: '', endWeek: '' });
+  const [savingOutcomeEdit, setSavingOutcomeEdit] = useState(false);
+  const [outcomeEditError, setOutcomeEditError] = useState<string | null>(null);
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
@@ -763,6 +767,91 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (!kazanimlarOpen) return;
     ensureAllKazanimlarLoaded();
   }, [kazanimlarOpen, ensureAllKazanimlarLoaded]);
+
+  // Modal kapanınca veya haftalar arası gezinilince açık kalan düzenleme formu kapansın
+  useEffect(() => {
+    setEditingOutcomeId(null);
+  }, [kazanimlarOpen, kazanimlarWeek]);
+
+  // Kazanım düzenleme kaydedildikten sonra allKazanimlar'ı tazelemek için — ensureAllKazanimlarLoaded
+  // bellekteki listeyi cache'lediğinden onu değil, doğrudan ağdan tazesini çeken bu fonksiyonu kullanır.
+  const refetchAllKazanimlar = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ gradeId, lessonId });
+      const response = await fetch(`/api/lesson-outcomes?${params.toString()}`);
+      const data = response.ok ? await response.json() as { outcomes?: WeekedOutcome[] } : null;
+      setAllKazanimlar(data?.outcomes || []);
+    } catch {
+      // sessizce yoksay — ekranda eski liste kalır, kullanıcı isterse modalı kapatıp açar
+    }
+  }, [gradeId, lessonId]);
+
+  function openOutcomeEdit(o: WeekedOutcome) {
+    setEditingOutcomeId(o.id ?? null);
+    setOutcomeEditForm({
+      description: o.description,
+      startWeek: o.startWeek != null ? String(o.startWeek) : '',
+      endWeek: o.endWeek != null ? String(o.endWeek) : '',
+    });
+    setOutcomeEditError(null);
+  }
+
+  function cancelOutcomeEdit() {
+    setEditingOutcomeId(null);
+    setOutcomeEditError(null);
+  }
+
+  // Kazanımın metnini (outcomes.description) ve/veya hangi öğretim haftasında işlendiğini
+  // (outcome_weeks) tek seferde kaydeder — ikisi ayrı tablo/endpoint olduğu için gerekiyorsa
+  // paralel iki istek atılır.
+  async function saveOutcomeEdit() {
+    if (editingOutcomeId == null) return;
+    const outcomeId = Number(editingOutcomeId);
+    const description = outcomeEditForm.description.trim();
+    const startWeek = Number(outcomeEditForm.startWeek);
+    const endWeek = Number(outcomeEditForm.endWeek);
+
+    if (!description) {
+      setOutcomeEditError('Kazanım metni boş olamaz');
+      return;
+    }
+    if (!Number.isFinite(startWeek) || startWeek < 1 || startWeek > 52) {
+      setOutcomeEditError('Başlangıç haftası 1-52 arasında olmalı');
+      return;
+    }
+    if (!Number.isFinite(endWeek) || endWeek < startWeek || endWeek > 52) {
+      setOutcomeEditError('Bitiş haftası başlangıçtan küçük olamaz');
+      return;
+    }
+
+    setSavingOutcomeEdit(true);
+    setOutcomeEditError(null);
+    try {
+      const [descRes, weekRes] = await Promise.all([
+        fetch('/api/admin/manage/outcomes', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [outcomeId], patch: { description } }),
+        }),
+        fetch('/api/admin/manage/outcome-weeks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ outcomeId, startWeek, endWeek }),
+        }),
+      ]);
+      if (!descRes.ok || !weekRes.ok) {
+        const errData = !descRes.ok ? await descRes.json().catch(() => null) : await weekRes.json().catch(() => null);
+        setOutcomeEditError(errData?.error || 'Kaydedilemedi');
+        return;
+      }
+      setEditingOutcomeId(null);
+      await refetchAllKazanimlar();
+    } catch {
+      setOutcomeEditError('Kaydedilirken hata oluştu (ağ hatası)');
+    } finally {
+      setSavingOutcomeEdit(false);
+    }
+  }
 
   // Kazanımlar modali açıldığında, bu sınıf+ders için geçerli özel haftaları (tatil/özel
   // içerik/sosyal etkinlik) da tek seferde çeker — modal her hafta için ayrıca istek atmaz,
@@ -2129,14 +2218,78 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               ) : kazanimlarForSelectedWeek.length === 0 && kazanimlarTeachingWeek != null && !isAdminGapWeek ? (
                 <div className="py-10 text-center text-sm font-medium text-slate-400">Bu hafta için kazanım bulunamadı.</div>
               ) : (
-                kazanimlarForSelectedWeek.map((o, idx) => (
-                  <div key={o.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2.5">
-                    <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-bold bg-emerald-100 text-emerald-700">
-                      {o.code || o.previewCode}
-                    </span>
-                    <p className="text-sm font-medium text-slate-700 leading-relaxed">{o.description}</p>
-                  </div>
-                ))
+                kazanimlarForSelectedWeek.map((o, idx) => {
+                  const isEditing = isAdmin && editingOutcomeId != null && String(editingOutcomeId) === String(o.id ?? idx);
+                  if (isEditing) {
+                    return (
+                      <div key={o.id || idx} className="bg-white p-3 rounded-xl border-2 border-indigo-200 space-y-2.5">
+                        <textarea
+                          value={outcomeEditForm.description}
+                          onChange={(e) => setOutcomeEditForm((f) => ({ ...f, description: e.target.value }))}
+                          rows={3}
+                          className="w-full text-sm font-medium text-slate-700 leading-relaxed rounded-lg border border-slate-200 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"
+                        />
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide shrink-0">Öğretim Haftası</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={52}
+                            value={outcomeEditForm.startWeek}
+                            onChange={(e) => setOutcomeEditForm((f) => ({ ...f, startWeek: e.target.value }))}
+                            className="w-16 text-sm rounded-lg border border-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                          />
+                          <span className="text-slate-400 text-xs">–</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={52}
+                            value={outcomeEditForm.endWeek}
+                            onChange={(e) => setOutcomeEditForm((f) => ({ ...f, endWeek: e.target.value }))}
+                            className="w-16 text-sm rounded-lg border border-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                          />
+                        </div>
+                        {outcomeEditError && <p className="text-xs font-semibold text-red-600">{outcomeEditError}</p>}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={saveOutcomeEdit}
+                            disabled={savingOutcomeEdit}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                          >
+                            {savingOutcomeEdit ? 'Kaydediliyor...' : 'Kaydet'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelOutcomeEdit}
+                            disabled={savingOutcomeEdit}
+                            className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-colors"
+                          >
+                            Vazgeç
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={o.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2.5">
+                      <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-bold bg-emerald-100 text-emerald-700">
+                        {o.code || o.previewCode}
+                      </span>
+                      <p className="text-sm font-medium text-slate-700 leading-relaxed flex-1">{o.description}</p>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => openOutcomeEdit(o)}
+                          title="Kazanımı düzenle (metin + hafta)"
+                          className="shrink-0 h-6 w-6 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

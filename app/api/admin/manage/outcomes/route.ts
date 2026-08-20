@@ -17,9 +17,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ items: [] });
   }
 
+  // order_index her konuda 1'den başlar (konuya özel); topicId verilmeden (search ile) birden
+  // fazla konu döndüğünde SADECE order_index'e göre sıralamak farklı konuların kazanımlarını
+  // birbirine karıştırır — önce topic_id'ye göre grupluyoruz ki her konunun kazanımları en
+  // azından kendi içinde bir arada ve doğru sırada kalsın.
   let query = supabase
     .from('outcomes')
     .select('id, topic_id, description, order_index, code, topics(title)')
+    .order('topic_id', { ascending: true })
     .order('order_index', { ascending: true })
     .limit(300);
 
