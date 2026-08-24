@@ -548,10 +548,10 @@ export default function YillikPlanPanel() {
       )}
 
       {/* DERS / SINIF SEÇ — sekmelerin dışında, klasik aktarım da TYMM aktarımı da bunu kullanır */}
-      <Card title="Ders ve Sınıf Seç">
+      <Card title="Sınıf ve Ders Seç">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <PickList label="Ders" items={lessons} selectedId={lessonId} onSelect={setLessonId} />
           <PickList label="Sınıf" items={grades} selectedId={gradeId} onSelect={setGradeId} />
+          <PickList label="Ders" items={lessons} selectedId={lessonId} onSelect={setLessonId} />
         </div>
       </Card>
 
