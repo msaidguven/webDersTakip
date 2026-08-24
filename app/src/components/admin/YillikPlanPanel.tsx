@@ -61,7 +61,6 @@ type BulkPreviewItem = {
   unmatchedLines: string[];
   rawSections: TymmRawSections | null;
   fetchError: string | null;
-  collapsed: boolean;
   saving: boolean;
   saveResult: TymmImportResult | null;
   saveErr: string | null;
@@ -106,8 +105,17 @@ export default function YillikPlanPanel() {
 
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
+  const [lessonGrades, setLessonGrades] = useState<{ lesson_id: number; grade_id: number }[]>([]);
   const [lessonId, setLessonId] = useState<number | null>(null);
   const [gradeId, setGradeId] = useState<number | null>(null);
+  // Önce sınıf seçilsin — dersler o sınıfta okutulanlarla sınırlansın diye lesson_grades'e
+  // göre filtreleniyor. lesson_grades satırları yalnızca o ders/sınıf için daha önce bir
+  // aktarım yapıldıysa oluşuyor (bkz. saveTymmUnit) — hiç dokunulmamış bir sınıf için satır
+  // yoksa (ör. 1-4 ve 9-12. sınıflar) filtre boş listeye düşürüp admin'i kilitlemesin diye
+  // o durumda tüm dersler gösteriliyor.
+  const gradeHasKnownLessons = gradeId != null && lessonGrades.some((lg) => lg.grade_id === gradeId);
+  const availableLessons =
+    gradeId == null ? [] : gradeHasKnownLessons ? lessons.filter((l) => lessonGrades.some((lg) => lg.lesson_id === l.id && lg.grade_id === gradeId)) : lessons;
 
   const [fileName, setFileName] = useState('');
   const [parsing, setParsing] = useState(false);
@@ -169,14 +177,23 @@ export default function YillikPlanPanel() {
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const [{ data: lessonsData }, { data: gradesData }] = await Promise.all([
+      const [{ data: lessonsData }, { data: gradesData }, { data: lessonGradesData }] = await Promise.all([
         supabase.from('lessons').select('id, name').order('order_no'),
         supabase.from('grades').select('id, name').order('order_no'),
+        // is_active burada güvenilir değil (Matematik gibi kesin okutulan derslerde bile
+        // false görülüyor) — bu yüzden filtrelemiyoruz, sadece eşleşme var mı bakıyoruz.
+        supabase.from('lesson_grades').select('lesson_id, grade_id'),
       ]);
       setLessons((lessonsData as LessonRow[] | null) || []);
       setGrades((gradesData as GradeRow[] | null) || []);
+      setLessonGrades((lessonGradesData as { lesson_id: number; grade_id: number }[] | null) || []);
     })();
   }, []);
+
+  function selectGrade(id: number) {
+    setGradeId(id);
+    setLessonId((current) => (current != null && lessonGrades.some((lg) => lg.lesson_id === current && lg.grade_id === id) ? current : null));
+  }
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.docx')) {
@@ -266,8 +283,8 @@ export default function YillikPlanPanel() {
     }
   }
 
-  async function runTymmSave() {
-    if (!previewUnit || !lessonId || !gradeId) return;
+  async function runTymmSave(): Promise<boolean> {
+    if (!previewUnit || !lessonId || !gradeId) return false;
     setSaving(true);
     setSaveErr(null);
     try {
@@ -279,14 +296,16 @@ export default function YillikPlanPanel() {
       const data = await res.json();
       if (!res.ok) {
         setSaveErr(data?.error || 'Kaydetme başarısız');
-        return;
+        return false;
       }
       const result = data as TymmImportResult;
       setSaveResult({ ...result, sourceUrl: tymmUrl.trim() });
       setPreviewUnit(null);
       setWeekUnitId(String(result.unitId));
+      return true;
     } catch {
       setSaveErr('İstek başarısız (ağ hatası)');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -317,7 +336,6 @@ export default function YillikPlanPanel() {
           unmatchedLines: r.ok ? r.unmatchedLines : [],
           rawSections: r.ok ? r.rawSections : null,
           fetchError: r.ok ? null : r.error,
-          collapsed: true,
           saving: false,
           saveResult: null,
           saveErr: null,
@@ -334,13 +352,9 @@ export default function YillikPlanPanel() {
     setBulkItems((items) => (items ? items.map((it, i) => (i === index && it.unit ? { ...it, unit: mutator(it.unit) } : it)) : items));
   }
 
-  function toggleBulkItemCollapsed(index: number) {
-    setBulkItems((items) => (items ? items.map((it, i) => (i === index ? { ...it, collapsed: !it.collapsed } : it)) : items));
-  }
-
-  async function saveBulkItem(index: number) {
+  async function saveBulkItem(index: number): Promise<boolean> {
     const item = bulkItems?.[index];
-    if (!item || !item.unit || !lessonId || !gradeId) return;
+    if (!item || !item.unit || !lessonId || !gradeId) return false;
     setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: true, saveErr: null } : it)));
     try {
       const res = await fetch('/api/admin/tymm/save', {
@@ -351,13 +365,15 @@ export default function YillikPlanPanel() {
       const data = await res.json();
       if (!res.ok) {
         setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveErr: data?.error || 'Kaydetme başarısız' } : it)));
-        return;
+        return false;
       }
       const result = data as TymmImportResult;
       setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveResult: result, saveErr: null } : it)));
       setWeekUnitId(String(result.unitId));
+      return true;
     } catch {
       setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveErr: 'İstek başarısız (ağ hatası)' } : it)));
+      return false;
     }
   }
 
@@ -550,8 +566,15 @@ export default function YillikPlanPanel() {
       {/* DERS / SINIF SEÇ — sekmelerin dışında, klasik aktarım da TYMM aktarımı da bunu kullanır */}
       <Card title="Sınıf ve Ders Seç">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <PickList label="Sınıf" items={grades} selectedId={gradeId} onSelect={setGradeId} />
-          <PickList label="Ders" items={lessons} selectedId={lessonId} onSelect={setLessonId} />
+          <PickList label="Sınıf" items={grades} selectedId={gradeId} onSelect={selectGrade} />
+          <PickList
+            label="Ders"
+            items={availableLessons}
+            selectedId={lessonId}
+            onSelect={setLessonId}
+            disabled={gradeId == null}
+            emptyMessage={gradeId == null ? 'Önce sınıf seçin' : 'Bu sınıfta ders bulunamadı'}
+          />
         </div>
       </Card>
 
@@ -673,28 +696,22 @@ export default function YillikPlanPanel() {
 
             {previewUnit && (
               <div className="mt-4 rounded-xl border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20 p-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-xs font-bold text-zinc-500 dark:text-gray-400">Önizleme — gerekirse düzelt, sonra onayla.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{previewUnit.unitTitle}</p>
+                    <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-0.5">
+                      {previewUnit.learningOutcomes.length} konu ·{' '}
+                      {previewUnit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
+                    </p>
+                  </div>
                   <button
                     onClick={() => setComparePreviewOpen(true)}
-                    className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[11px] font-bold hover:bg-indigo-500/20"
+                    className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-bold hover:bg-indigo-500/20"
                   >
-                    🔍 TYMM ile Karşılaştır
+                    🔍 Karşılaştır ve Onayla
                   </button>
                 </div>
-                <TymmUnitEditor
-                  unit={previewUnit}
-                  unmatchedLines={previewUnmatched}
-                  onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
-                />
                 {saveErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {saveErr}</p>}
-                <button
-                  onClick={runTymmSave}
-                  disabled={saving || !lessonId || !gradeId}
-                  className="mt-3 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Kaydediliyor…' : '✅ Onayla ve Kaydet'}
-                </button>
               </div>
             )}
 
@@ -773,29 +790,22 @@ export default function YillikPlanPanel() {
                         <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{item.title}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {item.saveResult && (
+                        {item.saveResult ? (
                           <button
                             onClick={() => setInspecting({ unitId: item.saveResult!.unitId, tymmUrl: item.url, unitTitle: item.title })}
                             className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
                           >
                             🔍 İncele
                           </button>
-                        )}
-                        {item.unit && !item.saveResult && (
-                          <>
+                        ) : (
+                          item.unit && (
                             <button
                               onClick={() => setBulkCompareIndex(idx)}
-                              className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
+                              className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
                             >
-                              🔍 Karşılaştır
+                              🔍 Karşılaştır ve Onayla
                             </button>
-                            <button
-                              onClick={() => toggleBulkItemCollapsed(idx)}
-                              className="text-[11px] text-indigo-600 dark:text-indigo-300 hover:text-indigo-500 dark:hover:text-indigo-200 transition-colors flex items-center gap-0.5"
-                            >
-                              {item.collapsed ? '▸ Göster' : '▾ Gizle'}
-                            </button>
-                          </>
+                          )
                         )}
                       </div>
                     </div>
@@ -815,24 +825,7 @@ export default function YillikPlanPanel() {
                         {item.saveResult.outcomesSkipped > 0 && ` · ${item.saveResult.outcomesSkipped} zaten vardı`}
                       </p>
                     ) : (
-                      item.unit &&
-                      !item.collapsed && (
-                        <div className="mt-3">
-                          <TymmUnitEditor
-                            unit={item.unit}
-                            unmatchedLines={item.unmatchedLines}
-                            onChange={(mutator) => updateBulkItemUnit(idx, mutator)}
-                          />
-                          {item.saveErr && <p className="text-xs text-red-600 dark:text-red-400 mt-2">❌ {item.saveErr}</p>}
-                          <button
-                            onClick={() => saveBulkItem(idx)}
-                            disabled={item.saving || !lessonId || !gradeId}
-                            className="mt-3 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          >
-                            {item.saving ? 'Kaydediliyor…' : '✅ Bu Üniteyi Onayla ve Kaydet'}
-                          </button>
-                        </div>
-                      )
+                      item.saveErr && <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 ml-[34px]">❌ {item.saveErr}</p>
                     )}
                   </div>
                   );
@@ -977,6 +970,13 @@ export default function YillikPlanPanel() {
           rawSections={previewRawSections}
           onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
           onClose={() => setComparePreviewOpen(false)}
+          saving={saving}
+          saveErr={saveErr}
+          canSave={!!lessonId && !!gradeId}
+          onSave={async () => {
+            const ok = await runTymmSave();
+            if (ok) setComparePreviewOpen(false);
+          }}
         />
       )}
 
@@ -988,6 +988,15 @@ export default function YillikPlanPanel() {
           rawSections={bulkItems[bulkCompareIndex].rawSections}
           onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
           onClose={() => setBulkCompareIndex(null)}
+          saving={bulkItems[bulkCompareIndex].saving}
+          saveErr={bulkItems[bulkCompareIndex].saveErr}
+          canSave={!!lessonId && !!gradeId}
+          onSave={async () => {
+            const idx = bulkCompareIndex;
+            if (idx == null) return;
+            const ok = await saveBulkItem(idx);
+            if (ok) setBulkCompareIndex(null);
+          }}
         />
       )}
     </div>
@@ -1332,6 +1341,10 @@ function TymmPreviewCompareModal({
   rawSections,
   onChange,
   onClose,
+  saving,
+  saveErr,
+  canSave,
+  onSave,
 }: {
   tymmUrl: string;
   unit: TymmUnit;
@@ -1339,13 +1352,34 @@ function TymmPreviewCompareModal({
   rawSections: TymmRawSections | null;
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
   onClose: () => void;
+  saving: boolean;
+  saveErr: string | null;
+  canSave: boolean;
+  onSave: () => void;
 }) {
   return (
     <SplitCompareView
       title={`${unit.unitTitle} — Önizleme (düzenlenebilir)`}
       tymmUrl={tymmUrl}
       onClose={onClose}
-      left={<TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />}
+      left={
+        <>
+          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />
+          {!canSave && (
+            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-4">
+              ⚠️ Kaydetmeden önce Sınıf ve Ders seçin.
+            </p>
+          )}
+          {saveErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {saveErr}</p>}
+          <button
+            onClick={onSave}
+            disabled={saving || !canSave}
+            className="mt-4 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Kaydediliyor…' : '✅ Onayla ve Kaydet'}
+          </button>
+        </>
+      }
       right={<TymmRawSectionsView rawSections={rawSections} />}
     />
   );
@@ -1504,17 +1538,21 @@ function PickList<T extends { id: number; name: string }>({
   items,
   selectedId,
   onSelect,
+  disabled = false,
+  emptyMessage = 'Yükleniyor…',
 }: {
   label: string;
   items: T[];
   selectedId: number | null;
   onSelect: (id: number) => void;
+  disabled?: boolean;
+  emptyMessage?: string;
 }) {
   return (
-    <div>
+    <div className={disabled ? 'opacity-50 pointer-events-none' : undefined}>
       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-2">{label}</p>
       <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-        {items.length === 0 && <p className="text-xs text-zinc-500 dark:text-gray-500 py-2 text-center">Yükleniyor…</p>}
+        {items.length === 0 && <p className="text-xs text-zinc-500 dark:text-gray-500 py-2 text-center">{emptyMessage}</p>}
         {items.map((item) => (
           <button
             key={item.id}
