@@ -60,10 +60,10 @@ export default function AdminPanel() {
       </header>
 
       {/* Sidebar - Desktop: fixed, Mobile: overlay */}
-      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-[#111114] border-r border-white/5 z-40 transition-transform duration-300 ${
+      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-[#111114] border-r border-white/5 z-40 transition-transform duration-300 flex flex-col ${
         sidebarOpen ? 'left-0' : '-left-64 lg:left-0'
       }`}>
-        <div className="hidden lg:block p-6">
+        <div className="hidden lg:block p-6 shrink-0">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
               <span className="text-lg font-bold text-white">A</span>
@@ -75,7 +75,7 @@ export default function AdminPanel() {
           </Link>
         </div>
 
-        <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0">
+        <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0 flex-1 overflow-y-auto">
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
@@ -110,12 +110,6 @@ export default function AdminPanel() {
             <span className="font-medium truncate">Akademik Takvim</span>
           </Link>
         </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/5">
-          <Link href="/" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
-            <span>←</span> Siteye Dön
-          </Link>
-        </div>
       </aside>
 
       {/* Mobile Overlay */}

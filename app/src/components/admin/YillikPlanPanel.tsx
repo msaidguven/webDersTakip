@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import type { TymmUnit } from '@/app/src/lib/tymm/tymmParser';
 
 type ParsedRow = {
   week_no: number | null;
@@ -31,6 +32,65 @@ type StepKey = 'units' | 'topics' | 'outcomes';
 
 type LessonRow = { id: number; name: string };
 type GradeRow = { id: number; name: string };
+
+// SADECE ÇEKME (yazma yok) sonucu — admin bunu düzenleyip onayladıktan sonra ayrı bir
+// istekle (save) kaydedilir, bkz. Card 4 üstündeki not.
+type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[] };
+
+// DB'YE YAZMA sonucu
+type TymmImportResult = {
+  ok: true;
+  unitId: number;
+  unitTitle: string;
+  topicsCreated: number;
+  outcomesCreated: number;
+  outcomesSkipped: number;
+};
+
+type BulkFetchItem =
+  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[] }
+  | { url: string; title: string; ok: false; error: string };
+type BulkFetchResponse = { unitsFound: number; results: BulkFetchItem[] };
+
+// Toplu modda her ünite kendi bağımsız önizleme/düzenleme/kaydetme durumunu taşır — bir
+// ünitenin kaydedilmesi diğerlerini etkilemez, hiçbiri admin tıklamadan kaydedilmez.
+type BulkPreviewItem = {
+  url: string;
+  title: string;
+  unit: TymmUnit | null;
+  unmatchedLines: string[];
+  fetchError: string | null;
+  collapsed: boolean;
+  saving: boolean;
+  saveResult: TymmImportResult | null;
+  saveErr: string | null;
+};
+
+type WeekAssignResult =
+  | { ok: true; assignments: { outcomeId: number; startWeek: number; endWeek: number }[] }
+  | { ok: false; reason: 'no-docx-rows'; uniteName: string }
+  | { ok: false; reason: 'topic-count-mismatch'; tymmCount: number; docxCount: number; dbTopicTitles: string[]; docxTitles: string[] }
+  | { ok: false; reason: 'outcome-count-mismatch'; topicIndex: number; dbTopicTitle: string; dbCount: number; docxTopicTitle: string; docxCount: number };
+
+type MatchPreviewTopic = {
+  topicId: number;
+  topicTitle: string;
+  outcomes: { id: number; code: string | null; description: string; startWeek: number; endWeek: number }[];
+};
+type MatchPreviewResponse = { unitTitle: string; result: WeekAssignResult; preview: MatchPreviewTopic[] | null };
+type CommitWeeksResponse = { ok: true; weeksWritten: number };
+
+type UnitContentResponse = {
+  unit: { id: number; title: string; duration_hours: number | null; key_concepts: string[] | null };
+  topics: {
+    id: number;
+    title: string;
+    learningOutcome: string | null;
+    outcomes: { id: number; code: string | null; description: string }[];
+  }[];
+};
+
+type InspectTarget = { unitId: number; tymmUrl: string; unitTitle: string };
 
 const STEP_ENDPOINTS: Record<StepKey, string> = {
   units: '/api/admin/yillik-plan/import-units',
@@ -61,6 +121,44 @@ export default function YillikPlanPanel() {
   const [stepLogs, setStepLogs] = useState<Record<StepKey, LogEntry[]>>({ units: [], topics: [], outcomes: [] });
   const [stepResult, setStepResult] = useState<Record<StepKey, StepResult | null>>({ units: null, topics: null, outcomes: null });
   const [stepRunning, setStepRunning] = useState<Record<StepKey, boolean>>({ units: false, topics: false, outcomes: false });
+
+  // 4. Adım (bağımsız): TYMM'den içerik ÇEK (yazma yok) → önizle/düzelt → elle ONAYLA (o
+  // zaman kaydedilir). Aynı ünite iki farklı curriculum_year ile art arda "aktarılınca"
+  // (fetch+save tek adımdı) mükerrer kazanım oluşmuştu — artık kaydetme adımı ayrı ve
+  // admin'in tıkladığı tek bir istek, bu yüzden yanlışlıkla iki kez tetiklenemiyor.
+  const [tymmBulkMode, setTymmBulkMode] = useState(false);
+  const [tymmUrl, setTymmUrl] = useState('');
+  const [tymmYear, setTymmYear] = useState('2026-2027');
+
+  const [fetching, setFetching] = useState(false);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
+  const [previewUnit, setPreviewUnit] = useState<TymmUnit | null>(null);
+  const [previewUnmatched, setPreviewUnmatched] = useState<string[]>([]);
+  const [comparePreviewOpen, setComparePreviewOpen] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saveResult, setSaveResult] = useState<(TymmImportResult & { sourceUrl: string }) | null>(null);
+
+  const [bulkPageUrl, setBulkPageUrl] = useState('');
+  const [bulkFetching, setBulkFetching] = useState(false);
+  const [bulkFetchErr, setBulkFetchErr] = useState<string | null>(null);
+  const [bulkItems, setBulkItems] = useState<BulkPreviewItem[] | null>(null);
+  const [bulkCompareIndex, setBulkCompareIndex] = useState<number | null>(null);
+
+  // Aktarılan içeriği canlı TYMM sayfasıyla yan yana karşılaştırma modalı
+  const [inspecting, setInspecting] = useState<InspectTarget | null>(null);
+
+  // 5. Adım (ayrı, elle onaylanır): 4. adımda aktarılan ünitenin kazanımlarına DOCX'ten
+  // hafta ata — sıra+sayı eşleşmesine dayanır, bkz. assignWeeksFromDocx.ts üstündeki not.
+  const [weekUnitId, setWeekUnitId] = useState('');
+  const [weekUniteName, setWeekUniteName] = useState('');
+  const [weekPreviewing, setWeekPreviewing] = useState(false);
+  const [weekPreview, setWeekPreview] = useState<MatchPreviewResponse | null>(null);
+  const [weekPreviewErr, setWeekPreviewErr] = useState<string | null>(null);
+  const [weekCommitting, setWeekCommitting] = useState(false);
+  const [weekCommitResult, setWeekCommitResult] = useState<CommitWeeksResponse | null>(null);
+  const [weekCommitErr, setWeekCommitErr] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -128,6 +226,183 @@ export default function YillikPlanPanel() {
       setStepLogs((s) => ({ ...s, [step]: [{ msg: 'İstek başarısız.', level: 'error' }] }));
     } finally {
       setStepRunning((s) => ({ ...s, [step]: false }));
+    }
+  }
+
+  async function runTymmFetch() {
+    if (!tymmUrl.trim()) return;
+    setFetching(true);
+    setFetchErr(null);
+    setPreviewUnit(null);
+    setPreviewUnmatched([]);
+    setSaveResult(null);
+    setSaveErr(null);
+    try {
+      const res = await fetch('/api/admin/tymm/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tymmUrl: tymmUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchErr(data?.error || 'Çekme başarısız');
+        return;
+      }
+      const result = data as TymmFetchResult;
+      setPreviewUnit(result.unit);
+      setPreviewUnmatched(result.unmatchedLines);
+    } catch {
+      setFetchErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  async function runTymmSave() {
+    if (!previewUnit || !lessonId || !gradeId) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const res = await fetch('/api/admin/tymm/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit: previewUnit, gradeId, lessonId, curriculumYear: tymmYear.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveErr(data?.error || 'Kaydetme başarısız');
+        return;
+      }
+      const result = data as TymmImportResult;
+      setSaveResult({ ...result, sourceUrl: tymmUrl.trim() });
+      setPreviewUnit(null);
+      setWeekUnitId(String(result.unitId));
+    } catch {
+      setSaveErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runTymmBulkFetch() {
+    if (!bulkPageUrl.trim()) return;
+    setBulkFetching(true);
+    setBulkFetchErr(null);
+    setBulkItems(null);
+    try {
+      const res = await fetch('/api/admin/tymm/fetch-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageUrl: bulkPageUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBulkFetchErr(data?.error || 'Bulma başarısız');
+        return;
+      }
+      const result = data as BulkFetchResponse;
+      setBulkItems(
+        result.results.map((r) => ({
+          url: r.url,
+          title: r.title,
+          unit: r.ok ? r.unit : null,
+          unmatchedLines: r.ok ? r.unmatchedLines : [],
+          fetchError: r.ok ? null : r.error,
+          collapsed: false,
+          saving: false,
+          saveResult: null,
+          saveErr: null,
+        }))
+      );
+    } catch {
+      setBulkFetchErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setBulkFetching(false);
+    }
+  }
+
+  function updateBulkItemUnit(index: number, mutator: (u: TymmUnit) => TymmUnit) {
+    setBulkItems((items) => (items ? items.map((it, i) => (i === index && it.unit ? { ...it, unit: mutator(it.unit) } : it)) : items));
+  }
+
+  function toggleBulkItemCollapsed(index: number) {
+    setBulkItems((items) => (items ? items.map((it, i) => (i === index ? { ...it, collapsed: !it.collapsed } : it)) : items));
+  }
+
+  async function saveBulkItem(index: number) {
+    const item = bulkItems?.[index];
+    if (!item || !item.unit || !lessonId || !gradeId) return;
+    setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: true, saveErr: null } : it)));
+    try {
+      const res = await fetch('/api/admin/tymm/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit: item.unit, gradeId, lessonId, curriculumYear: tymmYear.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveErr: data?.error || 'Kaydetme başarısız' } : it)));
+        return;
+      }
+      const result = data as TymmImportResult;
+      setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveResult: result, saveErr: null } : it)));
+      setWeekUnitId(String(result.unitId));
+    } catch {
+      setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveErr: 'İstek başarısız (ağ hatası)' } : it)));
+    }
+  }
+
+  async function runWeekPreview() {
+    const unitId = parseInt(weekUnitId, 10);
+    if (!rows || !Number.isFinite(unitId) || !weekUniteName) return;
+    setWeekPreviewing(true);
+    setWeekPreviewErr(null);
+    setWeekPreview(null);
+    setWeekCommitResult(null);
+    setWeekCommitErr(null);
+    try {
+      const cleanRows = rows.map(({ _id, ...rest }) => rest);
+      const res = await fetch('/api/admin/tymm/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId, uniteName: weekUniteName, rows: cleanRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWeekPreviewErr(data?.error || 'Önizleme başarısız');
+        return;
+      }
+      setWeekPreview(data as MatchPreviewResponse);
+    } catch {
+      setWeekPreviewErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setWeekPreviewing(false);
+    }
+  }
+
+  async function runWeekCommit() {
+    const unitId = parseInt(weekUnitId, 10);
+    if (!rows || !Number.isFinite(unitId) || !weekUniteName) return;
+    setWeekCommitting(true);
+    setWeekCommitErr(null);
+    setWeekCommitResult(null);
+    try {
+      const cleanRows = rows.map(({ _id, ...rest }) => rest);
+      const res = await fetch('/api/admin/tymm/commit-weeks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId, uniteName: weekUniteName, rows: cleanRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWeekCommitErr(data?.error || 'Kaydetme başarısız');
+        return;
+      }
+      setWeekCommitResult(data as CommitWeeksResponse);
+    } catch {
+      setWeekCommitErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setWeekCommitting(false);
     }
   }
 
@@ -306,11 +581,771 @@ export default function YillikPlanPanel() {
           />
         </div>
       </Card>
+
+      <Card title="4 · TYMM'den İçerik Aktar">
+        <p className="text-xs text-gray-500 mb-4">
+          Yeni müfredat (tymm.meb.gov.tr) sayfasındaki ünite/konu/kazanım/anahtar kavram metnini önce ÇEKER ve
+          önizler — hiçbir şey otomatik kaydedilmez. Gerekirse metni düzeltip ünite ünite elle onaylayınca DB&apos;ye
+          yazılır. Hafta ataması aşağıda ayrı bir adımda yapılır.
+        </p>
+
+        <div className="flex gap-1.5 mb-4">
+          <button
+            onClick={() => setTymmBulkMode(false)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+              !tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300' : 'border-white/10 text-gray-400 hover:border-white/20'
+            }`}
+          >
+            Tek Ünite
+          </button>
+          <button
+            onClick={() => setTymmBulkMode(true)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+              tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300' : 'border-white/10 text-gray-400 hover:border-white/20'
+            }`}
+          >
+            Toplu (Ders/Sınıf Sayfası)
+          </button>
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Müfredat Yılı (ör. 2025-2026)</label>
+          <input
+            value={tymmYear}
+            onChange={(e) => setTymmYear(e.target.value)}
+            placeholder="2025-2026"
+            className="w-full sm:w-64 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+          />
+          <p className="text-[11px] text-gray-500 mt-1">Kaydetmeden hemen önce kontrol et — sonradan değiştirirsen aynı içerik yeniden (mükerrer) kaydedilir.</p>
+        </div>
+
+        {(!lessonId || !gradeId) && (
+          <p className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+            ⚠️ Kaydetmeden önce yukarıda (2. adım) Ders ve Sınıf seçin.
+          </p>
+        )}
+
+        <div className="h-px bg-white/5 mb-4" />
+
+        {!tymmBulkMode ? (
+          <>
+            <div className="mb-3">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">TYMM Ünite URL&apos;i</label>
+              <input
+                value={tymmUrl}
+                onChange={(e) => setTymmUrl(e.target.value)}
+                placeholder="https://tymm.meb.gov.tr/.../unite/408"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              />
+            </div>
+
+            <button
+              onClick={runTymmFetch}
+              disabled={fetching || !tymmUrl.trim()}
+              className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {fetching ? 'Çekiliyor…' : '👁 Getir ve Önizle'}
+            </button>
+
+            {fetchErr && <p className="text-sm text-red-400 mt-3">❌ {fetchErr}</p>}
+
+            {previewUnit && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-xs font-bold text-gray-400">Önizleme — gerekirse düzelt, sonra onayla.</p>
+                  <button
+                    onClick={() => setComparePreviewOpen(true)}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-bold hover:bg-indigo-500/20"
+                  >
+                    🔍 TYMM ile Karşılaştır
+                  </button>
+                </div>
+                <TymmUnitEditor
+                  unit={previewUnit}
+                  unmatchedLines={previewUnmatched}
+                  onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
+                />
+                {saveErr && <p className="text-sm text-red-400 mt-3">❌ {saveErr}</p>}
+                <button
+                  onClick={runTymmSave}
+                  disabled={saving || !lessonId || !gradeId}
+                  className="mt-3 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Kaydediliyor…' : '✅ Onayla ve Kaydet'}
+                </button>
+              </div>
+            )}
+
+            {saveResult && (
+              <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-bold text-emerald-400 mb-1">✅ &quot;{saveResult.unitTitle}&quot; kaydedildi (ünite #{saveResult.unitId})</p>
+                  <button
+                    onClick={() => setInspecting({ unitId: saveResult.unitId, tymmUrl: saveResult.sourceUrl, unitTitle: saveResult.unitTitle })}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-bold hover:bg-indigo-500/20"
+                  >
+                    🔍 İncele
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {saveResult.topicsCreated} yeni konu · {saveResult.outcomesCreated} yeni kazanım
+                  {saveResult.outcomesSkipped > 0 && ` · ${saveResult.outcomesSkipped} zaten vardı`}
+                </p>
+                <p className="text-[11px] text-indigo-300 mt-2">Ünite #{saveResult.unitId}, aşağıdaki 5. adıma otomatik dolduruldu.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="mb-3">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">TYMM Ders/Sınıf Sayfası URL&apos;i</label>
+              <input
+                value={bulkPageUrl}
+                onChange={(e) => setBulkPageUrl(e.target.value)}
+                placeholder="https://tymm.meb.gov.tr/ogretim-programlari/din-kulturu-ve-ahlak-bilgisi-dersi/6"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">Bu sayfadaki tüm üniteler bulunup çekilir — hiçbiri otomatik kaydedilmez, ünite ünite onaylarsın.</p>
+            </div>
+
+            <button
+              onClick={runTymmBulkFetch}
+              disabled={bulkFetching || !bulkPageUrl.trim()}
+              className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {bulkFetching ? 'Bulunuyor…' : '👁 Üniteleri Bul ve Önizle'}
+            </button>
+
+            {bulkFetchErr && <p className="text-sm text-red-400 mt-3">❌ {bulkFetchErr}</p>}
+
+            {bulkItems && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 transition-all"
+                      style={{ width: `${(bulkItems.filter((it) => it.saveResult).length / bulkItems.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs font-bold text-gray-400 flex-shrink-0">
+                    {bulkItems.filter((it) => it.saveResult).length}/{bulkItems.length} kaydedildi
+                  </p>
+                </div>
+                {bulkItems.map((item, idx) => {
+                  const topicCount = item.unit?.learningOutcomes.length ?? 0;
+                  const outcomeCount = item.unit?.learningOutcomes.reduce((n, o) => n + o.components.length, 0) ?? 0;
+                  return (
+                  <div
+                    key={item.url}
+                    className={`rounded-xl border p-4 transition-colors ${item.saveResult ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/20'}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                            item.saveResult ? 'border-emerald-400 bg-emerald-500/10 text-emerald-400' : 'border-white/10 text-gray-500'
+                          }`}
+                        >
+                          {item.saveResult ? '✓' : idx + 1}
+                        </span>
+                        <p className="text-sm font-bold text-white truncate">{item.title}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {item.saveResult && (
+                          <button
+                            onClick={() => setInspecting({ unitId: item.saveResult!.unitId, tymmUrl: item.url, unitTitle: item.title })}
+                            className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
+                          >
+                            🔍 İncele
+                          </button>
+                        )}
+                        {item.unit && !item.saveResult && (
+                          <>
+                            <button
+                              onClick={() => setBulkCompareIndex(idx)}
+                              className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
+                            >
+                              🔍 Karşılaştır
+                            </button>
+                            <button
+                              onClick={() => toggleBulkItemCollapsed(idx)}
+                              className="text-[11px] text-indigo-300 hover:text-indigo-200 transition-colors flex items-center gap-0.5"
+                            >
+                              {item.collapsed ? '▸ Göster' : '▾ Gizle'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {item.unit && (
+                      <p className="text-[11px] text-gray-500 mt-1 ml-[34px]">
+                        {topicCount} konu · {outcomeCount} kazanım
+                      </p>
+                    )}
+
+                    {item.fetchError && <p className="text-xs text-red-400 mt-2">❌ {item.fetchError}</p>}
+
+                    {item.saveResult ? (
+                      <p className="text-xs text-gray-400 mt-1.5 ml-[34px]">
+                        ✅ Kaydedildi (ünite #{item.saveResult.unitId}) · {item.saveResult.topicsCreated} yeni konu ·{' '}
+                        {item.saveResult.outcomesCreated} yeni kazanım
+                        {item.saveResult.outcomesSkipped > 0 && ` · ${item.saveResult.outcomesSkipped} zaten vardı`}
+                      </p>
+                    ) : (
+                      item.unit &&
+                      !item.collapsed && (
+                        <div className="mt-3">
+                          <TymmUnitEditor
+                            unit={item.unit}
+                            unmatchedLines={item.unmatchedLines}
+                            onChange={(mutator) => updateBulkItemUnit(idx, mutator)}
+                          />
+                          {item.saveErr && <p className="text-xs text-red-400 mt-2">❌ {item.saveErr}</p>}
+                          <button
+                            onClick={() => saveBulkItem(idx)}
+                            disabled={item.saving || !lessonId || !gradeId}
+                            className="mt-3 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            {item.saving ? 'Kaydediliyor…' : '✅ Bu Üniteyi Onayla ve Kaydet'}
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      <Card title="5 · DOCX'ten Hafta Ata">
+        <p className="text-xs text-gray-500 mb-4">
+          Yukarıda (4. adım) TYMM&apos;den aktarılmış bir ünitenin konu/kazanımlarına, 1. adımda yüklenen
+          DOCX&apos;ten çıkan hafta sırasını atar. Metin benzerliğine değil, konu/kazanım SAYISININ birebir
+          eşleşmesine dayanır — sayılar uyuşmazsa hiçbir şey kaydedilmez.
+        </p>
+
+        {!rows || rows.length === 0 ? (
+          <p className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">
+            ⚠️ Önce yukarıda (1. adım) bir DOCX yükleyin — bu araç, kazanımları DOCX&apos;ten çıkan hafta sırasıyla
+            eşleştirdiği için DOCX verisine ihtiyaç duyuyor.
+          </p>
+        ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Ünite ID</label>
+              <input
+                value={weekUnitId}
+                onChange={(e) => setWeekUnitId(e.target.value)}
+                placeholder="4. adımdan otomatik dolar"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              />
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Bu ünite DOCX&apos;teki hangi üniteye denk geliyor?</label>
+            <div className="flex flex-wrap gap-1.5">
+              {uniteler.map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setWeekUniteName(u)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    weekUniteName === u ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300' : 'border-white/10 text-gray-400 hover:border-white/20'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={runWeekPreview}
+            disabled={weekPreviewing || !weekUnitId.trim() || !weekUniteName}
+            className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {weekPreviewing ? 'Kontrol ediliyor…' : '🔍 Eşleşmeyi Önizle'}
+          </button>
+
+          {weekPreviewErr && <p className="text-sm text-red-400 mt-3">❌ {weekPreviewErr}</p>}
+
+          {weekPreview && (
+            <div className="mt-4">
+              {weekPreview.result.ok && weekPreview.preview ? (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="text-sm font-bold text-emerald-400 mb-3">
+                    ✅ Sayılar uyuştu — {weekPreview.preview.length} konu, hazır
+                  </p>
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {weekPreview.preview.map((t) => (
+                      <div key={t.topicId} className="rounded-lg border border-white/5 bg-black/20 p-2.5">
+                        <p className="text-xs font-bold text-white">{t.topicTitle}</p>
+                        <ul className="mt-1 space-y-0.5">
+                          {t.outcomes.map((o) => (
+                            <li key={o.id} className="text-[11px] text-gray-400">
+                              {o.code && <span className="text-indigo-300 font-mono">{o.code}) </span>}{o.description}
+                              <span className="text-gray-600"> — hafta {o.startWeek === o.endWeek ? o.startWeek : `${o.startWeek}-${o.endWeek}`}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={runWeekCommit}
+                    disabled={weekCommitting}
+                    className="mt-4 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    {weekCommitting ? 'Kaydediliyor…' : '💾 Haftaları Kaydet'}
+                  </button>
+                </div>
+              ) : !weekPreview.result.ok ? (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                  <p className="text-sm font-bold text-red-400 mb-2">
+                    ❌ Sayılar uyuşmuyor — hiçbir şey kaydedilmedi
+                  </p>
+                  {weekPreview.result.reason === 'topic-count-mismatch' && (
+                    <div className="text-xs text-gray-400 space-y-2">
+                      <p>DB&apos;de {weekPreview.result.tymmCount} konu, DOCX&apos;te {weekPreview.result.docxCount} konu var.</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><p className="font-bold text-gray-500 mb-1">DB</p>{weekPreview.result.dbTopicTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
+                        <div><p className="font-bold text-gray-500 mb-1">DOCX</p>{weekPreview.result.docxTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
+                      </div>
+                    </div>
+                  )}
+                  {weekPreview.result.reason === 'outcome-count-mismatch' && (
+                    <p className="text-xs text-gray-400">
+                      &quot;{weekPreview.result.dbTopicTitle}&quot; ({weekPreview.result.dbCount} kazanım) ile DOCX&apos;teki
+                      &quot;{weekPreview.result.docxTopicTitle}&quot; ({weekPreview.result.docxCount} kazanım) sayıca uyuşmuyor.
+                      Muhtemelen DOCX&apos;te bu konuya sınav haftası gibi kazanım-olmayan bir satır karışmış olabilir —
+                      yukarıdaki düzenleyiciden kontrol edin.
+                    </p>
+                  )}
+                  {weekPreview.result.reason === 'no-docx-rows' && (
+                    <p className="text-xs text-gray-400">DOCX&apos;te &quot;{weekPreview.result.uniteName}&quot; adında bir ünite bulunamadı.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {weekCommitErr && <p className="text-sm text-red-400 mt-3">❌ {weekCommitErr}</p>}
+          {weekCommitResult && (
+            <p className="text-sm text-emerald-400 mt-3">✅ {weekCommitResult.weeksWritten} hafta kaydı yazıldı</p>
+          )}
+        </>
+        )}
+      </Card>
+
+      {inspecting && <TymmInspectModal key={inspecting.unitId} target={inspecting} onClose={() => setInspecting(null)} />}
+
+      {comparePreviewOpen && previewUnit && (
+        <TymmPreviewCompareModal
+          tymmUrl={tymmUrl.trim()}
+          unit={previewUnit}
+          unmatchedLines={previewUnmatched}
+          onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
+          onClose={() => setComparePreviewOpen(false)}
+        />
+      )}
+
+      {bulkCompareIndex != null && bulkItems?.[bulkCompareIndex]?.unit && (
+        <TymmPreviewCompareModal
+          tymmUrl={bulkItems[bulkCompareIndex].url}
+          unit={bulkItems[bulkCompareIndex].unit as TymmUnit}
+          unmatchedLines={bulkItems[bulkCompareIndex].unmatchedLines}
+          onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
+          onClose={() => setBulkCompareIndex(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ==================== ALT BİLEŞENLER ====================
+
+// TYMM'den çekilmiş bir ünitenin (henüz DB'ye yazılmamış) önizlemesini elle düzeltmeye
+// yarar — ufak metin hataları, yanlış ayrıştırılmış bir satır vb. için. `onChange` bir
+// mutator alır (mevcut unit'i alıp yenisini döner) ki hem tekli hem toplu moddaki
+// bağımsız state'lere aynı bileşen üzerinden yazılabilsin.
+function TymmUnitEditor({
+  unit,
+  unmatchedLines,
+  onChange,
+}: {
+  unit: TymmUnit;
+  unmatchedLines: string[];
+  onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
+}) {
+  // Varsayılan görünüm SALT OKUNUR ve derli toplu — bir konuyu düzeltmek gerekirse sadece
+  // o konunun kalem ikonuna tıklanır, tüm ünite tek seferde düzenlenebilir hâle gelmiyor.
+  const [editingTopic, setEditingTopic] = useState<number | null>(null);
+  const [editingKeyConcepts, setEditingKeyConcepts] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Ünite Başlığı</label>
+          <input
+            value={unit.unitTitle}
+            onChange={(e) => { const v = e.target.value; onChange((u) => ({ ...u, unitTitle: v })); }}
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Ders Saati</label>
+          <input
+            type="number"
+            value={unit.durationHours ?? ''}
+            onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; onChange((u) => ({ ...u, durationHours: v })); }}
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+          />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500">Anahtar Kavramlar</label>
+          <button onClick={() => setEditingKeyConcepts((v) => !v)} className="text-gray-400 hover:text-indigo-300 transition-colors text-xs" title="Düzenle">
+            {editingKeyConcepts ? '✓ Bitti' : '✏️'}
+          </button>
+        </div>
+        {editingKeyConcepts ? (
+          <input
+            value={unit.keyConcepts.join(', ')}
+            onChange={(e) => {
+              const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+              onChange((u) => ({ ...u, keyConcepts: list }));
+            }}
+            placeholder="virgülle ayır"
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+          />
+        ) : unit.keyConcepts.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {unit.keyConcepts.map((k, i) => (
+              <span key={i} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/5 text-gray-300 border border-white/10">{k}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-gray-600 italic">yok</p>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500">Konular ({unit.learningOutcomes.length})</label>
+          <span className="text-[10px] text-gray-600">
+            toplam {unit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
+          </span>
+        </div>
+        <ol className="space-y-0.5 rounded-lg border border-white/10 bg-black/20 p-2">
+          {unit.learningOutcomes.map((outcome, oi) => (
+            <li key={oi}>
+              <button
+                onClick={() => setEditingTopic(oi)}
+                className={`w-full text-left text-xs px-1.5 py-1 rounded-md flex items-center gap-1.5 transition-colors ${
+                  editingTopic === oi ? 'bg-indigo-500/10 text-indigo-300' : 'text-gray-300 hover:bg-white/5 hover:text-indigo-300'
+                }`}
+              >
+                <span className="text-gray-600 font-mono flex-shrink-0">{oi + 1}.</span>
+                <span className="flex-1 truncate">{outcome.topicTitle || <span className="italic text-gray-600">(başlıksız)</span>}</span>
+                <span
+                  className={`flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                    outcome.components.length === 0 ? 'text-amber-400 bg-amber-500/10' : 'text-gray-500 bg-white/5'
+                  }`}
+                >
+                  {outcome.components.length}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="space-y-2">
+        {unit.learningOutcomes.map((outcome, oi) =>
+          editingTopic === oi ? (
+            <div key={oi} className="rounded-lg border border-indigo-400/40 bg-indigo-500/[0.04] p-3">
+              <div className="flex items-start gap-2 mb-1.5">
+                <div className="flex-1 space-y-1.5">
+                  <div>
+                    <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-500 mb-0.5">Konu Başlığı (İçerik Çerçevesi)</label>
+                    <input
+                      value={outcome.topicTitle}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.map((o, i) => (i === oi ? { ...o, topicTitle: v } : o)) }));
+                      }}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-white outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-500 mb-0.5">
+                      Öğrenme Çıktısı {outcome.code && <span className="font-mono normal-case text-gray-600">({outcome.code})</span>}
+                    </label>
+                    <textarea
+                      value={outcome.title}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.map((o, i) => (i === oi ? { ...o, title: v } : o)) }));
+                      }}
+                      rows={2}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-gray-300 outline-none focus:border-indigo-400 resize-y"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.filter((_, i) => i !== oi) }));
+                    setEditingTopic(null);
+                  }}
+                  className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors text-sm mt-4"
+                  title="Bu konuyu sil"
+                >
+                  🗑
+                </button>
+              </div>
+              <div className="space-y-1.5 pl-4 mt-2">
+                {outcome.components.map((comp, ci) => (
+                  <div key={ci} className="flex items-start gap-1.5">
+                    <input
+                      value={comp.letter}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onChange((u) => ({
+                          ...u,
+                          learningOutcomes: u.learningOutcomes.map((o, i) =>
+                            i === oi ? { ...o, components: o.components.map((c, j) => (j === ci ? { ...c, letter: v } : c)) } : o
+                          ),
+                        }));
+                      }}
+                      className="w-8 flex-shrink-0 bg-black/30 border border-white/10 rounded px-1.5 py-1 text-[11px] text-indigo-300 font-mono outline-none focus:border-indigo-400 text-center"
+                    />
+                    <textarea
+                      value={comp.text}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onChange((u) => ({
+                          ...u,
+                          learningOutcomes: u.learningOutcomes.map((o, i) =>
+                            i === oi ? { ...o, components: o.components.map((c, j) => (j === ci ? { ...c, text: v } : c)) } : o
+                          ),
+                        }));
+                      }}
+                      rows={1}
+                      className="flex-1 bg-black/30 border border-white/10 rounded px-2 py-1 text-[11px] text-gray-300 outline-none focus:border-indigo-400 resize-y"
+                    />
+                    <button
+                      onClick={() =>
+                        onChange((u) => ({
+                          ...u,
+                          learningOutcomes: u.learningOutcomes.map((o, i) =>
+                            i === oi ? { ...o, components: o.components.filter((_, j) => j !== ci) } : o
+                          ),
+                        }))
+                      }
+                      className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors text-xs mt-1"
+                      title="Bu kazanımı sil"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button
+                    onClick={() =>
+                      onChange((u) => ({
+                        ...u,
+                        learningOutcomes: u.learningOutcomes.map((o, i) =>
+                          i === oi ? { ...o, components: [...o.components, { letter: '', text: '' }] } : o
+                        ),
+                      }))
+                    }
+                    className="text-[10px] font-bold text-indigo-300 hover:text-indigo-200 transition-colors"
+                  >
+                    ➕ Kazanım Ekle
+                  </button>
+                  <button onClick={() => setEditingTopic(null)} className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors ml-auto">
+                    ✓ Bitti
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div key={oi} className="group rounded-lg border border-white/10 bg-black/20 hover:border-white/20 transition-colors p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white">{outcome.topicTitle || <span className="italic text-gray-600">(başlıksız)</span>}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    {outcome.code && <span className="font-mono text-gray-600">{outcome.code}. </span>}
+                    {outcome.title}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingTopic(oi)}
+                  className="flex-shrink-0 text-gray-500 group-hover:text-gray-300 hover:text-indigo-300 transition-colors text-sm"
+                  title="Bu konuyu düzenle"
+                >
+                  ✏️
+                </button>
+              </div>
+              <ul className="mt-2 space-y-1 pl-1 border-l border-white/5">
+                {outcome.components.map((comp, ci) => (
+                  <li key={ci} className="text-[11px] text-gray-300 leading-relaxed pl-2">
+                    <span className="text-indigo-300 font-mono">{comp.letter}) </span>
+                    {comp.text || <span className="italic text-gray-600">(boş)</span>}
+                  </li>
+                ))}
+                {outcome.components.length === 0 && <li className="text-[11px] text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
+              </ul>
+            </div>
+          )
+        )}
+      </div>
+
+      {unmatchedLines.length > 0 && (
+        <details>
+          <summary className="text-[11px] font-bold text-amber-400 cursor-pointer">⚠️ {unmatchedLines.length} satır ayrıştırılamadı</summary>
+          <div className="mt-1 text-[11px] text-gray-500 space-y-0.5 max-h-32 overflow-y-auto">
+            {unmatchedLines.map((l, i) => <p key={i}>{l}</p>)}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// Solda içerik (DB'deki kayıt ya da henüz kaydedilmemiş önizleme), sağda gerçek TYMM
+// sayfası — admin kafasından karşılaştırmak yerine ikisini yan yana görüp öyle
+// onaylayabilsin diye (bkz. proje sohbeti: "kafamdan kontrol edemem").
+function SplitCompareView({
+  title,
+  tymmUrl,
+  onClose,
+  children,
+}: {
+  title: string;
+  tymmUrl: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-[#111114] rounded-2xl border border-white/10 w-full h-full max-w-[1400px] flex flex-col sm:flex-row overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-full sm:w-1/2 h-1/2 sm:h-full overflow-y-auto p-5 border-b sm:border-b-0 sm:border-r border-white/10">
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <h3 className="text-sm font-bold text-white truncate">{title}</h3>
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-lg leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          {children}
+        </div>
+
+        <div className="w-full sm:w-1/2 h-1/2 sm:h-full flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+            <p className="text-xs font-bold text-gray-400">TYMM (canlı)</p>
+            <a href={tymmUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-300 hover:text-indigo-200">
+              Yeni sekmede aç ↗
+            </a>
+          </div>
+          <iframe src={tymmUrl} className="flex-1 w-full bg-white" title="TYMM canlı sayfa" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// KAYDETMEDEN ÖNCE karşılaştırma: sol tarafta düzenlenebilir önizleme (TymmUnitEditor),
+// sağda canlı TYMM — admin düzeltmeleri doğrudan burada, kaynağa bakarak yapabilir.
+function TymmPreviewCompareModal({
+  tymmUrl,
+  unit,
+  unmatchedLines,
+  onChange,
+  onClose,
+}: {
+  tymmUrl: string;
+  unit: TymmUnit;
+  unmatchedLines: string[];
+  onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
+  onClose: () => void;
+}) {
+  return (
+    <SplitCompareView title={`${unit.unitTitle} — Önizleme (düzenlenebilir)`} tymmUrl={tymmUrl} onClose={onClose}>
+      <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />
+    </SplitCompareView>
+  );
+}
+
+// KAYDEDİLDİKTEN SONRA kontrol: sol tarafta DB'deki güncel hâli (salt okunur), sağda
+// canlı TYMM.
+function TymmInspectModal({ target, onClose }: { target: InspectTarget; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<UnitContentResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/tymm/unit-content?unitId=${target.unitId}`)
+      .then(async (res) => ({ ok: res.ok, data: await res.json() }))
+      .then(({ ok, data }) => {
+        if (cancelled) return;
+        if (!ok) { setErr(data?.error || 'Yüklenemedi'); return; }
+        setData(data as UnitContentResponse);
+      })
+      .catch(() => { if (!cancelled) setErr('İstek başarısız (ağ hatası)'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [target.unitId]);
+
+  return (
+    <SplitCompareView title={`${target.unitTitle} — DB'deki İçerik`} tymmUrl={target.tymmUrl} onClose={onClose}>
+      {loading && <p className="text-xs text-gray-500">Yükleniyor…</p>}
+      {err && <p className="text-xs text-red-400">❌ {err}</p>}
+      {data && (
+        <div className="space-y-3">
+          {data.unit.key_concepts && data.unit.key_concepts.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {data.unit.key_concepts.map((k) => (
+                <span key={k} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/5 text-gray-300 border border-white/10">{k}</span>
+              ))}
+            </div>
+          )}
+          {data.topics.map((t, ti) => (
+            <div key={t.id} className="rounded-lg border border-white/5 bg-black/20 p-3">
+              <p className="text-xs font-bold text-white">
+                <span className="text-gray-600 font-mono">{ti + 1}.</span> {t.title}
+              </p>
+              {t.learningOutcome && <p className="text-[10px] text-gray-500 mt-0.5 mb-1.5">{t.learningOutcome}</p>}
+              <ul className="space-y-1 mt-1.5 border-l border-white/5">
+                {t.outcomes.map((o) => (
+                  <li key={o.id} className="text-[11px] text-gray-400 pl-2">
+                    {o.code && <span className="text-indigo-300 font-mono">{o.code}) </span>}{o.description}
+                  </li>
+                ))}
+                {t.outcomes.length === 0 && <li className="text-[11px] text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </SplitCompareView>
+  );
+}
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
