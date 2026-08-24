@@ -100,6 +100,10 @@ const STEP_ENDPOINTS: Record<StepKey, string> = {
 };
 
 export default function YillikPlanPanel() {
+  // Karışık görünmesin diye üç ayrı iş akışı sekmelere ayrıldı — DOCX yükleme ve Ders/Sınıf
+  // seçimi ise her sekmede kullanıldığı için sekmelerin dışında, hep görünür kalıyor.
+  const [activeTab, setActiveTab] = useState<'docx' | 'tymm' | 'weeks'>('docx');
+
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
   const [lessonId, setLessonId] = useState<number | null>(null);
@@ -313,7 +317,7 @@ export default function YillikPlanPanel() {
           unmatchedLines: r.ok ? r.unmatchedLines : [],
           rawSections: r.ok ? r.rawSections : null,
           fetchError: r.ok ? null : r.error,
-          collapsed: false,
+          collapsed: true,
           saving: false,
           saveResult: null,
           saveErr: null,
@@ -467,8 +471,8 @@ export default function YillikPlanPanel() {
     <div className="max-w-6xl mx-auto space-y-6">
       <StepFlow rows={rows} results={stepResult} />
 
-      {/* DOSYA YÜKLE */}
-      <Card title="1 · DOCX Yükle">
+      {/* DOSYA YÜKLE — her iki sekmede de (klasik aktarım + hafta atama) kullanıldığı için sekmelerin dışında, hep görünür */}
+      <Card title="DOCX Yükle">
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -479,7 +483,7 @@ export default function YillikPlanPanel() {
             if (f) handleFile(f);
           }}
           className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-            dragOver ? 'border-indigo-400 bg-indigo-500/10' : 'border-white/10 hover:border-white/20'
+            dragOver ? 'border-indigo-400 bg-indigo-500/10' : 'border-zinc-300 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/20'
           }`}
         >
           <input
@@ -489,11 +493,11 @@ export default function YillikPlanPanel() {
             className="absolute inset-0 opacity-0 cursor-pointer"
           />
           <div className="text-3xl mb-2">📄</div>
-          <p className="text-sm font-bold text-white">DOCX sürükle veya tıkla</p>
-          <p className="text-xs text-gray-500 mt-1">Yıllık plan tablosu içeren .docx dosyası</p>
-          {fileName && <p className="text-xs font-semibold text-indigo-300 mt-3">{parsing ? '⏳ ' : '✅ '}{fileName}</p>}
+          <p className="text-sm font-bold text-zinc-900 dark:text-white">DOCX sürükle veya tıkla</p>
+          <p className="text-xs text-zinc-500 dark:text-gray-500 mt-1">Yıllık plan tablosu içeren .docx dosyası</p>
+          {fileName && <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 mt-3">{parsing ? '⏳ ' : '✅ '}{fileName}</p>}
         </div>
-        {parseError && <p className="text-sm text-red-400 mt-3">❌ {parseError}</p>}
+        {parseError && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {parseError}</p>}
 
         {rows && (
           <div className="mt-4 space-y-3">
@@ -505,7 +509,7 @@ export default function YillikPlanPanel() {
             {uniteler.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {uniteler.map((u) => (
-                  <span key={u} className="px-2 py-1 rounded-md text-[11px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                  <span key={u} className="px-2 py-1 rounded-md text-[11px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
                     {u}
                   </span>
                 ))}
@@ -513,7 +517,7 @@ export default function YillikPlanPanel() {
             )}
             <button
               onClick={() => setEditorOpen((v) => !v)}
-              className="text-xs font-bold text-indigo-300 hover:text-indigo-200"
+              className="text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:text-indigo-500 dark:hover:text-indigo-200 transition-colors"
             >
               {editorOpen ? '▲ Düzenleyiciyi Kapat' : '✏️ Kaydetmeden önce düzenle'}
             </button>
@@ -525,34 +529,45 @@ export default function YillikPlanPanel() {
         <Card title="Veri Düzenleyici">
           <RowTable rows={rows} onUpdate={updateRow} onUpdateKazanim={updateKazanim} onDelete={deleteRow} onAdd={addRow} />
           <details className="mt-4">
-            <summary className="text-xs font-bold text-gray-400 cursor-pointer">Ham JSON olarak düzenle</summary>
+            <summary className="text-xs font-bold text-zinc-500 dark:text-gray-400 cursor-pointer">Ham JSON olarak düzenle</summary>
             <textarea
               value={rawJson}
               onChange={(e) => setRawJson(e.target.value)}
               rows={10}
               spellCheck={false}
-              className="w-full mt-2 rounded-lg border border-white/10 bg-black/40 p-3 text-xs font-mono text-emerald-300 resize-y outline-none focus:border-indigo-400"
+              className="w-full mt-2 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/40 p-3 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
             />
             <div className="flex items-center gap-3 mt-2">
-              <button onClick={applyRawJson} className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400">
+              <button onClick={applyRawJson} className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors">
                 JSON&apos;u Uygula
               </button>
-              {rawJsonError && <span className="text-xs text-red-400">❌ {rawJsonError}</span>}
+              {rawJsonError && <span className="text-xs text-red-600 dark:text-red-400">❌ {rawJsonError}</span>}
             </div>
           </details>
         </Card>
       )}
 
-      {/* DERS / SINIF SEÇ */}
-      <Card title="2 · Ders ve Sınıf Seç">
+      {/* DERS / SINIF SEÇ — sekmelerin dışında, klasik aktarım da TYMM aktarımı da bunu kullanır */}
+      <Card title="Ders ve Sınıf Seç">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <PickList label="Ders" items={lessons} selectedId={lessonId} onSelect={setLessonId} />
           <PickList label="Sınıf" items={grades} selectedId={gradeId} onSelect={setGradeId} />
         </div>
       </Card>
 
-      {/* IMPORT ADIMLARI */}
-      <Card title="3 · Aktar">
+      {/* SEKMELER — üç ayrı iş akışı karışmasın diye ayrıldı */}
+      <TabBar
+        tabs={[
+          { key: 'docx', label: '📄 Klasik Aktarım' },
+          { key: 'tymm', label: '🌐 TYMM’den Aktar' },
+          { key: 'weeks', label: '📅 Hafta Ata' },
+        ]}
+        active={activeTab}
+        onSelect={(k) => setActiveTab(k as typeof activeTab)}
+      />
+
+      {activeTab === 'docx' && (
+      <Card title="Üniteler · Konular · Kazanımlar">
         <div className="space-y-4">
           <StepRunner
             step="units"
@@ -586,19 +601,21 @@ export default function YillikPlanPanel() {
           />
         </div>
       </Card>
+      )}
 
-      <Card title="4 · TYMM'den İçerik Aktar">
-        <p className="text-xs text-gray-500 mb-4">
+      {activeTab === 'tymm' && (
+      <Card title="TYMM'den İçerik Aktar">
+        <p className="text-xs text-zinc-500 dark:text-gray-500 mb-4">
           Yeni müfredat (tymm.meb.gov.tr) sayfasındaki ünite/konu/kazanım/anahtar kavram metnini önce ÇEKER ve
           önizler — hiçbir şey otomatik kaydedilmez. Gerekirse metni düzeltip ünite ünite elle onaylayınca DB&apos;ye
-          yazılır. Hafta ataması aşağıda ayrı bir adımda yapılır.
+          yazılır. Hafta ataması &quot;Hafta Ata&quot; sekmesinde ayrı bir adımda yapılır.
         </p>
 
         <div className="flex gap-1.5 mb-4">
           <button
             onClick={() => setTymmBulkMode(false)}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              !tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300' : 'border-white/10 text-gray-400 hover:border-white/20'
+              !tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20'
             }`}
           >
             Tek Ünite
@@ -606,7 +623,7 @@ export default function YillikPlanPanel() {
           <button
             onClick={() => setTymmBulkMode(true)}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300' : 'border-white/10 text-gray-400 hover:border-white/20'
+              tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20'
             }`}
           >
             Toplu (Ders/Sınıf Sayfası)
@@ -614,23 +631,23 @@ export default function YillikPlanPanel() {
         </div>
 
         <div className="mb-3">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Müfredat Yılı (ör. 2025-2026)</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">Müfredat Yılı (ör. 2025-2026)</label>
           <input
             value={tymmYear}
             onChange={(e) => setTymmYear(e.target.value)}
             placeholder="2025-2026"
-            className="w-full sm:w-64 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+            className="w-full sm:w-64 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
           />
-          <p className="text-[11px] text-gray-500 mt-1">Kaydetmeden hemen önce kontrol et — sonradan değiştirirsen aynı içerik yeniden (mükerrer) kaydedilir.</p>
+          <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-1">Kaydetmeden hemen önce kontrol et — sonradan değiştirirsen aynı içerik yeniden (mükerrer) kaydedilir.</p>
         </div>
 
         {(!lessonId || !gradeId) && (
-          <p className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
-            ⚠️ Kaydetmeden önce yukarıda (2. adım) Ders ve Sınıf seçin.
+          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+            ⚠️ Kaydetmeden önce yukarıda Ders ve Sınıf seçin.
           </p>
         )}
 
-        <div className="h-px bg-white/5 mb-4" />
+        <div className="h-px bg-zinc-200 dark:bg-white/5 mb-4" />
 
         {!tymmBulkMode ? (
           <>

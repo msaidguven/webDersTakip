@@ -47,6 +47,11 @@ const nextConfig: NextConfig = {
         destination: "/hakkimizda",
         permanent: true,
       },
+      {
+        source: "/contact",
+        destination: "/iletisim",
+        permanent: true,
+      },
     ];
   },
 };
