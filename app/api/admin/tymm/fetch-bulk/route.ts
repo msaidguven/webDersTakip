@@ -21,7 +21,14 @@ export async function POST(request: NextRequest) {
     discovered.units.map(async (u) => {
       const fetched = await fetchTymmUnit(u.url);
       if (!fetched.ok) return { url: u.url, title: u.title, ok: false as const, error: fetched.error };
-      return { url: u.url, title: u.title, ok: true as const, unit: fetched.result.unit, unmatchedLines: fetched.result.unmatchedLines };
+      return {
+        url: u.url,
+        title: u.title,
+        ok: true as const,
+        unit: fetched.result.unit,
+        unmatchedLines: fetched.result.unmatchedLines,
+        rawSections: fetched.result.rawSections,
+      };
     })
   );
 

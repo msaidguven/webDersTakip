@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import type { TymmUnit } from '@/app/src/lib/tymm/tymmParser';
+import type { TymmUnit, TymmRawSections } from '@/app/src/lib/tymm/tymmParser';
 
 type ParsedRow = {
   week_no: number | null;
@@ -35,7 +35,7 @@ type GradeRow = { id: number; name: string };
 
 // SADECE ÇEKME (yazma yok) sonucu — admin bunu düzenleyip onayladıktan sonra ayrı bir
 // istekle (save) kaydedilir, bkz. Card 4 üstündeki not.
-type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[] };
+type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections };
 
 // DB'YE YAZMA sonucu
 type TymmImportResult = {
@@ -48,7 +48,7 @@ type TymmImportResult = {
 };
 
 type BulkFetchItem =
-  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[] }
+  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections }
   | { url: string; title: string; ok: false; error: string };
 type BulkFetchResponse = { unitsFound: number; results: BulkFetchItem[] };
 
@@ -59,6 +59,7 @@ type BulkPreviewItem = {
   title: string;
   unit: TymmUnit | null;
   unmatchedLines: string[];
+  rawSections: TymmRawSections | null;
   fetchError: string | null;
   collapsed: boolean;
   saving: boolean;
@@ -134,6 +135,7 @@ export default function YillikPlanPanel() {
   const [fetchErr, setFetchErr] = useState<string | null>(null);
   const [previewUnit, setPreviewUnit] = useState<TymmUnit | null>(null);
   const [previewUnmatched, setPreviewUnmatched] = useState<string[]>([]);
+  const [previewRawSections, setPreviewRawSections] = useState<TymmRawSections | null>(null);
   const [comparePreviewOpen, setComparePreviewOpen] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -235,6 +237,7 @@ export default function YillikPlanPanel() {
     setFetchErr(null);
     setPreviewUnit(null);
     setPreviewUnmatched([]);
+    setPreviewRawSections(null);
     setSaveResult(null);
     setSaveErr(null);
     try {
@@ -251,6 +254,7 @@ export default function YillikPlanPanel() {
       const result = data as TymmFetchResult;
       setPreviewUnit(result.unit);
       setPreviewUnmatched(result.unmatchedLines);
+      setPreviewRawSections(result.rawSections);
     } catch {
       setFetchErr('İstek başarısız (ağ hatası)');
     } finally {
@@ -307,6 +311,7 @@ export default function YillikPlanPanel() {
           title: r.title,
           unit: r.ok ? r.unit : null,
           unmatchedLines: r.ok ? r.unmatchedLines : [],
+          rawSections: r.ok ? r.rawSections : null,
           fetchError: r.ok ? null : r.error,
           collapsed: false,
           saving: false,
@@ -950,6 +955,7 @@ export default function YillikPlanPanel() {
           tymmUrl={tymmUrl.trim()}
           unit={previewUnit}
           unmatchedLines={previewUnmatched}
+          rawSections={previewRawSections}
           onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
           onClose={() => setComparePreviewOpen(false)}
         />
@@ -960,6 +966,7 @@ export default function YillikPlanPanel() {
           tymmUrl={bulkItems[bulkCompareIndex].url}
           unit={bulkItems[bulkCompareIndex].unit as TymmUnit}
           unmatchedLines={bulkItems[bulkCompareIndex].unmatchedLines}
+          rawSections={bulkItems[bulkCompareIndex].rawSections}
           onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
           onClose={() => setBulkCompareIndex(null)}
         />
@@ -1229,12 +1236,14 @@ function SplitCompareView({
   title,
   tymmUrl,
   onClose,
-  children,
+  left,
+  right,
 }: {
   title: string;
   tymmUrl: string;
   onClose: () => void;
-  children: React.ReactNode;
+  left: React.ReactNode;
+  right: React.ReactNode;
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
@@ -1252,98 +1261,146 @@ function SplitCompareView({
               ✕
             </button>
           </div>
-          {children}
+          {left}
         </div>
 
-        <div className="w-full sm:w-1/2 h-1/2 sm:h-full flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
-            <p className="text-xs font-bold text-gray-400">TYMM (canlı)</p>
-            <a href={tymmUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-300 hover:text-indigo-200">
-              Yeni sekmede aç ↗
+        <div className="w-full sm:w-1/2 h-1/2 sm:h-full overflow-y-auto p-5">
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <h3 className="text-sm font-bold text-gray-400">TYMM&apos;den çekilen bölümler</h3>
+            <a href={tymmUrl} target="_blank" rel="noreferrer" className="flex-shrink-0 text-[11px] text-indigo-300 hover:text-indigo-200">
+              Tam sayfayı aç ↗
             </a>
           </div>
-          <iframe src={tymmUrl} className="flex-1 w-full bg-white" title="TYMM canlı sayfa" />
+          {right}
         </div>
       </div>
     </div>
   );
 }
 
+// Canlı TYMM sayfasının TAMAMI yerine sadece bizim çektiğimiz üç alanı düz metin olarak
+// gösterir — admin sayfada gezinip ilgili yeri aramak zorunda kalmasın diye (bkz. proje
+// sohbeti: "ekran görüntüsü gibi ama sadece çektiğimiz bölümler"). Stil önemli değil,
+// okunabilir olması yeterli.
+function TymmRawSectionsView({ rawSections }: { rawSections: TymmRawSections | null }) {
+  if (!rawSections) return <p className="text-xs text-gray-500">Yükleniyor…</p>;
+  const sections: { label: string; value: string }[] = [
+    { label: 'İçerik Çerçevesi', value: rawSections.contentFramework },
+    { label: 'Anahtar Kavramlar', value: rawSections.keyConcepts },
+    { label: 'Öğrenme Çıktıları ve Süreç Bileşenleri', value: rawSections.learningOutcomes },
+  ];
+  return (
+    <div className="space-y-4">
+      {sections.map((s) => (
+        <div key={s.label}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">{s.label}</p>
+          <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-[11px] text-gray-300 leading-relaxed whitespace-pre-wrap">
+            {s.value || <span className="italic text-gray-600">bulunamadı</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // KAYDETMEDEN ÖNCE karşılaştırma: sol tarafta düzenlenebilir önizleme (TymmUnitEditor),
-// sağda canlı TYMM — admin düzeltmeleri doğrudan burada, kaynağa bakarak yapabilir.
+// sağda TYMM'den çektiğimiz ham bölümler — admin düzeltmeleri doğrudan burada, kaynağa
+// bakarak yapabilir.
 function TymmPreviewCompareModal({
   tymmUrl,
   unit,
   unmatchedLines,
+  rawSections,
   onChange,
   onClose,
 }: {
   tymmUrl: string;
   unit: TymmUnit;
   unmatchedLines: string[];
+  rawSections: TymmRawSections | null;
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
   onClose: () => void;
 }) {
   return (
-    <SplitCompareView title={`${unit.unitTitle} — Önizleme (düzenlenebilir)`} tymmUrl={tymmUrl} onClose={onClose}>
-      <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />
-    </SplitCompareView>
+    <SplitCompareView
+      title={`${unit.unitTitle} — Önizleme (düzenlenebilir)`}
+      tymmUrl={tymmUrl}
+      onClose={onClose}
+      left={<TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />}
+      right={<TymmRawSectionsView rawSections={rawSections} />}
+    />
   );
 }
 
 // KAYDEDİLDİKTEN SONRA kontrol: sol tarafta DB'deki güncel hâli (salt okunur), sağda
-// canlı TYMM.
+// TYMM'den çektiğimiz ham bölümler (canlı sayfadan taze çekilir).
 function TymmInspectModal({ target, onClose }: { target: InspectTarget; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<UnitContentResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [rawSections, setRawSections] = useState<TymmRawSections | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/admin/tymm/unit-content?unitId=${target.unitId}`)
-      .then(async (res) => ({ ok: res.ok, data: await res.json() }))
-      .then(({ ok, data }) => {
+    Promise.all([
+      fetch(`/api/admin/tymm/unit-content?unitId=${target.unitId}`).then(async (res) => ({ ok: res.ok, data: await res.json() })),
+      fetch('/api/admin/tymm/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tymmUrl: target.tymmUrl }),
+      }).then(async (res) => ({ ok: res.ok, data: await res.json() })),
+    ])
+      .then(([content, fetched]) => {
         if (cancelled) return;
-        if (!ok) { setErr(data?.error || 'Yüklenemedi'); return; }
-        setData(data as UnitContentResponse);
+        if (!content.ok) { setErr(content.data?.error || 'Yüklenemedi'); return; }
+        setData(content.data as UnitContentResponse);
+        if (fetched.ok) setRawSections(fetched.data.rawSections as TymmRawSections);
       })
       .catch(() => { if (!cancelled) setErr('İstek başarısız (ağ hatası)'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [target.unitId]);
+  }, [target.unitId, target.tymmUrl]);
 
   return (
-    <SplitCompareView title={`${target.unitTitle} — DB'deki İçerik`} tymmUrl={target.tymmUrl} onClose={onClose}>
-      {loading && <p className="text-xs text-gray-500">Yükleniyor…</p>}
-      {err && <p className="text-xs text-red-400">❌ {err}</p>}
-      {data && (
-        <div className="space-y-3">
-          {data.unit.key_concepts && data.unit.key_concepts.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {data.unit.key_concepts.map((k) => (
-                <span key={k} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/5 text-gray-300 border border-white/10">{k}</span>
+    <SplitCompareView
+      title={`${target.unitTitle} — DB'deki İçerik`}
+      tymmUrl={target.tymmUrl}
+      onClose={onClose}
+      right={<TymmRawSectionsView rawSections={rawSections} />}
+      left={
+        <>
+          {loading && <p className="text-xs text-gray-500">Yükleniyor…</p>}
+          {err && <p className="text-xs text-red-400">❌ {err}</p>}
+          {data && (
+            <div className="space-y-3">
+              {data.unit.key_concepts && data.unit.key_concepts.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {data.unit.key_concepts.map((k) => (
+                    <span key={k} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-white/5 text-gray-300 border border-white/10">{k}</span>
+                  ))}
+                </div>
+              )}
+              {data.topics.map((t, ti) => (
+                <div key={t.id} className="rounded-lg border border-white/5 bg-black/20 p-3">
+                  <p className="text-xs font-bold text-white">
+                    <span className="text-gray-600 font-mono">{ti + 1}.</span> {t.title}
+                  </p>
+                  {t.learningOutcome && <p className="text-[10px] text-gray-500 mt-0.5 mb-1.5">{t.learningOutcome}</p>}
+                  <ul className="space-y-1 mt-1.5 border-l border-white/5">
+                    {t.outcomes.map((o) => (
+                      <li key={o.id} className="text-[11px] text-gray-400 pl-2">
+                        {o.code && <span className="text-indigo-300 font-mono">{o.code}) </span>}{o.description}
+                      </li>
+                    ))}
+                    {t.outcomes.length === 0 && <li className="text-[11px] text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
+                  </ul>
+                </div>
               ))}
             </div>
           )}
-          {data.topics.map((t, ti) => (
-            <div key={t.id} className="rounded-lg border border-white/5 bg-black/20 p-3">
-              <p className="text-xs font-bold text-white">
-                <span className="text-gray-600 font-mono">{ti + 1}.</span> {t.title}
-              </p>
-              {t.learningOutcome && <p className="text-[10px] text-gray-500 mt-0.5 mb-1.5">{t.learningOutcome}</p>}
-              <ul className="space-y-1 mt-1.5 border-l border-white/5">
-                {t.outcomes.map((o) => (
-                  <li key={o.id} className="text-[11px] text-gray-400 pl-2">
-                    {o.code && <span className="text-indigo-300 font-mono">{o.code}) </span>}{o.description}
-                  </li>
-                ))}
-                {t.outcomes.length === 0 && <li className="text-[11px] text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-    </SplitCompareView>
+        </>
+      }
+    />
   );
 }
 

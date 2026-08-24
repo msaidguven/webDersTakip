@@ -73,6 +73,23 @@ function extractFieldLines(html: string, label: string, splitOn: 'br' | 'comma')
   return lines.map((s) => s.trim()).filter(Boolean);
 }
 
+// Bir alanın HAM (ayrıştırılmamış) düz metnini, satır satır — admin'in bizim
+// ayrıştırdığımız/düzenlediği veriyle canlı TYMM sayfasının o bölümünü kafasından
+// karşılaştırmadan yan yana kontrol edebilmesi için (bkz. proje sohbeti: sadece o
+// bölümün "ekran görüntüsü" gibi ama metin olarak). Stil önemli değil, okunabilir olması
+// yeterli — bu yüzden tam bir HTML render'ı yerine düz metne indiriyoruz.
+function rawFieldText(html: string, label: string): string {
+  const raw = extractFieldHtml(html, label);
+  if (!raw) return '';
+  const lines = raw
+    .replace(/<\/p>\s*<p>/gi, '<br>')
+    .replace(/<\/?p>/gi, '')
+    .split(/<br\s*\/?>/i)
+    .map(plainText)
+    .filter(Boolean);
+  return lines.join('\n');
+}
+
 type RawLearningOutcome = Omit<TymmLearningOutcome, 'topicTitle'>;
 
 function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; unmatched: string[] } {
@@ -119,7 +136,11 @@ function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; 
   return { outcomes, unmatched };
 }
 
-export type ParseTymmResult = { unit: TymmUnit; unmatchedLines: string[] };
+// TYMM'den çektiğimiz üç alanın HAM (ayrıştırılmamış) metni — karşılaştırma panelinde
+// canlı sayfanın tamamı yerine sadece bunları göstermek için.
+export type TymmRawSections = { contentFramework: string; keyConcepts: string; learningOutcomes: string };
+
+export type ParseTymmResult = { unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections };
 
 export function parseTymmUnitHtml(html: string): ParseTymmResult {
   const h1Match = /<h1>([\s\S]*?)<\/h1>/.exec(html);
@@ -160,5 +181,10 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
       learningOutcomes,
     },
     unmatchedLines,
+    rawSections: {
+      contentFramework: rawFieldText(html, 'İçerik Çerçevesi'),
+      keyConcepts: rawFieldText(html, 'Anahtar Kavramlar'),
+      learningOutcomes: rawFieldText(html, 'Öğrenme Çıktıları ve Süreç Bileşenleri'),
+    },
   };
 }
