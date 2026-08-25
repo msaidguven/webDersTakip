@@ -108,14 +108,11 @@ export default function YillikPlanPanel() {
   const [lessonGrades, setLessonGrades] = useState<{ lesson_id: number; grade_id: number }[]>([]);
   const [lessonId, setLessonId] = useState<number | null>(null);
   const [gradeId, setGradeId] = useState<number | null>(null);
-  // Önce sınıf seçilsin — dersler o sınıfta okutulanlarla sınırlansın diye lesson_grades'e
-  // göre filtreleniyor. lesson_grades satırları yalnızca o ders/sınıf için daha önce bir
-  // aktarım yapıldıysa oluşuyor (bkz. saveTymmUnit) — hiç dokunulmamış bir sınıf için satır
-  // yoksa (ör. 1-4 ve 9-12. sınıflar) filtre boş listeye düşürüp admin'i kilitlemesin diye
-  // o durumda tüm dersler gösteriliyor.
-  const gradeHasKnownLessons = gradeId != null && lessonGrades.some((lg) => lg.grade_id === gradeId);
-  const availableLessons =
-    gradeId == null ? [] : gradeHasKnownLessons ? lessons.filter((l) => lessonGrades.some((lg) => lg.lesson_id === l.id && lg.grade_id === gradeId)) : lessons;
+  // Önce sınıf seçilsin — dersler o sınıfta okutulanlarla (lesson_grades) sınırlı. Bir
+  // sınıfın hiç bilinen dersi yoksa liste bilerek boş/kilitli kalır — yanlış sınıf/ders
+  // kombinasyonu seçilmesindense admin'in önce doğru eşleşmeyi (lesson_grades'e satır
+  // ekleyerek) kurması daha güvenli.
+  const availableLessons = gradeId == null ? [] : lessons.filter((l) => lessonGrades.some((lg) => lg.lesson_id === l.id && lg.grade_id === gradeId));
 
   const [fileName, setFileName] = useState('');
   const [parsing, setParsing] = useState(false);
