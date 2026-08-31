@@ -53,6 +53,27 @@ export default function AskRagQuestionCard({
     });
   }, []);
 
+  // Daha önce sorulup yayınlanmış soru-cevaplar sayfadan ayrılınca kaybolmasın —
+  // giriş yapmış öğrenci için bu sınıf/dersteki geçmişini önceden yükle.
+  useEffect(() => {
+    if (authState !== 'in') return;
+    (async () => {
+      const res = await fetch(`/api/rag/history?gradeId=${gradeId}&lessonId=${lessonId}`);
+      const data = await res.json().catch(() => null);
+      if (res.ok && Array.isArray(data?.items)) {
+        setAnswers(
+          data.items.map((it: { id: number; question: string; answer: string }) => ({
+            id: it.id,
+            question: it.question,
+            answer: it.answer,
+            reportState: 'idle' as ReportState,
+            reportReason: '',
+          }))
+        );
+      }
+    })();
+  }, [authState, gradeId, lessonId]);
+
   function updateAnswer(id: number, patch: Partial<AnsweredQuestion>) {
     setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   }

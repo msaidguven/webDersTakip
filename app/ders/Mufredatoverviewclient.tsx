@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
-import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
 
 export type UnitTopic = {
   id: number;
@@ -289,8 +288,6 @@ export default function MufredatOverviewClient({
                 </div>
               </div>
             </div>
-
-            <AskRagQuestionCard gradeId={Number(gradeId)} lessonId={Number(lessonId)} lessonName={lessonName} />
 
             {/* Ünite Kartları */}
             <div className="space-y-4">
