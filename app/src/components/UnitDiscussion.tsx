@@ -19,7 +19,7 @@ type CommentEntry = {
   id: number;
   parent_comment_id: number | null;
   body: string;
-  status: 'pending' | 'published' | 'rejected';
+  status: 'pending' | 'published' | 'rejected' | 'deleted';
   created_at: string;
   student_id: string;
   profiles: Profile | Profile[];
@@ -94,6 +94,9 @@ export default function UnitDiscussion({
   const [aiEntries, setAiEntries] = useState<AiEntry[]>([]);
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+  const [commentBusyId, setCommentBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -121,7 +124,11 @@ export default function UnitDiscussion({
       .order('created_at', { ascending: true });
     query = quizQuestionId != null ? query.eq('question_id', quizQuestionId) : query.eq('unit_id', unitId);
     const { data } = await query;
-    setComments(((data as CommentEntry[] | null) || []).map((c) => ({ ...c, kind: 'comment' as const })));
+    setComments(
+      ((data as CommentEntry[] | null) || [])
+        .filter((c) => c.status !== 'deleted')
+        .map((c) => ({ ...c, kind: 'comment' as const }))
+    );
   }, [unitId, quizQuestionId, isAnswered]);
 
   const loadAiFeed = React.useCallback(async () => {
@@ -186,6 +193,65 @@ export default function UnitDiscussion({
       setError('Gönderilemedi, lütfen tekrar deneyin');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteComment(comment: CommentEntry) {
+    if (!window.confirm('Bu yorumu silmek istediğine emin misin? Yanıtı varsa onlar da kaldırılır.')) return;
+    setCommentBusyId(comment.id);
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Silinemedi');
+        return;
+      }
+      // Üst yorumsa yanıtları da kaldı — sadeliği korumak için akışı yeniden yüklüyoruz.
+      if (comment.parent_comment_id == null) {
+        await loadComments();
+      } else {
+        setComments((prev) => prev.filter((c) => c.id !== comment.id));
+      }
+    } catch {
+      setError('Silinemedi, lütfen tekrar deneyin');
+    } finally {
+      setCommentBusyId(null);
+    }
+  }
+
+  function startEdit(comment: CommentEntry) {
+    setEditingId(comment.id);
+    setEditText(comment.body);
+  }
+
+  async function saveEdit(comment: CommentEntry) {
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+    setCommentBusyId(comment.id);
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'edit', body: trimmed }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Düzenlenemedi');
+        return;
+      }
+      setComments((prev) =>
+        prev.map((c) => (c.id === comment.id ? { ...c, body: trimmed, status: data.status || c.status } : c))
+      );
+      setEditingId(null);
+      setEditText('');
+    } catch {
+      setError('Düzenlenemedi, lütfen tekrar deneyin');
+    } finally {
+      setCommentBusyId(null);
     }
   }
 
@@ -328,6 +394,9 @@ export default function UnitDiscussion({
           {feed.map((item) => {
             if (item.kind === 'comment') {
               const name = displayNameOf(item.profiles);
+              const isOwn = item.student_id === userId;
+              const isEditing = editingId === item.id;
+              const isBusy = commentBusyId === item.id;
               return (
                 <div key={`c${item.id}`} className="space-y-2">
                   <div className="flex items-start gap-2.5">
@@ -337,27 +406,135 @@ export default function UnitDiscussion({
                         <span className="text-sm font-semibold text-gray-900">{name}</span>
                         <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
                       </div>
-                      <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{item.body}</p>
-                      {item.status !== 'published' && item.student_id === userId && (
+
+                      {isEditing ? (
+                        <div className="mt-1 space-y-1.5">
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value.slice(0, MAX_LENGTH))}
+                            rows={2}
+                            disabled={isBusy}
+                            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => saveEdit(item)}
+                              disabled={isBusy || !editText.trim()}
+                              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+                            >
+                              Kaydet
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditText('');
+                              }}
+                              className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100"
+                            >
+                              Vazgeç
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{item.body}</p>
+                      )}
+
+                      {item.status !== 'published' && item.status !== 'deleted' && isOwn && (
                         <p className="mt-1 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
                       )}
-                      <button
-                        onClick={() => setReplyTo(replyTo === item.id ? null : item.id)}
-                        className="mt-1 text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
-                      >
-                        Yanıtla
-                      </button>
+
+                      {!isEditing && (
+                        <div className="mt-1 flex items-center gap-3">
+                          <button
+                            onClick={() => setReplyTo(replyTo === item.id ? null : item.id)}
+                            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                          >
+                            Yanıtla
+                          </button>
+                          {isOwn && (
+                            <>
+                              <button
+                                onClick={() => startEdit(item)}
+                                disabled={isBusy}
+                                className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                              >
+                                Düzenle
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComment(item)}
+                                disabled={isBusy}
+                                className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                              >
+                                Sil
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
 
                       {repliesOf(item.id).length > 0 && (
                         <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
-                          {repliesOf(item.id).map((r) => (
-                            <div key={r.id}>
-                              <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.body}</p>
-                              {r.status !== 'published' && r.student_id === userId && (
-                                <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
-                              )}
-                            </div>
-                          ))}
+                          {repliesOf(item.id).map((r) => {
+                            const rIsOwn = r.student_id === userId;
+                            const rIsEditing = editingId === r.id;
+                            const rIsBusy = commentBusyId === r.id;
+                            return (
+                              <div key={r.id}>
+                                {rIsEditing ? (
+                                  <div className="space-y-1.5">
+                                    <textarea
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value.slice(0, MAX_LENGTH))}
+                                      rows={2}
+                                      disabled={rIsBusy}
+                                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => saveEdit(r)}
+                                        disabled={rIsBusy || !editText.trim()}
+                                        className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+                                      >
+                                        Kaydet
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingId(null);
+                                          setEditText('');
+                                        }}
+                                        className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100"
+                                      >
+                                        Vazgeç
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.body}</p>
+                                )}
+                                {r.status !== 'published' && r.status !== 'deleted' && rIsOwn && (
+                                  <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
+                                )}
+                                {!rIsEditing && rIsOwn && (
+                                  <div className="mt-0.5 flex items-center gap-3">
+                                    <button
+                                      onClick={() => startEdit(r)}
+                                      disabled={rIsBusy}
+                                      className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                                    >
+                                      Düzenle
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteComment(r)}
+                                      disabled={rIsBusy}
+                                      className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                                    >
+                                      Sil
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
