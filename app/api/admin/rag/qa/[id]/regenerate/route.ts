@@ -4,7 +4,9 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { answerQuestionForBook } from '@/app/src/lib/rag/answerQuestion';
 
 // Admin panelindeki "Tekrar AI'ye gönder": aynı soruyu, aynı sınıf+ders için
-// yeniden çalıştırır (arama + üretim baştan yapılır) ve kaydı 'pending' durumuna geri alır.
+// yeniden çalıştırır (arama + üretim baştan yapılır) ve tekrar yayınlar. Bu cevaba
+// ait açık bildirimler varsa (bkz. rag_answer_reports) çözüldü sayılır — içerik
+// zaten değişti.
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -36,13 +38,19 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       answer: result.answer,
       matched_chunk_ids: result.matchedChunkIds,
       model: result.model,
-      status: 'pending',
+      status: 'published',
       reviewed_by: null,
       reviewed_at: null,
     })
     .eq('id', qaId);
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+  await supabase
+    .from('rag_answer_reports')
+    .update({ status: 'resolved', resolved_by: admin.user.id, resolved_at: new Date().toISOString() })
+    .eq('rag_answer_id', qaId)
+    .eq('status', 'open');
 
   return NextResponse.json({ ok: true, answer: result.answer });
 }

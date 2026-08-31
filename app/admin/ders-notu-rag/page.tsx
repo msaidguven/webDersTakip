@@ -4,13 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import RagDocumentsPanel from '@/app/src/components/admin/RagDocumentsPanel';
 import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
+import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'documents' | 'qa';
+type Tab = 'reports' | 'qa' | 'documents';
 
 export default function DersNotuRagPage() {
-  const [tab, setTab] = useState<Tab>('qa');
+  const [tab, setTab] = useState<Tab>('reports');
 
   return (
     <div className="min-h-screen bg-[#0a0a0c]">
@@ -21,11 +22,14 @@ export default function DersNotuRagPage() {
         <h1 className="font-bold text-white text-sm sm:text-base">Ders Notu Soru-Cevap (RAG)</h1>
       </header>
       <main className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
+          <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} label="Bildirilenler" />
           <TabButton active={tab === 'qa'} onClick={() => setTab('qa')} label="Onay Bekleyenler" />
           <TabButton active={tab === 'documents'} onClick={() => setTab('documents')} label="Ders Notu PDF'leri" />
         </div>
-        {tab === 'qa' ? <RagQaApprovalPanel /> : <RagDocumentsPanel />}
+        {tab === 'reports' && <RagReportsPanel />}
+        {tab === 'qa' && <RagQaApprovalPanel />}
+        {tab === 'documents' && <RagDocumentsPanel />}
       </main>
     </div>
   );

@@ -4,8 +4,9 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { answerQuestionForBook } from '@/app/src/lib/rag/answerQuestion';
 
 // Öğrenci bir sınıf+ders (kitap) için soru sorar. Cevap Gemini ile üretilip
-// veritabanına "pending" statüsüyle kaydedilir; admin onaylayana kadar
-// öğrenciye gösterilmez (bu yüzden response'da answer alanı bilerek dönülmüyor).
+// doğrudan yayınlanır (admin onayı beklemez) ve öğrenciye hemen gösterilir —
+// yanında "bu cevap yapay zekayla üretildi, hata içerebilir" uyarısı ve hatalı/
+// eksik bulunursa bildirme imkânı sunulur (bkz. /api/rag/report).
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       answer: result.answer,
       matched_chunk_ids: result.matchedChunkIds,
       model: result.model,
-      status: 'pending',
+      status: 'published',
     })
     .select('id')
     .single();
@@ -61,6 +62,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     id: saved.id,
-    message: 'Sorunuz alındı. İnceleme sonrası yayınlanacak.',
+    answer: result.answer,
   });
 }
