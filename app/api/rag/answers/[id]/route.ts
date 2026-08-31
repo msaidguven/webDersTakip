@@ -29,6 +29,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await service.from('question_comments').update({ status: 'deleted' }).eq('parent_ai_answer_id', answerId);
+  await service.from('rag_answers').update({ status: 'deleted' }).eq('parent_rag_answer_id', answerId);
 
   return NextResponse.json({ ok: true });
 }

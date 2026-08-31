@@ -42,6 +42,8 @@ type AiEntry = {
   profiles: Profile | Profile[];
   reportState: ReportState;
   reportReason: string;
+  parent_comment_id: number | null;
+  parent_rag_answer_id: number | null;
 };
 
 type FeedEntry = CommentEntry | AiEntry;
@@ -192,6 +194,92 @@ function ReplyBox({
   );
 }
 
+// Bir yoruma ya da başka bir AI cevabına "yanıt" olarak sorulmuş @hocam/@kanka
+// sorusu — nested bir yanıt olduğu için tekrar "Yanıtla" düğmesi taşımıyor
+// (mevcut tek seviyelik iç içe geçme sınırıyla tutarlı).
+function ReplyAiRow({
+  item,
+  userId,
+  aiBusyId,
+  onDelete,
+  onReportPatch,
+  onReportSubmit,
+}: {
+  item: AiEntry;
+  userId: string | null;
+  aiBusyId: number | null;
+  onDelete: (item: AiEntry) => void;
+  onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
+  onReportSubmit: (item: AiEntry) => void;
+}) {
+  const name = displayNameOf(item.profiles);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-gray-800">{name}</span>
+        <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
+      </div>
+      <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
+      <div className="rounded-lg bg-gray-50/80 p-2.5 flex items-start gap-2">
+        <div className="h-6 w-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+          <Bot className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
+          <div className="mt-2">
+            {item.reportState === 'idle' && (
+              <div className="flex items-center gap-3 flex-wrap">
+                {item.student_id === userId && (
+                  <button
+                    onClick={() => onDelete(item)}
+                    disabled={aiBusyId === item.id}
+                    className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                  >
+                    Sil
+                  </button>
+                )}
+                <button
+                  onClick={() => onReportPatch(item.id, { reportState: 'open' })}
+                  className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
+                >
+                  <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
+                </button>
+              </div>
+            )}
+            {item.reportState === 'open' && (
+              <div className="space-y-2">
+                <textarea
+                  value={item.reportReason}
+                  onChange={(e) => onReportPatch(item.id, { reportReason: e.target.value.slice(0, 500) })}
+                  placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
+                  rows={2}
+                  className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onReportSubmit(item)}
+                    className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                  >
+                    Bildir
+                  </button>
+                  <button
+                    onClick={() => onReportPatch(item.id, { reportState: 'idle', reportReason: '' })}
+                    className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
+                  >
+                    Vazgeç
+                  </button>
+                </div>
+              </div>
+            )}
+            {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
+            {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Test sayfasında (quizQuestionId dolu) her şey sadece o soruya, ders sayfasında
 // (quizQuestionId boş) sadece o üniteye özel: hem yorumlar hem AI soru-cevapları.
 // Tek kutu, tek akış: öğrenci normal bir şey yazarsa yorum olur (admin onayı
@@ -281,12 +369,24 @@ export default function UnitDiscussion({
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
       setAiEntries(
-        data.items.map((it: { id: number; question: string; answer: string; model: string; created_at: string; student_id: string; profiles: Profile }) => ({
-          ...it,
-          kind: 'ai' as const,
-          reportState: 'idle' as ReportState,
-          reportReason: '',
-        }))
+        data.items.map(
+          (it: {
+            id: number;
+            question: string;
+            answer: string;
+            model: string;
+            created_at: string;
+            student_id: string;
+            profiles: Profile;
+            parent_comment_id: number | null;
+            parent_rag_answer_id: number | null;
+          }) => ({
+            ...it,
+            kind: 'ai' as const,
+            reportState: 'idle' as ReportState,
+            reportReason: '',
+          })
+        )
       );
     }
   }, [unitId, quizQuestionId, isAnswered]);
@@ -354,9 +454,10 @@ export default function UnitDiscussion({
         setError(data?.error || 'Silinemedi');
         return;
       }
-      // Üst yorumsa yanıtları da kaldı — sadeliği korumak için akışı yeniden yüklüyoruz.
+      // Üst yorumsa hem yorum hem AI yanıtları kaldı — sadeliği korumak için
+      // her iki akışı da yeniden yüklüyoruz.
       if (comment.parent_comment_id == null) {
-        await loadComments();
+        await Promise.all([loadComments(), loadAiFeed()]);
       } else {
         setComments((prev) => prev.filter((c) => c.id !== comment.id));
       }
@@ -399,9 +500,13 @@ export default function UnitDiscussion({
     }
   }
 
-  async function submitAiQuestion(raw: string, mode: AiMode) {
+  async function submitAiQuestion(raw: string, mode: AiMode, target: ReplyTarget) {
     const tag = mode === 'hocam' ? HOCAM_TAG : KANKA_TAG;
     const question = raw.replace(new RegExp(tag, 'gi'), '').trim() || raw.trim();
+    // Bir yoruma/AI cevabına yanıt olarak soruluyorsa parent_* burada set edilir —
+    // hem doğru yerde (nested) görünsün hem de sunucu tarafında bağlam olarak kullanılsın.
+    const parentCommentId = target?.type === 'comment' ? target.id : null;
+    const parentRagAnswerId = target?.type === 'ai' ? target.id : null;
     setSubmitting(true);
     setError(null);
     try {
@@ -416,6 +521,8 @@ export default function UnitDiscussion({
           question,
           questionContext: mode === 'hocam' ? questionContext || undefined : undefined,
           mode,
+          parentCommentId: parentCommentId ?? undefined,
+          parentRagAnswerId: parentRagAnswerId ?? undefined,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -436,6 +543,8 @@ export default function UnitDiscussion({
           kind: 'ai',
           reportState: 'idle',
           reportReason: '',
+          parent_comment_id: parentCommentId,
+          parent_rag_answer_id: parentRagAnswerId,
         },
         ...prev,
       ]);
@@ -450,7 +559,8 @@ export default function UnitDiscussion({
   }
 
   // Hem ana kutu hem "Yanıtla" kutusu bunu kullanır: "@hocam"/"@kanka" içeriyorsa
-  // AI'ye bağımsız yeni bir soru olarak gider, yoksa target'a göre yorum/yanıt olur.
+  // AI'ye soru gider (target doluysa yanıt verilen yorumun/cevabın ALTINA nested
+  // olarak), yoksa target'a göre yorum/yanıt olur.
   async function submitSmart(raw: string, target: ReplyTarget): Promise<boolean> {
     const trimmed = raw.trim();
     if (!trimmed || submitting) return false;
@@ -466,7 +576,7 @@ export default function UnitDiscussion({
         setError('Bugünkü AI soru hakkını doldurdun. Yarın tekrar sorabilirsin.');
         return false;
       }
-      return submitAiQuestion(trimmed, mode);
+      return submitAiQuestion(trimmed, mode, target);
     }
     const parentCommentId = target?.type === 'comment' ? target.id : null;
     const parentAiAnswerId = target?.type === 'ai' ? target.id : null;
@@ -520,7 +630,7 @@ export default function UnitDiscussion({
         setError(data?.error || 'Silinemedi');
         return;
       }
-      setAiEntries((prev) => prev.filter((a) => a.id !== item.id));
+      setAiEntries((prev) => prev.filter((a) => a.id !== item.id && a.parent_rag_answer_id !== item.id));
       setComments((prev) => prev.filter((c) => c.parent_ai_answer_id !== item.id));
     } catch {
       setError('Silinemedi, lütfen tekrar deneyin');
@@ -533,10 +643,19 @@ export default function UnitDiscussion({
   if (availability === 'loading') return null;
 
   const topLevelComments = comments.filter((c) => !c.parent_comment_id && !c.parent_ai_answer_id);
-  const repliesOfComment = (id: number) => comments.filter((c) => c.parent_comment_id === id);
-  const repliesOfAi = (id: number) => comments.filter((c) => c.parent_ai_answer_id === id);
+  const topLevelAi = aiEntries.filter((a) => !a.parent_comment_id && !a.parent_rag_answer_id);
+  // Bir yoruma verilmiş yanıt hem başka bir yorum hem de @hocam/@kanka ile
+  // verilmiş bir AI cevabı olabilir — ikisini de zaman sırasına göre birleştiriyoruz.
+  const repliesOfComment = (id: number): FeedEntry[] =>
+    [...comments.filter((c) => c.parent_comment_id === id), ...aiEntries.filter((a) => a.parent_comment_id === id)].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  const repliesOfAi = (id: number): FeedEntry[] =>
+    [...comments.filter((c) => c.parent_ai_answer_id === id), ...aiEntries.filter((a) => a.parent_rag_answer_id === id)].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
 
-  const feed: FeedEntry[] = [...topLevelComments, ...aiEntries].sort(
+  const feed: FeedEntry[] = [...topLevelComments, ...topLevelAi].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
@@ -669,24 +788,36 @@ export default function UnitDiscussion({
 
                       {repliesOfComment(item.id).length > 0 && (
                         <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
-                          {repliesOfComment(item.id).map((r) => (
-                            <ReplyRow
-                              key={r.id}
-                              comment={r}
-                              userId={userId}
-                              editingId={editingId}
-                              editText={editText}
-                              commentBusyId={commentBusyId}
-                              onStartEdit={startEdit}
-                              onCancelEdit={() => {
-                                setEditingId(null);
-                                setEditText('');
-                              }}
-                              onSaveEdit={saveEdit}
-                              onDelete={handleDeleteComment}
-                              onEditTextChange={setEditText}
-                            />
-                          ))}
+                          {repliesOfComment(item.id).map((r) =>
+                            r.kind === 'comment' ? (
+                              <ReplyRow
+                                key={`c${r.id}`}
+                                comment={r}
+                                userId={userId}
+                                editingId={editingId}
+                                editText={editText}
+                                commentBusyId={commentBusyId}
+                                onStartEdit={startEdit}
+                                onCancelEdit={() => {
+                                  setEditingId(null);
+                                  setEditText('');
+                                }}
+                                onSaveEdit={saveEdit}
+                                onDelete={handleDeleteComment}
+                                onEditTextChange={setEditText}
+                              />
+                            ) : (
+                              <ReplyAiRow
+                                key={`a${r.id}`}
+                                item={r}
+                                userId={userId}
+                                aiBusyId={aiBusyId}
+                                onDelete={handleDeleteAiEntry}
+                                onReportPatch={(id, patch) => updateAiEntry(id, patch)}
+                                onReportSubmit={submitReport}
+                              />
+                            )
+                          )}
                         </div>
                       )}
 
@@ -786,24 +917,36 @@ export default function UnitDiscussion({
 
                     {repliesOfAi(item.id).length > 0 && (
                       <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
-                        {repliesOfAi(item.id).map((r) => (
-                          <ReplyRow
-                            key={r.id}
-                            comment={r}
-                            userId={userId}
-                            editingId={editingId}
-                            editText={editText}
-                            commentBusyId={commentBusyId}
-                            onStartEdit={startEdit}
-                            onCancelEdit={() => {
-                              setEditingId(null);
-                              setEditText('');
-                            }}
-                            onSaveEdit={saveEdit}
-                            onDelete={handleDeleteComment}
-                            onEditTextChange={setEditText}
-                          />
-                        ))}
+                        {repliesOfAi(item.id).map((r) =>
+                          r.kind === 'comment' ? (
+                            <ReplyRow
+                              key={`c${r.id}`}
+                              comment={r}
+                              userId={userId}
+                              editingId={editingId}
+                              editText={editText}
+                              commentBusyId={commentBusyId}
+                              onStartEdit={startEdit}
+                              onCancelEdit={() => {
+                                setEditingId(null);
+                                setEditText('');
+                              }}
+                              onSaveEdit={saveEdit}
+                              onDelete={handleDeleteComment}
+                              onEditTextChange={setEditText}
+                            />
+                          ) : (
+                            <ReplyAiRow
+                              key={`a${r.id}`}
+                              item={r}
+                              userId={userId}
+                              aiBusyId={aiBusyId}
+                              onDelete={handleDeleteAiEntry}
+                              onReportPatch={(id, patch) => updateAiEntry(id, patch)}
+                              onReportSubmit={submitReport}
+                            />
+                          )
+                        )}
                       </div>
                     )}
 

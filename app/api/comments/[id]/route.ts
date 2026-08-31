@@ -38,9 +38,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { error } = await service.from('question_comments').update({ status: 'deleted' }).eq('id', commentId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Üst yorumsa (parent_comment_id boşsa) altındaki yanıtlar da yayından kalksın.
+    // Üst yorumsa (parent_comment_id boşsa) altındaki yanıtlar (yorum ya da
+    // @hocam/@kanka ile verilmiş AI cevapları) da yayından kalksın.
     if (comment.parent_comment_id == null) {
       await service.from('question_comments').update({ status: 'deleted' }).eq('parent_comment_id', commentId);
+      await service.from('rag_answers').update({ status: 'deleted' }).eq('parent_comment_id', commentId);
     }
 
     return NextResponse.json({ ok: true });

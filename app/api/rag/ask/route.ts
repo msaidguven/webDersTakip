@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
         question?: unknown;
         questionContext?: unknown;
         mode?: unknown;
+        parentCommentId?: unknown;
+        parentRagAnswerId?: unknown;
       }
     | null;
   const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
@@ -34,6 +36,10 @@ export async function POST(request: NextRequest) {
   const questionContext = typeof body?.questionContext === 'string' ? body.questionContext.trim().slice(0, 3000) : null;
   // "hocam": ders notuna bağlı, "kanka": serbest/genel bilgi de verebilen sohbet modu.
   const mode = body?.mode === 'kanka' ? 'kanka' : 'hocam';
+  const parentCommentIdRaw = typeof body?.parentCommentId === 'number' ? body.parentCommentId : Number(body?.parentCommentId);
+  const parentCommentId = Number.isFinite(parentCommentIdRaw) ? parentCommentIdRaw : null;
+  const parentRagAnswerIdRaw = typeof body?.parentRagAnswerId === 'number' ? body.parentRagAnswerId : Number(body?.parentRagAnswerId);
+  const parentRagAnswerId = Number.isFinite(parentRagAnswerIdRaw) ? parentRagAnswerIdRaw : null;
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
@@ -67,6 +73,34 @@ export async function POST(request: NextRequest) {
     if (!quizQuestion) return NextResponse.json({ error: 'Test sorusu bulunamadı' }, { status: 400 });
   }
 
+  if (parentCommentId != null && parentRagAnswerId != null) {
+    return NextResponse.json({ error: 'Geçersiz yanıt hedefi' }, { status: 400 });
+  }
+
+  // Bir yoruma/önceki AI cevabına "yanıt" olarak soruluyorsa, o mesajın içeriğini
+  // burada (istemciden değil, DB'den) çekip modele bağlam olarak veriyoruz — hem
+  // güvenilir olsun hem de kayıtta doğru parent_* alanı set edilsin.
+  let replyContext: string | null = null;
+  if (parentCommentId != null) {
+    const { data: parentComment } = await service
+      .from('question_comments')
+      .select('body')
+      .eq('id', parentCommentId)
+      .neq('status', 'deleted')
+      .maybeSingle();
+    if (!parentComment) return NextResponse.json({ error: 'Yanıt verilen yorum bulunamadı' }, { status: 400 });
+    replyContext = parentComment.body as string;
+  } else if (parentRagAnswerId != null) {
+    const { data: parentAnswer } = await service
+      .from('rag_answers')
+      .select('question, answer')
+      .eq('id', parentRagAnswerId)
+      .neq('status', 'deleted')
+      .maybeSingle();
+    if (!parentAnswer) return NextResponse.json({ error: 'Yanıt verilen cevap bulunamadı' }, { status: 400 });
+    replyContext = `Soru: ${parentAnswer.question}\nCevap: ${parentAnswer.answer}`;
+  }
+
   const dailyLimit = await getDailyLimitFor(service, user.id);
   const askedToday = await countTodayQuestions(service, user.id);
   if (askedToday >= dailyLimit) {
@@ -80,8 +114,8 @@ export async function POST(request: NextRequest) {
   try {
     result =
       mode === 'kanka'
-        ? await answerAsBuddy(service, gradeId, lessonId, question)
-        : await answerQuestionForBook(service, gradeId, lessonId, question, questionContext);
+        ? await answerAsBuddy(service, gradeId, lessonId, unitId, question, replyContext)
+        : await answerQuestionForBook(service, gradeId, lessonId, question, questionContext, replyContext);
   } catch (err) {
     console.error('RAG soru-cevap hatası', err);
     return NextResponse.json({ error: 'Cevap üretilemedi, lütfen tekrar deneyin' }, { status: 500 });
@@ -101,6 +135,8 @@ export async function POST(request: NextRequest) {
       matched_chunk_ids: result.matchedChunkIds,
       model: result.model,
       status: 'published',
+      parent_comment_id: parentCommentId,
+      parent_rag_answer_id: parentRagAnswerId,
     })
     .select('id')
     .single();

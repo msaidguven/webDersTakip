@@ -102,7 +102,8 @@ async function callGemini(prompt: string, temperature: number): Promise<string> 
 export async function generateGroundedAnswer(
   question: string,
   contextChunks: string[],
-  questionContext?: string | null
+  questionContext?: string | null,
+  replyContext?: string | null
 ): Promise<AnswerResult> {
   const context = contextChunks
     .map((chunk, i) => `[Parça ${i + 1}]\n${chunk}`)
@@ -114,6 +115,12 @@ export async function generateGroundedAnswer(
     ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nÖğrencinin sorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu test sorusunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n\nBu bir test sorusu açıklaması olduğu için cevabın KISA olsun: 300-400 karakter civarı, kesinlikle 500 karakteri geçme. Uzun madde listeleri veya birden fazla paragraf yazma — sadece doğru cevabın neden doğru olduğunu 2-3 cümleyle açıkla.\n`
     : '';
 
+  // Öğrenci bir yoruma/önceki cevaba "yanıt" olarak soru soruyorsa (ör. "neden
+  // olmaz"), o mesajı görmeden soru anlamsız kalır — burada iletiyoruz.
+  const replyContextBlock = replyContext
+    ? `\n\nÖğrenci şu mesaja yanıt veriyor:\n"${replyContext}"\n\nÖğrencinin sorusu ("${question}") bu mesajla ilgili olabilir — bağlamı kullanarak yorumla, mesajda neden bahsedildiğini bilmiyormuş gibi davranma.\n`
+    : '';
+
   const prompt = `Aşağıda bir ders notundan alınmış metin parçaları var. Öğrencinin sorusunu SADECE bu parçalarda yer alan bilgiye dayanarak cevapla.
 
 Kurallar:
@@ -122,7 +129,7 @@ Kurallar:
 - Metin "biz/bizim" gibi genel bir dille yazılmış olabilir (ör. "ailede çocuk, okulda öğrenci rolüne sahip oluruz"). Öğrenci bunu "benim/kendim" diye kişiselleştirerek sorsa bile (ör. "rollerim nelerdir"), metindeki bu genel bilgiyi doğrudan cevap olarak kullan — bunu reddetme veya "bu senin kişisel bilgin değil" deme.
 - Sıcak ve samimi bir öğretmen gibi yaz; soğuk, sadece madde sıralayan bir liste bırakma. Cevaba kısa bir giriş cümlesiyle başla, madde listesi kullanacaksan her maddeyi tek kelimeyle bırakmak yerine mümkün olduğunca 2-3 kelimelik kısa bir açıklama/örnek ekle (metinde varsa), ve cevabın sonuna kısa, samimi bir kapanış cümlesi ekle (ör. "Umarım yardımcı olmuştur!" gibi, her seferinde birebir aynı olmasın).
 - Cevabın toplam uzunluğu KESİNLİKLE 800 karakteri geçmesin — hedefin 500-600 karakter civarı olsun ki payın olsun (bu zorunlu bir sınır, tahmini değil). Parçalarda çok sayıda örnek/madde olsa bile HEPSİNİ sıralama — en önemli 2-3 taneyi seç, "başka örnekler de var" gibi bir not ekleyebilirsin ama liste kısa kalsın. Öğrenciler uzun cevapları zaten okumuyor.
-${questionContextBlock}
+${questionContextBlock}${replyContextBlock}
 Ders notu parçaları:
 ${context}
 
@@ -136,29 +143,44 @@ ${context}
   return { answer, model: CHAT_MODEL };
 }
 
-// "@kanka" modu: ders notuna bağlı kalmaz, genel bilgi de verebilir — kitaptaki
-// "sadece verilen metne dayan" güvenlik sınırı burada bilerek yok. Yine de yaş
-// grubuna uygun, samimi ama sınırlı bir "arkadaş" personası kullanıyor.
+// "@kanka" modu: @hocam'ın "sadece verilen metne dayan" kısıtı yok, ama sınırsız
+// da değil — ünitenin KONUSUYLA ilgili olduğu sürece (kitapta yazmasa bile) genel
+// bilgi kullanabilir, dersle hiç alakası olmayan kişisel/sosyal sorulara girmez.
+// Site bir ders çalışma aracı olduğu için @kanka'nın "sohbet arkadaşına" dönüşüp
+// öğrenciyi asıl çalışmadan (@hocam, ders notu) uzaklaştırmaması bilinçli bir tercih.
 export async function generateBuddyAnswer(
   question: string,
   gradeName: string | null,
-  lessonName: string | null
+  lessonName: string | null,
+  unitName: string | null,
+  contextChunks: string[],
+  replyContext?: string | null
 ): Promise<AnswerResult> {
-  const contextLine = gradeName || lessonName
-    ? `Konuştuğun öğrenci ${gradeName ? `${gradeName}` : ''}${gradeName && lessonName ? ', ' : ''}${lessonName ? `${lessonName} dersini alıyor` : ''}.`
+  const contextLine = [gradeName, lessonName].filter(Boolean).join(' ');
+  const context = contextChunks.length
+    ? `\n\nBu ünitenin ders notlarından bulunan ilgili parçalar (varsa öncelikle bunlara dayan):\n${contextChunks
+        .map((c, i) => `[Parça ${i + 1}]\n${c}`)
+        .join('\n\n')}\n`
     : '';
 
-  const prompt = `Sen bir öğrencinin okul dışı, samimi arkadaşı gibisin — "kanka" tarzı rahat, eğlenceli ve sıcak bir dille konuşuyorsun.
-${contextLine}
+  const replyContextBlock = replyContext
+    ? `\n\nÖğrenci şu mesaja yanıt veriyor:\n"${replyContext}"\n\nSorusu ("${question}") bu mesajla ilgili olabilir — bağlamı kullanarak yorumla, neden bahsedildiğini bilmiyormuş gibi davranma.\n`
+    : '';
+
+  const prompt = `Sen bir öğrencinin ders çalışırken yanında olan, meraklı ve bilgili bir arkadaşısın — rahat ve sıcak konuşursun ama bir komedyen değilsin, gereksiz şaka/emoji yapmazsın.
+${contextLine ? `Öğrenci ${contextLine} dersini alıyor.` : ''}${unitName ? ` Şu an "${unitName}" ünitesini çalışıyor.` : ''}
 
 Kurallar:
-- Ders kitabına bağlı kalmak ZORUNDA değilsin — genel bilgini rahatça kullanabilirsin, sadece ders içeriğiyle sınırlı değilsin.
-- Ama emin olmadığın bir şeyi kesin bilgiymiş gibi uydurma; şüpheliysen "tam emin değilim ama..." gibi dürüst ol.
-- Okul çağındaki bir öğrenciyle konuştuğunu unutma: küfür, argo, uygunsuz veya yaşına uygun olmayan hiçbir şey söyleme; saygısızlık yapma.
-- Cevabı kısa tut: 300-500 karakter civarı, gereksiz uzatma.
-
+- Önce ders notlarından bulunan parçalara bak (aşağıda varsa). Orada varsa ona dayan.
+- Orada yoksa ama soru "${unitName || 'bu ünitenin konusu'}" ile aynı KONU alanındaysa (ör. ünite "Güneş" ise ve soru gezegenlerle ilgiliyse), kitapta yazmasa bile kendi genel bilgini kullanarak eğitici bir cevap ver.
+- Ama soru bu dersin/ünitenin konusuyla HİÇ alakası olmayan kişisel/sosyal bir şeyse (favori hayvanın ne, dünkü maç kimin, bugün hava nasıl gibi), kısaca "bu konudan biraz uzak, ders/ünite ile ilgili bir şey sorsan yardımcı olurum" de ve cevaplama.
+- Emin olmadığın bir şeyi kesin bilgiymiş gibi uydurma; şüpheliysen dürüstçe belirt.
+- Okul çağındaki bir öğrenciyle konuştuğunu unutma: küfür, argo, uygunsuz hiçbir şey söyleme.
+- Cevabı kısa tut: 300-500 karakter civarı.
+- Cevap gerçekten bir bilgi içeriyorsa (reddetme durumu hariç), sonuna kısa bir cümleyle ders notlarına da bakmasını öner (ör. "Ders notlarında da bu konuyla ilgili bilgi olabilir, göz atmanı öneririm!") — her seferinde birebir aynı cümle olmasın.
+${context}${replyContextBlock}
 Öğrencinin sorusu: ${question}`;
 
-  const answer = await callGemini(prompt, 0.7);
+  const answer = await callGemini(prompt, 0.6);
   return { answer, model: `${CHAT_MODEL}-kanka` };
 }
