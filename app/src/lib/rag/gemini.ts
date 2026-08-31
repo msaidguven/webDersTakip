@@ -80,6 +80,7 @@ export async function generateGroundedAnswer(question: string, contextChunks: st
 Kurallar:
 - Parçalarda cevap için yeterli bilgi yoksa, başka hiçbir şey söylemeden tam olarak şunu yaz: "Bu bilgi ders notlarında yok."
 - Parçaların dışında hiçbir genel bilgini veya varsayımını kullanma.
+- Metin "biz/bizim" gibi genel bir dille yazılmış olabilir (ör. "ailede çocuk, okulda öğrenci rolüne sahip oluruz"). Öğrenci bunu "benim/kendim" diye kişiselleştirerek sorsa bile (ör. "rollerim nelerdir"), metindeki bu genel bilgiyi doğrudan cevap olarak kullan — bunu reddetme veya "bu senin kişisel bilgin değil" deme.
 - Cevabı net, kısa ve öğrencinin anlayacağı şekilde yaz.
 
 Ders notu parçaları:
@@ -94,7 +95,11 @@ ${context}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 },
+        // 0.2 bile bazı sınırda sorularda (ör. metnin "biz" diliyle anlattığı bir
+        // bilgiyi "benim" diye kişiselleştiren sorularda) aynı bağlamla farklı
+        // seferlerde tutarsız cevaplara (bazen doğru cevap, bazen "yok" reddi) yol
+        // açtı. 0'a çekmek bu tür sınır durumlarda tutarlılığı artırıyor.
+        generationConfig: { temperature: 0 },
       }),
     }
   );
