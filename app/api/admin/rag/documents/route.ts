@@ -4,7 +4,6 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { processRagDocument } from '@/app/src/lib/rag/processDocument';
 
 const BUCKET = 'rag-documents';
-const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -27,26 +26,29 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ items: data || [] });
 }
 
+// PDF, Vercel function'ların ~4.5MB'lık istek gövdesi limitine takılmaması için
+// bu route'a hiç gönderilmiyor: tarayıcı dosyayı önce doğrudan Supabase Storage'a
+// yüklüyor (bkz. RagDocumentsPanel.tsx), buraya sadece storage yolu geliyor.
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const formData = await request.formData().catch(() => null);
-  const file = formData?.get('file');
-  const gradeId = Number(formData?.get('gradeId'));
-  const lessonId = Number(formData?.get('lessonId'));
+  const body = (await request.json().catch(() => null)) as
+    | { gradeId?: unknown; lessonId?: unknown; filePath?: unknown; fileName?: unknown }
+    | null;
+  const gradeId = Number(body?.gradeId);
+  const lessonId = Number(body?.lessonId);
+  const filePath = typeof body?.filePath === 'string' ? body.filePath : '';
+  const fileName = typeof body?.fileName === 'string' ? body.fileName : filePath;
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
   }
-  if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 });
-  }
-  if (file.type !== 'application/pdf') {
-    return NextResponse.json({ error: 'Sadece PDF yükleyebilirsiniz' }, { status: 400 });
-  }
-  if (file.size > MAX_PDF_SIZE) {
-    return NextResponse.json({ error: 'Dosya 20MB\'tan büyük olamaz' }, { status: 400 });
+  if (!filePath) return NextResponse.json({ error: 'filePath gerekli' }, { status: 400 });
+  // Tarayıcı yükleme yolu her zaman "{gradeId}-{lessonId}/..." önekiyle oluşturuluyor;
+  // başka bir sınıf/dersin klasöründeki dosya buraya bağlanamasın diye doğruluyoruz.
+  if (!filePath.startsWith(`${gradeId}-${lessonId}/`)) {
+    return NextResponse.json({ error: 'Geçersiz dosya yolu' }, { status: 400 });
   }
 
   const supabase = createServiceClient();
@@ -60,23 +62,19 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!lessonGrade) return NextResponse.json({ error: 'Bu sınıf/ders kombinasyonu bulunamadı' }, { status: 404 });
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: 'application/pdf' });
-  if (uploadError) {
-    return NextResponse.json({ error: `Dosya yüklenemedi: ${uploadError.message}` }, { status: 500 });
+  const { data: downloaded, error: downloadError } = await supabase.storage.from(BUCKET).download(filePath);
+  if (downloadError || !downloaded) {
+    return NextResponse.json({ error: `Yüklenen dosya bulunamadı: ${downloadError?.message || ''}` }, { status: 404 });
   }
+  const buffer = Buffer.from(await downloaded.arrayBuffer());
 
   const { data: document, error: insertError } = await supabase
     .from('rag_documents')
     .insert({
       grade_id: gradeId,
       lesson_id: lessonId,
-      title: file.name,
-      file_path: storagePath,
+      title: fileName,
+      file_path: filePath,
       status: 'processing',
       uploaded_by: admin.user.id,
     })
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (insertError || !document) {
-    await supabase.storage.from(BUCKET).remove([storagePath]);
+    await supabase.storage.from(BUCKET).remove([filePath]);
     return NextResponse.json({ error: insertError?.message || 'Belge kaydedilemedi' }, { status: 500 });
   }
 

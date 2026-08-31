@@ -99,16 +99,32 @@ export default function RagDocumentsPanel() {
 
   async function handleUpload(file: File) {
     if (gradeId == null || lessonId == null) return;
+    if (file.type !== 'application/pdf') {
+      showNotice('error', 'Sadece PDF yükleyebilirsiniz');
+      return;
+    }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('gradeId', String(gradeId));
-      formData.append('lessonId', String(lessonId));
-      const res = await fetch('/api/admin/rag/documents', { method: 'POST', body: formData });
+      // Dosya, Vercel function'ların istek boyutu limitine (~4.5MB) takılmaması
+      // için API route'a değil, doğrudan tarayıcıdan Supabase Storage'a yükleniyor.
+      const supabase = createClient();
+      const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('rag-documents')
+        .upload(storagePath, file, { contentType: 'application/pdf' });
+      if (uploadError) {
+        showNotice('error', `Yükleme başarısız: ${uploadError.message}`);
+        return;
+      }
+
+      const res = await fetch('/api/admin/rag/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gradeId, lessonId, filePath: storagePath, fileName: file.name }),
+      });
       const data = await res.json();
       if (!res.ok) {
-        showNotice('error', data.error || 'Yükleme başarısız');
+        showNotice('error', data.error || 'İşleme başlatılamadı');
         return;
       }
       showNotice('success', 'PDF işlendi ve parçalara ayrılıp kaydedildi');
