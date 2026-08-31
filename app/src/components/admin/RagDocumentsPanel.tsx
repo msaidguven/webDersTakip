@@ -125,6 +125,14 @@ export default function RagDocumentsPanel() {
     loadDocuments();
   }, [loadDocuments]);
 
+  // Bir ünitenin yanında ✅ göstermek için: o ünite için en az bir 'ready'
+  // kaynak var mı? (NotebookLM metinleri unit_id taşır; tüm kitabı kapsayan PDF
+  // yüklemelerinin unit_id'si olmadığı için onlar tek tek üniteleri işaretlemez.)
+  const readyUnitIds = React.useMemo(
+    () => new Set(documents.filter((d) => d.status === 'ready' && d.unit_id != null).map((d) => d.unit_id as number)),
+    [documents]
+  );
+
   async function handleUpload(file: File) {
     if (gradeId == null || lessonId == null) return;
     if (file.type !== 'application/pdf') {
@@ -196,10 +204,35 @@ export default function RagDocumentsPanel() {
             label="Ünite (NotebookLM için)"
             value={unitId}
             onChange={setUnitId}
-            options={units.map((u) => ({ id: u.id, label: u.title }))}
+            options={units.map((u) => ({ id: u.id, label: readyUnitIds.has(u.id) ? `✅ ${u.title}` : u.title }))}
             disabled={lessonId == null}
           />
         </div>
+
+        {units.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <p className="text-xs text-gray-500 mb-2">Ünite ilerlemesi — hangi ünitelerin NotebookLM metni eklendiğini gösterir, PDF yüklemesini kapsamaz:</p>
+            <div className="flex flex-wrap gap-2">
+              {units.map((u) => {
+                const done = readyUnitIds.has(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setUnitId(u.id)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      done
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                    } ${unitId === u.id ? 'ring-1 ring-indigo-400' : ''}`}
+                  >
+                    {done ? '✅' : '⬜'} {u.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {gradeId != null && lessonId != null && (
@@ -405,9 +438,9 @@ function Select({
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-40"
       >
-        <option value="">Seçin…</option>
+        <option value="" className="bg-[#1a1a1e] text-white">Seçin…</option>
         {options.map((o) => (
-          <option key={o.id} value={o.id}>{o.label}</option>
+          <option key={o.id} value={o.id} className="bg-[#1a1a1e] text-white">{o.label}</option>
         ))}
       </select>
     </div>
