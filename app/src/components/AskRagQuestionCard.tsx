@@ -49,6 +49,7 @@ export default function AskRagQuestionCard({
   gradeId,
   lessonId,
   unitId,
+  quizQuestionId,
   lessonName,
   questionContext,
 }: {
@@ -57,6 +58,10 @@ export default function AskRagQuestionCard({
   // Bir ünitede sorulan sorular sadece o ünitenin akışında görünsün diye — akış
   // (unit-feed) bununla filtreleniyor. Arama (retrieval) hâlâ tüm kitap kapsamında.
   unitId: number;
+  // Test sayfasında kullanılıyorsa: akış ünite geneli değil, SADECE bu spesifik
+  // test sorusuna özel gösterilir (question_comments ile aynı mantık) — farklı
+  // soruların "neden A/B/C" açıklamaları birbirine karışmasın diye.
+  quizQuestionId?: number | null;
   lessonName: string;
   // Test sayfasında kullanıldığında aktif sorunun (kökü + şıklar + doğru cevap) düz
   // metin özeti — öğrenci soruyu kopyalamadan "neden A" gibi kısa bir şey yazabilsin.
@@ -87,11 +92,13 @@ export default function AskRagQuestionCard({
     });
   }, []);
 
-  // Bu ünitede sorulup yayınlanmış TÜM soru-cevaplar — herkese açık, tıpkı üniteye
-  // yapılmış yorumlar gibi (kimin sorduğu değil, ne sorulduğu önemli).
+  // Yayınlanmış soru-cevaplar — herkese açık, tıpkı yorum gibi (kimin sorduğu değil,
+  // ne sorulduğu önemli). quizQuestionId varsa sadece o test sorusuna özel akış,
+  // yoksa ünitenin genel akışı.
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/rag/unit-feed?unitId=${unitId}`);
+      const url = quizQuestionId != null ? `/api/rag/unit-feed?questionId=${quizQuestionId}` : `/api/rag/unit-feed?unitId=${unitId}`;
+      const res = await fetch(url);
       const data = await res.json().catch(() => null);
       if (res.ok && Array.isArray(data?.items)) {
         setFeed(
@@ -103,7 +110,7 @@ export default function AskRagQuestionCard({
         );
       }
     })();
-  }, [unitId]);
+  }, [unitId, quizQuestionId]);
 
   function updateFeedItem(id: number, patch: Partial<FeedItem>) {
     setFeed((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -120,7 +127,14 @@ export default function AskRagQuestionCard({
       const res = await fetch('/api/rag/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeId, lessonId, unitId, question: trimmed, questionContext: questionContext || undefined }),
+        body: JSON.stringify({
+          gradeId,
+          lessonId,
+          unitId,
+          quizQuestionId: quizQuestionId ?? undefined,
+          question: trimmed,
+          questionContext: questionContext || undefined,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {

@@ -14,12 +14,14 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as
-    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; question?: unknown; questionContext?: unknown }
+    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; quizQuestionId?: unknown; question?: unknown; questionContext?: unknown }
     | null;
   const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
   const lessonId = typeof body?.lessonId === 'number' ? body.lessonId : Number(body?.lessonId);
   const unitIdRaw = typeof body?.unitId === 'number' ? body.unitId : Number(body?.unitId);
   const unitId = Number.isFinite(unitIdRaw) ? unitIdRaw : null;
+  const quizQuestionIdRaw = typeof body?.quizQuestionId === 'number' ? body.quizQuestionId : Number(body?.quizQuestionId);
+  const quizQuestionId = Number.isFinite(quizQuestionIdRaw) ? quizQuestionIdRaw : null;
   const question = typeof body?.question === 'string' ? body.question.trim() : '';
   const questionContext = typeof body?.questionContext === 'string' ? body.questionContext.trim().slice(0, 3000) : null;
 
@@ -50,6 +52,11 @@ export async function POST(request: NextRequest) {
     if (!unit) return NextResponse.json({ error: 'Ünite bu sınıf/derse ait değil' }, { status: 400 });
   }
 
+  if (quizQuestionId != null) {
+    const { data: quizQuestion } = await service.from('questions').select('id').eq('id', quizQuestionId).maybeSingle();
+    if (!quizQuestion) return NextResponse.json({ error: 'Test sorusu bulunamadı' }, { status: 400 });
+  }
+
   const askedToday = await countTodayQuestions(service, user.id);
   if (askedToday >= DAILY_QUESTION_LIMIT) {
     return NextResponse.json(
@@ -72,6 +79,7 @@ export async function POST(request: NextRequest) {
       grade_id: gradeId,
       lesson_id: lessonId,
       unit_id: unitId,
+      quiz_question_id: quizQuestionId,
       student_id: user.id,
       question,
       question_context: questionContext,

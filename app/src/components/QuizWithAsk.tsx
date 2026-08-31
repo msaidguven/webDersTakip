@@ -33,6 +33,7 @@ export default function QuizWithAsk({ gradeId, lessonId, unitId, lessonName, ...
           gradeId={gradeId}
           lessonId={lessonId}
           unitId={unitId}
+          quizQuestionId={currentQuestion?.id ?? null}
           lessonName={lessonName}
           questionContext={currentQuestion ? formatQuestionContext(currentQuestion) : null}
         />
