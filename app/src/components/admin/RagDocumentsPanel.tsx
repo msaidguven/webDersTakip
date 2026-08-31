@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { createClient, createStorageClient } from '@/utils/supabase/client';
 
 type Row = { id: number; label: string };
 type LessonGradeJoin = {
@@ -107,7 +107,10 @@ export default function RagDocumentsPanel() {
     try {
       // Dosya, Vercel function'ların istek boyutu limitine (~4.5MB) takılmaması
       // için API route'a değil, doğrudan tarayıcıdan Supabase Storage'a yükleniyor.
-      const supabase = createClient();
+      // createClient() değil createStorageClient() kullanılıyor çünkü createClient()
+      // her isteğe zorla "Content-Type: application/json" ekliyor ve bu, multipart
+      // dosya yüklemesini bozuyor.
+      const supabase = createStorageClient();
       const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('rag-documents')
