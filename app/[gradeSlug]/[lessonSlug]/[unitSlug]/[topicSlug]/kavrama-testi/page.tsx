@@ -203,7 +203,6 @@ export default async function TopicTestPage({ params }: PageProps) {
         gradeId={data.gradeId}
         lessonId={data.lessonId}
         unitId={data.unitId}
-        lessonName={data.lessonName}
         scopeLabel={`${data.topicTitle} Kavrama Testi`}
         exitHref={buildTopicPath(data)}
         exitLabel="Konuya Dön"

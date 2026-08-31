@@ -6,7 +6,9 @@ import { Sparkles, AlertTriangle, Flag, Bot, MessageCircle } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client';
 
 const MAX_LENGTH = 300;
-const AI_TAG = '@ai';
+const HOCAM_TAG = '@hocam'; // ders notuna bağlı, sıkı cevap
+const KANKA_TAG = '@kanka'; // serbest, genel bilgi de verebilen samimi sohbet
+type AiMode = 'hocam' | 'kanka';
 
 type Availability = 'loading' | 'available' | 'unavailable';
 type AuthState = 'loading' | 'in' | 'out';
@@ -34,7 +36,9 @@ type AiEntry = {
   id: number;
   question: string;
   answer: string;
+  model: string;
   created_at: string;
+  student_id: string;
   profiles: Profile | Profile[];
   reportState: ReportState;
   reportReason: string;
@@ -45,6 +49,12 @@ type FeedEntry = CommentEntry | AiEntry;
 function displayNameOf(profiles: Profile | Profile[]): string {
   const p = Array.isArray(profiles) ? profiles[0] : profiles;
   return p?.username || p?.full_name || 'Öğrenci';
+}
+
+// AiEntry kendi başına hangi tag ile soruldunu tutmuyor — model alanındaki
+// "-kanka" ekinden geri çıkarıyoruz (bkz. gemini.ts generateBuddyAnswer).
+function tagForModel(model: string): string {
+  return model.includes('kanka') ? KANKA_TAG : HOCAM_TAG;
 }
 
 function avatarUrlOf(profiles: Profile | Profile[]): string | null {
@@ -167,7 +177,7 @@ function ReplyBox({
       <input
         value={replyText}
         onChange={(e) => onReplyTextChange(e.target.value.slice(0, MAX_LENGTH))}
-        placeholder="Yanıtını yaz, ya da @ai yazarak soru sor…"
+        placeholder={`Yanıtını yaz, ya da ${HOCAM_TAG} / ${KANKA_TAG} ile soru sor…`}
         disabled={submitting}
         className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       />
@@ -195,7 +205,7 @@ export default function UnitDiscussion({
   lessonId,
   unitId,
   quizQuestionId,
-  lessonName,
+  unitName,
   questionContext,
   isAnswered = true,
 }: {
@@ -203,7 +213,9 @@ export default function UnitDiscussion({
   lessonId: number;
   unitId: number;
   quizQuestionId?: number | null;
-  lessonName: string;
+  // Sadece ders sayfasında (quizQuestionId boş) başlıkta kullanılır; test
+  // sayfasında "Bu Soru Hakkında" gösterildiği için gerekmez.
+  unitName?: string;
   questionContext?: string | null;
   isAnswered?: boolean;
 }) {
@@ -222,6 +234,10 @@ export default function UnitDiscussion({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [commentBusyId, setCommentBusyId] = useState<number | null>(null);
+  // rag_answers.id ve question_comments.id ayrı sıralar, aynı sayıyla çakışabilir —
+  // AI kayıtları için ayrı bir "meşgul" state'i tutuyoruz ki bu çakışma yanlışlıkla
+  // alakasız bir yorumu da "meşgul" gösterip düğmelerini kilitlemesin.
+  const [aiBusyId, setAiBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -265,7 +281,7 @@ export default function UnitDiscussion({
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
       setAiEntries(
-        data.items.map((it: { id: number; question: string; answer: string; created_at: string; profiles: Profile }) => ({
+        data.items.map((it: { id: number; question: string; answer: string; model: string; created_at: string; student_id: string; profiles: Profile }) => ({
           ...it,
           kind: 'ai' as const,
           reportState: 'idle' as ReportState,
@@ -383,8 +399,9 @@ export default function UnitDiscussion({
     }
   }
 
-  async function submitAiQuestion(raw: string) {
-    const question = raw.replace(new RegExp(AI_TAG, 'gi'), '').trim() || raw.trim();
+  async function submitAiQuestion(raw: string, mode: AiMode) {
+    const tag = mode === 'hocam' ? HOCAM_TAG : KANKA_TAG;
+    const question = raw.replace(new RegExp(tag, 'gi'), '').trim() || raw.trim();
     setSubmitting(true);
     setError(null);
     try {
@@ -397,7 +414,8 @@ export default function UnitDiscussion({
           unitId,
           quizQuestionId: quizQuestionId ?? undefined,
           question,
-          questionContext: questionContext || undefined,
+          questionContext: mode === 'hocam' ? questionContext || undefined : undefined,
+          mode,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -411,7 +429,9 @@ export default function UnitDiscussion({
           id: data.id,
           question,
           answer: data.answer,
+          model: data.model || (mode === 'kanka' ? 'kanka' : 'hocam'),
           created_at: new Date().toISOString(),
+          student_id: userId || '',
           profiles: data.profile || null,
           kind: 'ai',
           reportState: 'idle',
@@ -429,21 +449,24 @@ export default function UnitDiscussion({
     }
   }
 
-  // Hem ana kutu hem "Yanıtla" kutusu bunu kullanır: "@ai" içeriyorsa AI'ye
-  // bağımsız yeni bir soru olarak gider, yoksa target'a göre yorum/yanıt olur.
+  // Hem ana kutu hem "Yanıtla" kutusu bunu kullanır: "@hocam"/"@kanka" içeriyorsa
+  // AI'ye bağımsız yeni bir soru olarak gider, yoksa target'a göre yorum/yanıt olur.
   async function submitSmart(raw: string, target: ReplyTarget): Promise<boolean> {
     const trimmed = raw.trim();
     if (!trimmed || submitting) return false;
-    if (trimmed.toLowerCase().includes(AI_TAG)) {
-      if (availability !== 'available') {
-        setError('Bu ders için henüz ders notu eklenmedi, @ai ile soru sorulamıyor — yine de yorum yapabilirsin.');
+    const lower = trimmed.toLowerCase();
+    const mode: AiMode | null = lower.includes(HOCAM_TAG) ? 'hocam' : lower.includes(KANKA_TAG) ? 'kanka' : null;
+    if (mode) {
+      // @kanka ders notuna bağlı olmadığı için "ders notu var mı" kontrolüne ihtiyaç duymaz.
+      if (mode === 'hocam' && availability !== 'available') {
+        setError(`Bu ders için henüz ders notu eklenmedi, ${HOCAM_TAG} ile soru sorulamıyor — ${KANKA_TAG} ile sohbet edebilir ya da yorum yapabilirsin.`);
         return false;
       }
       if (dailyRemaining === 0) {
         setError('Bugünkü AI soru hakkını doldurdun. Yarın tekrar sorabilirsin.');
         return false;
       }
-      return submitAiQuestion(trimmed);
+      return submitAiQuestion(trimmed, mode);
     }
     const parentCommentId = target?.type === 'comment' ? target.id : null;
     const parentAiAnswerId = target?.type === 'ai' ? target.id : null;
@@ -483,6 +506,29 @@ export default function UnitDiscussion({
     }
   }
 
+  async function handleDeleteAiEntry(item: AiEntry) {
+    if (!window.confirm('Bu soruyu silmek istediğine emin misin? Yorumu varsa onlar da kaldırılır.')) return;
+    setAiBusyId(item.id);
+    try {
+      const res = await fetch(`/api/rag/answers/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Silinemedi');
+        return;
+      }
+      setAiEntries((prev) => prev.filter((a) => a.id !== item.id));
+      setComments((prev) => prev.filter((c) => c.parent_ai_answer_id !== item.id));
+    } catch {
+      setError('Silinemedi, lütfen tekrar deneyin');
+    } finally {
+      setAiBusyId(null);
+    }
+  }
+
   if (!isAnswered) return null;
   if (availability === 'loading') return null;
 
@@ -498,7 +544,9 @@ export default function UnitDiscussion({
     <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-6 sm:p-7 mb-7">
       <div className="flex items-center gap-2 mb-3">
         <MessageCircle className="h-5 w-5 text-indigo-500" />
-        <h2 className="text-base font-semibold text-gray-900">{quizQuestionId != null ? 'Bu Soru Hakkında' : `${lessonName} Hakkında`}</h2>
+        <h2 className="text-base font-semibold text-gray-900">
+          {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
+        </h2>
       </div>
 
       {authState === 'loading' ? null : authState === 'out' ? (
@@ -514,7 +562,7 @@ export default function UnitDiscussion({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_LENGTH))}
-            placeholder="Yorum yaz, ya da @ai yazarak ders notlarına soru sor…"
+            placeholder={`Yorum yaz, ${HOCAM_TAG} ile ders notuna, ${KANKA_TAG} ile serbest bir şey sor…`}
             rows={3}
             disabled={submitting}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:opacity-60 resize-none"
@@ -522,7 +570,7 @@ export default function UnitDiscussion({
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-gray-400">
               {text.length}/{MAX_LENGTH}
-              {dailyRemaining != null && ` · @ai için bugün kalan hakkın: ${dailyRemaining}`}
+              {dailyRemaining != null && ` · AI için bugün kalan hakkın: ${dailyRemaining}`}
             </span>
             <button
               type="submit"
@@ -666,7 +714,7 @@ export default function UnitDiscussion({
                       <span className="text-sm font-semibold text-gray-900">{name}</span>
                       <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
                     </div>
-                    <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{AI_TAG} {item.question}</p>
+                    <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
                   </div>
                 </div>
 
@@ -683,13 +731,22 @@ export default function UnitDiscussion({
 
                     <div className="mt-2">
                       {item.reportState === 'idle' && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <button
                             onClick={() => setReplyTarget(replyTarget?.type === 'ai' && replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
                             className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
                           >
                             Yanıtla
                           </button>
+                          {item.student_id === userId && (
+                            <button
+                              onClick={() => handleDeleteAiEntry(item)}
+                              disabled={aiBusyId === item.id}
+                              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                            >
+                              Sil
+                            </button>
+                          )}
                           <button
                             onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
                             className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
@@ -775,7 +832,7 @@ export default function UnitDiscussion({
       {questionContext && (
         <p className="mt-3 text-xs text-gray-400">
           <Sparkles className="inline h-3 w-3 mr-1" />
-          Sadece bu soru hakkında AI&apos;ye sormak için <span className="font-mono">{AI_TAG}</span> yaz — örn. &quot;{AI_TAG} neden A doğru?&quot;
+          Sadece bu soru hakkında AI&apos;ye sormak için <span className="font-mono">{HOCAM_TAG}</span> yaz — örn. &quot;{HOCAM_TAG} neden A doğru?&quot;
         </p>
       )}
     </div>

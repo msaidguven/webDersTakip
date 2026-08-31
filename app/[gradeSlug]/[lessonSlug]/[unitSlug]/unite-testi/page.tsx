@@ -222,7 +222,6 @@ export default async function UnitTestPage({ params }: PageProps) {
         gradeId={data.gradeId}
         lessonId={data.lessonId}
         unitId={data.unitId}
-        lessonName={data.lessonName}
         scopeLabel={`${data.unitTitle} Ünite Testi`}
         exitHref={data.exitHref}
         exitLabel="Üniteye Dön"

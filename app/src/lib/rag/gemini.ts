@@ -68,6 +68,32 @@ export async function embedQuestion(question: string): Promise<number[]> {
 
 export type AnswerResult = { answer: string; model: string };
 
+async function callGemini(prompt: string, temperature: number): Promise<string> {
+  const res = await fetch(
+    `${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gemini generateContent hatası (${res.status}): ${errText}`);
+  }
+
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const answer = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
+  if (!answer) throw new Error('Gemini boş cevap döndürdü');
+  return answer;
+}
+
 // Soruyu SADECE verilen ders notu parçalarına dayanarak cevaplar. Parçalarda
 // yeterli bilgi yoksa modelin "bu bilgi ders notlarında yok" demesi isteniyor.
 // questionContext: test sayfasından soruluyorsa aktif sorunun (kökü+şıklar+doğru
@@ -102,32 +128,37 @@ ${context}
 
 Öğrenci sorusu: ${question}`;
 
-  const res = await fetch(
-    `${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        // 0.2 bile bazı sınırda sorularda (ör. metnin "biz" diliyle anlattığı bir
-        // bilgiyi "benim" diye kişiselleştiren sorularda) aynı bağlamla farklı
-        // seferlerde tutarsız cevaplara (bazen doğru cevap, bazen "yok" reddi) yol
-        // açtı. 0'a çekmek bu tür sınır durumlarda tutarlılığı artırıyor.
-        generationConfig: { temperature: 0 },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini generateContent hatası (${res.status}): ${errText}`);
-  }
-
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const answer = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
-  if (!answer) throw new Error('Gemini boş cevap döndürdü');
-
+  // 0.2 bile bazı sınırda sorularda (ör. metnin "biz" diliyle anlattığı bir bilgiyi
+  // "benim" diye kişiselleştiren sorularda) aynı bağlamla farklı seferlerde tutarsız
+  // cevaplara (bazen doğru cevap, bazen "yok" reddi) yol açtı. 0'a çekmek bu tür
+  // sınır durumlarda tutarlılığı artırıyor.
+  const answer = await callGemini(prompt, 0);
   return { answer, model: CHAT_MODEL };
+}
+
+// "@kanka" modu: ders notuna bağlı kalmaz, genel bilgi de verebilir — kitaptaki
+// "sadece verilen metne dayan" güvenlik sınırı burada bilerek yok. Yine de yaş
+// grubuna uygun, samimi ama sınırlı bir "arkadaş" personası kullanıyor.
+export async function generateBuddyAnswer(
+  question: string,
+  gradeName: string | null,
+  lessonName: string | null
+): Promise<AnswerResult> {
+  const contextLine = gradeName || lessonName
+    ? `Konuştuğun öğrenci ${gradeName ? `${gradeName}` : ''}${gradeName && lessonName ? ', ' : ''}${lessonName ? `${lessonName} dersini alıyor` : ''}.`
+    : '';
+
+  const prompt = `Sen bir öğrencinin okul dışı, samimi arkadaşı gibisin — "kanka" tarzı rahat, eğlenceli ve sıcak bir dille konuşuyorsun.
+${contextLine}
+
+Kurallar:
+- Ders kitabına bağlı kalmak ZORUNDA değilsin — genel bilgini rahatça kullanabilirsin, sadece ders içeriğiyle sınırlı değilsin.
+- Ama emin olmadığın bir şeyi kesin bilgiymiş gibi uydurma; şüpheliysen "tam emin değilim ama..." gibi dürüst ol.
+- Okul çağındaki bir öğrenciyle konuştuğunu unutma: küfür, argo, uygunsuz veya yaşına uygun olmayan hiçbir şey söyleme; saygısızlık yapma.
+- Cevabı kısa tut: 300-500 karakter civarı, gereksiz uzatma.
+
+Öğrencinin sorusu: ${question}`;
+
+  const answer = await callGemini(prompt, 0.7);
+  return { answer, model: `${CHAT_MODEL}-kanka` };
 }

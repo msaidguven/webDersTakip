@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { answerQuestionForBook } from '@/app/src/lib/rag/answerQuestion';
+import { answerQuestionForBook, answerAsBuddy } from '@/app/src/lib/rag/answerQuestion';
 import { DAILY_QUESTION_LIMIT, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
 
 // Öğrenci bir sınıf+ders (kitap) için soru sorar. Cevap Gemini ile üretilip
@@ -14,7 +14,15 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as
-    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; quizQuestionId?: unknown; question?: unknown; questionContext?: unknown }
+    | {
+        gradeId?: unknown;
+        lessonId?: unknown;
+        unitId?: unknown;
+        quizQuestionId?: unknown;
+        question?: unknown;
+        questionContext?: unknown;
+        mode?: unknown;
+      }
     | null;
   const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
   const lessonId = typeof body?.lessonId === 'number' ? body.lessonId : Number(body?.lessonId);
@@ -24,6 +32,8 @@ export async function POST(request: NextRequest) {
   const quizQuestionId = Number.isFinite(quizQuestionIdRaw) ? quizQuestionIdRaw : null;
   const question = typeof body?.question === 'string' ? body.question.trim() : '';
   const questionContext = typeof body?.questionContext === 'string' ? body.questionContext.trim().slice(0, 3000) : null;
+  // "hocam": ders notuna bağlı, "kanka": serbest/genel bilgi de verebilen sohbet modu.
+  const mode = body?.mode === 'kanka' ? 'kanka' : 'hocam';
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
@@ -67,7 +77,10 @@ export async function POST(request: NextRequest) {
 
   let result;
   try {
-    result = await answerQuestionForBook(service, gradeId, lessonId, question, questionContext);
+    result =
+      mode === 'kanka'
+        ? await answerAsBuddy(service, gradeId, lessonId, question)
+        : await answerQuestionForBook(service, gradeId, lessonId, question, questionContext);
   } catch (err) {
     console.error('RAG soru-cevap hatası', err);
     return NextResponse.json({ error: 'Cevap üretilemedi, lütfen tekrar deneyin' }, { status: 500 });
@@ -107,6 +120,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     id: saved.id,
     answer: result.answer,
+    model: result.model,
     remaining: DAILY_QUESTION_LIMIT - askedToday - 1,
     profile: profile || null,
   });

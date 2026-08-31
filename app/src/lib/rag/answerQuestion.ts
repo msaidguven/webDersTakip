@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { embedQuestion, generateGroundedAnswer } from './gemini';
+import { embedQuestion, generateGroundedAnswer, generateBuddyAnswer } from './gemini';
 
 const MATCH_COUNT = 5;
 
@@ -48,4 +48,22 @@ export async function answerQuestionForBook(
   );
 
   return { answer, model, matchedChunkIds: matches.map((m) => m.id) };
+}
+
+// "@kanka" modu: ders notu araması hiç yapılmaz (kitaba bağlı kalmadığı için
+// gerek yok), doğrudan Gemini'ye yaş/sınıf seviyesine uygun bir "arkadaş"
+// personasıyla sorulur.
+export async function answerAsBuddy(
+  supabase: SupabaseClient,
+  gradeId: number,
+  lessonId: number,
+  question: string
+): Promise<AnswerQuestionResult> {
+  const [{ data: grade }, { data: lesson }] = await Promise.all([
+    supabase.from('grades').select('name').eq('id', gradeId).maybeSingle(),
+    supabase.from('lessons').select('name').eq('id', lessonId).maybeSingle(),
+  ]);
+
+  const { answer, model } = await generateBuddyAnswer(question, grade?.name ?? null, lesson?.name ?? null);
+  return { answer, model, matchedChunkIds: [] };
 }

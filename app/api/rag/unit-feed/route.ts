@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     .from('rag_answers')
     // rag_answers'ın profiles'a iki FK'sı var (student_id, reviewed_by) — hangisini
     // kullanacağını PostgREST'e açıkça söylemek gerekiyor, yoksa "ambiguous embed" hatası verir.
-    .select('id, question, answer, created_at, profiles!rag_answers_student_id_fkey(username, full_name, avatar_url)')
+    .select('id, question, answer, model, created_at, student_id, profiles!rag_answers_student_id_fkey(username, full_name, avatar_url)')
     .eq('status', 'published')
     .order('created_at', { ascending: false })
     .limit(100);

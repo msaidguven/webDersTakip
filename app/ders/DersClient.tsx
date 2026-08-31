@@ -2028,7 +2028,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           gradeId={Number(gradeId)}
                           lessonId={Number(lessonId)}
                           unitId={Number(activeUnit.id)}
-                          lessonName={lessonName}
+                          unitName={unitTitle}
                         />
                       </div>
                     )}
