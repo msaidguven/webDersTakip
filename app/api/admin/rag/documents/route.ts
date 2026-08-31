@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('rag_documents')
-    .select('id, grade_id, lesson_id, title, page_count, chunk_count, status, error_message, created_at')
+    .select('id, grade_id, lesson_id, unit_id, source, title, page_count, chunk_count, status, error_message, created_at, units(title)')
     .order('created_at', { ascending: false });
   if (gradeId) query = query.eq('grade_id', Number(gradeId));
   if (lessonId) query = query.eq('lesson_id', Number(lessonId));
