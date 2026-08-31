@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('question_comments')
-    .select('id, question_id, parent_comment_id, body, status, created_at, questions(question_text)')
+    .select('id, question_id, unit_id, parent_comment_id, body, status, created_at, questions(question_text), units(title)')
     .order('created_at', { ascending: true })
     .limit(200);
 

@@ -2,8 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import QuizClient, { type QuizClientProps } from './QuizClient';
-import AskRagQuestionCard from './AskRagQuestionCard';
-import QuestionComments from './QuestionComments';
+import UnitDiscussion from './UnitDiscussion';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 
 type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
@@ -13,9 +12,9 @@ type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
   lessonName: string;
 };
 
-// QuizClient, AskRagQuestionCard ve QuestionComments sayfada ayrı kardeş bileşenler
-// olduğu için "şu an hangi soruya bakılıyor, cevaplandı mı" bilgisini paylaşmaları
-// gerekiyordu — bu wrapper o durumu tutup ikisine de aktarıyor.
+// QuizClient ve UnitDiscussion sayfada ayrı kardeş bileşenler olduğu için "şu an
+// hangi soruya bakılıyor, cevaplandı mı" bilgisini paylaşmaları gerekiyordu — bu
+// wrapper o durumu tutup UnitDiscussion'a aktarıyor.
 export default function QuizWithAsk({ gradeId, lessonId, unitId, lessonName, ...quizProps }: QuizWithAskProps) {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -28,17 +27,19 @@ export default function QuizWithAsk({ gradeId, lessonId, unitId, lessonName, ...
   return (
     <>
       <QuizClient {...quizProps} onCurrentQuestionChange={handleCurrentQuestionChange} />
-      <div className="mx-auto max-w-lg px-4 pb-8">
-        <AskRagQuestionCard
-          gradeId={gradeId}
-          lessonId={lessonId}
-          unitId={unitId}
-          quizQuestionId={currentQuestion?.id ?? null}
-          lessonName={lessonName}
-          questionContext={currentQuestion ? formatQuestionContext(currentQuestion) : null}
-        />
-      </div>
-      {currentQuestion && <QuestionComments questionId={currentQuestion.id} isAnswered={isAnswered} />}
+      {currentQuestion && (
+        <div className="mx-auto max-w-lg px-4 pb-8">
+          <UnitDiscussion
+            gradeId={gradeId}
+            lessonId={lessonId}
+            unitId={unitId}
+            quizQuestionId={currentQuestion.id}
+            lessonName={lessonName}
+            questionContext={formatQuestionContext(currentQuestion)}
+            isAnswered={isAnswered}
+          />
+        </div>
+      )}
     </>
   );
 }

@@ -55,7 +55,7 @@ const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
-import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
+import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type WeekedOutcome = Outcome & {
@@ -2024,7 +2024,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     )}
                     {activeTopic && activeUnit && (
                       <div className="not-prose mt-8">
-                        <AskRagQuestionCard
+                        <UnitDiscussion
                           gradeId={Number(gradeId)}
                           lessonId={Number(lessonId)}
                           unitId={Number(activeUnit.id)}

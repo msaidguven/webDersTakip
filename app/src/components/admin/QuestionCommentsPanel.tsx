@@ -4,19 +4,26 @@ import React, { useEffect, useState } from 'react';
 
 type CommentRow = {
   id: number;
-  question_id: number;
+  question_id: number | null;
+  unit_id: number | null;
   parent_comment_id: number | null;
   body: string;
   status: 'pending' | 'published' | 'rejected';
   created_at: string;
   parent_body: string | null;
   questions: { question_text: string } | { question_text: string }[] | null;
+  units: { title: string } | { title: string }[] | null;
 };
 
-function questionTextOf(row: CommentRow): string {
-  const q = row.questions;
-  const single = Array.isArray(q) ? q[0] : q;
-  return single?.question_text || `Soru #${row.question_id}`;
+function contextLabelOf(row: CommentRow): string {
+  if (row.question_id != null) {
+    const q = row.questions;
+    const single = Array.isArray(q) ? q[0] : q;
+    return single?.question_text || `Soru #${row.question_id}`;
+  }
+  const u = row.units;
+  const single = Array.isArray(u) ? u[0] : u;
+  return single?.title ? `Ünite: ${single.title}` : `Ünite #${row.unit_id}`;
 }
 
 export default function QuestionCommentsPanel() {
@@ -93,8 +100,8 @@ export default function QuestionCommentsPanel() {
               </div>
 
               <div className="mb-3">
-                <p className="text-xs text-gray-500 mb-1">Soru</p>
-                <p className="text-white text-sm">{questionTextOf(row)}</p>
+                <p className="text-xs text-gray-500 mb-1">{row.question_id != null ? 'Soru' : 'Bağlam'}</p>
+                <p className="text-white text-sm">{contextLabelOf(row)}</p>
               </div>
 
               {row.parent_body && (
