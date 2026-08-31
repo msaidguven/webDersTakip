@@ -55,6 +55,7 @@ const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
+import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type WeekedOutcome = Outcome & {
@@ -2020,6 +2021,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         topicId={activeTopic.id}
                         href={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                       />
+                    )}
+                    {activeTopic && (
+                      <div className="not-prose mt-8">
+                        <AskRagQuestionCard gradeId={Number(gradeId)} lessonId={Number(lessonId)} lessonName={lessonName} />
+                      </div>
                     )}
                     {activeTopic && (
                       <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">

@@ -12,6 +12,7 @@ import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getTopicTestQuestions } from '@/app/src/lib/quizQuestions';
 import QuizClient from '@/app/src/components/QuizClient';
+import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -205,6 +206,9 @@ export default async function TopicTestPage({ params }: PageProps) {
         initialQuestions={initialQuestions}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
       />
+      <div className="mx-auto max-w-lg px-4 pb-8">
+        <AskRagQuestionCard gradeId={data.gradeId} lessonId={data.lessonId} lessonName={data.lessonName} />
+      </div>
     </>
   );
 }

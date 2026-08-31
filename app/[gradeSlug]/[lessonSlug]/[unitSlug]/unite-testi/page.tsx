@@ -6,6 +6,7 @@ import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getUnitTestQuestions } from '@/app/src/lib/quizQuestions';
 import QuizClient from '@/app/src/components/QuizClient';
+import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
 
 const UNIT_TEST_TIME_LIMIT_SECONDS = 3600;
 
@@ -234,6 +235,9 @@ export default async function UnitTestPage({ params }: PageProps) {
           questionCount: data.questionCount,
         }}
       />
+      <div className="mx-auto max-w-lg px-4 pb-8">
+        <AskRagQuestionCard gradeId={data.gradeId} lessonId={data.lessonId} lessonName={data.lessonName} />
+      </div>
     </>
   );
 }
