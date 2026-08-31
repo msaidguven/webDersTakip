@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sparkles, AlertTriangle, Flag, Bot } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
-const MAX_QUESTION_LENGTH = 1000;
+const MAX_QUESTION_LENGTH = 300;
 
 type Availability = 'loading' | 'available' | 'unavailable';
 type AuthState = 'loading' | 'in' | 'out';

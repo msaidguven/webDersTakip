@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
   }
   if (!question) return NextResponse.json({ error: 'Soru boş olamaz' }, { status: 400 });
-  if (question.length > 1000) return NextResponse.json({ error: 'Soru çok uzun' }, { status: 400 });
+  if (question.length > 300) return NextResponse.json({ error: 'Soru çok uzun' }, { status: 400 });
 
   const service = createServiceClient();
 

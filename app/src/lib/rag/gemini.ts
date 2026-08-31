@@ -82,8 +82,10 @@ export async function generateGroundedAnswer(
     .map((chunk, i) => `[Parça ${i + 1}]\n${chunk}`)
     .join('\n\n');
 
+  // Test sorusu bağlamında öğrenci hızlı bir açıklama istiyor, uzun bir ders notu
+  // değil — bu yüzden bu modda kesin bir karakter sınırı da ekleniyor.
   const questionContextBlock = questionContext
-    ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nÖğrencinin sorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu test sorusunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n`
+    ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nÖğrencinin sorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu test sorusunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n\nBu bir test sorusu açıklaması olduğu için cevabın KISA olsun: 300-400 karakter civarı, kesinlikle 500 karakteri geçme. Uzun madde listeleri veya birden fazla paragraf yazma — sadece doğru cevabın neden doğru olduğunu 2-3 cümleyle açıkla.\n`
     : '';
 
   const prompt = `Aşağıda bir ders notundan alınmış metin parçaları var. Öğrencinin sorusunu SADECE bu parçalarda yer alan bilgiye dayanarak cevapla.
@@ -93,7 +95,7 @@ Kurallar:
 - Parçaların dışında hiçbir genel bilgini veya varsayımını kullanma.
 - Metin "biz/bizim" gibi genel bir dille yazılmış olabilir (ör. "ailede çocuk, okulda öğrenci rolüne sahip oluruz"). Öğrenci bunu "benim/kendim" diye kişiselleştirerek sorsa bile (ör. "rollerim nelerdir"), metindeki bu genel bilgiyi doğrudan cevap olarak kullan — bunu reddetme veya "bu senin kişisel bilgin değil" deme.
 - Sıcak ve samimi bir öğretmen gibi yaz; soğuk, sadece madde sıralayan bir liste bırakma. Cevaba kısa bir giriş cümlesiyle başla, madde listesi kullanacaksan her maddeyi tek kelimeyle bırakmak yerine mümkün olduğunca 2-3 kelimelik kısa bir açıklama/örnek ekle (metinde varsa), ve cevabın sonuna kısa, samimi bir kapanış cümlesi ekle (ör. "Umarım yardımcı olmuştur!" gibi, her seferinde birebir aynı olmasın).
-- Yine de gereksiz uzatma; sıcak ama kısa ve öz olsun.
+- Cevabın toplam uzunluğu KESİNLİKLE 800 karakteri geçmesin — hedefin 500-600 karakter civarı olsun ki payın olsun (bu zorunlu bir sınır, tahmini değil). Parçalarda çok sayıda örnek/madde olsa bile HEPSİNİ sıralama — en önemli 2-3 taneyi seç, "başka örnekler de var" gibi bir not ekleyebilirsin ama liste kısa kalsın. Öğrenciler uzun cevapları zaten okumuyor.
 ${questionContextBlock}
 Ders notu parçaları:
 ${context}
