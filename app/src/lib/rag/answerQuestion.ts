@@ -11,19 +11,22 @@ export type AnswerQuestionResult = {
   matchedChunkIds: number[];
 };
 
-// Soru-cevap akışı: soruyu vektöre çevir, pgvector ile en alakalı parçaları bul,
-// Gemini'ye "sadece bu metne dayan" talimatıyla gönder. Hiç eşleşen parça yoksa
-// modele hiç sormadan doğrudan "bu bilgi ders notlarında yok" döndürülür.
-export async function answerQuestionFromTopic(
+// Soru-cevap akışı: soruyu vektöre çevir, pgvector ile SADECE aynı sınıf+ders
+// (kitap) kapsamındaki parçalar içinde en alakalıları bul, Gemini'ye "sadece bu
+// metne dayan" talimatıyla gönder. Hiç eşleşen parça yoksa modele hiç sormadan
+// doğrudan "bu bilgi ders notlarında yok" döndürülür.
+export async function answerQuestionForBook(
   supabase: SupabaseClient,
-  topicId: number,
+  gradeId: number,
+  lessonId: number,
   question: string
 ): Promise<AnswerQuestionResult> {
   const queryEmbedding = await embedQuestion(question);
 
   const { data, error } = await supabase.rpc('match_rag_chunks', {
     query_embedding: queryEmbedding,
-    match_topic_id: topicId,
+    match_grade_id: gradeId,
+    match_lesson_id: lessonId,
     match_count: MATCH_COUNT,
   });
   if (error) throw new Error(`Benzerlik araması başarısız: ${error.message}`);

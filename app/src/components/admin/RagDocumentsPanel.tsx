@@ -8,8 +8,6 @@ type LessonGradeJoin = {
   lesson_id: number;
   lessons: { id: number; name: string } | { id: number; name: string }[] | null;
 };
-type UnitRow = { id: number; title: string };
-type TopicRow = { id: number; title: string };
 type DocumentRow = {
   id: number;
   title: string;
@@ -31,16 +29,15 @@ const STATUS_COLOR: Record<DocumentRow['status'], string> = {
   failed: 'bg-red-500/20 text-red-300',
 };
 
+// Ders notu PDF'leri konu/üniteye göre değil, sınıf+ders (kitap) bazında
+// ayrılıyor (ör. "5. Sınıf Sosyal Bilgiler 1" ve "... 2" aynı ders+sınıfın iki
+// cildi) — bu yüzden seçim burada sadece iki kademeli: Sınıf -> Ders.
 export default function RagDocumentsPanel() {
   const [grades, setGrades] = useState<Row[]>([]);
   const [lessons, setLessons] = useState<Row[]>([]);
-  const [units, setUnits] = useState<UnitRow[]>([]);
-  const [topics, setTopics] = useState<TopicRow[]>([]);
 
   const [gradeId, setGradeId] = useState<number | null>(null);
   const [lessonId, setLessonId] = useState<number | null>(null);
-  const [unitId, setUnitId] = useState<number | null>(null);
-  const [topicId, setTopicId] = useState<number | null>(null);
 
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
@@ -63,8 +60,6 @@ export default function RagDocumentsPanel() {
   useEffect(() => {
     setLessonId(null);
     setLessons([]);
-    setUnits([]);
-    setTopics([]);
     if (gradeId == null) return;
     const supabase = createClient();
     (async () => {
@@ -83,55 +78,33 @@ export default function RagDocumentsPanel() {
     })();
   }, [gradeId]);
 
-  useEffect(() => {
-    setUnitId(null);
-    setUnits([]);
-    setTopics([]);
-    if (gradeId == null || lessonId == null) return;
-    (async () => {
-      const res = await fetch(`/api/admin/manage/units?gradeId=${gradeId}&lessonId=${lessonId}`);
-      const data = await res.json();
-      if (res.ok) setUnits(((data.items as UnitRow[] | null) || []));
-    })();
-  }, [gradeId, lessonId]);
-
-  useEffect(() => {
-    setTopicId(null);
-    setTopics([]);
-    if (unitId == null) return;
-    (async () => {
-      const res = await fetch(`/api/admin/manage/topics?unitId=${unitId}`);
-      const data = await res.json();
-      if (res.ok) setTopics(((data.items as TopicRow[] | null) || []));
-    })();
-  }, [unitId]);
-
   const loadDocuments = React.useCallback(async () => {
-    if (topicId == null) {
+    if (gradeId == null || lessonId == null) {
       setDocuments([]);
       return;
     }
     setLoadingDocs(true);
     try {
-      const res = await fetch(`/api/admin/rag/documents?topicId=${topicId}`);
+      const res = await fetch(`/api/admin/rag/documents?gradeId=${gradeId}&lessonId=${lessonId}`);
       const data = await res.json();
       if (res.ok) setDocuments((data.items as DocumentRow[] | null) || []);
     } finally {
       setLoadingDocs(false);
     }
-  }, [topicId]);
+  }, [gradeId, lessonId]);
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
 
   async function handleUpload(file: File) {
-    if (topicId == null) return;
+    if (gradeId == null || lessonId == null) return;
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('topicId', String(topicId));
+      formData.append('gradeId', String(gradeId));
+      formData.append('lessonId', String(lessonId));
       const res = await fetch('/api/admin/rag/documents', { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) {
@@ -168,16 +141,14 @@ export default function RagDocumentsPanel() {
       )}
 
       <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
-        <h3 className="text-white font-semibold mb-4">Konu Seç</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <h3 className="text-white font-semibold mb-4">Sınıf ve Ders Seç</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select label="Sınıf" value={gradeId} onChange={setGradeId} options={grades} />
           <Select label="Ders" value={lessonId} onChange={setLessonId} options={lessons} disabled={gradeId == null} />
-          <Select label="Ünite" value={unitId} onChange={setUnitId} options={units.map((u) => ({ id: u.id, label: u.title }))} disabled={lessonId == null} />
-          <Select label="Konu" value={topicId} onChange={setTopicId} options={topics.map((t) => ({ id: t.id, label: t.title }))} disabled={unitId == null} />
         </div>
       </div>
 
-      {topicId != null && (
+      {gradeId != null && lessonId != null && (
         <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Ders Notu PDF&apos;leri</h3>
@@ -196,11 +167,14 @@ export default function RagDocumentsPanel() {
               />
             </label>
           </div>
+          <p className="text-xs text-gray-500 mb-4">
+            Aynı sınıf/ders için birden fazla cilt yükleyebilirsiniz (ör. &quot;Sosyal Bilgiler 1&quot;, &quot;Sosyal Bilgiler 2&quot;) — hepsi tek bir arama kapsamında birleşir.
+          </p>
 
           {loadingDocs ? (
             <p className="text-gray-500 text-sm">Yükleniyor…</p>
           ) : documents.length === 0 ? (
-            <p className="text-gray-500 text-sm">Bu konu için henüz ders notu yüklenmemiş.</p>
+            <p className="text-gray-500 text-sm">Bu sınıf/ders için henüz ders notu yüklenmemiş.</p>
           ) : (
             <div className="space-y-2">
               {documents.map((doc) => (

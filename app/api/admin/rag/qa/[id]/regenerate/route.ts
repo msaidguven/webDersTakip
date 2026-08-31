@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { answerQuestionFromTopic } from '@/app/src/lib/rag/answerQuestion';
+import { answerQuestionForBook } from '@/app/src/lib/rag/answerQuestion';
 
-// Admin panelindeki "Tekrar AI'ye gönder": aynı soruyu, aynı konu için yeniden
-// çalıştırır (arama + üretim baştan yapılır) ve kaydı 'pending' durumuna geri alır.
+// Admin panelindeki "Tekrar AI'ye gönder": aynı soruyu, aynı sınıf+ders için
+// yeniden çalıştırır (arama + üretim baştan yapılır) ve kaydı 'pending' durumuna geri alır.
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -17,14 +17,14 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
   const { data: existing } = await supabase
     .from('rag_answers')
-    .select('id, topic_id, question')
+    .select('id, grade_id, lesson_id, question')
     .eq('id', qaId)
     .maybeSingle();
   if (!existing) return NextResponse.json({ error: 'Kayıt bulunamadı' }, { status: 404 });
 
   let result;
   try {
-    result = await answerQuestionFromTopic(supabase, existing.topic_id, existing.question);
+    result = await answerQuestionForBook(supabase, existing.grade_id, existing.lesson_id, existing.question);
   } catch (err) {
     console.error('RAG yeniden üretim hatası', err);
     return NextResponse.json({ error: 'Cevap yeniden üretilemedi' }, { status: 500 });

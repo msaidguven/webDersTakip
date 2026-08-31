@@ -9,7 +9,8 @@ import { embedDocumentChunks } from './gemini';
 export async function processRagDocument(
   supabase: SupabaseClient,
   documentId: number,
-  topicId: number,
+  gradeId: number,
+  lessonId: number,
   fileBuffer: Buffer
 ): Promise<void> {
   try {
@@ -24,7 +25,8 @@ export async function processRagDocument(
 
     const rows = chunks.map((chunk, index) => ({
       document_id: documentId,
-      topic_id: topicId,
+      grade_id: gradeId,
+      lesson_id: lessonId,
       chunk_index: index,
       content: chunk.content,
       token_count: chunk.tokenCount,

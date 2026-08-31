@@ -4,19 +4,22 @@ import React, { useEffect, useState } from 'react';
 
 type QaRow = {
   id: number;
-  topic_id: number;
+  grade_id: number;
+  lesson_id: number;
   question: string;
   answer: string;
   model: string;
   status: 'pending' | 'published' | 'rejected';
   created_at: string;
-  topics: { title: string } | { title: string }[] | null;
+  grades: { name: string } | { name: string }[] | null;
+  lessons: { name: string } | { name: string }[] | null;
 };
 
-function topicTitle(row: QaRow): string {
-  const t = row.topics;
-  const single = Array.isArray(t) ? t[0] : t;
-  return single?.title || `Konu #${row.topic_id}`;
+function bookLabel(row: QaRow): string {
+  const grade = Array.isArray(row.grades) ? row.grades[0] : row.grades;
+  const lesson = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
+  if (!grade && !lesson) return `Sınıf #${row.grade_id} · Ders #${row.lesson_id}`;
+  return `${grade?.name || `Sınıf #${row.grade_id}`} · ${lesson?.name || `Ders #${row.lesson_id}`}`;
 }
 
 export default function RagQaApprovalPanel() {
@@ -104,7 +107,7 @@ export default function RagQaApprovalPanel() {
           {items.map((row) => (
             <div key={row.id} className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">{topicTitle(row)}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">{bookLabel(row)}</span>
                 <span className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
               </div>
 

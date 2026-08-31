@@ -10,14 +10,16 @@ export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const topicId = request.nextUrl.searchParams.get('topicId');
+  const gradeId = request.nextUrl.searchParams.get('gradeId');
+  const lessonId = request.nextUrl.searchParams.get('lessonId');
   const supabase = createServiceClient();
 
   let query = supabase
     .from('rag_documents')
-    .select('id, topic_id, title, page_count, chunk_count, status, error_message, created_at')
+    .select('id, grade_id, lesson_id, title, page_count, chunk_count, status, error_message, created_at')
     .order('created_at', { ascending: false });
-  if (topicId) query = query.eq('topic_id', Number(topicId));
+  if (gradeId) query = query.eq('grade_id', Number(gradeId));
+  if (lessonId) query = query.eq('lesson_id', Number(lessonId));
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -31,11 +33,11 @@ export async function POST(request: NextRequest) {
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get('file');
-  const topicIdRaw = formData?.get('topicId');
-  const topicId = typeof topicIdRaw === 'string' ? Number(topicIdRaw) : NaN;
+  const gradeId = Number(formData?.get('gradeId'));
+  const lessonId = Number(formData?.get('lessonId'));
 
-  if (!Number.isFinite(topicId)) {
-    return NextResponse.json({ error: 'topicId gerekli' }, { status: 400 });
+  if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
+    return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
   }
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 });
@@ -49,11 +51,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: topic } = await supabase.from('topics').select('id').eq('id', topicId).maybeSingle();
-  if (!topic) return NextResponse.json({ error: 'Konu bulunamadı' }, { status: 404 });
+  // lesson_grades: bu dersin gerçekten bu sınıfta okutulduğunu doğrular.
+  const { data: lessonGrade } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id')
+    .eq('grade_id', gradeId)
+    .eq('lesson_id', lessonId)
+    .maybeSingle();
+  if (!lessonGrade) return NextResponse.json({ error: 'Bu sınıf/ders kombinasyonu bulunamadı' }, { status: 404 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const storagePath = `${topicId}/${Date.now()}-${file.name}`;
+  const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -65,7 +73,8 @@ export async function POST(request: NextRequest) {
   const { data: document, error: insertError } = await supabase
     .from('rag_documents')
     .insert({
-      topic_id: topicId,
+      grade_id: gradeId,
+      lesson_id: lessonId,
       title: file.name,
       file_path: storagePath,
       status: 'processing',
@@ -80,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await processRagDocument(supabase, document.id, topicId, buffer);
+    await processRagDocument(supabase, document.id, gradeId, lessonId, buffer);
   } catch (err) {
     // processRagDocument zaten rag_documents.status='failed' yazdı; admin panelinde görünür.
     const message = err instanceof Error ? err.message : String(err);
