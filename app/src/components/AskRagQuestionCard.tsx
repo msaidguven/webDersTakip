@@ -23,10 +23,14 @@ export default function AskRagQuestionCard({
   gradeId,
   lessonId,
   lessonName,
+  questionContext,
 }: {
   gradeId: number;
   lessonId: number;
   lessonName: string;
+  // Test sayfasında kullanıldığında aktif sorunun (kökü + şıklar + doğru cevap) düz
+  // metin özeti — öğrenci soruyu kopyalamadan "neden A" gibi kısa bir şey yazabilsin.
+  questionContext?: string | null;
 }) {
   const pathname = usePathname();
   const [availability, setAvailability] = useState<Availability>('loading');
@@ -89,7 +93,7 @@ export default function AskRagQuestionCard({
       const res = await fetch('/api/rag/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeId, lessonId, question: trimmed }),
+        body: JSON.stringify({ gradeId, lessonId, question: trimmed, questionContext: questionContext || undefined }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -134,7 +138,9 @@ export default function AskRagQuestionCard({
     <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-6 sm:p-7 mb-7">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-indigo-500" />
-        <h2 className="text-base font-semibold text-gray-900">{lessonName} Ders Notlarına Soru Sor</h2>
+        <h2 className="text-base font-semibold text-gray-900">
+          {questionContext ? 'Bu Soruyu Anlamadın mı?' : `${lessonName} Ders Notlarına Soru Sor`}
+        </h2>
       </div>
 
       {authState === 'loading' ? null : authState === 'out' ? (
@@ -155,7 +161,7 @@ export default function AskRagQuestionCard({
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value.slice(0, MAX_QUESTION_LENGTH))}
-              placeholder="Bu dersin notlarıyla ilgili merak ettiğin bir şeyi sor…"
+              placeholder={questionContext ? 'Örn: neden A doğru?' : 'Bu dersin notlarıyla ilgili merak ettiğin bir şeyi sor…'}
               rows={3}
               disabled={submitting}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:opacity-60 resize-none"

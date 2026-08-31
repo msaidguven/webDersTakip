@@ -19,9 +19,13 @@ export async function answerQuestionForBook(
   supabase: SupabaseClient,
   gradeId: number,
   lessonId: number,
-  question: string
+  question: string,
+  questionContext?: string | null
 ): Promise<AnswerQuestionResult> {
-  const queryEmbedding = await embedQuestion(question);
+  // "neden A" gibi bağlamsız kısa sorularda arama tek başına anlamsız kalır — varsa
+  // aktif test sorusunu da arama sorgusuna katıyoruz ki doğru parçalar bulunsun.
+  const searchQuery = questionContext ? `${questionContext}\n\nÖğrenci sorusu: ${question}` : question;
+  const queryEmbedding = await embedQuestion(searchQuery);
 
   const { data, error } = await supabase.rpc('match_rag_chunks', {
     query_embedding: queryEmbedding,
@@ -39,7 +43,8 @@ export async function answerQuestionForBook(
 
   const { answer, model } = await generateGroundedAnswer(
     question,
-    matches.map((m) => m.content)
+    matches.map((m) => m.content),
+    questionContext
   );
 
   return { answer, model, matchedChunkIds: matches.map((m) => m.id) };

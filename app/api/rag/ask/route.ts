@@ -13,10 +13,13 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { gradeId?: unknown; lessonId?: unknown; question?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as
+    | { gradeId?: unknown; lessonId?: unknown; question?: unknown; questionContext?: unknown }
+    | null;
   const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
   const lessonId = typeof body?.lessonId === 'number' ? body.lessonId : Number(body?.lessonId);
   const question = typeof body?.question === 'string' ? body.question.trim() : '';
+  const questionContext = typeof body?.questionContext === 'string' ? body.questionContext.trim().slice(0, 3000) : null;
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   let result;
   try {
-    result = await answerQuestionForBook(service, gradeId, lessonId, question);
+    result = await answerQuestionForBook(service, gradeId, lessonId, question, questionContext);
   } catch (err) {
     console.error('RAG soru-cevap hatası', err);
     return NextResponse.json({ error: 'Cevap üretilemedi, lütfen tekrar deneyin' }, { status: 500 });
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
       lesson_id: lessonId,
       student_id: user.id,
       question,
+      question_context: questionContext,
       answer: result.answer,
       matched_chunk_ids: result.matchedChunkIds,
       model: result.model,

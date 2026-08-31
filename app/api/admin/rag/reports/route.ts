@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('rag_answer_reports')
-    .select('id, rag_answer_id, reason, status, created_at, rag_answers(id, question, answer, model, status, grade_id, lesson_id, grades(name), lessons(name))')
+    .select('id, rag_answer_id, reason, status, created_at, rag_answers(id, question, question_context, answer, model, status, grade_id, lesson_id, grades(name), lessons(name))')
     .order('created_at', { ascending: false })
     .limit(200);
 

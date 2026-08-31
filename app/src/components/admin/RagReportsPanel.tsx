@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 type RagAnswer = {
   id: number;
   question: string;
+  question_context: string | null;
   answer: string;
   model: string;
   status: 'pending' | 'published' | 'rejected';
@@ -126,6 +127,13 @@ export default function RagReportsPanel() {
                   <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-300">{bookLabel(answer)}</span>
                   <span className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
                 </div>
+
+                {answer.question_context && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-1">Sorulduğu test sorusu</p>
+                    <p className="text-gray-400 text-xs whitespace-pre-wrap">{answer.question_context}</p>
+                  </div>
+                )}
 
                 <div className="mb-3">
                   <p className="text-xs text-gray-500 mb-1">Soru</p>

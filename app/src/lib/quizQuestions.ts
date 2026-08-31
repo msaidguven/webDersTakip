@@ -9,6 +9,31 @@ export type MatchingQuestion = { id: number; type: 'matching'; pairs: Pair[] };
 export type ClassicalQuestion = { id: number; type: 'classical'; question_text: string; modelAnswer: string | null };
 export type QuizQuestion = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion | ClassicalQuestion;
 
+// Test sayfasındaki "AI'ye Sor" widget'ı, öğrenci "neden A" gibi kısa bir şey yazınca
+// hangi sorudan bahsettiğini bilsin diye aktif sorunun düz metin özetini üretir —
+// doğru cevap da dahil, çünkü amaç Gemini'nin "neden X doğru" diye açıklayabilmesi.
+export function formatQuestionContext(q: QuizQuestion): string {
+  const letter = (i: number) => String.fromCharCode(65 + i);
+  switch (q.type) {
+    case 'multiple_choice':
+      return `Öğrencinin şu anda baktığı çoktan seçmeli soru: ${q.question_text}\nŞıklar:\n${q.choices
+        .map((c, i) => `${letter(i)}) ${c.text}${c.is_correct ? ' — doğru cevap bu' : ''}`)
+        .join('\n')}`;
+    case 'blank':
+      return `Öğrencinin şu anda baktığı boşluk doldurma sorusu: ${q.question_text}\nSeçenekler:\n${q.options
+        .map((o, i) => `${letter(i)}) ${o.text}${o.is_correct ? ' — doğru cevap bu' : ''}`)
+        .join('\n')}`;
+    case 'matching':
+      return `Öğrencinin şu anda baktığı eşleştirme sorusu, doğru çiftler:\n${q.pairs
+        .map((p) => `${p.left_text} — ${p.right_text}`)
+        .join('\n')}`;
+    case 'classical':
+      return `Öğrencinin şu anda baktığı açık uçlu soru: ${q.question_text}${
+        q.modelAnswer ? `\nÖrnek/model cevap: ${q.modelAnswer}` : ''
+      }`;
+  }
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -88,13 +113,20 @@ async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> 
   return shuffle(all);
 }
 
+// Bir testte gösterilecek soru sayısı sabitlendi: hem tekrar çözmeyi (havuz büyükse
+// her seferinde farklı 10 soru) hem soru sayısına göre süre hesaplamayı basitleştiriyor.
+export const MAX_QUESTIONS_PER_TEST = 10;
+export const SECONDS_PER_QUESTION = 60;
+
 // Bir konunun (topic) tüm alt başlıklarına ve konu geneline ait sorular (konu kavrama
 // testi) — questions.topic_id üzerinden, section_id'si dolu ya da boş fark etmeksizin.
 export async function getTopicTestQuestions(topicId: number | string): Promise<QuizQuestion[]> {
   const supabase = createServiceClient();
   const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  return resolveQuestions(questionIds);
+  // Havuzdan rastgele MAX_QUESTIONS_PER_TEST kadarını seçip sadece onları çözüyoruz —
+  // hem gereksiz sorgu yükünü azaltır hem "Tekrar Çöz" her seferinde farklı bir set getirir.
+  return resolveQuestions(shuffle(questionIds).slice(0, MAX_QUESTIONS_PER_TEST));
 }
 
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
@@ -108,5 +140,5 @@ export async function getUnitTestQuestions(unitId: number | string): Promise<Qui
 
   const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  return resolveQuestions(questionIds);
+  return resolveQuestions(shuffle(questionIds).slice(0, MAX_QUESTIONS_PER_TEST));
 }

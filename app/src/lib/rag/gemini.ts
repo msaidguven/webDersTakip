@@ -70,10 +70,21 @@ export type AnswerResult = { answer: string; model: string };
 
 // Soruyu SADECE verilen ders notu parçalarına dayanarak cevaplar. Parçalarda
 // yeterli bilgi yoksa modelin "bu bilgi ders notlarında yok" demesi isteniyor.
-export async function generateGroundedAnswer(question: string, contextChunks: string[]): Promise<AnswerResult> {
+// questionContext: test sayfasından soruluyorsa aktif sorunun (kökü+şıklar+doğru
+// cevap) özeti — "neden A" gibi bağlamsız kısa sorularda hangi sorudan
+// bahsedildiğini modele bildirmek için.
+export async function generateGroundedAnswer(
+  question: string,
+  contextChunks: string[],
+  questionContext?: string | null
+): Promise<AnswerResult> {
   const context = contextChunks
     .map((chunk, i) => `[Parça ${i + 1}]\n${chunk}`)
     .join('\n\n');
+
+  const questionContextBlock = questionContext
+    ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nÖğrencinin sorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu test sorusunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n`
+    : '';
 
   const prompt = `Aşağıda bir ders notundan alınmış metin parçaları var. Öğrencinin sorusunu SADECE bu parçalarda yer alan bilgiye dayanarak cevapla.
 
@@ -83,7 +94,7 @@ Kurallar:
 - Metin "biz/bizim" gibi genel bir dille yazılmış olabilir (ör. "ailede çocuk, okulda öğrenci rolüne sahip oluruz"). Öğrenci bunu "benim/kendim" diye kişiselleştirerek sorsa bile (ör. "rollerim nelerdir"), metindeki bu genel bilgiyi doğrudan cevap olarak kullan — bunu reddetme veya "bu senin kişisel bilgin değil" deme.
 - Sıcak ve samimi bir öğretmen gibi yaz; soğuk, sadece madde sıralayan bir liste bırakma. Cevaba kısa bir giriş cümlesiyle başla, madde listesi kullanacaksan her maddeyi tek kelimeyle bırakmak yerine mümkün olduğunca 2-3 kelimelik kısa bir açıklama/örnek ekle (metinde varsa), ve cevabın sonuna kısa, samimi bir kapanış cümlesi ekle (ör. "Umarım yardımcı olmuştur!" gibi, her seferinde birebir aynı olmasın).
 - Yine de gereksiz uzatma; sıcak ama kısa ve öz olsun.
-
+${questionContextBlock}
 Ders notu parçaları:
 ${context}
 

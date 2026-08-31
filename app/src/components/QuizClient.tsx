@@ -228,11 +228,10 @@ function ClassicalView({
   );
 }
 
-// Google, aktif quiz akışında tek anda tek soru render edildiği için diğer soruları DOM'da
-// hiç görmüyor (veri initialQuestions ile ilk HTML'e geliyor ama ekrana basılmıyor).
-// Bu bölüm etkileşimli akışı bozmadan, kapalı bir <details> içinde TÜM soru ve doğru
-// cevapları gerçek DOM metni olarak sunar — native <details> Google tarafından tartışmasız
-// indexlenir, JS ile aç/kapa yapılan içerik gibi belirsizlik taşımaz.
+// Tüm soru+cevap anahtarı — bilerek sadece SONUÇ ekranında (showResult) render ediliyor,
+// aktif çözüm ekranında DEĞİL. Önceden SEO amacıyla aktif ekranda da gösteriliyordu ama bu,
+// öğrencinin testi bitirmeden tek tıkla tüm doğru cevapları görebilmesi demekti. Kopya
+// çekme riski SEO faydasından daha önemli görüldüğü için kaldırıldı (bkz. proje notları).
 function AnswerKeySection({ questions }: { questions: QuizQuestion[] }) {
   return (
     <details className="mx-auto mt-6 max-w-lg rounded-2xl border border-default bg-surface-elevated p-4 sm:p-6">
@@ -285,7 +284,7 @@ interface QuizIntro {
   questionCount?: number | null;
 }
 
-interface QuizClientProps {
+export interface QuizClientProps {
   scopeLabel: string;
   exitHref: string;
   exitLabel: string;
@@ -293,9 +292,10 @@ interface QuizClientProps {
   reloadEndpoint: string;
   timeLimitSeconds?: number;
   intro?: QuizIntro;
+  onCurrentQuestionChange?: (question: QuizQuestion | null, isAnswered: boolean) => void;
 }
 
-export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQuestions, reloadEndpoint, timeLimitSeconds, intro }: QuizClientProps) {
+export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQuestions, reloadEndpoint, timeLimitSeconds, intro, onCurrentQuestionChange }: QuizClientProps) {
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [loading, setLoading] = useState(false);
   const [index, setIndex] = useState(0);
@@ -360,6 +360,16 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   }, [timeLimitSeconds, showResult]);
 
   const current = questions[index];
+  const currentIsAnswered = !!(current && locked[current.id]);
+
+  useEffect(() => {
+    onCurrentQuestionChange?.(showResult ? null : current ?? null, currentIsAnswered);
+    // current her render'da yeni referans olabileceğinden sadece bu değerler
+    // değiştiğinde tetiklemek yeterli — onCurrentQuestionChange ebeveynde useCallback
+    // ile sabitlenmezse gereksiz tekrar tetiklenmeyi de böyle önlüyoruz.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, showResult, currentIsAnswered]);
+
   const answeredCount = Object.keys(locked).length;
   const gradedQuestions = useMemo(() => questions.filter((q) => q.type !== 'classical'), [questions]);
   const classicalCount = questions.length - gradedQuestions.length;
@@ -523,7 +533,6 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   const isCorrect = !!correct[current.id];
 
   return (
-    <>
     <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
       <Link href={exitHref} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500">
         <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
@@ -643,7 +652,5 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
         </div>
       </div>
     </div>
-    {answerKey}
-    </>
   );
 }

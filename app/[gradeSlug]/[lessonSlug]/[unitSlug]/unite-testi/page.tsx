@@ -4,11 +4,8 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getUnitTestQuestions } from '@/app/src/lib/quizQuestions';
-import QuizClient from '@/app/src/components/QuizClient';
-import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
-
-const UNIT_TEST_TIME_LIMIT_SECONDS = 3600;
+import { getUnitTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 interface Params {
   gradeSlug: string;
@@ -220,14 +217,17 @@ export default async function UnitTestPage({ params }: PageProps) {
           __html: JSON.stringify(buildLearningResourceJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      <QuizClient
+      <QuizWithAsk
         key={data.unitId}
+        gradeId={data.gradeId}
+        lessonId={data.lessonId}
+        lessonName={data.lessonName}
         scopeLabel={`${data.unitTitle} Ünite Testi`}
         exitHref={data.exitHref}
         exitLabel="Üniteye Dön"
         initialQuestions={initialQuestions}
         reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
-        timeLimitSeconds={UNIT_TEST_TIME_LIMIT_SECONDS}
+        timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
         intro={{
           subLabel: `${data.gradeName} / ${data.lessonName}`,
           description: data.unitDescription,
@@ -235,9 +235,6 @@ export default async function UnitTestPage({ params }: PageProps) {
           questionCount: data.questionCount,
         }}
       />
-      <div className="mx-auto max-w-lg px-4 pb-8">
-        <AskRagQuestionCard gradeId={data.gradeId} lessonId={data.lessonId} lessonName={data.lessonName} />
-      </div>
     </>
   );
 }

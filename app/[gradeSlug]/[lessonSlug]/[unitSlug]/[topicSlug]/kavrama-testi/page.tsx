@@ -10,9 +10,8 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getTopicTestQuestions } from '@/app/src/lib/quizQuestions';
-import QuizClient from '@/app/src/components/QuizClient';
-import AskRagQuestionCard from '@/app/src/components/AskRagQuestionCard';
+import { getTopicTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -198,17 +197,18 @@ export default async function TopicTestPage({ params }: PageProps) {
           __html: JSON.stringify(buildQuizJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      <QuizClient
+      <QuizWithAsk
         key={data.topicId}
+        gradeId={data.gradeId}
+        lessonId={data.lessonId}
+        lessonName={data.lessonName}
         scopeLabel={`${data.topicTitle} Kavrama Testi`}
         exitHref={buildTopicPath(data)}
         exitLabel="Konuya Dön"
         initialQuestions={initialQuestions}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
+        timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
       />
-      <div className="mx-auto max-w-lg px-4 pb-8">
-        <AskRagQuestionCard gradeId={data.gradeId} lessonId={data.lessonId} lessonName={data.lessonName} />
-      </div>
     </>
   );
 }
