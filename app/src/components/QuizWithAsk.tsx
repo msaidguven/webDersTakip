@@ -9,13 +9,14 @@ import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQues
 type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
   gradeId: number;
   lessonId: number;
+  unitId: number;
   lessonName: string;
 };
 
 // QuizClient, AskRagQuestionCard ve QuestionComments sayfada ayrı kardeş bileşenler
 // olduğu için "şu an hangi soruya bakılıyor, cevaplandı mı" bilgisini paylaşmaları
 // gerekiyordu — bu wrapper o durumu tutup ikisine de aktarıyor.
-export default function QuizWithAsk({ gradeId, lessonId, lessonName, ...quizProps }: QuizWithAskProps) {
+export default function QuizWithAsk({ gradeId, lessonId, unitId, lessonName, ...quizProps }: QuizWithAskProps) {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -31,6 +32,7 @@ export default function QuizWithAsk({ gradeId, lessonId, lessonName, ...quizProp
         <AskRagQuestionCard
           gradeId={gradeId}
           lessonId={lessonId}
+          unitId={unitId}
           lessonName={lessonName}
           questionContext={currentQuestion ? formatQuestionContext(currentQuestion) : null}
         />

@@ -86,6 +86,7 @@ const getTopicTestPageData = cache(async function getTopicTestPageData(
   return {
     gradeId: grade.id,
     lessonId: lesson.id,
+    unitId: unit.id,
     topicId: topic.id,
     gradeName: grade.name,
     lessonName: lesson.name,
@@ -201,6 +202,7 @@ export default async function TopicTestPage({ params }: PageProps) {
         key={data.topicId}
         gradeId={data.gradeId}
         lessonId={data.lessonId}
+        unitId={data.unitId}
         lessonName={data.lessonName}
         scopeLabel={`${data.topicTitle} Kavrama Testi`}
         exitHref={buildTopicPath(data)}

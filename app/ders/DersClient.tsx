@@ -2022,9 +2022,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         href={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                       />
                     )}
-                    {activeTopic && (
+                    {activeTopic && activeUnit && (
                       <div className="not-prose mt-8">
-                        <AskRagQuestionCard gradeId={Number(gradeId)} lessonId={Number(lessonId)} lessonName={lessonName} />
+                        <AskRagQuestionCard
+                          gradeId={Number(gradeId)}
+                          lessonId={Number(lessonId)}
+                          unitId={Number(activeUnit.id)}
+                          lessonName={lessonName}
+                        />
                       </div>
                     )}
                     {activeTopic && (
