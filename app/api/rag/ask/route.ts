@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { answerQuestionForBook } from '@/app/src/lib/rag/answerQuestion';
+import { DAILY_QUESTION_LIMIT, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
 
 // Öğrenci bir sınıf+ders (kitap) için soru sorar. Cevap Gemini ile üretilip
 // doğrudan yayınlanır (admin onayı beklemez) ve öğrenciye hemen gösterilir —
@@ -33,6 +34,14 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!lessonGrade) return NextResponse.json({ error: 'Sınıf/ders bulunamadı' }, { status: 404 });
 
+  const askedToday = await countTodayQuestions(service, user.id);
+  if (askedToday >= DAILY_QUESTION_LIMIT) {
+    return NextResponse.json(
+      { error: `Bugünkü soru hakkını (${DAILY_QUESTION_LIMIT}) doldurdun. Yarın tekrar sorabilirsin.` },
+      { status: 429 }
+    );
+  }
+
   let result;
   try {
     result = await answerQuestionForBook(service, gradeId, lessonId, question);
@@ -63,5 +72,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     id: saved.id,
     answer: result.answer,
+    remaining: DAILY_QUESTION_LIMIT - askedToday - 1,
   });
 }

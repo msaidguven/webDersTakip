@@ -35,12 +35,14 @@ export default function AskRagQuestionCard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnsweredQuestion[]>([]);
+  const [dailyRemaining, setDailyRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
       const res = await fetch(`/api/rag/status?gradeId=${gradeId}&lessonId=${lessonId}`);
       const data = await res.json().catch(() => null);
       setAvailability(res.ok && data?.available ? 'available' : 'unavailable');
+      if (res.ok && typeof data?.dailyRemaining === 'number') setDailyRemaining(data.dailyRemaining);
     })();
   }, [gradeId, lessonId]);
 
@@ -71,6 +73,7 @@ export default function AskRagQuestionCard({
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(data?.error || 'Sorunuz gönderilemedi, lütfen tekrar deneyin');
+        if (res.status === 429) setDailyRemaining(0);
         return;
       }
       setAnswers((prev) => [
@@ -78,6 +81,7 @@ export default function AskRagQuestionCard({
         ...prev,
       ]);
       setQuestion('');
+      if (typeof data.remaining === 'number') setDailyRemaining(data.remaining);
     } catch {
       setError('Sorunuz gönderilemedi, lütfen tekrar deneyin');
     } finally {
@@ -120,6 +124,10 @@ export default function AskRagQuestionCard({
           </a>{' '}
           gerekiyor.
         </p>
+      ) : dailyRemaining === 0 ? (
+        <p className="text-sm text-gray-500">
+          Bugünkü soru hakkını doldurdun. Yarın tekrar sorabilirsin.
+        </p>
       ) : (
         <>
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -132,7 +140,10 @@ export default function AskRagQuestionCard({
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:opacity-60 resize-none"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-gray-400">{question.length}/{MAX_QUESTION_LENGTH}</span>
+              <span className="text-xs text-gray-400">
+                {question.length}/{MAX_QUESTION_LENGTH}
+                {dailyRemaining != null && ` · Bugün kalan hakkın: ${dailyRemaining}`}
+              </span>
               <button
                 type="submit"
                 disabled={submitting || !question.trim()}
