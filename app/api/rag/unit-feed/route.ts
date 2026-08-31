@@ -29,7 +29,13 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  query = questionId != null ? query.eq('quiz_question_id', questionId) : query.eq('unit_id', unitId as number);
+  // Bir satırda hem unit_id hem quiz_question_id dolu olabilir (test sayfasından
+  // sorulan sorular ikisini de taşır). Genel ünite akışı bu yüzden quiz_question_id
+  // boş olanlarla sınırlanıyor — yoksa soru-özel "neden A" cevapları da karışırdı.
+  query =
+    questionId != null
+      ? query.eq('quiz_question_id', questionId)
+      : query.eq('unit_id', unitId as number).is('quiz_question_id', null);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
