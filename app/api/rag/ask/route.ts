@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { answerQuestionForBook, answerAsBuddy } from '@/app/src/lib/rag/answerQuestion';
-import { DAILY_QUESTION_LIMIT, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
+import { getDailyLimitFor, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
 
 // Öğrenci bir sınıf+ders (kitap) için soru sorar. Cevap Gemini ile üretilip
 // doğrudan yayınlanır (admin onayı beklemez) ve öğrenciye hemen gösterilir —
@@ -67,10 +67,11 @@ export async function POST(request: NextRequest) {
     if (!quizQuestion) return NextResponse.json({ error: 'Test sorusu bulunamadı' }, { status: 400 });
   }
 
+  const dailyLimit = await getDailyLimitFor(service, user.id);
   const askedToday = await countTodayQuestions(service, user.id);
-  if (askedToday >= DAILY_QUESTION_LIMIT) {
+  if (askedToday >= dailyLimit) {
     return NextResponse.json(
-      { error: `Bugünkü soru hakkını (${DAILY_QUESTION_LIMIT}) doldurdun. Yarın tekrar sorabilirsin.` },
+      { error: `Bugünkü soru hakkını (${dailyLimit}) doldurdun. Yarın tekrar sorabilirsin.` },
       { status: 429 }
     );
   }
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
     id: saved.id,
     answer: result.answer,
     model: result.model,
-    remaining: DAILY_QUESTION_LIMIT - askedToday - 1,
+    remaining: dailyLimit - askedToday - 1,
     profile: profile || null,
   });
 }

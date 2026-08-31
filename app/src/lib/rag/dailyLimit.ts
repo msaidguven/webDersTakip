@@ -4,6 +4,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // İleride reklam izleyerek ya da belli sayıda quiz sorusu çözerek bu hakkı
 // artırma gibi bir mekanizma eklenebilir — o ayrı bir özellik, şimdilik sabit.
 export const DAILY_QUESTION_LIMIT = 5;
+// Admin hesapları deneme/test amaçlı çok daha yüksek bir günlük hakka sahip.
+const ADMIN_DAILY_QUESTION_LIMIT = 100;
+
+// Kullanıcının rolüne göre geçerli günlük soru hakkını döner (admin ise yüksek,
+// öğrenciyse standart limit).
+export async function getDailyLimitFor(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
+  return (profile as { role: string | null } | null)?.role === 'admin' ? ADMIN_DAILY_QUESTION_LIMIT : DAILY_QUESTION_LIMIT;
+}
 
 const TURKEY_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3, sabit (Türkiye 2016'dan beri yaz saati uygulamıyor)
 
