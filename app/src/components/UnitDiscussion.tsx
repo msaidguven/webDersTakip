@@ -11,6 +11,9 @@ const AI_TAG = '@ai';
 type Availability = 'loading' | 'available' | 'unavailable';
 type AuthState = 'loading' | 'in' | 'out';
 type ReportState = 'idle' | 'open' | 'sending' | 'sent';
+// Yanıt kutusunun kime yazıldığını tutar: bir yoruma mı, bir AI cevabına mı —
+// ikisi de aynı tek yanıt input'unu paylaşır, "@ai" içerirse yine AI'ye gider.
+type ReplyTarget = { type: 'comment' | 'ai'; id: number } | null;
 
 type Profile = { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 
@@ -18,6 +21,7 @@ type CommentEntry = {
   kind: 'comment';
   id: number;
   parent_comment_id: number | null;
+  parent_ai_answer_id: number | null;
   body: string;
   status: 'pending' | 'published' | 'rejected' | 'deleted';
   created_at: string;
@@ -60,11 +64,132 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
   );
 }
 
+// Bunlar bilerek modül seviyesinde (component'in İÇİNDE değil) tanımlı: içeride
+// tanımlansaydı her render'da yeni bir component tipi olarak sayılıp React'ı
+// input'ları unmount/remount etmeye zorlardı — bu da reply kutusuna her harf
+// yazışta focus kaybına yol açardı.
+function ReplyRow({
+  comment,
+  userId,
+  editingId,
+  editText,
+  commentBusyId,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
+  onEditTextChange,
+}: {
+  comment: CommentEntry;
+  userId: string | null;
+  editingId: number | null;
+  editText: string;
+  commentBusyId: number | null;
+  onStartEdit: (c: CommentEntry) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (c: CommentEntry) => void;
+  onDelete: (c: CommentEntry) => void;
+  onEditTextChange: (v: string) => void;
+}) {
+  const isOwn = comment.student_id === userId;
+  const isEditing = editingId === comment.id;
+  const isBusy = commentBusyId === comment.id;
+  return (
+    <div>
+      {isEditing ? (
+        <div className="space-y-1.5">
+          <textarea
+            value={editText}
+            onChange={(e) => onEditTextChange(e.target.value.slice(0, MAX_LENGTH))}
+            rows={2}
+            disabled={isBusy}
+            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSaveEdit(comment)}
+              disabled={isBusy || !editText.trim()}
+              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+            >
+              Kaydet
+            </button>
+            <button onClick={onCancelEdit} className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100">
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.body}</p>
+      )}
+      {comment.status !== 'published' && comment.status !== 'deleted' && isOwn && (
+        <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
+      )}
+      {!isEditing && isOwn && (
+        <div className="mt-0.5 flex items-center gap-3">
+          <button
+            onClick={() => onStartEdit(comment)}
+            disabled={isBusy}
+            className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+          >
+            Düzenle
+          </button>
+          <button
+            onClick={() => onDelete(comment)}
+            disabled={isBusy}
+            className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+          >
+            Sil
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReplyBox({
+  target,
+  replyTarget,
+  replyText,
+  submitting,
+  onReplyTextChange,
+  onSubmit,
+}: {
+  target: NonNullable<ReplyTarget>;
+  replyTarget: ReplyTarget;
+  replyText: string;
+  submitting: boolean;
+  onReplyTextChange: (v: string) => void;
+  onSubmit: () => void;
+}) {
+  if (replyTarget?.type !== target.type || replyTarget.id !== target.id) return null;
+  return (
+    <div className="mt-2 flex gap-2">
+      <input
+        value={replyText}
+        onChange={(e) => onReplyTextChange(e.target.value.slice(0, MAX_LENGTH))}
+        placeholder="Yanıtını yaz, ya da @ai yazarak soru sor…"
+        disabled={submitting}
+        className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+      />
+      <button
+        onClick={onSubmit}
+        disabled={submitting || !replyText.trim()}
+        className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+      >
+        Gönder
+      </button>
+    </div>
+  );
+}
+
 // Test sayfasında (quizQuestionId dolu) her şey sadece o soruya, ders sayfasında
 // (quizQuestionId boş) sadece o üniteye özel: hem yorumlar hem AI soru-cevapları.
 // Tek kutu, tek akış: öğrenci normal bir şey yazarsa yorum olur (admin onayı
 // bekler), "@ai" yazarsa soru olarak Gemini'ye gider (otomatik yayınlanır) —
-// X'teki "@grok" mantığı gibi, AI sadece çağrıldığında araya giriyor.
+// X'teki "@grok" mantığı gibi, AI sadece çağrıldığında araya giriyor. Hem
+// yorumların hem AI cevaplarının altına yanıt yazılabilir (yine ister yoruma
+// ister tekrar "@ai" ile) — ama AI cevapları kendi aralarında gerçek bir
+// konuşma hafızası taşımaz, "@ai" yanıtı her zaman bağımsız yeni bir sorudur.
 export default function UnitDiscussion({
   gradeId,
   lessonId,
@@ -92,7 +217,7 @@ export default function UnitDiscussion({
   const [dailyRemaining, setDailyRemaining] = useState<number | null>(null);
   const [comments, setComments] = useState<CommentEntry[]>([]);
   const [aiEntries, setAiEntries] = useState<AiEntry[]>([]);
-  const [replyTo, setReplyTo] = useState<number | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget>(null);
   const [replyText, setReplyText] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
@@ -120,7 +245,9 @@ export default function UnitDiscussion({
     const supabase = createClient();
     let query = supabase
       .from('question_comments')
-      .select('id, parent_comment_id, body, status, created_at, student_id, profiles!question_comments_student_id_fkey(username, full_name, avatar_url)')
+      .select(
+        'id, parent_comment_id, parent_ai_answer_id, body, status, created_at, student_id, profiles!question_comments_student_id_fkey(username, full_name, avatar_url)'
+      )
       .order('created_at', { ascending: true });
     query = quizQuestionId != null ? query.eq('question_id', quizQuestionId) : query.eq('unit_id', unitId);
     const { data } = await query;
@@ -157,9 +284,9 @@ export default function UnitDiscussion({
     setAiEntries((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   }
 
-  async function submitComment(body: string, parentCommentId: number | null) {
+  async function submitComment(body: string, parentCommentId: number | null, parentAiAnswerId: number | null) {
     const trimmed = body.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
     setSubmitting(true);
     setError(null);
     try {
@@ -167,30 +294,31 @@ export default function UnitDiscussion({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError('Bunun için giriş yapmalısın');
-        return;
+        return false;
       }
-      const insertRow: Record<string, unknown> = { student_id: user.id, body: trimmed, parent_comment_id: parentCommentId };
+      const insertRow: Record<string, unknown> = {
+        student_id: user.id,
+        body: trimmed,
+        parent_comment_id: parentCommentId,
+        parent_ai_answer_id: parentAiAnswerId,
+      };
       if (quizQuestionId != null) insertRow.question_id = quizQuestionId;
       else insertRow.unit_id = unitId;
 
       const { data, error: insertError } = await supabase
         .from('question_comments')
         .insert(insertRow)
-        .select('id, parent_comment_id, body, status, created_at, student_id')
+        .select('id, parent_comment_id, parent_ai_answer_id, body, status, created_at, student_id')
         .single();
       if (insertError) {
         setError('Gönderilemedi, lütfen tekrar deneyin');
-        return;
+        return false;
       }
       setComments((prev) => [...prev, { ...(data as CommentEntry), kind: 'comment' }]);
-      if (parentCommentId) {
-        setReplyTo(null);
-        setReplyText('');
-      } else {
-        setText('');
-      }
+      return true;
     } catch {
       setError('Gönderilemedi, lütfen tekrar deneyin');
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +404,7 @@ export default function UnitDiscussion({
       if (!res.ok) {
         setError(data?.error || 'Sorunuz gönderilemedi, lütfen tekrar deneyin');
         if (res.status === 429) setDailyRemaining(0);
-        return;
+        return false;
       }
       setAiEntries((prev) => [
         {
@@ -291,31 +419,49 @@ export default function UnitDiscussion({
         },
         ...prev,
       ]);
-      setText('');
       if (typeof data.remaining === 'number') setDailyRemaining(data.remaining);
+      return true;
     } catch {
       setError('Sorunuz gönderilemedi, lütfen tekrar deneyin');
+      return false;
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed || submitting) return;
+  // Hem ana kutu hem "Yanıtla" kutusu bunu kullanır: "@ai" içeriyorsa AI'ye
+  // bağımsız yeni bir soru olarak gider, yoksa target'a göre yorum/yanıt olur.
+  async function submitSmart(raw: string, target: ReplyTarget): Promise<boolean> {
+    const trimmed = raw.trim();
+    if (!trimmed || submitting) return false;
     if (trimmed.toLowerCase().includes(AI_TAG)) {
       if (availability !== 'available') {
         setError('Bu ders için henüz ders notu eklenmedi, @ai ile soru sorulamıyor — yine de yorum yapabilirsin.');
-        return;
+        return false;
       }
       if (dailyRemaining === 0) {
         setError('Bugünkü AI soru hakkını doldurdun. Yarın tekrar sorabilirsin.');
-        return;
+        return false;
       }
-      await submitAiQuestion(trimmed);
-    } else {
-      await submitComment(trimmed, null);
+      return submitAiQuestion(trimmed);
+    }
+    const parentCommentId = target?.type === 'comment' ? target.id : null;
+    const parentAiAnswerId = target?.type === 'ai' ? target.id : null;
+    return submitComment(trimmed, parentCommentId, parentAiAnswerId);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await submitSmart(text, null);
+    if (ok) setText('');
+  }
+
+  async function handleReplySubmit() {
+    if (!replyTarget) return;
+    const ok = await submitSmart(replyText, replyTarget);
+    if (ok) {
+      setReplyText('');
+      setReplyTarget(null);
     }
   }
 
@@ -340,8 +486,9 @@ export default function UnitDiscussion({
   if (!isAnswered) return null;
   if (availability === 'loading') return null;
 
-  const topLevelComments = comments.filter((c) => !c.parent_comment_id);
-  const repliesOf = (id: number) => comments.filter((c) => c.parent_comment_id === id);
+  const topLevelComments = comments.filter((c) => !c.parent_comment_id && !c.parent_ai_answer_id);
+  const repliesOfComment = (id: number) => comments.filter((c) => c.parent_comment_id === id);
+  const repliesOfAi = (id: number) => comments.filter((c) => c.parent_ai_answer_id === id);
 
   const feed: FeedEntry[] = [...topLevelComments, ...aiEntries].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -446,7 +593,7 @@ export default function UnitDiscussion({
                       {!isEditing && (
                         <div className="mt-1 flex items-center gap-3">
                           <button
-                            onClick={() => setReplyTo(replyTo === item.id ? null : item.id)}
+                            onClick={() => setReplyTarget(replyTarget?.type === 'comment' && replyTarget.id === item.id ? null : { type: 'comment', id: item.id })}
                             className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
                           >
                             Yanıtla
@@ -472,90 +619,37 @@ export default function UnitDiscussion({
                         </div>
                       )}
 
-                      {repliesOf(item.id).length > 0 && (
+                      {repliesOfComment(item.id).length > 0 && (
                         <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
-                          {repliesOf(item.id).map((r) => {
-                            const rIsOwn = r.student_id === userId;
-                            const rIsEditing = editingId === r.id;
-                            const rIsBusy = commentBusyId === r.id;
-                            return (
-                              <div key={r.id}>
-                                {rIsEditing ? (
-                                  <div className="space-y-1.5">
-                                    <textarea
-                                      value={editText}
-                                      onChange={(e) => setEditText(e.target.value.slice(0, MAX_LENGTH))}
-                                      rows={2}
-                                      disabled={rIsBusy}
-                                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
-                                    />
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => saveEdit(r)}
-                                        disabled={rIsBusy || !editText.trim()}
-                                        className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
-                                      >
-                                        Kaydet
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setEditingId(null);
-                                          setEditText('');
-                                        }}
-                                        className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100"
-                                      >
-                                        Vazgeç
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.body}</p>
-                                )}
-                                {r.status !== 'published' && r.status !== 'deleted' && rIsOwn && (
-                                  <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
-                                )}
-                                {!rIsEditing && rIsOwn && (
-                                  <div className="mt-0.5 flex items-center gap-3">
-                                    <button
-                                      onClick={() => startEdit(r)}
-                                      disabled={rIsBusy}
-                                      className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                                    >
-                                      Düzenle
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteComment(r)}
-                                      disabled={rIsBusy}
-                                      className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                                    >
-                                      Sil
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                          {repliesOfComment(item.id).map((r) => (
+                            <ReplyRow
+                              key={r.id}
+                              comment={r}
+                              userId={userId}
+                              editingId={editingId}
+                              editText={editText}
+                              commentBusyId={commentBusyId}
+                              onStartEdit={startEdit}
+                              onCancelEdit={() => {
+                                setEditingId(null);
+                                setEditText('');
+                              }}
+                              onSaveEdit={saveEdit}
+                              onDelete={handleDeleteComment}
+                              onEditTextChange={setEditText}
+                            />
+                          ))}
                         </div>
                       )}
 
-                      {replyTo === item.id && (
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value.slice(0, MAX_LENGTH))}
-                            placeholder="Yanıtını yaz…"
-                            disabled={submitting}
-                            className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                          />
-                          <button
-                            onClick={() => submitComment(replyText, item.id)}
-                            disabled={submitting || !replyText.trim()}
-                            className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
-                          >
-                            Gönder
-                          </button>
-                        </div>
-                      )}
+                      <ReplyBox
+                        target={{ type: 'comment', id: item.id }}
+                        replyTarget={replyTarget}
+                        replyText={replyText}
+                        submitting={submitting}
+                        onReplyTextChange={setReplyText}
+                        onSubmit={handleReplySubmit}
+                      />
                     </div>
                   </div>
                 </div>
@@ -589,12 +683,20 @@ export default function UnitDiscussion({
 
                     <div className="mt-2">
                       {item.reportState === 'idle' && (
-                        <button
-                          onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
-                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
-                        >
-                          <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setReplyTarget(replyTarget?.type === 'ai' && replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
+                            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                          >
+                            Yanıtla
+                          </button>
+                          <button
+                            onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
+                          >
+                            <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
+                          </button>
+                        </div>
                       )}
                       {item.reportState === 'open' && (
                         <div className="space-y-2">
@@ -624,6 +726,38 @@ export default function UnitDiscussion({
                       {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
                       {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
                     </div>
+
+                    {repliesOfAi(item.id).length > 0 && (
+                      <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
+                        {repliesOfAi(item.id).map((r) => (
+                          <ReplyRow
+                            key={r.id}
+                            comment={r}
+                            userId={userId}
+                            editingId={editingId}
+                            editText={editText}
+                            commentBusyId={commentBusyId}
+                            onStartEdit={startEdit}
+                            onCancelEdit={() => {
+                              setEditingId(null);
+                              setEditText('');
+                            }}
+                            onSaveEdit={saveEdit}
+                            onDelete={handleDeleteComment}
+                            onEditTextChange={setEditText}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <ReplyBox
+                      target={{ type: 'ai', id: item.id }}
+                      replyTarget={replyTarget}
+                      replyText={replyText}
+                      submitting={submitting}
+                      onReplyTextChange={setReplyText}
+                      onSubmit={handleReplySubmit}
+                    />
                   </div>
                 </div>
               </div>
