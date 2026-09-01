@@ -56,6 +56,8 @@ export interface Activity {
   score: number;
   icon: string;
   iconColor: string;
+  isComplete?: boolean;
+  resumeHref?: string;
 }
 
 export interface DashboardData {

@@ -32,9 +32,10 @@ interface ActivityItemProps {
 
 function ActivityItem({ activity }: ActivityItemProps) {
   const scoreClass = getScoreColor(activity.score);
+  const isResumable = activity.isComplete === false && !!activity.resumeHref;
 
   return (
-    <div className="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
+    <div className="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl hover:bg-white/5 transition-colors">
       {/* Icon */}
       <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${getIconColorClasses(activity.iconColor)}`}>
         <Icon name={activity.icon} size={18} className="sm:w-[22px] sm:h-[22px]" />
@@ -54,10 +55,19 @@ function ActivityItem({ activity }: ActivityItemProps) {
         </div>
       </div>
 
-      {/* Score Badge */}
-      <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold border ${scoreClass}`}>
-        %{activity.score}
-      </div>
+      {/* Score Badge / Resume Button */}
+      {isResumable ? (
+        <Link
+          href={activity.resumeHref!}
+          className="shrink-0 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
+        >
+          Devam Et →
+        </Link>
+      ) : (
+        <div className={`shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold border ${scoreClass}`}>
+          %{activity.score}
+        </div>
+      )}
     </div>
   );
 }
