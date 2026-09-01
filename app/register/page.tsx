@@ -6,12 +6,13 @@ import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
 export default function RegisterPage() {
-  const { state, register, clearError } = useRegisterViewModel();
+  const { state, grades, isLoadingGrades, register, clearError } = useRegisterViewModel();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
+    gradeId: '',
   });
 
   const handleChange = (field: string, value: string) => {
@@ -25,6 +26,7 @@ export default function RegisterPage() {
       email: formData.email,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
+      gradeId: formData.gradeId ? parseInt(formData.gradeId, 10) : undefined,
     });
   };
 
@@ -59,6 +61,26 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">Kaçıncı sınıftasın?</label>
+              <select
+                value={formData.gradeId}
+                onChange={(e) => handleChange('gradeId', e.target.value)}
+                className={inputClass}
+                required
+                disabled={isLoadingGrades}
+              >
+                <option value="" disabled>
+                  {isLoadingGrades ? 'Sınıflar yükleniyor...' : 'Sınıfını seç'}
+                </option>
+                {grades.map((grade) => (
+                  <option key={grade.id} value={grade.id}>
+                    {grade.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm text-muted-foreground mb-2">Ad Soyad</label>
               <input
@@ -123,7 +145,7 @@ export default function RegisterPage() {
             <div className="flex-1 h-px bg-default" />
           </div>
 
-          <GoogleSignInButton />
+          <GoogleSignInButton redirectTo="/panel" />
 
           <div className="mt-6 text-center">
             <p className="text-muted-foreground text-sm">

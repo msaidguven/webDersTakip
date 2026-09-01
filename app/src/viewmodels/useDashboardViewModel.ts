@@ -15,6 +15,7 @@ interface UseDashboardViewModelReturn {
   data: DashboardData;
   selectedWeekId: number;
   isLoading: boolean;
+  isAuthenticated: boolean;
   notificationCount: number;
   unitsContext: { lessonName: string | null; gradeName: string | null } | null;
 
@@ -35,6 +36,8 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     ...mockDashboardData,
     user: { ...mockDashboardData.user, name: 'Öğrenci', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
     units: [],
+    weeks: [],
+    currentWeekId: 0,
     srsReview: null,
     recentActivities: [],
     stats: [
@@ -44,7 +47,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
       { id: 'srs-due-count', icon: 'redo', iconColor: 'orange', value: 0, label: 'Tekrar Gerekli' },
     ],
   });
-  const [selectedWeekId, setSelectedWeekId] = useState<number>(mockDashboardData.currentWeekId);
+  const [selectedWeekId, setSelectedWeekId] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [notificationCount, setNotificationCount] = useState(2);
   const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
@@ -162,6 +165,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     data,
     selectedWeekId,
     isLoading,
+    isAuthenticated: !!user,
     unitsContext,
     notificationCount,
     

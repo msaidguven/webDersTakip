@@ -11,7 +11,7 @@ import GoogleSignInButton from '../src/components/GoogleSignInButton';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams?.get('redirectTo') || '/';
+  const redirectTo = searchParams?.get('redirectTo') || '/panel';
   
   const { isAuthenticated, loading } = useAuth();
   const { state, login, clearError } = useLoginViewModel();

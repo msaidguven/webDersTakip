@@ -25,6 +25,7 @@ export interface LoginCredentials {
 export interface RegisterData extends LoginCredentials {
   fullName: string;
   confirmPassword: string;
+  gradeId?: number;
 }
 
 export interface AuthViewModel {

@@ -11,6 +11,7 @@ import { ProgressCard } from '../src/components/ProgressCard';
 import { WeeklyProgress } from '../src/components/WeeklyProgress';
 import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
+import { AuthPrompt } from '../src/components/AuthPrompt';
 import { navItems } from '../src/data/mockData';
 
 export default function PanelPage() {
@@ -19,6 +20,7 @@ export default function PanelPage() {
     data,
     selectedWeekId,
     isLoading,
+    isAuthenticated,
     notificationCount,
     unitsContext,
     selectWeek,
@@ -72,20 +74,28 @@ export default function PanelPage() {
             </p>
           </div>
 
-          {/* Daily Goal / CTA */}
-          <div className="mb-6 sm:mb-8">
-            <DailyGoalCard
-              dailyProgress={data.user.dailyProgress}
-              dailyGoal={data.user.dailyGoal}
-              streak={data.user.streak}
-              dueSrsCount={data.srsReview?.questionCount ?? 0}
-            />
-          </div>
+          {isAuthenticated ? (
+            <>
+              {/* Daily Goal / CTA */}
+              <div className="mb-6 sm:mb-8">
+                <DailyGoalCard
+                  dailyProgress={data.user.dailyProgress}
+                  dailyGoal={data.user.dailyGoal}
+                  streak={data.user.streak}
+                  dueSrsCount={data.srsReview?.questionCount ?? 0}
+                />
+              </div>
 
-          {/* Stats Row */}
-          <div className="mb-6 sm:mb-8">
-            <StatsRow stats={data.stats} />
-          </div>
+              {/* Stats Row */}
+              <div className="mb-6 sm:mb-8">
+                <StatsRow stats={data.stats} />
+              </div>
+            </>
+          ) : (
+            <div className="mb-6 sm:mb-8">
+              <AuthPrompt message="Günlük hedefini, serini ve bugünkü istatistiklerini görmek için giriş yap." />
+            </div>
+          )}
 
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
@@ -100,7 +110,7 @@ export default function PanelPage() {
               )}
 
               {/* Units Section */}
-              <div>
+              <div id="uniteler" className="scroll-mt-24">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-default">Üniteler</h2>
@@ -123,7 +133,9 @@ export default function PanelPage() {
                   </div>
                 </div>
                 
-                {isLoading ? (
+                {!isAuthenticated ? (
+                  <AuthPrompt message="Ünitelerini ve ilerlemeni görmek için giriş yap." />
+                ) : isLoading ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {[0, 1].map((i) => (
                       <div key={i} className="h-40 rounded-2xl bg-surface-elevated border border-default animate-pulse" />

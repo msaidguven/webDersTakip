@@ -75,8 +75,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <span className="text-zinc-500 dark:text-muted-foreground text-xs sm:text-sm hidden md:block">
                   👋 {user?.email?.split('@')[0]}
                 </span>
-                <Link 
-                  href="/profil" 
+                <Link
+                  href="/panel"
+                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
+                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl
+                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                >
+                  Panel
+                </Link>
+                <Link
+                  href="/profil"
                   className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
                     transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
                     hover:bg-zinc-100 dark:hover:bg-surface-elevated"
