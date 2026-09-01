@@ -6,15 +6,23 @@ import { Icon } from './icons';
 
 interface TopBarProps {
   notificationCount: number;
-  streak: number;
+  // Verilmezse (ör. profil sayfasında) rozet hiç gösterilmez — yanlış/bayat bir sayı
+  // göstermektense sessizce atlamak tercih edildi.
+  streak?: number;
   isAuthenticated: boolean;
   userName?: string;
+  title?: string;
+  subtitle?: string;
   onNotificationClick: () => void;
   onMenuClick?: () => void;
   onStartQuiz?: () => void;
 }
 
-export function TopBar({ notificationCount, streak, isAuthenticated, userName, onNotificationClick, onMenuClick, onStartQuiz }: TopBarProps) {
+export function TopBar({ notificationCount, streak, isAuthenticated, userName, title = 'Dashboard', subtitle, onNotificationClick, onMenuClick, onStartQuiz }: TopBarProps) {
+  const defaultSubtitle = isAuthenticated
+    ? `Hoş geldin, ${userName}! Bugün harika bir gün öğrenmek için.`
+    : 'Panelini görmek için giriş yap.';
+
   return (
     <header className="h-[72px] bg-background/95 backdrop-blur-xl border-b border-default flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-40">
       {/* Left - Menu & Title */}
@@ -26,10 +34,8 @@ export function TopBar({ notificationCount, streak, isAuthenticated, userName, o
           <Icon name="menu" size={20} />
         </button>
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-default">Dashboard</h2>
-          <p className="hidden sm:block text-sm text-muted-foreground">
-            {isAuthenticated ? `Hoş geldin, ${userName}! Bugün harika bir gün öğrenmek için.` : 'Panelini görmek için giriş yap.'}
-          </p>
+          <h2 className="text-base sm:text-lg font-semibold text-default">{title}</h2>
+          <p className="hidden sm:block text-sm text-muted-foreground">{subtitle ?? defaultSubtitle}</p>
         </div>
       </div>
 
@@ -46,7 +52,14 @@ export function TopBar({ notificationCount, streak, isAuthenticated, userName, o
         </div>
 
         {/* Streak Badge */}
-        {isAuthenticated ? (
+        {!isAuthenticated ? (
+          <Link
+            href="/login?redirectTo=/panel"
+            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
+          >
+            Giriş Yap
+          </Link>
+        ) : streak != null ? (
           <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/20 rounded-xl">
             <span className="text-lg sm:text-xl">🔥</span>
             <div>
@@ -54,14 +67,7 @@ export function TopBar({ notificationCount, streak, isAuthenticated, userName, o
               <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
             </div>
           </div>
-        ) : (
-          <Link
-            href="/login?redirectTo=/panel"
-            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
-          >
-            Giriş Yap
-          </Link>
-        )}
+        ) : null}
 
         {/* Notifications */}
         <button 

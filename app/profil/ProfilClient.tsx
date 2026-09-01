@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
 import { getProfileStats } from '@/app/src/lib/profileStats';
+import { Sidebar } from '@/app/src/components/Sidebar';
+import { TopBar } from '@/app/src/components/TopBar';
+import { navItems } from '@/app/src/data/mockData';
 
 interface ProfileRow {
   grade_id: number | null;
@@ -113,6 +115,7 @@ function MiniStat({ icon, value, label, delay }: { icon: string; value: string |
 export default function ProfilClient({ user, profile, gradeName }: ProfilClientProps) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [uploading, setUploading] = useState(false);
@@ -174,21 +177,47 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
   };
 
   return (
-    <div className="min-h-screen bg-default pb-20">
-      <div className="relative pt-[72px] pb-10 px-4 sm:px-8 overflow-hidden border-b border-default">
+    <div className="min-h-screen bg-background bg-grid">
+      {/* Glow Effects */}
+      <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
+
+      {/* Sidebar */}
+      <Sidebar
+        items={navItems}
+        activeItem="profile"
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        isAuthenticated
+        userName={user.fullName}
+      />
+
+      {/* Overlay for mobile when sidebar is open */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content Area */}
+      <div className="lg:ml-[280px] min-h-screen flex flex-col">
+        <TopBar
+          notificationCount={0}
+          isAuthenticated
+          userName={user.fullName}
+          title="Profilim"
+          subtitle="Hesap bilgilerini ve performansını yönet."
+          onNotificationClick={() => {}}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <div className="relative pb-10 px-4 sm:px-8 overflow-hidden rounded-2xl border border-default mb-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent" />
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-32 left-1/3 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl" />
 
-        <div className="relative max-w-5xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-default transition-colors">
-              <span className="text-lg">←</span>
-              <span className="hidden sm:inline">Ana Sayfa</span>
-            </Link>
-            <h1 className="text-xl sm:text-2xl font-bold text-default">Profilim</h1>
-          </div>
-
+        <div className="relative pt-8">
           {/* User Card */}
           <div className="bg-surface-elevated/80 backdrop-blur-sm border border-default rounded-2xl p-6 shadow-lg">
             <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -249,7 +278,7 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
+      <div className="space-y-6">
         {/* Primary Stats */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Genel Performans</h3>
@@ -295,7 +324,9 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
 
         {/* Okul Bilgileri */}
         <SchoolInfoCard initialProfile={profile} />
-      </main>
+      </div>
+        </main>
+      </div>
     </div>
   );
 }

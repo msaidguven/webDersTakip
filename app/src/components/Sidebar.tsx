@@ -82,14 +82,14 @@ export function Sidebar({ items, activeItem, isOpen, onClose, isAuthenticated, u
         })}
       </nav>
 
-      {/* Back to Home */}
+      {/* Back to public site */}
       <div className="px-4 py-2">
         <Link
           href="/"
           className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-default hover:bg-white/5 transition-all"
         >
-          <Icon name="home" size={20} />
-          <span className="font-medium">Ana Sayfa</span>
+          <Icon name="book" size={20} />
+          <span className="font-medium">Siteye Dön</span>
         </Link>
       </div>
 

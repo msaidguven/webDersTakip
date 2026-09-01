@@ -23,7 +23,11 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
   const isTopicContentRoute = pathSegments.length === 4;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
-  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute;
+  // /panel ve /profil kendi Sidebar + TopBar kabuğunu taşıyor (panele özgü navigasyon,
+  // "Panel"/"Profil" arası geçiş dahil) — global header üstlerine binip çift navigasyon
+  // çubuğu oluşturmasın diye burada da gizleniyor.
+  const isAppShellRoute = pathname === '/panel' || pathname?.startsWith('/panel/') || pathname === '/profil';
+  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute || isAppShellRoute;
 
   return (
     <div className="min-h-screen bg-default">
