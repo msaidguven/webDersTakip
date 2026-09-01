@@ -185,7 +185,9 @@ export default async function TopicTestPage({ params }: PageProps) {
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, data.topicId);
   }
 
-  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getTopicTestQuestions(data.topicId, userId) : [];
+  const personalized = resumable || !data.hasQuestions ? null : await getTopicTestQuestions(data.topicId, userId);
+  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
+  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
 
   return (
     <>
@@ -218,6 +220,7 @@ export default async function TopicTestPage({ params }: PageProps) {
         exitHref={buildTopicPath(data)}
         exitLabel="Konuya Dön"
         initialQuestions={initialQuestions}
+        allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
         timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}

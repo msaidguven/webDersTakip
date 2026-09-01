@@ -143,20 +143,28 @@ export type TymmRawSections = { contentFramework: string; keyConcepts: string; l
 export type ParseTymmResult = { unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections };
 
 export function parseTymmUnitHtml(html: string): ParseTymmResult {
-  const h1Match = /<h1>([\s\S]*?)<\/h1>/.exec(html);
+  // h1 artık `<h1 class="unite-detail__title">` gibi öznitelikli geliyor (TYMM sayfa
+  // yenilemesi sonrası) — `[^>]*` olmadan hiç eşleşmiyor ve ünite adı boş kalıyordu.
+  const h1Match = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html);
   const h1 = h1Match ? plainText(h1Match[1]) : '';
   // Derse göre "N. ÜNİTE: ..." (Fen, Din), "N. ÖĞRENME ALANI: ..." (Sosyal Bilgiler) veya
   // "N. TEMA: ..." (Bilişim, Matematik, Türkçe) başlığı kullanılıyor — hepsini kapsıyoruz.
-  const unitNumberMatch = /^(\d+)\.\s*(?:ÜNİTE|ÖĞRENME ALANI|TEMA)\s*:?\s*(.*)$/i.exec(h1);
+  // "İ" harfi için [İIiı] kullanıyoruz: JS regex /i bayrağı büyük noktalı İ'yi küçük i'ye
+  // eşit saymıyor (case-fold'u "i̇" oluyor), bu yüzden düz "ÜNİTE" başlık artık title-case
+  // ("Ünite") geldiğinde eşleşmiyordu.
+  const unitNumberMatch = /^(\d+)\.\s*(?:[UÜuü]N[İIiı]TE|ÖĞRENME ALANI|TEMA)\s*:?\s*(.*)$/i.exec(h1);
   const unitNumber = unitNumberMatch ? Number(unitNumberMatch[1]) : null;
   const unitTitle = unitNumberMatch ? unitNumberMatch[2].trim() : h1;
 
-  const lessonGradeMatch = /<a href="\/ogretim-programlari\/ders\/[^"]+">\s*([\s\S]*?)\s*<\/a>/.exec(html);
-  const lessonGradeText = lessonGradeMatch ? plainText(lessonGradeMatch[1]) : '';
-  // "Fen Bilimleri Dersi (5.Sınıf)" → lessonName + gradeLabel
-  const lessonGradeParts = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(lessonGradeText);
-  const lessonName = lessonGradeParts ? lessonGradeParts[1].trim() : lessonGradeText || null;
-  const gradeLabel = lessonGradeParts ? lessonGradeParts[2].trim() : null;
+  // Ders adı ve sınıf artık ayrı <span class="unite-detail__meta-item"> öğelerinde
+  // (eskiden tek bir "/ogretim-programlari/ders/..." linki içindeydi) — sırasıyla kitap
+  // ikonlu (ders) ve mezuniyet kepli ikonlu (sınıf) span.
+  const metaItemRe = /<span class="unite-detail__meta-item">([\s\S]*?)<\/span>/g;
+  const metaItems: string[] = [];
+  let metaMatch: RegExpExecArray | null;
+  while ((metaMatch = metaItemRe.exec(html))) metaItems.push(plainText(metaMatch[1]));
+  const lessonName = metaItems[0] || null;
+  const gradeLabel = metaItems[1] || null;
 
   const durationText = extractFieldText(html, 'Ders Saati');
   const durationHours = durationText ? Number(durationText.match(/\d+/)?.[0] ?? '') : null;

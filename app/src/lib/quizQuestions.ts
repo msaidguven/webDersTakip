@@ -118,43 +118,74 @@ async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> 
 export const MAX_QUESTIONS_PER_TEST = 10;
 export const SECONDS_PER_QUESTION = 60;
 
-// Giriş yapmış kullanıcı için havuzu "hiç çözülmemiş" ve "daha önce çözülmüş" diye
-// ikiye ayırıp önce hiç çözülmemişlerden dolduruyor — mobil uygulamanın start_unit_test
-// RPC'sindeki prioritized_pool mantığıyla aynı fikir, burada user_question_stats
-// üzerinden (soru bazlı, konu/ünite ayrımı gerektirmiyor, tek sorgu yeterli). Havuzdaki
-// tüm sorular zaten çözülmüşse doğal olarak tekrar çözülmüşlerden seçilir — kullanıcı
-// asla "soru kalmadı" görmez.
-async function prioritizeUnseen(
+export interface PersonalizedQuestionSet {
+  questions: QuizQuestion[];
+  // true = havuzdaki hiçbir soru şu an "çözülmeye uygun" değil (hepsi ya zaten ustalaşılmış
+  // ya da SRS tekrar zamanı henüz gelmemiş) — bu, "içerik yok" değil "şimdilik bitirdin"
+  // demek; QuizClient bu durumda "Tebrikler" ekranı gösterir.
+  allCaughtUp: boolean;
+}
+
+// Giriş yapmış kullanıcı için soru seçim önceliği (kullanıcı kararı, 2026-09-02):
+//   1. Hiç çözülmemiş sorular (user_question_stats'ta hiç kaydı olmayanlar)
+//   2. Daha önce çözülmüş ama SRS'e göre tekrar zamanı GELMİŞ sorular (next_review_at <= şimdi),
+//      en acil (en eski next_review_at) önce — bkz. mobil app'in aynı SRS motoru.
+// Tekrar zamanı henüz gelmemiş (yakın zamanda ustalaşılmış) sorular ASLA gösterilmez — mobil
+// uygulamanın aksine burada bir "geri kalan her şey" havuzuna düşülmüyor; havuz boşsa
+// allCaughtUp=true döner ve çağıran taraf "şu an çözülecek yeni/vakti gelmiş soru yok" der.
+async function selectPersonalizedQuestionIds(
   supabase: ReturnType<typeof createServiceClient>,
   questionIds: number[],
-  userId: string | null | undefined
-): Promise<number[]> {
-  if (!userId || questionIds.length === 0) return shuffle(questionIds);
+  userId: string | null | undefined,
+  limit: number
+): Promise<{ questionIds: number[]; allCaughtUp: boolean }> {
+  if (!userId || questionIds.length === 0) {
+    return { questionIds: shuffle(questionIds).slice(0, limit), allCaughtUp: false };
+  }
 
-  const { data: seenRows } = await supabase
+  const { data: statsRows } = await supabase
     .from('user_question_stats')
-    .select('question_id')
+    .select('question_id, total_attempts, next_review_at')
     .eq('user_id', userId)
-    .gt('total_attempts', 0)
     .in('question_id', questionIds);
 
-  const seenIds = new Set(((seenRows as { question_id: number }[] | null) || []).map((r) => r.question_id));
-  const unseen = questionIds.filter((id) => !seenIds.has(id));
-  const seen = questionIds.filter((id) => seenIds.has(id));
-  return [...shuffle(unseen), ...shuffle(seen)];
+  const statsByQuestion = new Map(
+    ((statsRows as { question_id: number; total_attempts: number; next_review_at: string | null }[] | null) || []).map((r) => [
+      r.question_id,
+      r,
+    ])
+  );
+
+  const now = Date.now();
+  const unseen: number[] = [];
+  const due: { id: number; nextReviewAt: number }[] = [];
+
+  for (const id of questionIds) {
+    const stat = statsByQuestion.get(id);
+    if (!stat || !stat.total_attempts) {
+      unseen.push(id);
+      continue;
+    }
+    if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) {
+      due.push({ id, nextReviewAt: new Date(stat.next_review_at).getTime() });
+    }
+    // next_review_at gelecekte ise (henüz vakti gelmemiş): bilerek atlanıyor, fallback yok.
+  }
+
+  due.sort((a, b) => a.nextReviewAt - b.nextReviewAt);
+
+  const ordered = [...shuffle(unseen), ...due.map((d) => d.id)];
+  return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
 }
 
 // Bir konunun (topic) tüm alt başlıklarına ve konu geneline ait sorular (konu kavrama
 // testi) — questions.topic_id üzerinden, section_id'si dolu ya da boş fark etmeksizin.
-export async function getTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<QuizQuestion[]> {
+export async function getTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
   const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  // Havuzdan MAX_QUESTIONS_PER_TEST kadarını seçip sadece onları çözüyoruz — hem gereksiz
-  // sorgu yükünü azaltır hem "Tekrar Çöz" her seferinde farklı bir set getirir. Giriş
-  // yapmışsa hiç çözülmemişler önce gelir (bkz. prioritizeUnseen).
-  const prioritized = await prioritizeUnseen(supabase, questionIds, userId);
-  return resolveQuestions(prioritized.slice(0, MAX_QUESTIONS_PER_TEST));
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  return { questions: await resolveQuestions(selected), allCaughtUp };
 }
 
 // Belirli soru id'lerini (sırası önemli değil, resolveQuestions zaten karıştırıyor) çözer —
@@ -166,15 +197,15 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
 
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
 // section_id'si dolu ya da boş fark etmeksizin.
-export async function getUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<QuizQuestion[]> {
+export async function getUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
 
   const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
-  if (!topicIds.length) return [];
+  if (!topicIds.length) return { questions: [], allCaughtUp: false };
 
   const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  const prioritized = await prioritizeUnseen(supabase, questionIds, userId);
-  return resolveQuestions(prioritized.slice(0, MAX_QUESTIONS_PER_TEST));
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  return { questions: await resolveQuestions(selected), allCaughtUp };
 }

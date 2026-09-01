@@ -310,6 +310,11 @@ export interface QuizClientProps {
     sessionId: number;
     answers: { questionId: number; isCorrect: boolean }[];
   } | null;
+  // Sunucu, giriş yapmış kullanıcı için havuzdaki HİÇBİR sorunun şu an çözülmeye uygun
+  // olmadığını (hepsi ya ustalaşılmış ya da SRS tekrar vakti gelmemiş) tespit ettiyse true —
+  // initialQuestions boş olur ama sebep "içerik yok" değil "şimdilik bitirdin"; bu durumda
+  // "Bu konu için henüz soru yok" yerine tebrik ekranı gösterilir.
+  allCaughtUp?: boolean;
 }
 
 function findFirstUnansweredIndex(questions: QuizQuestion[], answeredIds: Set<number>): number {
@@ -331,12 +336,14 @@ export default function QuizClient({
   unitId,
   topicId,
   resume,
+  allCaughtUp: initialAllCaughtUp = false,
 }: QuizClientProps) {
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
   const initialResumeIndex = resume ? findFirstUnansweredIndex(initialQuestions, resumedAnsweredIds) : 0;
 
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
+  const [allCaughtUp, setAllCaughtUp] = useState(initialAllCaughtUp);
   const [loading, setLoading] = useState(false);
   const [index, setIndex] = useState(initialResumeIndex);
   const [selection, setSelection] = useState<Record<number, number>>({});
@@ -373,9 +380,17 @@ export default function QuizClient({
   // birikir; sessionId gelince aşağıdaki efekt hepsini tek seferde gönderir — hiçbir
   // cevap sessizce kaybolmaz.
   const pendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
-  // `locked`'ın en güncel değerini, sık tetiklenmeyen (sessionId'ye bağlı) sayfa-ayrılma
-  // efektinin stale closure okumaması için ayrıca bir ref'te tutuyoruz.
-  const lockedRef = useRef<Record<number, boolean>>({});
+
+  // clientIdRef'i HER durumda (resume dahil) mount'ta oluşturur. Önceden sadece yeni oturum
+  // açan efektin içinde set ediliyordu — resume ile devam edilen bir oturumda o efekt hiç
+  // çalışmadığı (yeni oturum açmadığı) için clientIdRef boş string kalıyor, bu da
+  // test_session_answers insert'lerinin "invalid input syntax for type uuid" ile sessizce
+  // başarısız olmasına yol açıyordu (gerçek bug, kullanıcı tarafından bulundu).
+  useEffect(() => {
+    if (!clientIdRef.current) {
+      clientIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    }
+  }, []);
 
   // İlk yükleme sunucudan gelen initialQuestions ile geliyor (SEO: Google ilk taramada
   // soruları görebilsin) — bu effect sadece "Tekrar Çöz" (reloadKey artışı) ile yeni bir
@@ -390,6 +405,7 @@ export default function QuizClient({
         const data = await res.json().catch(() => null);
         if (!cancelled) {
           setQuestions(res.ok ? data?.questions || [] : []);
+          setAllCaughtUp(res.ok ? !!data?.allCaughtUp : false);
           setIndex(0);
           setMaxIndex(0);
           setSelection({});
@@ -448,7 +464,10 @@ export default function QuizClient({
         }
         if (typeof data === 'number') setSessionId(data);
       });
-  }, [isAuthenticated, user, questions, supabase, gradeId, lessonId, unitId, topicId]);
+    // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
+    // kullanıcı için bile yeni bir referansla gelir, id ise gerçekten değişmediği sürece sabittir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id, questions, supabase, gradeId, lessonId, unitId, topicId]);
 
   // sessionId hazır olduğunda: önce (varsa) oturum açılmadan önce kuyruklanmış
   // cevapları gönderir, ancak ONDAN SONRA — test zaten bitmişse (showResult) —
@@ -482,46 +501,21 @@ export default function QuizClient({
     }
 
     syncSession(sessionId);
-  }, [sessionId, showResult, user, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, showResult, user?.id, supabase]);
 
-  // Kullanıcı testi bitirmeden sayfadan ayrılırsa (sekme değiştirme, geri gitme,
-  // başka bir sayfaya geçiş, sekmeyi kapatma) o ana kadar cevapladığı sorular
-  // kaybolmasın diye oturumu otomatik kapatır. Bunsuz, tamamlanmamış her oturumun
-  // cevapları user_question_stats'a hiç yansımıyordu — asıl "20 soru çözdüm ama
-  // sadece 4'ü kayıtlı" şikayetinin sebebi buydu.
-  useEffect(() => {
-    if (sessionId == null || !user) return;
-    const currentSessionId = sessionId;
-
-    function finishIfAnswered() {
-      if (showResult || finishedSessionRef.current === currentSessionId) return;
-      if (Object.keys(lockedRef.current).length === 0) return;
-      finishedSessionRef.current = currentSessionId;
-      supabase.rpc('finish_test_session', { p_session_id: currentSessionId }).then(({ error }: { error: { message: string } | null }) => {
-        if (error) console.error('finish_test_session (auto, page leave) error:', error.message);
-      });
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'hidden') finishIfAnswered();
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      // Bileşen kaldırıldığında (ör. Next.js içi başka bir sayfaya geçiş) da aynı kontrol.
-      finishIfAnswered();
-    };
-  }, [sessionId, showResult, user, supabase]);
+  // Bilerek burada "kullanıcı sayfadan ayrılırsa oturumu otomatik kapat" gibi bir mekanizma
+  // YOK: yarım kalan bir test_sessions kaydı bilinçli olarak completed_at=null bırakılır ki
+  // öğrenci aynı ünite/konu için testi tekrar açtığında findResumableSession (bkz.
+  // quizResume.ts) onu bulup kaldığı sorudan devam ettirebilsin. Daha önceki bir sürümde
+  // sayfadan ayrılınca oturumu otomatik bitiren bir efekt vardı — bu, "kaldığın yerden devam
+  // et" özelliğiyle doğrudan çelişiyordu (her ayrılışta oturum bitmiş sayıldığı için devam
+  // edilecek hiçbir şey kalmıyordu) ve kaldırıldı (kullanıcı kararı, 2026-09-02).
 
   // Her soru değişiminde süre ölçümünü sıfırlar (duration_seconds için).
   useEffect(() => {
     questionStartRef.current = Date.now();
   }, [index, questions]);
-
-  useEffect(() => {
-    lockedRef.current = locked;
-  }, [locked]);
 
   function recordAnswer(questionId: number, isCorrect: boolean) {
     if (!user) return;
@@ -646,6 +640,26 @@ export default function QuizClient({
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-sm font-bold">Sorular hazırlanıyor...</span>
+      </div>
+    );
+  }
+
+  if (questions.length === 0 && allCaughtUp) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm">
+          <Trophy className="h-8 w-8 text-white" />
+        </div>
+        <h1 className="mb-2 text-lg font-black text-default">Tebrikler! 🎉</h1>
+        <p className="mb-6 text-sm font-medium text-muted-foreground">
+          Şu anlık çözülecek yeni veya tekrar zamanı gelmiş soru yok. Az sonra tekrar uğra!
+        </p>
+        <Link
+          href={exitHref}
+          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
+        </Link>
       </div>
     );
   }

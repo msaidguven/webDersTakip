@@ -204,7 +204,9 @@ export default async function UnitTestPage({ params }: PageProps) {
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, null);
   }
 
-  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getUnitTestQuestions(data.unitId, userId) : [];
+  const personalized = resumable || !data.hasQuestions ? null : await getUnitTestQuestions(data.unitId, userId);
+  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
+  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
 
   return (
     <>
@@ -236,6 +238,7 @@ export default async function UnitTestPage({ params }: PageProps) {
         exitHref={data.exitHref}
         exitLabel="Üniteye Dön"
         initialQuestions={initialQuestions}
+        allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
         timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const questions = await getUnitTestQuestions(unitId, user?.id ?? null);
+  const { questions, allCaughtUp } = await getUnitTestQuestions(unitId, user?.id ?? null);
 
-  return NextResponse.json({ questions });
+  return NextResponse.json({ questions, allCaughtUp });
 }
