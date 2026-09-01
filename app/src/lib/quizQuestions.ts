@@ -118,15 +118,43 @@ async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> 
 export const MAX_QUESTIONS_PER_TEST = 10;
 export const SECONDS_PER_QUESTION = 60;
 
+// Giriş yapmış kullanıcı için havuzu "hiç çözülmemiş" ve "daha önce çözülmüş" diye
+// ikiye ayırıp önce hiç çözülmemişlerden dolduruyor — mobil uygulamanın start_unit_test
+// RPC'sindeki prioritized_pool mantığıyla aynı fikir, burada user_question_stats
+// üzerinden (soru bazlı, konu/ünite ayrımı gerektirmiyor, tek sorgu yeterli). Havuzdaki
+// tüm sorular zaten çözülmüşse doğal olarak tekrar çözülmüşlerden seçilir — kullanıcı
+// asla "soru kalmadı" görmez.
+async function prioritizeUnseen(
+  supabase: ReturnType<typeof createServiceClient>,
+  questionIds: number[],
+  userId: string | null | undefined
+): Promise<number[]> {
+  if (!userId || questionIds.length === 0) return shuffle(questionIds);
+
+  const { data: seenRows } = await supabase
+    .from('user_question_stats')
+    .select('question_id')
+    .eq('user_id', userId)
+    .gt('total_attempts', 0)
+    .in('question_id', questionIds);
+
+  const seenIds = new Set(((seenRows as { question_id: number }[] | null) || []).map((r) => r.question_id));
+  const unseen = questionIds.filter((id) => !seenIds.has(id));
+  const seen = questionIds.filter((id) => seenIds.has(id));
+  return [...shuffle(unseen), ...shuffle(seen)];
+}
+
 // Bir konunun (topic) tüm alt başlıklarına ve konu geneline ait sorular (konu kavrama
 // testi) — questions.topic_id üzerinden, section_id'si dolu ya da boş fark etmeksizin.
-export async function getTopicTestQuestions(topicId: number | string): Promise<QuizQuestion[]> {
+export async function getTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<QuizQuestion[]> {
   const supabase = createServiceClient();
   const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  // Havuzdan rastgele MAX_QUESTIONS_PER_TEST kadarını seçip sadece onları çözüyoruz —
-  // hem gereksiz sorgu yükünü azaltır hem "Tekrar Çöz" her seferinde farklı bir set getirir.
-  return resolveQuestions(shuffle(questionIds).slice(0, MAX_QUESTIONS_PER_TEST));
+  // Havuzdan MAX_QUESTIONS_PER_TEST kadarını seçip sadece onları çözüyoruz — hem gereksiz
+  // sorgu yükünü azaltır hem "Tekrar Çöz" her seferinde farklı bir set getirir. Giriş
+  // yapmışsa hiç çözülmemişler önce gelir (bkz. prioritizeUnseen).
+  const prioritized = await prioritizeUnseen(supabase, questionIds, userId);
+  return resolveQuestions(prioritized.slice(0, MAX_QUESTIONS_PER_TEST));
 }
 
 // Belirli soru id'lerini (sırası önemli değil, resolveQuestions zaten karıştırıyor) çözer —
@@ -138,7 +166,7 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
 
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
 // section_id'si dolu ya da boş fark etmeksizin.
-export async function getUnitTestQuestions(unitId: number | string): Promise<QuizQuestion[]> {
+export async function getUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<QuizQuestion[]> {
   const supabase = createServiceClient();
 
   const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
@@ -147,5 +175,6 @@ export async function getUnitTestQuestions(unitId: number | string): Promise<Qui
 
   const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
-  return resolveQuestions(shuffle(questionIds).slice(0, MAX_QUESTIONS_PER_TEST));
+  const prioritized = await prioritizeUnseen(supabase, questionIds, userId);
+  return resolveQuestions(prioritized.slice(0, MAX_QUESTIONS_PER_TEST));
 }

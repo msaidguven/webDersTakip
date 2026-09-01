@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../src/context/AuthContext';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { state, grades, isLoadingGrades, register, clearError } = useRegisterViewModel();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -14,6 +18,14 @@ export default function RegisterPage() {
     confirmPassword: '',
     gradeId: '',
   });
+
+  // Zaten giriş yapmış kullanıcı kayıt formunu görmemeli — login/page.tsx'teki aynı korumanın
+  // eşleniği (bkz. bunun eksik olduğu bulunan bug).
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/panel');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -31,6 +43,17 @@ export default function RegisterPage() {
   };
 
   const inputClass = "w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500";
+
+  if (authLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-default flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Yönlendiriliyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-default flex items-center justify-center p-4">

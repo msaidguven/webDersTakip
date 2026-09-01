@@ -3,9 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
+
+// Bu sayfaların hiçbiri henüz yok (bkz. docs/site-iyilestirme-plani.md) — referans tasarımla
+// aynı görünsün diye etiketler duruyor ama bilerek tıklanamaz (link yok), 404'e düşürmesin.
+const NAV_LINKS = ['Dersler', 'Üniteler', 'Konular', 'Soru Bankası', 'Denemeler', 'Blog'];
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,6 +33,10 @@ export function MainLayout({ children }: MainLayoutProps) {
   // çubuğu oluşturmasın diye burada da gizleniyor.
   const isAppShellRoute = pathname === '/panel' || pathname?.startsWith('/panel/') || pathname === '/profil';
   const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute || isAppShellRoute;
+  // Test çözme sayfalarında (kavrama-testi/ünite-testi) header kalır ama footer'ın hukuki
+  // linkleri odağı dağıtmasın diye gizlenir.
+  const isTestPageRoute = pathname?.endsWith('/kavrama-testi') || pathname?.endsWith('/unite-testi');
+  const hideFooter = hideHeader || isTestPageRoute;
 
   return (
     <div className="min-h-screen bg-default">
@@ -68,6 +77,23 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </span>
               </div>
             </Link>
+          </div>
+
+          {/* Orta Menü — nav etiketleri + arama (bkz. NAV_LINKS notu, bilerek link değil) */}
+          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center px-6">
+            {NAV_LINKS.map((label) => (
+              <span
+                key={label}
+                className="text-zinc-600 dark:text-muted-foreground
+                  text-sm px-3 py-2 rounded-xl whitespace-nowrap cursor-default"
+              >
+                {label}
+              </span>
+            ))}
+            <div className="ml-2 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-default bg-zinc-50 dark:bg-surface px-3 py-1.5 text-sm text-zinc-400 dark:text-muted-foreground">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">Aradığın konuya ulaş...</span>
+            </div>
           </div>
 
           {/* Sağ Menü */}
@@ -133,11 +159,11 @@ export function MainLayout({ children }: MainLayoutProps) {
       )}
 
       {/* Ana İçerik */}
-      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px] pb-24 sm:pb-16'}>
+      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
         {children}
       </main>
 
-      {!hideHeader && <LegalFooter />}
+      {!hideFooter && <LegalFooter />}
     </div>
   );
 }

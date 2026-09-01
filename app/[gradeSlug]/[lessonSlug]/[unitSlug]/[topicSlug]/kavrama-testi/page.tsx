@@ -177,13 +177,15 @@ export default async function TopicTestPage({ params }: PageProps) {
   }
 
   let resumable = null;
+  let userId: string | null = null;
   if (data.hasQuestions) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, data.topicId);
   }
 
-  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getTopicTestQuestions(data.topicId) : [];
+  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getTopicTestQuestions(data.topicId, userId) : [];
 
   return (
     <>

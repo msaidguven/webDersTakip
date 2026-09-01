@@ -196,13 +196,15 @@ export default async function UnitTestPage({ params }: PageProps) {
   }
 
   let resumable = null;
+  let userId: string | null = null;
   if (data.hasQuestions) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, null);
   }
 
-  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getUnitTestQuestions(data.unitId) : [];
+  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getUnitTestQuestions(data.unitId, userId) : [];
 
   return (
     <>

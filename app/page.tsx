@@ -1,18 +1,17 @@
 //app/page.tsx
 
-import { createPublicClient } from '@/utils/supabase/public';
+import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import HomeClient from './HomeClient';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
+import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
 
 // ISR: Revalidate every 60 seconds for public data
 export const revalidate = 60;
 
-async function getGrades(): Promise<Grade[]> {
-  console.log('[getGrades] Siniflar cekiliyor...');
-  const supabase = createPublicClient();
-  
-  // DB şeması: grades(id, name, order_no, is_active, question_count, slug)
+type GradeRow = { id: number; name: string; order_no: number; is_active: boolean; slug: string | null };
+
+async function getGrades(supabase: ReturnType<typeof createServiceClient>): Promise<{ grades: Grade[]; rows: GradeRow[] }> {
   const { data, error } = await supabase
     .from('grades')
     .select('id, name, order_no, is_active, slug')
@@ -21,13 +20,11 @@ async function getGrades(): Promise<Grade[]> {
 
   if (error) {
     console.error('[getGrades] HATA:', error);
-    return [];
+    return { grades: [], rows: [] };
   }
 
-  console.log('[getGrades] Bulunan kayit sayisi:', data?.length || 0);
-
-  // DB'de olmayan alanları client-side ekle
-  const grades = (data || []).map((g: any) => ({
+  const rows = (data as GradeRow[] | null) || [];
+  const grades = rows.map((g) => ({
     id: g.id.toString(),
     level: g.order_no,
     name: g.name,
@@ -36,12 +33,28 @@ async function getGrades(): Promise<Grade[]> {
     icon: getGradeIcon(g.order_no),
     color: getGradeColor(g.order_no),
   }));
-  
-  console.log('[getGrades] SONUC:', grades);
-  return grades;
+
+  return { grades, rows };
 }
 
 export default async function HomePage() {
-  const grades = await getGrades();
-  return <HomeClient initialGrades={grades} />;
+  const supabase = createServiceClient();
+  const { grades, rows } = await getGrades(supabase);
+
+  const [stats, gradeSectionsMap] = await Promise.all([
+    getSiteStats(supabase),
+    getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug }))),
+  ]);
+
+  const weeklyTopicsEntries = await Promise.all(
+    rows.map(async (r) => [r.id, await getWeeklyTopicsForGrade(supabase, r.id, r.slug)] as const)
+  );
+
+  const gradeSections: Record<string, HomeGradeSection> = {};
+  for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;
+
+  const weeklyTopics: Record<string, WeeklyTopicItem[]> = {};
+  for (const [id, topics] of weeklyTopicsEntries) weeklyTopics[String(id)] = topics;
+
+  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} weeklyTopics={weeklyTopics} />;
 }

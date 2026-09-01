@@ -373,6 +373,9 @@ export default function QuizClient({
   // birikir; sessionId gelince aşağıdaki efekt hepsini tek seferde gönderir — hiçbir
   // cevap sessizce kaybolmaz.
   const pendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
+  // `locked`'ın en güncel değerini, sık tetiklenmeyen (sessionId'ye bağlı) sayfa-ayrılma
+  // efektinin stale closure okumaması için ayrıca bir ref'te tutuyoruz.
+  const lockedRef = useRef<Record<number, boolean>>({});
 
   // İlk yükleme sunucudan gelen initialQuestions ile geliyor (SEO: Google ilk taramada
   // soruları görebilsin) — bu effect sadece "Tekrar Çöz" (reloadKey artışı) ile yeni bir
@@ -481,10 +484,44 @@ export default function QuizClient({
     syncSession(sessionId);
   }, [sessionId, showResult, user, supabase]);
 
+  // Kullanıcı testi bitirmeden sayfadan ayrılırsa (sekme değiştirme, geri gitme,
+  // başka bir sayfaya geçiş, sekmeyi kapatma) o ana kadar cevapladığı sorular
+  // kaybolmasın diye oturumu otomatik kapatır. Bunsuz, tamamlanmamış her oturumun
+  // cevapları user_question_stats'a hiç yansımıyordu — asıl "20 soru çözdüm ama
+  // sadece 4'ü kayıtlı" şikayetinin sebebi buydu.
+  useEffect(() => {
+    if (sessionId == null || !user) return;
+    const currentSessionId = sessionId;
+
+    function finishIfAnswered() {
+      if (showResult || finishedSessionRef.current === currentSessionId) return;
+      if (Object.keys(lockedRef.current).length === 0) return;
+      finishedSessionRef.current = currentSessionId;
+      supabase.rpc('finish_test_session', { p_session_id: currentSessionId }).then(({ error }: { error: { message: string } | null }) => {
+        if (error) console.error('finish_test_session (auto, page leave) error:', error.message);
+      });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') finishIfAnswered();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Bileşen kaldırıldığında (ör. Next.js içi başka bir sayfaya geçiş) da aynı kontrol.
+      finishIfAnswered();
+    };
+  }, [sessionId, showResult, user, supabase]);
+
   // Her soru değişiminde süre ölçümünü sıfırlar (duration_seconds için).
   useEffect(() => {
     questionStartRef.current = Date.now();
   }, [index, questions]);
+
+  useEffect(() => {
+    lockedRef.current = locked;
+  }, [locked]);
 
   function recordAnswer(questionId: number, isCorrect: boolean) {
     if (!user) return;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUnitTestQuestions } from '@/app/src/lib/quizQuestions';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
   const unitId = request.nextUrl.searchParams.get('unitId');
@@ -7,7 +8,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'unitId gerekli' }, { status: 400 });
   }
 
-  const questions = await getUnitTestQuestions(unitId);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const questions = await getUnitTestQuestions(unitId, user?.id ?? null);
 
   return NextResponse.json({ questions });
 }
