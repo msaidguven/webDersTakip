@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
+import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
 export default function RegisterPage() {
   const { state, register, clearError } = useRegisterViewModel();
@@ -115,6 +116,14 @@ export default function RegisterPage() {
               {state.isLoading ? 'Kayit yapiliyor...' : 'Kayit Ol'}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-default" />
+            <span className="text-xs text-muted-foreground">veya</span>
+            <div className="flex-1 h-px bg-default" />
+          </div>
+
+          <GoogleSignInButton />
 
           <div className="mt-6 text-center">
             <p className="text-muted-foreground text-sm">

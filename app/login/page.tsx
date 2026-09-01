@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 import { useAuth } from '../src/context/AuthContext';
+import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
 // Ana login form bileşeni
 function LoginForm() {
@@ -109,6 +110,14 @@ function LoginForm() {
               {state.isLoading ? 'Giris yapiliyor...' : 'Giris Yap'}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-default" />
+            <span className="text-xs text-muted-foreground">veya</span>
+            <div className="flex-1 h-px bg-default" />
+          </div>
+
+          <GoogleSignInButton redirectTo={redirectTo} />
 
           <div className="mt-6 text-center">
             <p className="text-muted-foreground text-sm">
