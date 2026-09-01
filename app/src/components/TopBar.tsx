@@ -6,11 +6,12 @@ import { Icon } from './icons';
 interface TopBarProps {
   notificationCount: number;
   streak: number;
+  userName?: string;
   onNotificationClick: () => void;
   onMenuClick?: () => void;
 }
 
-export function TopBar({ notificationCount, streak, onNotificationClick, onMenuClick }: TopBarProps) {
+export function TopBar({ notificationCount, streak, userName = 'Öğrenci', onNotificationClick, onMenuClick }: TopBarProps) {
   return (
     <header className="h-[72px] bg-background/95 backdrop-blur-xl border-b border-default flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-40">
       {/* Left - Menu & Title */}
@@ -23,7 +24,7 @@ export function TopBar({ notificationCount, streak, onNotificationClick, onMenuC
         </button>
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-default">Dashboard</h2>
-          <p className="hidden sm:block text-sm text-muted-foreground">Hoş geldin, Ali! Bugün harika bir gün öğrenmek için.</p>
+          <p className="hidden sm:block text-sm text-muted-foreground">Hoş geldin, {userName}! Bugün harika bir gün öğrenmek için.</p>
         </div>
       </div>
 

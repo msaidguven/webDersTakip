@@ -8,6 +8,7 @@ import { getDashboardUnitsData, buildWeekWindow } from '../lib/dashboardUnits';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats } from '../lib/dashboardStats';
+import { getCurrentStreak, getTodayQuestionCount, DAILY_GOAL_QUESTIONS } from '../lib/dashboardStreak';
 
 interface UseDashboardViewModelReturn {
   // State
@@ -32,7 +33,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // State
   const [data, setData] = useState<DashboardData>({
     ...mockDashboardData,
-    user: { ...mockDashboardData.user, name: 'Öğrenci' },
+    user: { ...mockDashboardData.user, name: 'Öğrenci', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
     units: [],
     srsReview: null,
     recentActivities: [],
@@ -48,10 +49,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   const [notificationCount, setNotificationCount] = useState(2);
   const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
 
-  // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler ve stats satırı
-  // (bugünkü doğru/dakika/başarı oranı + tekrar borcu): gerçek veri. Haftaya tıklama /
-  // "Şimdi Tekrar Et" davranışı ve streak/dailyGoal henüz no-op (madde 3'e bırakıldı, bkz.
-  // docs/site-iyilestirme-plani.md).
+  // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
+  // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
+  // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi. Haftaya tıklama /
+  // "Şimdi Tekrar Et" davranışı ve sosyal/lider tablosu katmanı henüz yok (bkz.
+  // docs/site-iyilestirme-plani.md madde 3).
   useEffect(() => {
     if (!user) return;
 
@@ -69,10 +71,12 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         const gradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
         const fullName = (profile as { full_name: string | null } | null)?.full_name ?? null;
 
-        const [unitsResult, dueSrsCount, recentActivities] = await Promise.all([
+        const [unitsResult, dueSrsCount, recentActivities, streak, todayQuestionCount] = await Promise.all([
           getDashboardUnitsData(supabase, user!.id, gradeId),
           getDueSrsCount(supabase, user!.id, gradeId),
           getRecentActivities(supabase, user!.id),
+          getCurrentStreak(supabase, user!.id),
+          getTodayQuestionCount(supabase, user!.id),
         ]);
         const stats = await getTodayStats(supabase, user!.id, dueSrsCount);
 
@@ -80,7 +84,13 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
 
         setData((prev) => ({
           ...prev,
-          user: { ...prev.user, name: fullName || prev.user.name },
+          user: {
+            ...prev.user,
+            name: fullName || prev.user.name,
+            streak,
+            dailyGoal: DAILY_GOAL_QUESTIONS,
+            dailyProgress: todayQuestionCount,
+          },
           units: unitsResult?.units ?? [],
           weeks: unitsResult ? buildWeekWindow(unitsResult.currentWeek, unitsResult.totalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,

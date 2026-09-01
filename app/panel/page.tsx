@@ -10,6 +10,7 @@ import { SRSWidget } from '../src/components/SRSWidget';
 import { ProgressCard } from '../src/components/ProgressCard';
 import { WeeklyProgress } from '../src/components/WeeklyProgress';
 import { ActivityFeed } from '../src/components/ActivityFeed';
+import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { navItems } from '../src/data/mockData';
 
 export default function PanelPage() {
@@ -51,9 +52,10 @@ export default function PanelPage() {
       {/* Main Content Area */}
       <div className="lg:ml-[280px] min-h-screen flex flex-col">
         {/* Top Bar */}
-        <TopBar 
+        <TopBar
           notificationCount={notificationCount}
           streak={data.user.streak}
+          userName={data.user.name}
           onNotificationClick={markNotificationRead}
           onMenuClick={() => setSidebarOpen(true)}
         />
@@ -68,6 +70,16 @@ export default function PanelPage() {
             <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
               Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
             </p>
+          </div>
+
+          {/* Daily Goal / CTA */}
+          <div className="mb-6 sm:mb-8">
+            <DailyGoalCard
+              dailyProgress={data.user.dailyProgress}
+              dailyGoal={data.user.dailyGoal}
+              streak={data.user.streak}
+              dueSrsCount={data.srsReview?.questionCount ?? 0}
+            />
           </div>
 
           {/* Stats Row */}

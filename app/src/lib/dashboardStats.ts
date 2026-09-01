@@ -1,12 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Stat } from '@/app/src/models/types';
+import { todayDateString } from './dashboardDate';
 
 type DailyStatsRow = { total_questions: number; correct_answers: number; total_duration_seconds: number };
-
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 // Stats satırı "bugün" özetidir: user_time_based_stats'ın period_type='daily' satırı
 // update_user_time_based_stats_on_test_complete RPC'siyle her test bitişinde güncelleniyor.
