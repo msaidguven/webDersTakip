@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
+import { getProfileStats } from '@/app/src/lib/profileStats';
 
 interface ProfileRow {
   grade_id: number | null;
@@ -117,16 +118,17 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const stats: UserStats = {
-    totalTests: 15,
-    totalQuestions: 230,
-    correctAnswers: 195,
-    averageScore: 85,
-    accuracy: 83,
-    coverage: 65,
-    mastery: 42,
-    streakDays: 7,
-  };
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getProfileStats(supabase, user.id).then((result) => {
+      if (!cancelled) setStats(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user.id]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,9 +230,11 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
                   <span className="px-3 py-1 rounded-full text-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                     Aktif Üye
                   </span>
-                  <span className="px-3 py-1 rounded-full text-sm border bg-orange-500/10 text-orange-400 border-orange-500/20">
-                    🔥 {stats.streakDays} gün seri
-                  </span>
+                  {stats && (
+                    <span className="px-3 py-1 rounded-full text-sm border bg-orange-500/10 text-orange-400 border-orange-500/20">
+                      🔥 {stats.streakDays} gün seri
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -249,29 +253,45 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
         {/* Primary Stats */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Genel Performans</h3>
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
-            {STAT_RINGS.map((ring, i) => (
-              <StatRing
-                key={ring.key}
-                value={stats[ring.key]}
-                title={ring.title}
-                icon={ring.icon}
-                from={ring.from}
-                to={ring.to}
-                gradientId={`ring-${ring.key}`}
-                delay={i * 80}
-              />
-            ))}
-          </div>
+          {stats ? (
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              {STAT_RINGS.map((ring, i) => (
+                <StatRing
+                  key={ring.key}
+                  value={stats[ring.key]}
+                  title={ring.title}
+                  icon={ring.icon}
+                  from={ring.from}
+                  to={ring.to}
+                  gradientId={`ring-${ring.key}`}
+                  delay={i * 80}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              {STAT_RINGS.map((ring) => (
+                <div key={ring.key} className="h-40 rounded-2xl bg-surface-elevated border border-default animate-pulse" />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MiniStat icon="📝" value={stats.totalTests} label="Toplam Test" delay={240} />
-          <MiniStat icon="❓" value={stats.totalQuestions} label="Çözülen Soru" delay={280} />
-          <MiniStat icon="✅" value={stats.correctAnswers} label="Doğru Cevap" delay={320} />
-          <MiniStat icon="⭐" value={`${stats.averageScore}%`} label="Ortalama Puan" delay={360} />
-        </div>
+        {stats ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <MiniStat icon="📝" value={stats.totalTests} label="Toplam Test" delay={240} />
+            <MiniStat icon="❓" value={stats.totalQuestions} label="Çözülen Soru" delay={280} />
+            <MiniStat icon="✅" value={stats.correctAnswers} label="Doğru Cevap" delay={320} />
+            <MiniStat icon="⭐" value={`${stats.averageScore}%`} label="Ortalama Puan" delay={360} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-16 rounded-xl bg-surface-elevated border border-default animate-pulse" />
+            ))}
+          </div>
+        )}
 
         {/* Okul Bilgileri */}
         <SchoolInfoCard initialProfile={profile} />

@@ -27,6 +27,7 @@ export interface Unit {
   progress: number;
   status: 'locked' | 'in_progress' | 'completed';
   successRate?: number;
+  href?: string;
 }
 
 export interface Stat {

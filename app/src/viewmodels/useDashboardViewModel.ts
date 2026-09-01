@@ -1,14 +1,37 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { DashboardData, Week, Unit, Activity } from '../models/types';
-import { mockDashboardData } from '../data/mockData';
+import { useRouter } from 'next/navigation';
+import { DashboardData, Stat } from '../models/types';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardUnitsData, buildWeekWindow } from '../lib/dashboardUnits';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats } from '../lib/dashboardStats';
 import { getCurrentStreak, getTodayQuestionCount, DAILY_GOAL_QUESTIONS } from '../lib/dashboardStreak';
+
+const EMPTY_STATS: Stat[] = [
+  { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
+  { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: 0, label: 'Dakika' },
+  { id: 'success-rate-today', icon: 'trophy', iconColor: 'teal', value: '0%', label: 'Başarı Oranı' },
+  { id: 'srs-due-count', icon: 'redo', iconColor: 'orange', value: 0, label: 'Tekrar Gerekli' },
+];
+
+const DEFAULT_TOTAL_WEEKS = 38;
+
+// Hiçbir alanda mock/uydurma veri kullanılmaz — bu, kullanıcı verisi henüz gelmeden önceki
+// (veya hiç kimlik doğrulaması yokken) tamamen boş/nötr başlangıç durumudur. Sayfa bu durumu
+// bir yükleme göstergesiyle karşılar (bkz. useDashboardViewModel dönüşündeki isLoading),
+// gerçek veri gelmeden asla kalıcı içerikmiş gibi gösterilmez.
+const EMPTY_DASHBOARD_DATA: DashboardData = {
+  user: { id: '', name: '', email: '', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
+  weeks: [],
+  currentWeekId: 0,
+  stats: EMPTY_STATS,
+  srsReview: null,
+  units: [],
+  recentActivities: [],
+};
 
 interface UseDashboardViewModelReturn {
   // State
@@ -18,9 +41,11 @@ interface UseDashboardViewModelReturn {
   isAuthenticated: boolean;
   notificationCount: number;
   unitsContext: { lessonName: string | null; gradeName: string | null } | null;
+  canShiftWeekWindow: { prev: boolean; next: boolean };
 
   // Actions
   selectWeek: (weekId: number) => void;
+  shiftWeekWindow: (direction: 1 | -1) => void;
   handleUnitClick: (unitId: string) => void;
   handleSRSReview: () => void;
   handleStartQuiz: () => void;
@@ -29,41 +54,36 @@ interface UseDashboardViewModelReturn {
 }
 
 export function useDashboardViewModel(): UseDashboardViewModelReturn {
-  const { user, supabase } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
+  const router = useRouter();
 
   // State
-  const [data, setData] = useState<DashboardData>({
-    ...mockDashboardData,
-    user: { ...mockDashboardData.user, name: 'Öğrenci', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
-    units: [],
-    weeks: [],
-    currentWeekId: 0,
-    srsReview: null,
-    recentActivities: [],
-    stats: [
-      { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
-      { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: 0, label: 'Dakika' },
-      { id: 'success-rate-today', icon: 'trophy', iconColor: 'teal', value: '0%', label: 'Başarı Oranı' },
-      { id: 'srs-due-count', icon: 'redo', iconColor: 'orange', value: 0, label: 'Tekrar Gerekli' },
-    ],
-  });
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [selectedWeekId, setSelectedWeekId] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(2);
+  const [weekWindowStart, setWeekWindowStart] = useState<number>(1);
+  const [totalWeeks, setTotalWeeks] = useState<number>(DEFAULT_TOTAL_WEEKS);
+  // Sadece "kullanıcı varsa panel verisini çekiyor muyuz" durumunu tutar — kimliği henüz
+  // bilinmiyorsa (authLoading) veya kullanıcı yoksa aşağıdaki isLoading zaten bunu kapsar,
+  // bu state o durumlarda hiç okunmaz.
+  const [isFetching, setIsFetching] = useState(true);
+  // DB'de bir bildirim tablosu/sistemi yok — sahte bir sayı göstermek yerine gerçek (boş)
+  // durum olan 0'dan başlıyor. Bildirimler gerçek bir kaynağa bağlanana kadar hep 0 kalacak.
+  const [notificationCount, setNotificationCount] = useState(0);
   const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
+  // refreshData tarafından artırılır — efekt buna da bağlı olduğu için manuel yenileme,
+  // effect'i kopyalamadan aynı yükleme mantığını tekrar çalıştırır.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
   // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
-  // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi. Haftaya tıklama /
-  // "Şimdi Tekrar Et" davranışı ve sosyal/lider tablosu katmanı henüz yok (bkz.
-  // docs/site-iyilestirme-plani.md madde 3).
+  // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi.
   useEffect(() => {
     if (!user) return;
 
     let cancelled = false;
 
     async function loadRealData() {
-      setIsLoading(true);
+      setIsFetching(true);
       try {
         const { data: profile } = await supabase
           .from('profiles')
@@ -85,17 +105,22 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
 
         if (cancelled) return;
 
+        const nextTotalWeeks = unitsResult?.totalWeeks ?? DEFAULT_TOTAL_WEEKS;
+        const nextWindowStart = Math.max(1, (unitsResult?.currentWeek ?? 1) - 1);
+        setTotalWeeks(nextTotalWeeks);
+        setWeekWindowStart(nextWindowStart);
+
         setData((prev) => ({
           ...prev,
           user: {
             ...prev.user,
-            name: fullName || prev.user.name,
+            name: fullName || 'Öğrenci',
             streak,
             dailyGoal: DAILY_GOAL_QUESTIONS,
             dailyProgress: todayQuestionCount,
           },
           units: unitsResult?.units ?? [],
-          weeks: unitsResult ? buildWeekWindow(unitsResult.currentWeek, unitsResult.totalWeeks) : prev.weeks,
+          weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
           srsReview: buildSrsReview(dueSrsCount),
           recentActivities,
@@ -106,7 +131,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
           unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null
         );
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsFetching(false);
       }
     }
 
@@ -115,45 +140,54 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     return () => {
       cancelled = true;
     };
-  }, [user, supabase]);
+  }, [user, supabase, refreshKey]);
+
+  // Kimlik henüz belli değilse (authLoading) ya da kullanıcı var ve veri çekimi sürüyorsa
+  // yükleniyor sayılır; kullanıcı hiç yoksa (misafir) çekilecek bir şey olmadığı için
+  // isFetching'in bayat değeri hiç etkilemez.
+  const isLoading = authLoading || (!!user && isFetching);
 
   // Actions
   const selectWeek = useCallback((weekId: number) => {
     const week = data.weeks.find(w => w.id === weekId);
     if (week && week.status !== 'locked') {
       setSelectedWeekId(weekId);
-      // TODO: Load week-specific data when Supabase is integrated
-      console.log(`Week ${weekId} selected`);
     }
   }, [data.weeks]);
 
+  // Haftalık ilerleme kartındaki ok butonları: müfredat haftası penceresini ±5 kaydırır.
+  // Saf tarih hesabı olduğu için (buildWeekWindow) yeniden DB'ye gitmeye gerek yok.
+  const shiftWeekWindow = useCallback((direction: 1 | -1) => {
+    setWeekWindowStart((prevStart) => {
+      const maxStart = Math.max(1, totalWeeks - 4);
+      const nextStart = Math.max(1, Math.min(maxStart, prevStart + direction * 5));
+      setData((prev) => ({ ...prev, weeks: buildWeekWindow(nextStart, prev.currentWeekId, totalWeeks) }));
+      return nextStart;
+    });
+  }, [totalWeeks]);
+
+  const canShiftWeekWindow = {
+    prev: weekWindowStart > 1,
+    next: weekWindowStart + 5 <= totalWeeks,
+  };
+
   const handleUnitClick = useCallback((unitId: string) => {
     const unit = data.units.find(u => u.id === unitId);
-    if (unit && unit.status !== 'locked') {
-      // TODO: Navigate to unit detail page
-      console.log(`Unit ${unitId} clicked`);
+    if (unit && unit.status !== 'locked' && unit.href) {
+      router.push(unit.href);
     }
-  }, [data.units]);
+  }, [data.units, router]);
 
   const handleSRSReview = useCallback(() => {
-    // TODO: Navigate to SRS review page
-    console.log('SRS Review started');
-  }, []);
+    router.push('/tekrar');
+  }, [router]);
 
   const handleStartQuiz = useCallback(() => {
-    // TODO: Navigate to quiz start page
-    console.log('Quiz started');
-  }, []);
+    router.push('/');
+  }, [router]);
 
   const refreshData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // TODO: Fetch data from Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Data refreshed');
-    } finally {
-      setIsLoading(false);
-    }
+    setRefreshKey((k) => k + 1);
   }, []);
 
   const markNotificationRead = useCallback(() => {
@@ -168,9 +202,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     isAuthenticated: !!user,
     unitsContext,
     notificationCount,
-    
+    canShiftWeekWindow,
+
     // Actions
     selectWeek,
+    shiftWeekWindow,
     handleUnitClick,
     handleSRSReview,
     handleStartQuiz,

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Activity } from '../models/types';
 import { Icon, getIconColorClasses } from './icons';
 
@@ -63,17 +64,20 @@ function ActivityItem({ activity }: ActivityItemProps) {
 
 interface ActivityFeedProps {
   activities: Activity[];
+  seeAllHref?: string;
 }
 
-export function ActivityFeed({ activities }: ActivityFeedProps) {
+export function ActivityFeed({ activities, seeAllHref }: ActivityFeedProps) {
   return (
     <div className="rounded-xl sm:rounded-2xl bg-surface-elevated border border-default overflow-hidden">
       {/* Header */}
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-default flex items-center justify-between">
         <h3 className="font-semibold text-default text-sm sm:text-base">Son Aktiviteler</h3>
-        <button className="text-xs sm:text-sm text-muted-foreground hover:text-indigo-400 transition-colors">
-          Tümünü Gör →
-        </button>
+        {seeAllHref && (
+          <Link href={seeAllHref} className="text-xs sm:text-sm text-muted-foreground hover:text-indigo-400 transition-colors">
+            Tümünü Gör →
+          </Link>
+        )}
       </div>
 
       {/* Activity List */}

@@ -302,6 +302,19 @@ export interface QuizClientProps {
   lessonId?: number | null;
   unitId?: number | null;
   topicId?: number | null;
+  // Sayfa, kullanıcının bu bağlam (ünite/konu) için zaten bitmemiş bir test_sessions kaydı
+  // olduğunu sunucu tarafında tespit ettiyse doldurulur — QuizClient sıfırdan yeni bir oturum
+  // açıp eskisini terk etmek yerine aynı soru havuzuyla, zaten cevaplananları atlayarak devam
+  // eder (bkz. app/src/lib/quizResume.ts).
+  resume?: {
+    sessionId: number;
+    answers: { questionId: number; isCorrect: boolean }[];
+  } | null;
+}
+
+function findFirstUnansweredIndex(questions: QuizQuestion[], answeredIds: Set<number>): number {
+  const idx = questions.findIndex((q) => !answeredIds.has(q.id));
+  return idx === -1 ? Math.max(0, questions.length - 1) : idx;
 }
 
 export default function QuizClient({
@@ -317,28 +330,43 @@ export default function QuizClient({
   lessonId,
   unitId,
   topicId,
+  resume,
 }: QuizClientProps) {
+  const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
+  const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
+  const initialResumeIndex = resume ? findFirstUnansweredIndex(initialQuestions, resumedAnsweredIds) : 0;
+
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [loading, setLoading] = useState(false);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialResumeIndex);
   const [selection, setSelection] = useState<Record<number, number>>({});
   const [matchAssign, setMatchAssign] = useState<Record<number, Record<number, number>>>({});
   const [classicalAnswer, setClassicalAnswer] = useState<Record<number, string>>({});
-  const [locked, setLocked] = useState<Record<number, boolean>>({});
-  const [correct, setCorrect] = useState<Record<number, boolean>>({});
+  const [locked, setLocked] = useState<Record<number, boolean>>(() => {
+    const initial: Record<number, boolean> = {};
+    resume?.answers.forEach((a) => { initial[a.questionId] = true; });
+    return initial;
+  });
+  const [correct, setCorrect] = useState<Record<number, boolean>>(() => {
+    const initial: Record<number, boolean> = {};
+    resume?.answers.forEach((a) => { initial[a.questionId] = a.isCorrect; });
+    return initial;
+  });
   const [feedback, setFeedback] = useState<Record<number, string>>({});
-  const [showResult, setShowResult] = useState(false);
+  const [showResult, setShowResult] = useState(resumeAllAnswered);
   const [reloadKey, setReloadKey] = useState(0);
-  const [maxIndex, setMaxIndex] = useState(0);
+  const [maxIndex, setMaxIndex] = useState(initialResumeIndex);
   const [timeLeft, setTimeLeft] = useState<number | null>(timeLimitSeconds ?? null);
 
   // Giriş yapmış kullanıcının çözdüğü soruların istatistiğini tutmak için: bu soru
   // setiyle açılmış test_sessions kaydının id'si. Misafir kullanıcıda hep null kalır,
-  // hiçbir kayıt yapılmaz — bkz. aşağıdaki session efekti.
+  // hiçbir kayıt yapılmaz — bkz. aşağıdaki session efekti. resume verildiyse baştan
+  // dolu gelir, aşağıdaki efekt bu durumda yeni bir oturum AÇMAZ (sessionQuestionsKeyRef
+  // zaten bu soru setiyle eşleşecek şekilde seed'lendiği için).
   const { isAuthenticated, user, supabase } = useAuth();
-  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<number | null>(resume?.sessionId ?? null);
   const clientIdRef = useRef<string>('');
-  const sessionQuestionsKeyRef = useRef<string | null>(null);
+  const sessionQuestionsKeyRef = useRef<string | null>(resume ? initialQuestions.map((q) => q.id).join(',') : null);
   const finishedSessionRef = useRef<number | null>(null);
   const questionStartRef = useRef<number>(0);
   // Oturum açma RPC'si henüz dönmemişken kullanıcı çok hızlı cevap verirse buraya

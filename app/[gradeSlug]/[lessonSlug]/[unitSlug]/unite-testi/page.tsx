@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getUnitTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { findResumableSession } from '@/app/src/lib/quizResume';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 interface Params {
@@ -194,7 +195,14 @@ export default async function UnitTestPage({ params }: PageProps) {
     notFound();
   }
 
-  const initialQuestions = data.hasQuestions ? await getUnitTestQuestions(data.unitId) : [];
+  let resumable = null;
+  if (data.hasQuestions) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, null);
+  }
+
+  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getUnitTestQuestions(data.unitId) : [];
 
   return (
     <>
@@ -228,6 +236,7 @@ export default async function UnitTestPage({ params }: PageProps) {
         initialQuestions={initialQuestions}
         reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
         timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
+        resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
         intro={{
           subLabel: `${data.gradeName} / ${data.lessonName}`,
           description: data.unitDescription,

@@ -11,6 +11,7 @@ import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getTopicTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { findResumableSession } from '@/app/src/lib/quizResume';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 export const dynamic = 'force-dynamic';
@@ -175,7 +176,14 @@ export default async function TopicTestPage({ params }: PageProps) {
     notFound();
   }
 
-  const initialQuestions = data.hasQuestions ? await getTopicTestQuestions(data.topicId) : [];
+  let resumable = null;
+  if (data.hasQuestions) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, data.topicId);
+  }
+
+  const initialQuestions = resumable ? resumable.questions : data.hasQuestions ? await getTopicTestQuestions(data.topicId) : [];
 
   return (
     <>
@@ -210,6 +218,7 @@ export default async function TopicTestPage({ params }: PageProps) {
         initialQuestions={initialQuestions}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
         timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
+        resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
       />
     </>
   );

@@ -1,17 +1,20 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Icon } from './icons';
 
 interface TopBarProps {
   notificationCount: number;
   streak: number;
+  isAuthenticated: boolean;
   userName?: string;
   onNotificationClick: () => void;
   onMenuClick?: () => void;
+  onStartQuiz?: () => void;
 }
 
-export function TopBar({ notificationCount, streak, userName = 'Öğrenci', onNotificationClick, onMenuClick }: TopBarProps) {
+export function TopBar({ notificationCount, streak, isAuthenticated, userName, onNotificationClick, onMenuClick, onStartQuiz }: TopBarProps) {
   return (
     <header className="h-[72px] bg-background/95 backdrop-blur-xl border-b border-default flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-40">
       {/* Left - Menu & Title */}
@@ -24,7 +27,9 @@ export function TopBar({ notificationCount, streak, userName = 'Öğrenci', onNo
         </button>
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-default">Dashboard</h2>
-          <p className="hidden sm:block text-sm text-muted-foreground">Hoş geldin, {userName}! Bugün harika bir gün öğrenmek için.</p>
+          <p className="hidden sm:block text-sm text-muted-foreground">
+            {isAuthenticated ? `Hoş geldin, ${userName}! Bugün harika bir gün öğrenmek için.` : 'Panelini görmek için giriş yap.'}
+          </p>
         </div>
       </div>
 
@@ -41,13 +46,22 @@ export function TopBar({ notificationCount, streak, userName = 'Öğrenci', onNo
         </div>
 
         {/* Streak Badge */}
-        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/20 rounded-xl">
-          <span className="text-lg sm:text-xl">🔥</span>
-          <div>
-            <span className="text-orange-400 font-bold text-sm sm:text-base">{streak}</span>
-            <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
+        {isAuthenticated ? (
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/20 rounded-xl">
+            <span className="text-lg sm:text-xl">🔥</span>
+            <div>
+              <span className="text-orange-400 font-bold text-sm sm:text-base">{streak}</span>
+              <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <Link
+            href="/login?redirectTo=/panel"
+            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all text-xs sm:text-sm"
+          >
+            Giriş Yap
+          </Link>
+        )}
 
         {/* Notifications */}
         <button 
@@ -63,7 +77,10 @@ export function TopBar({ notificationCount, streak, userName = 'Öğrenci', onNo
         </button>
 
         {/* Quick Action Button */}
-        <button className="hidden sm:flex items-center gap-2 px-4 lg:px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5">
+        <button
+          onClick={onStartQuiz}
+          className="hidden sm:flex items-center gap-2 px-4 lg:px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-default font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5"
+        >
           <Icon name="play" size={18} />
           <span className="hidden lg:inline">Çalışmaya Başla</span>
           <span className="lg:hidden">Başla</span>

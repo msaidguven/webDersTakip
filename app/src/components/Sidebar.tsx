@@ -10,6 +10,7 @@ interface SidebarProps {
   activeItem: string;
   isOpen?: boolean;
   onClose?: () => void;
+  isAuthenticated: boolean;
   userName?: string;
 }
 
@@ -19,7 +20,7 @@ function getInitials(name: string): string {
   return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 }
 
-export function Sidebar({ items, activeItem, isOpen, onClose, userName = 'Öğrenci' }: SidebarProps) {
+export function Sidebar({ items, activeItem, isOpen, onClose, isAuthenticated, userName }: SidebarProps) {
   return (
     <aside className={`
       fixed left-0 top-0 h-screen w-[280px] bg-surface/95 backdrop-blur-xl border-r border-default z-50 flex flex-col
@@ -94,18 +95,27 @@ export function Sidebar({ items, activeItem, isOpen, onClose, userName = 'Öğre
 
       {/* User Profile */}
       <div className="p-4 border-t border-default">
-        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-default font-semibold">
-            {getInitials(userName)}
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-sm font-medium text-default group-hover:text-indigo-400 transition-colors">
-              {userName}
-            </p>
-            <p className="text-xs text-muted-foreground">Öğrenci</p>
-          </div>
-          <Icon name="chevron-right" size={16} className="text-muted-foreground group-hover:text-muted-foreground" />
-        </button>
+        {isAuthenticated ? (
+          <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-default font-semibold">
+              {getInitials(userName || '?')}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium text-default group-hover:text-indigo-400 transition-colors">
+                {userName}
+              </p>
+              <p className="text-xs text-muted-foreground">Öğrenci</p>
+            </div>
+            <Icon name="chevron-right" size={16} className="text-muted-foreground group-hover:text-muted-foreground" />
+          </button>
+        ) : (
+          <Link
+            href="/login?redirectTo=/panel"
+            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
+          >
+            <span>Giriş Yap</span>
+          </Link>
+        )}
       </div>
     </aside>
   );

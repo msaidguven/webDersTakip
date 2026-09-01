@@ -23,11 +23,22 @@ export default function PanelPage() {
     isAuthenticated,
     notificationCount,
     unitsContext,
+    canShiftWeekWindow,
     selectWeek,
+    shiftWeekWindow,
     handleUnitClick,
     handleSRSReview,
+    handleStartQuiz,
     markNotificationRead,
   } = useDashboardViewModel();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background bg-grid">
@@ -40,6 +51,7 @@ export default function PanelPage() {
         activeItem="home"
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        isAuthenticated={isAuthenticated}
         userName={data.user.name}
       />
 
@@ -57,9 +69,11 @@ export default function PanelPage() {
         <TopBar
           notificationCount={notificationCount}
           streak={data.user.streak}
+          isAuthenticated={isAuthenticated}
           userName={data.user.name}
           onNotificationClick={markNotificationRead}
           onMenuClick={() => setSidebarOpen(true)}
+          onStartQuiz={handleStartQuiz}
         />
 
         {/* Dashboard Content */}
@@ -67,7 +81,11 @@ export default function PanelPage() {
           {/* Welcome Section */}
           <div className="mb-6 sm:mb-8">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-default mb-2">
-              Tekrar Hoşgeldin, <span className="gradient-text">{data.user.name}</span>! 👋
+              {isAuthenticated ? (
+                <>Tekrar Hoşgeldin, <span className="gradient-text">{data.user.name}</span>! 👋</>
+              ) : (
+                <>Kişisel <span className="gradient-text">panelin</span> seni bekliyor 👋</>
+              )}
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
               Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
@@ -135,12 +153,6 @@ export default function PanelPage() {
                 
                 {!isAuthenticated ? (
                   <AuthPrompt message="Ünitelerini ve ilerlemeni görmek için giriş yap." />
-                ) : isLoading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    {[0, 1].map((i) => (
-                      <div key={i} className="h-40 rounded-2xl bg-surface-elevated border border-default animate-pulse" />
-                    ))}
-                  </div>
                 ) : data.units.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {data.units.map((unit) => (
@@ -171,14 +183,18 @@ export default function PanelPage() {
             {/* Right Column - Weekly & Activity (1/3) */}
             <div className="space-y-6 sm:space-y-8">
               {/* Weekly Progress */}
-              <WeeklyProgress 
+              <WeeklyProgress
                 weeks={data.weeks}
                 currentWeekId={selectedWeekId}
                 onSelectWeek={selectWeek}
+                onPrevWeeks={() => shiftWeekWindow(-1)}
+                onNextWeeks={() => shiftWeekWindow(1)}
+                canGoPrev={canShiftWeekWindow.prev}
+                canGoNext={canShiftWeekWindow.next}
               />
 
               {/* Activity Feed */}
-              <ActivityFeed activities={data.recentActivities} />
+              <ActivityFeed activities={data.recentActivities} seeAllHref={isAuthenticated ? '/panel/aktiviteler' : undefined} />
             </div>
           </div>
 

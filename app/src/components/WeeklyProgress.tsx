@@ -7,9 +7,13 @@ interface WeeklyProgressProps {
   weeks: Week[];
   currentWeekId: number;
   onSelectWeek: (weekId: number) => void;
+  onPrevWeeks?: () => void;
+  onNextWeeks?: () => void;
+  canGoPrev?: boolean;
+  canGoNext?: boolean;
 }
 
-export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek }: WeeklyProgressProps) {
+export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek, onPrevWeeks, onNextWeeks, canGoPrev = true, canGoNext = true }: WeeklyProgressProps) {
   const days = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
 
   return (
@@ -17,10 +21,20 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek }: WeeklyPro
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <h3 className="font-semibold text-default text-sm sm:text-base">Haftalık İlerleme</h3>
         <div className="flex gap-1.5 sm:gap-2">
-          <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm">
+          <button
+            type="button"
+            onClick={onPrevWeeks}
+            disabled={!canGoPrev}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             ←
           </button>
-          <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm">
+          <button
+            type="button"
+            onClick={onNextWeeks}
+            disabled={!canGoNext}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             →
           </button>
         </div>

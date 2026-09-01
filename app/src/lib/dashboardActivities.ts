@@ -5,16 +5,18 @@ type SessionRow = {
   id: number;
   unit_id: number | null;
   lesson_id: number | null;
-  completed_at: string;
+  created_at: string;
+  completed_at: string | null;
   question_ids: number[] | null;
 };
 type AnswerRow = { test_session_id: number; is_correct: boolean; duration_seconds: number | null };
 
-// Panelin "Son Aktiviteler" akışı için tamamlanmış test_sessions kayıtlarını, o oturuma ait
-// test_session_answers'tan hesaplanan skor/süre ile birleştirir. Oturumun bir "türü" (test/
-// konu/tekrar) DB'de tutulmuyor — QuizClient/start_web_quiz_session bunu ayırt etmiyor — bu
-// yüzden hepsi tek tip 'test' olarak gösterilir; sahte bir ayrım uydurmak yerine gerçek veriyle
-// sınırlı kalındı.
+// Panelin "Son Aktiviteler" akışı hem tamamlanmış hem de yarım kalmış test_sessions
+// kayıtlarını gösterir — sayfa yenilendiğinde/terk edildiğinde oturum tamamlanmadan kalabiliyor
+// (bkz. QuizClient.tsx'teki oturum efekti: her yeni soru seti yeni bir session açar, öncekini
+// kapatmaz), ve bu tamamlanmamış denemeler de gerçek bir çalışma olduğu için sessizce
+// gizlenmemeli. Oturumun bir "türü" (test/konu/tekrar) DB'de tutulmuyor — bu yüzden hepsi tek
+// tip 'test' olarak gösterilir; sahte bir ayrım uydurmak yerine gerçek veriyle sınırlı kalındı.
 export async function getRecentActivities(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
@@ -23,10 +25,9 @@ export async function getRecentActivities(
 ): Promise<Activity[]> {
   const { data: sessionRows } = await supabase
     .from('test_sessions')
-    .select('id, unit_id, lesson_id, completed_at, question_ids')
+    .select('id, unit_id, lesson_id, created_at, completed_at, question_ids')
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   const sessions = (sessionRows as SessionRow[] | null) || [];
@@ -53,29 +54,31 @@ export async function getRecentActivities(
   }
 
   return sessions.map((s) => {
+    const isComplete = !!s.completed_at;
     const answers = answersBySession.get(s.id) || [];
-    const questionCount = s.question_ids?.length ?? answers.length;
+    const questionCount = isComplete ? (s.question_ids?.length ?? answers.length) : answers.length;
     const correctCount = answers.filter((a) => a.is_correct).length;
     const score = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
     const durationSeconds = answers.reduce((sum, a) => sum + (a.duration_seconds ?? 0), 0);
     const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
 
-    const title = s.unit_id && unitTitleById.has(s.unit_id)
+    const baseTitle = s.unit_id && unitTitleById.has(s.unit_id)
       ? `Ünite Testi: ${unitTitleById.get(s.unit_id)}`
       : s.lesson_id && lessonNameById.has(s.lesson_id)
         ? `${lessonNameById.get(s.lesson_id)} Testi`
         : 'Test';
+    const title = isComplete ? baseTitle : `${baseTitle} (Yarım Kaldı)`;
 
     const activity: Activity = {
       id: String(s.id),
       title,
       type: 'test',
-      timestamp: new Date(s.completed_at),
+      timestamp: new Date(s.completed_at ?? s.created_at),
       questionCount,
       durationMinutes,
       score,
       icon: 'calculator',
-      iconColor: 'purple',
+      iconColor: isComplete ? 'purple' : 'orange',
     };
     return activity;
   });

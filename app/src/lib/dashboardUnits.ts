@@ -6,6 +6,7 @@ import { getCurrentCurriculumWeek } from './routeParsing';
 type UnitRow = {
   id: number;
   title: string;
+  slug: string | null;
   question_count: number | null;
   order_no: number;
   start_week: number | null;
@@ -26,8 +27,8 @@ export interface DashboardUnitsResult {
 // başlayarak) müfredat haftasına göre kurar. Haftaya tıklamanın o haftanın içeriğini yüklemesi
 // kapsam dışı bırakıldı (bkz. docs/site-iyilestirme-plani.md tartışması) — sadece hangi haftanın
 // geçmiş/şimdi/gelecek/kilitli olduğunu göstermek için gerçek veri kullanılıyor.
-export function buildWeekWindow(currentWeek: number, totalWeeks: number): Week[] {
-  const start = Math.max(1, currentWeek - 1);
+export function buildWeekWindow(windowStart: number, currentWeek: number, totalWeeks: number): Week[] {
+  const start = Math.max(1, windowStart);
   const weeks: Week[] = [];
   for (let n = start; n < start + 5; n++) {
     let status: Week['status'];
@@ -89,18 +90,20 @@ export async function getDashboardUnitsData(
   const [{ data: unitsData }, { data: lesson }, { data: grade }] = await Promise.all([
     supabase
       .from('units')
-      .select('id, title, question_count, order_no, start_week, end_week')
+      .select('id, title, slug, question_count, order_no, start_week, end_week')
       .eq('lesson_id', lessonId)
       .eq('grade_id', gradeId)
       .eq('is_active', true)
       .order('order_no', { ascending: true }),
-    supabase.from('lessons').select('name').eq('id', lessonId).maybeSingle(),
-    supabase.from('grades').select('name').eq('id', gradeId).maybeSingle(),
+    supabase.from('lessons').select('name, slug').eq('id', lessonId).maybeSingle(),
+    supabase.from('grades').select('name, slug').eq('id', gradeId).maybeSingle(),
   ]);
 
   const units = (unitsData as UnitRow[] | null) || [];
-  const lessonName = (lesson as { name: string } | null)?.name ?? null;
-  const gradeName = (grade as { name: string } | null)?.name ?? null;
+  const lessonRow = lesson as { name: string; slug: string | null } | null;
+  const gradeRow = grade as { name: string; slug: string | null } | null;
+  const lessonName = lessonRow?.name ?? null;
+  const gradeName = gradeRow?.name ?? null;
 
   if (units.length === 0) {
     const totalWeeks = 38;
@@ -153,6 +156,10 @@ export async function getDashboardUnitsData(
         ? `${weekLabel} • Tamamlandı`
         : `${weekLabel} • ${totalTopics} Konu • ${totalQuestions} Soru`;
 
+    const href = gradeRow?.slug && lessonRow?.slug && u.slug
+      ? `/${gradeRow.slug}/${lessonRow.slug}/${u.slug}/unite-testi`
+      : undefined;
+
     return {
       id: String(u.id),
       title: u.title,
@@ -163,6 +170,7 @@ export async function getDashboardUnitsData(
       progress,
       status,
       successRate,
+      href,
     };
   });
 

@@ -129,6 +129,13 @@ export async function getTopicTestQuestions(topicId: number | string): Promise<Q
   return resolveQuestions(shuffle(questionIds).slice(0, MAX_QUESTIONS_PER_TEST));
 }
 
+// Belirli soru id'lerini (sırası önemli değil, resolveQuestions zaten karıştırıyor) çözer —
+// yarım kalmış bir test oturumunu aynı soru havuzuyla devam ettirmek için kullanılır
+// (bkz. quizResume.ts), rastgele yeni bir set seçmek yerine.
+export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQuestion[]> {
+  return resolveQuestions(questionIds);
+}
+
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
 // section_id'si dolu ya da boş fark etmeksizin.
 export async function getUnitTestQuestions(unitId: number | string): Promise<QuizQuestion[]> {
