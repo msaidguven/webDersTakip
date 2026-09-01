@@ -9,12 +9,13 @@ type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
   gradeId: number;
   lessonId: number;
   unitId: number;
+  topicId?: number | null;
 };
 
 // QuizClient ve UnitDiscussion sayfada ayrı kardeş bileşenler olduğu için "şu an
 // hangi soruya bakılıyor, cevaplandı mı" bilgisini paylaşmaları gerekiyordu — bu
 // wrapper o durumu tutup UnitDiscussion'a aktarıyor.
-export default function QuizWithAsk({ gradeId, lessonId, unitId, ...quizProps }: QuizWithAskProps) {
+export default function QuizWithAsk({ gradeId, lessonId, unitId, topicId, ...quizProps }: QuizWithAskProps) {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -25,7 +26,14 @@ export default function QuizWithAsk({ gradeId, lessonId, unitId, ...quizProps }:
 
   return (
     <>
-      <QuizClient {...quizProps} onCurrentQuestionChange={handleCurrentQuestionChange} />
+      <QuizClient
+        {...quizProps}
+        gradeId={gradeId}
+        lessonId={lessonId}
+        unitId={unitId}
+        topicId={topicId}
+        onCurrentQuestionChange={handleCurrentQuestionChange}
+      />
       {currentQuestion && (
         <div className="mx-auto max-w-lg px-4 pb-8">
           <UnitDiscussion

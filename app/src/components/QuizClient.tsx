@@ -1,9 +1,10 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Clock, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
+import { useAuth } from '@/app/src/context/AuthContext';
 
 const CORRECT_MESSAGES = [
   'Harika! 🎉',
@@ -293,9 +294,30 @@ export interface QuizClientProps {
   timeLimitSeconds?: number;
   intro?: QuizIntro;
   onCurrentQuestionChange?: (question: QuizQuestion | null, isAnswered: boolean) => void;
+  // Giriş yapmış kullanıcı için çözülen soruların istatistiğini (SRS, günlük
+  // özet vb.) tutan backend'e bağlanmak için gerekli — bkz. aşağıdaki
+  // test oturumu efekti. Misafir kullanıcıda bunlar kullanılmaz, test normal
+  // şekilde çözülür, hiçbir kayıt yapılmaz.
+  gradeId?: number | null;
+  lessonId?: number | null;
+  unitId?: number | null;
+  topicId?: number | null;
 }
 
-export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQuestions, reloadEndpoint, timeLimitSeconds, intro, onCurrentQuestionChange }: QuizClientProps) {
+export default function QuizClient({
+  scopeLabel,
+  exitHref,
+  exitLabel,
+  initialQuestions,
+  reloadEndpoint,
+  timeLimitSeconds,
+  intro,
+  onCurrentQuestionChange,
+  gradeId,
+  lessonId,
+  unitId,
+  topicId,
+}: QuizClientProps) {
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [loading, setLoading] = useState(false);
   const [index, setIndex] = useState(0);
@@ -309,6 +331,20 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
   const [reloadKey, setReloadKey] = useState(0);
   const [maxIndex, setMaxIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(timeLimitSeconds ?? null);
+
+  // Giriş yapmış kullanıcının çözdüğü soruların istatistiğini tutmak için: bu soru
+  // setiyle açılmış test_sessions kaydının id'si. Misafir kullanıcıda hep null kalır,
+  // hiçbir kayıt yapılmaz — bkz. aşağıdaki session efekti.
+  const { isAuthenticated, user, supabase } = useAuth();
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const clientIdRef = useRef<string>('');
+  const sessionQuestionsKeyRef = useRef<string | null>(null);
+  const finishedSessionRef = useRef<number | null>(null);
+  const questionStartRef = useRef<number>(0);
+  // Oturum açma RPC'si henüz dönmemişken kullanıcı çok hızlı cevap verirse buraya
+  // birikir; sessionId gelince aşağıdaki efekt hepsini tek seferde gönderir — hiçbir
+  // cevap sessizce kaybolmaz.
+  const pendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
 
   // İlk yükleme sunucudan gelen initialQuestions ile geliyor (SEO: Google ilk taramada
   // soruları görebilsin) — bu effect sadece "Tekrar Çöz" (reloadKey artışı) ile yeni bir
@@ -333,6 +369,12 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
           setFeedback({});
           setShowResult(false);
           setTimeLeft(timeLimitSeconds ?? null);
+          // Yeni soru seti = yeni deneme: önceki oturumla ilişkiyi kes, aşağıdaki
+          // session efekti yeni questions için yeni bir test_sessions açacak.
+          setSessionId(null);
+          sessionQuestionsKeyRef.current = null;
+          finishedSessionRef.current = null;
+          pendingAnswersRef.current = [];
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -343,6 +385,102 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
       cancelled = true;
     };
   }, [reloadEndpoint, reloadKey, timeLimitSeconds]);
+
+  // Giriş yapmış kullanıcı için bu soru setiyle bir test oturumu açar. Misafirde
+  // (isAuthenticated=false) hiç çalışmaz — quiz normal şekilde, kayıtsız çözülür.
+  useEffect(() => {
+    if (!isAuthenticated || !user || questions.length === 0) return;
+    const questionsKey = questions.map((q) => q.id).join(',');
+    if (sessionQuestionsKeyRef.current === questionsKey) return;
+    sessionQuestionsKeyRef.current = questionsKey;
+
+    const gradedIds = questions.filter((q) => q.type !== 'classical').map((q) => q.id);
+    if (gradedIds.length === 0) return;
+
+    if (!clientIdRef.current) {
+      clientIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    }
+
+    supabase
+      .rpc('start_web_quiz_session', {
+        p_client_id: clientIdRef.current,
+        p_grade_id: gradeId ?? null,
+        p_lesson_id: lessonId ?? null,
+        p_unit_id: unitId ?? null,
+        p_topic_id: topicId ?? null,
+        p_question_ids: gradedIds,
+      })
+      .then(({ data, error }: { data: number | null; error: { message: string } | null }) => {
+        if (error) {
+          console.error('start_web_quiz_session error:', error.message);
+          return;
+        }
+        if (typeof data === 'number') setSessionId(data);
+      });
+  }, [isAuthenticated, user, questions, supabase, gradeId, lessonId, unitId, topicId]);
+
+  // sessionId hazır olduğunda: önce (varsa) oturum açılmadan önce kuyruklanmış
+  // cevapları gönderir, ancak ONDAN SONRA — test zaten bitmişse (showResult) —
+  // oturumu kapatır. Sıra önemli: finish_test_session'ın tetiklediği istatistik
+  // hesaplaması, o ana kadar yazılmış tüm test_session_answers satırlarını okur.
+  useEffect(() => {
+    if (sessionId == null || !user) return;
+
+    async function syncSession(currentSessionId: number) {
+      if (pendingAnswersRef.current.length > 0) {
+        const toFlush = pendingAnswersRef.current;
+        pendingAnswersRef.current = [];
+        const { error } = await supabase.from('test_session_answers').insert(
+          toFlush.map((a) => ({
+            test_session_id: currentSessionId,
+            question_id: a.questionId,
+            user_id: user!.id,
+            client_id: clientIdRef.current,
+            is_correct: a.isCorrect,
+            duration_seconds: a.durationSeconds,
+          }))
+        );
+        if (error) console.error('test_session_answers flush error:', error.message);
+      }
+
+      if (showResult && finishedSessionRef.current !== currentSessionId) {
+        finishedSessionRef.current = currentSessionId;
+        const { error } = await supabase.rpc('finish_test_session', { p_session_id: currentSessionId });
+        if (error) console.error('finish_test_session error:', error.message);
+      }
+    }
+
+    syncSession(sessionId);
+  }, [sessionId, showResult, user, supabase]);
+
+  // Her soru değişiminde süre ölçümünü sıfırlar (duration_seconds için).
+  useEffect(() => {
+    questionStartRef.current = Date.now();
+  }, [index, questions]);
+
+  function recordAnswer(questionId: number, isCorrect: boolean) {
+    if (!user) return;
+    const durationSeconds = Math.max(0, Math.round((Date.now() - questionStartRef.current) / 1000));
+    // Oturum RPC'si henüz dönmediyse (nadir, çok hızlı cevaplama) kaybetmeden kuyruğa
+    // al — sessionId gelince yukarıdaki efekt bunu gönderecek.
+    if (sessionId == null) {
+      pendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds });
+      return;
+    }
+    supabase
+      .from('test_session_answers')
+      .insert({
+        test_session_id: sessionId,
+        question_id: questionId,
+        user_id: user.id,
+        client_id: clientIdRef.current,
+        is_correct: isCorrect,
+        duration_seconds: durationSeconds,
+      })
+      .then(({ error }: { error: { message: string } | null }) => {
+        if (error) console.error('test_session_answers insert error:', error.message);
+      });
+  }
 
   useEffect(() => {
     if (timeLimitSeconds == null || showResult) return;
@@ -383,6 +521,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
     setLocked((prev) => ({ ...prev, [current.id]: true }));
     setCorrect((prev) => ({ ...prev, [current.id]: !!chosen?.is_correct }));
     setFeedback((prev) => ({ ...prev, [current.id]: randomOf(chosen?.is_correct ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
+    recordAnswer(current.id, !!chosen?.is_correct);
   };
 
   const assignMatch = (leftId: number, rightId: number) => {
@@ -400,6 +539,7 @@ export default function QuizClient({ scopeLabel, exitHref, exitLabel, initialQue
       setLocked((prev) => ({ ...prev, [current.id]: true }));
       setCorrect((prev) => ({ ...prev, [current.id]: allCorrect }));
       setFeedback((prev) => ({ ...prev, [current.id]: randomOf(allCorrect ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
+      recordAnswer(current.id, allCorrect);
     }
   };
 
