@@ -12,6 +12,7 @@ import { WeeklyProgress } from '../src/components/WeeklyProgress';
 import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
+import { LeaderboardCard } from '../src/components/LeaderboardCard';
 import { navItems } from '../src/data/mockData';
 
 export default function PanelPage() {
@@ -195,6 +196,9 @@ export default function PanelPage() {
 
               {/* Activity Feed */}
               <ActivityFeed activities={data.recentActivities} seeAllHref={isAuthenticated ? '/panel/aktiviteler' : undefined} />
+
+              {/* Weekly Leaderboard */}
+              <LeaderboardCard />
             </div>
           </div>
 

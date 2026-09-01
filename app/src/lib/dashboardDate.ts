@@ -8,3 +8,14 @@ export function toDateString(date: Date): string {
 export function todayDateString(): string {
   return toDateString(new Date());
 }
+
+// user_time_based_stats'ın haftalık satırlarındaki period_date, o haftanın Pazartesi'si
+// (Türkiye/Avrupa haftası) — lider tablosu sorgusu bu tarihle eşleşmeli.
+export function currentWeekStartDateString(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0=Pazar, 1=Pazartesi, ... 6=Cumartesi
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  return toDateString(monday);
+}
