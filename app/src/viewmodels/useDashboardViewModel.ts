@@ -31,6 +31,8 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   srsReview: null,
   units: [],
   recentActivities: [],
+  activeUnitTitle: null,
+  activeUnitTopics: [],
 };
 
 interface UseDashboardViewModelReturn {
@@ -120,6 +122,8 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
             dailyProgress: todayQuestionCount,
           },
           units: unitsResult?.units ?? [],
+          activeUnitTitle: unitsResult?.activeUnitTitle ?? null,
+          activeUnitTopics: unitsResult?.activeUnitTopics ?? [],
           weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
           srsReview: buildSrsReview(dueSrsCount),

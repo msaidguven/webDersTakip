@@ -1,13 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Unit, Week } from '@/app/src/models/types';
+import { TopicProgress, TopicProgressStatus, Unit, Week } from '@/app/src/models/types';
 import { getCurriculumCalendar } from './curriculumCalendar';
 import { getCurrentCurriculumWeek } from './routeParsing';
+import { getQuestionCountsByUnitId } from './questionCounts';
 
 type UnitRow = {
   id: number;
   title: string;
   slug: string | null;
-  question_count: number | null;
   order_no: number;
   start_week: number | null;
   end_week: number | null;
@@ -21,6 +21,107 @@ export interface DashboardUnitsResult {
   gradeName: string | null;
   currentWeek: number;
   totalWeeks: number;
+  activeUnitTitle: string | null;
+  activeUnitTopics: TopicProgress[];
+}
+
+// Aktif ünitenin konularını, ikisi de birbirinden BAĞIMSIZ iki ayrı durumla döner
+// (bkz. docs/site-iyilestirme-plani.md tartışması, 2026-09-02) — birleşik tek bir
+// "konu tamamlandı" rozeti bilinçli olarak YOK:
+//   - contentStatus: konu anlatımı — kullanıcı "Konuyu Bitirdim" butonuna basmadan
+//     asla 'completed' olmaz (user_topic_content_progress.is_completed).
+//   - questionStatus: sorular — havuzdaki her soru en az bir kez denenince 'completed'
+//     olur (user_question_stats.total_attempts > 0); SRS'in next_review_at'i burada
+//     YOK SAYILIR, yani bir kez tamamlanan konu tekrar zamanı geldiğinde geri dönmez.
+async function getActiveUnitTopics(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  userId: string,
+  unitId: number,
+  gradeSlug: string | null,
+  lessonSlug: string | null,
+  unitSlug: string | null
+): Promise<TopicProgress[]> {
+  const { data: topicsData } = await supabase
+    .from('topics')
+    .select('id, title, slug, order_no')
+    .eq('unit_id', unitId)
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+
+  const topics = (topicsData as { id: number; title: string; slug: string | null; order_no: number }[] | null) || [];
+  if (!topics.length) return [];
+
+  const topicIds = topics.map((t) => t.id);
+
+  const [{ data: contentProgressData }, { data: questionsData }] = await Promise.all([
+    supabase
+      .from('user_topic_content_progress')
+      .select('topic_id, is_completed')
+      .eq('user_id', userId)
+      .in('topic_id', topicIds),
+    supabase.from('questions').select('id, topic_id').in('topic_id', topicIds),
+  ]);
+
+  const contentCompletedByTopic = new Map<number, boolean>();
+  for (const row of (contentProgressData as { topic_id: number; is_completed: boolean }[] | null) || []) {
+    contentCompletedByTopic.set(row.topic_id, row.is_completed);
+  }
+
+  const questionIdsByTopic = new Map<number, number[]>();
+  const allQuestionIds: number[] = [];
+  for (const row of (questionsData as { id: number; topic_id: number }[] | null) || []) {
+    const list = questionIdsByTopic.get(row.topic_id) || [];
+    list.push(row.id);
+    questionIdsByTopic.set(row.topic_id, list);
+    allQuestionIds.push(row.id);
+  }
+
+  const attemptedQuestionIds = new Set<number>();
+  if (allQuestionIds.length) {
+    const { data: statsData } = await supabase
+      .from('user_question_stats')
+      .select('question_id')
+      .eq('user_id', userId)
+      .in('question_id', allQuestionIds)
+      .gt('total_attempts', 0);
+    for (const row of (statsData as { question_id: number }[] | null) || []) {
+      attemptedQuestionIds.add(row.question_id);
+    }
+  }
+
+  const canBuildHref = !!(gradeSlug && lessonSlug && unitSlug);
+
+  return topics.map((t) => {
+    const contentStatus: TopicProgressStatus = !contentCompletedByTopic.has(t.id)
+      ? 'not_started'
+      : contentCompletedByTopic.get(t.id)
+        ? 'completed'
+        : 'in_progress';
+
+    const topicQuestionIds = questionIdsByTopic.get(t.id) || [];
+    const attemptedCount = topicQuestionIds.filter((id) => attemptedQuestionIds.has(id)).length;
+    const questionStatus: TopicProgressStatus =
+      topicQuestionIds.length === 0 || attemptedCount === 0
+        ? 'not_started'
+        : attemptedCount === topicQuestionIds.length
+          ? 'completed'
+          : 'in_progress';
+
+    const contentHref = canBuildHref && t.slug ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${t.slug}` : undefined;
+    // Sorusu hiç olmayan bir konuda "Soru Çöz" linki/duruma hiç gösterilmez —
+    // aksi halde hiçbir zaman ilerlemeyecek kalıcı bir "Başlanmadı" rozeti kalırdı.
+    const quizHref = contentHref && topicQuestionIds.length > 0 ? `${contentHref}/kavrama-testi` : undefined;
+
+    return {
+      id: String(t.id),
+      title: t.title,
+      contentStatus,
+      questionStatus: quizHref ? questionStatus : undefined,
+      contentHref,
+      quizHref,
+    };
+  });
 }
 
 // WeeklyProgress kartlarında gösterilecek 5 haftalık pencereyi (mevcut haftanın bir öncesinden
@@ -90,7 +191,7 @@ export async function getDashboardUnitsData(
   const [{ data: unitsData }, { data: lesson }, { data: grade }] = await Promise.all([
     supabase
       .from('units')
-      .select('id, title, slug, question_count, order_no, start_week, end_week')
+      .select('id, title, slug, order_no, start_week, end_week')
       .eq('lesson_id', lessonId)
       .eq('grade_id', gradeId)
       .eq('is_active', true)
@@ -107,18 +208,27 @@ export async function getDashboardUnitsData(
 
   if (units.length === 0) {
     const totalWeeks = 38;
-    return { units: [], lessonName, gradeName, totalWeeks, currentWeek: getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks) };
+    return {
+      units: [],
+      lessonName,
+      gradeName,
+      totalWeeks,
+      currentWeek: getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks),
+      activeUnitTitle: null,
+      activeUnitTopics: [],
+    };
   }
 
   const unitIds = units.map((u) => u.id);
 
-  const [{ data: topicRows }, { data: summaryRows }] = await Promise.all([
+  const [{ data: topicRows }, { data: summaryRows }, questionCountByUnit] = await Promise.all([
     supabase.from('topics').select('unit_id').in('unit_id', unitIds).eq('is_active', true),
     supabase
       .from('user_unit_summary')
       .select('unit_id, solved_question_count, correct_count, wrong_count')
       .eq('user_id', userId)
       .in('unit_id', unitIds),
+    getQuestionCountsByUnitId(supabase, unitIds),
   ]);
 
   const topicCountByUnit = new Map<number, number>();
@@ -135,7 +245,7 @@ export async function getDashboardUnitsData(
   const currentWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
 
   const mapped: Unit[] = units.map((u) => {
-    const totalQuestions = u.question_count ?? 0;
+    const totalQuestions = questionCountByUnit.get(u.id) ?? 0;
     const totalTopics = topicCountByUnit.get(u.id) ?? 0;
     const summary = summaryByUnit.get(u.id);
     const solved = summary?.solved_question_count ?? 0;
@@ -174,5 +284,23 @@ export async function getDashboardUnitsData(
     };
   });
 
-  return { units: mapped, lessonName, gradeName, currentWeek, totalWeeks };
+  // Panelin "Devam Edilen Konular" listesi için aktif ünite: kilitli olmayan,
+  // henüz tamamlanmamış ilk ünite (müfredat sırasına göre) — kullanıcının
+  // şu an fiilen çalışıyor olması beklenen ünite. Hiçbiri bu duruma uymuyorsa
+  // (hepsi tamamlanmış/kilitli) liste boş kalır, panelde bölüm hiç gösterilmez.
+  const activeUnit = mapped.find((u) => u.status === 'in_progress') ?? null;
+  const activeUnitRaw = activeUnit ? units.find((u) => String(u.id) === activeUnit.id) ?? null : null;
+  const activeUnitTopics = activeUnitRaw
+    ? await getActiveUnitTopics(supabase, userId, activeUnitRaw.id, gradeRow?.slug ?? null, lessonRow?.slug ?? null, activeUnitRaw.slug)
+    : [];
+
+  return {
+    units: mapped,
+    lessonName,
+    gradeName,
+    currentWeek,
+    totalWeeks,
+    activeUnitTitle: activeUnit?.title ?? null,
+    activeUnitTopics,
+  };
 }

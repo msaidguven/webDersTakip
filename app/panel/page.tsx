@@ -13,6 +13,7 @@ import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { LeaderboardCard } from '../src/components/LeaderboardCard';
+import { TopicProgressList } from '../src/components/TopicProgressList';
 import { navItems } from '../src/data/mockData';
 
 export default function PanelPage() {
@@ -179,6 +180,11 @@ export default function PanelPage() {
                   </div>
                 )}
               </div>
+
+              {/* Devam Edilen Konular (aktif ünite) */}
+              {isAuthenticated && data.activeUnitTopics.length > 0 && (
+                <TopicProgressList unitTitle={data.activeUnitTitle} topics={data.activeUnitTopics} />
+              )}
             </div>
 
             {/* Right Column - Weekly & Activity (1/3) */}

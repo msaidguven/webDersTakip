@@ -30,6 +30,18 @@ export interface Unit {
   href?: string;
 }
 
+export type TopicProgressStatus = 'not_started' | 'in_progress' | 'completed';
+
+export interface TopicProgress {
+  id: string;
+  title: string;
+  contentStatus: TopicProgressStatus;
+  // Konunun hiç sorusu yoksa undefined — bu durumda panelde "Sorular" rozeti/butonu hiç gösterilmez.
+  questionStatus?: TopicProgressStatus;
+  contentHref?: string;
+  quizHref?: string;
+}
+
 export interface Stat {
   id: string;
   icon: string;
@@ -68,6 +80,8 @@ export interface DashboardData {
   srsReview: SRSReview | null;
   units: Unit[];
   recentActivities: Activity[];
+  activeUnitTitle: string | null;
+  activeUnitTopics: TopicProgress[];
 }
 
 // Navigation

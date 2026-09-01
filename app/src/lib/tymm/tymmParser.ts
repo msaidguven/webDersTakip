@@ -92,6 +92,17 @@ function rawFieldText(html: string, label: string): string {
 
 type RawLearningOutcome = Omit<TymmLearningOutcome, 'topicTitle'>;
 
+// Kod: "DKAB.5.1.1" gibi tek harf bloklu, ama "T.D.5.3" gibi (Türkçe'nin
+// Dinleme/Okuma/Konuşma/Yazma alt kodları) birden fazla nokta ayraçlı harf bloklu da
+// olabiliyor — sondaki rakam grubu her zaman en az bir tane.
+const OUTCOME_CODE_CORE = '[A-ZÇĞİÖŞÜa-z]+(?:\\.[A-ZÇĞİÖŞÜa-z]+)*\\.\\d+(?:\\.\\d+)*';
+// Türkçe temalarında (ve muhtemelen diğer "temaya yönelik" derslerde) süreç bileşeni
+// (a) b) c)) yok — birden fazla öğrenme çıktısı aynı satıra <br> olmadan, sadece boşlukla
+// ayrılmış şekilde art arda geliyor (ör. "T.D.5.3. ... T.D.5.4. ..."). Bu yüzden satır
+// başında tek kod aramak yetmiyor; satırın tamamında kaç kod varsa o kadar öğrenme çıktısı
+// çıkarıyoruz.
+const OUTCOME_CODE_GLOBAL_RE = new RegExp(`(${OUTCOME_CODE_CORE})\\.\\s*`, 'g');
+
 function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; unmatched: string[] } {
   const outcomesHtml = extractFieldHtml(html, 'Öğrenme Çıktıları ve Süreç Bileşenleri');
   if (!outcomesHtml) return { outcomes: [], unmatched: [] };
@@ -123,10 +134,17 @@ function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; 
       continue;
     }
 
-    // Öğrenme çıktısı: "FB.5.7.1.1. metin" gibi bir kod ile başlar.
-    const outcomeMatch = /^([A-ZÇĞİÖŞÜa-z]+\.\d+(?:\.\d+)*)\.\s*(.+)$/.exec(plain);
-    if (outcomeMatch) {
-      outcomes.push({ code: outcomeMatch[1], title: outcomeMatch[2].trim(), components: [] });
+    // Öğrenme çıktısı/çıktıları: "FB.5.7.1.1. metin" gibi bir veya daha fazla kodla
+    // başlar — satırda kaç kod varsa metni o kadar öğrenme çıktısına bölüyoruz.
+    const codeMatches = [...plain.matchAll(OUTCOME_CODE_GLOBAL_RE)];
+    if (codeMatches.length && codeMatches[0].index === 0) {
+      for (let i = 0; i < codeMatches.length; i++) {
+        const m = codeMatches[i];
+        const titleStart = m.index! + m[0].length;
+        const titleEnd = i + 1 < codeMatches.length ? codeMatches[i + 1].index! : plain.length;
+        const title = plain.slice(titleStart, titleEnd).trim();
+        if (title) outcomes.push({ code: m[1], title, components: [] });
+      }
       continue;
     }
 

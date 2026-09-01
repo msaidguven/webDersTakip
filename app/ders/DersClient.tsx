@@ -56,6 +56,7 @@ import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, 
 import { slugifyHeading } from '@/app/src/lib/site';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
+import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
 
 type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
 type WeekedOutcome = Outcome & {
@@ -249,6 +250,62 @@ function HighlightCard({ highlight, onEdit }: { highlight: TopicHighlight; onEdi
         </button>
       )}
     </div>
+  );
+}
+
+// Konu anlatımının en altında, kullanıcının "bitirdim" diyerek kendi işaretlemesini
+// sağlayan buton — scroll/süre gibi otomatik bir "okudu" tahmini bilinçli olarak
+// YAPILMIYOR (bkz. docs/site-iyilestirme-plani.md tartışması, 2026-09-02): tek
+// güvenilir sinyal kullanıcının kendi tıklaması. Misafirde hiç gösterilmez.
+function TopicCompleteButton({ topicId }: { topicId: string | number }) {
+  const { user, supabase } = useAuth();
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    setLoaded(false);
+    fetchTopicContentProgress(supabase, user.id, topicId).then((progress) => {
+      if (cancelled) return;
+      setIsCompleted(!!progress?.isCompleted);
+      setLoaded(true);
+    });
+    // Sayfa ziyaretini pasif olarak kaydeder (last_viewed_at) — is_completed'a dokunmaz.
+    touchTopicContentView(supabase, user.id, topicId);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, topicId]);
+
+  if (!user || !loaded) return null;
+
+  if (isCompleted) {
+    return (
+      <div className="not-prose mt-8 flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 sm:px-5">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" /> Konuyu bitirdin
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={saving}
+      onClick={async () => {
+        setSaving(true);
+        await markTopicContentCompleted(supabase, user.id, topicId);
+        setIsCompleted(true);
+        setSaving(false);
+      }}
+      className="not-prose mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-black text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-60 sm:px-5"
+    >
+      <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" /> {saving ? 'Kaydediliyor…' : 'Konuyu Bitirdim'}
+    </button>
   );
 }
 
@@ -2016,6 +2073,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
+                    {activeTopic && <TopicCompleteButton topicId={activeTopic.id} />}
                     {activeTopic && (
                       <TopicQuizLink
                         topicId={activeTopic.id}
