@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardData, Week, Unit, Activity } from '../models/types';
 import { mockDashboardData } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { getDashboardUnitsData, buildWeekWindow } from '../lib/dashboardUnits';
+import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
+import { getRecentActivities } from '../lib/dashboardActivities';
+import { getTodayStats } from '../lib/dashboardStats';
 
 interface UseDashboardViewModelReturn {
   // State
@@ -10,7 +15,8 @@ interface UseDashboardViewModelReturn {
   selectedWeekId: number;
   isLoading: boolean;
   notificationCount: number;
-  
+  unitsContext: { lessonName: string | null; gradeName: string | null } | null;
+
   // Actions
   selectWeek: (weekId: number) => void;
   handleUnitClick: (unitId: string) => void;
@@ -21,11 +27,82 @@ interface UseDashboardViewModelReturn {
 }
 
 export function useDashboardViewModel(): UseDashboardViewModelReturn {
+  const { user, supabase } = useAuth();
+
   // State
-  const [data] = useState<DashboardData>(mockDashboardData);
+  const [data, setData] = useState<DashboardData>({
+    ...mockDashboardData,
+    user: { ...mockDashboardData.user, name: 'Öğrenci' },
+    units: [],
+    srsReview: null,
+    recentActivities: [],
+    stats: [
+      { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
+      { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: 0, label: 'Dakika' },
+      { id: 'success-rate-today', icon: 'trophy', iconColor: 'teal', value: '0%', label: 'Başarı Oranı' },
+      { id: 'srs-due-count', icon: 'redo', iconColor: 'orange', value: 0, label: 'Tekrar Gerekli' },
+    ],
+  });
   const [selectedWeekId, setSelectedWeekId] = useState<number>(mockDashboardData.currentWeekId);
   const [isLoading, setIsLoading] = useState(false);
   const [notificationCount, setNotificationCount] = useState(2);
+  const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
+
+  // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler ve stats satırı
+  // (bugünkü doğru/dakika/başarı oranı + tekrar borcu): gerçek veri. Haftaya tıklama /
+  // "Şimdi Tekrar Et" davranışı ve streak/dailyGoal henüz no-op (madde 3'e bırakıldı, bkz.
+  // docs/site-iyilestirme-plani.md).
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    async function loadRealData() {
+      setIsLoading(true);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, grade_id')
+          .eq('id', user!.id)
+          .maybeSingle();
+
+        const gradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
+        const fullName = (profile as { full_name: string | null } | null)?.full_name ?? null;
+
+        const [unitsResult, dueSrsCount, recentActivities] = await Promise.all([
+          getDashboardUnitsData(supabase, user!.id, gradeId),
+          getDueSrsCount(supabase, user!.id, gradeId),
+          getRecentActivities(supabase, user!.id),
+        ]);
+        const stats = await getTodayStats(supabase, user!.id, dueSrsCount);
+
+        if (cancelled) return;
+
+        setData((prev) => ({
+          ...prev,
+          user: { ...prev.user, name: fullName || prev.user.name },
+          units: unitsResult?.units ?? [],
+          weeks: unitsResult ? buildWeekWindow(unitsResult.currentWeek, unitsResult.totalWeeks) : prev.weeks,
+          currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
+          srsReview: buildSrsReview(dueSrsCount),
+          recentActivities,
+          stats,
+        }));
+        if (unitsResult) setSelectedWeekId(unitsResult.currentWeek);
+        setUnitsContext(
+          unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null
+        );
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadRealData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase]);
 
   // Actions
   const selectWeek = useCallback((weekId: number) => {
@@ -75,6 +152,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     data,
     selectedWeekId,
     isLoading,
+    unitsContext,
     notificationCount,
     
     // Actions

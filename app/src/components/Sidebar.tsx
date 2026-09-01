@@ -10,9 +10,16 @@ interface SidebarProps {
   activeItem: string;
   isOpen?: boolean;
   onClose?: () => void;
+  userName?: string;
 }
 
-export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+}
+
+export function Sidebar({ items, activeItem, isOpen, onClose, userName = 'Öğrenci' }: SidebarProps) {
   return (
     <aside className={`
       fixed left-0 top-0 h-screen w-[280px] bg-surface/95 backdrop-blur-xl border-r border-default z-50 flex flex-col
@@ -89,11 +96,11 @@ export function Sidebar({ items, activeItem, isOpen, onClose }: SidebarProps) {
       <div className="p-4 border-t border-default">
         <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-default font-semibold">
-            AY
+            {getInitials(userName)}
           </div>
           <div className="flex-1 text-left">
             <p className="text-sm font-medium text-default group-hover:text-indigo-400 transition-colors">
-              Ali Yılmaz
+              {userName}
             </p>
             <p className="text-xs text-muted-foreground">Öğrenci</p>
           </div>
