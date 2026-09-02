@@ -60,6 +60,12 @@ export function useSidebarLessons() {
   );
 
   useEffect(() => {
+    // Bağımlılık dizisi user.id'ye bakıyor, ham user nesnesine değil: AuthContext sekme
+    // odağa her geldiğinde (visibilitychange senkronizasyonu) getSession() ile YENİ bir user
+    // nesnesi üretiyor, aynı kullanıcı için bile referans değişiyor — user'ı doğrudan
+    // bağımlılıkta tutmak, başka sekmeye geçip panele her dönüşte sidebar'daki dersleri
+    // gereksiz yere yeniden yükleyip "titreşen" bir liste gösteriyordu (bkz. useDashboardViewModel.ts'teki
+    // aynı düzeltme, kullanıcıyla 2026-09-02 tartışması).
     if (!user) {
       setStatus('idle');
       setLessons([]);
@@ -93,7 +99,8 @@ export function useSidebarLessons() {
     return () => {
       cancelled = true;
     };
-  }, [user, supabase, loadLessonsForGrade]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, supabase, loadLessonsForGrade]);
 
   const saveGrade = useCallback(async () => {
     if (!selectedGradeId) return;

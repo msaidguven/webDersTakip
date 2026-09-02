@@ -50,7 +50,7 @@ export interface UnitTopic {
 export interface Stat {
   id: string;
   icon: string;
-  iconColor: 'purple' | 'pink' | 'teal' | 'orange' | 'rose';
+  iconColor: 'indigo' | 'purple' | 'pink' | 'teal' | 'orange' | 'rose';
   value: string | number;
   label: string;
 }

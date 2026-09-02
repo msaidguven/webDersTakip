@@ -12,6 +12,7 @@ import { getCurrentStreak, getTodayQuestionCount, getWeeklyActiveDays, DAILY_GOA
 import { onQuizModalClosed } from '../lib/panelRefreshBridge';
 
 const EMPTY_STATS: Stat[] = [
+  { id: 'total-today', icon: 'help-circle', iconColor: 'indigo', value: 0, label: 'Toplam Soru' },
   { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
   { id: 'wrong-today', icon: 'x-circle', iconColor: 'rose', value: 0, label: 'Yanlış Cevap' },
   { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: 0, label: 'Dakika' },

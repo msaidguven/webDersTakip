@@ -149,9 +149,9 @@ export default function PanelPage() {
               Bugünkü İstatistiklerin
             </h2>
             {isStatsLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <SkeletonBlock key={i} className="h-20" />
+              <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <SkeletonBlock key={i} className="h-16 sm:h-20" />
                 ))}
               </div>
             ) : (

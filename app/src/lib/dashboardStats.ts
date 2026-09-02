@@ -37,6 +37,7 @@ export async function getTodayStats(
   const successRate = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
 
   return [
+    { id: 'total-today', icon: 'help-circle', iconColor: 'indigo', value: totalQuestions, label: 'Toplam Soru' },
     { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: correctAnswers, label: 'Doğru Cevap' },
     { id: 'wrong-today', icon: 'x-circle', iconColor: 'rose', value: wrongAnswers, label: 'Yanlış Cevap' },
     { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: minutes, label: 'Dakika' },

@@ -31,6 +31,10 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
 
   useEffect(() => {
+    // user.id'ye bakıyor, ham user nesnesine değil — AuthContext sekme odağa her geldiğinde
+    // aynı kullanıcı için bile yeni bir user nesnesi üretiyor (bkz. useSidebarLessons.ts'teki
+    // aynı düzeltme); burada tutulsaydı sekme değiştirip panele her dönüşte sıralama
+    // gereksiz yere yeniden çekilirdi.
     if (!user) return;
     let cancelled = false;
     getWeeklyLeaderboard(supabase).then((result) => {
@@ -39,7 +43,8 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
     return () => {
       cancelled = true;
     };
-  }, [user, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, supabase]);
 
   if (!user) return null;
 
