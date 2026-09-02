@@ -11,7 +11,7 @@ type SessionRow = {
   question_ids: number[] | null;
   settings: { topic_id?: number | null } | null;
 };
-type AnswerRow = { test_session_id: number; is_correct: boolean; duration_seconds: number | null };
+type AnswerRow = { test_session_id: number; question_id: number; is_correct: boolean; duration_seconds: number | null };
 
 // Panelin "Son Aktiviteler" akışı hem tamamlanmış hem de yarım kalmış test_sessions
 // kayıtlarını gösterir — sayfa yenilendiğinde/terk edildiğinde oturum tamamlanmadan kalabiliyor
@@ -47,7 +47,7 @@ export async function getRecentActivities(
   )];
 
   const [{ data: answerRows }, { data: unitRows }, { data: lessonRows }, { data: gradeRows }, { data: topicRows }] = await Promise.all([
-    supabase.from('test_session_answers').select('test_session_id, is_correct, duration_seconds').in('test_session_id', sessionIds),
+    supabase.from('test_session_answers').select('test_session_id, question_id, is_correct, duration_seconds').in('test_session_id', sessionIds),
     unitIds.length ? supabase.from('units').select('id, title, slug').in('id', unitIds) : Promise.resolve({ data: [] }),
     lessonIds.length ? supabase.from('lessons').select('id, name, slug').in('id', lessonIds) : Promise.resolve({ data: [] }),
     gradeIds.length ? supabase.from('grades').select('id, slug').in('id', gradeIds) : Promise.resolve({ data: [] }),
@@ -69,7 +69,21 @@ export async function getRecentActivities(
   return sessions.map((s) => {
     const isComplete = !!s.completed_at;
     const answers = answersBySession.get(s.id) || [];
-    const questionCount = isComplete ? (s.question_ids?.length ?? answers.length) : answers.length;
+
+    // Bir soru yeniden denenirse (retry) aynı question_id için birden fazla satır
+    // oluşabiliyor — test_session_answers'ta bunu engelleyen bir kısıt yok. "Kaç soru
+    // çözüldü / kaç soru kaldı" bu yüzden FARKLI soru sayısıyla ölçülüyor, ham satır
+    // sayısıyla değil (ham sayı kullanılırsa, ör. 10 sorudan 11 çözülmüş gibi görünebiliyordu).
+    const distinctAnsweredIds = new Set(answers.map((a) => a.question_id));
+    const totalAssigned = s.question_ids?.length ?? distinctAnsweredIds.size;
+    // QuizClient bir oturumu SADECE sonuç ekranına ulaşılınca "bitmiş" işaretliyor (bkz.
+    // 2026-09-02 notu) — öğrenci atanmış TÜM soruları cevaplamış olsa bile sonuç ekranını
+    // hiç görmeden sekmeyi kapatırsa completed_at boş kalabiliyor. Bu durumda gerçekte
+    // yapılacak bir iş kalmadığı için "Yarım Kaldı"/"Devam Et" göstermek yanıltıcı olur —
+    // gerçek kalan soru olup olmadığına bakılır, sadece completed_at'e değil.
+    const hasRemainingQuestions = !isComplete && distinctAnsweredIds.size < totalAssigned;
+
+    const questionCount = isComplete ? (s.question_ids?.length ?? answers.length) : distinctAnsweredIds.size;
     const correctCount = answers.filter((a) => a.is_correct).length;
     const score = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
     const durationSeconds = answers.reduce((sum, a) => sum + (a.duration_seconds ?? 0), 0);
@@ -83,10 +97,10 @@ export async function getRecentActivities(
       : lesson
         ? `${lesson.name} Testi`
         : 'Test';
-    const title = isComplete ? baseTitle : `${baseTitle} (Yarım Kaldı)`;
+    const title = hasRemainingQuestions ? `${baseTitle} (Yarım Kaldı)` : baseTitle;
 
     let resumeHref: string | undefined;
-    if (!isComplete && unit?.slug && lesson?.slug && s.grade_id) {
+    if (hasRemainingQuestions && unit?.slug && lesson?.slug && s.grade_id) {
       const gradeSlug = gradeSlugById.get(s.grade_id);
       const topicId = s.settings?.topic_id;
       const topicSlug = topicId != null ? topicSlugById.get(topicId) : null;
@@ -103,10 +117,11 @@ export async function getRecentActivities(
       type: 'test',
       timestamp: new Date(s.completed_at ?? s.created_at),
       questionCount,
+      totalQuestionCount: isComplete ? undefined : totalAssigned,
       durationMinutes,
       score,
       icon: 'calculator',
-      iconColor: isComplete ? 'purple' : 'orange',
+      iconColor: hasRemainingQuestions ? 'orange' : 'purple',
       isComplete,
       resumeHref,
     };

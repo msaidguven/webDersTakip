@@ -274,11 +274,18 @@ export default function PanelPage() {
             />
           )}
 
-          {/* Activity Feed */}
+          {/* Activity Feed — panelde sadece yarım kalan testler gösteriliyor, tamamlananlar
+              için zaten /panel/aktiviteler tam geçmişi var */}
           {isAuthenticated && isActivityLoading ? (
             <SkeletonBlock className="h-48" />
           ) : (
-            <ActivityFeed activities={data.recentActivities} seeAllHref={isAuthenticated ? '/panel/aktiviteler' : undefined} />
+            <ActivityFeed
+              activities={data.recentActivities.filter((a) => a.isComplete === false && !!a.resumeHref)}
+              seeAllHref={isAuthenticated ? '/panel/aktiviteler' : undefined}
+              title="Yarım Kalan Testler"
+              emptyTitle="Yarım kalan test yok"
+              emptySubtitle="Tüm testlerini tamamlamışsın, harika gidiyorsun!"
+            />
           )}
 
           {/* Weekly Leaderboard */}

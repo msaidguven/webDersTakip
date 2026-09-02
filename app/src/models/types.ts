@@ -66,7 +66,10 @@ export interface Activity {
   title: string;
   type: 'test' | 'topic' | 'review';
   timestamp: Date;
+  // Tamamlanmış denemede: toplam soru sayısı. Yarım kalanda: şu ana kadar ÇÖZÜLEN soru
+  // sayısı — toplam havuz ayrıca totalQuestionCount'ta tutulur (ilerleme çubuğu için).
   questionCount: number;
+  totalQuestionCount?: number;
   durationMinutes: number;
   score: number;
   icon: string;

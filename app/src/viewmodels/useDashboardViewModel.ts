@@ -202,7 +202,10 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
       if (!cancelled) setData((prev) => ({ ...prev, weeklyActiveDays }));
     });
 
-    getRecentActivities(supabase, userId).then((recentActivities) => {
+    // Panel widget'ı artık sadece yarım kalan testleri gösteriyor (bkz. panel/page.tsx) —
+    // varsayılan limit (5) çoğu zaman hiç yarım kalan içermeyebiliyor, biraz daha geniş
+    // bir pencereden seçebilsin diye limit artırıldı.
+    getRecentActivities(supabase, userId, 12).then((recentActivities) => {
       if (cancelled) return;
       setData((prev) => ({ ...prev, recentActivities }));
       setIsActivityLoading(false);

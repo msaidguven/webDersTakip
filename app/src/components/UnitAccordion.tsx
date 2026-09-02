@@ -62,15 +62,17 @@ function TopicActionButton({
 function TopicRow({ topic }: { topic: UnitTopic }) {
   const fullyDone = topic.contentCompleted && topic.quizCompleted;
   return (
-    <div className="flex items-center gap-3 px-5 sm:px-6 py-3">
+    <div className="relative flex items-center gap-2.5 py-2.5 pl-5 pr-4 sm:pr-5">
+      {/* Ünite çizgisinden konuya kısa bir "dal" — alt kategori olduğunu belli eder */}
+      <span className="absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 bg-default" />
       <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
           fullyDone ? 'bg-emerald-500/15 text-emerald-500' : 'bg-white/5 text-muted-foreground'
         }`}
       >
-        <Icon name={fullyDone ? 'check' : 'bookmark'} size={12} />
+        <Icon name={fullyDone ? 'check' : 'bookmark'} size={10} />
       </span>
-      <p className="text-sm text-default flex-1 min-w-0 truncate">{topic.title}</p>
+      <p className="text-[13px] sm:text-sm text-muted-foreground flex-1 min-w-0 truncate">{topic.title}</p>
       <div className="flex items-center gap-1.5 shrink-0">
         <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
         <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
@@ -143,11 +145,15 @@ export function UnitAccordion({ units, topicsByUnitId, defaultOpenUnitId }: Unit
             </div>
 
             {isOpen && (
-              <div className="bg-black/10 divide-y divide-default/60">
+              <div className="bg-black/10 pl-9 sm:pl-11 pr-1 py-1.5">
                 {topics.length === 0 ? (
-                  <p className="px-5 sm:px-6 py-4 text-sm text-muted-foreground">Bu ünitede henüz konu yok.</p>
+                  <p className="pl-5 py-2.5 text-sm text-muted-foreground">Bu ünitede henüz konu yok.</p>
                 ) : (
-                  topics.map((topic) => <TopicRow key={topic.id} topic={topic} />)
+                  <div className="border-l border-default divide-y divide-default/60">
+                    {topics.map((topic) => (
+                      <TopicRow key={topic.id} topic={topic} />
+                    ))}
+                  </div>
                 )}
               </div>
             )}

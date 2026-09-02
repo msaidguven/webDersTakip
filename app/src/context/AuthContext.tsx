@@ -113,7 +113,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Sekmeler arası çıkış senkronizasyonu BroadcastChannel'a dayanıyor (supabase-js
+    // GoTrueClient) — bu genelde çalışır ama pasif bir mekanizma: mesaj kaçırılırsa veya
+    // sekme arka planda kısıtlanmışsa, bir sekmede çıkış yapılırken açık kalan DİĞER sekme
+    // "giriş yapılmış" gibi görünmeye devam edip eski/kişisel veriyi göstermeye devam
+    // edebiliyordu (bkz. kullanıcının 2026-09-02 tarihli gözlemi: iki sekme açıkken birinde
+    // çıkış yapınca diğerinde üniteler/konular görünmeye devam ediyordu). Çerezler sekmeler
+    // arasında paylaşılan gerçek depolama olduğu için, sekme tekrar öne gelince oturumu
+    // zorla yeniden okumak (getSession) bunu BroadcastChannel'dan bağımsız olarak düzeltir.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUser();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [supabase, router]);
 
   return (

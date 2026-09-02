@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 export interface SidebarLesson {
   id: string;
   name: string;
+  icon: string;
 }
 
 export interface GradeOption {
@@ -18,8 +19,8 @@ export type SidebarLessonsStatus = 'idle' | 'loading' | 'need-grade' | 'ready';
 type LessonGradeRow = {
   lesson_id: number;
   lessons:
-    | { id: number; name: string; is_active: boolean }
-    | { id: number; name: string; is_active: boolean }[]
+    | { id: number; name: string; icon: string | null; is_active: boolean }
+    | { id: number; name: string; icon: string | null; is_active: boolean }[]
     | null;
 };
 
@@ -41,7 +42,7 @@ export function useSidebarLessons() {
     async (gradeId: number): Promise<SidebarLesson[]> => {
       const { data: lessonGradeRows } = await supabase
         .from('lesson_grades')
-        .select('lesson_id, lessons(id, name, is_active)')
+        .select('lesson_id, lessons(id, name, icon, is_active)')
         .eq('grade_id', gradeId)
         .eq('is_active', true);
 
@@ -50,7 +51,7 @@ export function useSidebarLessons() {
       for (const row of rows) {
         const lesson = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
         if (!lesson || lesson.is_active === false) continue;
-        result.push({ id: String(lesson.id), name: lesson.name });
+        result.push({ id: String(lesson.id), name: lesson.name, icon: lesson.icon || '📘' });
       }
       result.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       return result;
