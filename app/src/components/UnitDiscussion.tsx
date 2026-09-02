@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, AlertTriangle, Flag, Bot, MessageCircle } from 'lucide-react';
+import { Sparkles, AlertTriangle, Flag, Bot, ChevronDown, MessageCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const MAX_LENGTH = 300;
@@ -308,6 +308,14 @@ export default function UnitDiscussion({
   isAnswered?: boolean;
 }) {
   const pathname = usePathname();
+  // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
+  // başlığına tıklanınca açılıp kapanan bir panel (kullanıcı kararı, 2026-09-02).
+  const [expanded, setExpanded] = useState(false);
+  // Yeni bir soruya geçilince panel tekrar kapalı başlar — açık kalsaydı bir önceki
+  // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı.
+  useEffect(() => {
+    setExpanded(false);
+  }, [quizQuestionId]);
   const [availability, setAvailability] = useState<Availability>('loading');
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [userId, setUserId] = useState<string | null>(null);
@@ -659,16 +667,24 @@ export default function UnitDiscussion({
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-6 sm:p-7 mb-7">
-      <div className="flex items-center gap-2 mb-3">
-        <MessageCircle className="h-5 w-5 text-indigo-500" />
-        <h2 className="text-base font-semibold text-gray-900">
-          {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
-        </h2>
-      </div>
+  const commentTotal = comments.length + aiEntries.length;
 
-      {authState === 'loading' ? null : authState === 'out' ? (
+  return (
+    <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`flex w-full items-center gap-2 text-left ${expanded ? 'mb-3' : ''}`}
+      >
+        <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
+        <h2 className="flex-1 text-base font-semibold text-gray-900">
+          {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
+          {commentTotal > 0 && <span className="ml-1.5 font-normal text-gray-400">({commentTotal})</span>}
+        </h2>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {!expanded ? null : authState === 'loading' ? null : authState === 'out' ? (
         <p className="text-sm text-gray-500">
           Yorum yapmak veya AI&apos;ye soru sormak için{' '}
           <a href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`} className="text-indigo-600 font-medium hover:underline">
@@ -703,7 +719,7 @@ export default function UnitDiscussion({
         </form>
       )}
 
-      {feed.length > 0 && (
+      {expanded && feed.length > 0 && (
         <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
           {feed.map((item) => {
             if (item.kind === 'comment') {
@@ -966,13 +982,13 @@ export default function UnitDiscussion({
         </div>
       )}
 
-      {feed.length === 0 && authState !== 'loading' && (
+      {expanded && feed.length === 0 && authState !== 'loading' && (
         <p className="mt-5 text-sm text-gray-400 border-t border-gray-100 pt-5">
           {quizQuestionId != null ? 'Bu soru için henüz yorum yok, ilk yorumu sen yaz.' : 'Henüz yorum yok, ilk yorumu sen yaz.'}
         </p>
       )}
 
-      {questionContext && (
+      {expanded && questionContext && (
         <p className="mt-3 text-xs text-gray-400">
           <Sparkles className="inline h-3 w-3 mr-1" />
           Sadece bu soru hakkında AI&apos;ye sormak için <span className="font-mono">{HOCAM_TAG}</span> yaz — örn. &quot;{HOCAM_TAG} neden A doğru?&quot;

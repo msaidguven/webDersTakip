@@ -2,10 +2,12 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Clock, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Pencil, RotateCcw, Share2, Trash2, Trophy, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
+import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
 
 const CORRECT_MESSAGES = [
   'Harika! 🎉',
@@ -36,7 +38,7 @@ const CORRECT_MESSAGES = [
 
 const INCORRECT_MESSAGES = ['Olsun, öğrenmenin bir parçası! 🌱', 'Az kalsın, bir dahakine yakalarsın 💪', 'Sorun değil, doğrusuna bakalım 👇', 'Bu sefer olmadı ama devam! ✨'];
 
-const TYPE_LABELS: Record<QuizQuestion['type'], string> = {
+export const TYPE_LABELS: Record<QuizQuestion['type'], string> = {
   multiple_choice: 'Çoktan Seçmeli',
   blank: 'Boşluk Doldurma',
   matching: 'Eşleştirme',
@@ -91,7 +93,7 @@ function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () 
   );
 }
 
-function QuestionSvg({ svgContent }: { svgContent: string | null }) {
+export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   if (!svgContent) return null;
   const clean = sanitizeMathSvg(svgContent);
   if (!clean) return null;
@@ -104,7 +106,7 @@ function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   );
 }
 
-function OptionsView({
+export function OptionsView({
   question,
   selectedId,
   locked,
@@ -165,7 +167,7 @@ function OptionsView({
   );
 }
 
-function MatchingView({
+export function MatchingView({
   question,
   assignment,
   locked,
@@ -255,28 +257,32 @@ function MatchingView({
   );
 }
 
-function ClassicalView({
+export function ClassicalView({
   question,
   value,
   locked,
+  explanationRevealed,
   onChange,
   onCheck,
+  onRevealExplanation,
 }: {
   question: ClassicalQuestion;
   value: string;
   locked: boolean;
+  explanationRevealed: boolean;
   onChange: (value: string) => void;
   onCheck: () => void;
+  onRevealExplanation: () => void;
 }) {
   return (
     <div>
       <QuestionSvg svgContent={question.svg_content} />
-      <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">{question.question_text}</p>
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg">{question.question_text}</p>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={locked}
-        className="h-32 w-full resize-none rounded-xl border border-default bg-surface p-3 text-sm text-default placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none disabled:opacity-70 sm:h-40 sm:p-4 sm:text-base"
+        className="h-28 w-full resize-none rounded-xl border border-default bg-surface p-3 text-sm text-default placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none disabled:opacity-70 sm:h-40 sm:p-4 sm:text-base"
         placeholder="Cevabını buraya yaz..."
       />
       <p className="mt-1.5 text-xs font-bold text-muted-foreground">{value.length} karakter</p>
@@ -290,8 +296,17 @@ function ClassicalView({
           Cevabımı Kontrol Et
         </button>
       )}
-      {locked && (
-        <div className="mt-4 rounded-xl border border-indigo-400/40 bg-indigo-500/10 p-4">
+      {locked && !explanationRevealed && (
+        <button
+          type="button"
+          onClick={onRevealExplanation}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/10 py-3 text-sm font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
+        >
+          <Eye className="h-4 w-4" /> Model Cevabı Göster
+        </button>
+      )}
+      {locked && explanationRevealed && (
+        <div className="mt-3 rounded-xl border border-indigo-400/40 bg-indigo-500/10 p-3.5 sm:mt-4 sm:p-4">
           <p className="text-sm font-black text-indigo-500">Model Cevap</p>
           <p className="mt-1.5 text-sm font-medium leading-relaxed text-default">{question.modelAnswer || 'Bu soru için model cevap eklenmemiş.'}</p>
         </div>
@@ -436,6 +451,19 @@ export default function QuizClient({
   const [showResult, setShowResult] = useState(resumeAllAnswered);
   const [reloadKey, setReloadKey] = useState(0);
   const [maxIndex, setMaxIndex] = useState(initialResumeIndex);
+  // Açıklama artık cevap verilir vermez otomatik gösterilmiyor — öğrenci isterse
+  // "Açıklamayı Göster" ile açar (kullanıcı kararı, 2026-09-02). Soru id'sine göre
+  // tutulur, bir kez açılan bir daha kapanmaz (tek yönlü reveal, sadeliği için).
+  const [revealedExplanation, setRevealedExplanation] = useState<Record<number, boolean>>({});
+  const revealExplanation = (questionId: number) => setRevealedExplanation((prev) => ({ ...prev, [questionId]: true }));
+
+  const isAdmin = useIsAdmin();
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaved, setEditSaved] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
 
   // Giriş yapmış kullanıcının çözdüğü soruların istatistiğini tutmak için: bu soru
   // setiyle açılmış test_sessions kaydının id'si. Misafir kullanıcıda hep null kalır,
@@ -712,6 +740,62 @@ export default function QuizClient({
   const retry = () => setReloadKey((k) => k + 1);
   const answerKey = questions.length > 0 ? <AnswerKeySection questions={questions} /> : null;
 
+  // Admin bu soruyu sayfadan çözmeden silerse, listeden çıkarıp mevcut index'i
+  // sınırlar içinde tutar — kalan soru yoksa mevcut "Bu konu için henüz soru yok"
+  // ekranı zaten devreye girer (questions.length === 0 dalı, aşağıda).
+  useEffect(() => {
+    if (index > questions.length - 1 && questions.length > 0) {
+      setIndex(questions.length - 1);
+      setMaxIndex((m) => Math.min(m, questions.length - 1));
+    }
+  }, [questions.length, index]);
+
+  async function handleAdminDelete() {
+    const target = questions[index];
+    if (!target) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/api/admin/manage/questions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [target.id] }),
+      });
+      if (!res.ok) {
+        setDeleteError('Silinemedi, lütfen tekrar dene.');
+        return;
+      }
+      setQuestions((prev) => prev.filter((q) => q.id !== target.id));
+      setConfirmDeleteOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function shareTextFor(q: QuizQuestion): string {
+    if (q.type === 'matching') return 'Bu eşleştirme sorusuna bir bak!';
+    return q.question_text;
+  }
+
+  async function handleShare(q: QuizQuestion) {
+    const url = `${window.location.origin}/soru/${q.id}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'Ders Takip - Soru', text: shareTextFor(q), url });
+      } catch {
+        // kullanıcı paylaşım penceresini iptal etti — sessizce geç
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareState('copied');
+      setTimeout(() => setShareState('idle'), 2000);
+    } catch {
+      // Clipboard API yoksa (çok eski tarayıcı) sessizce yok say
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-muted-foreground">
@@ -829,15 +913,15 @@ export default function QuizClient({
   const isCorrect = !!correct[current.id];
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
-      <Link href={exitHref} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500">
+    <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
+      <Link href={exitHref} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
         <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
       </Link>
 
       {intro && (
-        <div className="mb-5 rounded-2xl border border-default bg-surface-elevated p-4 sm:p-6">
+        <div className="mb-3 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-5 sm:p-6">
           <p className="mb-1 text-xs font-black uppercase tracking-widest text-indigo-500">{intro.subLabel}</p>
-          <h1 className="text-xl font-black leading-tight text-default sm:text-2xl">{scopeLabel}</h1>
+          <h1 className="text-lg font-black leading-tight text-default sm:text-2xl">{scopeLabel}</h1>
           {intro.description && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{intro.description}</p>}
           {(intro.topicCount || intro.questionCount) && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -852,7 +936,7 @@ export default function QuizClient({
         </div>
       )}
 
-      <div className="mb-5">
+      <div className="mb-3 sm:mb-5">
         <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">
           {intro ? <span className="truncate uppercase tracking-widest text-indigo-500">Soru {index + 1}</span> : <span className="truncate uppercase tracking-widest text-indigo-500">{scopeLabel}</span>}
           <span className="flex shrink-0 items-center gap-2">
@@ -895,26 +979,82 @@ export default function QuizClient({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-default bg-surface-elevated p-5 shadow-sm sm:p-6">
-        <span className="mb-3 inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-          {TYPE_LABELS[current.type]}
-        </span>
+      <div className="rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
+        <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
+          <span className="inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+            {TYPE_LABELS[current.type]}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleShare(current)}
+              aria-label="Soruyu paylaş"
+              title="Soruyu paylaş"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+            </button>
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  aria-label="Soruyu düzenle"
+                  title="Soruyu düzenle"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  aria-label="Soruyu sil"
+                  title="Soruyu sil"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-500"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        {shareState === 'copied' && <p className="mb-2 text-xs font-bold text-emerald-500">Bağlantı kopyalandı!</p>}
+        {editSaved && <p className="mb-2 text-xs font-bold text-emerald-500">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
 
         {current.type === 'matching' && (
           <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} onCheck={checkMatching} />
         )}
         {current.type === 'classical' && (
-          <ClassicalView question={current} value={classicalAnswer[current.id] || ''} locked={isAnswered} onChange={setClassicalText} onCheck={checkClassical} />
+          <ClassicalView
+            question={current}
+            value={classicalAnswer[current.id] || ''}
+            locked={isAnswered}
+            explanationRevealed={!!revealedExplanation[current.id]}
+            onChange={setClassicalText}
+            onCheck={checkClassical}
+            onRevealExplanation={() => revealExplanation(current.id)}
+          />
         )}
         {(current.type === 'multiple_choice' || current.type === 'blank') && (
           <OptionsView question={current} selectedId={selection[current.id]} locked={isAnswered} onSelect={selectAnswer} />
         )}
 
         {isAnswered && current.type !== 'classical' && (
-          <div className={`mt-4 rounded-xl border p-4 ${isCorrect ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-rose-400/40 bg-rose-500/10'}`}>
+          <div className={`mt-3 rounded-xl border p-3.5 sm:mt-4 sm:p-4 ${isCorrect ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-rose-400/40 bg-rose-500/10'}`}>
             <p className={`text-sm font-black ${isCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>{feedback[current.id]}</p>
-            {current.type !== 'matching' && current.solution_text && <p className="mt-1.5 text-sm font-medium leading-relaxed text-muted-foreground">{current.solution_text}</p>}
-            {current.type === 'matching' && !isCorrect && (
+            {(current.type === 'matching' || current.solution_text) && !revealedExplanation[current.id] && (
+              <button
+                type="button"
+                onClick={() => revealExplanation(current.id)}
+                className="mt-2 flex items-center gap-1.5 text-xs font-black text-indigo-500 hover:underline"
+              >
+                <Eye className="h-3.5 w-3.5" /> Açıklamayı Göster
+              </button>
+            )}
+            {revealedExplanation[current.id] && current.type !== 'matching' && current.solution_text && (
+              <p className="mt-1.5 text-sm font-medium leading-relaxed text-muted-foreground">{current.solution_text}</p>
+            )}
+            {revealedExplanation[current.id] && current.type === 'matching' && !isCorrect && (
               <ul className="mt-1.5 space-y-1 text-sm font-medium leading-relaxed text-muted-foreground">
                 {current.pairs
                   .filter((p) => matchAssign[current.id]?.[p.id] !== p.id)
@@ -928,12 +1068,12 @@ export default function QuizClient({
           </div>
         )}
 
-        <div className="mt-6 flex items-center gap-2.5">
+        <div className="mt-4 flex items-center gap-2.5 sm:mt-6">
           <button
             type="button"
             onClick={goPrev}
             disabled={index === 0}
-            className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 text-sm font-black text-default transition-all hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 text-sm font-black text-default transition-all hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
           >
             <ArrowLeft className="h-4 w-4" /> Geri
           </button>
@@ -941,12 +1081,52 @@ export default function QuizClient({
             type="button"
             onClick={goNext}
             disabled={!isAnswered}
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
           >
             {index === questions.length - 1 ? 'Testi Bitir' : 'Sonraki Soru'}
           </button>
         </div>
       </div>
+
+      {editOpen && (
+        <QuizQuestionEditModal
+          questionId={current.id}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false);
+            setEditSaved(true);
+            setTimeout(() => setEditSaved(false), 4000);
+          }}
+        />
+      )}
+
+      {confirmDeleteOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-default bg-surface-elevated p-5">
+            <h3 className="text-base font-black text-default">Bu soru silinsin mi?</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">Bu işlem geri alınamaz.</p>
+            {deleteError && <p className="mt-2 text-xs font-bold text-rose-500">{deleteError}</p>}
+            <div className="mt-4 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(false)}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-black text-default disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminDelete}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-black text-white hover:bg-rose-600 disabled:opacity-50"
+              >
+                {deleting ? 'Siliniyor...' : 'Sil'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
