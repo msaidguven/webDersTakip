@@ -96,7 +96,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose, isAuthenticated, u
       {/* User Profile */}
       <div className="p-4 border-t border-default">
         {isAuthenticated ? (
-          <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
+          <Link href="/profil" onClick={onClose} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-default font-semibold">
               {getInitials(userName || '?')}
             </div>
@@ -107,7 +107,7 @@ export function Sidebar({ items, activeItem, isOpen, onClose, isAuthenticated, u
               <p className="text-xs text-muted-foreground">Öğrenci</p>
             </div>
             <Icon name="chevron-right" size={16} className="text-muted-foreground group-hover:text-muted-foreground" />
-          </button>
+          </Link>
         ) : (
           <Link
             href="/login?redirectTo=/panel"

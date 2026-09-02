@@ -41,14 +41,6 @@ export default function ActivityHistoryPage() {
 
   const isLoading = authLoading || (!!user && isFetching);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <PanelShell
       activeItem="home"
@@ -58,7 +50,11 @@ export default function ActivityHistoryPage() {
       subtitle="Geçmişteki tüm test denemelerin."
     >
       <div className="max-w-2xl mx-auto">
-        {!user ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !user ? (
           <AuthPrompt message="Geçmiş çalışmalarını görmek için giriş yap." />
         ) : (
           <ActivityFeed activities={activities} />

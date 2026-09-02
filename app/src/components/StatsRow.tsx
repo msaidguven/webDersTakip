@@ -44,19 +44,6 @@ function StatCard({ stat, index }: StatCardProps) {
           {stat.label}
         </div>
       </div>
-
-      {/* Sparkline placeholder */}
-      <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 opacity-30 hidden sm:block">
-        <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
-          <path 
-            d="M0 20 Q10 15, 15 18 T30 12 T45 15 T60 8" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            fill="none"
-            className="text-default"
-          />
-        </svg>
-      </div>
     </div>
   );
 }

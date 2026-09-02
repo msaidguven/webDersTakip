@@ -112,7 +112,7 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
           title: topicTitle,
           slug: slugify(topicTitle),
           order_no: nextTopicOrder,
-          is_active: false,
+          is_active: true,
           learning_outcome: learningOutcomeText,
         })
         .select('id')

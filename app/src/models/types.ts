@@ -24,22 +24,25 @@ export interface Unit {
   weekNumber: number;
   totalTopics: number;
   totalQuestions: number;
+  solvedQuestions: number;
   progress: number;
-  status: 'locked' | 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed';
   successRate?: number;
   href?: string;
 }
 
-export type TopicProgressStatus = 'not_started' | 'in_progress' | 'completed';
+// Tek satırlık konu ilerlemesi — referans tasarıma göre (bkz. kullanıcının 2026-09-02
+// tarihli ekran görüntüsü). KİLİT YOK: her konu her zaman erişilebilir (bkz. kullanıcıyla
+// "kilitli üniteler" tartışması) — sadece tamamlanma durumu gösterilir.
+export type TopicRowStatus = 'completed' | 'in_progress';
 
 export interface TopicProgress {
   id: string;
   title: string;
-  contentStatus: TopicProgressStatus;
-  // Konunun hiç sorusu yoksa undefined — bu durumda panelde "Sorular" rozeti/butonu hiç gösterilmez.
-  questionStatus?: TopicProgressStatus;
-  contentHref?: string;
-  quizHref?: string;
+  status: TopicRowStatus;
+  progressPercent: number;
+  actionLabel: 'Konu Anlatımı' | 'Soru Çöz';
+  actionHref?: string;
 }
 
 export interface Stat {
@@ -80,8 +83,11 @@ export interface DashboardData {
   srsReview: SRSReview | null;
   units: Unit[];
   recentActivities: Activity[];
+  activeUnitId: string | null;
   activeUnitTitle: string | null;
   activeUnitTopics: TopicProgress[];
+  lessons: { id: string; name: string }[];
+  selectedLessonId: string | null;
 }
 
 // Navigation

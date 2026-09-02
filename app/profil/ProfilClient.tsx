@@ -3,11 +3,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/app/src/context/AuthContext';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
 import { getProfileStats } from '@/app/src/lib/profileStats';
-import { Sidebar } from '@/app/src/components/Sidebar';
-import { TopBar } from '@/app/src/components/TopBar';
-import { navItems } from '@/app/src/data/mockData';
+import { PanelShell } from '@/app/src/components/PanelShell';
+import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 
 interface ProfileRow {
   grade_id: number | null;
@@ -15,17 +15,6 @@ interface ProfileRow {
   district_id: number | null;
   school_id: number | null;
   school_name: string | null;
-}
-
-interface ProfilClientProps {
-  user: {
-    id: string;
-    email: string | undefined;
-    fullName: string;
-    avatarUrl: string | null;
-  };
-  profile: ProfileRow | null;
-  gradeName: string | null;
 }
 
 interface UserStats {
@@ -112,30 +101,57 @@ function MiniStat({ icon, value, label, delay }: { icon: string; value: string |
   );
 }
 
-export default function ProfilClient({ user, profile, gradeName }: ProfilClientProps) {
+export default function ProfilClient() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user: authUser, loading: authLoading, supabase } = useAuth();
 
-  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+  const fullName = (authUser?.user_metadata?.full_name as string | undefined) || 'Öğrenci';
+  const email = authUser?.email;
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [gradeName, setGradeName] = useState<string | null>(null);
 
   useEffect(() => {
+    setAvatarUrl((authUser?.user_metadata?.avatar_url as string | undefined) || null);
+  }, [authUser]);
+
+  // Kabuk (Sidebar/TopBar) auth çözülür çözülmez hemen çizilsin diye stats ve
+  // profil bilgisi ayrı ayrı, arka planda dolduruluyor — sayfanın tamamını bloklayan
+  // tek bir server-side fetch YOK artık (bkz. /api/profile/update GET'i).
+  useEffect(() => {
+    if (!authUser) return;
     let cancelled = false;
-    getProfileStats(supabase, user.id).then((result) => {
+    getProfileStats(supabase, authUser.id).then((result) => {
       if (!cancelled) setStats(result);
     });
     return () => {
       cancelled = true;
     };
-  }, [supabase, user.id]);
+  }, [supabase, authUser]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    let cancelled = false;
+    fetch('/api/profile/update')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { profile: ProfileRow | null; gradeName: string | null } | null) => {
+        if (cancelled || !data) return;
+        setProfile(data.profile);
+        setGradeName(data.gradeName);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !authUser) return;
 
     if (file.size > 2 * 1024 * 1024) {
       alert('Dosya boyutu 2MB\'dan küçük olmalıdır.');
@@ -146,7 +162,7 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
 
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -176,42 +192,28 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
     router.push('/');
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background bg-grid">
-      {/* Glow Effects */}
-      <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
-
-      {/* Sidebar */}
-      <Sidebar
-        items={navItems}
-        activeItem="profile"
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        isAuthenticated
-        userName={user.fullName}
-      />
-
-      {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content Area */}
-      <div className="lg:ml-[280px] min-h-screen flex flex-col">
-        <TopBar
-          notificationCount={0}
-          isAuthenticated
-          userName={user.fullName}
-          title="Profilim"
-          subtitle="Hesap bilgilerini ve performansını yönet."
-          onNotificationClick={() => {}}
-          onMenuClick={() => setSidebarOpen(true)}
-        />
-
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+    <PanelShell
+      activeItem="profile"
+      isAuthenticated={!!authUser}
+      userName={fullName}
+      title="Profilim"
+      subtitle="Hesap bilgilerini ve performansını yönet."
+    >
+      {!authUser ? (
+        <div className="max-w-2xl mx-auto">
+          <AuthPrompt message="Profilini görmek için giriş yap." />
+        </div>
+      ) : (
+        <>
       <div className="relative pb-10 px-4 sm:px-8 overflow-hidden rounded-2xl border border-default mb-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent" />
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl" />
@@ -228,7 +230,7 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
                       <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <span className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                        {user.email?.[0]?.toUpperCase() || 'U'}
+                        {email?.[0]?.toUpperCase() || 'U'}
                       </span>
                     )}
                   </div>
@@ -250,8 +252,8 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
               </div>
 
               <div className="flex-1 text-center sm:text-left min-w-0">
-                <h2 className="text-2xl font-bold text-default mb-1 truncate">{user.fullName}</h2>
-                <p className="text-muted-foreground mb-3 truncate">{user.email}</p>
+                <h2 className="text-2xl font-bold text-default mb-1 truncate">{fullName}</h2>
+                <p className="text-muted-foreground mb-3 truncate">{email}</p>
                 <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                   <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
                     {gradeName ? `${gradeName}` : 'Sınıf belirtilmemiş'}
@@ -323,11 +325,11 @@ export default function ProfilClient({ user, profile, gradeName }: ProfilClientP
         )}
 
         {/* Okul Bilgileri */}
-        <SchoolInfoCard initialProfile={profile} />
+        <SchoolInfoCard key={profile ? 'ready' : 'loading'} initialProfile={profile} />
       </div>
-        </main>
-      </div>
-    </div>
+        </>
+      )}
+    </PanelShell>
   );
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../src/context/AuthContext';
 import { PanelShell } from '../src/components/PanelShell';
 import { AuthPrompt } from '../src/components/AuthPrompt';
+import { getProfileStats } from '../src/lib/profileStats';
 
 interface Progress {
   totalQuestions: number;
@@ -18,6 +19,11 @@ export default function ProgressPage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [isFetching, setIsFetching] = useState(true);
 
+  // Toplam soru/doğru/yanlış artık profildeki (ve panelin geri kalanındaki) AYNI kaynaktan
+  // (test_session_answers, getProfileStats) hesaplanıyor — daha önce burada ayrıca
+  // user_question_stats.correct_attempts/wrong_attempts toplanıyordu, bu da profil sayfasıyla
+  // aynı "toplam soru" iddiasında olup FARKLI bir tablodan (ve farklı bir bakım/senkron
+  // yolundan) geldiği için sayılar tutmuyordu (bkz. kullanıcıyla 2026-09-02 tartışması).
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -25,22 +31,17 @@ export default function ProgressPage() {
     async function load() {
       setIsFetching(true);
       try {
-        const [{ data: statsData }, { data: profile }] = await Promise.all([
-          supabase.from('user_question_stats').select('correct_attempts, wrong_attempts').eq('user_id', user!.id),
+        const [stats, { data: profile }] = await Promise.all([
+          getProfileStats(supabase, user!.id),
           supabase.from('profiles').select('full_name').eq('id', user!.id).maybeSingle(),
         ]);
         if (cancelled) return;
 
-        const stats = (statsData as { correct_attempts: number | null; wrong_attempts: number | null }[] | null) || [];
-        const totalCorrect = stats.reduce((sum, s) => sum + (s.correct_attempts || 0), 0);
-        const totalWrong = stats.reduce((sum, s) => sum + (s.wrong_attempts || 0), 0);
-        const total = totalCorrect + totalWrong;
-
         setProgress({
-          totalQuestions: total,
-          correctAnswers: totalCorrect,
-          wrongAnswers: totalWrong,
-          accuracy: total > 0 ? Math.round((totalCorrect / total) * 100) : 0,
+          totalQuestions: stats.totalQuestions,
+          correctAnswers: stats.correctAnswers,
+          wrongAnswers: stats.totalQuestions - stats.correctAnswers,
+          accuracy: stats.accuracy,
         });
         setFullName((profile as { full_name: string | null } | null)?.full_name ?? null);
       } finally {
@@ -56,14 +57,6 @@ export default function ProgressPage() {
 
   const isLoading = authLoading || (!!user && isFetching);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <PanelShell
       activeItem="stats"
@@ -73,7 +66,11 @@ export default function ProgressPage() {
       subtitle="Bugüne kadar çözdüğün tüm soruların özeti."
     >
       <div className="max-w-4xl mx-auto">
-        {!user || !progress ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !user || !progress ? (
           <AuthPrompt message="İstatistiklerini görmek için giriş yap." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">

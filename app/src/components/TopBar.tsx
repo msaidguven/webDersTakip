@@ -41,16 +41,6 @@ export function TopBar({ notificationCount, streak, isAuthenticated, userName, t
 
       {/* Right - Actions */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Search - Hidden on mobile */}
-        <div className="hidden sm:block relative">
-          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <input
-            type="text"
-            placeholder="Ara..."
-            className="w-48 lg:w-64 bg-surface border border-default rounded-xl py-2.5 pl-10 pr-4 text-sm text-default placeholder-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
-          />
-        </div>
-
         {/* Streak Badge */}
         {!isAuthenticated ? (
           <Link

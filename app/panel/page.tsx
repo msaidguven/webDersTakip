@@ -3,21 +3,27 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useDashboardViewModel } from '../src/viewmodels/useDashboardViewModel';
-import { Sidebar } from '../src/components/Sidebar';
-import { TopBar } from '../src/components/TopBar';
+import { PanelShell } from '../src/components/PanelShell';
 import { StatsRow } from '../src/components/StatsRow';
 import { SRSWidget } from '../src/components/SRSWidget';
-import { ProgressCard } from '../src/components/ProgressCard';
 import { WeeklyProgress } from '../src/components/WeeklyProgress';
 import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { LeaderboardCard } from '../src/components/LeaderboardCard';
 import { TopicProgressList } from '../src/components/TopicProgressList';
-import { navItems } from '../src/data/mockData';
+import { ProgressRowList } from '../src/components/ProgressRowList';
+
+type UnitFilter = 'all' | 'in_progress' | 'completed';
+
+const UNIT_FILTERS: { id: UnitFilter; label: string }[] = [
+  { id: 'all', label: 'Tümü' },
+  { id: 'in_progress', label: 'Devam Edenler' },
+  { id: 'completed', label: 'Tamamlananlar' },
+];
 
 export default function PanelPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unitFilter, setUnitFilter] = useState<UnitFilter>('all');
   const {
     data,
     selectedWeekId,
@@ -26,60 +32,31 @@ export default function PanelPage() {
     notificationCount,
     unitsContext,
     canShiftWeekWindow,
+    isSwitchingLesson,
     selectWeek,
     shiftWeekWindow,
-    handleUnitClick,
+    selectLesson,
     handleSRSReview,
     handleStartQuiz,
     markNotificationRead,
   } = useDashboardViewModel();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background bg-grid">
-      {/* Glow Effects */}
-      <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
-      
-      {/* Sidebar */}
-      <Sidebar
-        items={navItems}
-        activeItem="home"
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        isAuthenticated={isAuthenticated}
-        userName={data.user.name}
-      />
-
-      {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content Area */}
-      <div className="lg:ml-[280px] min-h-screen flex flex-col">
-        {/* Top Bar */}
-        <TopBar
-          notificationCount={notificationCount}
-          streak={data.user.streak}
-          isAuthenticated={isAuthenticated}
-          userName={data.user.name}
-          onNotificationClick={markNotificationRead}
-          onMenuClick={() => setSidebarOpen(true)}
-          onStartQuiz={handleStartQuiz}
-        />
-
-        {/* Dashboard Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 relative">
+    <PanelShell
+      activeItem="home"
+      isAuthenticated={isAuthenticated}
+      userName={data.user.name}
+      streak={data.user.streak}
+      notificationCount={notificationCount}
+      onNotificationClick={markNotificationRead}
+      onStartQuiz={handleStartQuiz}
+    >
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
           {/* Welcome Section */}
           <div className="mb-6 sm:mb-8">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-default mb-2">
@@ -131,6 +108,27 @@ export default function PanelPage() {
 
               {/* Units Section */}
               <div id="uniteler" className="scroll-mt-24">
+                {/* Ders sekmeleri — panel eskiden sadece en son pratik yapılan tek dersi
+                    gösteriyordu, artık sınıftaki tüm dersler arasında geçiş yapılabiliyor. */}
+                {data.lessons.length > 1 && (
+                  <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 -mx-1 px-1 mb-3">
+                    {data.lessons.map((lesson) => (
+                      <button
+                        key={lesson.id}
+                        onClick={() => selectLesson(lesson.id)}
+                        disabled={isSwitchingLesson}
+                        className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors rounded-lg whitespace-nowrap border disabled:opacity-60 ${
+                          data.selectedLessonId === lesson.id
+                            ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                            : 'bg-surface text-muted-foreground border-default hover:text-default hover:bg-white/5'
+                        }`}
+                      >
+                        {lesson.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-default">Üniteler</h2>
@@ -141,30 +139,52 @@ export default function PanelPage() {
                     )}
                   </div>
                   <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-1 px-1 sm:mx-0 sm:px-0">
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted-foreground hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
-                      Tümü
-                    </button>
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted-foreground hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
-                      Devam Edenler
-                    </button>
-                    <button className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted-foreground hover:text-default transition-colors rounded-lg hover:bg-white/5 whitespace-nowrap">
-                      Tamamlananlar
-                    </button>
-                  </div>
-                </div>
-                
-                {!isAuthenticated ? (
-                  <AuthPrompt message="Ünitelerini ve ilerlemeni görmek için giriş yap." />
-                ) : data.units.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    {data.units.map((unit) => (
-                      <ProgressCard
-                        key={unit.id}
-                        unit={unit}
-                        onClick={() => handleUnitClick(unit.id)}
-                      />
+                    {UNIT_FILTERS.map((filter) => (
+                      <button
+                        key={filter.id}
+                        onClick={() => setUnitFilter(filter.id)}
+                        className={`px-3 sm:px-4 py-2 text-xs sm:text-sm transition-colors rounded-lg whitespace-nowrap ${
+                          unitFilter === filter.id
+                            ? 'bg-primary/10 text-indigo-400 border border-primary/20'
+                            : 'text-muted-foreground hover:text-default hover:bg-white/5'
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
                     ))}
                   </div>
+                </div>
+
+                {!isAuthenticated ? (
+                  <AuthPrompt message="Ünitelerini ve ilerlemeni görmek için giriş yap." />
+                ) : isSwitchingLesson ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : data.units.length > 0 ? (
+                  (() => {
+                    const filteredUnits =
+                      unitFilter === 'all' ? data.units : data.units.filter((u) => u.status === unitFilter);
+                    return filteredUnits.length > 0 ? (
+                      <ProgressRowList
+                        rows={filteredUnits.map((unit) => ({
+                          id: unit.id,
+                          title: unit.title,
+                          subtitle: unit.subtitle,
+                          status: unit.status,
+                          progressPercent: unit.progress,
+                          actionLabel: 'Test Çöz',
+                          actionHref: unit.href,
+                        }))}
+                      />
+                    ) : (
+                      <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 text-center">
+                        <p className="text-muted-foreground text-sm">
+                          {unitFilter === 'in_progress' ? 'Devam eden ünite yok.' : 'Henüz tamamlanan ünite yok.'}
+                        </p>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 text-center">
                     <p className="text-default font-medium mb-1">Henüz bir derse başlamadın</p>
@@ -182,9 +202,20 @@ export default function PanelPage() {
               </div>
 
               {/* Devam Edilen Konular (aktif ünite) */}
-              {isAuthenticated && data.activeUnitTopics.length > 0 && (
-                <TopicProgressList unitTitle={data.activeUnitTitle} topics={data.activeUnitTopics} />
-              )}
+              {isAuthenticated && !isSwitchingLesson && data.activeUnitTopics.length > 0 && (() => {
+                const activeUnit = data.units.find((u) => u.id === data.activeUnitId);
+                return (
+                  <TopicProgressList
+                    unitTitle={data.activeUnitTitle}
+                    topics={data.activeUnitTopics}
+                    unitTest={
+                      activeUnit
+                        ? { href: activeUnit.href, solvedQuestions: activeUnit.solvedQuestions, totalQuestions: activeUnit.totalQuestions }
+                        : undefined
+                    }
+                  />
+                );
+              })()}
             </div>
 
             {/* Right Column - Weekly & Activity (1/3) */}
@@ -215,8 +246,8 @@ export default function PanelPage() {
             </p>
             <p className="text-muted-foreground text-xs sm:text-sm mt-2">— Benjamin Franklin</p>
           </div>
-        </main>
-      </div>
-    </div>
+        </>
+      )}
+    </PanelShell>
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardData, Stat } from '../models/types';
 import { useAuth } from '../context/AuthContext';
-import { getDashboardUnitsData, buildWeekWindow } from '../lib/dashboardUnits';
+import { getDashboardUnitsData, getUnitsForLesson, buildWeekWindow } from '../lib/dashboardUnits';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats } from '../lib/dashboardStats';
@@ -31,8 +31,11 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   srsReview: null,
   units: [],
   recentActivities: [],
+  activeUnitId: null,
   activeUnitTitle: null,
   activeUnitTopics: [],
+  lessons: [],
+  selectedLessonId: null,
 };
 
 interface UseDashboardViewModelReturn {
@@ -44,11 +47,12 @@ interface UseDashboardViewModelReturn {
   notificationCount: number;
   unitsContext: { lessonName: string | null; gradeName: string | null } | null;
   canShiftWeekWindow: { prev: boolean; next: boolean };
+  isSwitchingLesson: boolean;
 
   // Actions
   selectWeek: (weekId: number) => void;
   shiftWeekWindow: (direction: 1 | -1) => void;
-  handleUnitClick: (unitId: string) => void;
+  selectLesson: (lessonId: string) => void;
   handleSRSReview: () => void;
   handleStartQuiz: () => void;
   refreshData: () => Promise<void>;
@@ -72,6 +76,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // durum olan 0'dan başlıyor. Bildirimler gerçek bir kaynağa bağlanana kadar hep 0 kalacak.
   const [notificationCount, setNotificationCount] = useState(0);
   const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
+  // selectLesson'ın hangi sınıf için ünite çekeceğini bilmesi için — profildeki grade_id
+  // boş olabileceğinden (bkz. getDashboardUnitsData) test_sessions'tan türetilen gerçek
+  // sınıf id'si ayrıca tutuluyor.
+  const [unitsGradeId, setUnitsGradeId] = useState<number | null>(null);
+  const [isSwitchingLesson, setIsSwitchingLesson] = useState(false);
   // refreshData tarafından artırılır — efekt buna da bağlı olduğu için manuel yenileme,
   // effect'i kopyalamadan aynı yükleme mantığını tekrar çalıştırır.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -122,8 +131,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
             dailyProgress: todayQuestionCount,
           },
           units: unitsResult?.units ?? [],
+          activeUnitId: unitsResult?.activeUnitId ?? null,
           activeUnitTitle: unitsResult?.activeUnitTitle ?? null,
           activeUnitTopics: unitsResult?.activeUnitTopics ?? [],
+          lessons: unitsResult?.lessons ?? [],
+          selectedLessonId: unitsResult?.selectedLessonId ?? null,
           weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
           srsReview: buildSrsReview(dueSrsCount),
@@ -134,6 +146,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         setUnitsContext(
           unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null
         );
+        setUnitsGradeId(unitsResult?.gradeId ?? null);
       } finally {
         if (!cancelled) setIsFetching(false);
       }
@@ -175,12 +188,44 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     next: weekWindowStart + 5 <= totalWeeks,
   };
 
-  const handleUnitClick = useCallback((unitId: string) => {
-    const unit = data.units.find(u => u.id === unitId);
-    if (unit && unit.status !== 'locked' && unit.href) {
-      router.push(unit.href);
-    }
-  }, [data.units, router]);
+  // Hızlı art arda sekme tıklamalarında, eski (geç dönen) bir isteğin sonucu yeni seçilen
+  // dersin üstüne yazmasın diye — her çağrı kendi id'sini damgalar, sadece EN SON çağrı
+  // sonucu uygulanır.
+  const lessonRequestRef = useRef(0);
+
+  // Panelin ders sekmelerinden birine tıklayınca: aynı sınıf içinde, sadece o dersin
+  // ünite listesini/aktif konu ilerlemesini yeniden çeker (test_sessions'a hiç dokunmaz —
+  // "en son pratik yapılan ders" varsayımı sadece İLK yüklemede kullanılıyor).
+  const selectLesson = useCallback((lessonId: string) => {
+    if (!user || !unitsGradeId || lessonId === data.selectedLessonId) return;
+    const numericLessonId = Number(lessonId);
+    if (!Number.isFinite(numericLessonId)) return;
+
+    const requestId = ++lessonRequestRef.current;
+    setIsSwitchingLesson(true);
+    getUnitsForLesson(supabase, user.id, numericLessonId, unitsGradeId)
+      .then((result) => {
+        if (lessonRequestRef.current !== requestId) return;
+        const nextWindowStart = Math.max(1, result.currentWeek - 1);
+        setTotalWeeks(result.totalWeeks);
+        setWeekWindowStart(nextWindowStart);
+        setSelectedWeekId(result.currentWeek);
+        setUnitsContext({ lessonName: result.lessonName, gradeName: result.gradeName });
+        setData((prev) => ({
+          ...prev,
+          units: result.units,
+          activeUnitId: result.activeUnitId,
+          activeUnitTitle: result.activeUnitTitle,
+          activeUnitTopics: result.activeUnitTopics,
+          selectedLessonId: lessonId,
+          weeks: buildWeekWindow(nextWindowStart, result.currentWeek, result.totalWeeks),
+          currentWeekId: result.currentWeek,
+        }));
+      })
+      .finally(() => {
+        if (lessonRequestRef.current === requestId) setIsSwitchingLesson(false);
+      });
+  }, [user, supabase, unitsGradeId, data.selectedLessonId]);
 
   const handleSRSReview = useCallback(() => {
     router.push('/tekrar');
@@ -207,11 +252,12 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     unitsContext,
     notificationCount,
     canShiftWeekWindow,
+    isSwitchingLesson,
 
     // Actions
     selectWeek,
     shiftWeekWindow,
-    handleUnitClick,
+    selectLesson,
     handleSRSReview,
     handleStartQuiz,
     refreshData,

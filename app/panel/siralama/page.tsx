@@ -26,14 +26,6 @@ export default function LeaderboardPage() {
     };
   }, [user, supabase]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <PanelShell
       activeItem="home"
@@ -43,7 +35,11 @@ export default function LeaderboardPage() {
       subtitle="Sınıfındaki (aynı sınıf seviyesindeki) herkesle bu hafta çözdüğün soru sayısına göre karşılaştırma."
     >
       <div className="max-w-2xl mx-auto">
-        {!user ? (
+        {authLoading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !user ? (
           <AuthPrompt message="Sıralamanı görmek için giriş yap." />
         ) : (
           <LeaderboardCard limit={100} showSeeAll={false} />

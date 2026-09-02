@@ -1158,7 +1158,7 @@ function TymmUnitEditor({
                           ),
                         }));
                       }}
-                      className="w-8 flex-shrink-0 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono outline-none focus:border-indigo-400 text-center"
+                      className="w-16 flex-shrink-0 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono outline-none focus:border-indigo-400 text-center"
                     />
                     <textarea
                       value={comp.text}

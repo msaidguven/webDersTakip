@@ -121,6 +121,14 @@ function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; 
   const outcomes: RawLearningOutcome[] = [];
   const unmatched: string[] = [];
 
+  // Türkçe temaları gibi ("Süreç Detaylı Öğretim Programı") bazı derslerde a)/b)/c) süreç
+  // bileşeni hiç yok — bunun yerine düz bir "beceri alanı" başlığı (ör. "Dinleme/İzleme",
+  // "Okuma") altında birden fazla kod art arda sıralanıyor. Böyle bir başlık gördüğümüzde
+  // "grup modu"na geçip sonraki kodları, o başlık konu (topic) olacak şekilde onun süreç
+  // bileşeni gibi ekliyoruz — aksi halde her kod kendi başına bir konu olur ama hiç
+  // kazanımı (outcomes satırı) olmaz, çünkü DB'ye yazılan kazanımlar components'ten gelir.
+  let activeGroup: RawLearningOutcome | null = null;
+
   for (const rawLine of lines) {
     const plain = plainText(rawLine);
     if (!plain) continue;
@@ -135,16 +143,35 @@ function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; 
     }
 
     // Öğrenme çıktısı/çıktıları: "FB.5.7.1.1. metin" gibi bir veya daha fazla kodla
-    // başlar — satırda kaç kod varsa metni o kadar öğrenme çıktısına bölüyoruz.
+    // başlar — satırda kaç kod varsa metni o kadar parçaya bölüyoruz.
     const codeMatches = [...plain.matchAll(OUTCOME_CODE_GLOBAL_RE)];
     if (codeMatches.length && codeMatches[0].index === 0) {
-      for (let i = 0; i < codeMatches.length; i++) {
-        const m = codeMatches[i];
-        const titleStart = m.index! + m[0].length;
-        const titleEnd = i + 1 < codeMatches.length ? codeMatches[i + 1].index! : plain.length;
-        const title = plain.slice(titleStart, titleEnd).trim();
-        if (title) outcomes.push({ code: m[1], title, components: [] });
+      const segments = codeMatches
+        .map((m, i) => {
+          const textStart = m.index! + m[0].length;
+          const textEnd = i + 1 < codeMatches.length ? codeMatches[i + 1].index! : plain.length;
+          return { code: m[1], text: plain.slice(textStart, textEnd).trim() };
+        })
+        .filter((s) => s.text);
+
+      if (activeGroup) {
+        for (const s of segments) activeGroup.components.push({ letter: s.code, text: s.text });
+      } else if (segments.length === 1) {
+        outcomes.push({ code: segments[0].code, title: segments[0].text, components: [] });
+      } else if (segments.length > 1) {
+        // Grup başlığı görmeden aynı satırda birden fazla kod — beklenmedik ama veriyi
+        // kaybetmemek için ilk kodu başlık, gerisini süreç bileşeni gibi ekliyoruz.
+        const [first, ...rest] = segments;
+        outcomes.push({ code: first.code, title: first.text, components: rest.map((s) => ({ letter: s.code, text: s.text })) });
       }
+      continue;
+    }
+
+    // Sadece kalın (<strong>) ve kısa bir satır — süreç bileşeni içermeyen düz kod
+    // listesi formatlarındaki "beceri alanı" başlığı.
+    if (plain.length <= 40 && /^<strong>[\s\S]*<\/strong>$/i.test(rawLine)) {
+      activeGroup = { code: '', title: plain, components: [] };
+      outcomes.push(activeGroup);
       continue;
     }
 
