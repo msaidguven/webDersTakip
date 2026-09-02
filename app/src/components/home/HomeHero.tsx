@@ -10,7 +10,7 @@ export function HomeHero({ isAuthenticated }: { isAuthenticated: boolean }) {
           🎓 MEB Müfredatına Uygun
         </span>
         <h1 className="mb-3 text-3xl font-black tracking-tight text-default sm:mb-4 sm:text-5xl">
-          Öğrenmek hiç bu kadar <span className="gradient-text">kolay</span>! 🚀
+          Öğrenmek hiç bu kadar <span className="gradient-text">kolay olmamıştı</span>! 🚀
         </h1>
         <p className="mx-auto mb-6 max-w-xl text-sm text-muted-foreground sm:mb-8 sm:text-lg lg:mx-0">
           5. sınıftan 12. sınıfa kadar tüm dersler, konular, soru çözümleri ve daha fazlası seni bekliyor.

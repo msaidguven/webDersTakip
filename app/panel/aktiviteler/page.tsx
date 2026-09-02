@@ -43,7 +43,6 @@ export default function ActivityHistoryPage() {
 
   return (
     <PanelShell
-      activeItem="home"
       isAuthenticated={!!user}
       userName={fullName || 'Öğrenci'}
       title="Tüm Aktivitelerin"

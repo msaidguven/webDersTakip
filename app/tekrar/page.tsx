@@ -54,7 +54,7 @@ export default async function SrsReviewPage() {
       exitLabel="Panele Dön"
       initialQuestions={initialQuestions}
       reloadEndpoint="/api/srs-review-questions"
-      timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
+      secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
       intro={{
         subLabel: 'Aralıklı Tekrar',
         description: 'Bu sorular daha önce çözdüğün ve tekrar zamanı gelen sorular — hatırlamanı pekiştirmek için tam zamanı.',

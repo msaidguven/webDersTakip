@@ -5,6 +5,15 @@ import Link from 'next/link';
 import { Activity } from '../models/types';
 import { Icon, getIconColorClasses } from './icons';
 
+function ChevronLink({ href, children, className }: { href: string; children: React.ReactNode; className: string }) {
+  return (
+    <Link href={href} className={`group/link inline-flex items-center gap-1 ${className}`}>
+      {children}
+      <Icon name="chevron-right" size={14} className="transition-transform group-hover/link:translate-x-0.5" />
+    </Link>
+  );
+}
+
 function formatRelativeTime(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - new Date(date).getTime();
@@ -46,23 +55,21 @@ function ActivityItem({ activity }: ActivityItemProps) {
         <h4 className="font-medium text-default group-hover:text-indigo-400 transition-colors truncate text-sm sm:text-base">
           {activity.title}
         </h4>
-        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground mt-0.5">
-          <span>{formatRelativeTime(activity.timestamp)}</span>
-          <span>•</span>
-          <span>{activity.questionCount} soru</span>
-          <span>•</span>
-          <span>{activity.durationMinutes} dk</span>
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs sm:text-sm text-muted-foreground mt-0.5">
+          <span className="whitespace-nowrap">{formatRelativeTime(activity.timestamp)}</span>
+          <span className="whitespace-nowrap">• {activity.questionCount} soru</span>
+          <span className="whitespace-nowrap">• {activity.durationMinutes} dk</span>
         </div>
       </div>
 
       {/* Score Badge / Resume Button */}
       {isResumable ? (
-        <Link
+        <ChevronLink
           href={activity.resumeHref!}
           className="shrink-0 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
         >
-          Devam Et →
-        </Link>
+          Devam Et
+        </ChevronLink>
       ) : (
         <div className={`shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold border ${scoreClass}`}>
           %{activity.score}
@@ -84,9 +91,12 @@ export function ActivityFeed({ activities, seeAllHref }: ActivityFeedProps) {
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-default flex items-center justify-between">
         <h3 className="font-semibold text-default text-sm sm:text-base">Son Aktiviteler</h3>
         {seeAllHref && (
-          <Link href={seeAllHref} className="text-xs sm:text-sm text-muted-foreground hover:text-indigo-400 transition-colors">
-            Tümünü Gör →
-          </Link>
+          <ChevronLink
+            href={seeAllHref}
+            className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-indigo-400 transition-colors"
+          >
+            Tümünü Gör
+          </ChevronLink>
         )}
       </div>
 

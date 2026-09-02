@@ -28,7 +28,6 @@ export default function LeaderboardPage() {
 
   return (
     <PanelShell
-      activeItem="home"
       isAuthenticated={!!user}
       userName={fullName || 'Öğrenci'}
       title="Haftalık Sıralama"

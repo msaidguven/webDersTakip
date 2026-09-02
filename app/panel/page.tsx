@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useDashboardViewModel } from '../src/viewmodels/useDashboardViewModel';
 import { PanelShell } from '../src/components/PanelShell';
 import { StatsRow } from '../src/components/StatsRow';
@@ -22,8 +23,10 @@ const UNIT_FILTERS: { id: UnitFilter; label: string }[] = [
   { id: 'completed', label: 'Tamamlananlar' },
 ];
 
-export default function PanelPage() {
+function PanelPageContent() {
   const [unitFilter, setUnitFilter] = useState<UnitFilter>('all');
+  const searchParams = useSearchParams();
+  const lessonParam = searchParams.get('lesson');
   const {
     data,
     selectedWeekId,
@@ -41,9 +44,16 @@ export default function PanelPage() {
     markNotificationRead,
   } = useDashboardViewModel();
 
+  // Sidebar'daki ders linkleri /panel?lesson=<id>'ye yönlendiriyor — panel anasayfasındaki
+  // eski ders sekmeleri kaldırıldığı için ünite/konu listesini o dersle güncelleyen tetikleyici
+  // artık burası. isLoading bitmeden selectLesson'ın ihtiyaç duyduğu sınıf bağlamı hazır olmuyor.
+  useEffect(() => {
+    if (!lessonParam || isLoading) return;
+    selectLesson(lessonParam);
+  }, [lessonParam, isLoading, selectLesson]);
+
   return (
     <PanelShell
-      activeItem="home"
       isAuthenticated={isAuthenticated}
       userName={data.user.name}
       streak={data.user.streak}
@@ -58,17 +68,44 @@ export default function PanelPage() {
       ) : (
         <>
           {/* Welcome Section */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-default mb-2">
-              {isAuthenticated ? (
-                <>Tekrar Hoşgeldin, <span className="gradient-text">{data.user.name}</span>! 👋</>
-              ) : (
-                <>Kişisel <span className="gradient-text">panelin</span> seni bekliyor 👋</>
+          <div className="relative overflow-hidden mb-6 sm:mb-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-500/15 via-purple-500/10 to-pink-500/10 border border-default p-5 sm:p-8">
+            <div className="absolute -right-16 -top-16 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
+            <div className="absolute -left-12 -bottom-12 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl" />
+            <div className="relative">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-default mb-2">
+                {isAuthenticated ? (
+                  <>Tekrar Hoşgeldin, <span className="gradient-text">{data.user.name}</span>! 👋</>
+                ) : (
+                  <>Kişisel <span className="gradient-text">panelin</span> seni bekliyor 👋</>
+                )}
+              </h1>
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
+                Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
+              </p>
+
+              {/* Kaldırılan /progress sayfasının genel özeti artık burada — bkz. kullanıcıyla
+                  2026-09-02 tartışması: "istatistik sayfasını kaldır yerine ... buraya sığdır" */}
+              {isAuthenticated && data.overallStats && (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-white/10">
+                  <div>
+                    <div className="text-lg sm:text-xl font-bold text-default">{data.overallStats.totalQuestions}</div>
+                    <div className="text-[11px] sm:text-xs text-muted-foreground">Toplam Soru</div>
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-xl font-bold text-emerald-400">{data.overallStats.correctAnswers}</div>
+                    <div className="text-[11px] sm:text-xs text-muted-foreground">Doğru</div>
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-xl font-bold text-rose-400">{data.overallStats.wrongAnswers}</div>
+                    <div className="text-[11px] sm:text-xs text-muted-foreground">Yanlış</div>
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-xl font-bold text-indigo-400">%{data.overallStats.accuracy}</div>
+                    <div className="text-[11px] sm:text-xs text-muted-foreground">Başarı Oranı</div>
+                  </div>
+                </div>
               )}
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
-              Bugün öğrenme hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!
-            </p>
+            </div>
           </div>
 
           {isAuthenticated ? (
@@ -85,6 +122,9 @@ export default function PanelPage() {
 
               {/* Stats Row */}
               <div className="mb-6 sm:mb-8">
+                <h2 className="text-sm sm:text-base font-semibold text-default mb-3 sm:mb-4">
+                  Bugünkü İstatistiklerin
+                </h2>
                 <StatsRow stats={data.stats} />
               </div>
             </>
@@ -108,27 +148,6 @@ export default function PanelPage() {
 
               {/* Units Section */}
               <div id="uniteler" className="scroll-mt-24">
-                {/* Ders sekmeleri — panel eskiden sadece en son pratik yapılan tek dersi
-                    gösteriyordu, artık sınıftaki tüm dersler arasında geçiş yapılabiliyor. */}
-                {data.lessons.length > 1 && (
-                  <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 -mx-1 px-1 mb-3">
-                    {data.lessons.map((lesson) => (
-                      <button
-                        key={lesson.id}
-                        onClick={() => selectLesson(lesson.id)}
-                        disabled={isSwitchingLesson}
-                        className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors rounded-lg whitespace-nowrap border disabled:opacity-60 ${
-                          data.selectedLessonId === lesson.id
-                            ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                            : 'bg-surface text-muted-foreground border-default hover:text-default hover:bg-white/5'
-                        }`}
-                      >
-                        {lesson.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-default">Üniteler</h2>
@@ -229,6 +248,7 @@ export default function PanelPage() {
                 onNextWeeks={() => shiftWeekWindow(1)}
                 canGoPrev={canShiftWeekWindow.prev}
                 canGoNext={canShiftWeekWindow.next}
+                activeDays={data.weeklyActiveDays}
               />
 
               {/* Activity Feed */}
@@ -249,5 +269,19 @@ export default function PanelPage() {
         </>
       )}
     </PanelShell>
+  );
+}
+
+export default function PanelPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <PanelPageContent />
+    </Suspense>
   );
 }

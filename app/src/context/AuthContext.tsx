@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { SupabaseClient, User } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
 interface AuthContextType {
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [supabase] = useState(() => createClient());
+  const router = useRouter();
 
   const clearSession = async () => {
     // Local storage'daki token'ları temizle
@@ -87,10 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Oturum sonlandıysa veya refresh token hatası varsa
+        // Oturum sonlandıysa veya refresh token hatası varsa. router.refresh() ile
+        // App Router'ın istemci tarafı segment önbelleği temizlenmezse, çıkış
+        // yapıldıktan sonra sayfayı yenilemeden gezinen kullanıcı hâlâ önceki
+        // oturumdan kalan (önbelleklenmiş) ekranı görmeye devam edebiliyordu.
         if (event === 'SIGNED_OUT') {
           await clearSession();
           setLoading(false);
+          router.refresh();
           return;
         }
 
@@ -108,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, router]);
 
   return (
     <AuthContext.Provider

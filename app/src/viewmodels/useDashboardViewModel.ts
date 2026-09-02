@@ -7,15 +7,18 @@ import { useAuth } from '../context/AuthContext';
 import { getDashboardUnitsData, getUnitsForLesson, buildWeekWindow } from '../lib/dashboardUnits';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
-import { getTodayStats } from '../lib/dashboardStats';
-import { getCurrentStreak, getTodayQuestionCount, DAILY_GOAL_QUESTIONS } from '../lib/dashboardStreak';
+import { getTodayStats, getOverallStats } from '../lib/dashboardStats';
+import { getCurrentStreak, getTodayQuestionCount, getWeeklyActiveDays, DAILY_GOAL_QUESTIONS } from '../lib/dashboardStreak';
 
 const EMPTY_STATS: Stat[] = [
   { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
+  { id: 'wrong-today', icon: 'x-circle', iconColor: 'rose', value: 0, label: 'Yanlış Cevap' },
   { id: 'minutes-today', icon: 'clock', iconColor: 'pink', value: 0, label: 'Dakika' },
   { id: 'success-rate-today', icon: 'trophy', iconColor: 'teal', value: '0%', label: 'Başarı Oranı' },
   { id: 'srs-due-count', icon: 'redo', iconColor: 'orange', value: 0, label: 'Tekrar Gerekli' },
 ];
+
+const EMPTY_WEEKLY_ACTIVE_DAYS: boolean[] = new Array(7).fill(false);
 
 const DEFAULT_TOTAL_WEEKS = 38;
 
@@ -27,7 +30,9 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   user: { id: '', name: '', email: '', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
   weeks: [],
   currentWeekId: 0,
+  weeklyActiveDays: EMPTY_WEEKLY_ACTIVE_DAYS,
   stats: EMPTY_STATS,
+  overallStats: null,
   srsReview: null,
   units: [],
   recentActivities: [],
@@ -89,7 +94,16 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
   // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi.
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Çıkış yapıldığında önceki kullanıcının verisi (isim, ünite, istatistik...)
+      // yeni bir fetch tetiklenene kadar state'te kalıp isAuthenticated=false
+      // ekranıyla birlikte yanlışlıkla gösterilebiliyordu — burada sıfırlanıyor.
+      setData(EMPTY_DASHBOARD_DATA);
+      setUnitsContext(null);
+      setUnitsGradeId(null);
+      setSelectedWeekId(0);
+      return;
+    }
 
     let cancelled = false;
 
@@ -105,12 +119,14 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         const gradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
         const fullName = (profile as { full_name: string | null } | null)?.full_name ?? null;
 
-        const [unitsResult, dueSrsCount, recentActivities, streak, todayQuestionCount] = await Promise.all([
+        const [unitsResult, dueSrsCount, recentActivities, streak, todayQuestionCount, weeklyActiveDays, overallStats] = await Promise.all([
           getDashboardUnitsData(supabase, user!.id, gradeId),
           getDueSrsCount(supabase, user!.id, gradeId),
           getRecentActivities(supabase, user!.id),
           getCurrentStreak(supabase, user!.id),
           getTodayQuestionCount(supabase, user!.id),
+          getWeeklyActiveDays(supabase, user!.id),
+          getOverallStats(supabase, user!.id),
         ]);
         const stats = await getTodayStats(supabase, user!.id, dueSrsCount);
 
@@ -138,6 +154,8 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
           selectedLessonId: unitsResult?.selectedLessonId ?? null,
           weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
+          weeklyActiveDays,
+          overallStats,
           srsReview: buildSrsReview(dueSrsCount),
           recentActivities,
           stats,

@@ -78,3 +78,34 @@ export async function getCurrentStreak(
   }
   return streak;
 }
+
+// Haftalık İlerleme kartındaki gün kutucukları eskiden hardcoded'di (ilk 5 gün her zaman
+// "tamamlandı" gösteriliyordu, bkz. kullanıcıyla 2026-09-02 tartışması) — burada bu haftanın
+// (Pazartesi'den bugüne) her günü için gerçekten soru çözülüp çözülmediğini döndürüyoruz.
+// Dizi her zaman 7 eleman: index 0=Pazartesi ... 6=Pazar.
+export async function getWeeklyActiveDays(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  userId: string
+): Promise<boolean[]> {
+  const now = new Date();
+  const day = now.getDay(); // 0=Pazar, 1=Pazartesi, ... 6=Cumartesi
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // UTC kayması için bir gün marj bırakıp tam eşleşmeyi toDateString ile yapıyoruz —
+  // getTodayQuestionCount'taki aynı desen.
+  const since = new Date(monday);
+  since.setDate(since.getDate() - 1);
+
+  const dates = await getAnswerDatesSince(supabase, userId, since.toISOString());
+  const activeDates = new Set(dates);
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return activeDates.has(toDateString(d));
+  });
+}

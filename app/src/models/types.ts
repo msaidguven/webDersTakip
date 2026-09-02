@@ -48,7 +48,7 @@ export interface TopicProgress {
 export interface Stat {
   id: string;
   icon: string;
-  iconColor: 'purple' | 'pink' | 'teal' | 'orange';
+  iconColor: 'purple' | 'pink' | 'teal' | 'orange' | 'rose';
   value: string | number;
   label: string;
 }
@@ -79,7 +79,9 @@ export interface DashboardData {
   user: User;
   weeks: Week[];
   currentWeekId: number;
+  weeklyActiveDays: boolean[];
   stats: Stat[];
+  overallStats: { totalQuestions: number; correctAnswers: number; wrongAnswers: number; accuracy: number } | null;
   srsReview: SRSReview | null;
   units: Unit[];
   recentActivities: Activity[];

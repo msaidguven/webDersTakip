@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Week } from '../models/types';
+import { Icon } from './icons';
 
 interface WeeklyProgressProps {
   weeks: Week[];
@@ -11,10 +12,28 @@ interface WeeklyProgressProps {
   onNextWeeks?: () => void;
   canGoPrev?: boolean;
   canGoNext?: boolean;
+  // Bu haftanın Pazartesi'den Pazar'a 7 günü için gerçekten soru çözülüp çözülmediği
+  // (bkz. dashboardStreak.ts:getWeeklyActiveDays) — eskiden ilk 5 gün hardcoded "tamamlandı"
+  // gösteriliyordu (bkz. kullanıcıyla 2026-09-02 tartışması).
+  activeDays?: boolean[];
 }
 
-export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek, onPrevWeeks, onNextWeeks, canGoPrev = true, canGoNext = true }: WeeklyProgressProps) {
+export function WeeklyProgress({
+  weeks,
+  currentWeekId,
+  onSelectWeek,
+  onPrevWeeks,
+  onNextWeeks,
+  canGoPrev = true,
+  canGoNext = true,
+  activeDays = new Array(7).fill(false),
+}: WeeklyProgressProps) {
   const days = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
+  const todayIndex = (() => {
+    const day = new Date().getDay(); // 0=Pazar, 1=Pazartesi, ... 6=Cumartesi
+    return day === 0 ? 6 : day - 1;
+  })();
+  const completedCount = activeDays.filter(Boolean).length;
 
   return (
     <div className="rounded-xl sm:rounded-2xl bg-surface-elevated border border-default p-4 sm:p-6">
@@ -25,17 +44,19 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek, onPrevWeeks
             type="button"
             onClick={onPrevWeeks}
             disabled={!canGoPrev}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Önceki haftalar"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            ←
+            <Icon name="chevron-right" size={14} className="rotate-180 text-muted-foreground" />
           </button>
           <button
             type="button"
             onClick={onNextWeeks}
             disabled={!canGoNext}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Sonraki haftalar"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            →
+            <Icon name="chevron-right" size={14} className="text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -80,24 +101,26 @@ export function WeeklyProgress({ weeks, currentWeekId, onSelectWeek, onPrevWeeks
       <div>
         <div className="flex items-center justify-between text-xs sm:text-sm mb-2 sm:mb-3">
           <span className="text-muted-foreground">Bu Hafta</span>
-          <span className="text-default font-medium">5/7 Gün</span>
+          <span className="text-default font-medium">{completedCount}/7 Gün</span>
         </div>
-        
+
         <div className="flex gap-1 sm:gap-2">
           {days.map((day, index) => {
-            const isCompleted = index < 5;
-            const isToday = index === 4;
-            
+            const isCompleted = activeDays[index] ?? false;
+            const isToday = index === todayIndex;
+
             return (
               <div key={day} className="flex-1 text-center">
-                <div 
+                <div
                   className={`
                     h-8 sm:h-12 rounded-lg sm:rounded-xl mb-1 sm:mb-2 transition-all duration-300
-                    ${isCompleted 
-                      ? isToday 
+                    ${isCompleted
+                      ? isToday
                         ? 'bg-gradient-to-b from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30'
                         : 'bg-emerald-500/20 border border-emerald-500/30'
-                      : 'bg-zinc-800 border border-default'
+                      : isToday
+                        ? 'bg-zinc-800 border-2 border-dashed border-indigo-500/40'
+                        : 'bg-zinc-800 border border-default'
                     }
                   `}
                 />

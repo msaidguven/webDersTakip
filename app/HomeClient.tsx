@@ -15,6 +15,7 @@ import { LessonGrid } from './src/components/home/LessonGrid';
 import { QuickAccess } from './src/components/home/QuickAccess';
 import { WeeklyTopics } from './src/components/home/WeeklyTopics';
 import { WhyJoin, HowItWorks } from './src/components/home/WhyJoinAndHowItWorks';
+import { MyStats } from './src/components/home/MyStats';
 import { FooterCTA } from './src/components/home/FooterCTA';
 
 interface GradeRow {
@@ -100,9 +101,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
           <QuickAccess />
 
           {selectedGrade && (
-            <div className={`grid grid-cols-1 gap-5 ${isAuthenticated ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
               <WeeklyTopics topics={weeklyTopics[selectedGrade.id] ?? []} />
-              {!isAuthenticated && <WhyJoin />}
+              {isAuthenticated ? <MyStats /> : <WhyJoin />}
               <HowItWorks />
             </div>
           )}

@@ -29,14 +29,15 @@ interface UserStats {
 }
 
 const STAT_RINGS = [
-  { key: 'accuracy', title: 'Doğruluk', icon: '🎯', from: '#10b981', to: '#14b8a6' },
-  { key: 'coverage', title: 'Kapsam', icon: '📊', from: '#3b82f6', to: '#6366f1' },
-  { key: 'mastery', title: 'Ustalık', icon: '👑', from: '#a855f7', to: '#ec4899' },
+  { key: 'accuracy', title: 'Doğruluk', description: 'Çözdüğün soruların doğru cevap oranı', icon: '🎯', from: '#10b981', to: '#14b8a6' },
+  { key: 'coverage', title: 'Kapsam', description: 'Bitirdiğin ünitelerin toplam üniteye oranı', icon: '📊', from: '#3b82f6', to: '#6366f1' },
+  { key: 'mastery', title: 'Ustalık', description: 'Tam öğrendiğin soruların oranı', icon: '👑', from: '#a855f7', to: '#ec4899' },
 ] as const;
 
-function StatRing({ value, title, icon, from, to, gradientId, delay }: {
+function StatRing({ value, title, description, icon, from, to, gradientId, delay }: {
   value: number;
   title: string;
+  description: string;
   icon: string;
   from: string;
   to: string;
@@ -80,6 +81,7 @@ function StatRing({ value, title, icon, from, to, gradientId, delay }: {
         </div>
       </div>
       <div className="text-default font-bold text-sm">{title}</div>
+      <div className="text-muted-foreground text-[11px] leading-snug mt-1">{description}</div>
     </div>
   );
 }
@@ -202,7 +204,6 @@ export default function ProfilClient() {
 
   return (
     <PanelShell
-      activeItem="profile"
       isAuthenticated={!!authUser}
       userName={fullName}
       title="Profilim"
@@ -291,6 +292,7 @@ export default function ProfilClient() {
                   key={ring.key}
                   value={stats[ring.key]}
                   title={ring.title}
+                  description={ring.description}
                   icon={ring.icon}
                   from={ring.from}
                   to={ring.to}

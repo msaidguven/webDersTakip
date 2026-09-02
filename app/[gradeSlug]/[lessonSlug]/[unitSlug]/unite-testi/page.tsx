@@ -240,7 +240,7 @@ export default async function UnitTestPage({ params }: PageProps) {
         initialQuestions={initialQuestions}
         allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
-        timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
+        secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
         intro={{
           subLabel: `${data.gradeName} / ${data.lessonName}`,

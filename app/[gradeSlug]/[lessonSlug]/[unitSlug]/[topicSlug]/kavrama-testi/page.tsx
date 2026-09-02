@@ -222,7 +222,7 @@ export default async function TopicTestPage({ params }: PageProps) {
         initialQuestions={initialQuestions}
         allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
-        timeLimitSeconds={initialQuestions.length > 0 ? initialQuestions.length * SECONDS_PER_QUESTION : undefined}
+        secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
       />
     </>

@@ -52,11 +52,18 @@ export async function getProfileStats(
   const averageScore = perTestScores.length > 0 ? Math.round(perTestScores.reduce((a, b) => a + b, 0) / perTestScores.length) : 0;
 
   // Kapsam: denenen derslerdeki (lesson_id+grade_id) toplam aktif ünite sayısına kıyasla
-  // en az bir soru çözülen farklı ünite sayısı.
+  // "bitirilmiş" sayılan ünite sayısı. Bir ünite, o ünitedeki sorularının en az %80'i en az
+  // bir kez çözülmüşse bitirilmiş sayılır (kullanıcı kararı, 2026-09-02) — tek soru çözmek
+  // üniteyi kapsanmış saymaz.
+  const UNIT_FINISH_RATIO = 0.8;
   const touchedUnitIds = new Set<number>();
   const contextPairs = new Map<string, { lessonId: number; gradeId: number }>();
+  const sessionUnitById = new Map<number, number>();
   for (const s of sessions) {
-    if (s.unit_id != null) touchedUnitIds.add(s.unit_id);
+    if (s.unit_id != null) {
+      touchedUnitIds.add(s.unit_id);
+      sessionUnitById.set(s.id, s.unit_id);
+    }
     if (s.lesson_id != null && s.grade_id != null) {
       contextPairs.set(`${s.lesson_id}:${s.grade_id}`, { lessonId: s.lesson_id, gradeId: s.grade_id });
     }
@@ -66,7 +73,51 @@ export async function getProfileStats(
     const orFilter = [...contextPairs.values()].map((p) => `and(lesson_id.eq.${p.lessonId},grade_id.eq.${p.gradeId})`).join(',');
     const { data: unitRows } = await supabase.from('units').select('id').eq('is_active', true).or(orFilter);
     const totalUnits = (unitRows as { id: number }[] | null)?.length ?? 0;
-    coverage = totalUnits > 0 ? Math.min(100, Math.round((touchedUnitIds.size / totalUnits) * 100)) : 0;
+
+    let finishedUnitCount = 0;
+    if (touchedUnitIds.size > 0) {
+      const answeredQuestionsByUnit = new Map<number, Set<number>>();
+      for (const a of answers) {
+        const unitId = sessionUnitById.get(a.test_session_id);
+        if (unitId == null) continue;
+        const set = answeredQuestionsByUnit.get(unitId) || new Set<number>();
+        set.add(a.question_id);
+        answeredQuestionsByUnit.set(unitId, set);
+      }
+
+      const { data: topicRows } = await supabase
+        .from('topics')
+        .select('id, unit_id')
+        .eq('is_active', true)
+        .in('unit_id', [...touchedUnitIds]);
+      const unitIdByTopicId = new Map<number, number>();
+      for (const t of (topicRows as { id: number; unit_id: number }[] | null) || []) {
+        unitIdByTopicId.set(t.id, t.unit_id);
+      }
+
+      const totalQuestionsByUnit = new Map<number, number>();
+      if (unitIdByTopicId.size > 0) {
+        const { data: questionRows } = await supabase
+          .from('questions')
+          .select('topic_id')
+          .in('topic_id', [...unitIdByTopicId.keys()]);
+        for (const q of (questionRows as { topic_id: number | null }[] | null) || []) {
+          if (q.topic_id == null) continue;
+          const unitId = unitIdByTopicId.get(q.topic_id);
+          if (unitId == null) continue;
+          totalQuestionsByUnit.set(unitId, (totalQuestionsByUnit.get(unitId) || 0) + 1);
+        }
+      }
+
+      for (const unitId of touchedUnitIds) {
+        const totalUnitQuestions = totalQuestionsByUnit.get(unitId) || 0;
+        if (totalUnitQuestions === 0) continue;
+        const answeredCount = answeredQuestionsByUnit.get(unitId)?.size || 0;
+        if (answeredCount / totalUnitQuestions >= UNIT_FINISH_RATIO) finishedUnitCount += 1;
+      }
+    }
+
+    coverage = totalUnits > 0 ? Math.min(100, Math.round((finishedUnitCount / totalUnits) * 100)) : 0;
   }
 
   // Ustalık: cevaplanan farklı sorulardan user_question_stats.is_mastered=true olanların oranı.

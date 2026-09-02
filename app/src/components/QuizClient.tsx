@@ -61,6 +61,35 @@ function formatTime(seconds: number) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Soru başına geri sayım — çağıran taraf bunu her soru için `key={question.id}` ile
+// mount ediyor, böylece her yeni soruda süre kendiliğinden sıfırdan başlıyor (React'in
+// "prop değişince state'i resetle" için önerdiği key deseni), ayrı bir reset efekti
+// gerekmiyor. Soru cevaplanınca (isAnswered) bu bileşen unmount edilir, interval da
+// otomatik temizlenir.
+function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(seconds);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          onTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <span className={`flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono ${timeLeft <= 10 ? 'border-rose-400/50 text-rose-500' : 'border-default text-default'}`}>
+      <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
+    </span>
+  );
+}
+
 function OptionsView({
   question,
   selectedId,
@@ -126,29 +155,40 @@ function MatchingView({
   assignment,
   locked,
   onAssign,
+  onCheck,
 }: {
   question: MatchingQuestion;
   assignment: Record<number, number>;
   locked: boolean;
   onAssign: (leftId: number, rightId: number) => void;
+  onCheck: () => void;
 }) {
   const [activeLeft, setActiveLeft] = useState<number | null>(null);
   const rightItems = useMemo(() => shuffle<Pair>(question.pairs), [question]);
+  const rightTextById = useMemo(() => new Map(question.pairs.map((p) => [p.id, p.right_text])), [question]);
+  const allAssigned = Object.keys(assignment).length === question.pairs.length;
   const assignedRightIds = new Set(Object.values(assignment));
 
   return (
     <div>
-      <p className="mb-4 text-xs font-bold text-muted-foreground">Önce soldan bir kavram seç, sonra sağdan eşini işaretle.</p>
+      <p className="mb-4 text-xs font-bold text-muted-foreground">
+        Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
+      </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           {question.pairs.map((pair) => {
             const assignedTo = assignment[pair.id];
-            const isCorrect = assignedTo != null && assignedTo === pair.id;
-            const isWrong = assignedTo != null && assignedTo !== pair.id;
+            // Doğru/yanlış rengi sadece kilitlendikten (Cevabımı Kontrol Et'e basıldıktan)
+            // SONRA gösterilir — kullanıcı bir eşleşme yaptığı anda "doğru/yanlış" denmez,
+            // sadece nötr bir "eşleşti" göstergesi görür.
+            const isCorrect = locked && assignedTo != null && assignedTo === pair.id;
+            const isWrong = locked && assignedTo != null && assignedTo !== pair.id;
+            const isMatched = !locked && assignedTo != null;
             let cls = 'border-default bg-surface';
             if (activeLeft === pair.id) cls = 'border-indigo-400 bg-indigo-500/10';
             else if (isCorrect) cls = 'border-emerald-400/60 bg-emerald-500/10';
             else if (isWrong) cls = 'border-rose-400/60 bg-rose-500/10';
+            else if (isMatched) cls = 'border-indigo-300/50 bg-indigo-500/5';
             return (
               <button
                 key={pair.id}
@@ -157,7 +197,12 @@ function MatchingView({
                 onClick={() => setActiveLeft(pair.id)}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-bold text-default transition-colors disabled:cursor-default ${cls}`}
               >
-                {pair.left_text}
+                <span className="block">{pair.left_text}</span>
+                {isMatched && (
+                  <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-indigo-500">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" /> {rightTextById.get(assignedTo)}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -169,11 +214,11 @@ function MatchingView({
               <button
                 key={pair.id}
                 type="button"
-                disabled={locked || used || activeLeft == null}
+                disabled={locked || activeLeft == null}
                 onClick={() => activeLeft != null && onAssign(activeLeft, pair.id)}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:cursor-default ${
-                  used ? 'border-default bg-surface text-muted-foreground opacity-50' : 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5'
-                }`}
+                  used ? 'border-indigo-300/50 bg-indigo-500/5 text-muted-foreground' : 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5'
+                } ${activeLeft == null && !locked ? 'opacity-60' : ''}`}
               >
                 {pair.right_text}
               </button>
@@ -181,6 +226,16 @@ function MatchingView({
           })}
         </div>
       </div>
+      {!locked && (
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={!allAssigned}
+          className="mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-3 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Cevabımı Kontrol Et
+        </button>
+      )}
     </div>
   );
 }
@@ -291,7 +346,9 @@ export interface QuizClientProps {
   exitLabel: string;
   initialQuestions: QuizQuestion[];
   reloadEndpoint: string;
-  timeLimitSeconds?: number;
+  // Soru başına verilen süre (saniye) — her yeni soruya geçildiğinde sıfırdan başlar,
+  // testin tamamı için tek bir toplam süre DEĞİLDİR (bkz. quizQuestions.ts SECONDS_PER_QUESTION).
+  secondsPerQuestion?: number;
   intro?: QuizIntro;
   onCurrentQuestionChange?: (question: QuizQuestion | null, isAnswered: boolean) => void;
   // Giriş yapmış kullanıcı için çözülen soruların istatistiğini (SRS, günlük
@@ -328,7 +385,7 @@ export default function QuizClient({
   exitLabel,
   initialQuestions,
   reloadEndpoint,
-  timeLimitSeconds,
+  secondsPerQuestion,
   intro,
   onCurrentQuestionChange,
   gradeId,
@@ -363,7 +420,6 @@ export default function QuizClient({
   const [showResult, setShowResult] = useState(resumeAllAnswered);
   const [reloadKey, setReloadKey] = useState(0);
   const [maxIndex, setMaxIndex] = useState(initialResumeIndex);
-  const [timeLeft, setTimeLeft] = useState<number | null>(timeLimitSeconds ?? null);
 
   // Giriş yapmış kullanıcının çözdüğü soruların istatistiğini tutmak için: bu soru
   // setiyle açılmış test_sessions kaydının id'si. Misafir kullanıcıda hep null kalır,
@@ -415,7 +471,6 @@ export default function QuizClient({
           setCorrect({});
           setFeedback({});
           setShowResult(false);
-          setTimeLeft(timeLimitSeconds ?? null);
           // Yeni soru seti = yeni deneme: önceki oturumla ilişkiyi kes, aşağıdaki
           // session efekti yeni questions için yeni bir test_sessions açacak.
           setSessionId(null);
@@ -431,7 +486,7 @@ export default function QuizClient({
     return () => {
       cancelled = true;
     };
-  }, [reloadEndpoint, reloadKey, timeLimitSeconds]);
+  }, [reloadEndpoint, reloadKey]);
 
   // Giriş yapmış kullanıcı için bu soru setiyle bir test oturumu açar. Misafirde
   // (isAuthenticated=false) hiç çalışmaz — quiz normal şekilde, kayıtsız çözülür.
@@ -541,21 +596,6 @@ export default function QuizClient({
       });
   }
 
-  useEffect(() => {
-    if (timeLimitSeconds == null || showResult) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev == null) return prev;
-        if (prev <= 1) {
-          setShowResult(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLimitSeconds, showResult]);
-
   const current = questions[index];
   const currentIsAnswered = !!(current && locked[current.id]);
 
@@ -583,6 +623,11 @@ export default function QuizClient({
     recordAnswer(current.id, !!chosen?.is_correct);
   };
 
+  // Eşleştirmede tek bir çift atandığında ANINDA doğru/yanlış göstermiyoruz — kullanıcı
+  // tüm çiftleri istediği gibi değiştirebilir, sonuç ancak "Cevabımı Kontrol Et" ile
+  // (checkMatching) açığa çıkar. Bir sağ öğeyi başka bir sol öğeye atamak, o sağ öğenin
+  // önceki eşleşmesini serbest bırakır (aşağıdaki döngü) — böylece zaten tamamlanmış bir
+  // eşleştirme de tamamen esnek kalır.
   const assignMatch = (leftId: number, rightId: number) => {
     if (!current || current.type !== 'matching' || locked[current.id]) return;
     const prevAssign = matchAssign[current.id] || {};
@@ -592,14 +637,17 @@ export default function QuizClient({
     }
     nextAssign[leftId] = rightId;
     setMatchAssign((prev) => ({ ...prev, [current.id]: nextAssign }));
+  };
 
-    if (Object.keys(nextAssign).length === current.pairs.length) {
-      const allCorrect = current.pairs.every((p) => nextAssign[p.id] === p.id);
-      setLocked((prev) => ({ ...prev, [current.id]: true }));
-      setCorrect((prev) => ({ ...prev, [current.id]: allCorrect }));
-      setFeedback((prev) => ({ ...prev, [current.id]: randomOf(allCorrect ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
-      recordAnswer(current.id, allCorrect);
-    }
+  const checkMatching = () => {
+    if (!current || current.type !== 'matching' || locked[current.id]) return;
+    const assignment = matchAssign[current.id] || {};
+    if (Object.keys(assignment).length !== current.pairs.length) return;
+    const allCorrect = current.pairs.every((p) => assignment[p.id] === p.id);
+    setLocked((prev) => ({ ...prev, [current.id]: true }));
+    setCorrect((prev) => ({ ...prev, [current.id]: allCorrect }));
+    setFeedback((prev) => ({ ...prev, [current.id]: randomOf(allCorrect ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
+    recordAnswer(current.id, allCorrect);
   };
 
   const setClassicalText = (text: string) => {
@@ -620,6 +668,19 @@ export default function QuizClient({
     } else {
       setShowResult(true);
     }
+  };
+
+  // Soru başına süre dolunca yanlış sayılır ve kısa bir "süre doldu" geri bildiriminin
+  // ardından otomatik olarak sıradaki soruya geçilir (kullanıcı kararı, 2026-09-02) —
+  // diğer soru tipleriyle tutarlı olsun diye "cevapsız" ayrı bir durum eklenmedi.
+  const handleTimeout = () => {
+    if (!current || locked[current.id]) return;
+    const questionId = current.id;
+    setLocked((prev) => ({ ...prev, [questionId]: true }));
+    setCorrect((prev) => ({ ...prev, [questionId]: false }));
+    setFeedback((prev) => ({ ...prev, [questionId]: 'Süre doldu! ⏰' }));
+    recordAnswer(questionId, false);
+    setTimeout(() => goNext(), 1500);
   };
 
   const goPrev = () => {
@@ -779,10 +840,8 @@ export default function QuizClient({
         <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">
           {intro ? <span className="truncate uppercase tracking-widest text-indigo-500">Soru {index + 1}</span> : <span className="truncate uppercase tracking-widest text-indigo-500">{scopeLabel}</span>}
           <span className="flex shrink-0 items-center gap-2">
-            {timeLeft != null && (
-              <span className={`flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono ${timeLeft < 300 ? 'border-rose-400/50 text-rose-500' : 'border-default text-default'}`}>
-                <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
-              </span>
+            {secondsPerQuestion != null && !currentIsAnswered && (
+              <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
             )}
             <span>
               {answeredCount}/{questions.length}
@@ -825,7 +884,9 @@ export default function QuizClient({
           {TYPE_LABELS[current.type]}
         </span>
 
-        {current.type === 'matching' && <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} />}
+        {current.type === 'matching' && (
+          <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} onCheck={checkMatching} />
+        )}
         {current.type === 'classical' && (
           <ClassicalView question={current} value={classicalAnswer[current.id] || ''} locked={isAnswered} onChange={setClassicalText} onCheck={checkClassical} />
         )}

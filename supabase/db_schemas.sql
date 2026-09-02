@@ -188,14 +188,6 @@ CREATE TABLE public.question_matching_pairs (
   CONSTRAINT question_matching_pairs_pkey PRIMARY KEY (id),
   CONSTRAINT question_matching_pairs_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id)
 );
-CREATE TABLE public.topic_content_weeks (
-  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  topic_content_id bigint NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  curriculum_week integer NOT NULL CHECK (curriculum_week >= 1),
-  CONSTRAINT topic_content_weeks_pkey PRIMARY KEY (id),
-  CONSTRAINT topic_content_weeks_topic_content_id_fkey FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id)
-);
 CREATE TABLE public.question_blank_options (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   question_id bigint NOT NULL,

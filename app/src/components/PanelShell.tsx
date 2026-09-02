@@ -3,10 +3,8 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
-import { navItems } from '../data/mockData';
 
 interface PanelShellProps {
-  activeItem: string;
   isAuthenticated: boolean;
   userName?: string;
   streak?: number;
@@ -22,7 +20,6 @@ interface PanelShellProps {
 // alt sayfalarda da aynı navigasyonu (ve dolayısıyla panel ⟷ profil arası kolay geçişi)
 // tekrar yazmadan kullanmak için ayrıldı.
 export function PanelShell({
-  activeItem,
   isAuthenticated,
   userName,
   streak,
@@ -40,8 +37,6 @@ export function PanelShell({
       <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
 
       <Sidebar
-        items={navItems}
-        activeItem={activeItem}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         isAuthenticated={isAuthenticated}
