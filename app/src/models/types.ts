@@ -31,18 +31,18 @@ export interface Unit {
   href?: string;
 }
 
-// Tek satırlık konu ilerlemesi — referans tasarıma göre (bkz. kullanıcının 2026-09-02
-// tarihli ekran görüntüsü). KİLİT YOK: her konu her zaman erişilebilir (bkz. kullanıcıyla
-// "kilitli üniteler" tartışması) — sadece tamamlanma durumu gösterilir.
-export type TopicRowStatus = 'completed' | 'in_progress';
-
-export interface TopicProgress {
+// Ünite akordeonundaki tek konu satırı — içerik (Konu Anlatımı) ve sorular (Soru Çöz)
+// birbirinden BAĞIMSIZ iki durum/buton olarak modellenir (eskiden tek "actionLabel"a
+// indirgeniyordu). href yoksa (içerik/soru hiç yoksa) ilgili buton pasif gösterilir.
+// KİLİT YOK: her konu her zaman erişilebilir, sadece tamamlanma durumu gösterilir.
+export interface UnitTopic {
   id: string;
   title: string;
-  status: TopicRowStatus;
-  progressPercent: number;
-  actionLabel: 'Konu Anlatımı' | 'Soru Çöz';
-  actionHref?: string;
+  contentHref?: string;
+  contentCompleted: boolean;
+  quizHref?: string;
+  quizProgress: number;
+  quizCompleted: boolean;
 }
 
 export interface Stat {
@@ -86,8 +86,7 @@ export interface DashboardData {
   units: Unit[];
   recentActivities: Activity[];
   activeUnitId: string | null;
-  activeUnitTitle: string | null;
-  activeUnitTopics: TopicProgress[];
+  topicsByUnitId: Record<string, UnitTopic[]>;
   lessons: { id: string; name: string }[];
   selectedLessonId: string | null;
 }

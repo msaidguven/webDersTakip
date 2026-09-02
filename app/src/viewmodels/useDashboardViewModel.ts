@@ -24,8 +24,8 @@ const DEFAULT_TOTAL_WEEKS = 38;
 
 // Hiçbir alanda mock/uydurma veri kullanılmaz — bu, kullanıcı verisi henüz gelmeden önceki
 // (veya hiç kimlik doğrulaması yokken) tamamen boş/nötr başlangıç durumudur. Sayfa bu durumu
-// bir yükleme göstergesiyle karşılar (bkz. useDashboardViewModel dönüşündeki isLoading),
-// gerçek veri gelmeden asla kalıcı içerikmiş gibi gösterilmez.
+// bölüm bazlı iskeletlerle karşılar (bkz. useDashboardViewModel dönüşündeki isXLoading
+// flag'leri), gerçek veri gelmeden asla kalıcı içerikmiş gibi gösterilmez.
 const EMPTY_DASHBOARD_DATA: DashboardData = {
   user: { id: '', name: '', email: '', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
   weeks: [],
@@ -37,8 +37,7 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   units: [],
   recentActivities: [],
   activeUnitId: null,
-  activeUnitTitle: null,
-  activeUnitTopics: [],
+  topicsByUnitId: {},
   lessons: [],
   selectedLessonId: null,
 };
@@ -47,12 +46,19 @@ interface UseDashboardViewModelReturn {
   // State
   data: DashboardData;
   selectedWeekId: number;
-  isLoading: boolean;
   isAuthenticated: boolean;
   notificationCount: number;
   unitsContext: { lessonName: string | null; gradeName: string | null } | null;
   canShiftWeekWindow: { prev: boolean; next: boolean };
   isSwitchingLesson: boolean;
+  // Panelin bölüm bazlı yüklenmesi için — hepsi tek bir global spinner yerine, her bölüm
+  // kendi verisi gelince ayrı ayrı görünür (bkz. kullanıcıyla "adım adım yüklensin" isteği).
+  isAuthResolving: boolean;
+  isProfileLoading: boolean;
+  isUnitsLoading: boolean;
+  isStatsLoading: boolean;
+  isActivityLoading: boolean;
+  isOverallLoading: boolean;
 
   // Actions
   selectWeek: (weekId: number) => void;
@@ -73,10 +79,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   const [selectedWeekId, setSelectedWeekId] = useState<number>(0);
   const [weekWindowStart, setWeekWindowStart] = useState<number>(1);
   const [totalWeeks, setTotalWeeks] = useState<number>(DEFAULT_TOTAL_WEEKS);
-  // Sadece "kullanıcı varsa panel verisini çekiyor muyuz" durumunu tutar — kimliği henüz
-  // bilinmiyorsa (authLoading) veya kullanıcı yoksa aşağıdaki isLoading zaten bunu kapsar,
-  // bu state o durumlarda hiç okunmaz.
-  const [isFetching, setIsFetching] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isUnitsLoading, setIsUnitsLoading] = useState(true);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [isActivityLoading, setIsActivityLoading] = useState(true);
+  const [isOverallLoading, setIsOverallLoading] = useState(true);
   // DB'de bir bildirim tablosu/sistemi yok — sahte bir sayı göstermek yerine gerçek (boş)
   // durum olan 0'dan başlıyor. Bildirimler gerçek bir kaynağa bağlanana kadar hep 0 kalacak.
   const [notificationCount, setNotificationCount] = useState(0);
@@ -93,6 +100,12 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
   // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
   // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi.
+  //
+  // Eskiden TEK bir Promise.all + TEK bir setData ile hepsi birden, en yavaş parça bitene kadar
+  // hiçbir şey göstermiyordu. Artık her bölüm kendi promise zincirinde, kendi setData/isXLoading
+  // çağrısıyla bağımsız çözülüyor: sadece `getDashboardUnitsData` (üniteler, en ağır zincir) ve
+  // `getDueSrsCount`/`getTodayStats` profildeki grade_id'yi bekliyor, geri kalanı (aktiviteler,
+  // streak, bugünkü soru sayısı, haftalık aktif günler, genel istatistik) hiç beklemeden hemen başlar.
   useEffect(() => {
     if (!user) {
       // Çıkış yapıldığında önceki kullanıcının verisi (isim, ünite, istatistik...)
@@ -102,85 +115,109 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
       setUnitsContext(null);
       setUnitsGradeId(null);
       setSelectedWeekId(0);
+      setIsProfileLoading(true);
+      setIsUnitsLoading(true);
+      setIsStatsLoading(true);
+      setIsActivityLoading(true);
+      setIsOverallLoading(true);
       return;
     }
 
     let cancelled = false;
+    const userId = user.id;
 
-    async function loadRealData() {
-      setIsFetching(true);
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, grade_id')
-          .eq('id', user!.id)
-          .maybeSingle();
+    setIsProfileLoading(true);
+    setIsUnitsLoading(true);
+    setIsStatsLoading(true);
+    setIsActivityLoading(true);
+    setIsOverallLoading(true);
 
+    // Profil (isim + grade_id): tek başına en hafif sorgu, isim karşılama başlığında hemen
+    // görünsün diye kendi setData'sını hemen yapıyor. gradeId'yi döndürüp aşağıdaki iki dalın
+    // (üniteler + srs/bugünkü istatistik) beklemesini sağlıyor — sorgu sadece BİR kez atılıyor,
+    // .then() ile birden fazla yerden dinlenmesi tekrar sorgu attırmıyor.
+    const profileGradeId = supabase
+      .from('profiles')
+      .select('full_name, grade_id')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data: profile }) => {
         const gradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
         const fullName = (profile as { full_name: string | null } | null)?.full_name ?? null;
+        if (!cancelled) {
+          setData((prev) => ({ ...prev, user: { ...prev.user, name: fullName || 'Öğrenci' } }));
+          setIsProfileLoading(false);
+        }
+        return gradeId;
+      });
 
-        const [unitsResult, dueSrsCount, recentActivities, streak, todayQuestionCount, weeklyActiveDays, overallStats] = await Promise.all([
-          getDashboardUnitsData(supabase, user!.id, gradeId),
-          getDueSrsCount(supabase, user!.id, gradeId),
-          getRecentActivities(supabase, user!.id),
-          getCurrentStreak(supabase, user!.id),
-          getTodayQuestionCount(supabase, user!.id),
-          getWeeklyActiveDays(supabase, user!.id),
-          getOverallStats(supabase, user!.id),
-        ]);
-        const stats = await getTodayStats(supabase, user!.id, dueSrsCount);
-
+    // Üniteler + konular + hafta penceresi — en ağır zincir, kendi bölümünü (Üniteler +
+    // Haftalık İlerleme) bağımsız günceller.
+    profileGradeId.then((gradeId) =>
+      getDashboardUnitsData(supabase, userId, gradeId).then((unitsResult) => {
         if (cancelled) return;
-
         const nextTotalWeeks = unitsResult?.totalWeeks ?? DEFAULT_TOTAL_WEEKS;
         const nextWindowStart = Math.max(1, (unitsResult?.currentWeek ?? 1) - 1);
         setTotalWeeks(nextTotalWeeks);
         setWeekWindowStart(nextWindowStart);
-
         setData((prev) => ({
           ...prev,
-          user: {
-            ...prev.user,
-            name: fullName || 'Öğrenci',
-            streak,
-            dailyGoal: DAILY_GOAL_QUESTIONS,
-            dailyProgress: todayQuestionCount,
-          },
           units: unitsResult?.units ?? [],
           activeUnitId: unitsResult?.activeUnitId ?? null,
-          activeUnitTitle: unitsResult?.activeUnitTitle ?? null,
-          activeUnitTopics: unitsResult?.activeUnitTopics ?? [],
+          topicsByUnitId: unitsResult?.topicsByUnitId ?? {},
           lessons: unitsResult?.lessons ?? [],
           selectedLessonId: unitsResult?.selectedLessonId ?? null,
           weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
           currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
-          weeklyActiveDays,
-          overallStats,
-          srsReview: buildSrsReview(dueSrsCount),
-          recentActivities,
-          stats,
         }));
         if (unitsResult) setSelectedWeekId(unitsResult.currentWeek);
-        setUnitsContext(
-          unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null
-        );
+        setUnitsContext(unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null);
         setUnitsGradeId(unitsResult?.gradeId ?? null);
-      } finally {
-        if (!cancelled) setIsFetching(false);
-      }
-    }
+        setIsUnitsLoading(false);
+      })
+    );
 
-    loadRealData();
+    // "Bugün" küme: DailyGoalCard + StatsRow + SRSWidget. streak/bugünkü soru sayısı gradeId'ye
+    // ihtiyaç duymadığı için hemen başlar; SRS sayısı ve ona bağlı bugünkü istatistikler
+    // profildeki gradeId'yi bekler.
+    Promise.all([
+      Promise.all([getCurrentStreak(supabase, userId), getTodayQuestionCount(supabase, userId)]),
+      profileGradeId
+        .then((gradeId) => getDueSrsCount(supabase, userId, gradeId))
+        .then((dueSrsCount) => getTodayStats(supabase, userId, dueSrsCount).then((stats) => ({ dueSrsCount, stats }))),
+    ]).then(([[streak, todayQuestionCount], { dueSrsCount, stats }]) => {
+      if (cancelled) return;
+      setData((prev) => ({
+        ...prev,
+        user: { ...prev.user, streak, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: todayQuestionCount },
+        srsReview: buildSrsReview(dueSrsCount),
+        stats,
+      }));
+      setIsStatsLoading(false);
+    });
+
+    // Haftalık aktif gün noktaları — bağımsız, hazır olunca sessizce state'e yazılır (ayrı bir
+    // loading flag'i yok, WeeklyProgress zaten isUnitsLoading'e göre gösteriliyor).
+    getWeeklyActiveDays(supabase, userId).then((weeklyActiveDays) => {
+      if (!cancelled) setData((prev) => ({ ...prev, weeklyActiveDays }));
+    });
+
+    getRecentActivities(supabase, userId).then((recentActivities) => {
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, recentActivities }));
+      setIsActivityLoading(false);
+    });
+
+    getOverallStats(supabase, userId).then((overallStats) => {
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, overallStats }));
+      setIsOverallLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [user, supabase, refreshKey]);
-
-  // Kimlik henüz belli değilse (authLoading) ya da kullanıcı var ve veri çekimi sürüyorsa
-  // yükleniyor sayılır; kullanıcı hiç yoksa (misafir) çekilecek bir şey olmadığı için
-  // isFetching'in bayat değeri hiç etkilemez.
-  const isLoading = authLoading || (!!user && isFetching);
 
   // Actions
   const selectWeek = useCallback((weekId: number) => {
@@ -211,8 +248,8 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // sonucu uygulanır.
   const lessonRequestRef = useRef(0);
 
-  // Panelin ders sekmelerinden birine tıklayınca: aynı sınıf içinde, sadece o dersin
-  // ünite listesini/aktif konu ilerlemesini yeniden çeker (test_sessions'a hiç dokunmaz —
+  // Panelin ders sekmelerinden/sidebar'dan birine tıklayınca: aynı sınıf içinde, sadece o
+  // dersin ünite listesini/konularını yeniden çeker (test_sessions'a hiç dokunmaz —
   // "en son pratik yapılan ders" varsayımı sadece İLK yüklemede kullanılıyor).
   const selectLesson = useCallback((lessonId: string) => {
     if (!user || !unitsGradeId || lessonId === data.selectedLessonId) return;
@@ -233,8 +270,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
           ...prev,
           units: result.units,
           activeUnitId: result.activeUnitId,
-          activeUnitTitle: result.activeUnitTitle,
-          activeUnitTopics: result.activeUnitTopics,
+          topicsByUnitId: result.topicsByUnitId,
           selectedLessonId: lessonId,
           weeks: buildWeekWindow(nextWindowStart, result.currentWeek, result.totalWeeks),
           currentWeekId: result.currentWeek,
@@ -265,12 +301,17 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     // State
     data,
     selectedWeekId,
-    isLoading,
     isAuthenticated: !!user,
     unitsContext,
     notificationCount,
     canShiftWeekWindow,
     isSwitchingLesson,
+    isAuthResolving: authLoading,
+    isProfileLoading,
+    isUnitsLoading,
+    isStatsLoading,
+    isActivityLoading,
+    isOverallLoading,
 
     // Actions
     selectWeek,

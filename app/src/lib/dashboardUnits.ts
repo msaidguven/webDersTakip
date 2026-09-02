@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { TopicProgress, Unit, Week } from '@/app/src/models/types';
+import { Unit, UnitTopic, Week } from '@/app/src/models/types';
 import { getCurriculumCalendar } from './curriculumCalendar';
 import { getCurrentCurriculumWeek } from './routeParsing';
-import { getQuestionCountsByUnitId } from './questionCounts';
 
 type UnitRow = {
   id: number;
@@ -12,6 +11,8 @@ type UnitRow = {
   start_week: number | null;
   end_week: number | null;
 };
+
+type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number };
 
 export interface LessonOption {
   id: string;
@@ -25,8 +26,7 @@ export interface DashboardUnitsResult {
   currentWeek: number;
   totalWeeks: number;
   activeUnitId: string | null;
-  activeUnitTitle: string | null;
-  activeUnitTopics: TopicProgress[];
+  topicsByUnitId: Record<string, UnitTopic[]>;
   // Öğrencinin sınıfındaki TÜM dersler — panelde ders sekmeleri için (bkz.
   // docs/site-iyilestirme-plani.md madde 1 tartışması, 2026-09-02: panel eskiden sadece
   // en son pratik yapılan tek dersi gösteriyordu, kullanıcı diğer derslerin de erişilebilir
@@ -37,139 +37,61 @@ export interface DashboardUnitsResult {
   gradeId: number | null;
 }
 
-// Verilen soruların hangilerinin bu kullanıcı tarafından EN AZ BİR KEZ denendiğini
-// doğrudan ham log olan test_session_answers'tan döner — user_question_stats/
-// user_unit_summary gibi rollup'lar SADECE bir oturum tamamen bitirildiğinde
-// (finish_test_session) güncelleniyor; QuizClient bilinçli olarak "sayfadan ayrılırsa
-// oturumu otomatik bitirme" mantığı kullandığı için (bkz. 2026-09-02 tarihli not) çoğu
-// oturum hiç "bitmiyor" ve o rollup'lar günlerce eski/eksik kalabiliyor — gerçek veride
-// doğrulandı: bir öğrenci 19 farklı soru çözmüştü, user_question_stats'ta sadece 10'u
-// vardı. Bu yüzden konu/ünite ilerlemesi hep buradan, ham logdan hesaplanır.
-async function getAttemptedQuestionIds(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any, any, any>,
-  userId: string,
-  questionIds: number[]
-): Promise<Set<number>> {
-  if (!questionIds.length) return new Set();
-  const { data } = await supabase
-    .from('test_session_answers')
-    .select('question_id')
-    .eq('user_id', userId)
-    .in('question_id', questionIds);
-  return new Set(((data as { question_id: number }[] | null) || []).map((r) => r.question_id));
-}
-
-// Aktif ünitenin konularını TEK SATIRLIK bir liste olarak döner — kullanıcının verdiği
-// referans tasarıma göre (2026-09-02). Konular arasında KİLİT YOK — hangi sırada olursa
-// olsun her konuya her zaman erişilebilir (bkz. kullanıcıyla "kilitli üniteler" tartışması:
-// haftaya göre ünite kilidi de aynı sebeple kaldırılmıştı). Her konunun iki bağımsız
-// alt-durumu var (anlatım + sorular) ama TEK satırda tek ilerleme/tek buton gösterildiği
-// için burada "hangi adımdasın" mantığıyla birleştiriliyor:
-//   1) Anlatım bitmemişse ("Konuyu Bitirdim" tıklanmamış, user_topic_content_progress) →
-//      buton "Konu Anlatımı", ilerleme %0 — anlatımın ne kadarının okunduğuna dair GERÇEK
-//      bir kısmi veri yok (tek bilinen şey bitirilip bitirilmediği), bu yüzden yarı yolda
-//      uydurma bir yüzde (ör. %50) GÖSTERİLMİYOR.
-//   2) Sorulardan en az biri denenmişse (contentCompleted olsun olmasın — gerçek ilerleme
-//      neredeyse orada gösterilir) → buton "Soru Çöz", ilerleme = denenen soru yüzdesi
-//      (getAttemptedQuestionIds, bir kez denenen soru geri dönmez). Bu GERÇEK bir oran.
-//   3) İkisi de bitmişse (ya da hiç sorusu yoksa) → tamamlandı, buton "Konu Anlatımı"
-//      (tekrar bakmak için), ilerleme 100.
-async function getActiveUnitTopics(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any, any, any>,
-  userId: string,
-  unitId: number,
+// Ünite akordeonu için HER ünitenin konu listesini kurar — girdiler (topics, questions,
+// içerik varlığı, kullanıcının içerik-tamamlama durumu, denenen soru id'leri) `getUnitsForLesson`
+// tarafından zaten dersin TAMAMI için tek seferde çekilmiş oluyor; burası sadece bellekte
+// gruplama yapar, hiç sorgu atmaz (eskiden her ünite için topics/questions/answers ayrı ayrı
+// yeniden sorgulanıyordu). Konular arasında KİLİT YOK — her konuya her zaman erişilebilir.
+// "Konu Anlatımı" ve "Soru Çöz" birbirinden bağımsız iki buton: içerik yoksa (topic_contents'te
+// yayınlanmış satır yok) content href verilmez, soru yoksa quiz href verilmez — ikisi de UI
+// tarafında "buton pasif" olarak gösterilir.
+function buildTopicsByUnitId(
+  topics: TopicRow[],
+  questionIdsByTopic: Map<number, number[]>,
+  contentTopicIds: Set<number>,
+  contentCompletedByTopic: Map<number, boolean>,
+  attemptedQuestionIds: Set<number>,
   gradeSlug: string | null,
   lessonSlug: string | null,
-  unitSlug: string | null
-): Promise<TopicProgress[]> {
-  const { data: topicsData } = await supabase
-    .from('topics')
-    .select('id, title, slug, order_no')
-    .eq('unit_id', unitId)
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
-
-  const topics = (topicsData as { id: number; title: string; slug: string | null; order_no: number }[] | null) || [];
-  if (!topics.length) return [];
-
-  const topicIds = topics.map((t) => t.id);
-
-  const [{ data: contentProgressData }, { data: questionsData }] = await Promise.all([
-    supabase
-      .from('user_topic_content_progress')
-      .select('topic_id, is_completed')
-      .eq('user_id', userId)
-      .in('topic_id', topicIds),
-    supabase.from('questions').select('id, topic_id').in('topic_id', topicIds),
-  ]);
-
-  const contentCompletedByTopic = new Map<number, boolean>();
-  for (const row of (contentProgressData as { topic_id: number; is_completed: boolean }[] | null) || []) {
-    contentCompletedByTopic.set(row.topic_id, row.is_completed);
+  unitSlugById: Map<number, string | null>
+): Record<string, UnitTopic[]> {
+  const topicsByUnit = new Map<number, TopicRow[]>();
+  for (const t of topics) {
+    const list = topicsByUnit.get(t.unit_id) || [];
+    list.push(t);
+    topicsByUnit.set(t.unit_id, list);
   }
 
-  const questionIdsByTopic = new Map<number, number[]>();
-  const allQuestionIds: number[] = [];
-  for (const row of (questionsData as { id: number; topic_id: number }[] | null) || []) {
-    const list = questionIdsByTopic.get(row.topic_id) || [];
-    list.push(row.id);
-    questionIdsByTopic.set(row.topic_id, list);
-    allQuestionIds.push(row.id);
+  const result: Record<string, UnitTopic[]> = {};
+  for (const [unitId, unitTopics] of topicsByUnit) {
+    const unitSlug = unitSlugById.get(unitId) ?? null;
+    const canBuildHref = !!(gradeSlug && lessonSlug && unitSlug);
+
+    result[String(unitId)] = unitTopics
+      .slice()
+      .sort((a, b) => a.order_no - b.order_no)
+      .map((t) => {
+        const topicQuestionIds = questionIdsByTopic.get(t.id) || [];
+        const hasQuestions = topicQuestionIds.length > 0;
+        const attemptedCount = topicQuestionIds.filter((id) => attemptedQuestionIds.has(id)).length;
+        const quizProgress = hasQuestions ? Math.round((attemptedCount / topicQuestionIds.length) * 100) : 0;
+        const quizCompleted = hasQuestions && attemptedCount === topicQuestionIds.length;
+        const hasContent = contentTopicIds.has(t.id);
+
+        const baseHref = canBuildHref && t.slug ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${t.slug}` : undefined;
+
+        return {
+          id: String(t.id),
+          title: t.title,
+          contentHref: hasContent ? baseHref : undefined,
+          contentCompleted: contentCompletedByTopic.get(t.id) === true,
+          quizHref: hasQuestions ? (baseHref ? `${baseHref}/kavrama-testi` : undefined) : undefined,
+          quizProgress,
+          quizCompleted,
+        };
+      });
   }
-
-  const attemptedQuestionIds = await getAttemptedQuestionIds(supabase, userId, allQuestionIds);
-
-  const canBuildHref = !!(gradeSlug && lessonSlug && unitSlug);
-
-  return topics.map((t) => {
-    const contentCompleted = contentCompletedByTopic.get(t.id) === true;
-
-    const topicQuestionIds = questionIdsByTopic.get(t.id) || [];
-    const hasQuestions = topicQuestionIds.length > 0;
-    const attemptedCount = topicQuestionIds.filter((id) => attemptedQuestionIds.has(id)).length;
-    const questionProgress = hasQuestions ? Math.round((attemptedCount / topicQuestionIds.length) * 100) : 0;
-    const questionsCompleted = !hasQuestions || attemptedCount === topicQuestionIds.length;
-
-    const contentHref = canBuildHref && t.slug ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${t.slug}` : undefined;
-    const quizHref = contentHref && hasQuestions ? `${contentHref}/kavrama-testi` : undefined;
-
-    if (contentCompleted && questionsCompleted) {
-      return {
-        id: String(t.id),
-        title: t.title,
-        status: 'completed' as const,
-        progressPercent: 100,
-        actionLabel: 'Konu Anlatımı' as const,
-        actionHref: contentHref,
-      };
-    }
-
-    // "Hangi adımda gerçek ilerleme varsa o gösterilir" — anlatım bitmemiş olsa bile
-    // öğrenci o konudan soru çözmüş olabilir (bkz. kullanıcıyla 2026-09-02 tartışması:
-    // önceki sürüm anlatım bitene kadar soru ilerlemesini görmezden geliyordu, bu yüzden
-    // gerçekten çözülmüş sorular olsa bile satır %0 gösteriyordu — bu artık düzeltildi).
-    if (contentCompleted || (hasQuestions && attemptedCount > 0)) {
-      return {
-        id: String(t.id),
-        title: t.title,
-        status: 'in_progress' as const,
-        progressPercent: questionProgress,
-        actionLabel: 'Soru Çöz' as const,
-        actionHref: quizHref,
-      };
-    }
-
-    return {
-      id: String(t.id),
-      title: t.title,
-      status: 'in_progress' as const,
-      progressPercent: 0,
-      actionLabel: 'Konu Anlatımı' as const,
-      actionHref: contentHref,
-    };
-  });
+  return result;
 }
 
 // WeeklyProgress kartlarında gösterilecek 5 haftalık pencereyi (mevcut haftanın bir öncesinden
@@ -235,8 +157,7 @@ export interface LessonUnitsResult {
   currentWeek: number;
   totalWeeks: number;
   activeUnitId: string | null;
-  activeUnitTitle: string | null;
-  activeUnitTopics: TopicProgress[];
+  topicsByUnitId: Record<string, UnitTopic[]>;
 }
 
 // Belirli bir ders+sınıf için ünite listesini (ilerleme, soru sayısı vb. gerçek veriyle)
@@ -278,15 +199,19 @@ export async function getUnitsForLesson(
       totalWeeks,
       currentWeek: getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks),
       activeUnitId: null,
-      activeUnitTitle: null,
-      activeUnitTopics: [],
+      topicsByUnitId: {},
     };
   }
 
   const unitIds = units.map((u) => u.id);
+  const unitSlugById = new Map<number, string | null>(units.map((u) => [u.id, u.slug]));
 
-  const { data: topicRows } = await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true);
-  const topics = (topicRows as { id: number; unit_id: number }[] | null) || [];
+  const { data: topicRows } = await supabase
+    .from('topics')
+    .select('id, unit_id, title, slug, order_no')
+    .in('unit_id', unitIds)
+    .eq('is_active', true);
+  const topics = (topicRows as TopicRow[] | null) || [];
 
   const topicCountByUnit = new Map<number, number>();
   const unitIdByTopicId = new Map<number, number>();
@@ -296,19 +221,37 @@ export async function getUnitsForLesson(
   }
 
   const topicIds = topics.map((t) => t.id);
-  const { data: questionRows } = topicIds.length
-    ? await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds)
-    : { data: [] as { id: number; topic_id: number }[] };
+
+  // topics/questions bu dersin TÜM üniteleri için tek seferde çekiliyor — hem ünite
+  // kartlarındaki soru sayısı/ilerleme hem akordeondaki her konunun satırı AYNI veriden
+  // kuruluyor (eskiden aktif ünitenin konuları için bunlar ayrıca yeniden sorgulanıyordu).
+  const [{ data: questionRows }, { data: contentRows }, { data: contentProgressRows }] = topicIds.length
+    ? await Promise.all([
+        supabase.from('questions').select('id, topic_id').in('topic_id', topicIds),
+        supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).eq('is_published', true),
+        supabase.from('user_topic_content_progress').select('topic_id, is_completed').eq('user_id', userId).in('topic_id', topicIds),
+      ])
+    : [{ data: [] as { id: number; topic_id: number }[] }, { data: [] as { topic_id: number }[] }, { data: [] as { topic_id: number; is_completed: boolean }[] }];
   const questions = (questionRows as { id: number; topic_id: number }[] | null) || [];
+  const contentTopicIds = new Set(((contentRows as { topic_id: number }[] | null) || []).map((r) => r.topic_id));
+  const contentCompletedByTopic = new Map<number, boolean>();
+  for (const row of (contentProgressRows as { topic_id: number; is_completed: boolean }[] | null) || []) {
+    contentCompletedByTopic.set(row.topic_id, row.is_completed);
+  }
 
   const questionIdsByUnit = new Map<number, number[]>();
+  const questionIdsByTopic = new Map<number, number[]>();
   const allQuestionIds: number[] = [];
   for (const q of questions) {
     const unitId = unitIdByTopicId.get(q.topic_id);
-    if (unitId == null) continue;
-    const list = questionIdsByUnit.get(unitId) || [];
-    list.push(q.id);
-    questionIdsByUnit.set(unitId, list);
+    if (unitId != null) {
+      const unitList = questionIdsByUnit.get(unitId) || [];
+      unitList.push(q.id);
+      questionIdsByUnit.set(unitId, unitList);
+    }
+    const topicList = questionIdsByTopic.get(q.topic_id) || [];
+    topicList.push(q.id);
+    questionIdsByTopic.set(q.topic_id, topicList);
     allQuestionIds.push(q.id);
   }
 
@@ -316,14 +259,13 @@ export async function getUnitsForLesson(
   // tamamen bitirildiğinde (finish_test_session) güncelleniyor ve günlerce eski/eksik
   // kalabiliyor (bkz. kullanıcıyla 2026-09-02 tartışması). "Çözüldü" sayısı ve başarı
   // oranı artık ham log olan test_session_answers'tan hesaplanıyor — konu ilerlemesiyle
-  // (getActiveUnitTopics) AYNI kaynak, tutarlı sayılar.
-  const [{ data: answerRows }, questionCountByUnit] = await Promise.all([
-    allQuestionIds.length
-      ? supabase.from('test_session_answers').select('question_id, is_correct').eq('user_id', userId).in('question_id', allQuestionIds)
-      : Promise.resolve({ data: [] as { question_id: number; is_correct: boolean }[] }),
-    getQuestionCountsByUnitId(supabase, unitIds),
-  ]);
+  // (buildTopicsByUnitId) AYNI kaynak, tutarlı sayılar. Unit başına soru sayısı da
+  // questionIdsByUnit'ten türetiliyor — ayrı bir getQuestionCountsByUnitId sorgusu artık yok.
+  const { data: answerRows } = allQuestionIds.length
+    ? await supabase.from('test_session_answers').select('question_id, is_correct').eq('user_id', userId).in('question_id', allQuestionIds)
+    : { data: [] as { question_id: number; is_correct: boolean }[] };
   const answers = (answerRows as { question_id: number; is_correct: boolean }[] | null) || [];
+  const attemptedQuestionIds = new Set(answers.map((a) => a.question_id));
 
   const questionIdToUnitId = new Map<number, number>();
   for (const [unitId, ids] of questionIdsByUnit) {
@@ -347,7 +289,7 @@ export async function getUnitsForLesson(
   const currentWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
 
   const mapped: Unit[] = units.map((u) => {
-    const totalQuestions = questionCountByUnit.get(u.id) ?? 0;
+    const totalQuestions = questionIdsByUnit.get(u.id)?.length ?? 0;
     const totalTopics = topicCountByUnit.get(u.id) ?? 0;
     const solved = solvedIdsByUnit.get(u.id)?.size ?? 0;
     const startWeek = u.start_week ?? 1;
@@ -388,14 +330,21 @@ export async function getUnitsForLesson(
     };
   });
 
-  // Panelin "Devam Edilen Konular" listesi için aktif ünite: henüz tamamlanmamış ilk
-  // ünite (müfredat sırasına göre) — kullanıcının şu an fiilen çalışıyor olması beklenen
-  // ünite. Hiçbiri bu duruma uymuyorsa (hepsi tamamlanmış) liste boş kalır.
+  // Akordeonun varsayılan açık ünitesi: henüz tamamlanmamış ilk ünite (müfredat sırasına
+  // göre) — kullanıcının şu an fiilen çalışıyor olması beklenen ünite. Hiçbiri bu duruma
+  // uymuyorsa (hepsi tamamlanmış) hiçbir ünite varsayılan açık gelmez.
   const activeUnit = mapped.find((u) => u.status === 'in_progress') ?? null;
-  const activeUnitRaw = activeUnit ? units.find((u) => String(u.id) === activeUnit.id) ?? null : null;
-  const activeUnitTopics = activeUnitRaw
-    ? await getActiveUnitTopics(supabase, userId, activeUnitRaw.id, gradeRow?.slug ?? null, lessonRow?.slug ?? null, activeUnitRaw.slug)
-    : [];
+
+  const topicsByUnitId = buildTopicsByUnitId(
+    topics,
+    questionIdsByTopic,
+    contentTopicIds,
+    contentCompletedByTopic,
+    attemptedQuestionIds,
+    gradeRow?.slug ?? null,
+    lessonRow?.slug ?? null,
+    unitSlugById
+  );
 
   return {
     units: mapped,
@@ -404,8 +353,7 @@ export async function getUnitsForLesson(
     currentWeek,
     totalWeeks,
     activeUnitId: activeUnit?.id ?? null,
-    activeUnitTitle: activeUnit?.title ?? null,
-    activeUnitTopics,
+    topicsByUnitId,
   };
 }
 
