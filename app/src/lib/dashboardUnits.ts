@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Unit, UnitTopic, Week } from '@/app/src/models/types';
+import { Unit, UnitTopic } from '@/app/src/models/types';
 import { getCurriculumCalendar } from './curriculumCalendar';
 import { getCurrentCurriculumWeek } from './routeParsing';
 
@@ -88,38 +88,12 @@ function buildTopicsByUnitId(
           quizHref: hasQuestions ? (baseHref ? `${baseHref}/kavrama-testi` : undefined) : undefined,
           quizProgress,
           quizCompleted,
+          totalQuestions: topicQuestionIds.length,
+          solvedQuestions: attemptedCount,
         };
       });
   }
   return result;
-}
-
-// WeeklyProgress kartlarında gösterilecek 5 haftalık pencereyi (mevcut haftanın bir öncesinden
-// başlayarak) müfredat haftasına göre kurar. Haftaya tıklamanın o haftanın içeriğini yüklemesi
-// kapsam dışı bırakıldı (bkz. docs/site-iyilestirme-plani.md tartışması) — sadece hangi haftanın
-// geçmiş/şimdi/gelecek/kilitli olduğunu göstermek için gerçek veri kullanılıyor.
-export function buildWeekWindow(windowStart: number, currentWeek: number, totalWeeks: number): Week[] {
-  const start = Math.max(1, windowStart);
-  const weeks: Week[] = [];
-  for (let n = start; n < start + 5; n++) {
-    let status: Week['status'];
-    let label: string;
-    if (n > totalWeeks) {
-      status = 'locked';
-      label = 'Kilitli';
-    } else if (n < currentWeek) {
-      status = 'past';
-      label = 'Geçen';
-    } else if (n === currentWeek) {
-      status = 'current';
-      label = 'Şimdi';
-    } else {
-      status = 'future';
-      label = 'Gelecek';
-    }
-    weeks.push({ id: n, number: n, label, status });
-  }
-  return weeks;
 }
 
 // Öğrencinin sınıfında (grade_id) tanımlı, aktif TÜM dersleri döner — panelin ders

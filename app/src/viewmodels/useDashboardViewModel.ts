@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardData, Stat } from '../models/types';
 import { useAuth } from '../context/AuthContext';
-import { getDashboardUnitsData, getUnitsForLesson, buildWeekWindow } from '../lib/dashboardUnits';
+import { getDashboardUnitsData, getUnitsForLesson } from '../lib/dashboardUnits';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats, getOverallStats } from '../lib/dashboardStats';
@@ -21,16 +21,12 @@ const EMPTY_STATS: Stat[] = [
 
 const EMPTY_WEEKLY_ACTIVE_DAYS: boolean[] = new Array(7).fill(false);
 
-const DEFAULT_TOTAL_WEEKS = 38;
-
 // Hiçbir alanda mock/uydurma veri kullanılmaz — bu, kullanıcı verisi henüz gelmeden önceki
 // (veya hiç kimlik doğrulaması yokken) tamamen boş/nötr başlangıç durumudur. Sayfa bu durumu
 // bölüm bazlı iskeletlerle karşılar (bkz. useDashboardViewModel dönüşündeki isXLoading
 // flag'leri), gerçek veri gelmeden asla kalıcı içerikmiş gibi gösterilmez.
 const EMPTY_DASHBOARD_DATA: DashboardData = {
   user: { id: '', name: '', email: '', streak: 0, dailyGoal: DAILY_GOAL_QUESTIONS, dailyProgress: 0 },
-  weeks: [],
-  currentWeekId: 0,
   weeklyActiveDays: EMPTY_WEEKLY_ACTIVE_DAYS,
   stats: EMPTY_STATS,
   overallStats: null,
@@ -46,11 +42,9 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
 interface UseDashboardViewModelReturn {
   // State
   data: DashboardData;
-  selectedWeekId: number;
   isAuthenticated: boolean;
   notificationCount: number;
   unitsContext: { lessonName: string | null; gradeName: string | null } | null;
-  canShiftWeekWindow: { prev: boolean; next: boolean };
   isSwitchingLesson: boolean;
   // Panelin bölüm bazlı yüklenmesi için — hepsi tek bir global spinner yerine, her bölüm
   // kendi verisi gelince ayrı ayrı görünür (bkz. kullanıcıyla "adım adım yüklensin" isteği).
@@ -62,8 +56,6 @@ interface UseDashboardViewModelReturn {
   isOverallLoading: boolean;
 
   // Actions
-  selectWeek: (weekId: number) => void;
-  shiftWeekWindow: (direction: 1 | -1) => void;
   selectLesson: (lessonId: string) => void;
   handleSRSReview: () => void;
   handleStartQuiz: () => void;
@@ -77,9 +69,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
 
   // State
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
-  const [selectedWeekId, setSelectedWeekId] = useState<number>(0);
-  const [weekWindowStart, setWeekWindowStart] = useState<number>(1);
-  const [totalWeeks, setTotalWeeks] = useState<number>(DEFAULT_TOTAL_WEEKS);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [isUnitsLoading, setIsUnitsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
@@ -126,7 +115,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
       setData(EMPTY_DASHBOARD_DATA);
       setUnitsContext(null);
       setUnitsGradeId(null);
-      setSelectedWeekId(0);
       setIsProfileLoading(true);
       setIsUnitsLoading(true);
       setIsStatsLoading(true);
@@ -167,15 +155,10 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         return gradeId;
       });
 
-    // Üniteler + konular + hafta penceresi — en ağır zincir, kendi bölümünü (Üniteler +
-    // Haftalık İlerleme) bağımsız günceller.
+    // Üniteler + konular — en ağır zincir, kendi bölümünü (Üniteler) bağımsız günceller.
     profileGradeId.then((gradeId) =>
       getDashboardUnitsData(supabase, userId, gradeId).then((unitsResult) => {
         if (cancelled) return;
-        const nextTotalWeeks = unitsResult?.totalWeeks ?? DEFAULT_TOTAL_WEEKS;
-        const nextWindowStart = Math.max(1, (unitsResult?.currentWeek ?? 1) - 1);
-        setTotalWeeks(nextTotalWeeks);
-        setWeekWindowStart(nextWindowStart);
         setData((prev) => ({
           ...prev,
           units: unitsResult?.units ?? [],
@@ -183,10 +166,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
           topicsByUnitId: unitsResult?.topicsByUnitId ?? {},
           lessons: unitsResult?.lessons ?? [],
           selectedLessonId: unitsResult?.selectedLessonId ?? null,
-          weeks: unitsResult ? buildWeekWindow(nextWindowStart, unitsResult.currentWeek, nextTotalWeeks) : prev.weeks,
-          currentWeekId: unitsResult?.currentWeek ?? prev.currentWeekId,
         }));
-        if (unitsResult) setSelectedWeekId(unitsResult.currentWeek);
         setUnitsContext(unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null);
         // unitsResult, hiç test_sessions kaydı yoksa null döner (bkz. getDashboardUnitsData) —
         // ama selectLesson (sidebar'dan ders seçimi) yine de bir gradeId'ye ihtiyaç duyuyor.
@@ -245,28 +225,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   }, [user?.id, supabase, refreshKey]);
 
   // Actions
-  const selectWeek = useCallback((weekId: number) => {
-    const week = data.weeks.find(w => w.id === weekId);
-    if (week && week.status !== 'locked') {
-      setSelectedWeekId(weekId);
-    }
-  }, [data.weeks]);
-
-  // Haftalık ilerleme kartındaki ok butonları: müfredat haftası penceresini ±5 kaydırır.
-  // Saf tarih hesabı olduğu için (buildWeekWindow) yeniden DB'ye gitmeye gerek yok.
-  const shiftWeekWindow = useCallback((direction: 1 | -1) => {
-    setWeekWindowStart((prevStart) => {
-      const maxStart = Math.max(1, totalWeeks - 4);
-      const nextStart = Math.max(1, Math.min(maxStart, prevStart + direction * 5));
-      setData((prev) => ({ ...prev, weeks: buildWeekWindow(nextStart, prev.currentWeekId, totalWeeks) }));
-      return nextStart;
-    });
-  }, [totalWeeks]);
-
-  const canShiftWeekWindow = {
-    prev: weekWindowStart > 1,
-    next: weekWindowStart + 5 <= totalWeeks,
-  };
 
   // Hızlı art arda sekme tıklamalarında, eski (geç dönen) bir isteğin sonucu yeni seçilen
   // dersin üstüne yazmasın diye — her çağrı kendi id'sini damgalar, sadece EN SON çağrı
@@ -286,10 +244,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     getUnitsForLesson(supabase, user.id, numericLessonId, unitsGradeId)
       .then((result) => {
         if (lessonRequestRef.current !== requestId) return;
-        const nextWindowStart = Math.max(1, result.currentWeek - 1);
-        setTotalWeeks(result.totalWeeks);
-        setWeekWindowStart(nextWindowStart);
-        setSelectedWeekId(result.currentWeek);
         setUnitsContext({ lessonName: result.lessonName, gradeName: result.gradeName });
         setData((prev) => ({
           ...prev,
@@ -297,8 +251,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
           activeUnitId: result.activeUnitId,
           topicsByUnitId: result.topicsByUnitId,
           selectedLessonId: lessonId,
-          weeks: buildWeekWindow(nextWindowStart, result.currentWeek, result.totalWeeks),
-          currentWeekId: result.currentWeek,
         }));
       })
       .finally(() => {
@@ -335,11 +287,9 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   return {
     // State
     data,
-    selectedWeekId,
     isAuthenticated: !!user,
     unitsContext,
     notificationCount,
-    canShiftWeekWindow,
     isSwitchingLesson,
     isAuthResolving: authLoading,
     isProfileLoading,
@@ -349,8 +299,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     isOverallLoading,
 
     // Actions
-    selectWeek,
-    shiftWeekWindow,
     selectLesson,
     handleSRSReview,
     handleStartQuiz,

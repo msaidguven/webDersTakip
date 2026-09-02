@@ -71,22 +71,42 @@ function TopicRow({ topic, accent }: { topic: UnitTopic; accent: 'emerald' | 'in
       ? 'bg-emerald-500/15 text-emerald-400'
       : 'bg-indigo-500/15 text-indigo-400';
   const hoverBorder = accent === 'emerald' ? 'hover:border-emerald-500/40' : 'hover:border-indigo-500/40';
+  const barColor = fullyDone ? 'bg-emerald-500' : accent === 'emerald' ? 'bg-emerald-500' : 'bg-indigo-500';
 
   return (
     <div className="relative flex items-center pl-5 pr-1">
       {/* Ünite çizgisinden konuya kısa bir "dal" — alt kategori olduğunu belli eder */}
       <span className={`absolute left-0 top-1/2 h-0.5 w-4 -translate-y-1/2 rounded-full ${stubColor}`} />
       <div
-        className={`flex flex-1 min-w-0 items-center gap-2.5 rounded-xl border border-default/70 bg-surface-elevated px-3 py-2.5 sm:px-3.5 transition-colors ${hoverBorder}`}
+        className={`flex flex-1 min-w-0 flex-col gap-1.5 rounded-xl border border-default/70 bg-surface-elevated px-3 py-2.5 sm:px-3.5 transition-colors ${hoverBorder}`}
       >
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${badgeClass}`}>
-          <Icon name={fullyDone ? 'check' : 'bookmark'} size={11} />
-        </span>
-        <p className="text-[13px] sm:text-sm font-medium text-default flex-1 min-w-0 truncate">{topic.title}</p>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
-          <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
+        <div className="flex items-center gap-2.5">
+          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${badgeClass}`}>
+            <Icon name={fullyDone ? 'check' : 'bookmark'} size={11} />
+          </span>
+          <p className="text-[13px] sm:text-sm font-medium text-default flex-1 min-w-0 truncate">{topic.title}</p>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
+            <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
+          </div>
         </div>
+
+        {/* Ünitenin kendi soru sayısı + yüzdelik ilerleme çubuğunun konu bazlı karşılığı
+            (bkz. kullanıcının "üniteler için olan bunu konular için de yap" isteği,
+            2026-09-02) — hiç soru yoksa (yalnızca konu anlatımı olan bir konu) gösterilmez. */}
+        {topic.totalQuestions > 0 && (
+          <div className="flex items-center gap-2 pl-8 sm:pl-9">
+            <div className="h-1.5 flex-1 max-w-[160px] rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                style={{ width: `${topic.quizProgress}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-muted-foreground shrink-0">
+              {topic.solvedQuestions}/{topic.totalQuestions} Soru • %{topic.quizProgress}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

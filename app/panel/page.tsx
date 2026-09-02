@@ -34,10 +34,8 @@ export default function PanelPage() {
   const pendingLessonIdRef = useRef<string | null>(null);
   const {
     data,
-    selectedWeekId,
     isAuthenticated,
     unitsContext,
-    canShiftWeekWindow,
     isSwitchingLesson,
     isAuthResolving,
     isProfileLoading,
@@ -45,8 +43,6 @@ export default function PanelPage() {
     isStatsLoading,
     isActivityLoading,
     isOverallLoading,
-    selectWeek,
-    shiftWeekWindow,
     selectLesson,
     handleSRSReview,
   } = useDashboardViewModel();
@@ -255,16 +251,7 @@ export default function PanelPage() {
           {isAuthenticated && isUnitsLoading ? (
             <SkeletonBlock className="h-64" />
           ) : (
-            <WeeklyProgress
-              weeks={data.weeks}
-              currentWeekId={selectedWeekId}
-              onSelectWeek={selectWeek}
-              onPrevWeeks={() => shiftWeekWindow(-1)}
-              onNextWeeks={() => shiftWeekWindow(1)}
-              canGoPrev={canShiftWeekWindow.prev}
-              canGoNext={canShiftWeekWindow.next}
-              activeDays={data.weeklyActiveDays}
-            />
+            <WeeklyProgress activeDays={data.weeklyActiveDays} />
           )}
 
           {/* Activity Feed — panelde sadece yarım kalan testler gösteriliyor, tamamlananlar

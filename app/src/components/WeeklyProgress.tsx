@@ -1,33 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Week } from '../models/types';
-import { Icon } from './icons';
 
 interface WeeklyProgressProps {
-  weeks: Week[];
-  currentWeekId: number;
-  onSelectWeek: (weekId: number) => void;
-  onPrevWeeks?: () => void;
-  onNextWeeks?: () => void;
-  canGoPrev?: boolean;
-  canGoNext?: boolean;
   // Bu haftanın Pazartesi'den Pazar'a 7 günü için gerçekten soru çözülüp çözülmediği
   // (bkz. dashboardStreak.ts:getWeeklyActiveDays) — eskiden ilk 5 gün hardcoded "tamamlandı"
   // gösteriliyordu (bkz. kullanıcıyla 2026-09-02 tartışması).
   activeDays?: boolean[];
 }
 
-export function WeeklyProgress({
-  weeks,
-  currentWeekId,
-  onSelectWeek,
-  onPrevWeeks,
-  onNextWeeks,
-  canGoPrev = true,
-  canGoNext = true,
-  activeDays = new Array(7).fill(false),
-}: WeeklyProgressProps) {
+// Eskiden burada müfredat haftası kartları (1-5, "Şimdi/Gelecek") da vardı — sadece görsel
+// seçim dışında hiçbir işlevi olmadığı, kafa karıştırdığı için kaldırıldı (bkz. kullanıcıyla
+// 2026-09-02 tartışması). Kalan tek şey: bu takvim haftasının günlük pratik takibi.
+export function WeeklyProgress({ activeDays = new Array(7).fill(false) }: WeeklyProgressProps) {
   const days = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
   const todayIndex = (() => {
     const day = new Date().getDay(); // 0=Pazar, 1=Pazartesi, ... 6=Cumartesi
@@ -37,100 +22,37 @@ export function WeeklyProgress({
 
   return (
     <div className="rounded-xl sm:rounded-2xl bg-surface-elevated border border-default p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h3 className="font-semibold text-default text-sm sm:text-base">Haftalık İlerleme</h3>
-        <div className="flex gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={onPrevWeeks}
-            disabled={!canGoPrev}
-            aria-label="Önceki haftalar"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Icon name="chevron-right" size={14} className="rotate-180 text-muted-foreground" />
-          </button>
-          <button
-            type="button"
-            onClick={onNextWeeks}
-            disabled={!canGoNext}
-            aria-label="Sonraki haftalar"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Icon name="chevron-right" size={14} className="text-muted-foreground" />
-          </button>
-        </div>
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 className="font-semibold text-default text-sm sm:text-base">Bu Hafta</h3>
+        <span className="text-default font-medium text-xs sm:text-sm">{completedCount}/7 Gün</span>
       </div>
 
-      {/* Week Cards */}
-      <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
-        {weeks.map((week) => {
-          const isActive = week.id === currentWeekId;
-          const isLocked = week.status === 'locked';
-          
+      <div className="flex gap-1 sm:gap-2">
+        {days.map((day, index) => {
+          const isCompleted = activeDays[index] ?? false;
+          const isToday = index === todayIndex;
+
           return (
-            <button
-              key={week.id}
-              onClick={() => !isLocked && onSelectWeek(week.id)}
-              disabled={isLocked}
-              className={`
-                relative p-2 sm:p-4 rounded-lg sm:rounded-xl transition-all duration-300
-                ${isActive 
-                  ? 'bg-indigo-500/20 border-2 border-indigo-500/50 shadow-lg shadow-indigo-500/20' 
-                  : isLocked 
-                    ? 'bg-zinc-800/50 border border-default opacity-50 cursor-not-allowed'
-                    : 'bg-zinc-800/50 border border-default hover:border-default/20 hover:bg-zinc-800'
-                }
-              `}
-            >
-              <div className={`text-lg sm:text-2xl font-bold ${isActive ? 'text-indigo-400' : 'text-default'}`}>
-                {week.number}
-              </div>
-              <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${isActive ? 'text-indigo-400/70' : 'text-muted-foreground'}`}>
-                {week.label}
-              </div>
-              
-              {isActive && (
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-400 rounded-full" />
-              )}
-            </button>
+            <div key={day} className="flex-1 text-center">
+              <div
+                className={`
+                  h-8 sm:h-12 rounded-lg sm:rounded-xl mb-1 sm:mb-2 transition-all duration-300
+                  ${isCompleted
+                    ? isToday
+                      ? 'bg-gradient-to-b from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30'
+                      : 'bg-emerald-500/20 border border-emerald-500/30'
+                    : isToday
+                      ? 'bg-zinc-800 border-2 border-dashed border-indigo-500/40'
+                      : 'bg-zinc-800 border border-default'
+                  }
+                `}
+              />
+              <span className={`text-[10px] sm:text-xs ${isToday ? 'text-indigo-400 font-medium' : 'text-muted-foreground'}`}>
+                {day}
+              </span>
+            </div>
           );
         })}
-      </div>
-
-      {/* Daily Progress */}
-      <div>
-        <div className="flex items-center justify-between text-xs sm:text-sm mb-2 sm:mb-3">
-          <span className="text-muted-foreground">Bu Hafta</span>
-          <span className="text-default font-medium">{completedCount}/7 Gün</span>
-        </div>
-
-        <div className="flex gap-1 sm:gap-2">
-          {days.map((day, index) => {
-            const isCompleted = activeDays[index] ?? false;
-            const isToday = index === todayIndex;
-
-            return (
-              <div key={day} className="flex-1 text-center">
-                <div
-                  className={`
-                    h-8 sm:h-12 rounded-lg sm:rounded-xl mb-1 sm:mb-2 transition-all duration-300
-                    ${isCompleted
-                      ? isToday
-                        ? 'bg-gradient-to-b from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30'
-                        : 'bg-emerald-500/20 border border-emerald-500/30'
-                      : isToday
-                        ? 'bg-zinc-800 border-2 border-dashed border-indigo-500/40'
-                        : 'bg-zinc-800 border border-default'
-                    }
-                  `}
-                />
-                <span className={`text-[10px] sm:text-xs ${isToday ? 'text-indigo-400 font-medium' : 'text-muted-foreground'}`}>
-                  {day}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

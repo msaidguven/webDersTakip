@@ -43,6 +43,8 @@ export interface UnitTopic {
   quizHref?: string;
   quizProgress: number;
   quizCompleted: boolean;
+  totalQuestions: number;
+  solvedQuestions: number;
 }
 
 export interface Stat {
@@ -80,8 +82,6 @@ export interface Activity {
 
 export interface DashboardData {
   user: User;
-  weeks: Week[];
-  currentWeekId: number;
   weeklyActiveDays: boolean[];
   stats: Stat[];
   overallStats: { totalQuestions: number; correctAnswers: number; wrongAnswers: number; accuracy: number } | null;
