@@ -9,6 +9,7 @@ import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats, getOverallStats } from '../lib/dashboardStats';
 import { getCurrentStreak, getTodayQuestionCount, getWeeklyActiveDays, DAILY_GOAL_QUESTIONS } from '../lib/dashboardStreak';
+import { onQuizModalClosed } from '../lib/panelRefreshBridge';
 
 const EMPTY_STATS: Stat[] = [
   { id: 'correct-today', icon: 'check-circle', iconColor: 'purple', value: 0, label: 'Doğru Cevap' },
@@ -66,7 +67,7 @@ interface UseDashboardViewModelReturn {
   selectLesson: (lessonId: string) => void;
   handleSRSReview: () => void;
   handleStartQuiz: () => void;
-  refreshData: () => Promise<void>;
+  refreshData: (options?: { silent?: boolean }) => Promise<void>;
   markNotificationRead: () => void;
 }
 
@@ -96,6 +97,11 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // refreshData tarafından artırılır — efekt buna da bağlı olduğu için manuel yenileme,
   // effect'i kopyalamadan aynı yükleme mantığını tekrar çalıştırır.
   const [refreshKey, setRefreshKey] = useState(0);
+  // refreshData "sessiz" (silent) modda çağrıldığında true olur: aşağıdaki effect, bölüm
+  // bazlı isXLoading flag'lerini true'ya çekmeyip eski veriyi ekranda tutarak arka planda
+  // yeniler — quiz modalı kapanınca sayfa skeleton'lara dönüp "duraklamış" hissi vermesin diye
+  // (bkz. kullanıcının "sayfayı duraklatmayacak şekilde hızlıca yenilensin" isteği, 2026-09-02).
+  const silentRefreshRef = useRef(false);
 
   // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
   // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
@@ -132,11 +138,15 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     let cancelled = false;
     const userId = user.id;
 
-    setIsProfileLoading(true);
-    setIsUnitsLoading(true);
-    setIsStatsLoading(true);
-    setIsActivityLoading(true);
-    setIsOverallLoading(true);
+    const silent = silentRefreshRef.current;
+    silentRefreshRef.current = false;
+    if (!silent) {
+      setIsProfileLoading(true);
+      setIsUnitsLoading(true);
+      setIsStatsLoading(true);
+      setIsActivityLoading(true);
+      setIsOverallLoading(true);
+    }
 
     // Profil (isim + grade_id): tek başına en hafif sorgu, isim karşılama başlığında hemen
     // görünsün diye kendi setData'sını hemen yapıyor. gradeId'yi döndürüp aşağıdaki iki dalın
@@ -304,9 +314,19 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     router.push('/');
   }, [router]);
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (options?: { silent?: boolean }) => {
+    silentRefreshRef.current = options?.silent ?? false;
     setRefreshKey((k) => k + 1);
   }, []);
+
+  // Quiz modalı (X / Escape / backdrop ile) kapanınca panel verisini sessizce tazele —
+  // bkz. panelRefreshBridge, modal ayrı bir route ağacında olduğu için doğrudan callback
+  // geçirilemiyor.
+  useEffect(() => {
+    return onQuizModalClosed(() => {
+      refreshData({ silent: true });
+    });
+  }, [refreshData]);
 
   const markNotificationRead = useCallback(() => {
     setNotificationCount(0);

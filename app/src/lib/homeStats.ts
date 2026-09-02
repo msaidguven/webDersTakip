@@ -75,6 +75,7 @@ export interface SiteStats {
   gradeCount: number;
   lessonCount: number;
   unitCount: number;
+  topicCount: number;
   questionCount: number;
   studentCount: number;
 }
@@ -92,12 +93,14 @@ export async function getSiteStats(supabase: AnySupabaseClient): Promise<SiteSta
   const publishedUnits = (await getPublishedUnitContent(supabase, gradeIds)).filter((u) => u.hasPublishedContent);
 
   const lessonKeys = new Set(publishedUnits.map((u) => `${u.grade_id}:${u.lesson_id}`));
+  const topicCount = publishedUnits.reduce((sum, u) => sum + u.topicCount, 0);
   const questionCount = publishedUnits.reduce((sum, u) => sum + u.questionCount, 0);
 
   return {
     gradeCount: gradeIds.length,
     lessonCount: lessonKeys.size,
     unitCount: publishedUnits.length,
+    topicCount,
     questionCount,
     studentCount: DISPLAYED_STUDENT_COUNT,
   };

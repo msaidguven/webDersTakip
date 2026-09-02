@@ -3,10 +3,10 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 export type Option = { id: number; text: string; is_correct: boolean };
 export type Pair = { id: number; left_text: string; right_text: string };
 
-export type MultipleChoiceQuestion = { id: number; type: 'multiple_choice'; question_text: string; solution_text: string | null; choices: Option[] };
-export type BlankQuestion = { id: number; type: 'blank'; question_text: string; solution_text: string | null; options: Option[] };
+export type MultipleChoiceQuestion = { id: number; type: 'multiple_choice'; question_text: string; solution_text: string | null; svg_content: string | null; choices: Option[] };
+export type BlankQuestion = { id: number; type: 'blank'; question_text: string; solution_text: string | null; svg_content: string | null; options: Option[] };
 export type MatchingQuestion = { id: number; type: 'matching'; pairs: Pair[] };
-export type ClassicalQuestion = { id: number; type: 'classical'; question_text: string; modelAnswer: string | null };
+export type ClassicalQuestion = { id: number; type: 'classical'; question_text: string; svg_content: string | null; modelAnswer: string | null };
 export type QuizQuestion = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion | ClassicalQuestion;
 
 // Test sayfasındaki "AI'ye Sor" widget'ı, öğrenci "neden A" gibi kısa bir şey yazınca
@@ -54,7 +54,7 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
   const supabase = createServiceClient();
 
   const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }, { data: classicalData }] = await Promise.all([
-    supabase.from('questions').select('id, question_text, solution_text').in('id', questionIds),
+    supabase.from('questions').select('id, question_text, solution_text, svg_content').in('id', questionIds),
     supabase.from('question_choices').select('id, question_id, choice_text, is_correct').in('question_id', questionIds),
     supabase.from('question_blank_options').select('id, question_id, option_text, is_correct').in('question_id', questionIds),
     supabase.from('question_matching_pairs').select('id, question_id, left_text, right_text').in('question_id', questionIds),
@@ -89,15 +89,15 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
 
   const all: QuizQuestion[] = [];
 
-  ((questionsData as { id: number; question_text: string; solution_text: string | null }[] | null) || []).forEach((q) => {
+  ((questionsData as { id: number; question_text: string; solution_text: string | null; svg_content: string | null }[] | null) || []).forEach((q) => {
     const choices = shuffle(choicesByQuestion.get(q.id) || []);
     if (choices.length >= 2) {
-      all.push({ id: q.id, type: 'multiple_choice', question_text: q.question_text, solution_text: q.solution_text, choices });
+      all.push({ id: q.id, type: 'multiple_choice', question_text: q.question_text, solution_text: q.solution_text, svg_content: q.svg_content, choices });
       return;
     }
     const options = shuffle(optionsByQuestion.get(q.id) || []);
     if (options.length >= 2 && q.question_text.includes('_____')) {
-      all.push({ id: q.id, type: 'blank', question_text: q.question_text, solution_text: q.solution_text, options });
+      all.push({ id: q.id, type: 'blank', question_text: q.question_text, solution_text: q.solution_text, svg_content: q.svg_content, options });
       return;
     }
     const pairs = shuffle(pairsByQuestion.get(q.id) || []);
@@ -106,7 +106,7 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
       return;
     }
     if (classicalByQuestion.has(q.id)) {
-      all.push({ id: q.id, type: 'classical', question_text: q.question_text, modelAnswer: classicalByQuestion.get(q.id) ?? null });
+      all.push({ id: q.id, type: 'classical', question_text: q.question_text, svg_content: q.svg_content, modelAnswer: classicalByQuestion.get(q.id) ?? null });
     }
   });
 

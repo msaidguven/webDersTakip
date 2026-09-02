@@ -4,6 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
 
 const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
+const MAX_SVG_LENGTH = 20_000;
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const { data: question, error } = await supabase
       .from('questions')
-      .select('id, question_type_id, question_text, difficulty, score, solution_text, question_types(code)')
+      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, question_types(code)')
       .eq('id', id)
       .maybeSingle();
 
@@ -112,8 +113,18 @@ export async function PATCH(request: NextRequest) {
     const rawPatch = body.patch && typeof body.patch === 'object' ? (body.patch as Record<string, unknown>) : {};
 
     const patch: Record<string, unknown> = {};
-    for (const key of ['question_text', 'difficulty', 'score', 'solution_text']) {
+    for (const key of ['question_text', 'difficulty', 'score', 'solution_text', 'svg_content']) {
       if (key in rawPatch) patch[key] = rawPatch[key];
+    }
+    if ('svg_content' in patch && patch.svg_content != null) {
+      const svg = String(patch.svg_content).trim();
+      if (!svg) {
+        patch.svg_content = null;
+      } else if (!svg.startsWith('<svg') || !svg.endsWith('</svg>') || svg.length > MAX_SVG_LENGTH) {
+        return NextResponse.json({ error: 'Geçersiz SVG kodu' }, { status: 400 });
+      } else {
+        patch.svg_content = svg;
+      }
     }
     if (Object.keys(patch).length) {
       const { error } = await supabase.from('questions').update(patch).eq('id', questionId);

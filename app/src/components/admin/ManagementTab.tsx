@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 
 // ==================== TYPES ====================
 
@@ -897,6 +898,7 @@ function QuestionEditModal({
   const [difficulty, setDifficulty] = useState(1);
   const [score, setScore] = useState(1);
   const [solutionText, setSolutionText] = useState('');
+  const [svgContent, setSvgContent] = useState('');
   const [typeCode, setTypeCode] = useState('');
   const [choices, setChoices] = useState<Choice[]>([]);
   const [blankOptions, setBlankOptions] = useState<BlankOption[]>([]);
@@ -916,6 +918,7 @@ function QuestionEditModal({
       setDifficulty(data.question.difficulty || 1);
       setScore(data.question.score || 1);
       setSolutionText(data.question.solution_text || '');
+      setSvgContent(data.question.svg_content || '');
       setTypeCode(data.question.question_types?.code || '');
       setChoices(data.choices || []);
       setBlankOptions(data.blankOptions || []);
@@ -930,7 +933,7 @@ function QuestionEditModal({
     setSaving(true);
     const body: Row = {
       id: questionId,
-      patch: { question_text: questionText, difficulty, score, solution_text: solutionText || null },
+      patch: { question_text: questionText, difficulty, score, solution_text: solutionText || null, svg_content: svgContent || null },
     };
     if (choices.length) body.choices = choices.map((c) => ({ choice_text: c.choice_text, is_correct: c.is_correct }));
     if (blankOptions.length) body.blankOptions = blankOptions.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct }));
@@ -1001,6 +1004,27 @@ function QuestionEditModal({
               rows={2}
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-xs sm:text-sm mb-1">SVG Görsel (opsiyonel)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <textarea
+                value={svgContent}
+                onChange={(e) => setSvgContent(e.target.value)}
+                rows={8}
+                placeholder="<svg ...>...</svg>"
+                spellCheck={false}
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-xs font-mono outline-none focus:border-indigo-500"
+              />
+              <div className="flex items-center justify-center rounded-xl border border-white/10 bg-white p-3 min-h-[9rem]">
+                {(() => {
+                  const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
+                  if (!clean) return <span className="text-gray-400 text-xs">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
+                  return <div className="max-h-64 max-w-full [&_svg]:max-h-64 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
+                })()}
+              </div>
+            </div>
           </div>
 
           {choices.length > 0 && (

@@ -36,7 +36,6 @@ export default function PanelPage() {
     data,
     selectedWeekId,
     isAuthenticated,
-    notificationCount,
     unitsContext,
     canShiftWeekWindow,
     isSwitchingLesson,
@@ -50,8 +49,6 @@ export default function PanelPage() {
     shiftWeekWindow,
     selectLesson,
     handleSRSReview,
-    handleStartQuiz,
-    markNotificationRead,
   } = useDashboardViewModel();
 
   // Panel dışında bir sayfadayken (profil, siralama, aktiviteler) sidebar'dan bir derse
@@ -70,7 +67,7 @@ export default function PanelPage() {
 
   if (isAuthResolving) {
     return (
-      <PanelShell isAuthenticated={false} onStartQuiz={handleStartQuiz}>
+      <PanelShell isAuthenticated={false}>
         <div className="flex items-center justify-center py-24">
           <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -82,10 +79,6 @@ export default function PanelPage() {
     <PanelShell
       isAuthenticated={isAuthenticated}
       userName={data.user.name}
-      streak={data.user.streak}
-      notificationCount={notificationCount}
-      onNotificationClick={markNotificationRead}
-      onStartQuiz={handleStartQuiz}
       onSelectLesson={selectLesson}
     >
       {/* Welcome Section */}

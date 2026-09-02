@@ -10,10 +10,17 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
+import { emitQuizModalClosed } from '../lib/panelRefreshBridge';
 
 export default function QuizModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const close = () => router.back();
+  const close = () => {
+    // Panel sayfası bu slot'un altında mount'lu kalır (bkz. panel/layout.tsx) — router.back()
+    // onu yeniden mount etmediği için, kapanışı panele haber vermek üzere ayrıca bir sinyal
+    // yayınlıyoruz (bkz. panelRefreshBridge, kullanıcının "modal kapanınca otomatik güncellensin" isteği).
+    emitQuizModalClosed();
+    router.back();
+  };
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

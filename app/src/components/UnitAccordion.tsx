@@ -59,23 +59,34 @@ function TopicActionButton({
   );
 }
 
-function TopicRow({ topic }: { topic: UnitTopic }) {
+// accent, konunun bağlı olduğu ünitenin durumunu yansıtır (tamamlandıysa yeşil, devam
+// ediyorsa indigo) — dal çizgisi ve rozet bu renkte olunca konu, hangi üniteye ait
+// olduğu görsel olarak da belli olacak şekilde ünitesiyle eşleşir.
+function TopicRow({ topic, accent }: { topic: UnitTopic; accent: 'emerald' | 'indigo' }) {
   const fullyDone = topic.contentCompleted && topic.quizCompleted;
+  const stubColor = accent === 'emerald' ? 'bg-emerald-500/40' : 'bg-indigo-500/40';
+  const badgeClass = fullyDone
+    ? 'bg-emerald-500/15 text-emerald-500'
+    : accent === 'emerald'
+      ? 'bg-emerald-500/15 text-emerald-400'
+      : 'bg-indigo-500/15 text-indigo-400';
+  const hoverBorder = accent === 'emerald' ? 'hover:border-emerald-500/40' : 'hover:border-indigo-500/40';
+
   return (
-    <div className="relative flex items-center gap-2.5 py-2.5 pl-5 pr-4 sm:pr-5">
+    <div className="relative flex items-center pl-5 pr-1">
       {/* Ünite çizgisinden konuya kısa bir "dal" — alt kategori olduğunu belli eder */}
-      <span className="absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 bg-default" />
-      <span
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-          fullyDone ? 'bg-emerald-500/15 text-emerald-500' : 'bg-white/5 text-muted-foreground'
-        }`}
+      <span className={`absolute left-0 top-1/2 h-0.5 w-4 -translate-y-1/2 rounded-full ${stubColor}`} />
+      <div
+        className={`flex flex-1 min-w-0 items-center gap-2.5 rounded-xl border border-default/70 bg-surface-elevated px-3 py-2.5 sm:px-3.5 transition-colors ${hoverBorder}`}
       >
-        <Icon name={fullyDone ? 'check' : 'bookmark'} size={10} />
-      </span>
-      <p className="text-[13px] sm:text-sm text-muted-foreground flex-1 min-w-0 truncate">{topic.title}</p>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
-        <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${badgeClass}`}>
+          <Icon name={fullyDone ? 'check' : 'bookmark'} size={11} />
+        </span>
+        <p className="text-[13px] sm:text-sm font-medium text-default flex-1 min-w-0 truncate">{topic.title}</p>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
+          <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
+        </div>
       </div>
     </div>
   );
@@ -145,13 +156,21 @@ export function UnitAccordion({ units, topicsByUnitId, defaultOpenUnitId }: Unit
             </div>
 
             {isOpen && (
-              <div className="bg-black/10 pl-9 sm:pl-11 pr-1 py-1.5">
+              <div className="bg-black/15 pl-9 sm:pl-11 pr-2 sm:pr-3 py-2.5">
                 {topics.length === 0 ? (
                   <p className="pl-5 py-2.5 text-sm text-muted-foreground">Bu ünitede henüz konu yok.</p>
                 ) : (
-                  <div className="border-l border-default divide-y divide-default/60">
+                  <div
+                    className={`space-y-2 border-l-2 ${
+                      unit.status === 'completed' ? 'border-emerald-500/30' : 'border-indigo-500/30'
+                    }`}
+                  >
                     {topics.map((topic) => (
-                      <TopicRow key={topic.id} topic={topic} />
+                      <TopicRow
+                        key={topic.id}
+                        topic={topic}
+                        accent={unit.status === 'completed' ? 'emerald' : 'indigo'}
+                      />
                     ))}
                   </div>
                 )}

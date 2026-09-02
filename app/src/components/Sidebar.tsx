@@ -43,7 +43,7 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLe
 
   return (
     <aside className={`
-      fixed left-0 top-0 h-screen w-[280px] bg-surface border-r border-default z-50 flex flex-col
+      fixed left-0 top-[60px] sm:top-[72px] h-[calc(100vh-60px)] sm:h-[calc(100vh-72px)] w-[280px] bg-surface border-r border-default z-40 flex flex-col
       transition-transform duration-300 ease-in-out
       lg:translate-x-0
       ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -55,19 +55,6 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLe
       >
         ✕
       </button>
-
-      {/* Logo Area */}
-      <div className="p-6 border-b border-default">
-        <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-shadow">
-            <span className="text-xl font-bold text-default">📚</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-default tracking-tight">Ders Takip</h1>
-            <p className="text-xs text-muted-foreground">Öğrenme Yolculuğu</p>
-          </div>
-        </Link>
-      </div>
 
       {/* Dersler */}
       <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">

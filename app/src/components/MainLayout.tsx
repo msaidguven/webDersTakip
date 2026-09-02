@@ -51,11 +51,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
   const isTopicContentRoute = pathSegments.length === 4;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
-  // /panel ve /profil kendi Sidebar + TopBar kabuğunu taşıyor (panele özgü navigasyon,
-  // "Panel"/"Profil" arası geçiş dahil) — global header üstlerine binip çift navigasyon
-  // çubuğu oluşturmasın diye burada da gizleniyor.
-  const isAppShellRoute = pathname === '/panel' || pathname?.startsWith('/panel/') || pathname === '/profil';
-  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute || isAppShellRoute;
+  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute;
   // Test çözme sayfalarında (kavrama-testi/ünite-testi) header kalır ama footer'ın hukuki
   // linkleri odağı dağıtmasın diye gizlenir.
   const isTestPageRoute = pathname?.endsWith('/kavrama-testi') || pathname?.endsWith('/unite-testi');
@@ -114,12 +110,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
             )}
 
-            <Link
-              href="/panel"
-              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
-            >
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center">
               <Icon name="bell" className="text-muted-foreground" size={18} />
-            </Link>
+            </div>
 
             <ThemeToggle />
 

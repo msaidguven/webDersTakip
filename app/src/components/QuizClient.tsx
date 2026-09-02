@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Clock, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 
 const CORRECT_MESSAGES = [
   'Harika! 🎉',
@@ -90,6 +91,19 @@ function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () 
   );
 }
 
+function QuestionSvg({ svgContent }: { svgContent: string | null }) {
+  if (!svgContent) return null;
+  const clean = sanitizeMathSvg(svgContent);
+  if (!clean) return null;
+  return (
+    <div
+      role="img"
+      className="mb-4 rounded-xl border border-default bg-white p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs"
+      dangerouslySetInnerHTML={{ __html: clean }}
+    />
+  );
+}
+
 function OptionsView({
   question,
   selectedId,
@@ -105,6 +119,7 @@ function OptionsView({
 
   return (
     <>
+      <QuestionSvg svgContent={question.svg_content} />
       {question.type === 'blank' ? (
         <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">
           {question.question_text.split('_____').map((part, i, arr) => (
@@ -255,6 +270,7 @@ function ClassicalView({
 }) {
   return (
     <div>
+      <QuestionSvg svgContent={question.svg_content} />
       <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">{question.question_text}</p>
       <textarea
         value={value}
