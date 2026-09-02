@@ -45,7 +45,7 @@ export default function ThemeToggle() {
   if (isDark === null) {
     return (
       <button
-        className="p-2 rounded-lg hover:bg-zinc-100/50 dark:hover:bg-white/5 transition-colors text-sm w-10 h-10"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default"
         aria-label="Loading theme"
       />
     );
@@ -56,7 +56,7 @@ export default function ThemeToggle() {
       onClick={() => setIsDark((v) => !v)}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Açık tema" : "Koyu tema"}
-      className="p-2 rounded-lg hover:bg-zinc-100/50 dark:hover:bg-white/5 transition-colors text-sm"
+      className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all text-sm"
     >
       {isDark ? "🌞" : "🌙"}
     </button>

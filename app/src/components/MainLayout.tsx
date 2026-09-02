@@ -3,22 +3,45 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCurrentStreak } from '../lib/dashboardStreak';
+import { Icon } from './icons';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
-
-// Bu sayfaların hiçbiri henüz yok (bkz. docs/site-iyilestirme-plani.md) — referans tasarımla
-// aynı görünsün diye etiketler duruyor ama bilerek tıklanamaz (link yok), 404'e düşürmesin.
-const NAV_LINKS = ['Dersler', 'Üniteler', 'Konular', 'Soru Bankası', 'Denemeler', 'Blog'];
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { isAuthenticated, user, signOut } = useAuth();
+  const { isAuthenticated, user, supabase, signOut } = useAuth();
   const pathname = usePathname();
+  const [streak, setStreak] = React.useState<number | null>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
+  const profileMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!user?.id) {
+      setStreak(null);
+      return;
+    }
+    getCurrentStreak(supabase, user.id).then(setStreak);
+  }, [user?.id, supabase]);
+
+  React.useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfileMenuOpen]);
+
+  React.useEffect(() => {
+    setIsProfileMenuOpen(false);
+  }, [pathname]);
   // Konu okuma sayfası (DersClient) ve admin paneli kendi sabit header/footer
   // çerçevesini yönetir; bu yüzden global nav ve LegalFooter burada devre dışı
   // bırakılır. /ders?... rotası (query tabanlı) ve karşılık gelen
@@ -79,56 +102,72 @@ export function MainLayout({ children }: MainLayoutProps) {
             </Link>
           </div>
 
-          {/* Orta Menü — nav etiketleri + arama (bkz. NAV_LINKS notu, bilerek link değil) */}
-          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center px-6">
-            {NAV_LINKS.map((label) => (
-              <span
-                key={label}
-                className="text-zinc-600 dark:text-muted-foreground
-                  text-sm px-3 py-2 rounded-xl whitespace-nowrap cursor-default"
-              >
-                {label}
-              </span>
-            ))}
-            <div className="ml-2 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-default bg-zinc-50 dark:bg-surface px-3 py-1.5 text-sm text-zinc-400 dark:text-muted-foreground">
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="whitespace-nowrap">Aradığın konuya ulaş...</span>
-            </div>
-          </div>
-
           {/* Sağ Menü */}
           <div className="flex items-center gap-2 sm:gap-4">
+            {isAuthenticated && streak != null && (
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/20 rounded-xl">
+                <span className="text-lg sm:text-xl">🔥</span>
+                <div>
+                  <span className="text-orange-400 font-bold text-sm sm:text-base">{streak}</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
+                </div>
+              </div>
+            )}
+
+            <Link
+              href="/panel"
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
+            >
+              <Icon name="bell" className="text-muted-foreground" size={18} />
+            </Link>
+
             <ThemeToggle />
-            
+
             {isAuthenticated ? (
-              <div className="flex items-center gap-2 sm:gap-4">
-                <span className="text-zinc-500 dark:text-muted-foreground text-xs sm:text-sm hidden md:block">
-                  👋 {user?.email?.split('@')[0]}
-                </span>
-                <Link
-                  href="/panel"
-                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
-                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl
-                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setIsProfileMenuOpen((open) => !open)}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
                 >
-                  Panel
-                </Link>
-                <Link
-                  href="/profil"
-                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
-                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
-                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
-                >
-                  Profil
-                </Link>
-                <button 
-                  onClick={signOut}
-                  className="text-zinc-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 
-                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
-                    hover:bg-red-50 dark:hover:bg-red-500/10"
-                >
-                  Çıkış
+                  <Icon name="user" className="text-muted-foreground" size={18} />
                 </button>
+
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden">
+                    <div className="px-4 py-3 border-b border-zinc-200 dark:border-default text-sm text-zinc-500 dark:text-muted-foreground truncate">
+                      👋 {user?.email?.split('@')[0]}
+                    </div>
+                    <Link
+                      href="/panel"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
+                        transition-colors text-sm px-4 py-2.5
+                        hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                    >
+                      Panel
+                    </Link>
+                    <Link
+                      href="/profil"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
+                        transition-colors text-sm px-4 py-2.5
+                        hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                    >
+                      Profil
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        signOut();
+                      }}
+                      className="w-full text-left text-zinc-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400
+                        transition-colors text-sm px-4 py-2.5
+                        hover:bg-red-50 dark:hover:bg-red-500/10"
+                    >
+                      Çıkış
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">

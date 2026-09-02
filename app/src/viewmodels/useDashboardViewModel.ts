@@ -107,6 +107,12 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // `getDueSrsCount`/`getTodayStats` profildeki grade_id'yi bekliyor, geri kalanı (aktiviteler,
   // streak, bugünkü soru sayısı, haftalık aktif günler, genel istatistik) hiç beklemeden hemen başlar.
   useEffect(() => {
+    // Bağımlılık dizisi user.id'ye bakıyor, ham user nesnesine değil: AuthContext sekme
+    // odağa her geldiğinde (bkz. visibilitychange senkronizasyonu) getSession() ile YENİ bir
+    // user nesnesi üretiyor, aynı kullanıcı için bile referans değişiyor — user'ı doğrudan
+    // bağımlılıkta tutmak, sekme değiştirip panele her dönüşte tüm veriyi (üniteler, istatistik,
+    // aktiviteler...) gereksiz yere sıfırdan çektirip panelin "yeniden yükleniyormuş" gibi
+    // görünmesine yol açıyordu.
     if (!user) {
       // Çıkış yapıldığında önceki kullanıcının verisi (isim, ünite, istatistik...)
       // yeni bir fetch tetiklenene kadar state'te kalıp isAuthenticated=false
@@ -172,7 +178,12 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         }));
         if (unitsResult) setSelectedWeekId(unitsResult.currentWeek);
         setUnitsContext(unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null);
-        setUnitsGradeId(unitsResult?.gradeId ?? null);
+        // unitsResult, hiç test_sessions kaydı yoksa null döner (bkz. getDashboardUnitsData) —
+        // ama selectLesson (sidebar'dan ders seçimi) yine de bir gradeId'ye ihtiyaç duyuyor.
+        // Test oturumu hiç yokken bunu null bırakmak, sidebar'daki derslere tıklamayı
+        // sessizce no-op yapıyordu; profildeki grade_id zaten Sidebar'ın kendisinin de
+        // kullandığı kaynak olduğu için burada da güvenli bir fallback.
+        setUnitsGradeId(unitsResult?.gradeId ?? gradeId ?? null);
         setIsUnitsLoading(false);
       })
     );
@@ -220,7 +231,8 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     return () => {
       cancelled = true;
     };
-  }, [user, supabase, refreshKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, supabase, refreshKey]);
 
   // Actions
   const selectWeek = useCallback((weekId: number) => {

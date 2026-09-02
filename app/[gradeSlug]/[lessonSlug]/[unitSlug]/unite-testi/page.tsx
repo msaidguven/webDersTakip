@@ -1,11 +1,13 @@
-import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getUnitTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
-import { findResumableSession } from '@/app/src/lib/quizResume';
+import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import {
+  getUnitTestPageData,
+  buildUnitTestPath,
+  loadUnitQuizState,
+  type UnitTestPageData,
+} from '@/app/src/lib/quizPageData';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 interface Params {
@@ -18,110 +20,7 @@ interface PageProps {
   params: Promise<Params>;
 }
 
-type GradeRow = { id: number; name: string; slug: string | null };
-type LessonRow = { id: number; name: string; slug: string | null };
-type UnitRow = {
-  id: number;
-  title: string;
-  description: string | null;
-  slug: string | null;
-  lesson_id: number;
-  grade_id: number;
-};
-type TopicRow = { id: number; slug: string | null; order_no: number };
-
-const getUnitTestPageData = cache(async function getUnitTestPageData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
-  const supabase = await createClient();
-
-  const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
-  const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
-  const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
-
-  const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
-  ]);
-
-  const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
-  if (!grade || !lesson) return null;
-
-  const isAdmin = await isViewerAdmin(supabase);
-
-  const { data: lessonGradeData } = await supabase
-    .from('lesson_grades')
-    .select('is_active')
-    .eq('lesson_id', lesson.id)
-    .eq('grade_id', grade.id)
-    .maybeSingle();
-
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
-    return null;
-  }
-
-  let unitQuery = supabase
-    .from('units')
-    .select('id, title, description, slug, lesson_id, grade_id')
-    .eq('grade_id', grade.id)
-    .eq('lesson_id', lesson.id)
-    .eq('slug', decodedUnitSlug);
-  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
-  const { data: unitData } = await unitQuery.maybeSingle();
-
-  const unit = unitData as UnitRow | null;
-  if (!unit) return null;
-
-  const { data: topicData, count: topicCount } = await supabase
-    .from('topics')
-    .select('id, slug, order_no', { count: 'exact' })
-    .eq('unit_id', unit.id)
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
-
-  const topicRows = (topicData as TopicRow[] | null) || [];
-  const firstTopic = topicRows.find((topic) => topic.slug) || null;
-  const exitHref = firstTopic?.slug
-    ? `/${grade.slug}/${lesson.slug}/${unit.slug}/${firstTopic.slug}`
-    : `/${grade.slug}/${lesson.slug}`;
-
-  // Ünite testi sayfası yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
-  // units.question_count elle girilen bir alan olduğu için burada gerçek soru
-  // sayısını doğrudan topics -> questions.topic_id ilişkisinden hesaplıyoruz.
-  const topicIds = topicRows.map((t) => t.id);
-  let realQuestionCount = 0;
-  if (topicIds.length) {
-    const { count } = await supabase
-      .from('questions')
-      .select('id', { count: 'exact', head: true })
-      .in('topic_id', topicIds);
-    realQuestionCount = count ?? 0;
-  }
-
-  if (!isAdmin && realQuestionCount === 0) return null;
-
-  return {
-    gradeId: grade.id,
-    lessonId: lesson.id,
-    unitId: unit.id,
-    gradeName: grade.name,
-    lessonName: lesson.name,
-    unitTitle: unit.title,
-    unitDescription: unit.description,
-    questionCount: realQuestionCount,
-    topicCount: topicCount ?? null,
-    gradeSlug: grade.slug,
-    lessonSlug: lesson.slug,
-    unitSlug: unit.slug,
-    exitHref,
-    hasQuestions: realQuestionCount > 0,
-  };
-});
-
-function buildUnitTestPath(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
-  return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`;
-}
-
-function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
+function buildBreadcrumbJsonLd(data: UnitTestPageData) {
   const path = buildUnitTestPath(data);
   return {
     '@context': 'https://schema.org',
@@ -144,7 +43,7 @@ function normalizeDescription(text: string, maxLength = 158) {
   return `${sliced.slice(0, lastSpace > 120 ? lastSpace : sliced.length).trimEnd()}…`;
 }
 
-function buildSeoText(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
+function buildSeoText(data: UnitTestPageData) {
   const title = `${data.unitTitle} Ünite Testi | ${data.gradeName} ${data.lessonName}`;
   const description = normalizeDescription(
     `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesi için online ünite testi çöz; konuları pekiştir, doğru-yanlış sonucunu anında gör.`
@@ -152,7 +51,7 @@ function buildSeoText(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPag
   return { title, description };
 }
 
-function buildLearningResourceJsonLd(data: NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>) {
+function buildLearningResourceJsonLd(data: UnitTestPageData) {
   const path = buildUnitTestPath(data);
   const { title, description } = buildSeoText(data);
   return {
@@ -195,18 +94,7 @@ export default async function UnitTestPage({ params }: PageProps) {
     notFound();
   }
 
-  let resumable = null;
-  let userId: string | null = null;
-  if (data.hasQuestions) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id ?? null;
-    if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, null);
-  }
-
-  const personalized = resumable || !data.hasQuestions ? null : await getUnitTestQuestions(data.unitId, userId);
-  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
-  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
+  const { resumable, initialQuestions, allCaughtUp } = await loadUnitQuizState(data);
 
   return (
     <>

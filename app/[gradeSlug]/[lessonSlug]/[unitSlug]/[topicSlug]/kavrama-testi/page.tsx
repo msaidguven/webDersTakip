@@ -4,14 +4,17 @@
 // /kavrama-testi/[sectionSlug] sayfası vardı; artık tek, konu seviyesinde bir test var
 // (bkz. [sectionSlug]/page.tsx, artık buraya kalıcı yönlendiriyor).
 
-import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getTopicTestQuestions, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
-import { findResumableSession } from '@/app/src/lib/quizResume';
+import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import {
+  getTopicTestPageData,
+  buildTopicPath,
+  buildTopicTestPath,
+  loadTopicQuizState,
+  type TopicTestPageData,
+} from '@/app/src/lib/quizPageData';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 export const dynamic = 'force-dynamic';
@@ -28,89 +31,7 @@ interface PageProps {
   params: Promise<Params>;
 }
 
-type GradeRow = { id: number; name: string; slug: string | null };
-type LessonRow = { id: number; name: string; slug: string | null };
-type UnitRow = { id: number; title: string; slug: string | null };
-type TopicRow = { id: number; title: string; slug: string | null };
-
-const getTopicTestPageData = cache(async function getTopicTestPageData(
-  gradeSlug: string,
-  lessonSlug: string,
-  unitSlug: string,
-  topicSlug: string
-) {
-  const supabase = await createClient();
-
-  const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
-  const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
-  const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
-  const decodedTopicSlug = decodeURIComponent(topicSlug || '').trim();
-
-  const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
-  ]);
-
-  const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
-  if (!grade || !lesson) return null;
-
-  const isAdmin = await isViewerAdmin(supabase);
-
-  let unitQuery = supabase
-    .from('units')
-    .select('id, title, slug')
-    .eq('grade_id', grade.id)
-    .eq('lesson_id', lesson.id)
-    .eq('slug', decodedUnitSlug);
-  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
-  const { data: unitData } = await unitQuery.maybeSingle();
-  const unit = unitData as UnitRow | null;
-  if (!unit) return null;
-
-  let topicQuery = supabase.from('topics').select('id, title, slug').eq('unit_id', unit.id).eq('slug', decodedTopicSlug);
-  if (!isAdmin) topicQuery = topicQuery.eq('is_active', true);
-  const { data: topicData } = await topicQuery.maybeSingle();
-  const topic = topicData as TopicRow | null;
-  if (!topic) return null;
-
-  // Gerçek soru sayısı: questions.topic_id (section_id'si dolu ya da boş fark etmeksizin,
-  // /api/topic-test-questions ile aynı ilişki).
-  const { count: topicQuestionCount } = await supabase
-    .from('questions')
-    .select('id', { count: 'exact', head: true })
-    .eq('topic_id', topic.id);
-  const questionCount = topicQuestionCount ?? 0;
-
-  if (!isAdmin && questionCount === 0) return null;
-
-  return {
-    gradeId: grade.id,
-    lessonId: lesson.id,
-    unitId: unit.id,
-    topicId: topic.id,
-    gradeName: grade.name,
-    lessonName: lesson.name,
-    unitTitle: unit.title,
-    topicTitle: topic.title,
-    questionCount,
-    hasQuestions: questionCount > 0,
-    gradeSlug: grade.slug,
-    lessonSlug: lesson.slug,
-    unitSlug: unit.slug,
-    topicSlug: topic.slug,
-  };
-});
-
-function buildTopicPath(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>) {
-  return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
-}
-
-function buildTopicTestPath(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>) {
-  return `${buildTopicPath(data)}/kavrama-testi`;
-}
-
-function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>) {
+function buildBreadcrumbJsonLd(data: TopicTestPageData) {
   const topicPath = buildTopicPath(data);
   const testPath = buildTopicTestPath(data);
   return {
@@ -134,7 +55,7 @@ function normalizeDescription(text: string, maxLength = 158) {
   return `${sliced.slice(0, lastSpace > 120 ? lastSpace : sliced.length).trimEnd()}…`;
 }
 
-function buildSeoText(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>) {
+function buildSeoText(data: TopicTestPageData) {
   const title = `${data.topicTitle} Kavrama Testi | ${data.gradeName} ${data.lessonName}`;
   const description = normalizeDescription(
     `${data.gradeName} ${data.lessonName} ${data.topicTitle} konusu için kavrama testi çöz; öğrendiklerini anında pekiştir.`
@@ -142,7 +63,7 @@ function buildSeoText(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPa
   return { title, description };
 }
 
-function buildQuizJsonLd(data: NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>) {
+function buildQuizJsonLd(data: TopicTestPageData) {
   const path = buildTopicTestPath(data);
   const { title, description } = buildSeoText(data);
   return {
@@ -176,18 +97,7 @@ export default async function TopicTestPage({ params }: PageProps) {
     notFound();
   }
 
-  let resumable = null;
-  let userId: string | null = null;
-  if (data.hasQuestions) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id ?? null;
-    if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, data.topicId);
-  }
-
-  const personalized = resumable || !data.hasQuestions ? null : await getTopicTestQuestions(data.topicId, userId);
-  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
-  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
+  const { resumable, initialQuestions, allCaughtUp } = await loadTopicQuizState(data);
 
   return (
     <>

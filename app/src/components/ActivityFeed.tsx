@@ -73,17 +73,9 @@ function ResumableActivityCard({ activity }: ActivityItemProps) {
     <div className="relative overflow-hidden rounded-xl border border-default bg-white/[0.03]">
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${accent.edge}`} />
       <div className="p-3 pl-4 space-y-1.5">
-        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-          <h4 className="font-semibold text-default text-sm leading-snug break-words">
-            {activity.title}
-          </h4>
-          <ChevronLink
-            href={activity.resumeHref!}
-            className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold border whitespace-nowrap transition-colors ${accent.chip}`}
-          >
-            Devam Et
-          </ChevronLink>
-        </div>
+        <h4 className="font-semibold text-default text-sm leading-snug break-words">
+          {activity.title}
+        </h4>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="whitespace-nowrap">{formatRelativeTime(activity.timestamp)}</span>
@@ -97,9 +89,17 @@ function ResumableActivityCard({ activity }: ActivityItemProps) {
           <span className={`text-xs font-semibold shrink-0 ${accent.text}`}>%{progress}</span>
         </div>
 
-        <p className="text-[11px] text-muted-foreground">
-          {solved} soru tamamlandı • {remaining} soru kaldı
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">
+            {solved} soru tamamlandı • {remaining} soru kaldı
+          </p>
+          <ChevronLink
+            href={activity.resumeHref!}
+            className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap transition-colors ${accent.chip}`}
+          >
+            Devam Et
+          </ChevronLink>
+        </div>
       </div>
     </div>
   );
