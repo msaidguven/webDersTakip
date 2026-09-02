@@ -48,7 +48,7 @@ function shuffle<T>(arr: T[]): T[] {
 // listesine dönüştürür. Soru tipi question_type_id'ye göre değil, hangi alt tabloda
 // veri bulunduğuna göre belirlenir — bu, question_type_id numaralandırmasından
 // bağımsız ve KarisikTestClient'ın eski (çalışan) davranışıyla tutarlıdır.
-async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> {
+async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: boolean } = {}): Promise<QuizQuestion[]> {
   if (!questionIds.length) return [];
 
   const supabase = createServiceClient();
@@ -109,6 +109,11 @@ async function resolveQuestions(questionIds: number[]): Promise<QuizQuestion[]> 
       all.push({ id: q.id, type: 'classical', question_text: q.question_text, modelAnswer: classicalByQuestion.get(q.id) ?? null });
     }
   });
+
+  if (opts.preserveOrder) {
+    const orderIndex = new Map(questionIds.map((id, i) => [id, i]));
+    return all.sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+  }
 
   return shuffle(all);
 }
@@ -188,11 +193,12 @@ export async function getTopicTestQuestions(topicId: number | string, userId?: s
   return { questions: await resolveQuestions(selected), allCaughtUp };
 }
 
-// Belirli soru id'lerini (sırası önemli değil, resolveQuestions zaten karıştırıyor) çözer —
-// yarım kalmış bir test oturumunu aynı soru havuzuyla devam ettirmek için kullanılır
-// (bkz. quizResume.ts), rastgele yeni bir set seçmek yerine.
+// Belirli soru id'lerini, verilen sırayı KORUYARAK çözer — yarım kalmış bir test
+// oturumunu aynı soru havuzuyla ve aynı sırayla devam ettirmek için kullanılır (bkz.
+// quizResume.ts), rastgele yeni bir set seçmek yerine. Sıra korunmazsa, zaten cevaplanmış
+// sorular her resume'da farklı bir pozisyonda görünür (bkz. session_ids sırası).
 export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQuestion[]> {
-  return resolveQuestions(questionIds);
+  return resolveQuestions(questionIds, { preserveOrder: true });
 }
 
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
