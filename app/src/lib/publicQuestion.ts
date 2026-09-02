@@ -34,10 +34,11 @@ type ChainRow = {
   } | { id: number; title: string; slug: string | null; is_active: boolean; units: unknown }[] | null;
 };
 
-// /soru/[id] paylaşım sayfası için: bir sorunun HERKESE AÇIK olarak gösterilebilmesi
-// için gereken sınıf/ders/ünite/konu bağlamını (slug'lar + başlıklar) çözer. Konu ya da
-// ünite pasifse (is_active=false) null döner — paylaşım sayfası da isViewerAdmin bypass'ı
-// OLMADAN aynı görünürlük kuralına tabi (bkz. quizPageData.ts'teki non-admin davranışı).
+// Eski /soru/[id] linklerini /soru-bankasi/.../[konu]?soru=ID'e 301 ile yönlendirmek için:
+// bir sorunun ait olduğu sınıf/ders/ünite/konu bağlamını (slug'lar + başlıklar) çözer. Konu
+// ya da ünite pasifse (is_active=false) null döner — isViewerAdmin bypass'ı OLMADAN aynı
+// görünürlük kuralına tabi (bkz. quizPageData.ts'teki non-admin davranışı), taslak bir
+// konunun eski linki yeni sayfaya değil 404'e düşer.
 export async function getPublicQuestionContext(questionId: number): Promise<PublicQuestionContext | null> {
   const supabase = createServiceClient();
 

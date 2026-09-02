@@ -12,6 +12,7 @@ import {
   getTopicTestPageData,
   buildTopicPath,
   buildTopicTestPath,
+  buildQuestionBankPath,
   loadTopicQuizState,
   type TopicTestPageData,
 } from '@/app/src/lib/quizPageData';
@@ -134,6 +135,7 @@ export default async function TopicTestPage({ params }: PageProps) {
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
         secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
+        questionBankPathBase={buildQuestionBankPath(data)}
       />
     </>
   );

@@ -6,7 +6,7 @@
 
 import { notFound } from 'next/navigation';
 import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
-import { getTopicTestPageData, buildTopicPath, loadTopicQuizState } from '@/app/src/lib/quizPageData';
+import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, loadTopicQuizState } from '@/app/src/lib/quizPageData';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import QuizModal from '@/app/src/components/QuizModal';
 
@@ -50,6 +50,7 @@ export default async function TopicTestModal({ params }: PageProps) {
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
         secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
         resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
+        questionBankPathBase={buildQuestionBankPath(data)}
       />
     </QuizModal>
   );

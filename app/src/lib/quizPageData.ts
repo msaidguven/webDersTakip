@@ -94,6 +94,10 @@ export function buildTopicTestPath(data: TopicTestPageData) {
   return `${buildTopicPath(data)}/kavrama-testi`;
 }
 
+export function buildQuestionBankPath(data: TopicTestPageData) {
+  return `/soru-bankasi/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
+}
+
 export async function loadTopicQuizState(data: TopicTestPageData) {
   let resumable = null;
   let userId: string | null = null;

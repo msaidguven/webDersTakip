@@ -125,8 +125,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    // Konu kavrama testi sayfası (alt başlıklar + konu geneli, questions.topic_id tek
-    // kaynak) yalnızca gerçekten sorusu olan konularda gösterilmeli.
+    // Konu kavrama testi ve soru bankası sayfaları (alt başlıklar + konu geneli,
+    // questions.topic_id tek kaynak) yalnızca gerçekten sorusu olan konularda gösterilmeli.
+    // Soru bankası URL'i her zaman parametresiz (taban) haliyle eklenir — ?soru=ID
+    // varyasyonları sitemap'e ASLA girmez, bunlar canonical ile taban sayfaya birleşir.
     for (const [topicId, topicPath] of topicPathById) {
       if (!topicIdsWithQuestions.has(topicId)) continue;
       entries.push({
@@ -134,6 +136,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: now,
         changeFrequency: 'monthly',
         priority: 0.55,
+      });
+      entries.push({
+        url: `${SITE_URL}/soru-bankasi/${topicPath}`,
+        lastModified: now,
+        changeFrequency: 'weekly',
+        priority: 0.75,
       });
     }
   } catch (error) {

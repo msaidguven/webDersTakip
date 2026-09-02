@@ -315,6 +315,51 @@ export function ClassicalView({
   );
 }
 
+// Tek bir sorunun cevap anahtarı görünümü (soru metni + doğru cevap işaretli/model cevap).
+// Hem aşağıdaki AnswerKeySection (test sonuç ekranındaki katlanır liste) HEM DE
+// /soru-bankasi sayfası (bkz. app/soru-bankasi/.../page.tsx) bunu kullanıyor — ikisi de
+// "tüm soruları cevaplarıyla göster" ihtiyacını aynı, tek yerde test edilmiş mantıkla
+// karşılıyor.
+export function QuestionAnswerKeyItem({ question: q, index }: { question: QuizQuestion; index?: number }) {
+  return (
+    <>
+      <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />
+      <p className="text-sm font-bold text-default">
+        {index != null ? `${index + 1}. ` : ''}
+        {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
+      </p>
+      {q.type === 'multiple_choice' && (
+        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+          {q.choices.map((c) => (
+            <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
+              {c.is_correct ? '✓ ' : ''}
+              {c.text}
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.type === 'blank' && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
+        </p>
+      )}
+      {q.type === 'matching' && (
+        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+          {q.pairs.map((p) => (
+            <li key={p.id}>
+              <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
+      {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+        <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
+      )}
+    </>
+  );
+}
+
 // Tüm soru+cevap anahtarı — bilerek sadece SONUÇ ekranında (showResult) render ediliyor,
 // aktif çözüm ekranında DEĞİL. Önceden SEO amacıyla aktif ekranda da gösteriliyordu ama bu,
 // öğrencinin testi bitirmeden tek tıkla tüm doğru cevapları görebilmesi demekti. Kopya
@@ -326,37 +371,7 @@ function AnswerKeySection({ questions }: { questions: QuizQuestion[] }) {
       <div className="mt-4 space-y-4">
         {questions.map((q, i) => (
           <div key={q.id} className="border-t border-default pt-4 first:border-t-0 first:pt-0">
-            <p className="text-sm font-bold text-default">
-              {i + 1}. {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
-            </p>
-            {q.type === 'multiple_choice' && (
-              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                {q.choices.map((c) => (
-                  <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
-                    {c.is_correct ? '✓ ' : ''}
-                    {c.text}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {q.type === 'blank' && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
-              </p>
-            )}
-            {q.type === 'matching' && (
-              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                {q.pairs.map((p) => (
-                  <li key={p.id}>
-                    <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
-            {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-              <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
-            )}
+            <QuestionAnswerKeyItem question={q} index={i} />
           </div>
         ))}
       </div>
@@ -403,6 +418,11 @@ export interface QuizClientProps {
   // initialQuestions boş olur ama sebep "içerik yok" değil "şimdilik bitirdin"; bu durumda
   // "Bu konu için henüz soru yok" yerine tebrik ekranı gösterilir.
   allCaughtUp?: boolean;
+  // Konu tek/sabit bilindiğinde (kavrama-testi) paylaş butonunun /soru-bankasi/.../konu
+  // sayfasına doğrudan link üretmesi için taban yol (bkz. buildQuestionBankPath). Ünite
+  // testi/tekrar gibi karışık-konulu bağlamlarda geçilmez — paylaş linki o durumda eski
+  // /soru/[id]'de kalır, ki bu artık /soru-bankasi'na 301 ile yönleniyor.
+  questionBankPathBase?: string;
 }
 
 function findFirstUnansweredIndex(questions: QuizQuestion[], answeredIds: Set<number>): number {
@@ -425,6 +445,7 @@ export default function QuizClient({
   topicId,
   resume,
   allCaughtUp: initialAllCaughtUp = false,
+  questionBankPathBase,
 }: QuizClientProps) {
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
@@ -778,7 +799,9 @@ export default function QuizClient({
   }
 
   async function handleShare(q: QuizQuestion) {
-    const url = `${window.location.origin}/soru/${q.id}`;
+    const url = questionBankPathBase
+      ? `${window.location.origin}${questionBankPathBase}?soru=${q.id}`
+      : `${window.location.origin}/soru/${q.id}`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title: 'Ders Takip - Soru', text: shareTextFor(q), url });

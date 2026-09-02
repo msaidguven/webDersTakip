@@ -193,6 +193,16 @@ export async function getTopicTestQuestions(topicId: number | string, userId?: s
   return { questions: await resolveQuestions(selected), allCaughtUp };
 }
 
+// Bir konunun TÜM sorularını (kişiselleştirme/limit OLMADAN, id sırasıyla) getirir —
+// /soru-bankasi sayfası için: kavrama testinin aksine burada havuzdan bir alt küme değil,
+// konudaki her soru tek bir statik sayfada listeleniyor.
+export async function getAllTopicQuestions(topicId: number | string): Promise<QuizQuestion[]> {
+  const supabase = createServiceClient();
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).order('id', { ascending: true });
+  const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+  return getQuestionsByIds(questionIds);
+}
+
 // Belirli soru id'lerini, verilen sırayı KORUYARAK çözer — yarım kalmış bir test
 // oturumunu aynı soru havuzuyla ve aynı sırayla devam ettirmek için kullanılır (bkz.
 // quizResume.ts), rastgele yeni bir set seçmek yerine. Sıra korunmazsa, zaten cevaplanmış
