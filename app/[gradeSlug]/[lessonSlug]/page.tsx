@@ -9,6 +9,7 @@ import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/route
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getGradeIcon } from '@/app/src/lib/homeMapping';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
+import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
 export const dynamic = 'force-dynamic';
@@ -127,7 +128,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
 
   // Her ünite için konu listesi (sayı etiketi + doğrudan görünen liste)
   const unitIds = units.map((u) => u.id);
-  let topicsByUnit: Record<number, { id: number; title: string; slug: string | null; order_no: number }[]> = {};
+  let topicsByUnit: Record<number, { id: number; title: string; slug: string | null; order_no: number; questionCount: number }[]> = {};
   if (unitIds.length > 0) {
     const { data: topicsData } = await supabase
       .from('topics')
@@ -136,17 +137,21 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
       .eq('is_active', true)
       .order('order_no', { ascending: true });
 
-    topicsByUnit = ((topicsData as TopicRow[] | null) || []).reduce((acc, t) => {
+    const topicRows = (topicsData as TopicRow[] | null) || [];
+    const questionCountsByTopic = await getQuestionCountsByTopicId(supabase, topicRows.map((t) => t.id));
+
+    topicsByUnit = topicRows.reduce((acc, t) => {
       if (!acc[t.unit_id]) acc[t.unit_id] = [];
-      acc[t.unit_id].push({ id: t.id, title: t.title, slug: t.slug, order_no: t.order_no });
+      acc[t.unit_id].push({ id: t.id, title: t.title, slug: t.slug, order_no: t.order_no, questionCount: questionCountsByTopic.get(t.id) ?? 0 });
       return acc;
-    }, {} as Record<number, { id: number; title: string; slug: string | null; order_no: number }[]>);
+    }, {} as Record<number, { id: number; title: string; slug: string | null; order_no: number; questionCount: number }[]>);
   }
 
   const unitsWithTopicCount: Unit[] = units.map((u) => ({
     ...u,
     topicCount: topicsByUnit[u.id]?.length ?? null,
     topics: topicsByUnit[u.id] ?? [],
+    questionCount: (topicsByUnit[u.id] ?? []).reduce((sum, t) => sum + t.questionCount, 0),
   }));
 
   // Tüm sınıflar (sınıf değiştirme sidebar/dropdown'u için)

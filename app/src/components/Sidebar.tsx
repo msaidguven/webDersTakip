@@ -2,14 +2,21 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from './icons';
 import { useSidebarLessons } from '../viewmodels/useSidebarLessons';
+import { setPendingLessonId } from '../lib/panelLessonBridge';
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
   isAuthenticated: boolean;
   userName?: string;
+  // Sadece panel anasayfası verir — o zaman bir derse tıklamak sayfa değiştirmeden
+  // doğrudan ünite/konu listesini günceller. Başka bir panel sayfasındaysak (profil,
+  // siralama, aktiviteler) bu prop yok; o durumda /panel'e gidip oraya bırakılan
+  // "pending" dersi panel kendi mount olduğunda uygular (bkz. panelLessonBridge).
+  onSelectLesson?: (lessonId: string) => void;
 }
 
 function getInitials(name: string): string {
@@ -18,9 +25,21 @@ function getInitials(name: string): string {
   return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 }
 
-export function Sidebar({ isOpen, onClose, isAuthenticated, userName }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLesson }: SidebarProps) {
   const { status, lessons, gradeOptions, selectedGradeId, setSelectedGradeId, saving, saveGrade } =
     useSidebarLessons();
+  const router = useRouter();
+
+  const handleLessonClick = (lessonId: string) => {
+    if (onSelectLesson) {
+      onSelectLesson(lessonId);
+    } else {
+      setPendingLessonId(lessonId);
+      router.push('/panel');
+    }
+    onClose?.();
+  };
+
   return (
     <aside className={`
       fixed left-0 top-0 h-screen w-[280px] bg-surface border-r border-default z-50 flex flex-col
@@ -104,15 +123,14 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName }: SidebarP
         {isAuthenticated &&
           status === 'ready' &&
           lessons.map((lesson) => (
-            <Link
+            <button
               key={lesson.id}
-              href={lesson.href}
-              onClick={onClose}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-muted-foreground hover:text-default hover:bg-white/5"
+              onClick={() => handleLessonClick(lesson.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-muted-foreground hover:text-default hover:bg-white/5"
             >
               <Icon name="book" size={20} className="transition-colors group-hover:text-default" />
               <span className="font-medium">{lesson.name}</span>
-            </Link>
+            </button>
           ))}
       </nav>
 

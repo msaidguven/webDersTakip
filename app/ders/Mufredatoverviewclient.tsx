@@ -13,6 +13,7 @@ import {
   ChevronRight,
   GraduationCap,
   Layers,
+  ListChecks,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ export type UnitTopic = {
   title: string;
   slug: string | null;
   order_no: number;
+  questionCount?: number;
 };
 
 export type Unit = {
@@ -34,6 +36,7 @@ export type Unit = {
   is_active?: boolean;
   topicCount?: number | null;
   topics?: UnitTopic[];
+  questionCount?: number;
 };
 
 export type GradeLessonOption = {
@@ -136,6 +139,7 @@ export default function MufredatOverviewClient({
   const showGradeDropdown = allGrades.filter((g) => g.slug).length > 1;
 
   const totalTopics = units.reduce((sum, u) => sum + (u.topics?.length ?? u.topicCount ?? 0), 0);
+  const totalQuestions = units.reduce((sum, u) => sum + (u.questionCount ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50/80 text-gray-800 font-sans antialiased">
@@ -284,6 +288,10 @@ export default function MufredatOverviewClient({
                       <BookOpen className="h-4 w-4 text-gray-400" />
                       {totalTopics} Konu
                     </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <ListChecks className="h-4 w-4 text-gray-400" />
+                      {totalQuestions} Soru
+                    </span>
                   </div>
                 </div>
               </div>
@@ -338,6 +346,9 @@ export default function MufredatOverviewClient({
                           <span className="text-xs text-gray-400 font-medium">
                             {topics.length} konu
                           </span>
+                          <span className="text-xs text-gray-400 font-medium">
+                            {unit.questionCount ?? 0} soru
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -361,7 +372,10 @@ export default function MufredatOverviewClient({
                             <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors truncate">
                               {topic.title}
                             </span>
-                            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all ml-auto shrink-0" />
+                            <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
+                              {topic.questionCount ?? 0} soru
+                            </span>
+                            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                           </button>
                         ))}
                       </div>

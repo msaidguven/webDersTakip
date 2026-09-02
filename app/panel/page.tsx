@@ -1,9 +1,9 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useDashboardViewModel } from '../src/viewmodels/useDashboardViewModel';
+import { takePendingLessonId } from '../src/lib/panelLessonBridge';
 import { PanelShell } from '../src/components/PanelShell';
 import { StatsRow } from '../src/components/StatsRow';
 import { SRSWidget } from '../src/components/SRSWidget';
@@ -23,10 +23,9 @@ const UNIT_FILTERS: { id: UnitFilter; label: string }[] = [
   { id: 'completed', label: 'Tamamlananlar' },
 ];
 
-function PanelPageContent() {
+export default function PanelPage() {
   const [unitFilter, setUnitFilter] = useState<UnitFilter>('all');
-  const searchParams = useSearchParams();
-  const lessonParam = searchParams.get('lesson');
+  const pendingLessonIdRef = useRef<string | null>(null);
   const {
     data,
     selectedWeekId,
@@ -44,13 +43,19 @@ function PanelPageContent() {
     markNotificationRead,
   } = useDashboardViewModel();
 
-  // Sidebar'daki ders linkleri /panel?lesson=<id>'ye yönlendiriyor — panel anasayfasındaki
-  // eski ders sekmeleri kaldırıldığı için ünite/konu listesini o dersle güncelleyen tetikleyici
-  // artık burası. isLoading bitmeden selectLesson'ın ihtiyaç duyduğu sınıf bağlamı hazır olmuyor.
+  // Panel dışında bir sayfadayken (profil, siralama, aktiviteler) sidebar'dan bir derse
+  // tıklanırsa önce buraya yönlendiriliyor; hangi dersin seçileceği panelLessonBridge
+  // (sessionStorage) ile taşınıyor — mount olur olmaz bir kere okunup temizleniyor,
+  // sonra isLoading bitince (selectLesson'ın ihtiyaç duyduğu sınıf bağlamı hazır olunca) uygulanıyor.
   useEffect(() => {
-    if (!lessonParam || isLoading) return;
-    selectLesson(lessonParam);
-  }, [lessonParam, isLoading, selectLesson]);
+    pendingLessonIdRef.current = takePendingLessonId();
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || !pendingLessonIdRef.current) return;
+    selectLesson(pendingLessonIdRef.current);
+    pendingLessonIdRef.current = null;
+  }, [isLoading, selectLesson]);
 
   return (
     <PanelShell
@@ -60,6 +65,7 @@ function PanelPageContent() {
       notificationCount={notificationCount}
       onNotificationClick={markNotificationRead}
       onStartQuiz={handleStartQuiz}
+      onSelectLesson={selectLesson}
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-24">
@@ -269,19 +275,5 @@ function PanelPageContent() {
         </>
       )}
     </PanelShell>
-  );
-}
-
-export default function PanelPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      }
-    >
-      <PanelPageContent />
-    </Suspense>
   );
 }

@@ -13,6 +13,9 @@ interface PanelShellProps {
   subtitle?: string;
   onNotificationClick?: () => void;
   onStartQuiz?: () => void;
+  // Sadece panel anasayfası verir — sidebar'daki bir derse tıklandığında, sayfa
+  // gezinmeden doğrudan o dersin ünite/konu listesine geçmek için (bkz. Sidebar).
+  onSelectLesson?: (lessonId: string) => void;
   children: React.ReactNode;
 }
 
@@ -28,6 +31,7 @@ export function PanelShell({
   subtitle,
   onNotificationClick,
   onStartQuiz,
+  onSelectLesson,
   children,
 }: PanelShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -41,6 +45,7 @@ export function PanelShell({
         onClose={() => setSidebarOpen(false)}
         isAuthenticated={isAuthenticated}
         userName={userName}
+        onSelectLesson={onSelectLesson}
       />
 
       {sidebarOpen && (

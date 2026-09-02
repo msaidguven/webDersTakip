@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 export interface SidebarLesson {
   id: string;
   name: string;
-  href: string;
 }
 
 export interface GradeOption {
@@ -25,11 +24,11 @@ type LessonGradeRow = {
 };
 
 // Sidebar'daki statik Ana Sayfa/Üniteler/Profil/Siteye Dön linkleri kaldırılıp
-// yerine kullanıcının profilindeki sınıfa (grade_id) göre o sınıfın aktif derslerine
-// giden linkler eklendi. Sınıf seçilmemişse burada seçtirip /api/profile/update
-// (ProfilClient'ın kullandığı aynı endpoint) ile kaydediyoruz. Bu linkler bağımsız
-// bir ders sayfasına DEĞİL, panel anasayfasının kendi ders geçiş mekanizmasına
-// (useDashboardViewModel.selectLesson) gidiyor — /panel?lesson=<id> query'siyle.
+// yerine kullanıcının profilindeki sınıfa (grade_id) göre o sınıfın aktif dersleri
+// eklendi. Sınıf seçilmemişse burada seçtirip /api/profile/update (ProfilClient'ın
+// kullandığı aynı endpoint) ile kaydediyoruz. Buradaki dersler ayrı bir sayfaya
+// gitmiyor — tıklanınca panel anasayfasının kendi ders geçiş mekanizması
+// (useDashboardViewModel.selectLesson) tetikleniyor, bkz. Sidebar.tsx.
 export function useSidebarLessons() {
   const { user, supabase } = useAuth();
   const [status, setStatus] = useState<SidebarLessonsStatus>('idle');
@@ -51,11 +50,7 @@ export function useSidebarLessons() {
       for (const row of rows) {
         const lesson = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
         if (!lesson || lesson.is_active === false) continue;
-        result.push({
-          id: String(lesson.id),
-          name: lesson.name,
-          href: `/panel?lesson=${lesson.id}`,
-        });
+        result.push({ id: String(lesson.id), name: lesson.name });
       }
       result.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       return result;
