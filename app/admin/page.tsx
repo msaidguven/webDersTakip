@@ -82,6 +82,13 @@ export default function AdminPanel() {
           <NavButton active={activeTab === 'schools'} onClick={() => { setActiveTab('schools'); setSidebarOpen(false); }} icon="🏫" label="Okullar" />
           <NavButton active={activeTab === 'code-cleanup'} onClick={() => { setActiveTab('code-cleanup'); setSidebarOpen(false); }} icon="🧹" label="Kod Temizliği" />
           <Link
+            href="/admin/arama"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+          >
+            <span className="text-base sm:text-lg">🔎</span>
+            <span className="font-medium truncate">Arama</span>
+          </Link>
+          <Link
             href="/admin/icerik-kontrol"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
           >
@@ -269,6 +276,10 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
             <QuickActionButton icon="📝" label="İçerikler" onClick={() => onGoManage('contents')} />
             <QuickActionButton icon="🎯" label="Kazanımlar" onClick={() => onGoManage('outcomes')} />
             <QuickActionButton icon="❓" label="Sorular" onClick={() => onGoManage('questions')} />
+            <Link href="/admin/arama" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
+              <span className="text-sm">🔎</span>
+              <span className="text-white text-xs sm:text-sm font-medium truncate">Arama</span>
+            </Link>
             <Link href="/admin/icerik-kontrol" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
               <span className="text-sm">🔍</span>
               <span className="text-white text-xs sm:text-sm font-medium truncate">İçerik Kontrol</span>

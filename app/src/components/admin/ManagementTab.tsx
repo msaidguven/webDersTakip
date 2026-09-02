@@ -37,7 +37,7 @@ type ExtraFilterConfig = {
   options: { value: string; label: string }[];
 };
 
-type EntityConfig = {
+export type EntityConfig = {
   key: EntityKey;
   label: string;
   needsTopic?: boolean; // liste için konu seçimi zorunlu
@@ -56,7 +56,7 @@ const ACTIVE_STATUS_FILTER: ExtraFilterConfig = {
   ],
 };
 
-const ENTITIES: EntityConfig[] = [
+export const ENTITIES: EntityConfig[] = [
   {
     key: 'units',
     label: 'Üniteler',
@@ -773,7 +773,7 @@ function UnitToolsBar({
 
 // ==================== GENERIC EDIT MODAL ====================
 
-function GenericEditModal({
+export function GenericEditModal({
   entity,
   row,
   onClose,
@@ -881,7 +881,7 @@ type Choice = { id?: number; choice_text: string; is_correct: boolean };
 type BlankOption = { id?: number; option_text: string; is_correct: boolean; order_no: number };
 type MatchingPair = { id?: number; left_text: string; right_text: string; order_no: number };
 
-function QuestionEditModal({
+export function QuestionEditModal({
   questionId,
   onClose,
   onSaved,
