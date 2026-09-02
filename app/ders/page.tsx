@@ -119,19 +119,9 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
 
   console.log('[getDersData] sinifId:', sinifId, 'dersSlug:', dersSlug, 'gId:', gId, 'lId:', lId);
 
-  // Sınıf ve ders bilgisini çek
-  const [
-    { data: grade, error: gradeError },
-    { data: lesson, error: lessonError },
-  ] = await Promise.all([
-    supabase.from('grades').select('name, slug').eq('id', gId).single(),
-    supabase.from('lessons').select('name, slug').eq('id', lId).single(),
-  ]);
-
-  if (gradeError) console.error('[getDersData] Grade sorgu hatasi:', gradeError);
-  if (lessonError) console.error('[getDersData] Lesson sorgu hatasi:', lessonError);
-
-  // Üniteleri çek (hafta sayısını ve aktif üniteyi belirlemek için)
+  // Sınıf/ders bilgisi (isim) ve üniteler birbirinden bağımsız — ikisi de sadece gId/lId'ye
+  // ihtiyaç duyuyor, ünitelerin grade/lesson İSİMLERİNE değil. Eskiden units sorgusu
+  // grade+lesson sorgusunu sırayla BEKLİYORDU, gereksiz bir ağ gidiş-dönüşü daha ekliyordu.
   let unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week')
@@ -139,7 +129,19 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
     .eq('grade_id', gId)
     .order('order_no', { ascending: true });
   if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
-  const { data: unitsData } = await unitsQuery;
+
+  const [
+    { data: grade, error: gradeError },
+    { data: lesson, error: lessonError },
+    { data: unitsData },
+  ] = await Promise.all([
+    supabase.from('grades').select('name, slug').eq('id', gId).single(),
+    supabase.from('lessons').select('name, slug').eq('id', lId).single(),
+    unitsQuery,
+  ]);
+
+  if (gradeError) console.error('[getDersData] Grade sorgu hatasi:', gradeError);
+  if (lessonError) console.error('[getDersData] Lesson sorgu hatasi:', lessonError);
 
   const units = (unitsData as UnitRow[] | null) || [];
 
@@ -186,17 +188,26 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
   const topicIds = topics.map((t) => t.id);
   const activeTopic = topics[0] ?? null;
 
+  // outcomes (kazanımlar) ve topicContents (konu içerikleri) birbirinden bağımsız —
+  // ikisi de sadece topicIds'e/weekOutcomes'a bakıyor, biri diğerinin sonucuna ihtiyaç
+  // duymuyor. Eskiden outcomes sorgusu bitmeden topicContents hiç başlamıyordu.
+  const outcomeIds = weekOutcomes?.length ? (weekOutcomes as WeekOutcomeRow[]).map((w) => w.outcome_id) : [];
+
+  const [outcomesResult, topicContentsResult] = await Promise.all([
+    outcomeIds.length
+      ? supabase
+          .from('outcomes')
+          .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
+          .in('id', outcomeIds)
+      : Promise.resolve({ data: null as OutcomeRow[] | null }),
+    topicIds.length
+      ? supabase.from('topic_contents').select('id, topic_id, hero_image_url, subtitle').in('topic_id', topicIds).eq('is_published', true)
+      : Promise.resolve({ data: null as TopicContentRow[] | null }),
+  ]);
+
   let outcomes: OutcomeVM[] = [];
-
-  if (weekOutcomes?.length) {
-    const outcomeIds = (weekOutcomes as WeekOutcomeRow[]).map((w) => w.outcome_id);
-
-    const { data: outcomesData } = await supabase
-      .from('outcomes')
-      .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
-      .in('id', outcomeIds);
-
-    const typedOutcomes = (outcomesData as OutcomeRow[] | null) || [];
+  if (outcomeIds.length) {
+    const typedOutcomes = (outcomesResult.data as OutcomeRow[] | null) || [];
     const filteredOutcomesData = typedOutcomes
       .filter((o) => o.topics?.units?.lesson_id === lId && o.topics?.units?.grade_id === gId)
       .filter((o) => (topicIds.length ? topicIds.includes(o.topic_id ?? -1) : true));
@@ -227,13 +238,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
   }
 
   if (topicIds.length) {
-    const { data: topicContentsData } = await supabase
-      .from('topic_contents')
-      .select('id, topic_id, hero_image_url, subtitle')
-      .in('topic_id', topicIds)
-      .eq('is_published', true);
-
-    const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
+    const topicContentRows = (topicContentsResult.data as TopicContentRow[] | null) || [];
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
     const contentIds = topicContentRows.map((tc) => tc.id);
 
