@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { getWeeklyLeaderboard, LeaderboardEntry } from '../lib/leaderboard';
+import { onQuizModalClosed } from '../lib/panelRefreshBridge';
 
 function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   return (
@@ -43,6 +44,18 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, supabase]);
+
+  // Quiz modalı (X / Escape ile) kapanınca sıralamayı da sessizce tazele — diğer panel
+  // bölümleri zaten refreshData ile güncelleniyordu, sıralama bu akışa dahil değildi
+  // (kullanıcının "haftalık sıralama güncellenmiyor" bildirimi, 2026-09-02). Eski veri
+  // ekranda kalır, yeni sonuç gelince yerini alır — skeleton'a dönüp duraklamaz.
+  useEffect(() => {
+    if (!user) return;
+    return onQuizModalClosed(() => {
+      getWeeklyLeaderboard(supabase).then((result) => setEntries(result));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, supabase]);
 

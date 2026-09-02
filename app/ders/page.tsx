@@ -73,21 +73,23 @@ type TopicRow = { id: number; title: string; slug: string; order_no: number };
 
 async function getDersData(sinifId: string, dersSlug: string, requestedWeek: number | null) {
   const supabase = await createClient();
-  const isAdmin = await isViewerAdmin(supabase);
-  const { termStartDate, termEndDate, breaks } = await getCurriculumCalendar(supabase);
+
+  // Bu üç sorgu birbirinden bağımsız — eskiden sırayla await edilip 3 ayrı ağ gidiş-dönüşü
+  // TEK sorgu süresine eklenirdi (ders sayfasının "yavaş açılıyor" şikayetinin asıl kaynağı,
+  // kullanıcı bildirdi 2026-09-02). Paralel çalıştırmak toplam gecikmeyi ~3 sorgudan 1 sorguya indiriyor.
+  const [isAdmin, calendar, lessonBySlugResult] = await Promise.all([
+    isViewerAdmin(supabase),
+    getCurriculumCalendar(supabase),
+    supabase.from('lessons').select('id').eq('slug', dersSlug).single(),
+  ]);
+  const { termStartDate, termEndDate, breaks } = calendar;
 
   const gId = parseInt(sinifId);
-  
+
   // Ders slug veya ID olabilir
   let lId: number | null = null;
-  
-  // Önce slug olarak dene
-  const { data: lessonBySlug } = await supabase
-    .from('lessons')
-    .select('id')
-    .eq('slug', dersSlug)
-    .single();
-    
+
+  const { data: lessonBySlug } = lessonBySlugResult;
   if (lessonBySlug) {
     lId = lessonBySlug.id;
   } else {
@@ -163,7 +165,9 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
   const unitName = activeUnit?.title ?? '';
   const unitSlug = activeUnit?.slug ?? null;
 
-  // Ünitedeki konuları çek (kazanım/icerik filtreleri için)
+  // Ünitedeki konuları (topics) ve o haftanın kazanımlarını (weekOutcomes) çek — ikisi de
+  // birbirinden bağımsız (weekOutcomes sadece `week`e bakıyor, topics'e ihtiyaç duymuyor),
+  // paralel çalıştırılıyor.
   let topicsQuery = unitId
     ? supabase
         .from('topics')
@@ -172,18 +176,15 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
         .order('order_no', { ascending: true })
     : null;
   if (topicsQuery && !isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
-  const { data: topicsData } = topicsQuery ? await topicsQuery : { data: null };
+
+  const [{ data: topicsData }, { data: weekOutcomes }] = await Promise.all([
+    topicsQuery ? topicsQuery : Promise.resolve({ data: null as TopicRow[] | null }),
+    supabase.from('outcome_weeks').select('outcome_id, start_week, end_week').lte('start_week', week).gte('end_week', week),
+  ]);
 
   const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);
   const activeTopic = topics[0] ?? null;
-
-  // Kazanımları çek
-  const { data: weekOutcomes } = await supabase
-    .from('outcome_weeks')
-    .select('outcome_id, start_week, end_week')
-    .lte('start_week', week)
-    .gte('end_week', week);
 
   let outcomes: OutcomeVM[] = [];
 

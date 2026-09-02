@@ -52,13 +52,18 @@ export function DailyGoalCard({ dailyProgress, dailyGoal, streak, dueSrsCount }:
         )}
       </div>
 
-      <Link
-        href="/"
-        className="flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5 text-sm sm:text-base"
-      >
-        <span>{goalReached ? 'Devam Et' : 'Başla'}</span>
-        <span>→</span>
-      </Link>
+      {/* Hedef tamamlanınca "Devam Et" hep anasayfaya götürüyordu ve somut bir işe
+          yaramıyordu (kullanıcı kararı, 2026-09-02) — sadece hedef henüz tamamlanmamışken,
+          gerçekten pratiğe başlatan "Başla" gösteriliyor. */}
+      {!goalReached && (
+        <Link
+          href="/"
+          className="flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5 text-sm sm:text-base"
+        >
+          <span>Başla</span>
+          <span>→</span>
+        </Link>
+      )}
     </div>
   );
 }

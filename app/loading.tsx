@@ -1,24 +1,13 @@
-export default function HomeLoading() {
+// app/loading.tsx — kök segmentte tanımlı olduğu için Next.js bunu sadece "/" için değil,
+// kendi loading.tsx'i olmayan HER rota için (panel, ders içerik sayfaları, sınıf/ders/ünite/
+// konu sayfaları vb.) devreye sokuyor. Eskiden burada SADECE anasayfaya özel bir iskelet
+// (hafta seçici + sınıf kartları) vardı — başka bir sayfaya geçerken yanlış şekilli bir
+// iskelet görünüyor, bu da tıklamanın hiç işe yaramadığı hissini güçlendiriyordu (kullanıcı
+// bildirdi, 2026-09-02). Artık her sayfaya uyan, yuvarlak dönen genel bir gösterge var.
+export default function RootLoading() {
   return (
-    <div className="min-h-screen bg-default animate-pulse">
-      <div className="max-w-6xl mx-auto p-4 sm:p-8">
-        {/* Week Selector Skeleton */}
-        <div className="mb-8">
-          <div className="h-6 w-32 bg-surface-elevated rounded mb-4"></div>
-          <div className="flex gap-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-16 w-16 bg-surface-elevated rounded-xl"></div>
-            ))}
-          </div>
-        </div>
-
-        {/* Grades Grid Skeleton */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[...Array(7)].map((_, i) => (
-            <div key={i} className="h-32 bg-surface-elevated rounded-2xl"></div>
-          ))}
-        </div>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-default">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
     </div>
   );
 }
