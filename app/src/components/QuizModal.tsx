@@ -54,7 +54,12 @@ export default function QuizModal({ children }: { children: React.ReactNode }) {
         >
           <X className="h-5 w-5" />
         </button>
-        <div className="h-full overflow-y-auto px-4 pt-14 pb-8 sm:max-h-[90vh] sm:px-8">{children}</div>
+        {/* İçerideki QuizClient zaten kendi yatay padding'ini (px-3 sm:px-4) veriyor — burada
+            AYRICA px-4 vermek mobilde ikisini üst üste bindirip soruyu gereksiz yere
+            daraltıyordu (kullanıcının "kenarlarda çok boşluk var" bildirimi, 2026-09-02).
+            Mobilde yatay padding tamamen QuizClient'a bırakıldı, masaüstünde (daha geniş
+            modal, sorun yok) eskisi gibi ekstra pay korunuyor. */}
+        <div className="h-full overflow-y-auto pt-14 pb-8 sm:max-h-[90vh] sm:px-8">{children}</div>
       </div>
     </div>
   );

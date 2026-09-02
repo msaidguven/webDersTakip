@@ -295,7 +295,6 @@ export default function UnitDiscussion({
   quizQuestionId,
   unitName,
   questionContext,
-  isAnswered = true,
 }: {
   gradeId: number;
   lessonId: number;
@@ -305,7 +304,6 @@ export default function UnitDiscussion({
   // sayfasında "Bu Soru Hakkında" gösterildiği için gerekmez.
   unitName?: string;
   questionContext?: string | null;
-  isAnswered?: boolean;
 }) {
   const pathname = usePathname();
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
@@ -353,7 +351,6 @@ export default function UnitDiscussion({
   }, []);
 
   const loadComments = React.useCallback(async () => {
-    if (!isAnswered) return;
     const supabase = createClient();
     let query = supabase
       .from('question_comments')
@@ -368,10 +365,9 @@ export default function UnitDiscussion({
         .filter((c) => c.status !== 'deleted')
         .map((c) => ({ ...c, kind: 'comment' as const }))
     );
-  }, [unitId, quizQuestionId, isAnswered]);
+  }, [unitId, quizQuestionId]);
 
   const loadAiFeed = React.useCallback(async () => {
-    if (!isAnswered) return;
     const url = quizQuestionId != null ? `/api/rag/unit-feed?questionId=${quizQuestionId}` : `/api/rag/unit-feed?unitId=${unitId}`;
     const res = await fetch(url);
     const data = await res.json().catch(() => null);
@@ -397,7 +393,7 @@ export default function UnitDiscussion({
         )
       );
     }
-  }, [unitId, quizQuestionId, isAnswered]);
+  }, [unitId, quizQuestionId]);
 
   useEffect(() => {
     loadComments();
@@ -647,7 +643,6 @@ export default function UnitDiscussion({
     }
   }
 
-  if (!isAnswered) return null;
   if (availability === 'loading') return null;
 
   const topLevelComments = comments.filter((c) => !c.parent_comment_id && !c.parent_ai_answer_id);

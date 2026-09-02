@@ -134,7 +134,7 @@ export default function PublicQuestionClient({ question, context }: { question: 
       </div>
 
       <div className="mt-4 sm:mt-6">
-        <UnitDiscussion gradeId={context.gradeId} lessonId={context.lessonId} unitId={context.unitId} quizQuestionId={question.id} isAnswered={locked} />
+        <UnitDiscussion gradeId={context.gradeId} lessonId={context.lessonId} unitId={context.unitId} quizQuestionId={question.id} />
       </div>
     </div>
   );

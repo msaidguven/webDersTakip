@@ -17,11 +17,12 @@ type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
 // wrapper o durumu tutup UnitDiscussion'a aktarıyor.
 export default function QuizWithAsk({ gradeId, lessonId, unitId, topicId, ...quizProps }: QuizWithAskProps) {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
 
-  const handleCurrentQuestionChange = useCallback((q: QuizQuestion | null, answered: boolean) => {
+  // Yorumlar/AI sohbeti artık soru cevaplanmadan da görülebiliyor (kullanıcının
+  // "soruyu çözmeden de yorum butonunu görmeliyim" isteği, 2026-09-02) — UnitDiscussion
+  // buna göre isAnswered gerektirmiyor, sadece hangi soruya bakıldığını biliyoruz yeterli.
+  const handleCurrentQuestionChange = useCallback((q: QuizQuestion | null) => {
     setCurrentQuestion(q);
-    setIsAnswered(answered);
   }, []);
 
   return (
@@ -42,7 +43,6 @@ export default function QuizWithAsk({ gradeId, lessonId, unitId, topicId, ...qui
             unitId={unitId}
             quizQuestionId={currentQuestion.id}
             questionContext={formatQuestionContext(currentQuestion)}
-            isAnswered={isAnswered}
           />
         </div>
       )}
