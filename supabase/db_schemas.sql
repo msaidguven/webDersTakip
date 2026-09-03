@@ -147,6 +147,7 @@ CREATE TABLE public.questions (
   section_id bigint,
   source text NOT NULL DEFAULT 'manual'::text CHECK (source = ANY (ARRAY['manual'::text, 'ai_generated'::text])),
   ai_model text,
+  svg_content text,
   CONSTRAINT questions_pkey PRIMARY KEY (id),
   CONSTRAINT questions_question_type_id_fkey FOREIGN KEY (question_type_id) REFERENCES public.question_types(id),
   CONSTRAINT questions_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),

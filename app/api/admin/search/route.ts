@@ -20,20 +20,60 @@ function one<T>(v: Embed<T>): T | null {
   return Array.isArray(v) ? v[0] || null : v;
 }
 
+type GradeRef = { slug: string | null };
+type LessonRef = { slug: string | null };
+type UnitRef = { slug: string | null; grades: Embed<GradeRef>; lessons: Embed<LessonRef> };
+type TopicRef = { title: string; slug: string | null; units: Embed<UnitRef> };
+
+// Konu -> ünite -> ders/sınıf slug zincirini çözer; herkese açık site linkleri
+// (ders sayfası, soru bankası) bu dört slug'ın tamamını gerektirir.
+function resolveSlugChain(topics: Embed<TopicRef>): { gradeSlug: string; lessonSlug: string; unitSlug: string; topicSlug: string; topicTitle: string | null } | null {
+  const topic = one(topics);
+  const unit = topic ? one(topic.units) : null;
+  const grade = unit ? one(unit.grades) : null;
+  const lesson = unit ? one(unit.lessons) : null;
+  const topicTitle = topic?.title || null;
+  if (!grade?.slug || !lesson?.slug || !unit?.slug || !topic?.slug) return null;
+  return { gradeSlug: grade.slug, lessonSlug: lesson.slug, unitSlug: unit.slug, topicSlug: topic.slug, topicTitle };
+}
+
 type QuestionRow = {
   id: number;
   question_text: string;
   solution_text: string | null;
   topic_id: number | null;
   created_at: string;
-  topics: Embed<{ title: string }>;
+  topics: Embed<TopicRef>;
   question_types: Embed<{ code: string }>;
 };
 
-type GradeRef = { slug: string | null };
-type LessonRef = { slug: string | null };
-type UnitRef = { slug: string | null; grades: Embed<GradeRef>; lessons: Embed<LessonRef> };
-type TopicRef = { title: string; slug: string | null; units: Embed<UnitRef> };
+type QuestionResult = {
+  id: number;
+  question_text: string;
+  solution_text: string | null;
+  topic_id: number | null;
+  topicTitle: string | null;
+  typeCode: string | null;
+  href: string | null;
+};
+
+function toQuestionResult(row: QuestionRow): QuestionResult {
+  const chain = resolveSlugChain(row.topics);
+  const type = one(row.question_types);
+  const href = chain
+    ? `/soru-bankasi/${chain.gradeSlug}/${chain.lessonSlug}/${chain.unitSlug}/${chain.topicSlug}?soru=${row.id}`
+    : null;
+
+  return {
+    id: row.id,
+    question_text: row.question_text,
+    solution_text: row.solution_text,
+    topic_id: row.topic_id,
+    topicTitle: chain?.topicTitle || null,
+    typeCode: type?.code || null,
+    href,
+  };
+}
 
 type ContentRow = {
   id: number;
@@ -57,15 +97,8 @@ type ContentResult = {
 };
 
 function toContentResult(row: ContentRow): ContentResult {
-  const topic = one(row.topics);
-  const unit = topic ? one(topic.units) : null;
-  const grade = unit ? one(unit.grades) : null;
-  const lesson = unit ? one(unit.lessons) : null;
-
-  const href =
-    grade?.slug && lesson?.slug && unit?.slug && topic?.slug
-      ? `/${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}`
-      : null;
+  const chain = resolveSlugChain(row.topics);
+  const href = chain ? `/${chain.gradeSlug}/${chain.lessonSlug}/${chain.unitSlug}/${chain.topicSlug}` : null;
 
   return {
     id: row.id,
@@ -73,7 +106,7 @@ function toContentResult(row: ContentRow): ContentResult {
     subtitle: row.subtitle,
     is_published: row.is_published,
     topic_id: row.topic_id,
-    topicTitle: topic?.title || null,
+    topicTitle: chain?.topicTitle || null,
     href,
   };
 }
@@ -111,7 +144,7 @@ async function resolveTopicIds(supabase: SupabaseClient, gradeId: string, lesson
 }
 
 async function searchQuestions(supabase: SupabaseClient, pattern: string, topicIds: number[] | null, page: number, pageSize: number) {
-  const select = 'id, question_text, solution_text, topic_id, created_at, topics(title), question_types(code)';
+  const select = 'id, question_text, solution_text, topic_id, created_at, topics(title, slug, units(slug, grades(slug), lessons(slug))), question_types(code)';
   let textQuery = supabase.from('questions').select(select).ilike('question_text', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
   let solutionQuery = supabase.from('questions').select(select).ilike('solution_text', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
   if (topicIds) {
@@ -128,7 +161,7 @@ async function searchQuestions(supabase: SupabaseClient, pattern: string, topicI
     (solutionRes.data as QuestionRow[]) || [],
   ]);
 
-  return { items: paginate(merged, page, pageSize), total: merged.length, truncated };
+  return { items: paginate(merged, page, pageSize).map(toQuestionResult), total: merged.length, truncated };
 }
 
 async function searchContents(supabase: SupabaseClient, pattern: string, topicIds: number[] | null, page: number, pageSize: number) {

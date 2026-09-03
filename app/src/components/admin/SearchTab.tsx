@@ -5,21 +5,14 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
 
-type TopicRef = { title: string } | { title: string }[] | null;
-type TypeRef = { code: string } | { code: string }[] | null;
-
-function firstOf<T extends { title?: string; code?: string }>(v: T | T[] | null): T | null {
-  if (!v) return null;
-  return Array.isArray(v) ? v[0] || null : v;
-}
-
 type QuestionResult = {
   id: number;
   question_text: string;
   solution_text: string | null;
   topic_id: number | null;
-  topics: TopicRef;
-  question_types: TypeRef;
+  topicTitle: string | null;
+  typeCode: string | null;
+  href: string | null;
 };
 
 type ContentResult = {
@@ -220,24 +213,31 @@ export default function SearchTab() {
             )}
           </div>
           <div className="space-y-2">
-            {questions.items.map((q) => {
-              const topic = firstOf(q.topics);
-              const type = firstOf(q.question_types);
-              return (
-                <div key={q.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
-                  <div className="min-w-0">
-                    <p className="text-gray-200 text-sm line-clamp-2">{q.question_text}</p>
-                    <p className="text-gray-500 text-xs mt-1">{[topic?.title, type?.code].filter(Boolean).join(' • ')}</p>
-                  </div>
+            {questions.items.map((q) => (
+              <div key={q.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
+                <div className="min-w-0">
+                  <p className="text-gray-200 text-sm line-clamp-2">{q.question_text}</p>
+                  <p className="text-gray-500 text-xs mt-1">{[q.topicTitle, q.typeCode].filter(Boolean).join(' • ')}</p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  {q.href && (
+                    <Link
+                      href={q.href}
+                      target="_blank"
+                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs whitespace-nowrap"
+                    >
+                      Soru Bankasında Aç ↗
+                    </Link>
+                  )}
                   <button
                     onClick={() => setEditQuestionId(q.id)}
-                    className="shrink-0 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs"
+                    className="px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs"
                   >
                     Düzenle
                   </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
           {scope === 'questions' && pageSize && (
             <Pagination page={page} pageSize={pageSize} total={questions.total} onChange={handlePageChange} />
