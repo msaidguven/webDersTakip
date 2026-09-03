@@ -13,27 +13,17 @@ export function WeeklyTopics({
 
   return (
     <div className="rounded-2xl border border-default bg-surface-elevated p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-base font-black text-default">
-          {isAuth ? (
-            <>
-              <CalendarDays className="h-5 w-5 text-orange-500" /> Haftanın Konuları
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-5 w-5 text-indigo-400" /> Son Eklenen Konular
-            </>
-          )}
-        </h3>
-        {!isAuth && (
-          <Link
-            href="#derslerimiz"
-            className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-          >
-            Tümünü Gör <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+      <h3 className="mb-4 flex items-center gap-2 text-base font-black text-default">
+        {isAuth ? (
+          <>
+            <CalendarDays className="h-5 w-5 text-orange-500" /> Haftanın Konuları
+          </>
+        ) : (
+          <>
+            <Sparkles className="h-5 w-5 text-indigo-400" /> Son Eklenen Konular
+          </>
         )}
-      </div>
+      </h3>
 
       {topics.length === 0 ? (
         <p className="text-sm text-muted-foreground">
