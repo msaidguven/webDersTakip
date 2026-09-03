@@ -130,6 +130,13 @@ export default function AdminPanel() {
             <span className="text-base sm:text-lg">💬</span>
             <span className="font-medium truncate">Soru Yorumları Onayı</span>
           </Link>
+          <Link
+            href="/admin/svg-sorulari"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+          >
+            <span className="text-base sm:text-lg">📐</span>
+            <span className="font-medium truncate">SVG Soruları</span>
+          </Link>
         </nav>
       </aside>
 
@@ -283,6 +290,10 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
             <Link href="/admin/icerik-kontrol" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
               <span className="text-sm">🔍</span>
               <span className="text-white text-xs sm:text-sm font-medium truncate">İçerik Kontrol</span>
+            </Link>
+            <Link href="/admin/svg-sorulari" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
+              <span className="text-sm">📐</span>
+              <span className="text-white text-xs sm:text-sm font-medium truncate">SVG Soruları</span>
             </Link>
             <QuickActionButton icon="👥" label="Üyeler" onClick={onGoMembers} />
             <QuickActionButton icon="🏫" label="Okullar" onClick={onGoSchools} />
