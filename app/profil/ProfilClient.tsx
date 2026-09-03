@@ -782,11 +782,16 @@ function formatCommentDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+const AI_MODE_LABELS: Record<string, { text: string; className: string }> = {
+  hocam: { text: '🎓 Hocam', className: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+  kanka: { text: '😄 Kanka', className: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+};
+
 function MyCommentsCard({ comments }: { comments: MyComment[] | null }) {
   return (
     <div className="bg-surface-elevated border border-default rounded-2xl p-6 animate-fade-in-up" style={{ animationDelay: '440ms' }}>
       <h3 className="text-lg font-semibold text-default flex items-center gap-2 mb-4">
-        <span className="text-xl">💬</span> Yorumlarım
+        <span className="text-xl">💬</span> Yorumlarım ve Sorularım
       </h3>
 
       {comments === null ? (
@@ -796,22 +801,32 @@ function MyCommentsCard({ comments }: { comments: MyComment[] | null }) {
           ))}
         </div>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Henüz bir soru veya üniteye yorum yazmadın.</p>
+        <p className="text-sm text-muted-foreground">Henüz bir soru veya üniteye yorum ya da AI&apos;ye soru yazmadın.</p>
       ) : (
         <div className="space-y-2.5">
           {comments.map((c) => {
-            const statusInfo = COMMENT_STATUS_LABELS[c.status] || COMMENT_STATUS_LABELS.pending;
+            const badge =
+              c.kind === 'comment'
+                ? COMMENT_STATUS_LABELS[c.status] || COMMENT_STATUS_LABELS.pending
+                : AI_MODE_LABELS[c.mode];
             const body = (
               <div className="rounded-xl bg-surface border border-default p-3.5 hover:border-indigo-500/30 transition-colors">
                 <div className="flex items-start justify-between gap-3 mb-1.5">
                   {c.contextLabel && (
                     <span className="text-xs text-indigo-400 font-medium truncate">{c.contextLabel}</span>
                   )}
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusInfo.className}`}>
-                    {statusInfo.text}
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium border ${badge.className}`}>
+                    {badge.text}
                   </span>
                 </div>
-                <p className="text-sm text-default break-words">{c.body}</p>
+                {c.kind === 'comment' ? (
+                  <p className="text-sm text-default break-words">{c.body}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-default break-words font-medium">{c.question}</p>
+                    <p className="text-sm text-muted-foreground break-words">{c.answer}</p>
+                  </div>
+                )}
                 <p className="text-[11px] text-muted-foreground mt-1.5">{formatCommentDate(c.createdAt)}</p>
               </div>
             );
