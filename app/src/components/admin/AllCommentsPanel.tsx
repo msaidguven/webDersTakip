@@ -15,6 +15,9 @@ type Item = {
   question?: string;
   answer?: string;
   mode?: 'hocam' | 'kanka';
+  // Yorumlar artık moderasyon beklemeden yayınlanıyor — bu, admin'in "gördüm" dediği,
+  // yayın durumundan bağımsız ayrı bir işaret. null ise henüz bakılmamış demektir.
+  reviewedAt: string | null;
 };
 
 const STATUS_OPTIONS = [
@@ -23,6 +26,12 @@ const STATUS_OPTIONS = [
   { value: 'pending', label: 'Bekleyen' },
   { value: 'rejected', label: 'Reddedilen' },
   { value: 'deleted', label: 'Silinen' },
+] as const;
+
+const REVIEWED_OPTIONS = [
+  { value: '', label: 'İncelenme Durumu (hepsi)' },
+  { value: 'no', label: 'İncelenmedi' },
+  { value: 'yes', label: 'İncelendi' },
 ] as const;
 
 const KIND_OPTIONS = [
@@ -55,6 +64,7 @@ const PAGE_SIZE = 30;
 export default function AllCommentsPanel() {
   const [status, setStatus] = useState<string>('all');
   const [kind, setKind] = useState<string>('all');
+  const [reviewed, setReviewed] = useState<string>('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -76,6 +86,7 @@ export default function AllCommentsPanel() {
     try {
       const params = new URLSearchParams({ status, kind, page: String(page), pageSize: String(PAGE_SIZE) });
       if (search) params.set('search', search);
+      if (reviewed) params.set('reviewed', reviewed);
       const res = await fetch(`/api/admin/all-comments?${params.toString()}`);
       const data = await res.json();
       if (res.ok) {
@@ -88,7 +99,7 @@ export default function AllCommentsPanel() {
     } finally {
       setLoading(false);
     }
-  }, [status, kind, search, page]);
+  }, [status, kind, search, reviewed, page]);
 
   useEffect(() => {
     load();
@@ -98,9 +109,9 @@ export default function AllCommentsPanel() {
   // ekranı gösterebilir (ör. 3. sayfadayken filtre değişip toplam kayıt azalırsa).
   useEffect(() => {
     setPage(1);
-  }, [status, kind, search]);
+  }, [status, kind, search, reviewed]);
 
-  async function handleAction(item: Item, action: 'publish' | 'reject' | 'delete' | 'restore') {
+  async function handleAction(item: Item, action: 'publish' | 'reject' | 'delete' | 'restore' | 'review') {
     setBusyId(item.id);
     try {
       const numericId = item.id.replace(/^(comment|ai)-/, '');
@@ -114,8 +125,22 @@ export default function AllCommentsPanel() {
         showNotice('error', data.error || 'İşlem başarısız');
         return;
       }
-      setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: data.status } : it)));
-      const labels: Record<string, string> = { publish: 'Yayınlandı', reject: 'Reddedildi', delete: 'Silindi', restore: 'Geri yüklendi (inceleme bekliyor)' };
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? action === 'review'
+              ? { ...it, reviewedAt: new Date().toISOString() }
+              : { ...it, status: data.status }
+            : it
+        )
+      );
+      const labels: Record<string, string> = {
+        publish: 'Yayınlandı',
+        reject: 'Reddedildi',
+        delete: 'Silindi',
+        restore: 'Geri yüklendi (inceleme bekliyor)',
+        review: 'İncelendi olarak işaretlendi',
+      };
       showNotice('success', labels[action]);
     } catch {
       showNotice('error', 'İşlem sırasında hata oluştu');
@@ -144,6 +169,15 @@ export default function AllCommentsPanel() {
           className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
         >
           {KIND_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <select
+          value={reviewed}
+          onChange={(e) => setReviewed(e.target.value)}
+          className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+        >
+          {REVIEWED_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
@@ -186,6 +220,9 @@ export default function AllCommentsPanel() {
                 <div className="flex flex-wrap items-center gap-2 mb-3">
                   <span className={`text-xs px-2 py-1 rounded-full ${kindBadge.className}`}>{kindBadge.text}</span>
                   <span className={`text-xs px-2 py-1 rounded-full ${statusBadge.className}`}>{statusBadge.text}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${item.reviewedAt ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-gray-400'}`}>
+                    {item.reviewedAt ? '✓ İncelendi' : 'İncelenmedi'}
+                  </span>
                   <span className="text-xs text-gray-500">{studentLabel(item.student)}</span>
                   <span className="text-xs text-gray-600 ml-auto">{new Date(item.createdAt).toLocaleString('tr-TR')}</span>
                 </div>
@@ -254,6 +291,15 @@ export default function AllCommentsPanel() {
                       className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-40"
                     >
                       Geri Yükle
+                    </button>
+                  )}
+                  {!item.reviewedAt && (
+                    <button
+                      onClick={() => handleAction(item, 'review')}
+                      disabled={busyId === item.id}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 disabled:opacity-40"
+                    >
+                      İncelendi İşaretle
                     </button>
                   )}
                 </div>

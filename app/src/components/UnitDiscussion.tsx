@@ -598,6 +598,11 @@ export default function UnitDiscussion({
         return false;
       }
       setComments((prev) => [...prev, { ...(data as CommentEntry), kind: 'comment' }]);
+      // Yanıtlanan kişiye bildirim — ana akışı bloklamasın diye fire-and-forget
+      // (bkz. /api/comments/[id]/notify'daki not, kullanıcı isteği 2026-09-04).
+      if (parentCommentId != null || parentAiAnswerId != null) {
+        fetch(`/api/comments/${(data as CommentEntry).id}/notify`, { method: 'POST' }).catch(() => {});
+      }
       return true;
     } catch {
       setError('Gönderilemedi, lütfen tekrar deneyin');

@@ -32,6 +32,7 @@ type CommentRow = {
   unit_id: number | null;
   student_id: string;
   parent_comment_id: number | null;
+  reviewed_at: string | null;
 };
 
 type AiRow = {
@@ -46,6 +47,7 @@ type AiRow = {
   student_id: string | null;
   parent_comment_id: number | null;
   parent_rag_answer_id: number | null;
+  reviewed_at: string | null;
 };
 
 type UnifiedItem = {
@@ -61,6 +63,10 @@ type UnifiedItem = {
   question?: string;
   answer?: string;
   mode?: 'hocam' | 'kanka';
+  // Yorumlar artık yayınlanmadan önce onay beklemiyor (bkz. question_comments_auto_publish.sql)
+  // — bu, admin'in "gördüm" dediği, yayın durumundan BAĞIMSIZ ayrı bir işaret (kullanıcı
+  // isteği, 2026-09-04). null ise admin henüz bakmamış demektir.
+  reviewedAt: string | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -73,6 +79,7 @@ export async function GET(request: NextRequest) {
   const kindParam = params.get('kind');
   const kind: 'comment' | 'ai' | 'all' = kindParam === 'comment' || kindParam === 'ai' ? kindParam : 'all';
   const search = sanitizeSearch(params.get('search') || '');
+  const reviewedParam = params.get('reviewed'); // 'yes' | 'no' | null (=all)
   const page = Math.max(1, Math.trunc(Number(params.get('page')) || 1));
   const pageSize = Math.min(100, Math.max(1, Math.trunc(Number(params.get('pageSize')) || 30)));
 
@@ -82,11 +89,13 @@ export async function GET(request: NextRequest) {
   if (kind !== 'ai') {
     let q = supabase
       .from('question_comments')
-      .select('id, body, status, created_at, question_id, unit_id, student_id, parent_comment_id')
+      .select('id, body, status, created_at, question_id, unit_id, student_id, parent_comment_id, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(PER_SOURCE_FETCH_LIMIT);
     if (status !== 'all') q = q.eq('status', status);
     if (search) q = q.ilike('body', `%${search}%`);
+    if (reviewedParam === 'yes') q = q.not('reviewed_at', 'is', null);
+    if (reviewedParam === 'no') q = q.is('reviewed_at', null);
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     commentRows = (data as CommentRow[] | null) || [];
@@ -96,11 +105,13 @@ export async function GET(request: NextRequest) {
   if (kind !== 'comment') {
     let q = supabase
       .from('rag_answers')
-      .select('id, question, answer, model, status, created_at, quiz_question_id, unit_id, student_id, parent_comment_id, parent_rag_answer_id')
+      .select('id, question, answer, model, status, created_at, quiz_question_id, unit_id, student_id, parent_comment_id, parent_rag_answer_id, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(PER_SOURCE_FETCH_LIMIT);
     if (status !== 'all') q = q.eq('status', status);
     if (search) q = q.or(`question.ilike.%${search}%,answer.ilike.%${search}%`);
+    if (reviewedParam === 'yes') q = q.not('reviewed_at', 'is', null);
+    if (reviewedParam === 'no') q = q.is('reviewed_at', null);
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     aiRows = (data as AiRow[] | null) || [];
@@ -142,6 +153,7 @@ export async function GET(request: NextRequest) {
       student: { id: c.student_id, username: profile?.username ?? null, fullName: profile?.full_name ?? null },
       isReply: c.parent_comment_id != null,
       body: c.body,
+      reviewedAt: c.reviewed_at,
     };
   });
 
@@ -160,6 +172,7 @@ export async function GET(request: NextRequest) {
       question: a.question,
       answer: a.answer,
       mode: a.model.includes('kanka') ? 'kanka' : 'hocam',
+      reviewedAt: a.reviewed_at,
     };
   });
 
