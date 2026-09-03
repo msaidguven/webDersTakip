@@ -13,6 +13,7 @@ import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { LeaderboardCard } from '../src/components/LeaderboardCard';
 import { UnitAccordion } from '../src/components/UnitAccordion';
+import { MobileLessonsCard } from '../src/components/MobileLessonsCard';
 
 type UnitFilter = 'all' | 'in_progress' | 'completed';
 
@@ -157,6 +158,15 @@ export default function PanelPage() {
             ) : (
               <StatsRow stats={data.stats} />
             )}
+          </div>
+
+          {/* Mobile Lessons Card (Sadece mobilde istatistiklerin altında görünür) */}
+          <div className="lg:hidden mb-6 sm:mb-8">
+            <MobileLessonsCard
+              isAuthenticated={isAuthenticated}
+              selectedLessonId={data.selectedLessonId}
+              onSelectLesson={selectLesson}
+            />
           </div>
         </>
       ) : (
