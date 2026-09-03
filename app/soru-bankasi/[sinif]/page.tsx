@@ -9,11 +9,16 @@ import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradeData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
+// ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
+export const revalidate = 3600;
 
 interface Params {
   sinif: string;
+}
+
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 export default async function SoruBankasiGradePage({ params }: { params: Promise<Params> }) {

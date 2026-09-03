@@ -73,8 +73,14 @@ export async function revalidateTopicPage(supabase: Supabase, topicId: number): 
   await revalidateTopicPages(supabase, [topicId]);
 }
 
-async function resolveGradeLessonPaths(supabase: Supabase, pairs: { gradeId: number; lessonId: number }[]): Promise<string[]> {
-  const uniquePairs = Array.from(new Map(pairs.map((p) => [`${p.gradeId}:${p.lessonId}`, p])).values());
+// unitSlug verilmişse (birden fazla farklı ünite aynı grade+lesson çiftini paylaşabileceği
+// için pair anahtarına dahil edilir) o ünitenin soru bankası hub'ı da (/soru-bankasi/
+// [sinif]/[ders]/[unite]) invalide edilir.
+async function resolveGradeLessonPaths(
+  supabase: Supabase,
+  pairs: { gradeId: number; lessonId: number; unitSlug?: string | null }[]
+): Promise<string[]> {
+  const uniquePairs = Array.from(new Map(pairs.map((p) => [`${p.gradeId}:${p.lessonId}:${p.unitSlug ?? ''}`, p])).values());
   if (!uniquePairs.length) return [];
 
   const gradeIds = Array.from(new Set(uniquePairs.map((p) => p.gradeId)));
@@ -91,23 +97,28 @@ async function resolveGradeLessonPaths(supabase: Supabase, pairs: { gradeId: num
     const gradeSlug = gradeSlugById.get(p.gradeId);
     if (!gradeSlug) continue;
     paths.add(`/${gradeSlug}`);
+    paths.add(`/soru-bankasi/${gradeSlug}`);
     const lessonSlug = lessonSlugById.get(p.lessonId);
-    if (lessonSlug) paths.add(`/${gradeSlug}/${lessonSlug}`);
+    if (!lessonSlug) continue;
+    paths.add(`/${gradeSlug}/${lessonSlug}`);
+    paths.add(`/soru-bankasi/${gradeSlug}/${lessonSlug}`);
+    if (p.unitSlug) paths.add(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${p.unitSlug}`);
   }
   return Array.from(paths);
 }
 
 // Sınıf sayfası (/[gradeSlug]) ders kartlarını, ders sayfası (/[gradeSlug]/[lessonSlug])
-// ünite/konu listesini gösteriyor — bir ünitenin kendisi (aktiflik, hafta aralığı) veya
-// içindeki bir konu/soru değişince BUNLAR da güncel olmalı, sadece konu sayfaları değil.
+// ünite/konu listesini, soru bankası hub'ları (/soru-bankasi/...) da aynı hiyerarşiyi
+// gösteriyor — bir ünitenin kendisi (aktiflik, hafta aralığı) veya içindeki bir konu/soru
+// değişince BUNLARIN hepsi güncel olmalı, sadece konu sayfaları değil.
 export async function revalidateGradeLessonPagesForUnits(supabase: Supabase, unitIds: number[]): Promise<void> {
   try {
     const uniqueUnitIds = Array.from(new Set(unitIds));
     if (!uniqueUnitIds.length) return;
-    const { data: units } = await supabase.from('units').select('grade_id, lesson_id').in('id', uniqueUnitIds);
-    const pairs = ((units as { grade_id: number | null; lesson_id: number | null }[] | null) || [])
-      .filter((u): u is { grade_id: number; lesson_id: number } => u.grade_id != null && u.lesson_id != null)
-      .map((u) => ({ gradeId: u.grade_id, lessonId: u.lesson_id }));
+    const { data: units } = await supabase.from('units').select('grade_id, lesson_id, slug').in('id', uniqueUnitIds);
+    const pairs = ((units as { grade_id: number | null; lesson_id: number | null; slug: string | null }[] | null) || [])
+      .filter((u): u is { grade_id: number; lesson_id: number; slug: string | null } => u.grade_id != null && u.lesson_id != null)
+      .map((u) => ({ gradeId: u.grade_id, lessonId: u.lesson_id, unitSlug: u.slug }));
     const paths = await resolveGradeLessonPaths(supabase, pairs);
     paths.forEach((p) => revalidatePath(p));
   } catch (error) {

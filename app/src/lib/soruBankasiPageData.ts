@@ -7,8 +7,7 @@
 // desenle birebir aynı (grade/lesson/unit çözümleme, is_active filtreleme, admin-aware).
 
 import { cache } from 'react';
-import { createClient } from '@/utils/supabase/server';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByLessonGrade, getQuestionCountsByUnitId, getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
@@ -37,18 +36,16 @@ export function buildSoruBankasiBreadcrumbJsonLd(items: { name: string; path: st
 }
 
 export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeData(gradeSlug: string) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
 
   const { data: gradeData } = await supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle();
   const grade = gradeData as GradeRow | null;
   if (!grade) return null;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
   const { data: lessonGradeRows } = await supabase.from('lesson_grades').select('lesson_id, is_active').eq('grade_id', grade.id);
   const lessonIds = ((lessonGradeRows as { lesson_id: number; is_active: boolean }[] | null) || [])
-    .filter((row) => isAdmin || row.is_active)
+    .filter((row) => row.is_active)
     .map((row) => row.lesson_id);
 
   if (!lessonIds.length) {
@@ -67,7 +64,7 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
       slug: lesson.slug as string,
       questionCount: questionCountByLesson.get(`${lesson.id}:${grade.id}`) ?? 0,
     }))
-    .filter((lesson) => isAdmin || lesson.questionCount > 0);
+    .filter((lesson) => lesson.questionCount > 0);
 
   return {
     gradeName: grade.name,
@@ -80,7 +77,7 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
 export type SoruBankasiGradeData = NonNullable<Awaited<ReturnType<typeof getSoruBankasiGradeData>>>;
 
 export const getSoruBankasiLessonData = cache(async function getSoruBankasiLessonData(gradeSlug: string, lessonSlug: string) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
 
@@ -92,18 +89,20 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
   const { data: lessonGradeData } = await supabase
     .from('lesson_grades')
     .select('is_active')
     .eq('lesson_id', lesson.id)
     .eq('grade_id', grade.id)
     .maybeSingle();
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) return null;
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) return null;
 
-  let unitQuery = supabase.from('units').select('id, title, slug, order_no').eq('grade_id', grade.id).eq('lesson_id', lesson.id);
-  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
+  const unitQuery = supabase
+    .from('units')
+    .select('id, title, slug, order_no')
+    .eq('grade_id', grade.id)
+    .eq('lesson_id', lesson.id)
+    .eq('is_active', true);
   const { data: unitRows } = await unitQuery.order('order_no', { ascending: true });
   const units = (unitRows as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
 
@@ -128,7 +127,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
       topicCount: topicCountByUnit.get(u.id) ?? 0,
       questionCount: questionCountByUnit.get(u.id) ?? 0,
     }))
-    .filter((u) => isAdmin || u.questionCount > 0);
+    .filter((u) => u.questionCount > 0);
 
   return { ...base, units: unitList, hasQuestions: unitList.some((u) => u.questionCount > 0) };
 });
@@ -136,7 +135,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
 export type SoruBankasiLessonData = NonNullable<Awaited<ReturnType<typeof getSoruBankasiLessonData>>>;
 
 export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
@@ -149,21 +148,18 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
-  let unitQuery = supabase
+  const unitQuery = supabase
     .from('units')
     .select('id, title, slug')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
-    .eq('slug', decodedUnitSlug);
-  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
+    .eq('slug', decodedUnitSlug)
+    .eq('is_active', true);
   const { data: unitData } = await unitQuery.maybeSingle();
   const unit = unitData as { id: number; title: string; slug: string | null } | null;
   if (!unit) return null;
 
-  let topicQuery = supabase.from('topics').select('id, title, slug, order_no').eq('unit_id', unit.id);
-  if (!isAdmin) topicQuery = topicQuery.eq('is_active', true);
+  const topicQuery = supabase.from('topics').select('id, title, slug, order_no').eq('unit_id', unit.id).eq('is_active', true);
   const { data: topicRows } = await topicQuery.order('order_no', { ascending: true });
   const topics = (topicRows as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
 
@@ -186,7 +182,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
       slug: t.slug as string,
       questionCount: questionCountByTopic.get(t.id) ?? 0,
     }))
-    .filter((t) => isAdmin || t.questionCount > 0);
+    .filter((t) => t.questionCount > 0);
 
   return { ...base, topics: topicList, hasQuestions: topicList.some((t) => t.questionCount > 0) };
 });

@@ -15,13 +15,18 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
+// ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
+export const revalidate = 3600;
 
 interface Params {
   sinif: string;
   ders: string;
   unite: string;
+}
+
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 export default async function SoruBankasiUnitPage({ params }: { params: Promise<Params> }) {
