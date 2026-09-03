@@ -56,8 +56,8 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLe
         ✕
       </button>
 
-      {/* Dersler */}
-      <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
+      {/* Dersler (Mobilde panel anasayfasında istatistiklerin altında göründüğü için mobilde sidebar'da gizlenir) */}
+      <nav className="hidden lg:block flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
         <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
           Derslerim
         </p>
