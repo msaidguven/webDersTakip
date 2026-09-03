@@ -11,8 +11,8 @@ import { notFound } from 'next/navigation';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getAllTopicQuestions, getQuestionsByIds } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type TopicTestPageData } from '@/app/src/lib/quizPageData';
-import { QuestionAnswerKeyItem, TYPE_LABELS } from '@/app/src/components/QuizClient';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
+import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -71,6 +71,13 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
+      {/* Cevap/açıklama blokları JS ile CSS collapse (.cevap-aciklama / .cevap-marker,
+          bkz. QuizClient.tsx) kullanılarak varsayılan gizleniyor. JS kapalıyken bu override
+          devreye girer ve her şey (SEO içeriği zaten DOM'da tam olsa da) görsel olarak da
+          açık görünür — progressive enhancement. */}
+      <noscript>
+        <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}`}</style>
+      </noscript>
       <QuestionBankHighlight activeQuestionId={activeIdOnPage} />
 
       {!data.hasQuestions && (
@@ -91,20 +98,7 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
         <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{questions.length} soru — cevap anahtarıyla birlikte</p>
       </div>
 
-      <div className="space-y-3 sm:space-y-4">
-        {questions.map((q, i) => (
-          <div
-            key={q.id}
-            id={`soru-${q.id}`}
-            className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6"
-          >
-            <span className="mb-2 inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground sm:mb-3">
-              {TYPE_LABELS[q.type]}
-            </span>
-            <QuestionAnswerKeyItem question={q} index={i} />
-          </div>
-        ))}
-      </div>
+      <QuestionBankBoard questions={questions} />
     </div>
   );
 }

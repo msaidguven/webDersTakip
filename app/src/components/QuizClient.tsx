@@ -320,7 +320,78 @@ export function ClassicalView({
 // /soru-bankasi sayfası (bkz. app/soru-bankasi/.../page.tsx) bunu kullanıyor — ikisi de
 // "tüm soruları cevaplarıyla göster" ihtiyacını aynı, tek yerde test edilmiş mantıkla
 // karşılıyor.
-export function QuestionAnswerKeyItem({ question: q, index }: { question: QuizQuestion; index?: number }) {
+export function QuestionAnswerKeyItem({
+  question: q,
+  index,
+  interactive = false,
+  onAnswered,
+}: {
+  question: QuizQuestion;
+  index?: number;
+  // true olunca: sorunun cevap/açıklama kısmı bir şıkka (ya da "Cevabı Göster" butonuna)
+  // tıklanana kadar CSS ile (display:none DEĞİL, grid-rows collapse ile) görsel olarak
+  // gizli kalır — ama içerik DOM'da baştan tam olarak mevcuttur, JS çalışmayan bir istemci
+  // veya arama motoru her şeyi ilk yanıtta görür (bkz. .cevap-aciklama / .cevap-marker için
+  // <noscript> override, app/soru-bankasi/.../page.tsx).
+  interactive?: boolean;
+  onAnswered?: (questionId: number, correct: boolean) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  if (!interactive) {
+    return (
+      <>
+        <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />
+        <p className="text-sm font-bold text-default">
+          {index != null ? `${index + 1}. ` : ''}
+          {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
+        </p>
+        {q.type === 'multiple_choice' && (
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            {q.choices.map((c) => (
+              <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
+                {c.is_correct ? '✓ ' : ''}
+                {c.text}
+              </li>
+            ))}
+          </ul>
+        )}
+        {q.type === 'blank' && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
+          </p>
+        )}
+        {q.type === 'matching' && (
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            {q.pairs.map((p) => (
+              <li key={p.id}>
+                <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+              </li>
+            ))}
+          </ul>
+        )}
+        {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
+        {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+          <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
+        )}
+      </>
+    );
+  }
+
+  // İnteraktif mod: her şık bir <button>, tıklanınca kilitlenir (tek deneme) ve
+  // cevap/açıklama bloğu açılır. answered = ya bir şık seçildi (mc/blank) ya da
+  // "Cevabı Göster" butonuna basıldı (matching/classical).
+  const answered = selectedId != null || revealed;
+  const explanationId = `cevap-aciklama-${q.id}`;
+  const optionList = q.type === 'multiple_choice' ? q.choices : q.type === 'blank' ? q.options : null;
+
+  const selectOption = (optId: number, isCorrect: boolean) => {
+    if (selectedId != null) return;
+    setSelectedId(optId);
+    onAnswered?.(q.id, isCorrect);
+  };
+
   return (
     <>
       <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />
@@ -328,34 +399,93 @@ export function QuestionAnswerKeyItem({ question: q, index }: { question: QuizQu
         {index != null ? `${index + 1}. ` : ''}
         {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
       </p>
-      {q.type === 'multiple_choice' && (
-        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          {q.choices.map((c) => (
-            <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
-              {c.is_correct ? '✓ ' : ''}
-              {c.text}
-            </li>
-          ))}
+
+      {optionList && (
+        <ul className="mt-2.5 space-y-1.5 text-sm">
+          {optionList.map((opt) => {
+            const isChosen = selectedId === opt.id;
+            let cls = 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5';
+            if (answered) {
+              if (opt.is_correct) cls = 'border-emerald-400/60 bg-emerald-500/10 text-emerald-500 font-bold';
+              else if (isChosen) cls = 'border-rose-400/60 bg-rose-500/10 text-rose-500 font-bold';
+              else cls = 'border-default bg-surface text-muted-foreground opacity-60';
+            }
+            return (
+              <li key={opt.id}>
+                <button
+                  type="button"
+                  onClick={() => selectOption(opt.id, opt.is_correct)}
+                  disabled={selectedId != null}
+                  aria-expanded={answered}
+                  aria-controls={explanationId}
+                  className={`flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-left font-medium transition-colors disabled:cursor-default ${cls}`}
+                >
+                  <span
+                    data-open={answered}
+                    aria-hidden={!answered}
+                    className="cevap-marker inline-block max-w-0 shrink-0 overflow-hidden opacity-0 transition-all duration-200 data-[open=true]:max-w-[1.2em] data-[open=true]:opacity-100"
+                  >
+                    {opt.is_correct ? '✓' : isChosen ? '✗' : ''}
+                  </span>
+                  <span>{opt.text}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
-      {q.type === 'blank' && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
-        </p>
+
+      {q.type === 'matching' && !revealed && (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          aria-expanded={revealed}
+          aria-controls={explanationId}
+          className="mt-2.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
+        >
+          Eşleştirmeyi Göster
+        </button>
       )}
-      {q.type === 'matching' && (
-        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          {q.pairs.map((p) => (
-            <li key={p.id}>
-              <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
-            </li>
-          ))}
-        </ul>
+
+      {q.type === 'classical' && q.modelAnswer && !revealed && (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          aria-expanded={revealed}
+          aria-controls={explanationId}
+          className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
+        >
+          <Eye className="h-3.5 w-3.5" /> Model Cevabı Göster
+        </button>
       )}
-      {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
-      {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-        <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
-      )}
+
+      <div
+        id={explanationId}
+        data-open={answered}
+        aria-hidden={!answered}
+        className="cevap-aciklama grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out data-[open=true]:grid-rows-[1fr] data-[open=true]:opacity-100 data-[open=true]:mt-2.5"
+      >
+        <div className="overflow-hidden">
+          {q.type === 'matching' && (
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {q.pairs.map((p) => (
+                <li key={p.id}>
+                  <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+                </li>
+              ))}
+            </ul>
+          )}
+          {q.type === 'classical' && q.modelAnswer && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-black text-indigo-500">Model Cevap: </span>
+              {q.modelAnswer}
+            </p>
+          )}
+          {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+            <p className="text-xs text-muted-foreground">{q.solution_text}</p>
+          )}
+        </div>
+      </div>
     </>
   );
 }
