@@ -44,13 +44,15 @@ type AiRow = {
   unit_id: number | null;
 };
 
-type Ref = { questionId: number | null; unitId: number | null };
+export type Ref = { questionId: number | null; unitId: number | null };
 
 // question_comments (yorumlar) ve rag_answers (AI'ye @hocam/@kanka ile sorulan sorular) aynı
 // question_id/unit_id şemasını paylaşıyor — hangi ünite/konuya ait olduklarını çözen sorgu
 // zinciri (soru -> konu -> ünite -> ders -> sınıf) ikisi için de aynı, bu yüzden ortak bir
 // çözücüde birleştiriliyor (dashboardActivities.ts'teki flat-query + in-memory join deseni).
-async function buildContextResolver(
+// export: admin/all-comments API route'u da (bkz. app/api/admin/all-comments/route.ts) aynı
+// çözümlemeyi ihtiyaç duyuyor, join zincirini ikinci kez yazmak yerine bunu paylaşıyor.
+export async function buildContextResolver(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   refs: Ref[]
