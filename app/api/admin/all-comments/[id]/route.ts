@@ -12,9 +12,11 @@ const ACTION_TO_STATUS: Record<string, string> = {
 };
 
 // question_comments ("Yorumlar" görünümü) ve rag_answers ("AI'ye Sorulanlar") aynı
-// publish/reject/delete/restore mekaniğini paylaşıyor — /api/admin/question-comments/[id]
-// ve /api/admin/rag/qa/[id]'nin birleşik hali. delete'teki kademeli davranış öğrenci
-// tarafındaki /api/comments/[id] ve /api/rag/answers/[id] ile birebir aynı.
+// publish/reject/delete/restore mekaniğini paylaşıyor (eski, tek-tablolu
+// /api/admin/question-comments/[id]'in yerini alıyor; /api/admin/rag/qa/[id] hâlâ
+// duruyor, ayrı bir amacı — hızlı "onay bekleyenler" listesi — var). delete'teki
+// kademeli davranış öğrenci tarafındaki /api/comments/[id] ve /api/rag/answers/[id]
+// ile birebir aynı.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
