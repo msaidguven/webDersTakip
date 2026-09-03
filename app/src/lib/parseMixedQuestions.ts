@@ -5,8 +5,9 @@
 
 export type QuestionType = 'multiple_choice' | 'blank' | 'matching';
 
-export type ParsedMultipleChoice = { kind: 'multiple_choice'; question_text: string; solution_text: string | null; choices: { text: string; is_correct: boolean }[] };
-export type ParsedBlank = { kind: 'blank'; question_text: string; solution_text: string | null; options: { text: string; is_correct: boolean }[] };
+export type SvgPosition = 'above' | 'below';
+export type ParsedMultipleChoice = { kind: 'multiple_choice'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; choices: { text: string; is_correct: boolean }[] };
+export type ParsedBlank = { kind: 'blank'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; options: { text: string; is_correct: boolean }[] };
 export type ParsedMatching = { kind: 'matching'; pairs: { left_text: string; right_text: string }[] };
 export type ParsedQuestion = ParsedMultipleChoice | ParsedBlank | ParsedMatching;
 
@@ -19,6 +20,12 @@ function parseChoiceList(raw: unknown, min: number, max: number): { text: string
   }
   if (out.filter((c) => c.is_correct).length !== 1) return null;
   return out;
+}
+
+function parseSvgFields(q: Record<string, unknown>): { svg_prompt: string | null; svg_position: SvgPosition } {
+  const svg_prompt = typeof q.svg_prompt === 'string' && q.svg_prompt.trim() ? q.svg_prompt.trim() : null;
+  const svg_position: SvgPosition = q.svg_position === 'below' ? 'below' : 'above';
+  return { svg_prompt, svg_position };
 }
 
 export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuestion[] | null {
@@ -53,13 +60,13 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
       if (blankCount !== 1) return null;
       const options = parseChoiceList(q.options, 2, 6);
       if (!options) return null;
-      parsed.push({ kind: 'blank', question_text: questionText, solution_text, options });
+      parsed.push({ kind: 'blank', question_text: questionText, solution_text, ...parseSvgFields(q), options });
       continue;
     }
 
     const choices = parseChoiceList(q.choices, 2, 6);
     if (!choices) return null;
-    parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), solution_text, choices });
+    parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), solution_text, ...parseSvgFields(q), choices });
   }
 
   return parsed;

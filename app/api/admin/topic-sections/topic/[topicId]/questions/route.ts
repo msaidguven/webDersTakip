@@ -67,6 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
         section_id: null,
         source,
         ai_model: aiModel,
+        svg_prompt: q.kind === 'matching' ? null : q.svg_prompt,
+        svg_position: q.kind === 'matching' ? 'above' : q.svg_position,
       })
       .select('id')
       .single();

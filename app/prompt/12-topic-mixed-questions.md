@@ -17,6 +17,8 @@ Konunun alt başlıklarının ders notu:
       "type": "multiple_choice",
       "question_text": string,
       "solution_text": string,
+      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_position": "above" | "below",
       "choices": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean }
@@ -27,6 +29,8 @@ Konunun alt başlıklarının ders notu:
       "type": "blank",
       "question_text": string,  // cümle, boşluk yerine TAM OLARAK "_____" (5 alt çizgi)
       "solution_text": string,
+      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_position": "above" | "below",
       "options": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean }
@@ -50,3 +54,5 @@ Kurallar (MUTLAKA uygula):
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - matching: left_text kısa terim, right_text tanımı/örneği; çiftler birbirinden açıkça farklı, solution_text/choices/options alanı OLMASIN
 - SADECE yukarıdaki ders notlarında geçen bilgiden sor, notta olmayan bilgi UYDURMA; her soru farklı bir bilgiyi ölçsün, tekrar YOK; solution_text 1-2 cümle, yeni bilgi ekleme; {grade} seviyesine sade dil; öğrenciye doğrudan hitap etme ("sence" vb.)
+
+{svg_question_instructions}

@@ -72,6 +72,9 @@ export function QuizQuestionEditModal({
   const [score, setScore] = useState(1);
   const [solutionText, setSolutionText] = useState('');
   const [svgContent, setSvgContent] = useState('');
+  const [svgPrompt, setSvgPrompt] = useState('');
+  const [svgPosition, setSvgPosition] = useState<'above' | 'below'>('above');
+  const [svgPromptCopied, setSvgPromptCopied] = useState(false);
   const [typeCode, setTypeCode] = useState('');
   const [choices, setChoices] = useState<Choice[]>([]);
   const [blankOptions, setBlankOptions] = useState<Choice[]>([]);
@@ -92,6 +95,8 @@ export function QuizQuestionEditModal({
       setScore(data.question.score || 1);
       setSolutionText(data.question.solution_text || '');
       setSvgContent(data.question.svg_content || '');
+      setSvgPrompt(data.question.svg_prompt || '');
+      setSvgPosition(data.question.svg_position === 'below' ? 'below' : 'above');
       setTypeCode(data.question.question_types?.code || '');
       setChoices(data.choices || []);
       setBlankOptions(data.blankOptions || []);
@@ -106,7 +111,15 @@ export function QuizQuestionEditModal({
     setError(null);
     const body: Row = {
       id: questionId,
-      patch: { question_text: questionText, difficulty, score, solution_text: solutionText || null, svg_content: svgContent || null },
+      patch: {
+        question_text: questionText,
+        difficulty,
+        score,
+        solution_text: solutionText || null,
+        svg_content: svgContent || null,
+        svg_prompt: svgPrompt || null,
+        svg_position: svgPosition,
+      },
     };
     if (choices.length) body.choices = choices.map((c) => ({ choice_text: c.choice_text, is_correct: c.is_correct }));
     if (blankOptions.length) body.blankOptions = blankOptions.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct }));
@@ -206,6 +219,45 @@ export function QuizQuestionEditModal({
                   })()}
                 </div>
               </div>
+              {svgContent.trim() && (
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="text-xs text-gray-400">SVG konumu:</span>
+                  <label className="flex items-center gap-1 text-xs text-gray-300">
+                    <input type="radio" name="svgPosition" checked={svgPosition === 'above'} onChange={() => setSvgPosition('above')} className="accent-indigo-500" />
+                    Soru kökünün üstünde
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-gray-300">
+                    <input type="radio" name="svgPosition" checked={svgPosition === 'below'} onChange={() => setSvgPosition('below')} className="accent-indigo-500" />
+                    Soru kökünün altında
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs text-gray-400 sm:text-sm">SVG Prompt (bu soru için çizim talimatı — başka bir AI&apos;ye vermek üzere)</label>
+                {svgPrompt.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(svgPrompt);
+                      setSvgPromptCopied(true);
+                      window.setTimeout(() => setSvgPromptCopied(false), 2000);
+                    }}
+                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
+                  >
+                    {svgPromptCopied ? 'Kopyalandı ✓' : 'Kopyala'}
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={svgPrompt}
+                onChange={(e) => setSvgPrompt(e.target.value)}
+                rows={4}
+                placeholder="Bu soru için AI'nin ürettiği SVG çizim promptu (varsa)"
+                className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+              />
             </div>
 
             {choices.length > 0 && <ChoiceListEditor title="Şıklar" items={choices} textKey="choice_text" onChange={setChoices} />}

@@ -16,6 +16,8 @@ Alt başlığın ders notu (sorular SADECE bu notta geçen bilgilerden sorulmal�
       "type": "multiple_choice",
       "question_text": string,
       "solution_text": string,   // doğru cevabın kısa açıklaması (1-2 cümle)
+      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_position": "above" | "below",
       "choices": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean },
@@ -27,6 +29,8 @@ Alt başlığın ders notu (sorular SADECE bu notta geçen bilgilerden sorulmal�
       "type": "blank",
       "question_text": string,   // cümle içinde eksik olan tek kelime/kısa ifadenin yerine TAM OLARAK "_____" (5 alt çizgi) konur
       "solution_text": string,   // doğru cevabın kısa açıklaması (1-2 cümle)
+      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_position": "above" | "below",
       "options": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean },
@@ -69,3 +73,5 @@ KESİNLİKLE YASAK:
 - Şıkların/seçeneklerin hepsini doğru ya da hepsini yanlış yazmak
 - blank sorularında "_____" dışında bir boşluk işareti kullanmak (örn. "..." veya "(...)")
 - matching sorularında aynı right_text'i birden fazla left_text ile eşleştirilebilecek şekilde belirsiz yazmak
+
+{svg_question_instructions}

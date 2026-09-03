@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
+  const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
+
   const supabase = createServiceClient();
 
   const { data: topic } = await supabase.from('topics').select('id, title, unit_id').eq('id', topicId).maybeSingle();
@@ -180,7 +182,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
-      .replaceAll('{section_headings}', sectionHeadingsText);
+      .replaceAll('{section_headings}', sectionHeadingsText)
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
 
     return NextResponse.json({ prompt });
   }
@@ -225,7 +228,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{heading}', currentSection.heading)
-      .replaceAll('{section_outcomes}', sectionOutcomesText);
+      .replaceAll('{section_outcomes}', sectionOutcomesText)
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
 
     return NextResponse.json({ prompt });
   }
@@ -247,7 +251,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
-      .replaceAll('{section_content}', currentSection.body_markdown);
+      .replaceAll('{section_content}', currentSection.body_markdown)
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
 
     return NextResponse.json({ prompt });
   }

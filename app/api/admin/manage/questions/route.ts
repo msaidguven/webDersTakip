@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const { data: question, error } = await supabase
       .from('questions')
-      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, question_types(code)')
+      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, svg_prompt, svg_position, question_types(code)')
       .eq('id', id)
       .maybeSingle();
 
@@ -113,7 +113,7 @@ export async function PATCH(request: NextRequest) {
     const rawPatch = body.patch && typeof body.patch === 'object' ? (body.patch as Record<string, unknown>) : {};
 
     const patch: Record<string, unknown> = {};
-    for (const key of ['question_text', 'difficulty', 'score', 'solution_text', 'svg_content']) {
+    for (const key of ['question_text', 'difficulty', 'score', 'solution_text', 'svg_content', 'svg_prompt', 'svg_position']) {
       if (key in rawPatch) patch[key] = rawPatch[key];
     }
     if ('svg_content' in patch && patch.svg_content != null) {
@@ -125,6 +125,13 @@ export async function PATCH(request: NextRequest) {
       } else {
         patch.svg_content = svg;
       }
+    }
+    if ('svg_prompt' in patch) {
+      const prompt = patch.svg_prompt != null ? String(patch.svg_prompt).trim() : '';
+      patch.svg_prompt = prompt || null;
+    }
+    if ('svg_position' in patch) {
+      patch.svg_position = patch.svg_position === 'below' ? 'below' : 'above';
     }
     if (Object.keys(patch).length) {
       const { error } = await supabase.from('questions').update(patch).eq('id', questionId);

@@ -1159,8 +1159,8 @@ export type SectionModalSection = {
 
 const MIXED_QUESTIONS_PLACEHOLDER =
   '{"ai_model": "...", "questions": [' +
-  '{"type": "multiple_choice", "question_text": "...", "solution_text": "...", "choices": [{"text": "...", "is_correct": true}, ...]}, ' +
-  '{"type": "blank", "question_text": "... _____ ...", "solution_text": "...", "options": [{"text": "...", "is_correct": true}, ...]}, ' +
+  '{"type": "multiple_choice", "question_text": "...", "solution_text": "...", "svg_prompt": null, "svg_position": "above", "choices": [{"text": "...", "is_correct": true}, ...]}, ' +
+  '{"type": "blank", "question_text": "... _____ ...", "solution_text": "...", "svg_prompt": null, "svg_position": "above", "options": [{"text": "...", "is_correct": true}, ...]}, ' +
   '{"type": "matching", "pairs": [{"left_text": "...", "right_text": "..."}, ...]}' +
   ']}';
 

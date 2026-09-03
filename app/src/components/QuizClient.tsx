@@ -118,10 +118,11 @@ export function OptionsView({
   onSelect: (optionId: number) => void;
 }) {
   const options = question.type === 'multiple_choice' ? question.choices : question.options;
+  const svg = <QuestionSvg svgContent={question.svg_content} />;
 
   return (
     <>
-      <QuestionSvg svgContent={question.svg_content} />
+      {question.svg_position !== 'below' && svg}
       {question.type === 'blank' ? (
         <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">
           {question.question_text.split('_____').map((part, i, arr) => (
@@ -138,6 +139,7 @@ export function OptionsView({
       ) : (
         <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">{question.question_text}</p>
       )}
+      {question.svg_position === 'below' && svg}
 
       <div className="space-y-2.5">
         {options.map((opt) => {
@@ -280,8 +282,9 @@ export function ClassicalView({
 }) {
   return (
     <div>
-      <QuestionSvg svgContent={question.svg_content} />
+      {question.svg_position !== 'below' && <QuestionSvg svgContent={question.svg_content} />}
       <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg">{question.question_text}</p>
+      {question.svg_position === 'below' && <QuestionSvg svgContent={question.svg_content} />}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -343,15 +346,18 @@ export function QuestionAnswerKeyItem({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [assignment, setAssignment] = useState<Record<number, number>>({});
+  const svgPosition = q.type !== 'matching' ? q.svg_position : 'above';
+  const svg = <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />;
 
   if (!interactive) {
     return (
       <>
-        <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />
+        {svgPosition !== 'below' && svg}
         <p className="text-sm font-bold text-default">
           {index != null ? `${index + 1}. ` : ''}
           {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
         </p>
+        {svgPosition === 'below' && svg}
         {q.type === 'multiple_choice' && (
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
             {q.choices.map((c) => (
@@ -423,11 +429,12 @@ export function QuestionAnswerKeyItem({
 
   return (
     <>
-      <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />
+      {svgPosition !== 'below' && svg}
       <p className="text-sm font-bold text-default">
         {index != null ? `${index + 1}. ` : ''}
         {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
       </p>
+      {svgPosition === 'below' && svg}
 
       {optionList && (
         <ul className="mt-2.5 space-y-1.5 text-sm">
