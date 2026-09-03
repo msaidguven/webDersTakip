@@ -1,24 +1,56 @@
 import Link from 'next/link';
-import { CalendarDays, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronRight, Sparkles } from 'lucide-react';
 import type { WeeklyTopicItem } from '@/app/src/lib/homeStats';
 
-// Referanstaki "Popüler Konular" yerine — burada gösterilenler bir popülerlik ölçümü değil,
-// admin panelindeki haftalık müfredat takviminden gelen, BU HAFTA işlenmesi gereken gerçek
-// konular (bkz. app/src/lib/homeStats.ts: getWeeklyTopicsForGrade).
-export function WeeklyTopics({ topics }: { topics: WeeklyTopicItem[] }) {
+export function WeeklyTopics({
+  topics,
+  isAuthenticated,
+}: {
+  topics: WeeklyTopicItem[];
+  isAuthenticated?: boolean;
+}) {
+  const isAuth = isAuthenticated ?? false;
+
   return (
     <div className="rounded-2xl border border-default bg-surface-elevated p-5 sm:p-6">
-      <h3 className="mb-4 flex items-center gap-2 text-base font-black text-default">
-        <CalendarDays className="h-5 w-5 text-orange-500" /> Haftanın Konuları
-      </h3>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-base font-black text-default">
+          {isAuth ? (
+            <>
+              <CalendarDays className="h-5 w-5 text-orange-500" /> Haftanın Konuları
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-5 w-5 text-indigo-400" /> Son Eklenen Konular
+            </>
+          )}
+        </h3>
+        {!isAuth && (
+          <Link
+            href="#derslerimiz"
+            className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Tümünü Gör <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
+      </div>
+
       {topics.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Bu sınıf için bu hafta müfredatta planlanmış bir konu bulunmuyor.</p>
+        <p className="text-sm text-muted-foreground">
+          {isAuth
+            ? 'Bu sınıf için bu hafta müfredatta planlanmış bir konu bulunmuyor.'
+            : 'Bu sınıf için henüz konu eklenmemiş.'}
+        </p>
       ) : (
         <ol className="space-y-1">
           {topics.map((topic, i) => {
             const row = (
               <>
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-[11px] font-black text-orange-500">
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
+                    isAuth ? 'bg-orange-500/10 text-orange-500' : 'bg-indigo-500/10 text-indigo-400'
+                  }`}
+                >
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">

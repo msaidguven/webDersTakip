@@ -102,7 +102,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
 
           {selectedGrade && (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <WeeklyTopics topics={weeklyTopics[selectedGrade.id] ?? []} />
+              <WeeklyTopics topics={weeklyTopics[selectedGrade.id] ?? []} isAuthenticated={isAuthenticated} />
               {isAuthenticated ? <MyStats /> : <WhyJoin />}
               <HowItWorks />
             </div>
