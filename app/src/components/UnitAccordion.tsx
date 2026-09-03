@@ -205,12 +205,17 @@ export function UnitAccordion({ units, topicsByUnitId, defaultOpenUnitId }: Unit
             </div>
 
             <div
-              className={`transition-all duration-700 ease-in-out overflow-hidden ${
-                isOpen ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'
+              className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${
+                isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
               }`}
+              aria-hidden={!isOpen}
             >
-              {isOpen && (
-                <div className="bg-gray-50/50 px-4 sm:px-5 py-3">
+              <div className="overflow-hidden">
+                <div
+                  className={`bg-gray-50/50 px-4 sm:px-5 py-3 transition-opacity duration-500 ${
+                    isOpen ? 'opacity-100 delay-150' : 'opacity-0'
+                  }`}
+                >
                   {topics.length === 0 ? (
                     <p className="pl-5 py-2.5 text-sm text-gray-400 italic">Bu ünitede henüz konu yok.</p>
                   ) : (
@@ -229,7 +234,7 @@ export function UnitAccordion({ units, topicsByUnitId, defaultOpenUnitId }: Unit
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         );

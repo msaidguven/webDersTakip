@@ -90,7 +90,12 @@ export function MobileLessonsCard({
             return (
               <button
                 key={lesson.id}
-                onClick={() => onSelectLesson?.(lesson.id)}
+                onClick={() => {
+                  onSelectLesson?.(lesson.id);
+                  requestAnimationFrame(() => {
+                    document.getElementById('uniteler')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  });
+                }}
                 className={`group relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200 active:scale-95 ${
                   isSelected
                     ? 'bg-indigo-500/15 border-indigo-500/50 text-indigo-200 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/40'
