@@ -142,7 +142,7 @@ function ReplyRow({
   const isEditing = editingId === comment.id;
   const isBusy = commentBusyId === comment.id;
   return (
-    <div>
+    <div id={`disc-c${comment.id}`}>
       {isEditing ? (
         <div className="space-y-1.5">
           <textarea
@@ -249,7 +249,7 @@ function ReplyAiRow({
 }) {
   const name = displayNameOf(item.profiles);
   return (
-    <div className="space-y-1.5">
+    <div id={`disc-a${item.id}`} className="space-y-1.5">
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-gray-800">{name}</span>
         <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
@@ -336,6 +336,7 @@ export default function UnitDiscussion({
   questionContext,
   defaultExpanded,
   hideToggle,
+  highlightTarget,
 }: {
   gradeId: number;
   lessonId: number;
@@ -354,6 +355,11 @@ export default function UnitDiscussion({
   // bir accordion gibi davranmasın diye — kullanıcı "modalde direkt görünsün, ayrıca
   // açılır menü olmasın" istedi (2026-09-03).
   hideToggle?: boolean;
+  // Profildeki "Yorumlarım"dan gelen bir linkin işaret ettiği belirli kayıt —
+  // "c88" bir yorum, "a56" bir AI cevabı (bkz. QuestionBankBoard.tsx). Feed
+  // yüklenip bu id'ye sahip element DOM'a girince otomatik oraya kaydırılıp
+  // kısa süreliğine vurgulanıyor.
+  highlightTarget?: string | null;
 }) {
   const pathname = usePathname();
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
@@ -465,6 +471,21 @@ export default function UnitDiscussion({
     const timer = window.setInterval(loadAiFeed, 15000);
     return () => window.clearInterval(timer);
   }, [hasPendingAi, loadAiFeed]);
+
+  // highlightTarget doluysa (bkz. QuestionBankBoard.tsx), feed yüklenip ilgili
+  // yorum/AI cevabı DOM'a girer girmez ona kaydırıp kısa süreliğine vurguluyor —
+  // her comments/aiEntries güncellemesinde tekrar dener (hedef henüz gelmemiş
+  // olabilir, ör. cevap hâlâ kuyrukta), bir kez bulunca bir daha denemiyor.
+  const hasScrolledToTargetRef = React.useRef(false);
+  useEffect(() => {
+    if (!highlightTarget || hasScrolledToTargetRef.current) return;
+    const el = document.getElementById(`disc-${highlightTarget}`);
+    if (!el) return;
+    hasScrolledToTargetRef.current = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-indigo-500');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2500);
+  }, [highlightTarget, comments, aiEntries]);
 
   function updateAiEntry(id: number, patch: Partial<AiEntry>) {
     setAiEntries((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -816,7 +837,7 @@ export default function UnitDiscussion({
               const isEditing = editingId === item.id;
               const isBusy = commentBusyId === item.id;
               return (
-                <div key={`c${item.id}`} className="space-y-2">
+                <div key={`c${item.id}`} id={`disc-c${item.id}`} className="space-y-2">
                   <div className="flex items-start gap-2.5">
                     <Avatar name={name} url={avatarUrlOf(item.profiles)} />
                     <div className="min-w-0 flex-1">
@@ -941,7 +962,7 @@ export default function UnitDiscussion({
 
             const name = displayNameOf(item.profiles);
             return (
-              <div key={`a${item.id}`} className="space-y-2">
+              <div key={`a${item.id}`} id={`disc-a${item.id}`} className="space-y-2">
                 <div className="flex items-start gap-2.5">
                   <Avatar name={name} url={avatarUrlOf(item.profiles)} />
                   <div className="min-w-0 flex-1">

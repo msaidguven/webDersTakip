@@ -99,14 +99,21 @@ export default function QuestionBankBoard({
   // (kendi auth/veri sorgularını mount olur olmaz çalıştırıyor) sadece modal açılınca
   // monte ediliyor, yoksa bir konudaki onlarca soru için aynı anda onlarca sorgu ateşlenirdi.
   const [commentsForId, setCommentsForId] = useState<number | null>(null);
+  // Profildeki "Yorumlarım"dan gelen linkler hangi kaydın vurgulanacağını da taşır
+  // (ör. "c88" bir yorum, "a56" bir AI cevabı) — UnitDiscussion'a geçiliyor, o da
+  // feed yüklenince o kayda kaydırıp kısa süreliğine vurguluyor.
+  const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
 
-  // Profildeki "Yorumlarım"dan ?soru=ID ile gelen deep-link'ler (bkz. QuestionBankHighlight)
-  // ilgili sorunun yorum modalini otomatik açsın diye — bkz. o component'teki event notu.
+  // Profildeki "Yorumlarım"dan ?soru=ID&yorum=... ile gelen deep-link'ler (bkz.
+  // QuestionBankHighlight) ilgili sorunun yorum modalini otomatik açsın diye —
+  // bkz. o component'teki event notu. Düz ?soru=ID linkleri (target yok) bu event'i
+  // hiç dispatch etmiyor, modal açılmıyor.
   useEffect(() => {
     const handler = (e: Event) => {
-      const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
-      if (questionId == null) return;
-      setCommentsForId(questionId);
+      const detail = (e as CustomEvent<{ questionId: number; target?: string }>).detail;
+      if (detail?.questionId == null) return;
+      setCommentsForId(detail.questionId);
+      setHighlightTarget(detail.target ?? null);
     };
     window.addEventListener('soru-bankasi:open-comments', handler);
     return () => window.removeEventListener('soru-bankasi:open-comments', handler);
@@ -204,6 +211,7 @@ export default function QuestionBankBoard({
               questionContext={formatQuestionContext(activeQuestion)}
               defaultExpanded
               hideToggle
+              highlightTarget={highlightTarget}
             />
           </CommentsModal>
         );

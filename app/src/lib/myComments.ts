@@ -163,6 +163,15 @@ export async function getMyComments(
   ];
   const resolve = await buildContextResolver(supabase, refs);
 
+  // Düz ?soru=ID linki (paylaş butonu vb.) yorumları otomatik açmıyor — sadece
+  // soruyu vurguluyor. Buradan (profil) gelen linkler kendi kaydına (yoruma/AI
+  // cevabına) gitsin diye ayrı bir &yorum= parametresi taşıyor; QuestionBankHighlight
+  // bunu görünce yorum panelini açıp UnitDiscussion'daki #disc-c<id>/#disc-a<id>
+  // elemanına kaydırıyor (bkz. o component'lerdeki notlar).
+  function withHighlight(href: string | undefined, target: string): string | undefined {
+    return href ? `${href}&yorum=${target}` : href;
+  }
+
   const commentItems: MyCommentItem[] = comments.map((c) => {
     const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id });
     return {
@@ -172,7 +181,7 @@ export async function getMyComments(
       status: c.status as CommentStatus,
       createdAt: c.created_at,
       contextLabel,
-      href,
+      href: withHighlight(href, `c${c.id}`),
     };
   });
 
@@ -186,7 +195,7 @@ export async function getMyComments(
       mode: a.model.includes('kanka') ? 'kanka' : 'hocam',
       createdAt: a.created_at,
       contextLabel,
-      href,
+      href: withHighlight(href, `a${a.id}`),
     };
   });
 

@@ -122,6 +122,13 @@ export async function GET(request: NextRequest) {
     ((profileRows as { id: string; username: string | null; full_name: string | null }[] | null) || []).map((p) => [p.id, p])
   );
 
+  // Düz ?soru=ID linki artık yorumları otomatik açmıyor (bkz. QuestionBankHighlight.tsx'teki
+  // 2026-09-04 notu) — admin panelden tıklayınca doğrudan ilgili kayda gitsin diye &yorum=
+  // parametresi ekleniyor, tıpkı profildeki "Yorumlarım"da olduğu gibi.
+  function withHighlight(href: string | undefined, target: string): string | undefined {
+    return href ? `${href}&yorum=${target}` : href;
+  }
+
   const commentItems: UnifiedItem[] = commentRows.map((c) => {
     const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id });
     const profile = profileById.get(c.student_id);
@@ -131,7 +138,7 @@ export async function GET(request: NextRequest) {
       status: c.status,
       createdAt: c.created_at,
       contextLabel,
-      href,
+      href: withHighlight(href, `c${c.id}`),
       student: { id: c.student_id, username: profile?.username ?? null, fullName: profile?.full_name ?? null },
       isReply: c.parent_comment_id != null,
       body: c.body,
@@ -147,7 +154,7 @@ export async function GET(request: NextRequest) {
       status: a.status,
       createdAt: a.created_at,
       contextLabel,
-      href,
+      href: withHighlight(href, `a${a.id}`),
       student: a.student_id ? { id: a.student_id, username: profile?.username ?? null, fullName: profile?.full_name ?? null } : null,
       isReply: a.parent_comment_id != null || a.parent_rag_answer_id != null,
       question: a.question,
