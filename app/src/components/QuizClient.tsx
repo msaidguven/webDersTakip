@@ -94,8 +94,16 @@ function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () 
 }
 
 export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
-  if (!svgContent) return null;
-  const clean = sanitizeMathSvg(svgContent);
+  // sanitizeMathSvg (DOMPurify) window/DOM gerektirir; bu bileşen /soru-bankasi gibi
+  // SSR sayfalarında da render edildiği için temizlemeyi sunucu tarafında DEĞİL, mount
+  // sonrası client'ta yapıyoruz (bkz. SectionContent.tsx'teki aynı desen) — aksi halde
+  // sunucuda "window is not defined" ile sayfa 500 verir.
+  const [clean, setClean] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClean(svgContent ? sanitizeMathSvg(svgContent) : null);
+  }, [svgContent]);
+
   if (!clean) return null;
   return (
     <div
