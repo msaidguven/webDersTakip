@@ -7,12 +7,55 @@
 // (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu). State tamamen bu oturuma
 // özel client-side state'tir, backend'e yazılmaz.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Minus, MessageCircle, Plus } from 'lucide-react';
+import { Minus, MessageCircle, Plus, X } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+
+// Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
+// (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
+// davranışı burada tekrar ediyoruz: body scroll kilidi + Escape dinleyici).
+function CommentsModal({ index, onClose, children }: { index: number; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative h-full w-full bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-default"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-default bg-surface px-4 py-3 sm:rounded-t-2xl">
+          <h3 className="text-sm font-black text-default">Soru {index + 1} — Yorumlar</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Kapat"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated hover:text-default transition-colors"
+          >
+            <X className="h-4.5 w-4.5" />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-4 sm:max-h-[calc(85vh-52px)]">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 type AnswerStatus = 'correct' | 'incorrect' | 'revealed';
 
@@ -46,18 +89,18 @@ export default function QuestionBankBoard({
   const [questions, setQuestions] = useState(initialQuestions);
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
   const [scale, setScale] = useState(MIN_SCALE);
-  // Yorum paneli her soru için varsayılan kapalı — UnitDiscussion (kendi auth/veri
-  // sorgularını mount olur olmaz çalıştırıyor) sadece kullanıcı "Yorumlar"a tıklayınca
+  // Yorumlar bir modalde açılıyor, tek seferde en fazla bir tanesi — UnitDiscussion
+  // (kendi auth/veri sorgularını mount olur olmaz çalıştırıyor) sadece modal açılınca
   // monte ediliyor, yoksa bir konudaki onlarca soru için aynı anda onlarca sorgu ateşlenirdi.
-  const [openCommentsIds, setOpenCommentsIds] = useState<Set<number>>(new Set());
+  const [commentsForId, setCommentsForId] = useState<number | null>(null);
 
   // Profildeki "Yorumlarım"dan ?soru=ID ile gelen deep-link'ler (bkz. QuestionBankHighlight)
-  // ilgili sorunun yorum panelini otomatik açsın diye — bkz. o component'teki event notu.
+  // ilgili sorunun yorum modalini otomatik açsın diye — bkz. o component'teki event notu.
   useEffect(() => {
     const handler = (e: Event) => {
       const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
       if (questionId == null) return;
-      setOpenCommentsIds((prev) => (prev.has(questionId) ? prev : new Set(prev).add(questionId)));
+      setCommentsForId(questionId);
     };
     window.addEventListener('soru-bankasi:open-comments', handler);
     return () => window.removeEventListener('soru-bankasi:open-comments', handler);
@@ -123,39 +166,41 @@ export default function QuestionBankBoard({
       </div>
 
       <div className="space-y-3 sm:space-y-4">
-        {questions.map((q, i) => {
-          const commentsOpen = openCommentsIds.has(q.id);
-          return (
-            <div key={q.id} id={`soru-${q.id}`} className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
-              <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
-              <div style={{ zoom: scale }}>
-                <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
-              </div>
-
-              {!commentsOpen ? (
-                <button
-                  type="button"
-                  onClick={() => setOpenCommentsIds((prev) => new Set(prev).add(q.id))}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> Yorumlar
-                </button>
-              ) : (
-                <div className="mt-3 border-t border-default pt-3">
-                  <UnitDiscussion
-                    gradeId={gradeId}
-                    lessonId={lessonId}
-                    unitId={unitId}
-                    quizQuestionId={q.id}
-                    questionContext={formatQuestionContext(q)}
-                    defaultExpanded
-                  />
-                </div>
-              )}
+        {questions.map((q, i) => (
+          <div key={q.id} id={`soru-${q.id}`} className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
+            <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
+            <div style={{ zoom: scale }}>
+              <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
             </div>
-          );
-        })}
+
+            <button
+              type="button"
+              onClick={() => setCommentsForId(q.id)}
+              className="mt-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+            >
+              <MessageCircle className="h-3.5 w-3.5" /> Yorumlar
+            </button>
+          </div>
+        ))}
       </div>
+
+      {commentsForId != null && (() => {
+        const activeIndex = questions.findIndex((q) => q.id === commentsForId);
+        const activeQuestion = activeIndex === -1 ? null : questions[activeIndex];
+        if (!activeQuestion) return null;
+        return (
+          <CommentsModal index={activeIndex} onClose={() => setCommentsForId(null)}>
+            <UnitDiscussion
+              gradeId={gradeId}
+              lessonId={lessonId}
+              unitId={unitId}
+              quizQuestionId={activeQuestion.id}
+              questionContext={formatQuestionContext(activeQuestion)}
+              defaultExpanded
+            />
+          </CommentsModal>
+        );
+      })()}
 
       {questions.length > 1 && (
         <nav
