@@ -547,6 +547,11 @@ export interface QuizClientProps {
   exitHref: string;
   exitLabel: string;
   initialQuestions: QuizQuestion[];
+  // SSR sadece ilk soruyu çözüp gönderir (sayfa hızlı açılsın diye — artık SEO amaçlı tüm
+  // soruların baştan hazır olmasına gerek yok, bkz. /soru-bankasi); bu, kalan soruların id
+  // listesidir, mount olur olmaz reloadEndpoint'ten `&ids=...` ile arka planda sessizce çekilip
+  // questions dizisinin sonuna eklenir. Resume'da her zaman boş gelir (bkz. quizPageData.ts).
+  remainingQuestionIds?: number[];
   reloadEndpoint: string;
   // Soru başına verilen süre (saniye) — her yeni soruya geçildiğinde sıfırdan başlar,
   // testin tamamı için tek bir toplam süre DEĞİLDİR (bkz. quizQuestions.ts SECONDS_PER_QUESTION).
@@ -591,6 +596,7 @@ export default function QuizClient({
   exitHref,
   exitLabel,
   initialQuestions,
+  remainingQuestionIds = [],
   reloadEndpoint,
   secondsPerQuestion,
   intro,
@@ -608,6 +614,9 @@ export default function QuizClient({
   const initialResumeIndex = resume ? findFirstUnansweredIndex(initialQuestions, resumedAnsweredIds) : 0;
 
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
+  // remainingQuestionIds boş değilse arka plan yüklemesi tamamlanana kadar false kalır — session
+  // açma efekti bunu bekler (bkz. o efektin yorumu, çift test_sessions açılmasını önlüyor).
+  const [questionsFullyLoaded, setQuestionsFullyLoaded] = useState(remainingQuestionIds.length === 0);
   const [allCaughtUp, setAllCaughtUp] = useState(initialAllCaughtUp);
   const [loading, setLoading] = useState(false);
   const [index, setIndex] = useState(initialResumeIndex);
@@ -669,9 +678,34 @@ export default function QuizClient({
     }
   }, []);
 
-  // İlk yükleme sunucudan gelen initialQuestions ile geliyor (SEO: Google ilk taramada
-  // soruları görebilsin) — bu effect sadece "Tekrar Çöz" (reloadKey artışı) ile yeni bir
-  // karışık sırada soru seti almak için çalışır, ilk render'da fetch atmaz.
+  // İlk soru sunucudan hazır geliyor, sayfa hemen açılsın diye — kalan sorular burada, mount
+  // olur olmaz, kullanıcı ilk soruyu okurken arka planda sessizce çekilir ve diziye eklenir.
+  // Sadece bir kez (mount'ta) çalışır; "Tekrar Çöz" zaten tüm seti tek seferde getiriyor.
+  useEffect(() => {
+    if (remainingQuestionIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${reloadEndpoint}&ids=${remainingQuestionIds.join(',')}`);
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && Array.isArray(data?.questions) && data.questions.length > 0) {
+          setQuestions((prev) => [...prev, ...data.questions]);
+        }
+      } finally {
+        if (!cancelled) setQuestionsFullyLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Sadece mount'ta çalışsın: remainingQuestionIds sayfa ilk yüklendiğinde sabitlenir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // İlk yükleme sunucudan gelen initialQuestions ile geliyor (artık sadece ilk soru — sayfa
+  // hızlı açılsın diye, bkz. yukarıdaki arka plan yükleme efekti) — bu effect sadece "Tekrar
+  // Çöz" (reloadKey artışı) ile yeni bir karışık sırada soru seti almak için çalışır, ilk
+  // render'da fetch atmaz.
   useEffect(() => {
     if (reloadKey === 0) return;
     let cancelled = false;
@@ -683,6 +717,7 @@ export default function QuizClient({
         if (!cancelled) {
           setQuestions(res.ok ? data?.questions || [] : []);
           setAllCaughtUp(res.ok ? !!data?.allCaughtUp : false);
+          setQuestionsFullyLoaded(true);
           setIndex(0);
           setMaxIndex(0);
           setSelection({});
@@ -711,8 +746,12 @@ export default function QuizClient({
 
   // Giriş yapmış kullanıcı için bu soru setiyle bir test oturumu açar. Misafirde
   // (isAuthenticated=false) hiç çalışmaz — quiz normal şekilde, kayıtsız çözülür.
+  // questionsFullyLoaded beklenir: aksi halde önce [ilkSoru] için, sonra arka plan yüklemesi
+  // bitince tam set için olmak üzere İKİ AYRI test_sessions açılırdı (questions değişince bu
+  // efekt yeniden tetiklenir). Kullanıcı ilk soruyu bu sırada cevaplarsa pendingAnswersRef
+  // zaten kaybetmeden kuyruklar, session açılınca flush edilir.
   useEffect(() => {
-    if (!isAuthenticated || !user || questions.length === 0) return;
+    if (!isAuthenticated || !user || questions.length === 0 || !questionsFullyLoaded) return;
     const questionsKey = questions.map((q) => q.id).join(',');
     if (sessionQuestionsKeyRef.current === questionsKey) return;
     sessionQuestionsKeyRef.current = questionsKey;
@@ -743,7 +782,7 @@ export default function QuizClient({
     // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
     // kullanıcı için bile yeni bir referansla gelir, id ise gerçekten değişmediği sürece sabittir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id, questions, supabase, gradeId, lessonId, unitId, topicId]);
+  }, [isAuthenticated, user?.id, questions, questionsFullyLoaded, supabase, gradeId, lessonId, unitId, topicId]);
 
   // sessionId hazır olduğunda: önce (varsa) oturum açılmadan önce kuyruklanmış
   // cevapları gönderir, ancak ONDAN SONRA — test zaten bitmişse (showResult) —

@@ -28,7 +28,7 @@ export default async function UnitTestModal({ params }: PageProps) {
     notFound();
   }
 
-  const { resumable, initialQuestions, allCaughtUp } = await loadUnitQuizState(data);
+  const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadUnitQuizState(data);
 
   return (
     <QuizModal>
@@ -41,6 +41,7 @@ export default async function UnitTestModal({ params }: PageProps) {
         exitHref={data.exitHref}
         exitLabel="Üniteye Dön"
         initialQuestions={initialQuestions}
+        remainingQuestionIds={remainingQuestionIds}
         allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
         secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}

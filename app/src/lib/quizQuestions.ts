@@ -183,14 +183,47 @@ async function selectPersonalizedQuestionIds(
   return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
 }
 
+async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
+  return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+}
+
 // Bir konunun (topic) tüm alt başlıklarına ve konu geneline ait sorular (konu kavrama
 // testi) — questions.topic_id üzerinden, section_id'si dolu ya da boş fark etmeksizin.
 export async function getTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
-  const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+  const questionIds = await getTopicQuestionPoolIds(supabase, topicId);
   const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
   return { questions: await resolveQuestions(selected), allCaughtUp };
+}
+
+export interface PersonalizedQuestionPlan {
+  firstQuestion: QuizQuestion | null;
+  remainingQuestionIds: number[];
+  allCaughtUp: boolean;
+}
+
+// getTopicTestQuestions ile AYNI kişiselleştirilmiş seçimi yapar ama içerik olarak sadece ilk
+// soruyu çözer — sayfa sadece bu ilk soruyu SSR'da bekler, kalan id'ler client'a verilip arka
+// planda (bkz. getQuestionsByIdsInTopicPool) yüklenir. Sayfa hızlı açılsın diye (artık SEO amaçlı
+// tüm soruların SSR'da hazır olmasına gerek yok, bkz. /soru-bankasi).
+export async function planTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<PersonalizedQuestionPlan> {
+  const supabase = createServiceClient();
+  const questionIds = await getTopicQuestionPoolIds(supabase, topicId);
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  if (!selected.length) return { firstQuestion: null, remainingQuestionIds: [], allCaughtUp };
+  const [firstQuestion] = await resolveQuestions([selected[0]]);
+  return { firstQuestion: firstQuestion ?? null, remainingQuestionIds: selected.slice(1), allCaughtUp };
+}
+
+// Client'tan gelen (SSR sırasında seçilmiş) kalan soru id'lerini çözer — ama önce o konunun
+// GERÇEK soru havuzuyla kesiştirir, böylece keyfi id verilerek başka/taslak sorulara erişilemez
+// (getQuestionsByIds tek başına sahiplik kontrolü yapmıyor).
+export async function getQuestionsByIdsInTopicPool(topicId: number | string, ids: number[]): Promise<QuizQuestion[]> {
+  const supabase = createServiceClient();
+  const pool = new Set(await getTopicQuestionPoolIds(supabase, topicId));
+  const safeIds = ids.filter((id) => pool.has(id));
+  return getQuestionsByIds(safeIds);
 }
 
 // Bir konunun TÜM sorularını (kişiselleştirme/limit OLMADAN, id sırasıyla) getirir —
@@ -211,17 +244,38 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
   return resolveQuestions(questionIds, { preserveOrder: true });
 }
 
+async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
+  const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
+  const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
+  if (!topicIds.length) return [];
+
+  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
+  return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+}
+
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
 // section_id'si dolu ya da boş fark etmeksizin.
 export async function getUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
-
-  const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
-  const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
-  if (!topicIds.length) return { questions: [], allCaughtUp: false };
-
-  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
-  const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+  const questionIds = await getUnitQuestionPoolIds(supabase, unitId);
   const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
   return { questions: await resolveQuestions(selected), allCaughtUp };
+}
+
+// planTopicTestQuestions ile aynı mantık, ünite testi için — bkz. o fonksiyonun yorumu.
+export async function planUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<PersonalizedQuestionPlan> {
+  const supabase = createServiceClient();
+  const questionIds = await getUnitQuestionPoolIds(supabase, unitId);
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  if (!selected.length) return { firstQuestion: null, remainingQuestionIds: [], allCaughtUp };
+  const [firstQuestion] = await resolveQuestions([selected[0]]);
+  return { firstQuestion: firstQuestion ?? null, remainingQuestionIds: selected.slice(1), allCaughtUp };
+}
+
+// getQuestionsByIdsInTopicPool ile aynı güvenlik mantığı, ünite havuzu için.
+export async function getQuestionsByIdsInUnitPool(unitId: number | string, ids: number[]): Promise<QuizQuestion[]> {
+  const supabase = createServiceClient();
+  const pool = new Set(await getUnitQuestionPoolIds(supabase, unitId));
+  const safeIds = ids.filter((id) => pool.has(id));
+  return getQuestionsByIds(safeIds);
 }

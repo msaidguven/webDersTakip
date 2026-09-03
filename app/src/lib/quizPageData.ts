@@ -7,7 +7,7 @@
 import { cache } from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
-import { getTopicTestQuestions, getUnitTestQuestions } from '@/app/src/lib/quizQuestions';
+import { planTopicTestQuestions, planUnitTestQuestions } from '@/app/src/lib/quizQuestions';
 import { findResumableSession } from '@/app/src/lib/quizResume';
 
 type GradeRow = { id: number; name: string; slug: string | null };
@@ -90,10 +90,6 @@ export function buildTopicPath(data: TopicTestPageData) {
   return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
 }
 
-export function buildTopicTestPath(data: TopicTestPageData) {
-  return `${buildTopicPath(data)}/kavrama-testi`;
-}
-
 export function buildQuestionBankPath(data: TopicTestPageData) {
   return `/soru-bankasi/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;
 }
@@ -108,11 +104,16 @@ export async function loadTopicQuizState(data: TopicTestPageData) {
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, data.topicId);
   }
 
-  const personalized = resumable || !data.hasQuestions ? null : await getTopicTestQuestions(data.topicId, userId);
-  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
-  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
+  // Resume varsa (ya da hiç soru yoksa) tam liste tek seferde gelir — aşamalı yükleme sadece
+  // yeni başlayan testlerde uygulanır, bkz. quizPageData.ts başındaki yorum ve QuizClient'taki
+  // questionsFullyLoaded mantığı (resume'da çift test_sessions açılmasını önlemek için).
+  if (resumable || !data.hasQuestions) {
+    return { resumable, initialQuestions: resumable?.questions ?? [], remainingQuestionIds: [] as number[], allCaughtUp: false };
+  }
 
-  return { resumable, initialQuestions, allCaughtUp };
+  const plan = await planTopicTestQuestions(data.topicId, userId);
+  const initialQuestions = plan.firstQuestion ? [plan.firstQuestion] : [];
+  return { resumable: null, initialQuestions, remainingQuestionIds: plan.remainingQuestionIds, allCaughtUp: plan.allCaughtUp };
 }
 
 type UnitRowFull = {
@@ -214,10 +215,6 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
 
 export type UnitTestPageData = NonNullable<Awaited<ReturnType<typeof getUnitTestPageData>>>;
 
-export function buildUnitTestPath(data: UnitTestPageData) {
-  return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`;
-}
-
 export async function loadUnitQuizState(data: UnitTestPageData) {
   let resumable = null;
   let userId: string | null = null;
@@ -228,9 +225,11 @@ export async function loadUnitQuizState(data: UnitTestPageData) {
     if (user) resumable = await findResumableSession(supabase, user.id, data.unitId, null);
   }
 
-  const personalized = resumable || !data.hasQuestions ? null : await getUnitTestQuestions(data.unitId, userId);
-  const initialQuestions = resumable ? resumable.questions : personalized?.questions ?? [];
-  const allCaughtUp = !resumable && (personalized?.allCaughtUp ?? false);
+  if (resumable || !data.hasQuestions) {
+    return { resumable, initialQuestions: resumable?.questions ?? [], remainingQuestionIds: [] as number[], allCaughtUp: false };
+  }
 
-  return { resumable, initialQuestions, allCaughtUp };
+  const plan = await planUnitTestQuestions(data.unitId, userId);
+  const initialQuestions = plan.firstQuestion ? [plan.firstQuestion] : [];
+  return { resumable: null, initialQuestions, remainingQuestionIds: plan.remainingQuestionIds, allCaughtUp: plan.allCaughtUp };
 }

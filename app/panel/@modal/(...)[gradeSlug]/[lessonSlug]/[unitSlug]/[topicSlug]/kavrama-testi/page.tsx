@@ -32,7 +32,7 @@ export default async function TopicTestModal({ params }: PageProps) {
     notFound();
   }
 
-  const { resumable, initialQuestions, allCaughtUp } = await loadTopicQuizState(data);
+  const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadTopicQuizState(data);
 
   return (
     <QuizModal>
@@ -46,6 +46,7 @@ export default async function TopicTestModal({ params }: PageProps) {
         exitHref={buildTopicPath(data)}
         exitLabel="Konuya Dön"
         initialQuestions={initialQuestions}
+        remainingQuestionIds={remainingQuestionIds}
         allCaughtUp={allCaughtUp}
         reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
         secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
