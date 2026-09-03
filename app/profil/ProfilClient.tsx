@@ -1,15 +1,19 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/app/src/context/AuthContext';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
 import { getProfileStats } from '@/app/src/lib/profileStats';
+import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { PanelShell } from '@/app/src/components/PanelShell';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 
 interface ProfileRow {
+  full_name: string | null;
+  avatar_url: string | null;
   grade_id: number | null;
   city_id: number | null;
   district_id: number | null;
@@ -107,9 +111,9 @@ export default function ProfilClient() {
   const router = useRouter();
   const { user: authUser, loading: authLoading, supabase } = useAuth();
 
-  const fullName = (authUser?.user_metadata?.full_name as string | undefined) || 'Öğrenci';
   const email = authUser?.email;
 
+  const [fullName, setFullName] = useState('Öğrenci');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,8 +121,10 @@ export default function ProfilClient() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
+  const [comments, setComments] = useState<MyComment[] | null>(null);
 
   useEffect(() => {
+    setFullName((authUser?.user_metadata?.full_name as string | undefined) || 'Öğrenci');
     setAvatarUrl((authUser?.user_metadata?.avatar_url as string | undefined) || null);
   }, [authUser]);
 
@@ -145,11 +151,28 @@ export default function ProfilClient() {
         if (cancelled || !data) return;
         setProfile(data.profile);
         setGradeName(data.gradeName);
+        // profiles tablosu ad/avatar için gerçek kaynak (bkz. auth/callback ve
+        // panel/aktiviteler, panel/siralama, UnitDiscussion — hepsi buradan okur);
+        // auth.user_metadata sadece kayıt anındaki ilk değerin bir kopyası, güncel
+        // olmayabilir. Yüklenince gerçek değer varsa onunla üzerine yazıyoruz.
+        if (data.profile?.full_name) setFullName(data.profile.full_name);
+        if (data.profile?.avatar_url) setAvatarUrl(data.profile.avatar_url);
       });
     return () => {
       cancelled = true;
     };
   }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    let cancelled = false;
+    getMyComments(supabase, authUser.id).then((result) => {
+      if (!cancelled) setComments(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, authUser]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,9 +200,14 @@ export default function ProfilClient() {
         .from('profiles')
         .getPublicUrl(filePath);
 
-      await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl },
-      });
+      await Promise.all([
+        supabase.auth.updateUser({ data: { avatar_url: publicUrl } }),
+        fetch('/api/profile/update', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patch: { avatar_url: publicUrl } }),
+        }),
+      ]);
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {
@@ -326,12 +354,118 @@ export default function ProfilClient() {
           </div>
         )}
 
+        {/* Kişisel Bilgiler */}
+        <PersonalInfoCard
+          key={profile ? `name-ready-${profile.full_name}` : 'name-loading'}
+          initialFullName={profile?.full_name ?? fullName}
+          onSaved={setFullName}
+        />
+
         {/* Okul Bilgileri */}
         <SchoolInfoCard key={profile ? 'ready' : 'loading'} initialProfile={profile} />
+
+        {/* Yorumlarım */}
+        <MyCommentsCard comments={comments} />
       </div>
         </>
       )}
     </PanelShell>
+  );
+}
+
+// ==================== KİŞİSEL BİLGİLER ====================
+
+function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: string; onSaved: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(initialFullName);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice((n) => (n?.text === text ? null : n)), 4000);
+  }, []);
+
+  async function handleSave() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      showNotice('error', 'Ad soyad boş olamaz');
+      return;
+    }
+    setSaving(true);
+    const supabase = createClient();
+    const [res] = await Promise.all([
+      fetch('/api/profile/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch: { full_name: trimmed } }),
+      }),
+      supabase.auth.updateUser({ data: { full_name: trimmed } }),
+    ]);
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      showNotice('error', data.error || 'Kaydedilemedi');
+      return;
+    }
+    onSaved(trimmed);
+    showNotice('success', 'Bilgiler kaydedildi');
+    setEditing(false);
+  }
+
+  return (
+    <div className="bg-surface-elevated border border-default rounded-2xl p-6 animate-fade-in-up" style={{ animationDelay: '360ms' }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-default flex items-center gap-2">
+          <span className="text-xl">👤</span> Kişisel Bilgiler
+        </h3>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm font-medium text-indigo-500 hover:text-indigo-400 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
+          >
+            Düzenle
+          </button>
+        )}
+      </div>
+
+      {notice && (
+        <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 ${notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+          <span>{notice.kind === 'success' ? '✅' : '⚠️'}</span>
+          {notice.text}
+        </div>
+      )}
+
+      {!editing ? (
+        <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5 w-fit">
+          🙋 {initialFullName || 'Ad belirtilmemiş'}
+        </span>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-muted-foreground text-xs font-medium mb-1.5">Ad Soyad</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => { setEditing(false); setName(initialFullName); }}
+              className="px-4 py-2 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-surface-elevated text-sm font-medium transition-colors"
+            >
+              İptal
+            </button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors">
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -587,6 +721,65 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== YORUMLARIM ====================
+
+const COMMENT_STATUS_LABELS: Record<string, { text: string; className: string }> = {
+  published: { text: 'Yayında', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  pending: { text: 'İncelemede', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  rejected: { text: 'Reddedildi', className: 'bg-red-500/10 text-red-400 border-red-500/20' },
+};
+
+function formatCommentDate(iso: string) {
+  return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function MyCommentsCard({ comments }: { comments: MyComment[] | null }) {
+  return (
+    <div className="bg-surface-elevated border border-default rounded-2xl p-6 animate-fade-in-up" style={{ animationDelay: '440ms' }}>
+      <h3 className="text-lg font-semibold text-default flex items-center gap-2 mb-4">
+        <span className="text-xl">💬</span> Yorumlarım
+      </h3>
+
+      {comments === null ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-16 rounded-xl bg-surface border border-default animate-pulse" />
+          ))}
+        </div>
+      ) : comments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Henüz bir soru veya üniteye yorum yazmadın.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {comments.map((c) => {
+            const statusInfo = COMMENT_STATUS_LABELS[c.status] || COMMENT_STATUS_LABELS.pending;
+            const body = (
+              <div className="rounded-xl bg-surface border border-default p-3.5 hover:border-indigo-500/30 transition-colors">
+                <div className="flex items-start justify-between gap-3 mb-1.5">
+                  {c.contextLabel && (
+                    <span className="text-xs text-indigo-400 font-medium truncate">{c.contextLabel}</span>
+                  )}
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusInfo.className}`}>
+                    {statusInfo.text}
+                  </span>
+                </div>
+                <p className="text-sm text-default break-words">{c.body}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">{formatCommentDate(c.createdAt)}</p>
+              </div>
+            );
+            return c.href ? (
+              <Link key={c.id} href={c.href} className="block">
+                {body}
+              </Link>
+            ) : (
+              <div key={c.id}>{body}</div>
+            );
+          })}
         </div>
       )}
     </div>

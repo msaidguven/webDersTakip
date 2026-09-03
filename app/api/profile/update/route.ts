@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
-const EDITABLE_FIELDS = ['full_name', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
+const EDITABLE_FIELDS = ['full_name', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
 
 // /profil sayfası artık tamamen client-side render oluyor (bkz. ProfilClient.tsx) — sayfa
 // kabuğu (Sidebar/TopBar) bekletilmeden hemen çizilsin diye kendi profilini okuma da
@@ -21,7 +21,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('grade_id, city_id, district_id, school_id, school_name')
+    .select('full_name, avatar_url, grade_id, city_id, district_id, school_id, school_name')
     .eq('id', user.id)
     .maybeSingle();
 
