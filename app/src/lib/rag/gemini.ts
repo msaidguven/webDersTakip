@@ -4,7 +4,10 @@
 
 const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_DIMENSIONS = 768; // supabase/migrations/add_rag_document_qa.sql içindeki vector(768) ile eşleşmeli
-const CHAT_MODEL = 'gemini-2.5-flash';
+// export: kuyruktaki (henüz cevaplanmamış) sorular için /api/rag/unit-feed'in
+// hangi model adını göstereceğini (hocam/kanka ayrımı) bilmesi gerekiyor —
+// gerçek değeri burada iki kez yazmak yerine tek kaynaktan alıyor.
+export const CHAT_MODEL = 'gemini-2.5-flash';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 

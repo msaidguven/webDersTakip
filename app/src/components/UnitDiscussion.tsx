@@ -31,11 +31,14 @@ type CommentEntry = {
   profiles: Profile | Profile[];
 };
 
+type AiAnswerStatus = 'queued' | 'processing' | 'failed' | 'published';
+
 type AiEntry = {
   kind: 'ai';
   id: number;
   question: string;
-  answer: string;
+  answer: string | null;
+  status: AiAnswerStatus;
   model: string;
   created_at: string;
   student_id: string;
@@ -62,6 +65,21 @@ function tagForModel(model: string): string {
 function avatarUrlOf(profiles: Profile | Profile[]): string | null {
   const p = Array.isArray(profiles) ? profiles[0] : profiles;
   return p?.avatar_url || null;
+}
+
+// Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue) — cevap gelene
+// kadar bu placeholder gösteriliyor, item.status 'queued'/'processing' olduğu sürece
+// (hasPendingAi effect'i feed'i periyodik yeniden çekip cevap gelince günceller).
+function AiPendingOrFailed({ status }: { status: 'queued' | 'processing' | 'failed' }) {
+  if (status === 'failed') {
+    return <p className="text-sm text-red-500">Bu soruya şu an cevap üretilemedi, tekrar sorabilirsin.</p>;
+  }
+  return (
+    <p className="flex items-center gap-2 text-sm text-gray-500">
+      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-indigo-400" />
+      Cevap hazırlanıyor, birkaç dakika sürebilir…
+    </p>
+  );
 }
 
 function Avatar({ name, url }: { name: string; url: string | null }) {
@@ -225,55 +243,61 @@ function ReplyAiRow({
           <Bot className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
-          <div className="mt-2">
-            {item.reportState === 'idle' && (
-              <div className="flex items-center gap-3 flex-wrap">
-                {item.student_id === userId && (
-                  <button
-                    onClick={() => onDelete(item)}
-                    disabled={aiBusyId === item.id}
-                    className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                  >
-                    Sil
-                  </button>
+          {item.status !== 'published' ? (
+            <AiPendingOrFailed status={item.status} />
+          ) : (
+            <>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
+              <div className="mt-2">
+                {item.reportState === 'idle' && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {item.student_id === userId && (
+                      <button
+                        onClick={() => onDelete(item)}
+                        disabled={aiBusyId === item.id}
+                        className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                      >
+                        Sil
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onReportPatch(item.id, { reportState: 'open' })}
+                      className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
+                    </button>
+                  </div>
                 )}
-                <button
-                  onClick={() => onReportPatch(item.id, { reportState: 'open' })}
-                  className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
-                </button>
+                {item.reportState === 'open' && (
+                  <div className="space-y-2">
+                    <textarea
+                      value={item.reportReason}
+                      onChange={(e) => onReportPatch(item.id, { reportReason: e.target.value.slice(0, 500) })}
+                      placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
+                      rows={2}
+                      className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onReportSubmit(item)}
+                        className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                      >
+                        Bildir
+                      </button>
+                      <button
+                        onClick={() => onReportPatch(item.id, { reportState: 'idle', reportReason: '' })}
+                        className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
+                      >
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
+                {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
               </div>
-            )}
-            {item.reportState === 'open' && (
-              <div className="space-y-2">
-                <textarea
-                  value={item.reportReason}
-                  onChange={(e) => onReportPatch(item.id, { reportReason: e.target.value.slice(0, 500) })}
-                  placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
-                  rows={2}
-                  className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onReportSubmit(item)}
-                    className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
-                  >
-                    Bildir
-                  </button>
-                  <button
-                    onClick={() => onReportPatch(item.id, { reportState: 'idle', reportReason: '' })}
-                    className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
-                  >
-                    Vazgeç
-                  </button>
-                </div>
-              </div>
-            )}
-            {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
-            {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -392,7 +416,8 @@ export default function UnitDiscussion({
           (it: {
             id: number;
             question: string;
-            answer: string;
+            answer: string | null;
+            status?: AiAnswerStatus;
             model: string;
             created_at: string;
             student_id: string;
@@ -401,6 +426,7 @@ export default function UnitDiscussion({
             parent_rag_answer_id: number | null;
           }) => ({
             ...it,
+            status: it.status ?? 'published',
             kind: 'ai' as const,
             reportState: 'idle' as ReportState,
             reportReason: '',
@@ -414,6 +440,16 @@ export default function UnitDiscussion({
     loadComments();
     loadAiFeed();
   }, [loadComments, loadAiFeed]);
+
+  // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue, 5 dakikada bir
+  // GitHub Actions'tan tetiklenen worker) — kendi kuyrukta/işlenmekte olan bir sorum
+  // varken feed'i periyodik olarak yeniden çekip cevap gelince otomatik güncelliyoruz.
+  const hasPendingAi = aiEntries.some((a) => a.status === 'queued' || a.status === 'processing');
+  useEffect(() => {
+    if (!hasPendingAi) return;
+    const timer = window.setInterval(loadAiFeed, 15000);
+    return () => window.clearInterval(timer);
+  }, [hasPendingAi, loadAiFeed]);
 
   function updateAiEntry(id: number, patch: Partial<AiEntry>) {
     setAiEntries((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -550,15 +586,18 @@ export default function UnitDiscussion({
         if (res.status === 429) setDailyRemaining(0);
         return false;
       }
+      // Cevap artık burada senkron gelmiyor — soru kuyruğa alındı, birkaç dakika
+      // içinde worker cevaplayıp yayınlayacak (bkz. hasPendingAi polling effect'i).
       setAiEntries((prev) => [
         {
-          id: data.id,
+          id: data.queueId,
           question,
-          answer: data.answer,
-          model: data.model || (mode === 'kanka' ? 'kanka' : 'hocam'),
+          answer: null,
+          status: 'queued',
+          model: mode === 'kanka' ? 'gemini-2.5-flash-kanka' : 'gemini-2.5-flash',
           created_at: new Date().toISOString(),
           student_id: userId || '',
-          profiles: data.profile || null,
+          profiles: null,
           kind: 'ai',
           reportState: 'idle',
           reportReason: '',
@@ -882,66 +921,72 @@ export default function UnitDiscussion({
                     <Bot className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1 rounded-lg bg-gray-50/80 p-3">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
-                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span>Bu cevap yapay zeka tarafından üretildi, hata içerebilir.</span>
-                    </div>
+                    {item.status !== 'published' ? (
+                      <AiPendingOrFailed status={item.status} />
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
+                        <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>Bu cevap yapay zeka tarafından üretildi, hata içerebilir.</span>
+                        </div>
 
-                    <div className="mt-2">
-                      {item.reportState === 'idle' && (
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <button
-                            onClick={() => setReplyTarget(replyTarget?.type === 'ai' && replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
-                            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
-                          >
-                            Yanıtla
-                          </button>
-                          {item.student_id === userId && (
-                            <button
-                              onClick={() => handleDeleteAiEntry(item)}
-                              disabled={aiBusyId === item.id}
-                              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                            >
-                              Sil
-                            </button>
+                        <div className="mt-2">
+                          {item.reportState === 'idle' && (
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <button
+                                onClick={() => setReplyTarget(replyTarget?.type === 'ai' && replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
+                                className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                              >
+                                Yanıtla
+                              </button>
+                              {item.student_id === userId && (
+                                <button
+                                  onClick={() => handleDeleteAiEntry(item)}
+                                  disabled={aiBusyId === item.id}
+                                  className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                                >
+                                  Sil
+                                </button>
+                              )}
+                              <button
+                                onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
+                                className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
+                              >
+                                <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
+                              </button>
+                            </div>
                           )}
-                          <button
-                            onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
-                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
-                          >
-                            <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
-                          </button>
+                          {item.reportState === 'open' && (
+                            <div className="space-y-2">
+                              <textarea
+                                value={item.reportReason}
+                                onChange={(e) => updateAiEntry(item.id, { reportReason: e.target.value.slice(0, 500) })}
+                                placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
+                                rows={2}
+                                className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => submitReport(item)}
+                                  className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                                >
+                                  Bildir
+                                </button>
+                                <button
+                                  onClick={() => updateAiEntry(item.id, { reportState: 'idle', reportReason: '' })}
+                                  className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
+                                >
+                                  Vazgeç
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
+                          {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
                         </div>
-                      )}
-                      {item.reportState === 'open' && (
-                        <div className="space-y-2">
-                          <textarea
-                            value={item.reportReason}
-                            onChange={(e) => updateAiEntry(item.id, { reportReason: e.target.value.slice(0, 500) })}
-                            placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
-                            rows={2}
-                            className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => submitReport(item)}
-                              className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
-                            >
-                              Bildir
-                            </button>
-                            <button
-                              onClick={() => updateAiEntry(item.id, { reportState: 'idle', reportReason: '' })}
-                              className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
-                            >
-                              Vazgeç
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
-                      {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
-                    </div>
+                      </>
+                    )}
 
                     {repliesOfAi(item.id).length > 0 && (
                       <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">

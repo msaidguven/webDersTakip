@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { CHAT_MODEL } from '@/app/src/lib/rag/gemini';
 
 // Yayınlanmış soru-cevaplar — herkese açık, tıpkı yorum gibi (kim sormuşsa görünür,
 // sadece soran değil). İki farklı kapsamda çalışır:
@@ -40,5 +42,33 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ items: data || [] });
+  const answered = (data || []).map((row) => ({ ...row, status: 'published' as const, answer: (row as { answer: string }).answer }));
+
+  // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue) — giriş yapmış
+  // kullanıcı, KENDİ kuyrukta bekleyen (henüz cevabı olmayan) sorusunu da bu akışta
+  // görsün diye ekleniyor. Başkalarının kuyruktaki sorusu gösterilmiyor (henüz
+  // yayınlanmamış bir içerik, tıpkı bekleyen bir yorum gibi sadece sahibine görünür).
+  let queuedItems: unknown[] = [];
+  const authSupabase = await createClient();
+  const { data: { user } } = await authSupabase.auth.getUser();
+  if (user) {
+    let queueQuery = supabase
+      .from('rag_question_queue')
+      .select('id, question, mode, status, created_at, student_id, parent_comment_id, parent_rag_answer_id')
+      .eq('student_id', user.id)
+      .order('created_at', { ascending: false });
+    queueQuery =
+      questionId != null
+        ? queueQuery.eq('quiz_question_id', questionId)
+        : queueQuery.eq('unit_id', unitId as number).is('quiz_question_id', null);
+    const { data: queueRows } = await queueQuery;
+    queuedItems = (queueRows || []).map((row) => ({
+      ...row,
+      model: row.mode === 'kanka' ? `${CHAT_MODEL}-kanka` : CHAT_MODEL,
+      answer: null,
+      profiles: null,
+    }));
+  }
+
+  return NextResponse.json({ items: [...queuedItems, ...answered] });
 }

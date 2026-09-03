@@ -25,12 +25,17 @@ function turkeyDayStartUtcIso(): string {
   return new Date(turkeyMidnightAsUtc - TURKEY_OFFSET_MS).toISOString();
 }
 
+// Cevaplanmış (rag_answers) + henüz kuyrukta bekleyen (rag_question_queue) soruların
+// TOPLAMI sayılıyor — sorular artık senkron değil kuyruğa alınıp işlendiği için
+// (bkz. /api/rag/ask, /api/rag/process-queue), sadece rag_answers'ı saymak öğrencinin
+// kuyruk henüz işlenmeden limitin çok üstünde soru biriktirmesine izin verirdi.
 export async function countTodayQuestions(supabase: SupabaseClient, studentId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('rag_answers')
-    .select('id', { count: 'exact', head: true })
-    .eq('student_id', studentId)
-    .gte('created_at', turkeyDayStartUtcIso());
-  if (error) throw new Error(`Günlük soru sayısı hesaplanamadı: ${error.message}`);
-  return count ?? 0;
+  const dayStart = turkeyDayStartUtcIso();
+  const [answeredResult, queuedResult] = await Promise.all([
+    supabase.from('rag_answers').select('id', { count: 'exact', head: true }).eq('student_id', studentId).gte('created_at', dayStart),
+    supabase.from('rag_question_queue').select('id', { count: 'exact', head: true }).eq('student_id', studentId).gte('created_at', dayStart),
+  ]);
+  if (answeredResult.error) throw new Error(`Günlük soru sayısı hesaplanamadı: ${answeredResult.error.message}`);
+  if (queuedResult.error) throw new Error(`Günlük soru sayısı hesaplanamadı: ${queuedResult.error.message}`);
+  return (answeredResult.count ?? 0) + (queuedResult.count ?? 0);
 }

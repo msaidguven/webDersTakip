@@ -1,0 +1,22 @@
+name: RAG Queue Worker
+
+# AI'ye (@hocam/@kanka) sorulan sorular artık senkron cevaplanmıyor (bkz.
+# app/api/rag/process-queue/route.ts'teki not) — Vercel Hobby planında Cron Jobs
+# günde 1'le sınırlı olduğu için, kuyruğu bu workflow 5 dakikada bir işletiyor.
+# Not: GitHub, zamanlanmış workflow'ların yoğunluğa göre gecikebileceğini ve
+# depoda 60 gün hareketsizlik olursa bu workflow'u otomatik durdurduğunu belirtir —
+# 60 günden uzun süre kod değişikliği olmazsa Actions sekmesinden elle
+# "Re-enable workflow" gerekebilir.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  process-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call process-queue endpoint
+        run: |
+          curl -sf -X POST "https://www.derstakip.net/api/rag/process-queue" \
+            -H "Authorization: Bearer ${{ secrets.RAG_QUEUE_WORKER_SECRET }}"

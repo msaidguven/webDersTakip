@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { answerQuestionForBook, answerAsBuddy } from '@/app/src/lib/rag/answerQuestion';
 import { getDailyLimitFor, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
 
-// Öğrenci bir sınıf+ders (kitap) için soru sorar. Cevap Gemini ile üretilip
-// doğrudan yayınlanır (admin onayı beklemez) ve öğrenciye hemen gösterilir —
-// yanında "bu cevap yapay zekayla üretildi, hata içerebilir" uyarısı ve hatalı/
-// eksik bulunursa bildirme imkânı sunulur (bkz. /api/rag/report).
+// Öğrenci bir sınıf+ders (kitap) için soru sorar. Gemini'nin ücretsiz katmanının
+// dakikalık istek limitine (aynı anda birden fazla öğrenci sorduğunda) çok çabuk
+// takılması yüzünden (kullanıcı geri bildirimi, 2026-09-03) cevap artık BURADA,
+// senkron üretilmiyor — soru rag_question_queue'ya yazılıp öğrenciye "kaydedildi,
+// birazdan cevaplanacak" dönülüyor. Asıl Gemini çağrısı ve rag_answers'a yazma
+// /api/rag/process-queue'da, GitHub Actions'ta 5 dakikada bir tetiklenen bir worker
+// tarafından sırayla yapılıyor (bkz. o route'un başındaki not).
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -110,55 +112,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let result;
-  try {
-    result =
-      mode === 'kanka'
-        ? await answerAsBuddy(service, gradeId, lessonId, unitId, question, questionContext, replyContext)
-        : await answerQuestionForBook(service, gradeId, lessonId, question, questionContext, replyContext);
-  } catch (err) {
-    console.error('RAG soru-cevap hatası', err);
-    return NextResponse.json({ error: 'Cevap üretilemedi, lütfen tekrar deneyin' }, { status: 500 });
-  }
-
-  const { data: saved, error: insertError } = await service
-    .from('rag_answers')
+  const { data: queued, error: insertError } = await service
+    .from('rag_question_queue')
     .insert({
+      student_id: user.id,
       grade_id: gradeId,
       lesson_id: lessonId,
       unit_id: unitId,
       quiz_question_id: quizQuestionId,
-      student_id: user.id,
       question,
       question_context: questionContext,
-      answer: result.answer,
-      matched_chunk_ids: result.matchedChunkIds,
-      model: result.model,
-      status: 'published',
+      reply_context: replyContext,
+      mode,
       parent_comment_id: parentCommentId,
       parent_rag_answer_id: parentRagAnswerId,
     })
     .select('id')
     .single();
 
-  if (insertError || !saved) {
+  if (insertError || !queued) {
     return NextResponse.json({ error: insertError?.message || 'Soru kaydedilemedi' }, { status: 500 });
   }
 
-  // Cevap artık herkese açık bir "yorum" gibi gösterildiği için (bkz. /api/rag/unit-feed),
-  // istemci yeni kaydı yeniden fetch etmeden hemen doğru isim/avatarla ekleyebilsin diye
-  // soranın profil bilgisini de dönüyoruz.
-  const { data: profile } = await service
-    .from('profiles')
-    .select('username, full_name, avatar_url')
-    .eq('id', user.id)
-    .maybeSingle();
-
   return NextResponse.json({
-    id: saved.id,
-    answer: result.answer,
-    model: result.model,
+    queued: true,
+    queueId: queued.id,
     remaining: dailyLimit - askedToday - 1,
-    profile: profile || null,
   });
 }
