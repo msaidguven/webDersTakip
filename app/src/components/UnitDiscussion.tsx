@@ -239,6 +239,7 @@ function ReplyAiRow({
   onDelete,
   onReportPatch,
   onReportSubmit,
+  showQuestion,
 }: {
   item: AiEntry;
   userId: string | null;
@@ -246,6 +247,13 @@ function ReplyAiRow({
   onDelete: (item: AiEntry) => void;
   onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
   onReportSubmit: (item: AiEntry) => void;
+  // Yorum-önce mimarisinde (2026-09-04) bir AI cevabı artık HER ZAMAN kendi soru
+  // yorumunun altına nest oluyor (parent_comment_id) — o yorum soruyu zaten kendi
+  // başlığında gösterdiği için burada TEKRAR yazmak duplikasyona yol açardı
+  // (kullanıcı bildirimi). Sadece parent'ı BAŞKA bir AI cevabıysa (repliesOfAi,
+  // artık yeni akışta oluşmuyor ama eski/uç durumlar için varsayılan true kalıyor)
+  // soru burada gösterilir.
+  showQuestion?: boolean;
 }) {
   const name = displayNameOf(item.profiles);
   return (
@@ -254,7 +262,9 @@ function ReplyAiRow({
         <span className="text-xs font-semibold text-gray-800">{name}</span>
         <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
       </div>
-      <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
+      {showQuestion !== false && (
+        <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
+      )}
       <div className="rounded-lg bg-gray-50/80 p-2.5 flex items-start gap-2">
         <AiAvatar model={item.model} sizeClass="h-6 w-6" />
         <div className="min-w-0 flex-1">
@@ -940,6 +950,7 @@ export default function UnitDiscussion({
                                 onDelete={handleDeleteAiEntry}
                                 onReportPatch={(id, patch) => updateAiEntry(id, patch)}
                                 onReportSubmit={submitReport}
+                                showQuestion={false}
                               />
                             )
                           )}
