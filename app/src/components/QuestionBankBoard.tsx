@@ -78,12 +78,14 @@ export default function QuestionBankBoard({
   gradeId,
   lessonId,
   unitId,
+  commentCounts,
 }: {
   questions: QuizQuestion[];
   basePath: string;
   gradeId: number;
   lessonId: number;
   unitId: number;
+  commentCounts: Record<number, number>;
 }) {
   const isAdmin = useIsAdmin();
   const [questions, setQuestions] = useState(initialQuestions);
@@ -178,7 +180,7 @@ export default function QuestionBankBoard({
               onClick={() => setCommentsForId(q.id)}
               className="mt-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
             >
-              <MessageCircle className="h-3.5 w-3.5" /> Yorumlar
+              <MessageCircle className="h-3.5 w-3.5" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
             </button>
           </div>
         ))}
@@ -197,6 +199,7 @@ export default function QuestionBankBoard({
               quizQuestionId={activeQuestion.id}
               questionContext={formatQuestionContext(activeQuestion)}
               defaultExpanded
+              hideToggle
             />
           </CommentsModal>
         );

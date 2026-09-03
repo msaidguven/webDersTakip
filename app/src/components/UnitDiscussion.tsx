@@ -296,6 +296,7 @@ export default function UnitDiscussion({
   unitName,
   questionContext,
   defaultExpanded,
+  hideToggle,
 }: {
   gradeId: number;
   lessonId: number;
@@ -309,16 +310,25 @@ export default function UnitDiscussion({
   // edildiği yerlerde açık başlasın diye (bkz. QuestionBankBoard.tsx) — orada zaten
   // dıştaki toggle bir kez tıklanmış oluyor, ikinci bir tıklama istemek gereksiz.
   defaultExpanded?: boolean;
+  // true ise kendi "Bu Soru Hakkında" başlığını/chevron'unu hiç göstermez, dıştan zaten
+  // açık bir kapsayıcı (bkz. QuestionBankBoard.tsx'teki modal) içine gömülü, tek başına
+  // bir accordion gibi davranmasın diye — kullanıcı "modalde direkt görünsün, ayrıca
+  // açılır menü olmasın" istedi (2026-09-03).
+  hideToggle?: boolean;
 }) {
   const pathname = usePathname();
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
   // başlığına tıklanınca açılıp kapanan bir panel (kullanıcı kararı, 2026-09-02).
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   // Yeni bir soruya geçilince panel tekrar kapalı başlar — açık kalsaydı bir önceki
-  // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı.
+  // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı. hideToggle modunda
+  // (soru bankası modali) bu geçerli değil: her modal açılışı zaten TAZE bir mount, "aynı
+  // instance'ta soru değişimi" hiç olmuyor — bu effect ilk mount'ta da çalıştığı için
+  // hideToggle kontrolü olmasaydı defaultExpanded'i hemen geri kapatıp bozardı.
   useEffect(() => {
+    if (hideToggle) return;
     setExpanded(false);
-  }, [quizQuestionId]);
+  }, [quizQuestionId, hideToggle]);
   const [availability, setAvailability] = useState<Availability>('loading');
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [userId, setUserId] = useState<string | null>(null);
@@ -670,19 +680,21 @@ export default function UnitDiscussion({
   const commentTotal = comments.length + aiEntries.length;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={`flex w-full items-center gap-2 text-left ${expanded ? 'mb-3' : ''}`}
-      >
-        <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
-        <h2 className="flex-1 text-base font-semibold text-gray-900">
-          {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
-          {commentTotal > 0 && <span className="ml-1.5 font-normal text-gray-400">({commentTotal})</span>}
-        </h2>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
+    <div className={hideToggle ? '' : 'bg-white rounded-xl border border-gray-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
+      {!hideToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={`flex w-full items-center gap-2 text-left ${expanded ? 'mb-3' : ''}`}
+        >
+          <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
+          <h2 className="flex-1 text-base font-semibold text-gray-900">
+            {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
+            {commentTotal > 0 && <span className="ml-1.5 font-normal text-gray-400">({commentTotal})</span>}
+          </h2>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
 
       {!expanded ? null : authState === 'loading' ? null : authState === 'out' ? (
         <p className="text-sm text-gray-500">

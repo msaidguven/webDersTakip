@@ -237,6 +237,30 @@ export async function getQuestionsByIdsInTopicPool(topicId: number | string, ids
 // Bir konunun TÜM sorularını (kişiselleştirme/limit OLMADAN, id sırasıyla) getirir —
 // /soru-bankasi sayfası için: kavrama testinin aksine burada havuzdan bir alt küme değil,
 // konudaki her soru tek bir statik sayfada listeleniyor.
+// Soru bankası sayfasındaki "Yorumlar" butonunda tıklamadan önce sayı gösterebilmek için —
+// tek, bulk sorguyla (soru başına ayrı sorgu değil) yayınlanmış yorum + AI sorusu sayısını
+// çeker. Kişiselleştirme yok (sadece status='published', anon client) — ISR cache'i bozmaz,
+// bkz. getAllTopicQuestions'taki aynı gerekçe. Görüntüleyenin kendi 'pending' yorumu bu
+// sayıma girmez (sunucu render'ında kim baktığı bilinmiyor) — kabul edilebilir bir eksiklik,
+// UnitDiscussion içindeki asıl liste açılınca zaten tam/güncel halini gösteriyor.
+export async function getQuestionCommentCounts(questionIds: number[]): Promise<Record<number, number>> {
+  if (!questionIds.length) return {};
+  const supabase = createAnonClient();
+  const [{ data: commentRows }, { data: aiRows }] = await Promise.all([
+    supabase.from('question_comments').select('question_id').eq('status', 'published').in('question_id', questionIds),
+    supabase.from('rag_answers').select('quiz_question_id').eq('status', 'published').in('quiz_question_id', questionIds),
+  ]);
+
+  const counts: Record<number, number> = {};
+  for (const row of (commentRows as { question_id: number | null }[] | null) || []) {
+    if (row.question_id != null) counts[row.question_id] = (counts[row.question_id] || 0) + 1;
+  }
+  for (const row of (aiRows as { quiz_question_id: number | null }[] | null) || []) {
+    if (row.quiz_question_id != null) counts[row.quiz_question_id] = (counts[row.quiz_question_id] || 0) + 1;
+  }
+  return counts;
+}
+
 export async function getAllTopicQuestions(topicId: number | string): Promise<QuizQuestion[]> {
   // Kişiselleştirme yok (sadece topic_id filtresi), bu yüzden resolveQuestions gibi anon
   // client kullanıyor — /soru-bankasi sayfasının ISR ile cache'lenebilmesi için (bkz. o

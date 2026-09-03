@@ -13,7 +13,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getAllTopicQuestions } from '@/app/src/lib/quizQuestions';
+import { getAllTopicQuestions, getQuestionCommentCounts } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type TopicTestPageData } from '@/app/src/lib/quizPageData';
 import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
@@ -63,6 +63,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
   if (!data) notFound();
 
   const questions = await getAllTopicQuestions(data.topicId);
+  const commentCounts = await getQuestionCommentCounts(questions.map((q) => q.id));
   const unitData = await getSoruBankasiUnitData(sinif, ders, unite);
   const unitPath = unitData ? buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, unitData.unitSlug) : null;
 
@@ -104,6 +105,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
         gradeId={data.gradeId}
         lessonId={data.lessonId}
         unitId={data.unitId}
+        commentCounts={commentCounts}
       />
 
       {unitData && unitPath && unitData.topics.length > 1 && (
