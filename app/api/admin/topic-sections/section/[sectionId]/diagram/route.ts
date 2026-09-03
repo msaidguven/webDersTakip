@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { revalidateTopicPagesBySectionIds } from '@/app/src/lib/topicPageRevalidation';
 
 const MAX_SVG_LENGTH = 20_000;
 
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
   return NextResponse.json({ ok: true });
 }
 
@@ -53,5 +55,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ error: 'Silinemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
   return NextResponse.json({ ok: true });
 }

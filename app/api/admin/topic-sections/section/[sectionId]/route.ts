@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteSectionsCascade } from '@/app/src/lib/adminCascade';
+import { revalidateTopicPagesBySectionIds } from '@/app/src/lib/topicPageRevalidation';
 
 interface Params {
   sectionId: string;
@@ -67,6 +68,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
   return NextResponse.json({ ok: true });
 }
 
@@ -76,6 +78,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { sectionId } = await params;
   const supabase = createServiceClient();
+
+  // Silinmeden ÖNCE topic'i çözüp cache'i düşürüyoruz — satır gittikten sonra
+  // section->topic zinciri kurulamaz (delete başarısız olsa bile zararsız: sayfa
+  // olduğu gibi yeniden render edilir).
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
 
   const { failed } = await deleteSectionsCascade(supabase, [Number(sectionId)]);
   if (failed.length) {

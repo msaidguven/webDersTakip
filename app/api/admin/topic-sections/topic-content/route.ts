@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
 
 export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
@@ -65,5 +66,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
   }
 
+  // isPublished dahil — yayınlanınca/yayından kaldırılınca sayfa görünürlüğü değişir,
+  // önceden cache'lenmiş bir 404/eski hâl varsa bu anında düşer.
+  await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
   return NextResponse.json({ ok: true });
 }

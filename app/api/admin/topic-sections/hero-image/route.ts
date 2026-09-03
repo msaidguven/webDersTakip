@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, convertToWebp } from '@/app/src/lib/imageUpload';
 import { CONTENT_IMAGE_BUCKET, buildHeroFolderPrefix, buildHeroImagePath, extractHierarchy } from '@/app/src/lib/contentImageStorage';
+import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
 
 const BUCKET = CONTENT_IMAGE_BUCKET;
 
@@ -101,6 +102,7 @@ async function handlePost(request: NextRequest) {
     return NextResponse.json({ error: `Kaydedilemedi: ${updateError.message}` }, { status: 500 });
   }
 
+  await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
   return NextResponse.json({ ok: true, imageUrl });
 }
 
@@ -126,5 +128,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Silinemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
   return NextResponse.json({ ok: true });
 }

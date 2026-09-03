@@ -4,22 +4,37 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
+// üzerinden yapılıyor) — yani her zaman herkese aynı, tamamen public içerik döner. Bu
+// sayede ISR ile cache'lenebiliyor: saatlik fallback + admin bir konuyu düzenlediğinde
+// ilgili sayfanın anında güncellenmesi için revalidateTopicPage/revalidateUnitPages
+// (bkz. app/src/lib/topicPageRevalidation.ts) admin kayıt endpoint'lerinden çağrılıyor.
+export const revalidate = 3600;
 
 interface Params {
   gradeSlug: string;
   lessonSlug: string;
   unitSlug: string;
   topicSlug: string;
+}
+
+// ÖNEMLİ: Bu projedeki Next.js 16.1.6 kurulumunda, generateStaticParams tanımlı
+// OLMAYAN dinamik segmentli sayfalar hiçbir zaman ISR cache'ine girmiyor —
+// yukarıdaki revalidate ayarı sessizce yok sayılıyor (her istek "Cache-Control:
+// no-store" ile geliyor). Boş bir generateStaticParams bile bu davranışı düzeltip
+// ilk ziyaretten sonra sayfanın gerçekten cache'lenmesini sağlıyor (dynamicParams
+// varsayılan olarak true olduğu için burada listelenmeyen slug'lar da normal
+// şekilde ilk istekte üretilip cache'e alınıyor). İleride en çok görüntülenen
+// konuları burada döndürerek deploy anında build-time prerender de yapılabilir.
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 interface PageProps {
@@ -57,7 +72,7 @@ function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getTo
   };
 }
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+type Supabase = ReturnType<typeof createAnonClient>;
 
 async function resolveGrade(supabase: Supabase, decodedGradeSlug: string): Promise<GradeRow | null> {
   const { data: gradeBySlug } = await supabase
@@ -146,22 +161,20 @@ function buildMetaDescription(data: NonNullable<Awaited<ReturnType<typeof getTop
 }
 
 const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string, lessonSlug: string, unitSlug: string, topicSlug: string) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
   const decodedTopicSlug = decodeURIComponent(topicSlug || '').trim();
 
-  // Sınıf, ders, admin kontrolü ve müfredat takvimi birbirinden BAĞIMSIZ — art arda
-  // (sıralı) değil paralel çekiyoruz. Bu tek değişiklik, sayfa açılışındaki ~13 ardışık
-  // Supabase round-trip'ini birkaç paralel dalgaya indirerek asıl yavaşlığın kaynağını
-  // (round-trip SAYISI, veri boyutu değil) hedefliyor — bkz. getLessonWeekData'daki
-  // activeTopic notu.
-  const [grade, lesson, isAdmin, calendar] = await Promise.all([
+  // Sınıf, ders ve müfredat takvimi birbirinden BAĞIMSIZ — art arda (sıralı) değil
+  // paralel çekiyoruz. Bu tek değişiklik, sayfa açılışındaki ~13 ardışık Supabase
+  // round-trip'ini birkaç paralel dalgaya indirerek asıl yavaşlığın kaynağını (round-trip
+  // SAYISI, veri boyutu değil) hedefliyor — bkz. getLessonWeekData'daki activeTopic notu.
+  const [grade, lesson, calendar] = await Promise.all([
     resolveGrade(supabase, decodedGradeSlug),
     resolveLesson(supabase, decodedLessonSlug),
-    isViewerAdmin(supabase),
     getCurriculumCalendar(supabase),
   ]);
 
@@ -172,13 +185,15 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const gId = grade.id;
   const lId = lesson.id;
 
-  let unitsQuery = supabase
+  // Bu sayfa artık taslak göstermiyor: is_active/is_published filtreleri koşulsuz
+  // uygulanır (admin dahil kimse taslağı buradan göremez — önizleme /ders?... üzerinden).
+  const unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week, is_active')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
+    .eq('is_active', true)
     .order('order_no', { ascending: true });
-  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
 
   // lesson_grades ve units de birbirinden bağımsız — ikisi de sadece gId/lId'ye bağlı.
   const [{ data: lessonGradeData }, { data: unitsData }] = await Promise.all([
@@ -191,7 +206,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     unitsQuery,
   ]);
 
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
     return null;
   }
 
@@ -223,7 +238,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // ensureTopicContentLoaded) yüklenir.
   const [questionCountByUnit, { outcomes, contents }] = await Promise.all([
     computeQuestionCountByUnit(supabase, units),
-    getLessonWeekData(supabase, activeUnit.id, week, isAdmin, { slug: decodedTopicSlug }),
+    getLessonWeekData(supabase, activeUnit.id, week, false, { slug: decodedTopicSlug }),
   ]);
 
   const unitsWithQuestionFlag = units.map((u) => {
@@ -235,8 +250,6 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   if (!activeTopic) {
     return null;
   }
-
-  const isDraft = activeUnit.is_active === false || (lessonGradeData as { is_active: boolean } | null)?.is_active === false;
 
   return {
     gradeId: gId.toString(),
@@ -257,8 +270,6 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     unitSlug: activeUnit.slug,
     topicTitle: activeTopic.title,
     topicSlug: activeTopic.slug,
-    isAdmin,
-    isDraft,
   };
 });
 
@@ -280,11 +291,6 @@ export default async function TopicPage({ params }: PageProps) {
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      {data.isAdmin && data.isDraft && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
-          Taslak — bu ders/ünite şu anda yayında değil, sadece adminler görebiliyor.
-        </div>
-      )}
       <DersClient
         initialData={data}
         gradeId={data.gradeId}

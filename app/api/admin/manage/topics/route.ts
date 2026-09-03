@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteTopicsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
+import { revalidateUnitPagesForTopics } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active'] as const;
 
@@ -73,6 +74,9 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('topics').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // is_active dahil — bir konunun görünürlüğü değişince o ünitedeki TÜM konu
+  // sayfalarının sidebar listesi de değişir, sadece kendi sayfası değil.
+  await revalidateUnitPagesForTopics(supabase, ids);
   return NextResponse.json({ ok: true });
 }
 
@@ -85,6 +89,10 @@ export async function DELETE(request: NextRequest) {
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   const supabase = createServiceClient();
+
+  // Silinmeden ÖNCE üniteyi çözüp cache'i düşürüyoruz — hard delete'te satırlar
+  // gittikten sonra topic->unit zinciri kurulamaz.
+  await revalidateUnitPagesForTopics(supabase, ids);
 
   if (body?.hard === true) {
     const result = await deleteTopicsCascade(supabase, ids);

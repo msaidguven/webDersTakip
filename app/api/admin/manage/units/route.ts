@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteUnitsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByUnitId } from '@/app/src/lib/questionCounts';
+import { revalidateUnitPages } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active', 'duration_hours', 'curriculum_code'] as const;
 
@@ -62,6 +63,9 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('units').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // is_active/start_week/end_week dahil — bunlar o ünitedeki TÜM konu sayfalarının
+  // görünürlüğünü/hafta hesabını etkiler.
+  await revalidateUnitPages(supabase, ids);
   return NextResponse.json({ ok: true });
 }
 
@@ -74,6 +78,9 @@ export async function DELETE(request: NextRequest) {
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   const supabase = createServiceClient();
+
+  // Silinmeden ÖNCE (hard delete'te satırlar gidebileceği için) cache'i düşürüyoruz.
+  await revalidateUnitPages(supabase, ids);
 
   if (body?.hard === true) {
     const result = await deleteUnitsCascade(supabase, ids);

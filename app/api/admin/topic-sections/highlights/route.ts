@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
+import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
 
 export async function PUT(request: NextRequest) {
   const admin = await requireAdmin();
@@ -25,5 +26,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
   return NextResponse.json({ ok: true, count: clean.length });
 }

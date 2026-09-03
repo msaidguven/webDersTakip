@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
+import { revalidateUnitPagesForQuestionIds } from '@/app/src/lib/topicPageRevalidation';
 
 const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
 const MAX_SVG_LENGTH = 20_000;
@@ -179,6 +180,7 @@ export async function PATCH(request: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await revalidateUnitPagesForQuestionIds(supabase, [questionId]);
     return NextResponse.json({ ok: true });
   }
 
@@ -201,6 +203,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('questions').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  await revalidateUnitPagesForQuestionIds(supabase, ids);
   return NextResponse.json({ ok: true });
 }
 
@@ -213,6 +216,9 @@ export async function DELETE(request: NextRequest) {
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   const supabase = createServiceClient();
+  // Silinmeden ÖNCE topic'leri çözüp cache'i düşürüyoruz — satırlar gittikten sonra
+  // question->topic zinciri kurulamaz.
+  await revalidateUnitPagesForQuestionIds(supabase, ids);
   const result = await deleteQuestionsCascade(supabase, ids);
   return NextResponse.json(result);
 }

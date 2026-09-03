@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteSectionsCascade } from '@/app/src/lib/adminCascade';
+import { revalidateTopicPagesBySectionIds } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['heading', 'body_markdown', 'status', 'order_no', 'image_url', 'image_prompt'] as const;
 
@@ -67,6 +68,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('topic_content_sections').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  await revalidateTopicPagesBySectionIds(supabase, ids);
   return NextResponse.json({ ok: true });
 }
 
@@ -79,6 +81,7 @@ export async function DELETE(request: NextRequest) {
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   const supabase = createServiceClient();
+  await revalidateTopicPagesBySectionIds(supabase, ids);
   const result = await deleteSectionsCascade(supabase, ids);
   return NextResponse.json(result);
 }

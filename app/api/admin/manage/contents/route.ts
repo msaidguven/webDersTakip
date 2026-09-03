@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteTopicContentsCascade } from '@/app/src/lib/adminCascade';
+import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'body_markdown', 'is_published', 'hero_image_url'] as const;
 
@@ -80,6 +81,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('topic_contents').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  await revalidateTopicPagesByContentIds(supabase, ids);
   return NextResponse.json({ ok: true });
 }
 
@@ -92,6 +94,9 @@ export async function DELETE(request: NextRequest) {
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   const supabase = createServiceClient();
+  // Silinmeden ÖNCE topic'leri çözüp cache'i düşürüyoruz — satırlar gittikten sonra
+  // content->topic zinciri kurulamaz.
+  await revalidateTopicPagesByContentIds(supabase, ids);
   const result = await deleteTopicContentsCascade(supabase, ids);
   return NextResponse.json(result);
 }

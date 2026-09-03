@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, convertToWebp } from '@/app/src/lib/imageUpload';
 import { CONTENT_IMAGE_BUCKET, buildSectionFolderPrefix, buildSectionImagePath, extractHierarchy } from '@/app/src/lib/contentImageStorage';
+import { revalidateTopicPagesBySectionIds } from '@/app/src/lib/topicPageRevalidation';
 
 const BUCKET = CONTENT_IMAGE_BUCKET;
 
@@ -111,6 +112,7 @@ async function handlePost(request: NextRequest, paramsPromise: Promise<Params>) 
     return NextResponse.json({ error: `Kaydedilemedi: ${updateError.message}` }, { status: 500 });
   }
 
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
   return NextResponse.json({ ok: true, imageUrl });
 }
 
@@ -140,6 +142,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Kaydedilemedi' }, { status: 500 });
   }
 
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
   return NextResponse.json({ ok: true });
 }
 
@@ -173,6 +176,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (error) {
     return NextResponse.json({ error: 'Silinemedi' }, { status: 500 });
   }
+
+  await revalidateTopicPagesBySectionIds(supabase, [sectionId]);
 
   return NextResponse.json({ ok: true });
 }
