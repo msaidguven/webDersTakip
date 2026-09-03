@@ -46,16 +46,20 @@ export async function GET(request: NextRequest) {
 
   // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue) — giriş yapmış
   // kullanıcı, KENDİ kuyrukta bekleyen (henüz cevabı olmayan) sorusunu da bu akışta
-  // görsün diye ekleniyor. Başkalarının kuyruktaki sorusu gösterilmiyor (henüz
-  // yayınlanmamış bir içerik, tıpkı bekleyen bir yorum gibi sadece sahibine görünür).
+  // görsün diye ekleniyor. Sorunun kendisi zaten normal bir yorum olarak anında
+  // yayınlanmıştı (bkz. /api/rag/ask); burada eklenen sadece "cevap hazırlanıyor"
+  // yer tutucusu — comment_id sayesinde o yoruma YANIT olarak nest ediliyor (tıpkı
+  // gerçek cevap gelince rag_answers'ta olacağı gibi). comment_id'si olmayan (eski,
+  // bu alan eklenmeden önce kuyruğa girmiş) satırlar atlanıyor.
   let queuedItems: unknown[] = [];
   const authSupabase = await createClient();
   const { data: { user } } = await authSupabase.auth.getUser();
   if (user) {
     let queueQuery = supabase
       .from('rag_question_queue')
-      .select('id, question, mode, status, created_at, student_id, parent_comment_id, parent_rag_answer_id')
+      .select('id, question, mode, status, created_at, student_id, comment_id')
       .eq('student_id', user.id)
+      .not('comment_id', 'is', null)
       .order('created_at', { ascending: false });
     queueQuery =
       questionId != null
@@ -63,10 +67,16 @@ export async function GET(request: NextRequest) {
         : queueQuery.eq('unit_id', unitId as number).is('quiz_question_id', null);
     const { data: queueRows } = await queueQuery;
     queuedItems = (queueRows || []).map((row) => ({
-      ...row,
+      id: row.id,
+      question: row.question,
+      status: row.status,
+      created_at: row.created_at,
+      student_id: row.student_id,
       model: row.mode === 'kanka' ? `${CHAT_MODEL}-kanka` : CHAT_MODEL,
       answer: null,
       profiles: null,
+      parent_comment_id: row.comment_id,
+      parent_rag_answer_id: null,
     }));
   }
 

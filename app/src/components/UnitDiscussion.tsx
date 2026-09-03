@@ -601,26 +601,48 @@ export default function UnitDiscussion({
         if (res.status === 429) setDailyRemaining(0);
         return false;
       }
-      // Cevap artık burada senkron gelmiyor — soru kuyruğa alındı, birkaç dakika
-      // içinde worker cevaplayıp yayınlayacak (bkz. hasPendingAi polling effect'i).
-      setAiEntries((prev) => [
-        {
-          id: data.queueId,
-          question,
-          answer: null,
-          status: 'queued',
-          model: mode === 'kanka' ? 'gemini-2.5-flash-kanka' : 'gemini-2.5-flash',
-          created_at: new Date().toISOString(),
-          student_id: userId || '',
-          profiles: null,
-          kind: 'ai',
-          reportState: 'idle',
-          reportReason: '',
-          parent_comment_id: parentCommentId,
-          parent_rag_answer_id: parentRagAnswerId,
-        },
+      // Soru artık moderasyon beklemeden hemen normal bir yorum olarak yayınlanıyor
+      // (kullanıcı isteği, 2026-09-04: "benim yorumum hemen yayınlansa, AI'nin
+      // cevabı da ayrı birinin yorumu gibi yayınlansa"). Cevap hâlâ senkron
+      // gelmiyor — altına, gerçek cevap gelene kadar yerel bir "hazırlanıyor"
+      // yer tutucusu ekleniyor (hasPendingAi polling'i, gerçek cevap rag_answers'a
+      // bu yoruma yanıt olarak yazılınca yerini alacak).
+      const nowIso = new Date().toISOString();
+      const commentBody = `${tag} ${question}`;
+      setComments((prev) => [
         ...prev,
+        {
+          kind: 'comment',
+          id: data.commentId,
+          parent_comment_id: parentCommentId,
+          parent_ai_answer_id: parentRagAnswerId,
+          body: commentBody,
+          status: 'published',
+          created_at: nowIso,
+          student_id: userId || '',
+          profiles: data.profile || null,
+        },
       ]);
+      if (data.queueId != null) {
+        setAiEntries((prev) => [
+          {
+            id: data.queueId,
+            question,
+            answer: null,
+            status: 'queued',
+            model: mode === 'kanka' ? 'gemini-2.5-flash-kanka' : 'gemini-2.5-flash',
+            created_at: nowIso,
+            student_id: userId || '',
+            profiles: null,
+            kind: 'ai',
+            reportState: 'idle',
+            reportReason: '',
+            parent_comment_id: data.commentId,
+            parent_rag_answer_id: null,
+          },
+          ...prev,
+        ]);
+      }
       if (typeof data.remaining === 'number') setDailyRemaining(data.remaining);
       return true;
     } catch {

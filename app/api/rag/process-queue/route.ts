@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
           ? await answerAsBuddy(supabase, row.grade_id, row.lesson_id, row.unit_id, row.question, row.question_context, row.reply_context)
           : await answerQuestionForBook(supabase, row.grade_id, row.lesson_id, row.question, row.question_context, row.reply_context);
 
+      // Cevap, soru sorulduğunda hemen yayınlanan yoruma (bkz. /api/rag/ask,
+      // comment_id) bir YANIT olarak ekleniyor — başka bir kullanıcının yanıtı gibi.
       const { error: insertError } = await supabase.from('rag_answers').insert({
         grade_id: row.grade_id,
         lesson_id: row.lesson_id,
@@ -69,8 +71,7 @@ export async function POST(request: NextRequest) {
         matched_chunk_ids: result.matchedChunkIds,
         model: result.model,
         status: 'published',
-        parent_comment_id: row.parent_comment_id,
-        parent_rag_answer_id: row.parent_rag_answer_id,
+        parent_comment_id: row.comment_id,
       });
       if (insertError) throw new Error(insertError.message);
 

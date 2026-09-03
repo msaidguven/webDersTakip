@@ -112,6 +112,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Soru, cevap üretilmesini beklemeden HEMEN normal bir yorum olarak yayınlanıyor
+  // (kullanıcı isteği, 2026-09-04: "benim yorumum hemen yayınlansa, AI'nin cevabı
+  // da ayrı birinin yorumu gibi yayınlansa") — moderasyon beklemiyor, AI soru-cevabı
+  // zaten baştan beri onaysız yayınlanıyordu (bkz. rag_auto_publish_and_reports.sql),
+  // aynı güven seviyesi soru metnine de uygulandı. @hocam/@kanka etiketi Gemini'ye
+  // giden `question`'da yok (client'ta zaten çıkarılıyor) ama yorum gövdesinde
+  // kalıyor ki thread'de "AI'ye soruldu" belli olsun.
+  const tag = mode === 'kanka' ? '@kanka' : '@hocam';
+  const commentBody = `${tag} ${question}`.slice(0, 320);
+
+  const { data: comment, error: commentError } = await service
+    .from('question_comments')
+    .insert({
+      student_id: user.id,
+      body: commentBody,
+      status: 'published',
+      question_id: quizQuestionId,
+      unit_id: quizQuestionId != null ? null : unitId,
+      parent_comment_id: parentCommentId,
+      parent_ai_answer_id: parentRagAnswerId,
+    })
+    .select('id')
+    .single();
+
+  if (commentError || !comment) {
+    return NextResponse.json({ error: commentError?.message || 'Soru kaydedilemedi' }, { status: 500 });
+  }
+
+  // AI cevabı hâlâ asenkron üretiliyor (bkz. dosya başındaki not) — worker cevabı
+  // ürettiğinde comment_id sayesinde yukarıdaki yoruma YANIT olarak ekleyecek.
   const { data: queued, error: insertError } = await service
     .from('rag_question_queue')
     .insert({
@@ -124,19 +154,27 @@ export async function POST(request: NextRequest) {
       question_context: questionContext,
       reply_context: replyContext,
       mode,
-      parent_comment_id: parentCommentId,
-      parent_rag_answer_id: parentRagAnswerId,
+      comment_id: comment.id,
     })
     .select('id')
     .single();
 
-  if (insertError || !queued) {
-    return NextResponse.json({ error: insertError?.message || 'Soru kaydedilemedi' }, { status: 500 });
+  if (insertError) {
+    // Yorum zaten yayınlandı — öğrenci sorusunu görüyor, sadece cevap gelmeyecek.
+    // Sessizce loglayıp yine de başarı dönüyoruz ki "sorulamadı" sanıp tekrar denemesin.
+    console.error('rag_question_queue insert hatası (yorum yayınlandı, cevap üretilemeyecek)', insertError);
   }
 
+  const { data: profile } = await service
+    .from('profiles')
+    .select('username, full_name, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
   return NextResponse.json({
-    queued: true,
-    queueId: queued.id,
+    commentId: comment.id,
+    queueId: queued?.id ?? null,
     remaining: dailyLimit - askedToday - 1,
+    profile: profile || null,
   });
 }
