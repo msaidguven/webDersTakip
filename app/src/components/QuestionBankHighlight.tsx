@@ -19,14 +19,27 @@ export default function QuestionBankHighlight() {
 
   useEffect(() => {
     if (activeQuestionId == null) return;
-    const el = document.getElementById(`soru-${activeQuestionId}`);
-    if (!el) return;
 
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    el.classList.add('ring-2', 'ring-indigo-500');
-    el.classList.add('animate-pulse');
-    const timer = setTimeout(() => el.classList.remove('animate-pulse'), 2200);
-    return () => clearTimeout(timer);
+    // Sorulardaki SVG'ler (QuestionSvg, bkz. QuizClient.tsx) SSR sırasında window
+    // olmadığı için mount SONRASI kendi useEffect'lerinde render oluyor — yani bu efekt
+    // çalıştığı anda sayfanın gerçek yüksekliği henüz oturmamış olabilir (SVG'ler henüz
+    // DOM'a girmemiş). Hemen scrollIntoView çağırırsak hedef, üstündeki SVG'ler DOM'a
+    // girdikçe aşağı kayar ve scroll eski (kısa) yüksekliğe göre hesaplanmış kalır. İki
+    // requestAnimationFrame beklemek, o ikinci render+paint turunun bitmesini garantiler.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = document.getElementById(`soru-${activeQuestionId}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-indigo-500', 'animate-pulse');
+        setTimeout(() => el.classList.remove('animate-pulse'), 2200);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
   }, [activeQuestionId]);
 
   return null;
