@@ -17,7 +17,7 @@ Konunun alt başlıklarının ders notu:
       "type": "multiple_choice",
       "question_text": string,
       "solution_text": string,
-      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_prompt": string | null,  // bkz. SVG prompt kuralı
       "svg_position": "above" | "below",
       "choices": [
         { "text": string, "is_correct": boolean },
@@ -29,7 +29,7 @@ Konunun alt başlıklarının ders notu:
       "type": "blank",
       "question_text": string,  // cümle, boşluk yerine TAM OLARAK "_____" (5 alt çizgi)
       "solution_text": string,
-      "svg_prompt": string | null,  // bkz. aşağıdaki "SVG prompt kuralları"
+      "svg_prompt": string | null,  // bkz. SVG prompt kuralı
       "svg_position": "above" | "below",
       "options": [
         { "text": string, "is_correct": boolean },
