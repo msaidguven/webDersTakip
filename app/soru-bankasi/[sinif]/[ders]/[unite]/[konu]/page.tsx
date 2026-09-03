@@ -98,7 +98,13 @@ export default async function QuestionBankPage({ params }: PageProps) {
         <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{questions.length} soru — cevap anahtarıyla birlikte</p>
       </div>
 
-      <QuestionBankBoard questions={questions} basePath={buildQuestionBankPath(data)} />
+      <QuestionBankBoard
+        questions={questions}
+        basePath={buildQuestionBankPath(data)}
+        gradeId={data.gradeId}
+        lessonId={data.lessonId}
+        unitId={data.unitId}
+      />
 
       {unitData && unitPath && unitData.topics.length > 1 && (
         <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">

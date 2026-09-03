@@ -295,6 +295,7 @@ export default function UnitDiscussion({
   quizQuestionId,
   unitName,
   questionContext,
+  defaultExpanded,
 }: {
   gradeId: number;
   lessonId: number;
@@ -304,11 +305,15 @@ export default function UnitDiscussion({
   // sayfasında "Bu Soru Hakkında" gösterildiği için gerekmez.
   unitName?: string;
   questionContext?: string | null;
+  // Soru bankası gibi, component'in "yorumları göster" tıklanınca ilk kez monte
+  // edildiği yerlerde açık başlasın diye (bkz. QuestionBankBoard.tsx) — orada zaten
+  // dıştaki toggle bir kez tıklanmış oluyor, ikinci bir tıklama istemek gereksiz.
+  defaultExpanded?: boolean;
 }) {
   const pathname = usePathname();
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
   // başlığına tıklanınca açılıp kapanan bir panel (kullanıcı kararı, 2026-09-02).
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   // Yeni bir soruya geçilince panel tekrar kapalı başlar — açık kalsaydı bir önceki
   // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı.
   useEffect(() => {

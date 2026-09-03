@@ -7,10 +7,11 @@
 // (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu). State tamamen bu oturuma
 // özel client-side state'tir, backend'e yazılmaz.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { Minus, MessageCircle, Plus } from 'lucide-react';
+import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader from '@/app/src/components/QuestionCardHeader';
+import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 
 type AnswerStatus = 'correct' | 'incorrect' | 'revealed';
@@ -28,11 +29,39 @@ function dotColorClass(status: AnswerStatus | undefined): string {
   return 'border border-default bg-surface text-muted-foreground';
 }
 
-export default function QuestionBankBoard({ questions: initialQuestions, basePath }: { questions: QuizQuestion[]; basePath: string }) {
+export default function QuestionBankBoard({
+  questions: initialQuestions,
+  basePath,
+  gradeId,
+  lessonId,
+  unitId,
+}: {
+  questions: QuizQuestion[];
+  basePath: string;
+  gradeId: number;
+  lessonId: number;
+  unitId: number;
+}) {
   const isAdmin = useIsAdmin();
   const [questions, setQuestions] = useState(initialQuestions);
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
   const [scale, setScale] = useState(MIN_SCALE);
+  // Yorum paneli her soru için varsayılan kapalı — UnitDiscussion (kendi auth/veri
+  // sorgularını mount olur olmaz çalıştırıyor) sadece kullanıcı "Yorumlar"a tıklayınca
+  // monte ediliyor, yoksa bir konudaki onlarca soru için aynı anda onlarca sorgu ateşlenirdi.
+  const [openCommentsIds, setOpenCommentsIds] = useState<Set<number>>(new Set());
+
+  // Profildeki "Yorumlarım"dan ?soru=ID ile gelen deep-link'ler (bkz. QuestionBankHighlight)
+  // ilgili sorunun yorum panelini otomatik açsın diye — bkz. o component'teki event notu.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
+      if (questionId == null) return;
+      setOpenCommentsIds((prev) => (prev.has(questionId) ? prev : new Set(prev).add(questionId)));
+    };
+    window.addEventListener('soru-bankasi:open-comments', handler);
+    return () => window.removeEventListener('soru-bankasi:open-comments', handler);
+  }, []);
 
   useEffect(() => {
     const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
@@ -94,14 +123,38 @@ export default function QuestionBankBoard({ questions: initialQuestions, basePat
       </div>
 
       <div className="space-y-3 sm:space-y-4">
-        {questions.map((q, i) => (
-          <div key={q.id} id={`soru-${q.id}`} className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
-            <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
-            <div style={{ zoom: scale }}>
-              <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
+        {questions.map((q, i) => {
+          const commentsOpen = openCommentsIds.has(q.id);
+          return (
+            <div key={q.id} id={`soru-${q.id}`} className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
+              <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
+              <div style={{ zoom: scale }}>
+                <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
+              </div>
+
+              {!commentsOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setOpenCommentsIds((prev) => new Set(prev).add(q.id))}
+                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" /> Yorumlar
+                </button>
+              ) : (
+                <div className="mt-3 border-t border-default pt-3">
+                  <UnitDiscussion
+                    gradeId={gradeId}
+                    lessonId={lessonId}
+                    unitId={unitId}
+                    quizQuestionId={q.id}
+                    questionContext={formatQuestionContext(q)}
+                    defaultExpanded
+                  />
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {questions.length > 1 && (

@@ -94,11 +94,19 @@ export async function getMyComments(
           ? `${lesson?.name ?? 'Ders'} › ${unit.title}`
           : null;
 
+      // Sadece soru-bazlı yorumlar için bağlanabilir bir hedef var: soru bankası sayfası
+      // (cevap anahtarı), her zaman aynı, sabit soru listesini gösterir ve orada artık
+      // (bkz. QuestionBankBoard.tsx) yorum yapma + kendi yorumunu düzenleme/silme UI'ı da
+      // var. kavrama-testi sayfası kasıtlı olarak hedef ALINMIYOR: SRS'e göre kişiselleşmiş
+      // bir soru havuzu gösteriyor, yakın zamanda doğru cevaplanmış bir soru bir sonraki
+      // ziyarette hiç görünmeyebiliyor — yani yorumun yapıldığı soruya güvenilir şekilde
+      // geri dönmeyi garanti etmiyor. Ünite geneline (question_id'siz) yazılan yorumların
+      // bugün gerçek bir düzenle/sil arayüzü yok (ders içerik sayfası unit-wide yorumu
+      // gösterse de hangi konudan açılacağı belirsiz), bu yüzden onlara link verilmiyor —
+      // sadece bağlam etiketi gösteriliyor.
       let href: string | undefined;
-      if (gradeSlug && lesson?.slug && unit?.slug) {
-        href = topic?.slug
-          ? `/${gradeSlug}/${lesson.slug}/${unit.slug}/${topic.slug}/kavrama-testi`
-          : `/${gradeSlug}/${lesson.slug}/${unit.slug}/unite-testi`;
+      if (c.question_id != null && gradeSlug && lesson?.slug && unit?.slug && topic?.slug) {
+        href = `/soru-bankasi/${gradeSlug}/${lesson.slug}/${unit.slug}/${topic.slug}?soru=${c.question_id}`;
       }
 
       return {

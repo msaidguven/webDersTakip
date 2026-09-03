@@ -29,6 +29,15 @@ export default function QuestionBankHighlight() {
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
+        // Profildeki "Yorumlarım"dan gelen linkler soruya değil, altındaki yorumuna
+        // odaklanmak ister — QuestionBankBoard bu event'i dinleyip ilgili kartın yorum
+        // panelini (varsayılan kapalı, bkz. UnitDiscussion) otomatik açıyor. İki rAF
+        // sonrasına bilerek bırakıldı: QuestionBankBoard bu component'ten sonra mount
+        // olsa bile, kendi mount effect'i (event listener'ı ekleyen) senkron olarak ilk
+        // commit'te çalışır — rAF ise bir sonraki paint'e kadar bekler, yani listener
+        // her zaman dispatch'ten önce bağlanmış olur.
+        window.dispatchEvent(new CustomEvent('soru-bankasi:open-comments', { detail: { questionId: activeQuestionId } }));
+
         const el = document.getElementById(`soru-${activeQuestionId}`);
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
