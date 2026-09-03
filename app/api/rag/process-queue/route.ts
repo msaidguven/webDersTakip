@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { answerQuestionForBook, answerAsBuddy } from '@/app/src/lib/rag/answerQuestion';
+import { buildContextResolver } from '@/app/src/lib/myComments';
 
 // Gemini'nin ücretsiz katmanının dakikalık istek limitine (RPM) aynı anda birden
 // fazla öğrenci sorduğunda çok çabuk takılması yüzünden (2026-09-03), AI sorular
@@ -74,6 +75,27 @@ export async function POST(request: NextRequest) {
       if (insertError) throw new Error(insertError.message);
 
       await supabase.from('rag_question_queue').delete().eq('id', row.id);
+
+      // Öğrenciye "cevabın hazır" bildirimi — header'daki zil bunu polling ile
+      // gösterir (bkz. app/src/components/MainLayout.tsx). Bildirim oluşturma
+      // başarısız olsa bile ana akışı (cevap zaten kaydedildi) bozmasın diye ayrı
+      // bir try/catch'te, sessizce loglanarak geçiliyor.
+      try {
+        const resolve = await buildContextResolver(supabase, [{ questionId: row.quiz_question_id, unitId: row.unit_id }]);
+        const { href } = resolve({ questionId: row.quiz_question_id, unitId: row.unit_id });
+        const label = row.mode === 'kanka' ? '😄 Kanka' : '🎓 Hocam';
+        const questionPreview = row.question.length > 80 ? `${row.question.slice(0, 80)}…` : row.question;
+        await supabase.from('notifications').insert({
+          user_id: row.student_id,
+          type: 'rag_answer',
+          title: `${label} sorunu cevapladı`,
+          body: questionPreview,
+          link: href ?? null,
+        });
+      } catch (notifyErr) {
+        console.error('Bildirim oluşturma hatası (cevap yine de kaydedildi)', row.id, notifyErr);
+      }
+
       succeeded++;
     } catch (err) {
       const attempts = (row.attempts ?? 0) + 1;

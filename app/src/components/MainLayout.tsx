@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { Icon } from './icons';
+import { NotificationBell } from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
 
@@ -112,9 +113,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
             )}
 
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center">
-              <Icon name="bell" className="text-muted-foreground" size={18} />
-            </div>
+            <NotificationBell />
 
             <ThemeToggle />
 
