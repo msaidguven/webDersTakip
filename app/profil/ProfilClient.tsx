@@ -13,6 +13,7 @@ import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 
 interface ProfileRow {
   full_name: string | null;
+  username: string | null;
   avatar_url: string | null;
   grade_id: number | null;
   city_id: number | null;
@@ -114,6 +115,7 @@ export default function ProfilClient() {
   const email = authUser?.email;
 
   const [fullName, setFullName] = useState('Öğrenci');
+  const [username, setUsername] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -157,6 +159,7 @@ export default function ProfilClient() {
         // olmayabilir. Yüklenince gerçek değer varsa onunla üzerine yazıyoruz.
         if (data.profile?.full_name) setFullName(data.profile.full_name);
         if (data.profile?.avatar_url) setAvatarUrl(data.profile.avatar_url);
+        setUsername(data.profile?.username ?? null);
       });
     return () => {
       cancelled = true;
@@ -282,6 +285,7 @@ export default function ProfilClient() {
 
               <div className="flex-1 text-center sm:text-left min-w-0">
                 <h2 className="text-2xl font-bold text-default mb-1 truncate">{fullName}</h2>
+                {username && <p className="text-indigo-400 text-sm font-medium truncate">@{username}</p>}
                 <p className="text-muted-foreground mb-3 truncate">{email}</p>
                 <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                   <span className="px-3 py-1 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
@@ -356,9 +360,10 @@ export default function ProfilClient() {
 
         {/* Kişisel Bilgiler */}
         <PersonalInfoCard
-          key={profile ? `name-ready-${profile.full_name}` : 'name-loading'}
+          key={profile ? `name-ready-${profile.full_name}-${profile.username}` : 'name-loading'}
           initialFullName={profile?.full_name ?? fullName}
-          onSaved={setFullName}
+          initialUsername={profile?.username ?? username}
+          onSaved={(name, uname) => { setFullName(name); setUsername(uname); }}
         />
 
         {/* Okul Bilgileri */}
@@ -375,10 +380,21 @@ export default function ProfilClient() {
 
 // ==================== KİŞİSEL BİLGİLER ====================
 
-function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: string; onSaved: (name: string) => void }) {
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+
+function PersonalInfoCard({
+  initialFullName,
+  initialUsername,
+  onSaved,
+}: {
+  initialFullName: string;
+  initialUsername: string | null;
+  onSaved: (name: string, username: string | null) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(initialFullName);
+  const [uname, setUname] = useState(initialUsername ?? '');
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
@@ -387,9 +403,14 @@ function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: strin
   }, []);
 
   async function handleSave() {
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       showNotice('error', 'Ad soyad boş olamaz');
+      return;
+    }
+    const trimmedUsername = uname.trim().toLowerCase();
+    if (trimmedUsername && !USERNAME_PATTERN.test(trimmedUsername)) {
+      showNotice('error', 'Kullanıcı adı 3-20 karakter olmalı, sadece küçük harf, rakam ve alt çizgi (_) içerebilir');
       return;
     }
     setSaving(true);
@@ -398,9 +419,9 @@ function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: strin
       fetch('/api/profile/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch: { full_name: trimmed } }),
+        body: JSON.stringify({ patch: { full_name: trimmedName, username: trimmedUsername || null } }),
       }),
-      supabase.auth.updateUser({ data: { full_name: trimmed } }),
+      supabase.auth.updateUser({ data: { full_name: trimmedName } }),
     ]);
     const data = await res.json();
     setSaving(false);
@@ -408,7 +429,7 @@ function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: strin
       showNotice('error', data.error || 'Kaydedilemedi');
       return;
     }
-    onSaved(trimmed);
+    onSaved(trimmedName, trimmedUsername || null);
     showNotice('success', 'Bilgiler kaydedildi');
     setEditing(false);
   }
@@ -437,9 +458,14 @@ function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: strin
       )}
 
       {!editing ? (
-        <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5 w-fit">
-          🙋 {initialFullName || 'Ad belirtilmemiş'}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5">
+            🙋 {initialFullName || 'Ad belirtilmemiş'}
+          </span>
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
+            @ {initialUsername || 'Kullanıcı adı belirtilmemiş'}
+          </span>
+        </div>
       ) : (
         <div className="space-y-4">
           <div>
@@ -452,9 +478,26 @@ function PersonalInfoCard({ initialFullName, onSaved }: { initialFullName: strin
               className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
             />
           </div>
+          <div>
+            <label className="block text-muted-foreground text-xs font-medium mb-1.5">Kullanıcı Adı</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
+              <input
+                type="text"
+                value={uname}
+                onChange={(e) => setUname(e.target.value.toLowerCase())}
+                maxLength={20}
+                placeholder="kullanici_adi"
+                className="w-full pl-7 pr-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Liderlik tablosunda ve yorumlarında gerçek adın yerine bu görünür. Boş bırakırsan &quot;Öğrenci&quot; yazar.
+            </p>
+          </div>
           <div className="flex gap-3 pt-1">
             <button
-              onClick={() => { setEditing(false); setName(initialFullName); }}
+              onClick={() => { setEditing(false); setName(initialFullName); setUname(initialUsername ?? ''); }}
               className="px-4 py-2 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-surface-elevated text-sm font-medium transition-colors"
             >
               İptal

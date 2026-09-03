@@ -49,10 +49,31 @@ function randomOf(arr: string[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function shuffle<T>(arr: T[]): T[] {
+// mulberry32: küçük, deterministik bir PRNG. MatchingView'daki sağ sütun sırası
+// bir component render'ında (useMemo ile) belirleniyor — yani hem sunucudaki ilk
+// SSR geçişinde hem de tarayıcıdaki hydration geçişinde AYRI AYRI çalışıyor. Sıradan
+// shuffle() (Math.random tabanlı) bu iki geçişte iki farklı sonuç üretip React'in
+// "server HTML ile client render eşleşmiyor" hydration hatasına yol açıyordu (bkz.
+// /soru-bankasi sayfasındaki eşleştirme soruları). Aynı soru.id iki geçişte de aynı
+// prop olarak geldiği için, ondan türeyen bir seed kullanmak iki geçişte de AYNI
+// sıralamayı garantiler — MC/boşluk doldurma şıklarının shuffle()'ı buna ihtiyaç
+// duymuyor çünkü onlar sadece sunucu tarafında, veri hazırlanırken bir KEZ karışıyor
+// (bkz. quizQuestions.ts:resolveQuestions), component render'ında değil.
+function mulberry32(seed: number) {
+  let state = seed | 0;
+  return function random() {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const random = mulberry32(seed);
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -191,7 +212,7 @@ export function MatchingView({
   onCheck: () => void;
 }) {
   const [activeLeft, setActiveLeft] = useState<number | null>(null);
-  const rightItems = useMemo(() => shuffle<Pair>(question.pairs), [question]);
+  const rightItems = useMemo(() => seededShuffle<Pair>(question.pairs, question.id), [question]);
   const rightTextById = useMemo(() => new Map(question.pairs.map((p) => [p.id, p.right_text])), [question]);
   const allAssigned = Object.keys(assignment).length === question.pairs.length;
   const assignedRightIds = new Set(Object.values(assignment));
