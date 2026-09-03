@@ -42,6 +42,9 @@ export type LessonWeekContent = {
   heroImageAlt: string | null;
   subtitle: string | null;
   highlights: { icon: string | null; title: string; description: string }[];
+  // false ise bu konunun section/highlight içeriği henüz çekilmedi (bkz. activeTopic parametresi) —
+  // sidebar'da başlık/slug göstermek için yeterli ama tam içerik client tarafında ayrıca yüklenmeli.
+  contentLoaded: boolean;
 };
 
 function extractHeroImageAlt(generationMeta: unknown): string | null {
@@ -50,8 +53,13 @@ function extractHeroImageAlt(generationMeta: unknown): string | null {
   return typeof val === 'string' && val.trim() ? val : null;
 }
 
+// activeTopic verilirse (id ve/veya slug) SADECE o konunun ağır içeriği (topic_contents,
+// section, highlight) çekilir; ünitedeki diğer konular sidebar/ilerleme için gerekli olan
+// başlık+slug ile hafif (contentLoaded:false) döner. Verilmezse (ör. hafta değişimi veya
+// başka bir ünitenin arkaplanda ısıtılması) eskisi gibi ünitedeki TÜM konuların tam içeriği
+// çekilir — bu yüzden parametre opsiyonel ve geriye dönük uyumlu.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number, isAdmin = false) {
+export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number, isAdmin = false, activeTopic?: { id?: number; slug?: string } | null) {
   let topicsQuery = supabase
     .from('topics')
     .select('id, title, slug, order_no')
@@ -74,15 +82,39 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
   const topics = (topicsData as TopicRow[] | null) || [];
   const topicIds = topics.map((t) => t.id);
   const topicTitleById = new Map(topics.map((topic) => [topic.id, topic.title]));
+
+  // activeTopic verilmişse ağır içerik sorgusunu SADECE o konuya daraltıyoruz — ünitedeki
+  // diğer konuların tam içeriğini (section/highlight, markdown->HTML render dahil) her sayfa
+  // açılışında gereksiz yere çekmemek için (bkz. dosya başındaki açıklama).
+  let resolvedActiveTopicId = activeTopic?.id ?? null;
+  if (resolvedActiveTopicId == null && activeTopic?.slug) {
+    resolvedActiveTopicId = topics.find((t) => t.slug === activeTopic.slug)?.id ?? null;
+  }
+  const contentTopicIds = resolvedActiveTopicId != null ? topicIds.filter((id) => id === resolvedActiveTopicId) : topicIds;
+  const loadedTopicIds = new Set(contentTopicIds);
+
+  let topicContentsQuery = supabase
+    .from('topic_contents')
+    .select('id, topic_id, hero_image_url, subtitle, generation_meta')
+    .in('topic_id', contentTopicIds);
+  if (!isAdmin) topicContentsQuery = topicContentsQuery.eq('is_published', true);
+
+  // outcomes ve topic_contents sorguları birbirinden bağımsız (ikisi de sadece yukarıda
+  // hesaplanan id listelerine bağlı) — sıralı değil paralel çekiyoruz.
+  const [{ data: outcomesData }, { data: topicContentsData }] = await Promise.all([
+    topicIds.length
+      ? supabase
+          .from('outcomes')
+          .select('id, description, topic_id, order_index')
+          .in('topic_id', topicIds)
+          .order('order_index', { ascending: true })
+      : Promise.resolve({ data: [] as OutcomeRow[] }),
+    contentTopicIds.length ? topicContentsQuery : Promise.resolve({ data: [] as TopicContentRow[] }),
+  ]);
+
   let outcomes: LessonWeekOutcome[] = [];
 
   if (topicIds.length) {
-    const { data: outcomesData } = await supabase
-      .from('outcomes')
-      .select('id, description, topic_id, order_index')
-      .in('topic_id', topicIds)
-      .order('order_index', { ascending: true });
-
     const allTopicOutcomesRaw = (outcomesData as OutcomeRow[] | null) || [];
 
     // order_index her konuda 1'den başlar (konuya özel) — birden fazla konunun kazanımlarını
@@ -122,16 +154,10 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     heroImageAlt: null,
     subtitle: null,
     highlights: [],
+    contentLoaded: false,
   }));
 
-  if (topicIds.length) {
-    let topicContentsQuery = supabase
-      .from('topic_contents')
-      .select('id, topic_id, hero_image_url, subtitle, generation_meta')
-      .in('topic_id', topicIds);
-    if (!isAdmin) topicContentsQuery = topicContentsQuery.eq('is_published', true);
-    const { data: topicContentsData } = await topicContentsQuery;
-
+  if (contentTopicIds.length) {
     const topicContentRows = (topicContentsData as TopicContentRow[] | null) || [];
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
     const contentIds = topicContentRows.map((tc) => tc.id);
@@ -201,6 +227,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       heroImageAlt: heroByTopic.get(c.id)?.heroImageAlt || null,
       subtitle: heroByTopic.get(c.id)?.subtitle || null,
       highlights: highlightsByTopic.get(c.id) || [],
+      contentLoaded: loadedTopicIds.has(c.id),
     }));
   }
 

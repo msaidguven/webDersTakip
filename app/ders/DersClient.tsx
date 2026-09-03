@@ -87,6 +87,9 @@ type Content = {
   heroImageAlt?: string | null;
   subtitle?: string | null;
   highlights?: TopicHighlight[];
+  // false ise bu konunun sections/highlights alanları henüz sunucudan çekilmedi (sadece
+  // başlık/slug var) — bkz. ensureTopicContentLoaded.
+  contentLoaded?: boolean;
 };
 type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 type ProfileRoleRow = { role: string | null };
@@ -613,6 +616,46 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return fetchPromise;
   };
 
+  // Sunucu artık ilk yüklemede SADECE açılan konunun tam içeriğini gönderiyor (bkz.
+  // getLessonWeekData'daki activeTopic parametresi); ünitedeki diğer konular başlık/slug
+  // ile hafif geliyor (contentLoaded:false). Kullanıcı sidebar'dan o konuya geçtiğinde veya
+  // ileri/geri ile ona yaklaştığında bu, tek bir konunun içeriğini arkaplanda/isteğe bağlı çeker.
+  const inFlightTopicContentFetchesRef = useRef<Record<string, Promise<void> | undefined>>({});
+
+  const ensureTopicContentLoaded = useCallback((topic: Content, unit: Unit): Promise<void> => {
+    if (topic.contentLoaded) return Promise.resolve();
+    const key = String(topic.id);
+    if (inFlightTopicContentFetchesRef.current[key]) return inFlightTopicContentFetchesRef.current[key]!;
+
+    const fetchPromise = (async () => {
+      try {
+        const params = new URLSearchParams({
+          gradeId,
+          lessonId,
+          unitId: String(unit.id),
+          week: String(unit.start_week || week),
+          topicId: key,
+        });
+        const response = await fetch(`/api/lesson-week-data?${params.toString()}`);
+        if (!response.ok) return;
+        const data = await response.json() as { contents?: Content[] };
+        const loaded = data.contents?.find((c) => String(c.id) === key);
+        if (!loaded?.contentLoaded) return;
+
+        const mergeLoaded = (list: Content[]) => list.map((c) => (String(c.id) === key ? { ...c, ...loaded } : c));
+        setContents((prev) => mergeLoaded(prev));
+        setUnitTopicsCache((prev) => (prev[String(unit.id)] ? { ...prev, [String(unit.id)]: mergeLoaded(prev[String(unit.id)]) } : prev));
+      } catch (error) {
+        console.error('Konu içeriği yüklenemedi:', error);
+      } finally {
+        delete inFlightTopicContentFetchesRef.current[key];
+      }
+    })();
+
+    inFlightTopicContentFetchesRef.current[key] = fetchPromise;
+    return fetchPromise;
+  }, [gradeId, lessonId, week]);
+
   // Sayfa ilk içeriğini yükledikten SONRA (arkaplanda, tek seferlik), henüz
   // önbellekte olmayan ünitelerin konularını sırayla arka planda ısıtır —
   // böylece kullanıcı bir üniteye tıkladığında beklemeden açılır. İlk sayfa
@@ -671,13 +714,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
+    let list = contents;
     if (String(unit.id) !== String(activeUnit?.id)) {
       const cached = unitTopicsCache[String(unit.id)];
-      if (cached) setContents(cached);
+      if (cached) {
+        list = cached;
+        setContents(cached);
+      }
       setManualUnitId(Number(unit.id));
     }
     setActiveTopicId(topicId);
     setSidebarOpen(false);
+    const topic = list.find((c) => String(c.id) === String(topicId));
+    if (topic) void ensureTopicContentLoaded(topic, unit);
   };
 
   // Aktif olarak gösterilen konudaki bir alt başlığa (section) kayar; artık her
@@ -698,14 +747,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   // Başka bir konudaki/üniteredeki bir alt başlığa tıklanınca: önce o konuyu aktif
   // yapar, içerik render olduktan sonra pendingScrollSlugRef üzerinden anchor'a kayar.
   const selectUnitSection = (unit: Unit, topicId: string | number, slug: string) => {
+    let list = contents;
     if (String(unit.id) !== String(activeUnit?.id)) {
       const cached = unitTopicsCache[String(unit.id)];
-      if (cached) setContents(cached);
+      if (cached) {
+        list = cached;
+        setContents(cached);
+      }
       setManualUnitId(Number(unit.id));
     }
     setActiveTopicId(topicId);
     pendingScrollSlugRef.current = slug;
     setSidebarOpen(false);
+    const topic = list.find((c) => String(c.id) === String(topicId));
+    if (topic) void ensureTopicContentLoaded(topic, unit);
   };
 
   const totalTopics = contents.length;
@@ -1202,7 +1257,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const topic = contents[index];
     if (!topic) return;
     setActiveTopicId(topic.id);
+    if (activeUnit) void ensureTopicContentLoaded(topic, activeUnit);
   };
+
+  // İleri/geri ile okuma akışı en sık kullanılan gezinme olduğu için, kullanıcı bir konuya
+  // gerçekten ulaşmadan ÖNCE komşu (bir önceki/sonraki) konunun içeriğini arkaplanda ısıtır —
+  // böylece goForward/goBackward sırasında içerik zaten hazır olur, boş an yaşanmaz.
+  useEffect(() => {
+    if (!activeUnit) return;
+    const neighbors = [contents[selectedTopicIndex + 1], contents[selectedTopicIndex - 1]].filter(
+      (t): t is Content => !!t && !t.contentLoaded
+    );
+    neighbors.forEach((topic) => {
+      void ensureTopicContentLoaded(topic, activeUnit);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTopicIndex, contents, activeUnit?.id]);
 
   const sections = activeTopic?.sections || [];
 

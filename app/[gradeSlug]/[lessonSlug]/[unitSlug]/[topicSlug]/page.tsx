@@ -57,6 +57,78 @@ function buildBreadcrumbJsonLd(data: NonNullable<Awaited<ReturnType<typeof getTo
   };
 }
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+async function resolveGrade(supabase: Supabase, decodedGradeSlug: string): Promise<GradeRow | null> {
+  const { data: gradeBySlug } = await supabase
+    .from('grades')
+    .select('id, name, slug')
+    .eq('slug', decodedGradeSlug)
+    .maybeSingle();
+  if (gradeBySlug) return gradeBySlug as GradeRow;
+
+  const gradeOrderNo = parseGradeSegment(decodedGradeSlug);
+  const gradeId = Number(decodedGradeSlug);
+  const gradeQueryValue = gradeOrderNo ?? (Number.isFinite(gradeId) ? gradeId : null);
+  if (!gradeQueryValue) return null;
+
+  const { data: gradeByFallback } = await supabase
+    .from('grades')
+    .select('id, name, slug')
+    .eq(gradeOrderNo ? 'order_no' : 'id', gradeQueryValue)
+    .maybeSingle();
+  return gradeByFallback as GradeRow | null;
+}
+
+async function resolveLesson(supabase: Supabase, decodedLessonSlug: string): Promise<LessonRow | null> {
+  const { data: lessonBySlug } = await supabase
+    .from('lessons')
+    .select('id, name, slug')
+    .eq('slug', decodedLessonSlug)
+    .maybeSingle();
+  if (lessonBySlug) return lessonBySlug as LessonRow;
+
+  const lessonId = Number(decodedLessonSlug);
+  if (!Number.isFinite(lessonId)) return null;
+
+  const { data: lessonById } = await supabase
+    .from('lessons')
+    .select('id, name, slug')
+    .eq('id', lessonId)
+    .maybeSingle();
+  return lessonById as LessonRow | null;
+}
+
+// "Ünite Testi" bağlantısı yalnızca gerçekten sorusu olan ünitelerde gösterilmeli; sidebar
+// üzerinden ünite değiştirmek sayfayı yeniden yüklemediği için bunu tüm üniteler için tek
+// seferde (topics -> questions.topic_id) hesaplayıp Unit'e ekliyoruz. Admin için buton
+// yanında gerçek soru sayısını da göstermek üzere ayrıca sayıyoruz.
+async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]): Promise<Map<number, number>> {
+  const questionCountByUnit = new Map<number, number>();
+  const unitIds = units.map((u) => u.id);
+  if (!unitIds.length) return questionCountByUnit;
+
+  const { data: allTopicsData } = await supabase
+    .from('topics')
+    .select('id, unit_id')
+    .in('unit_id', unitIds)
+    .eq('is_active', true);
+  const unitIdByTopicId = new Map(((allTopicsData as { id: number; unit_id: number }[] | null) || []).map((t) => [t.id, t.unit_id]));
+  const topicIds = Array.from(unitIdByTopicId.keys());
+  if (!topicIds.length) return questionCountByUnit;
+
+  const { data: questionsData } = await supabase
+    .from('questions')
+    .select('id, topic_id')
+    .in('topic_id', topicIds);
+  for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
+    const unitId = unitIdByTopicId.get(q.topic_id);
+    if (unitId == null) continue;
+    questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) ?? 0) + 1);
+  }
+  return questionCountByUnit;
+}
+
 function normalizeDescription(text: string, maxLength = 158) {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= maxLength) return clean;
@@ -81,49 +153,17 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
   const decodedTopicSlug = decodeURIComponent(topicSlug || '').trim();
 
-  let grade: GradeRow | null = null;
-  let lesson: LessonRow | null = null;
-
-  const { data: gradeBySlug } = await supabase
-    .from('grades')
-    .select('id, name, slug')
-    .eq('slug', decodedGradeSlug)
-    .maybeSingle();
-  grade = gradeBySlug as GradeRow | null;
-
-  if (!grade) {
-    const gradeOrderNo = parseGradeSegment(decodedGradeSlug);
-    const gradeId = Number(decodedGradeSlug);
-    const gradeQueryValue = gradeOrderNo ?? (Number.isFinite(gradeId) ? gradeId : null);
-
-    if (gradeQueryValue) {
-      const { data: gradeByFallback } = await supabase
-        .from('grades')
-        .select('id, name, slug')
-        .eq(gradeOrderNo ? 'order_no' : 'id', gradeQueryValue)
-        .maybeSingle();
-      grade = gradeByFallback as GradeRow | null;
-    }
-  }
-
-  const { data: lessonBySlug } = await supabase
-    .from('lessons')
-    .select('id, name, slug')
-    .eq('slug', decodedLessonSlug)
-    .maybeSingle();
-  lesson = lessonBySlug as LessonRow | null;
-
-  if (!lesson) {
-    const lessonId = Number(decodedLessonSlug);
-    if (Number.isFinite(lessonId)) {
-      const { data: lessonById } = await supabase
-        .from('lessons')
-        .select('id, name, slug')
-        .eq('id', lessonId)
-        .maybeSingle();
-      lesson = lessonById as LessonRow | null;
-    }
-  }
+  // Sınıf, ders, admin kontrolü ve müfredat takvimi birbirinden BAĞIMSIZ — art arda
+  // (sıralı) değil paralel çekiyoruz. Bu tek değişiklik, sayfa açılışındaki ~13 ardışık
+  // Supabase round-trip'ini birkaç paralel dalgaya indirerek asıl yavaşlığın kaynağını
+  // (round-trip SAYISI, veri boyutu değil) hedefliyor — bkz. getLessonWeekData'daki
+  // activeTopic notu.
+  const [grade, lesson, isAdmin, calendar] = await Promise.all([
+    resolveGrade(supabase, decodedGradeSlug),
+    resolveLesson(supabase, decodedLessonSlug),
+    isViewerAdmin(supabase),
+    getCurriculumCalendar(supabase),
+  ]);
 
   if (!grade || !lesson) {
     return null;
@@ -132,19 +172,6 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const gId = grade.id;
   const lId = lesson.id;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
-  const { data: lessonGradeData } = await supabase
-    .from('lesson_grades')
-    .select('is_active')
-    .eq('lesson_id', lId)
-    .eq('grade_id', gId)
-    .maybeSingle();
-
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
-    return null;
-  }
-
   let unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week, is_active')
@@ -152,7 +179,21 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     .eq('grade_id', gId)
     .order('order_no', { ascending: true });
   if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
-  const { data: unitsData } = await unitsQuery;
+
+  // lesson_grades ve units de birbirinden bağımsız — ikisi de sadece gId/lId'ye bağlı.
+  const [{ data: lessonGradeData }, { data: unitsData }] = await Promise.all([
+    supabase
+      .from('lesson_grades')
+      .select('is_active')
+      .eq('lesson_id', lId)
+      .eq('grade_id', gId)
+      .maybeSingle(),
+    unitsQuery,
+  ]);
+
+  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+    return null;
+  }
 
   const units = (unitsData as UnitRow[] | null) || [];
 
@@ -160,37 +201,6 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   if (!activeUnit) {
     return null;
   }
-
-  // "Ünite Testi" bağlantısı yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
-  // sidebar üzerinden ünite değiştirmek sayfayı yeniden yüklemediği için bunu tüm
-  // üniteler için tek seferde (topics -> questions.topic_id) hesaplayıp Unit'e ekliyoruz.
-  // Admin için buton yanında gerçek soru sayısını da göstermek üzere ayrıca sayıyoruz.
-  const unitIds = units.map((u) => u.id);
-  const questionCountByUnit = new Map<number, number>();
-  if (unitIds.length) {
-    const { data: allTopicsData } = await supabase
-      .from('topics')
-      .select('id, unit_id')
-      .in('unit_id', unitIds)
-      .eq('is_active', true);
-    const unitIdByTopicId = new Map(((allTopicsData as { id: number; unit_id: number }[] | null) || []).map((t) => [t.id, t.unit_id]));
-    const topicIds = Array.from(unitIdByTopicId.keys());
-    if (topicIds.length) {
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('id, topic_id')
-        .in('topic_id', topicIds);
-      for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
-        const unitId = unitIdByTopicId.get(q.topic_id);
-        if (unitId == null) continue;
-        questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) ?? 0) + 1);
-      }
-    }
-  }
-  const unitsWithQuestionFlag = units.map((u) => {
-    const testQuestionCount = questionCountByUnit.get(u.id) ?? 0;
-    return { ...u, has_questions: testQuestionCount > 0, test_question_count: testQuestionCount };
-  });
 
   const totalWeeks = (() => {
     const maxFromUnits = units.reduce((max, u) => Math.max(max, u.end_week ?? u.start_week ?? 0), 0);
@@ -200,13 +210,26 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
   const unitStart = activeUnit.start_week ?? 1;
   const unitEnd = activeUnit.end_week ?? totalWeeks;
-  const { termStartDate, termEndDate, breaks } = await getCurriculumCalendar(supabase);
+  const { termStartDate, termEndDate, breaks } = calendar;
   const suggestedWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
   const week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
 
-  // Konu içeriğini (alt başlıklar, ders notu, kazanımlar) SUNUCU tarafında çekiyoruz
-  // ki Google ve diğer arama motorları sayfayı ilk yüklemede tam içerikle görsün.
-  const { outcomes, contents } = await getLessonWeekData(supabase, activeUnit.id, week, isAdmin);
+  // Soru sayacı (tüm üniteler, "Ünite Testi" butonu için) ile aktif konunun içeriği de
+  // birbirinden bağımsız — paralel çekiyoruz. Konu içeriğini (alt başlıklar, ders notu,
+  // kazanımlar) SUNUCU tarafında çekiyoruz ki Google ve diğer arama motorları sayfayı ilk
+  // yüklemede tam içerikle görsün. Ünitedeki diğer konuların ağır içeriğini burada
+  // ÇEKMİYORUZ — sadece açılan konu (decodedTopicSlug) tam yüklenir, diğerleri sidebar
+  // için hafif kalır ve client tarafında ihtiyaç oldukça (DersClient ->
+  // ensureTopicContentLoaded) yüklenir.
+  const [questionCountByUnit, { outcomes, contents }] = await Promise.all([
+    computeQuestionCountByUnit(supabase, units),
+    getLessonWeekData(supabase, activeUnit.id, week, isAdmin, { slug: decodedTopicSlug }),
+  ]);
+
+  const unitsWithQuestionFlag = units.map((u) => {
+    const testQuestionCount = questionCountByUnit.get(u.id) ?? 0;
+    return { ...u, has_questions: testQuestionCount > 0, test_question_count: testQuestionCount };
+  });
 
   const activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
   if (!activeTopic) {
