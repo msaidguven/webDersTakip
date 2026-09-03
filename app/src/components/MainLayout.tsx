@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useIsAdmin } from '../hooks/useIsAdmin';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { Icon } from './icons';
 import ThemeToggle from './ThemeToggle';
@@ -15,6 +16,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, supabase, signOut } = useAuth();
+  const isAdmin = useIsAdmin();
   const pathname = usePathname();
   const [streak, setStreak] = React.useState<number | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
@@ -148,6 +150,17 @@ export function MainLayout({ children }: MainLayoutProps) {
                     >
                       Profil
                     </Link>
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
+                          transition-colors text-sm px-4 py-2.5
+                          hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                      >
+                        Admin
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         setIsProfileMenuOpen(false);
