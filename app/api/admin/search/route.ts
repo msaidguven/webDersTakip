@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
-const RESULT_LIMIT = 25;
+const PAGE_SIZE = 25;
+const PREVIEW_SIZE = 8;
+// Çoklu-kolon (question_text/solution_text, title/subtitle/body_markdown) ilike aramaları
+// tek bir PostgREST sorgusunda birleştirilemediği için her kolon ayrı çekilip JS'te
+// birleştirilip sıralanıyor. Bu tavan, birleştirme öncesi kolon başına çekilen satır sayısını
+// sınırlar — müfredat ölçeğindeki veri için yeterli, aşılırsa `truncated: true` dönülür.
+const COLUMN_FETCH_CAP = 300;
+
+type Scope = 'all' | 'questions' | 'contents';
+
+type Embed<T> = T | T[] | null;
+
+function one<T>(v: Embed<T>): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? v[0] || null : v;
+}
 
 type QuestionRow = {
   id: number;
   question_text: string;
   solution_text: string | null;
   topic_id: number | null;
-  topics: { title: string } | { title: string }[] | null;
-  question_types: { code: string } | { code: string }[] | null;
+  created_at: string;
+  topics: Embed<{ title: string }>;
+  question_types: Embed<{ code: string }>;
 };
-
-type Embed<T> = T | T[] | null;
 
 type GradeRef = { slug: string | null };
 type LessonRef = { slug: string | null };
@@ -27,6 +42,7 @@ type ContentRow = {
   body_markdown: string | null;
   is_published: boolean;
   topic_id: number | null;
+  created_at: string;
   topics: Embed<TopicRef>;
 };
 
@@ -39,11 +55,6 @@ type ContentResult = {
   topicTitle: string | null;
   href: string | null;
 };
-
-function one<T>(v: Embed<T>): T | null {
-  if (!v) return null;
-  return Array.isArray(v) ? v[0] || null : v;
-}
 
 function toContentResult(row: ContentRow): ContentResult {
   const topic = one(row.topics);
@@ -67,66 +78,119 @@ function toContentResult(row: ContentRow): ContentResult {
   };
 }
 
+function mergeDedupSort<T extends { id: number; created_at: string }>(lists: T[][]): { merged: T[]; truncated: boolean } {
+  const byId = new Map<number, T>();
+  let truncated = false;
+  for (const list of lists) {
+    if (list.length >= COLUMN_FETCH_CAP) truncated = true;
+    for (const row of list) byId.set(row.id, row);
+  }
+  const merged = Array.from(byId.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return { merged, truncated };
+}
+
+function paginate<T>(items: T[], page: number, pageSize: number): T[] {
+  const start = (page - 1) * pageSize;
+  return items.slice(start, start + pageSize);
+}
+
+async function resolveTopicIds(supabase: SupabaseClient, gradeId: string, lessonId: string): Promise<number[] | null> {
+  if (!gradeId && !lessonId) return null;
+
+  let unitQuery = supabase.from('units').select('id');
+  if (gradeId) unitQuery = unitQuery.eq('grade_id', gradeId);
+  if (lessonId) unitQuery = unitQuery.eq('lesson_id', lessonId);
+  const { data: unitRows, error: unitErr } = await unitQuery;
+  if (unitErr) throw new Error(unitErr.message);
+  const unitIds = ((unitRows as { id: number }[] | null) || []).map((u) => u.id);
+  if (!unitIds.length) return [];
+
+  const { data: topicRows, error: topicErr } = await supabase.from('topics').select('id').in('unit_id', unitIds);
+  if (topicErr) throw new Error(topicErr.message);
+  return ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
+}
+
+async function searchQuestions(supabase: SupabaseClient, pattern: string, topicIds: number[] | null, page: number, pageSize: number) {
+  const select = 'id, question_text, solution_text, topic_id, created_at, topics(title), question_types(code)';
+  let textQuery = supabase.from('questions').select(select).ilike('question_text', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
+  let solutionQuery = supabase.from('questions').select(select).ilike('solution_text', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
+  if (topicIds) {
+    textQuery = textQuery.in('topic_id', topicIds);
+    solutionQuery = solutionQuery.in('topic_id', topicIds);
+  }
+
+  const [textRes, solutionRes] = await Promise.all([textQuery, solutionQuery]);
+  if (textRes.error) throw new Error(textRes.error.message);
+  if (solutionRes.error) throw new Error(solutionRes.error.message);
+
+  const { merged, truncated } = mergeDedupSort<QuestionRow>([
+    (textRes.data as QuestionRow[]) || [],
+    (solutionRes.data as QuestionRow[]) || [],
+  ]);
+
+  return { items: paginate(merged, page, pageSize), total: merged.length, truncated };
+}
+
+async function searchContents(supabase: SupabaseClient, pattern: string, topicIds: number[] | null, page: number, pageSize: number) {
+  const select = 'id, title, subtitle, body_markdown, is_published, topic_id, created_at, topics(title, slug, units(slug, grades(slug), lessons(slug)))';
+  let titleQuery = supabase.from('topic_contents').select(select).ilike('title', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
+  let subtitleQuery = supabase.from('topic_contents').select(select).ilike('subtitle', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
+  let bodyQuery = supabase.from('topic_contents').select(select).ilike('body_markdown', pattern).order('created_at', { ascending: false }).limit(COLUMN_FETCH_CAP);
+  if (topicIds) {
+    titleQuery = titleQuery.in('topic_id', topicIds);
+    subtitleQuery = subtitleQuery.in('topic_id', topicIds);
+    bodyQuery = bodyQuery.in('topic_id', topicIds);
+  }
+
+  const [titleRes, subtitleRes, bodyRes] = await Promise.all([titleQuery, subtitleQuery, bodyQuery]);
+  if (titleRes.error) throw new Error(titleRes.error.message);
+  if (subtitleRes.error) throw new Error(subtitleRes.error.message);
+  if (bodyRes.error) throw new Error(bodyRes.error.message);
+
+  const { merged, truncated } = mergeDedupSort<ContentRow>([
+    (titleRes.data as ContentRow[]) || [],
+    (subtitleRes.data as ContentRow[]) || [],
+    (bodyRes.data as ContentRow[]) || [],
+  ]);
+
+  return { items: paginate(merged, page, pageSize).map(toContentResult), total: merged.length, truncated };
+}
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const q = request.nextUrl.searchParams.get('q')?.trim() || '';
+  const params = request.nextUrl.searchParams;
+  const q = params.get('q')?.trim() || '';
   if (q.length < 2) {
     return NextResponse.json({ error: 'Arama için en az 2 karakter girin' }, { status: 400 });
   }
 
+  const scope: Scope = params.get('scope') === 'questions' || params.get('scope') === 'contents' ? (params.get('scope') as Scope) : 'all';
+  const gradeId = params.get('gradeId') || '';
+  const lessonId = params.get('lessonId') || '';
+  const isAll = scope === 'all';
+  const page = isAll ? 1 : Math.max(1, Number(params.get('page')) || 1);
+  const pageSize = isAll ? PREVIEW_SIZE : PAGE_SIZE;
+
   const supabase = createServiceClient();
   const pattern = `%${q}%`;
 
-  const [qByText, qBySolution, cByTitle, cBySubtitle, cByBody] = await Promise.all([
-    supabase
-      .from('questions')
-      .select('id, question_text, solution_text, topic_id, topics(title), question_types(code)')
-      .ilike('question_text', pattern)
-      .order('created_at', { ascending: false })
-      .limit(RESULT_LIMIT),
-    supabase
-      .from('questions')
-      .select('id, question_text, solution_text, topic_id, topics(title), question_types(code)')
-      .ilike('solution_text', pattern)
-      .order('created_at', { ascending: false })
-      .limit(RESULT_LIMIT),
-    supabase
-      .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
-      .ilike('title', pattern)
-      .order('created_at', { ascending: false })
-      .limit(RESULT_LIMIT),
-    supabase
-      .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
-      .ilike('subtitle', pattern)
-      .order('created_at', { ascending: false })
-      .limit(RESULT_LIMIT),
-    supabase
-      .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
-      .ilike('body_markdown', pattern)
-      .order('created_at', { ascending: false })
-      .limit(RESULT_LIMIT),
-  ]);
+  try {
+    const topicIds = await resolveTopicIds(supabase, gradeId, lessonId);
+    const noTopicMatch = topicIds !== null && topicIds.length === 0;
 
-  const firstError = [qByText, qBySolution, cByTitle, cBySubtitle, cByBody].find((r) => r.error)?.error;
-  if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
+    const [questions, contents] = await Promise.all([
+      scope !== 'contents' && !noTopicMatch
+        ? searchQuestions(supabase, pattern, topicIds, page, pageSize)
+        : Promise.resolve({ items: [], total: 0, truncated: false }),
+      scope !== 'questions' && !noTopicMatch
+        ? searchContents(supabase, pattern, topicIds, page, pageSize)
+        : Promise.resolve({ items: [], total: 0, truncated: false }),
+    ]);
 
-  const questionsById = new Map<number, QuestionRow>();
-  for (const row of [...(qByText.data || []), ...(qBySolution.data || [])] as QuestionRow[]) {
-    questionsById.set(row.id, row);
+    return NextResponse.json({ scope, page, pageSize: isAll ? null : PAGE_SIZE, questions, contents });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Arama başarısız' }, { status: 500 });
   }
-
-  const contentsById = new Map<number, ContentRow>();
-  for (const row of [...(cByTitle.data || []), ...(cBySubtitle.data || []), ...(cByBody.data || [])] as ContentRow[]) {
-    contentsById.set(row.id, row);
-  }
-
-  return NextResponse.json({
-    questions: Array.from(questionsById.values()).slice(0, RESULT_LIMIT),
-    contents: Array.from(contentsById.values()).slice(0, RESULT_LIMIT).map(toContentResult),
-  });
 }
