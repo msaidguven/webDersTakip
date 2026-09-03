@@ -154,6 +154,7 @@ export async function generateBuddyAnswer(
   lessonName: string | null,
   unitName: string | null,
   contextChunks: string[],
+  questionContext?: string | null,
   replyContext?: string | null
 ): Promise<AnswerResult> {
   const contextLine = [gradeName, lessonName].filter(Boolean).join(' ');
@@ -161,6 +162,14 @@ export async function generateBuddyAnswer(
     ? `\n\nBu ünitenin ders notlarından bulunan ilgili parçalar (varsa öncelikle bunlara dayan):\n${contextChunks
         .map((c, i) => `[Parça ${i + 1}]\n${c}`)
         .join('\n\n')}\n`
+    : '';
+
+  // @hocam'daki questionContextBlock ile aynı amaç: "neden A" gibi bağlamsız kısa
+  // sorularda öğrencinin hangi test sorusundan bahsettiğini modele bildirmek —
+  // önceden sadece @hocam'a gidiyordu, @kanka bu yüzden aynı soruyu "görmüyormuş"
+  // gibi davranıyordu (2026-09-03'te bildirildi).
+  const questionContextBlock = questionContext
+    ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nSorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu sorunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n`
     : '';
 
   const replyContextBlock = replyContext
@@ -178,7 +187,7 @@ Kurallar:
 - Okul çağındaki bir öğrenciyle konuştuğunu unutma: küfür, argo, uygunsuz hiçbir şey söyleme.
 - Cevabı kısa tut: 300-500 karakter civarı.
 - Cevap gerçekten bir bilgi içeriyorsa (reddetme durumu hariç), sonuna kısa bir cümleyle ders notlarına da bakmasını öner (ör. "Ders notlarında da bu konuyla ilgili bilgi olabilir, göz atmanı öneririm!") — her seferinde birebir aynı cümle olmasın.
-${context}${replyContextBlock}
+${context}${questionContextBlock}${replyContextBlock}
 Öğrencinin sorusu: ${question}`;
 
   const answer = await callGemini(prompt, 0.6);

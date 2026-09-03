@@ -69,9 +69,10 @@ export async function answerAsBuddy(
   lessonId: number,
   unitId: number | null,
   question: string,
+  questionContext?: string | null,
   replyContext?: string | null
 ): Promise<AnswerQuestionResult> {
-  const searchQuery = [replyContext, question].filter(Boolean).join('\n\n');
+  const searchQuery = [questionContext, replyContext, question].filter(Boolean).join('\n\n');
   const [{ data: grade }, { data: lesson }, unitResult, queryEmbedding] = await Promise.all([
     supabase.from('grades').select('name').eq('id', gradeId).maybeSingle(),
     supabase.from('lessons').select('name').eq('id', lessonId).maybeSingle(),
@@ -88,6 +89,7 @@ export async function answerAsBuddy(
     lesson?.name ?? null,
     unitTitle,
     matches.map((m) => m.content),
+    questionContext,
     replyContext
   );
   return { answer, model, matchedChunkIds: matches.map((m) => m.id) };

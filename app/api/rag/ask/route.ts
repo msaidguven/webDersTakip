@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
   try {
     result =
       mode === 'kanka'
-        ? await answerAsBuddy(service, gradeId, lessonId, unitId, question, replyContext)
+        ? await answerAsBuddy(service, gradeId, lessonId, unitId, question, questionContext, replyContext)
         : await answerQuestionForBook(service, gradeId, lessonId, question, questionContext, replyContext);
   } catch (err) {
     console.error('RAG soru-cevap hatası', err);

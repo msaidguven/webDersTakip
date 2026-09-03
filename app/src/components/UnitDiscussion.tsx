@@ -528,7 +528,7 @@ export default function UnitDiscussion({
           unitId,
           quizQuestionId: quizQuestionId ?? undefined,
           question,
-          questionContext: mode === 'hocam' ? questionContext || undefined : undefined,
+          questionContext: questionContext || undefined,
           mode,
           parentCommentId: parentCommentId ?? undefined,
           parentRagAnswerId: parentRagAnswerId ?? undefined,
