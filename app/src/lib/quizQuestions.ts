@@ -1,4 +1,5 @@
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 
 export type Option = { id: number; text: string; is_correct: boolean };
 export type Pair = { id: number; left_text: string; right_text: string };
@@ -52,7 +53,13 @@ function shuffle<T>(arr: T[]): T[] {
 async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: boolean } = {}): Promise<QuizQuestion[]> {
   if (!questionIds.length) return [];
 
-  const supabase = createServiceClient();
+  // Bu fonksiyon SADECE soru İÇERİĞİNİ (metin/şık/eşleştirme/model cevap) çözer, hiçbir
+  // kullanıcıya özel veriye dokunmaz (kişiselleştirme selectPersonalizedQuestionIds'te,
+  // ayrı ve hâlâ service-role client kullanıyor) — bu yüzden cookie'siz anon client
+  // güvenle kullanılabiliyor. /soru-bankasi sayfasının (getAllTopicQuestions üzerinden)
+  // ISR ile cache'lenebilmesi için gerekliydi (service-role client'ın no-store fetch
+  // override'ı sayfayı dinamik render etmeye zorluyordu, bkz. [konu]/page.tsx'teki not).
+  const supabase = createAnonClient();
 
   const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }, { data: classicalData }] = await Promise.all([
     supabase.from('questions').select('id, question_text, solution_text, svg_content, svg_position').in('id', questionIds),
@@ -231,7 +238,10 @@ export async function getQuestionsByIdsInTopicPool(topicId: number | string, ids
 // /soru-bankasi sayfası için: kavrama testinin aksine burada havuzdan bir alt küme değil,
 // konudaki her soru tek bir statik sayfada listeleniyor.
 export async function getAllTopicQuestions(topicId: number | string): Promise<QuizQuestion[]> {
-  const supabase = createServiceClient();
+  // Kişiselleştirme yok (sadece topic_id filtresi), bu yüzden resolveQuestions gibi anon
+  // client kullanıyor — /soru-bankasi sayfasının ISR ile cache'lenebilmesi için (bkz. o
+  // fonksiyondaki not).
+  const supabase = createAnonClient();
   const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).order('id', { ascending: true });
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
   return getQuestionsByIds(questionIds);

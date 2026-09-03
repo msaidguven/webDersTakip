@@ -1,12 +1,22 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 // ?soru=ID ile gelen paylaşım linkleri için: sayfa yüklendiğinde ilgili soruya scroll edip
 // kısa bir "flash" ile dikkat çeker, ardından ince/kalıcı bir "aktif soru" halkası bırakır.
-// Soru id'sinin sayfada gerçekten var olup olmadığı server'da zaten doğrulanıyor (bkz.
-// activeQuestionId'yi hesaplayan page.tsx) — burada sadece DOM tarafı ele alınır.
-export default function QuestionBankHighlight({ activeQuestionId }: { activeQuestionId: number | null }) {
+// ?soru= artık sunucuda okunmuyor (searchParams okumak sayfayı ISR cache'inden çıkarırdı —
+// bkz. page.tsx'teki not), bu yüzden id'yi burada, client'ta okuyoruz. Sayfada gerçekten var
+// olup olmadığını da document.getElementById zaten doğal olarak doğruluyor (element yoksa
+// hiçbir şey yapmıyoruz) — ayrıca server-side bir soru listesi doğrulamasına gerek yok.
+export default function QuestionBankHighlight() {
+  const searchParams = useSearchParams();
+  const activeQuestionId = (() => {
+    const raw = searchParams?.get('soru');
+    const id = raw ? Number(raw) : NaN;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  })();
+
   useEffect(() => {
     if (activeQuestionId == null) return;
     const el = document.getElementById(`soru-${activeQuestionId}`);

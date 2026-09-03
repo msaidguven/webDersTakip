@@ -54,6 +54,9 @@ async function resolveTopicPaths(supabase: Supabase, topicIds: number[]): Promis
     const gradeSlug = gradeSlugById.get(unit.grade_id);
     if (!lessonSlug || !gradeSlug) continue;
     paths.push(`/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`);
+    // Soru bankası (cevap anahtarı) sayfası aynı konunun sorularını gösteriyor — soru
+    // eklendiğinde/silindiğinde veya konu içeriği değiştiğinde bu da güncel olmalı.
+    paths.push(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`);
   }
   return paths;
 }

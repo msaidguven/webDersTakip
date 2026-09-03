@@ -6,6 +6,7 @@
 
 import { cache } from 'react';
 import { createClient } from '@/utils/supabase/server';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { planTopicTestQuestions, planUnitTestQuestions } from '@/app/src/lib/quizQuestions';
 import { findResumableSession } from '@/app/src/lib/quizResume';
@@ -15,13 +16,20 @@ type LessonRow = { id: number; name: string; slug: string | null };
 type UnitRow = { id: number; title: string; slug: string | null };
 type TopicRow = { id: number; title: string; slug: string | null };
 
+// Not: admin/taslak dallanması yok — bu fonksiyon bilerek her zaman public (is_active +
+// soru>0) filtreler. Konu/ders/sınıf/soru-bankası sayfaları ISR ile cache'lenebilsin diye
+// (bkz. [gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/page.tsx'teki aynı desen). Taslak
+// önizleme /ders?... + admin paneli üzerinden yapılıyor. Kavrama-testi/ünite-testi
+// sayfaları bu fonksiyonu paylaşıyor ama zaten loadTopicQuizState/loadUnitQuizState'in
+// oturum ihtiyacı yüzünden dinamik kalıyorlar — buradaki değişiklik onları cache'lemez,
+// sadece admin'in oradan da taslak önizlemesini kaldırır.
 export const getTopicTestPageData = cache(async function getTopicTestPageData(
   gradeSlug: string,
   lessonSlug: string,
   unitSlug: string,
   topicSlug: string
 ) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
@@ -37,21 +45,23 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
-  let unitQuery = supabase
+  const unitQuery = supabase
     .from('units')
     .select('id, title, slug')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
-    .eq('slug', decodedUnitSlug);
-  if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
+    .eq('slug', decodedUnitSlug)
+    .eq('is_active', true);
   const { data: unitData } = await unitQuery.maybeSingle();
   const unit = unitData as UnitRow | null;
   if (!unit) return null;
 
-  let topicQuery = supabase.from('topics').select('id, title, slug').eq('unit_id', unit.id).eq('slug', decodedTopicSlug);
-  if (!isAdmin) topicQuery = topicQuery.eq('is_active', true);
+  const topicQuery = supabase
+    .from('topics')
+    .select('id, title, slug')
+    .eq('unit_id', unit.id)
+    .eq('slug', decodedTopicSlug)
+    .eq('is_active', true);
   const { data: topicData } = await topicQuery.maybeSingle();
   const topic = topicData as TopicRow | null;
   if (!topic) return null;
@@ -64,7 +74,7 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
     .eq('topic_id', topic.id);
   const questionCount = topicQuestionCount ?? 0;
 
-  if (!isAdmin && questionCount === 0) return null;
+  if (questionCount === 0) return null;
 
   return {
     gradeId: grade.id,

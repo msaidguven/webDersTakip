@@ -1,15 +1,19 @@
 // app/soru-bankasi/[sinif]/[ders]/[unite]/[konu]/page.tsx
 // Bir konunun TÜM sorularını tek, statik sayfada cevap anahtarı formatında listeler
 // (eski tekil /soru/[id] paylaşım sayfasının yerini alıyor, bkz. app/soru/[id]/page.tsx —
-// artık oraya 301 ile yönlendiriyor). ?soru=ID parametresi o soruya scroll+highlight yapar
-// ve sadece OG meta'yı o soruya özel üretir; <link rel="canonical"> HER ZAMAN parametresiz
-// taban URL'e işaret eder ki Google onlarca ?soru= varyasyonunu tek sayfa sayıp
-// birleştirsin (index bloat oluşmasın).
+// artık oraya 301 ile yönlendiriyor). ?soru=ID parametresi o soruya scroll+highlight yapar;
+// artık SUNUCUDA değil client'ta (QuestionBankHighlight, Suspense'e alınmış) okunuyor —
+// searchParams okumak bu sayfayı ISR cache'inden çıkarırdı (bkz. [gradeSlug]/[lessonSlug]/
+// page.tsx'teki ?hafta= için aynı çözüm). Bunun bilinçli bedeli: OG/paylaşım kartı artık
+// ?soru= değerine göre özelleşmiyor, her zaman genel konu bilgisini gösteriyor — zaten
+// <link rel="canonical"> HER ZAMAN parametresiz taban URL'e işaret ediyordu (Google onlarca
+// ?soru= varyasyonunu tek sayfa sayıp birleştirsin diye), yani SEO açısından bir kayıp yok.
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getAllTopicQuestions, getQuestionsByIds } from '@/app/src/lib/quizQuestions';
+import { getAllTopicQuestions } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type TopicTestPageData } from '@/app/src/lib/quizPageData';
 import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
@@ -17,8 +21,11 @@ import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Taslak/admin önizlemesi göstermiyor (getTopicTestPageData artık her zaman public +
+// soru>0 filtreli), bu yüzden ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki
+// aynı desen (generateStaticParams boş bile olsa bu projede revalidate'in çalışması için
+// gerekli).
+export const revalidate = 3600;
 
 interface Params {
   sinif: string;
@@ -29,7 +36,10 @@ interface Params {
 
 interface PageProps {
   params: Promise<Params>;
-  searchParams: Promise<{ soru?: string }>;
+}
+
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 function buildBreadcrumbJsonLd(data: TopicTestPageData) {
@@ -47,21 +57,12 @@ function buildBreadcrumbJsonLd(data: TopicTestPageData) {
   };
 }
 
-function parseQuestionParam(soru: string | undefined): number | null {
-  if (!soru) return null;
-  const id = Number(soru);
-  return Number.isFinite(id) && id > 0 ? id : null;
-}
-
-export default async function QuestionBankPage({ params, searchParams }: PageProps) {
+export default async function QuestionBankPage({ params }: PageProps) {
   const { sinif, ders, unite, konu } = await params;
-  const { soru } = await searchParams;
   const data = await getTopicTestPageData(sinif, ders, unite, konu);
   if (!data) notFound();
 
   const questions = await getAllTopicQuestions(data.topicId);
-  const activeId = parseQuestionParam(soru);
-  const activeIdOnPage = activeId != null && questions.some((q) => q.id === activeId) ? activeId : null;
   const unitData = await getSoruBankasiUnitData(sinif, ders, unite);
   const unitPath = unitData ? buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, unitData.unitSlug) : null;
 
@@ -81,13 +82,9 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
       <noscript>
         <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}`}</style>
       </noscript>
-      <QuestionBankHighlight activeQuestionId={activeIdOnPage} />
-
-      {!data.hasQuestions && (
-        <div className="mb-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
-          Taslak — bu konuda henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <QuestionBankHighlight />
+      </Suspense>
 
       <Link href={buildTopicPath(data)} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
         <ArrowLeft className="h-3.5 w-3.5" /> {data.topicTitle}&apos;a Dön
@@ -138,31 +135,16 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
   );
 }
 
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { sinif, ders, unite, konu } = await params;
-  const { soru } = await searchParams;
   const data = await getTopicTestPageData(sinif, ders, unite, konu);
   if (!data) return { title: 'Soru Bankası Bulunamadı' };
 
   const path = buildQuestionBankPath(data);
   const canonicalUrl = `${SITE_URL}${path}`;
-  const activeId = parseQuestionParam(soru);
 
-  let title = `${data.topicTitle} - ${data.gradeName} ${data.lessonName} Soru Bankası`;
-  let description = `${data.gradeName} ${data.lessonName} ${data.topicTitle} konusuna ait ${data.questionCount} soru ve cevap anahtarını tek sayfada incele.`;
-  let pageUrl = canonicalUrl;
-
-  if (activeId != null) {
-    const [question] = await getQuestionsByIds([activeId]);
-    if (question) {
-      title = `${data.topicTitle} - Soru ${activeId}`;
-      description =
-        question.type === 'matching'
-          ? `${data.topicTitle} konusundan bir eşleştirme sorusu ve cevap anahtarı.`
-          : question.question_text.replace(/\s+/g, ' ').trim().slice(0, 150);
-      pageUrl = `${canonicalUrl}?soru=${activeId}`;
-    }
-  }
+  const title = `${data.topicTitle} - ${data.gradeName} ${data.lessonName} Soru Bankası`;
+  const description = `${data.gradeName} ${data.lessonName} ${data.topicTitle} konusuna ait ${data.questionCount} soru ve cevap anahtarını tek sayfada incele.`;
 
   return {
     title,
@@ -182,7 +164,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     openGraph: {
       title,
       description,
-      url: pageUrl,
+      url: canonicalUrl,
       siteName: 'Ders Takip',
       locale: 'tr_TR',
       type: 'article',

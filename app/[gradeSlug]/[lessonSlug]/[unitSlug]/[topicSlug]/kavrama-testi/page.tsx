@@ -41,11 +41,6 @@ export default async function TopicTestPage({ params }: PageProps) {
 
   return (
     <>
-      {!data.hasQuestions && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
-          Taslak — bu konuda henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
-        </div>
-      )}
       <QuizWithAsk
         key={data.topicId}
         gradeId={data.gradeId}
