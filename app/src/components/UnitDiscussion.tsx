@@ -51,6 +51,36 @@ type AiEntry = {
 
 type FeedEntry = CommentEntry | AiEntry;
 
+// Yorum-önce mimarisinde (2026-09-04) her @hocam/@kanka sorusu artık İKİ kayıt
+// üretiyor (soru yorumu + cevap), bu yüzden bir yanıta verilen yanıt (ör. "teşekkürler"
+// -> AI cevabı) her zaman İKİ seviye iç içe geçiyor — önceki tek-seviyelik sınır bunu
+// gösteremiyordu, ikinci alışveriş sessizce kayboluyordu (kullanıcı bildirimi). ReplyRow/
+// ReplyAiRow artık kendi yanıtlarını da (recursive) render ediyor; tüm ortak
+// handler'lar tek tek prop olarak değil, bu paket üzerinden geçiliyor.
+type DiscussionHandlers = {
+  userId: string | null;
+  editingId: number | null;
+  editText: string;
+  commentBusyId: number | null;
+  aiBusyId: number | null;
+  replyTarget: ReplyTarget;
+  replyText: string;
+  submitting: boolean;
+  onStartEdit: (c: CommentEntry) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (c: CommentEntry) => void;
+  onEditTextChange: (v: string) => void;
+  onDeleteComment: (c: CommentEntry) => void;
+  onDeleteAi: (item: AiEntry) => void;
+  onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
+  onReportSubmit: (item: AiEntry) => void;
+  onSetReplyTarget: (target: ReplyTarget) => void;
+  onReplyTextChange: (v: string) => void;
+  onReplySubmit: () => void;
+  repliesOfComment: (id: number) => FeedEntry[];
+  repliesOfAi: (id: number) => FeedEntry[];
+};
+
 function displayNameOf(profiles: Profile | Profile[]): string {
   const p = Array.isArray(profiles) ? profiles[0] : profiles;
   return p?.username || p?.full_name || 'Öğrenci';
@@ -115,32 +145,13 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 // tanımlansaydı her render'da yeni bir component tipi olarak sayılıp React'ı
 // input'ları unmount/remount etmeye zorlardı — bu da reply kutusuna her harf
 // yazışta focus kaybına yol açardı.
-function ReplyRow({
-  comment,
-  userId,
-  editingId,
-  editText,
-  commentBusyId,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onDelete,
-  onEditTextChange,
-}: {
-  comment: CommentEntry;
-  userId: string | null;
-  editingId: number | null;
-  editText: string;
-  commentBusyId: number | null;
-  onStartEdit: (c: CommentEntry) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (c: CommentEntry) => void;
-  onDelete: (c: CommentEntry) => void;
-  onEditTextChange: (v: string) => void;
-}) {
+function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: DiscussionHandlers }) {
+  const { userId, editingId, editText, commentBusyId, onStartEdit, onCancelEdit, onSaveEdit, onDeleteComment, onEditTextChange, repliesOfComment } =
+    handlers;
   const isOwn = comment.student_id === userId;
   const isEditing = editingId === comment.id;
   const isBusy = commentBusyId === comment.id;
+  const nested = repliesOfComment(comment.id);
   return (
     <div id={`disc-c${comment.id}`}>
       {isEditing ? (
@@ -171,24 +182,55 @@ function ReplyRow({
       {comment.status !== 'published' && comment.status !== 'deleted' && isOwn && (
         <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
       )}
-      {!isEditing && isOwn && (
+      {!isEditing && (
         <div className="mt-0.5 flex items-center gap-3">
           <button
-            onClick={() => onStartEdit(comment)}
-            disabled={isBusy}
-            className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+            onClick={() => handlers.onSetReplyTarget(handlers.replyTarget?.type === 'comment' && handlers.replyTarget.id === comment.id ? null : { type: 'comment', id: comment.id })}
+            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
           >
-            Düzenle
+            Yanıtla
           </button>
-          <button
-            onClick={() => onDelete(comment)}
-            disabled={isBusy}
-            className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-          >
-            Sil
-          </button>
+          {isOwn && (
+            <>
+              <button
+                onClick={() => onStartEdit(comment)}
+                disabled={isBusy}
+                className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+              >
+                Düzenle
+              </button>
+              <button
+                onClick={() => onDeleteComment(comment)}
+                disabled={isBusy}
+                className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+              >
+                Sil
+              </button>
+            </>
+          )}
         </div>
       )}
+
+      {nested.length > 0 && (
+        <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
+          {nested.map((r) =>
+            r.kind === 'comment' ? (
+              <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
+            ) : (
+              <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} showQuestion={false} />
+            )
+          )}
+        </div>
+      )}
+
+      <ReplyBox
+        target={{ type: 'comment', id: comment.id }}
+        replyTarget={handlers.replyTarget}
+        replyText={handlers.replyText}
+        submitting={handlers.submitting}
+        onReplyTextChange={handlers.onReplyTextChange}
+        onSubmit={handlers.onReplySubmit}
+      />
     </div>
   );
 }
@@ -234,19 +276,11 @@ function ReplyBox({
 // (mevcut tek seviyelik iç içe geçme sınırıyla tutarlı).
 function ReplyAiRow({
   item,
-  userId,
-  aiBusyId,
-  onDelete,
-  onReportPatch,
-  onReportSubmit,
+  handlers,
   showQuestion,
 }: {
   item: AiEntry;
-  userId: string | null;
-  aiBusyId: number | null;
-  onDelete: (item: AiEntry) => void;
-  onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
-  onReportSubmit: (item: AiEntry) => void;
+  handlers: DiscussionHandlers;
   // Yorum-önce mimarisinde (2026-09-04) bir AI cevabı artık HER ZAMAN kendi soru
   // yorumunun altına nest oluyor (parent_comment_id) — o yorum kimin sorduğunu, ne
   // zaman sorduğunu ve soruyu zaten kendi başlığında gösterdiği için burada AYNI
@@ -256,7 +290,9 @@ function ReplyAiRow({
   // eski/uç durumlar için varsayılan true kalıyor) bu üst bilgi burada gösterilir.
   showQuestion?: boolean;
 }) {
+  const { userId, aiBusyId, onDeleteAi, onReportPatch, onReportSubmit, repliesOfAi } = handlers;
   const name = displayNameOf(item.profiles);
+  const nested = repliesOfAi(item.id);
   return (
     <div id={`disc-a${item.id}`} className="space-y-1.5">
       {showQuestion !== false && (
@@ -279,9 +315,15 @@ function ReplyAiRow({
               <div className="mt-2">
                 {item.reportState === 'idle' && (
                   <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      onClick={() => handlers.onSetReplyTarget(handlers.replyTarget?.type === 'ai' && handlers.replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
+                      className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                    >
+                      Yanıtla
+                    </button>
                     {item.student_id === userId && (
                       <button
-                        onClick={() => onDelete(item)}
+                        onClick={() => onDeleteAi(item)}
                         disabled={aiBusyId === item.id}
                         className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
                       >
@@ -324,6 +366,27 @@ function ReplyAiRow({
                 {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
                 {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
               </div>
+
+              {nested.length > 0 && (
+                <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
+                  {nested.map((r) =>
+                    r.kind === 'comment' ? (
+                      <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
+                    ) : (
+                      <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} />
+                    )
+                  )}
+                </div>
+              )}
+
+              <ReplyBox
+                target={{ type: 'ai', id: item.id }}
+                replyTarget={handlers.replyTarget}
+                replyText={handlers.replyText}
+                submitting={handlers.submitting}
+                onReplyTextChange={handlers.onReplyTextChange}
+                onSubmit={handlers.onReplySubmit}
+              />
             </>
           )}
         </div>
@@ -789,6 +852,35 @@ export default function UnitDiscussion({
 
   const commentTotal = comments.length + aiEntries.length;
 
+  // ReplyRow/ReplyAiRow kendi yanıtlarını recursive render edebilsin diye tüm ortak
+  // handler'lar burada tek pakette toplanıyor (bkz. DiscussionHandlers tanımı).
+  const handlers: DiscussionHandlers = {
+    userId,
+    editingId,
+    editText,
+    commentBusyId,
+    aiBusyId,
+    replyTarget,
+    replyText,
+    submitting,
+    onStartEdit: startEdit,
+    onCancelEdit: () => {
+      setEditingId(null);
+      setEditText('');
+    },
+    onSaveEdit: saveEdit,
+    onEditTextChange: setEditText,
+    onDeleteComment: handleDeleteComment,
+    onDeleteAi: handleDeleteAiEntry,
+    onReportPatch: (id, patch) => updateAiEntry(id, patch),
+    onReportSubmit: submitReport,
+    onSetReplyTarget: setReplyTarget,
+    onReplyTextChange: setReplyText,
+    onReplySubmit: handleReplySubmit,
+    repliesOfComment,
+    repliesOfAi,
+  };
+
   return (
     <div className={hideToggle ? '' : 'bg-white rounded-xl border border-gray-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
       {!hideToggle && (
@@ -928,33 +1020,9 @@ export default function UnitDiscussion({
                         <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
                           {repliesOfComment(item.id).map((r) =>
                             r.kind === 'comment' ? (
-                              <ReplyRow
-                                key={`c${r.id}`}
-                                comment={r}
-                                userId={userId}
-                                editingId={editingId}
-                                editText={editText}
-                                commentBusyId={commentBusyId}
-                                onStartEdit={startEdit}
-                                onCancelEdit={() => {
-                                  setEditingId(null);
-                                  setEditText('');
-                                }}
-                                onSaveEdit={saveEdit}
-                                onDelete={handleDeleteComment}
-                                onEditTextChange={setEditText}
-                              />
+                              <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
                             ) : (
-                              <ReplyAiRow
-                                key={`a${r.id}`}
-                                item={r}
-                                userId={userId}
-                                aiBusyId={aiBusyId}
-                                onDelete={handleDeleteAiEntry}
-                                onReportPatch={(id, patch) => updateAiEntry(id, patch)}
-                                onReportSubmit={submitReport}
-                                showQuestion={false}
-                              />
+                              <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} showQuestion={false} />
                             )
                           )}
                         </div>
@@ -1062,32 +1130,9 @@ export default function UnitDiscussion({
                       <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
                         {repliesOfAi(item.id).map((r) =>
                           r.kind === 'comment' ? (
-                            <ReplyRow
-                              key={`c${r.id}`}
-                              comment={r}
-                              userId={userId}
-                              editingId={editingId}
-                              editText={editText}
-                              commentBusyId={commentBusyId}
-                              onStartEdit={startEdit}
-                              onCancelEdit={() => {
-                                setEditingId(null);
-                                setEditText('');
-                              }}
-                              onSaveEdit={saveEdit}
-                              onDelete={handleDeleteComment}
-                              onEditTextChange={setEditText}
-                            />
+                            <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
                           ) : (
-                            <ReplyAiRow
-                              key={`a${r.id}`}
-                              item={r}
-                              userId={userId}
-                              aiBusyId={aiBusyId}
-                              onDelete={handleDeleteAiEntry}
-                              onReportPatch={(id, patch) => updateAiEntry(id, patch)}
-                              onReportSubmit={submitReport}
-                            />
+                            <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} />
                           )
                         )}
                       </div>
