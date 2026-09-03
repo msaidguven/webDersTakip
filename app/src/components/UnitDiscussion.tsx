@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, AlertTriangle, Flag, Bot, ChevronDown, MessageCircle } from 'lucide-react';
+import { Sparkles, AlertTriangle, Flag, ChevronDown, MessageCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const MAX_LENGTH = 300;
@@ -65,6 +65,23 @@ function tagForModel(model: string): string {
 function avatarUrlOf(profiles: Profile | Profile[]): string | null {
   const p = Array.isArray(profiles) ? profiles[0] : profiles;
   return p?.avatar_url || null;
+}
+
+// @hocam/@kanka'nın karakter görselleri (public/ai-hocam.webp, public/ai-kanka.webp) —
+// önceki jenerik "Bot" ikonu yerine, hangi modda cevap verildiğini görsel olarak da
+// ayırt etsin diye (kullanıcı isteği, 2026-09-03).
+function AiAvatar({ model, sizeClass }: { model: string; sizeClass: string }) {
+  const isKanka = model.includes('kanka');
+  return (
+    <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 bg-gray-100`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={isKanka ? '/ai-kanka.webp' : '/ai-hocam.webp'}
+        alt={isKanka ? KANKA_TAG : HOCAM_TAG}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
 }
 
 // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue) — cevap gelene
@@ -239,9 +256,7 @@ function ReplyAiRow({
       </div>
       <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
       <div className="rounded-lg bg-gray-50/80 p-2.5 flex items-start gap-2">
-        <div className="h-6 w-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
-          <Bot className="h-3.5 w-3.5" />
-        </div>
+        <AiAvatar model={item.model} sizeClass="h-6 w-6" />
         <div className="min-w-0 flex-1">
           {item.status !== 'published' ? (
             <AiPendingOrFailed status={item.status} />
@@ -917,9 +932,7 @@ export default function UnitDiscussion({
                 </div>
 
                 <div className="ml-[42px] flex items-start gap-2.5">
-                  <div className="h-8 w-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
-                    <Bot className="h-4 w-4" />
-                  </div>
+                  <AiAvatar model={item.model} sizeClass="h-8 w-8" />
                   <div className="min-w-0 flex-1 rounded-lg bg-gray-50/80 p-3">
                     {item.status !== 'published' ? (
                       <AiPendingOrFailed status={item.status} />

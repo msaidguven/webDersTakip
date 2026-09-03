@@ -106,7 +106,15 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden">
+        <div
+          // Zil header'ın en sağındaki eleman değil (ThemeToggle/profil ondan sonra
+          // geliyor) — mobilde "right-0" bu yüzden panel'i buton hizasında bırakıp
+          // ekranın kenarından taşırıyordu ("yanda açılıyor", kullanıcı bildirimi
+          // 2026-09-03). Mobilde artık viewport'a göre sabitlenmiş, header'ın hemen
+          // altında tam genişlikte bir sayfa; sm: ve üstünde eski buton-hizalı dropdown.
+          className="fixed left-3 right-3 top-[68px] z-[60] rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden
+            sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-w-[90vw]"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-default">
             <span className="text-sm font-semibold text-default">Bildirimler</span>
             {unreadCount > 0 && (
