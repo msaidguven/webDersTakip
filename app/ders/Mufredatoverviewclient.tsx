@@ -2,7 +2,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -84,6 +84,20 @@ const UNIT_ACCENTS = [
   { border: 'border-l-4 border-l-sky-500', badge: 'bg-sky-100 text-sky-700' },
 ];
 
+// useSearchParams() bir bileşeni statik/ISR render'da Suspense'e sokup client-only render'a
+// zorluyor (Next kısıtlaması). Bunu, içeriğin TAMAMINI (bütün konu/ünite listesini) taşıyan
+// ana bileşenin dışına, tek satırlık bu yardımcıya izole ediyoruz — böylece sayfa içeriği
+// sunucuda/statik olarak tam üretilir, sadece URL'deki ?hafta= parametresi (varsa) hydration
+// sonrası bir state güncellemesiyle uygulanır (bkz. page.tsx'teki not).
+function SearchParamsSync({ onChange }: { onChange: (params: URLSearchParams) => void }) {
+  const searchParams = useSearchParams();
+  React.useEffect(() => {
+    onChange(new URLSearchParams(searchParams?.toString()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams?.toString()]);
+  return null;
+}
+
 export default function MufredatOverviewClient({
   gradeName,
   lessonName,
@@ -98,10 +112,17 @@ export default function MufredatOverviewClient({
   allGrades = [],
 }: MufredatOverviewClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // useSearchParams() burada DEĞİL, SearchParamsSync (Suspense'e alınmış küçük bir alt
+  // bileşen) içinde çağrılıyor — böylece bu bileşenin asıl içerik render'ı statik/ISR
+  // kalabiliyor, sadece bu state hydration sonrası bir kez güncelleniyor (bkz. yukarıdaki
+  // SearchParamsSync tanımı). currentWeek prop'u sunucunun hesapladığı VARSAYILAN; URL'de
+  // ?hafta= varsa onu tercih ediyoruz.
+  const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
+  const haftaParam = searchParams.get('hafta');
+  const effectiveWeek = haftaParam ? parseInt(haftaParam, 10) || currentWeek : currentWeek;
 
   const goToWeek = (weekNo: number) => {
-    const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(searchParams.toString());
     params.set('hafta', String(weekNo));
 
     if (gradeSlug && lessonSlug) {
@@ -143,6 +164,9 @@ export default function MufredatOverviewClient({
 
   return (
     <div className="min-h-screen bg-gray-50/80 text-gray-800 font-sans antialiased">
+      <Suspense fallback={null}>
+        <SearchParamsSync onChange={setSearchParams} />
+      </Suspense>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
         {/* Mobil/Tablet Üst Navigasyon */}
@@ -363,7 +387,7 @@ export default function MufredatOverviewClient({
                         {topics.map((topic, idx) => (
                           <button
                             key={topic.id}
-                            onClick={() => goToTopic(unit.slug, topic.slug, start ?? currentWeek)}
+                            onClick={() => goToTopic(unit.slug, topic.slug, start ?? effectiveWeek)}
                             className="w-full flex items-center gap-3.5 px-5 py-3 text-left hover:bg-gray-50/80 transition-colors group"
                           >
                             <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 px-2 py-0.5 rounded-md transition-colors shrink-0">

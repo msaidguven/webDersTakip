@@ -73,6 +73,60 @@ export async function revalidateTopicPage(supabase: Supabase, topicId: number): 
   await revalidateTopicPages(supabase, [topicId]);
 }
 
+async function resolveGradeLessonPaths(supabase: Supabase, pairs: { gradeId: number; lessonId: number }[]): Promise<string[]> {
+  const uniquePairs = Array.from(new Map(pairs.map((p) => [`${p.gradeId}:${p.lessonId}`, p])).values());
+  if (!uniquePairs.length) return [];
+
+  const gradeIds = Array.from(new Set(uniquePairs.map((p) => p.gradeId)));
+  const lessonIds = Array.from(new Set(uniquePairs.map((p) => p.lessonId)));
+  const [{ data: grades }, { data: lessons }] = await Promise.all([
+    supabase.from('grades').select('id, slug').in('id', gradeIds),
+    supabase.from('lessons').select('id, slug').in('id', lessonIds),
+  ]);
+  const gradeSlugById = new Map(((grades as { id: number; slug: string | null }[] | null) || []).map((g) => [g.id, g.slug]));
+  const lessonSlugById = new Map(((lessons as { id: number; slug: string | null }[] | null) || []).map((l) => [l.id, l.slug]));
+
+  const paths = new Set<string>();
+  for (const p of uniquePairs) {
+    const gradeSlug = gradeSlugById.get(p.gradeId);
+    if (!gradeSlug) continue;
+    paths.add(`/${gradeSlug}`);
+    const lessonSlug = lessonSlugById.get(p.lessonId);
+    if (lessonSlug) paths.add(`/${gradeSlug}/${lessonSlug}`);
+  }
+  return Array.from(paths);
+}
+
+// Sınıf sayfası (/[gradeSlug]) ders kartlarını, ders sayfası (/[gradeSlug]/[lessonSlug])
+// ünite/konu listesini gösteriyor — bir ünitenin kendisi (aktiflik, hafta aralığı) veya
+// içindeki bir konu/soru değişince BUNLAR da güncel olmalı, sadece konu sayfaları değil.
+export async function revalidateGradeLessonPagesForUnits(supabase: Supabase, unitIds: number[]): Promise<void> {
+  try {
+    const uniqueUnitIds = Array.from(new Set(unitIds));
+    if (!uniqueUnitIds.length) return;
+    const { data: units } = await supabase.from('units').select('grade_id, lesson_id').in('id', uniqueUnitIds);
+    const pairs = ((units as { grade_id: number | null; lesson_id: number | null }[] | null) || [])
+      .filter((u): u is { grade_id: number; lesson_id: number } => u.grade_id != null && u.lesson_id != null)
+      .map((u) => ({ gradeId: u.grade_id, lessonId: u.lesson_id }));
+    const paths = await resolveGradeLessonPaths(supabase, pairs);
+    paths.forEach((p) => revalidatePath(p));
+  } catch (error) {
+    console.error('[revalidateGradeLessonPagesForUnits] revalidate başarısız:', error);
+  }
+}
+
+// lesson_grades.is_active değişince (bir dersin tüm sınıftaki yayın durumu) o TEK
+// sınıf+ders çiftinin sınıf/ders sayfalarını invalide eder — ünite bazlı bir olay
+// olmadığı için revalidateGradeLessonPagesForUnits'in kapsamına girmiyor.
+export async function revalidateGradeLessonPage(supabase: Supabase, gradeId: number, lessonId: number): Promise<void> {
+  try {
+    const paths = await resolveGradeLessonPaths(supabase, [{ gradeId, lessonId }]);
+    paths.forEach((p) => revalidatePath(p));
+  } catch (error) {
+    console.error('[revalidateGradeLessonPage] revalidate başarısız:', error);
+  }
+}
+
 // Bir/birden fazla ünitenin kendisi değişince (aktif/pasif, veya bir soru eklenip
 // "Ünite Testi" sayacı değişince) o ünite(ler)deki TÜM konu sayfalarını invalide eder —
 // çünkü sidebar'daki ünite listesi ve soru sayısı her konu sayfasında ortak gösteriliyor.
@@ -82,7 +136,10 @@ export async function revalidateUnitPages(supabase: Supabase, unitIds: number[])
     if (!uniqueUnitIds.length) return;
     const { data: topics } = await supabase.from('topics').select('id').in('unit_id', uniqueUnitIds);
     const topicIds = ((topics as { id: number }[] | null) || []).map((t) => t.id);
-    await revalidateTopicPages(supabase, topicIds);
+    await Promise.all([
+      revalidateTopicPages(supabase, topicIds),
+      revalidateGradeLessonPagesForUnits(supabase, uniqueUnitIds),
+    ]);
   } catch (error) {
     console.error('[revalidateUnitPages] revalidate başarısız:', error);
   }

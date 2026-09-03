@@ -1,18 +1,25 @@
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { createClient } from '@/utils/supabase/server';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { parseGradeSegment } from '@/app/src/lib/routeParsing';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getQuestionCountsByLessonGrade } from '@/app/src/lib/questionCounts';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
 import { Grade, Lesson } from '../src/models/homeTypes';
 import GradePageClient from './GradePageClient';
 
-export const dynamic = 'force-dynamic';
+// Bu sayfa taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli üzerinden
+// yapılıyor) — tamamen public içerik, bu yüzden ISR ile cache'lenebiliyor. Konu
+// sayfasındaki gibi generateStaticParams olmadan bu projede revalidate sessizce
+// çalışmıyor (bkz. [topicSlug]/page.tsx'teki not).
+export const revalidate = 3600;
 
 interface Params {
   gradeSlug: string;
+}
+
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 type GradeRow = { id: number; name: string; order_no: number; slug: string | null };
@@ -38,7 +45,7 @@ function getLessonColor(orderNo: number): string {
 }
 
 const getGradePageData = cache(async function getGradePageData(gradeSlug: string): Promise<{ grade: Grade | null; lessons: Lesson[] }> {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
 
   const { data: gradeBySlug } = await supabase
@@ -78,24 +85,21 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     color: getGradeColor(gradeData.order_no),
   };
 
-  const [isAdmin, { data: lessonGrades }] = await Promise.all([
-    isViewerAdmin(supabase),
-    supabase.from('lesson_grades').select('lesson_id, is_active').eq('grade_id', gradeData.id),
-  ]);
+  const { data: lessonGrades } = await supabase.from('lesson_grades').select('lesson_id, is_active').eq('grade_id', gradeData.id);
 
   const lessonGradeRows = (lessonGrades as LessonGradeRow[] | null) || [];
-  const ids = lessonGradeRows.filter((row) => isAdmin || row.is_active).map((x) => x.lesson_id);
+  const ids = lessonGradeRows.filter((row) => row.is_active).map((x) => x.lesson_id);
 
   if (!ids.length) {
     return { grade, lessons: [] };
   }
 
-  let unitRowsQuery = supabase
+  const unitRowsQuery = supabase
     .from('units')
     .select('lesson_id')
     .eq('grade_id', gradeData.id)
-    .in('lesson_id', ids);
-  if (!isAdmin) unitRowsQuery = unitRowsQuery.eq('is_active', true);
+    .in('lesson_id', ids)
+    .eq('is_active', true);
 
   const [questionCountByLesson, { data: lessonRows }, { data: unitRows }] = await Promise.all([
     getQuestionCountsByLessonGrade(supabase, ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id }))),

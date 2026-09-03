@@ -4,16 +4,19 @@
 
 import { cache } from 'react';
 import type { Metadata } from 'next';
-import { createClient } from '@/utils/supabase/server';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
-import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { getGradeIcon } from '@/app/src/lib/homeMapping';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Bu sayfa taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli üzerinden
+// yapılıyor) — tamamen public içerik, bu yüzden ISR ile cache'lenebiliyor. ?hafta= sorgu
+// parametresi artık SUNUCUDA okunmuyor (searchParams okumak Next'i sayfayı dinamik render
+// etmeye zorlardı) — MufredatOverviewClient zaten client-side useSearchParams() kullanıyor,
+// "hafta" override'ı oraya taşındı (bkz. Mufredatoverviewclient.tsx).
+export const revalidate = 3600;
 
 interface Params {
   gradeSlug: string;
@@ -22,7 +25,10 @@ interface Params {
 
 interface PageProps {
   params: Promise<Params>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export async function generateStaticParams(): Promise<Params[]> {
+  return [];
 }
 
 type UnitRow = {
@@ -41,7 +47,7 @@ type LessonGradeRow = { lesson_id: number };
 type GradeLessonOption = { id: number; name: string; slug: string | null; icon: string | null };
 
 const getMufredatOverviewData = cache(async function getMufredatOverviewData(gradeSlug: string, lessonSlug: string) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
 
   const decodedGradeSlug = decodeURIComponent(gradeSlug || '').trim();
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
@@ -97,8 +103,6 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   const gId = grade.id;
   const lId = lesson.id;
 
-  const isAdmin = await isViewerAdmin(supabase);
-
   const { data: lessonGradeData } = await supabase
     .from('lesson_grades')
     .select('is_active')
@@ -106,17 +110,17 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     .eq('grade_id', gId)
     .maybeSingle();
 
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
     return null;
   }
 
-  let unitsQuery = supabase
+  const unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week, is_active')
     .eq('lesson_id', lId)
     .eq('grade_id', gId)
+    .eq('is_active', true)
     .order('order_no', { ascending: true });
-  if (!isAdmin) unitsQuery = unitsQuery.eq('is_active', true);
   const { data: unitsData } = await unitsQuery;
 
   const units = (unitsData as UnitRow[] | null) || [];
@@ -168,11 +172,11 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   }));
 
   // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
-  let siblingLessonGradesQuery = supabase
+  const siblingLessonGradesQuery = supabase
     .from('lesson_grades')
     .select('lesson_id')
-    .eq('grade_id', gId);
-  if (!isAdmin) siblingLessonGradesQuery = siblingLessonGradesQuery.eq('is_active', true);
+    .eq('grade_id', gId)
+    .eq('is_active', true);
   const { data: lessonGradesData } = await siblingLessonGradesQuery;
 
   const siblingLessonIds = ((lessonGradesData as LessonGradeRow[] | null) || []).map((lg) => lg.lesson_id);
@@ -208,9 +212,8 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   };
 });
 
-export default async function LessonOverviewPage({ params, searchParams }: PageProps) {
+export default async function LessonOverviewPage({ params }: PageProps) {
   const { gradeSlug, lessonSlug } = await params;
-  const sp = await searchParams;
 
   const data = await getMufredatOverviewData(gradeSlug, lessonSlug);
 
@@ -222,12 +225,9 @@ export default async function LessonOverviewPage({ params, searchParams }: PageP
     );
   }
 
-  const rawHafta = sp.hafta;
-  const hafta = Array.isArray(rawHafta)
-    ? parseInt(rawHafta[0])
-    : rawHafta
-      ? parseInt(rawHafta)
-      : getCurrentCurriculumWeek(data.totalWeeks, data.termStartDate, data.breaks);
+  // ?hafta= artık burada değil, client'ta (useSearchParams ile) okunuyor — bkz. dosya
+  // başındaki not. Burada sadece o parametre YOKSA kullanılacak varsayılanı hesaplıyoruz.
+  const hafta = getCurrentCurriculumWeek(data.totalWeeks, data.termStartDate, data.breaks);
 
   return (
     <MufredatOverviewClient
