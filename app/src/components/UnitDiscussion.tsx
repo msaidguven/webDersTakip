@@ -248,20 +248,23 @@ function ReplyAiRow({
   onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
   onReportSubmit: (item: AiEntry) => void;
   // Yorum-önce mimarisinde (2026-09-04) bir AI cevabı artık HER ZAMAN kendi soru
-  // yorumunun altına nest oluyor (parent_comment_id) — o yorum soruyu zaten kendi
-  // başlığında gösterdiği için burada TEKRAR yazmak duplikasyona yol açardı
-  // (kullanıcı bildirimi). Sadece parent'ı BAŞKA bir AI cevabıysa (repliesOfAi,
-  // artık yeni akışta oluşmuyor ama eski/uç durumlar için varsayılan true kalıyor)
-  // soru burada gösterilir.
+  // yorumunun altına nest oluyor (parent_comment_id) — o yorum kimin sorduğunu, ne
+  // zaman sorduğunu ve soruyu zaten kendi başlığında gösterdiği için burada AYNI
+  // isim/tarih/soru üçlüsünü TEKRAR basmak çift görünüme yol açardı (kullanıcı
+  // bildirimi, iki ayrı raporla: önce soru metni, sonra isim/tarih). Sadece parent'ı
+  // BAŞKA bir AI cevabıysa (repliesOfAi — artık yeni akışta hiç oluşmuyor, sadece
+  // eski/uç durumlar için varsayılan true kalıyor) bu üst bilgi burada gösterilir.
   showQuestion?: boolean;
 }) {
   const name = displayNameOf(item.profiles);
   return (
     <div id={`disc-a${item.id}`} className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-gray-800">{name}</span>
-        <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
-      </div>
+      {showQuestion !== false && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-800">{name}</span>
+          <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
+        </div>
+      )}
       {showQuestion !== false && (
         <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
       )}
