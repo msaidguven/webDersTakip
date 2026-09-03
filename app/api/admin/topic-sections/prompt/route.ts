@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
       .replaceAll('{section_headings}', sectionHeadingsText)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
 
     return NextResponse.json({ prompt });
   }
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
 
     return NextResponse.json({ prompt });
   }
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{section_content}', currentSection.body_markdown)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions);
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
 
     return NextResponse.json({ prompt });
   }
