@@ -13,6 +13,13 @@ type QuestionRow = {
   question_types: { code: string } | { code: string }[] | null;
 };
 
+type Embed<T> = T | T[] | null;
+
+type GradeRef = { slug: string | null };
+type LessonRef = { slug: string | null };
+type UnitRef = { slug: string | null; grades: Embed<GradeRef>; lessons: Embed<LessonRef> };
+type TopicRef = { title: string; slug: string | null; units: Embed<UnitRef> };
+
 type ContentRow = {
   id: number;
   title: string;
@@ -20,8 +27,45 @@ type ContentRow = {
   body_markdown: string | null;
   is_published: boolean;
   topic_id: number | null;
-  topics: { title: string } | { title: string }[] | null;
+  topics: Embed<TopicRef>;
 };
+
+type ContentResult = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  is_published: boolean;
+  topic_id: number | null;
+  topicTitle: string | null;
+  href: string | null;
+};
+
+function one<T>(v: Embed<T>): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? v[0] || null : v;
+}
+
+function toContentResult(row: ContentRow): ContentResult {
+  const topic = one(row.topics);
+  const unit = topic ? one(topic.units) : null;
+  const grade = unit ? one(unit.grades) : null;
+  const lesson = unit ? one(unit.lessons) : null;
+
+  const href =
+    grade?.slug && lesson?.slug && unit?.slug && topic?.slug
+      ? `/${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}`
+      : null;
+
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle,
+    is_published: row.is_published,
+    topic_id: row.topic_id,
+    topicTitle: topic?.title || null,
+    href,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -50,19 +94,19 @@ export async function GET(request: NextRequest) {
       .limit(RESULT_LIMIT),
     supabase
       .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title)')
+      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
       .ilike('title', pattern)
       .order('created_at', { ascending: false })
       .limit(RESULT_LIMIT),
     supabase
       .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title)')
+      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
       .ilike('subtitle', pattern)
       .order('created_at', { ascending: false })
       .limit(RESULT_LIMIT),
     supabase
       .from('topic_contents')
-      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title)')
+      .select('id, title, subtitle, body_markdown, is_published, topic_id, topics(title, slug, units(slug, grades(slug), lessons(slug)))')
       .ilike('body_markdown', pattern)
       .order('created_at', { ascending: false })
       .limit(RESULT_LIMIT),
@@ -83,6 +127,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     questions: Array.from(questionsById.values()).slice(0, RESULT_LIMIT),
-    contents: Array.from(contentsById.values()).slice(0, RESULT_LIMIT),
+    contents: Array.from(contentsById.values()).slice(0, RESULT_LIMIT).map(toContentResult),
   });
 }

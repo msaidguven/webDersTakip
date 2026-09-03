@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ENTITIES, GenericEditModal, QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
+import Link from 'next/link';
+import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
 
 type TopicRef = { title: string } | { title: string }[] | null;
 type TypeRef = { code: string } | { code: string }[] | null;
@@ -24,13 +25,11 @@ type ContentResult = {
   id: number;
   title: string;
   subtitle: string | null;
-  body_markdown: string | null;
   is_published: boolean;
   topic_id: number | null;
-  topics: TopicRef;
+  topicTitle: string | null;
+  href: string | null;
 };
-
-const contentsEntity = ENTITIES.find((e) => e.key === 'contents')!;
 
 export default function SearchTab() {
   const [input, setInput] = useState('');
@@ -42,7 +41,6 @@ export default function SearchTab() {
   const [contents, setContents] = useState<ContentResult[]>([]);
 
   const [editQuestionId, setEditQuestionId] = useState<number | null>(null);
-  const [editContentRow, setEditContentRow] = useState<ContentResult | null>(null);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   function showNotice(kind: 'success' | 'error', text: string) {
@@ -127,12 +125,18 @@ export default function SearchTab() {
               const topic = firstOf(q.topics);
               const type = firstOf(q.question_types);
               return (
-                <ResultRow
-                  key={q.id}
-                  title={q.question_text}
-                  meta={[topic?.title, type?.code].filter(Boolean).join(' • ')}
-                  onEdit={() => setEditQuestionId(q.id)}
-                />
+                <div key={q.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
+                  <div className="min-w-0">
+                    <p className="text-gray-200 text-sm line-clamp-2">{q.question_text}</p>
+                    <p className="text-gray-500 text-xs mt-1">{[topic?.title, type?.code].filter(Boolean).join(' • ')}</p>
+                  </div>
+                  <button
+                    onClick={() => setEditQuestionId(q.id)}
+                    className="shrink-0 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs"
+                  >
+                    Düzenle
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -145,17 +149,27 @@ export default function SearchTab() {
             📝 İçerikler <span className="text-gray-500 text-xs font-normal">({contents.length})</span>
           </h3>
           <div className="space-y-2">
-            {contents.map((c) => {
-              const topic = firstOf(c.topics);
-              return (
-                <ResultRow
-                  key={c.id}
-                  title={c.title}
-                  meta={[topic?.title, c.is_published ? 'Yayında' : 'Taslak'].filter(Boolean).join(' • ')}
-                  onEdit={() => setEditContentRow(c)}
-                />
-              );
-            })}
+            {contents.map((c) => (
+              <div key={c.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
+                <div className="min-w-0">
+                  <p className="text-gray-200 text-sm line-clamp-2">{c.title}</p>
+                  <p className="text-gray-500 text-xs mt-1">{[c.topicTitle, c.is_published ? 'Yayında' : 'Taslak'].filter(Boolean).join(' • ')}</p>
+                </div>
+                {c.href ? (
+                  <Link
+                    href={c.href}
+                    target="_blank"
+                    className="shrink-0 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs whitespace-nowrap"
+                  >
+                    Ders Sayfasına Git ↗
+                  </Link>
+                ) : (
+                  <span className="shrink-0 px-3 py-1.5 bg-white/5 text-gray-500 rounded-lg text-xs whitespace-nowrap cursor-not-allowed" title="Konu/ünite/ders/sınıf slug'ı eksik olduğu için sayfa linki oluşturulamadı">
+                    Link yok
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -177,32 +191,6 @@ export default function SearchTab() {
           showNotice={showNotice}
         />
       )}
-      {editContentRow && (
-        <GenericEditModal
-          entity={contentsEntity}
-          row={editContentRow}
-          onClose={() => setEditContentRow(null)}
-          onSaved={() => {
-            setEditContentRow(null);
-            showNotice('success', 'İçerik kaydedildi');
-          }}
-          showNotice={showNotice}
-        />
-      )}
-    </div>
-  );
-}
-
-function ResultRow({ title, meta, onEdit }: { title: string; meta: string; onEdit: () => void }) {
-  return (
-    <div className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
-      <div className="min-w-0">
-        <p className="text-gray-200 text-sm line-clamp-2">{title}</p>
-        {meta && <p className="text-gray-500 text-xs mt-1">{meta}</p>}
-      </div>
-      <button onClick={onEdit} className="shrink-0 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs">
-        Düzenle
-      </button>
     </div>
   );
 }

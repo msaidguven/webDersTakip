@@ -111,6 +111,43 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
+    // /soru-bankasi hub sayfaları (sınıf/ders/ünite seviyesi listeleme sayfaları,
+    // bkz. app/soru-bankasi/[sinif]/(...)page.tsx) — bir sınıf/ders/ünite en az bir soruya
+    // sahipse eklenir (aksi halde hedef sayfa "Taslak" gösterip index:false döner).
+    const gradeIdsWithQuestions = new Set<number>();
+    const lessonGradeKeysWithQuestions = new Set<string>();
+    for (const u of units) {
+      if (!unitIdsWithQuestions.has(u.id)) continue;
+      gradeIdsWithQuestions.add(u.grade_id);
+      lessonGradeKeysWithQuestions.add(`${u.lesson_id}:${u.grade_id}`);
+    }
+
+    for (const gradeId of gradeIdsWithQuestions) {
+      const gradeSlug = gradeSlugById.get(gradeId);
+      if (gradeSlug) {
+        entries.push({ url: `${SITE_URL}/soru-bankasi/${gradeSlug}`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 });
+      }
+    }
+
+    for (const key of lessonGradeKeysWithQuestions) {
+      const [lessonIdStr, gradeIdStr] = key.split(':');
+      const lessonSlug = lessonSlugById.get(Number(lessonIdStr));
+      const gradeSlug = gradeSlugById.get(Number(gradeIdStr));
+      if (lessonSlug && gradeSlug) {
+        entries.push({ url: `${SITE_URL}/soru-bankasi/${gradeSlug}/${lessonSlug}`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 });
+      }
+    }
+
+    for (const [unitId, unitPath] of unitPathById) {
+      if (!unitIdsWithQuestions.has(unitId)) continue;
+      entries.push({
+        url: `${SITE_URL}/soru-bankasi/${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}`,
+        lastModified: now,
+        changeFrequency: 'weekly',
+        priority: 0.65,
+      });
+    }
+
     const topicPathById = new Map<number, string>();
     for (const t of topics) {
       const unitPath = unitPathById.get(t.unit_id);
