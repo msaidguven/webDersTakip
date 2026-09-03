@@ -108,7 +108,7 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   return (
     <div
       role="img"
-      className="mb-4 rounded-xl border border-default bg-white p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs"
+      className="mb-4 flex justify-center rounded-xl border border-default bg-white p-3 [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-56 [&_svg]:max-w-full sm:[&_svg]:max-h-64"
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
