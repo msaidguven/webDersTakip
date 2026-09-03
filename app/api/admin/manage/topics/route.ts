@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteTopicsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
-import { revalidateUnitPagesForTopics } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateUnitPagesForTopics, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active'] as const;
 
@@ -77,6 +77,7 @@ export async function PATCH(request: NextRequest) {
   // is_active dahil — bir konunun görünürlüğü değişince o ünitedeki TÜM konu
   // sayfalarının sidebar listesi de değişir, sadece kendi sayfası değil.
   await revalidateUnitPagesForTopics(supabase, ids);
+  if (Object.prototype.hasOwnProperty.call(patch, 'is_active')) revalidateHomepage();
   return NextResponse.json({ ok: true });
 }
 
@@ -93,6 +94,7 @@ export async function DELETE(request: NextRequest) {
   // Silinmeden ÖNCE üniteyi çözüp cache'i düşürüyoruz — hard delete'te satırlar
   // gittikten sonra topic->unit zinciri kurulamaz.
   await revalidateUnitPagesForTopics(supabase, ids);
+  revalidateHomepage();
 
   if (body?.hard === true) {
     const result = await deleteTopicsCascade(supabase, ids);

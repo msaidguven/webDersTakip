@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteTopicContentsCascade } from '@/app/src/lib/adminCascade';
-import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'body_markdown', 'is_published', 'hero_image_url'] as const;
 
@@ -82,6 +82,7 @@ export async function PATCH(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await revalidateTopicPagesByContentIds(supabase, ids);
+  if (Object.prototype.hasOwnProperty.call(patch, 'is_published')) revalidateHomepage();
   return NextResponse.json({ ok: true });
 }
 
@@ -97,6 +98,7 @@ export async function DELETE(request: NextRequest) {
   // Silinmeden ÖNCE topic'leri çözüp cache'i düşürüyoruz — satırlar gittikten sonra
   // content->topic zinciri kurulamaz.
   await revalidateTopicPagesByContentIds(supabase, ids);
+  revalidateHomepage();
   const result = await deleteTopicContentsCascade(supabase, ids);
   return NextResponse.json(result);
 }

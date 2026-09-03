@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
-import { revalidateUnitPagesForQuestionIds } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateUnitPagesForQuestionIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
 const MAX_SVG_LENGTH = 20_000;
@@ -219,6 +219,7 @@ export async function DELETE(request: NextRequest) {
   // Silinmeden ÖNCE topic'leri çözüp cache'i düşürüyoruz — satırlar gittikten sonra
   // question->topic zinciri kurulamaz.
   await revalidateUnitPagesForQuestionIds(supabase, ids);
+  revalidateHomepage();
   const result = await deleteQuestionsCascade(supabase, ids);
   return NextResponse.json(result);
 }

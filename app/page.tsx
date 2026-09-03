@@ -1,17 +1,19 @@
 //app/page.tsx
 
-import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import HomeClient from './HomeClient';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
-import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
+import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, getPublishedUnitContent, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
 
-// ISR: Revalidate every 60 seconds for public data
-export const revalidate = 60;
+// ISR: taze veri gerektiren admin ayrımı yok (tamamen public), bu yüzden 1 saatlik
+// fallback yeterli — içerik yayınlandığında/soru eklendiğinde zaten admin endpoint'leri
+// revalidateHomepage() ile bu sayfayı anında tazeliyor (bkz. topicPageRevalidation.ts).
+export const revalidate = 3600;
 
 type GradeRow = { id: number; name: string; order_no: number; is_active: boolean; slug: string | null };
 
-async function getGrades(supabase: ReturnType<typeof createServiceClient>): Promise<{ grades: Grade[]; rows: GradeRow[] }> {
+async function getGrades(supabase: ReturnType<typeof createAnonClient>): Promise<{ grades: Grade[]; rows: GradeRow[] }> {
   const { data, error } = await supabase
     .from('grades')
     .select('id, name, order_no, is_active, slug')
@@ -38,17 +40,22 @@ async function getGrades(supabase: ReturnType<typeof createServiceClient>): Prom
 }
 
 export default async function HomePage() {
-  const supabase = createServiceClient();
+  const supabase = createAnonClient();
   const { grades, rows } = await getGrades(supabase);
+  const gradeIds = rows.map((r) => r.id);
 
-  const [stats, gradeSectionsMap] = await Promise.all([
-    getSiteStats(supabase),
-    getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug }))),
+  // publishedUnitsAll, hem istatistik sayaçları hem ders kartları için ORTAK girdi —
+  // eskiden ikisi de bu ünite/konu/soru taramasını AYRI AYRI yapıyordu (aynı sorgular
+  // iki kere atılıyordu); tek seferde hesaplayıp ikisine de paylaştırıyoruz. Haftanın
+  // konuları da stats/gradeSections'a bağlı olmadığı için aynı Promise.all'a alındı.
+  const publishedUnitsAll = await getPublishedUnitContent(supabase, gradeIds);
+
+  const [gradeSectionsMap, weeklyTopicsEntries] = await Promise.all([
+    getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
+    Promise.all(rows.map(async (r) => [r.id, await getWeeklyTopicsForGrade(supabase, r.id, r.slug)] as const)),
   ]);
 
-  const weeklyTopicsEntries = await Promise.all(
-    rows.map(async (r) => [r.id, await getWeeklyTopicsForGrade(supabase, r.id, r.slug)] as const)
-  );
+  const stats = getSiteStats(gradeIds, publishedUnitsAll);
 
   const gradeSections: Record<string, HomeGradeSection> = {};
   for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;

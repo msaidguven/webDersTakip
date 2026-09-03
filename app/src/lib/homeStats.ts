@@ -20,7 +20,7 @@ type UnitContentRow = {
   questionCount: number;
 };
 
-async function getPublishedUnitContent(supabase: AnySupabaseClient, gradeIds: number[]): Promise<UnitContentRow[]> {
+export async function getPublishedUnitContent(supabase: AnySupabaseClient, gradeIds: number[]): Promise<UnitContentRow[]> {
   if (!gradeIds.length) return [];
 
   const { data: unitRows } = await supabase
@@ -86,11 +86,11 @@ export interface SiteStats {
 const DISPLAYED_STUDENT_COUNT = 2388;
 
 // Anasayfadaki istatistik çubuğu için gerçek, YAYINDA olan içerik sayıları (yukarıdaki not).
-export async function getSiteStats(supabase: AnySupabaseClient): Promise<SiteStats> {
-  const { data: gradeRows } = await supabase.from('grades').select('id').eq('is_active', true);
-
-  const gradeIds = ((gradeRows as { id: number }[] | null) || []).map((g) => g.id);
-  const publishedUnits = (await getPublishedUnitContent(supabase, gradeIds)).filter((u) => u.hasPublishedContent);
+// publishedUnitsAll, getPublishedUnitContent'in ÇAĞIRAN tarafından (bkz. app/page.tsx) tek
+// seferde hesaplanmış sonucudur — getHomeGradeSections de aynı sonucu kullanır, aynı
+// üniteler/konular/sorular için iki kez sorgu atılmasın diye.
+export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[]): SiteStats {
+  const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
 
   const lessonKeys = new Set(publishedUnits.map((u) => `${u.grade_id}:${u.lesson_id}`));
   const topicCount = publishedUnits.reduce((sum, u) => sum + u.topicCount, 0);
@@ -131,15 +131,13 @@ type LessonRow = { id: number; name: string; icon: string | null; slug: string |
 // atmadan anında geçiş yapabilmek için hepsini baştan getiriyoruz.
 export async function getHomeGradeSections(
   supabase: AnySupabaseClient,
-  grades: { id: number; slug: string | null }[]
+  grades: { id: number; slug: string | null }[],
+  publishedUnitsAll: UnitContentRow[]
 ): Promise<Map<number, HomeGradeSection>> {
   const gradeIds = grades.map((g) => g.id);
   if (!gradeIds.length) return new Map();
 
-  const [{ data: lessonGradeRows }, publishedUnitsAll] = await Promise.all([
-    supabase.from('lesson_grades').select('lesson_id, grade_id, is_active').in('grade_id', gradeIds),
-    getPublishedUnitContent(supabase, gradeIds),
-  ]);
+  const { data: lessonGradeRows } = await supabase.from('lesson_grades').select('lesson_id, grade_id, is_active').in('grade_id', gradeIds);
 
   const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
 

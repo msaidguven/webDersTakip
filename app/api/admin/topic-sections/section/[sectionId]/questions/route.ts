@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { parseQuestions, TYPE_ID, INVALID_MESSAGE } from '@/app/src/lib/parseMixedQuestions';
-import { revalidateUnitPagesForTopics } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateUnitPagesForTopics, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 interface Params {
   sectionId: string;
@@ -122,5 +122,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
   }
 
   await revalidateUnitPagesForTopics(supabase, [topicId]);
+  revalidateHomepage();
   return NextResponse.json({ ok: true, savedCount });
 }

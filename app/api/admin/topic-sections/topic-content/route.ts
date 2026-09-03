@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { revalidateTopicPagesByContentIds } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
@@ -69,5 +69,7 @@ export async function PATCH(request: NextRequest) {
   // isPublished dahil — yayınlanınca/yayından kaldırılınca sayfa görünürlüğü değişir,
   // önceden cache'lenmiş bir 404/eski hâl varsa bu anında düşer.
   await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
+  // Ana sayfadaki "yayınlanmış konu" sayacı sadece isPublished değişince etkilenir.
+  if (Object.prototype.hasOwnProperty.call(update, 'is_published')) revalidateHomepage();
   return NextResponse.json({ ok: true });
 }

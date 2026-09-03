@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteUnitsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByUnitId } from '@/app/src/lib/questionCounts';
-import { revalidateUnitPages } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateUnitPages, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active', 'duration_hours', 'curriculum_code'] as const;
 
@@ -66,6 +66,7 @@ export async function PATCH(request: NextRequest) {
   // is_active/start_week/end_week dahil — bunlar o ünitedeki TÜM konu sayfalarının
   // görünürlüğünü/hafta hesabını etkiler.
   await revalidateUnitPages(supabase, ids);
+  if (Object.prototype.hasOwnProperty.call(patch, 'is_active')) revalidateHomepage();
   return NextResponse.json({ ok: true });
 }
 
@@ -81,6 +82,7 @@ export async function DELETE(request: NextRequest) {
 
   // Silinmeden ÖNCE (hard delete'te satırlar gidebileceği için) cache'i düşürüyoruz.
   await revalidateUnitPages(supabase, ids);
+  revalidateHomepage();
 
   if (body?.hard === true) {
     const result = await deleteUnitsCascade(supabase, ids);

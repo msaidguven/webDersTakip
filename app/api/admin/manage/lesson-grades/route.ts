@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -63,5 +64,10 @@ export async function PATCH(request: NextRequest) {
     .eq('grade_id', gradeId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // isActive dahilse ana sayfadaki ders kartları/sayaçlar da değişir (bkz. topic
+  // sayfalarında olduğu gibi burada tüm üniteleri tek tek revalidate etmiyoruz —
+  // bu nadir/geniş etkili bir işlem, konu sayfaları saatlik fallback'e bırakıldı;
+  // ama ana sayfa için tek bir path invalidation ucuz olduğu için yine de yapıyoruz).
+  if (Object.prototype.hasOwnProperty.call(update, 'is_active')) revalidateHomepage();
   return NextResponse.json({ ok: true });
 }

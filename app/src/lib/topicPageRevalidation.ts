@@ -152,3 +152,15 @@ export async function revalidateTopicPagesBySectionIds(supabase: Supabase, secti
     console.error('[revalidateTopicPagesBySectionIds] revalidate başarısız:', error);
   }
 }
+
+// Ana sayfa (bkz. app/page.tsx, revalidate=3600) istatistik sayaçlarını (yayınlanmış
+// konu/soru sayısı) ve ders kartlarını gösteriyor. Bu sayılar/kart listesi değişebilecek
+// bir olay (konu yayınlandı, soru eklendi/silindi, ünite/ders/ders-sınıf aktifliği
+// değişti) sonrası çağrılır — sorgu gerekmiyor, tek bir path invalidation.
+export function revalidateHomepage(): void {
+  try {
+    revalidatePath('/');
+  } catch (error) {
+    console.error('[revalidateHomepage] revalidate başarısız:', error);
+  }
+}
