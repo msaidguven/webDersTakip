@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getAllTopicQuestions, getQuestionsByIds } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type TopicTestPageData } from '@/app/src/lib/quizPageData';
+import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
 import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
 import Link from 'next/link';
@@ -61,6 +62,8 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
   const questions = await getAllTopicQuestions(data.topicId);
   const activeId = parseQuestionParam(soru);
   const activeIdOnPage = activeId != null && questions.some((q) => q.id === activeId) ? activeId : null;
+  const unitData = await getSoruBankasiUnitData(sinif, ders, unite);
+  const unitPath = unitData ? buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, unitData.unitSlug) : null;
 
   return (
     <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
@@ -98,7 +101,39 @@ export default async function QuestionBankPage({ params, searchParams }: PagePro
         <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{questions.length} soru — cevap anahtarıyla birlikte</p>
       </div>
 
-      <QuestionBankBoard questions={questions} />
+      <QuestionBankBoard questions={questions} basePath={buildQuestionBankPath(data)} />
+
+      {unitData && unitPath && unitData.topics.length > 1 && (
+        <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{unitData.unitTitle}</p>
+          <h2 className="mt-1 text-sm font-black text-default">Bu Ünitedeki Diğer Konular</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {unitData.topics.map((topic) =>
+              topic.slug === data.topicSlug ? (
+                <span key={topic.slug} className="rounded-full border border-indigo-400/60 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-500">
+                  {topic.title}
+                </span>
+              ) : (
+                <Link
+                  key={topic.slug}
+                  href={`${unitPath}/${topic.slug}`}
+                  className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+                >
+                  {topic.title}
+                </Link>
+              )
+            )}
+          </div>
+          <div className="mt-4 flex flex-col gap-1.5 border-t border-default pt-3 text-xs font-bold">
+            <Link href={buildSoruBankasiLessonPath(unitData.gradeSlug, unitData.lessonSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
+              → Tüm {unitData.lessonName} Soru Bankaları
+            </Link>
+            <Link href={buildSoruBankasiGradePath(unitData.gradeSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
+              → Tüm {unitData.gradeName} Soru Bankaları
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -201,10 +201,14 @@ export function MatchingView({
             const isCorrect = locked && assignedTo != null && assignedTo === pair.id;
             const isWrong = locked && assignedTo != null && assignedTo !== pair.id;
             const isMatched = !locked && assignedTo != null;
+            // isCorrect/isWrong kilitlenmeden önce hep false olduğu için bu sıralama
+            // güvenli: kilitlenmeden önce hâlâ activeLeft/isMatched'e düşer, kilitlendikten
+            // sonra ise doğru/yanlış rengi "son seçilen" mavi rengin önüne geçer (aksi halde
+            // son tıklanan sol öğe kilitli halde bile mavi kalıp doğru/yanlış belli olmuyordu).
             let cls = 'border-default bg-surface';
-            if (activeLeft === pair.id) cls = 'border-indigo-400 bg-indigo-500/10';
-            else if (isCorrect) cls = 'border-emerald-400/60 bg-emerald-500/10';
+            if (isCorrect) cls = 'border-emerald-400/60 bg-emerald-500/10';
             else if (isWrong) cls = 'border-rose-400/60 bg-rose-500/10';
+            else if (activeLeft === pair.id) cls = 'border-indigo-400 bg-indigo-500/10';
             else if (isMatched) cls = 'border-indigo-300/50 bg-indigo-500/5';
             return (
               <button
@@ -334,10 +338,11 @@ export function QuestionAnswerKeyItem({
   // veya arama motoru her şeyi ilk yanıtta görür (bkz. .cevap-aciklama / .cevap-marker için
   // <noscript> override, app/soru-bankasi/.../page.tsx).
   interactive?: boolean;
-  onAnswered?: (questionId: number, correct: boolean) => void;
+  onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed') => void;
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [assignment, setAssignment] = useState<Record<number, number>>({});
 
   if (!interactive) {
     return (
@@ -389,7 +394,31 @@ export function QuestionAnswerKeyItem({
   const selectOption = (optId: number, isCorrect: boolean) => {
     if (selectedId != null) return;
     setSelectedId(optId);
-    onAnswered?.(q.id, isCorrect);
+    onAnswered?.(q.id, isCorrect ? 'correct' : 'incorrect');
+  };
+
+  // Eşleştirmede tek bir çift atandığında anında doğru/yanlış göstermiyoruz — kullanıcı
+  // tüm çiftleri istediği gibi değiştirebilir, sonuç ancak "Cevabımı Kontrol Et" ile açığa
+  // çıkar (canlı test akışındaki assignMatch/checkMatching ile birebir aynı mantık, bkz.
+  // QuizClient.tsx içindeki assignMatch/checkMatching).
+  const assignMatchPair = (leftId: number, rightId: number) => {
+    if (revealed) return;
+    setAssignment((prev) => {
+      const next = { ...prev };
+      for (const [l, r] of Object.entries(next)) {
+        if (r === rightId) delete next[Number(l)];
+      }
+      next[leftId] = rightId;
+      return next;
+    });
+  };
+
+  const checkMatchAssignment = () => {
+    if (revealed || q.type !== 'matching') return;
+    if (Object.keys(assignment).length !== q.pairs.length) return;
+    const allCorrect = q.pairs.every((p) => assignment[p.id] === p.id);
+    setRevealed(true);
+    onAnswered?.(q.id, allCorrect ? 'correct' : 'incorrect');
   };
 
   return (
@@ -435,22 +464,19 @@ export function QuestionAnswerKeyItem({
         </ul>
       )}
 
-      {q.type === 'matching' && !revealed && (
-        <button
-          type="button"
-          onClick={() => setRevealed(true)}
-          aria-expanded={revealed}
-          aria-controls={explanationId}
-          className="mt-2.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
-        >
-          Eşleştirmeyi Göster
-        </button>
+      {q.type === 'matching' && (
+        <div className="mt-2.5">
+          <MatchingView question={q} assignment={assignment} locked={revealed} onAssign={assignMatchPair} onCheck={checkMatchAssignment} />
+        </div>
       )}
 
       {q.type === 'classical' && q.modelAnswer && !revealed && (
         <button
           type="button"
-          onClick={() => setRevealed(true)}
+          onClick={() => {
+            setRevealed(true);
+            onAnswered?.(q.id, 'revealed');
+          }}
           aria-expanded={revealed}
           aria-controls={explanationId}
           className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
