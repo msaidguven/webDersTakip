@@ -37,10 +37,10 @@ function CommentsModal({ index, onClose, children }: { index: number; onClose: (
       onClick={onClose}
     >
       <div
-        className="relative h-full w-full bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-default"
+        className="relative flex h-full w-full flex-col bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-default"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-default bg-surface px-4 py-3 sm:rounded-t-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-default bg-surface px-4 py-3 sm:rounded-t-2xl">
           <h3 className="text-sm font-black text-default">Soru {index + 1} — Yorumlar</h3>
           <button
             type="button"
@@ -51,7 +51,11 @@ function CommentsModal({ index, onClose, children }: { index: number; onClose: (
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
-        <div className="overflow-y-auto p-4 sm:max-h-[calc(85vh-52px)]">{children}</div>
+        {/* min-h-0, flex öğesinin içeriğine göre büyümesini engelleyip flex-1'in gerçek bir
+            yükseklik sınırı olarak çalışmasını sağlıyor — bu olmadan overflow-y-auto etkisiz
+            kalıyor ve mobilde alttaki yorumlara kaydırarak ulaşılamıyordu (kullanıcı bildirimi,
+            2026-09-03). */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
       </div>
     </div>
   );
