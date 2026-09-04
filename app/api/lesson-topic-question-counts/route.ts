@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     .eq('is_active', true);
   const topics = (topicsData as { id: number; unit_id: number }[] | null) || [];
 
-  const countsByTopicId = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id));
+  const countsByTopicId = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true });
 
   const byTopic: Record<string, number> = {};
   const byUnit: Record<string, number> = {};

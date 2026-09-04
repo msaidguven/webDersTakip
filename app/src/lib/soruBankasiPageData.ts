@@ -54,7 +54,7 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
 
   const [{ data: lessonRows }, questionCountByLesson] = await Promise.all([
     supabase.from('lessons').select('id, name, slug, order_no').in('id', lessonIds).eq('is_active', true).order('order_no', { ascending: true }),
-    getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id }))),
+    getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id })), { activeOnly: true }),
   ]);
 
   const lessons = ((lessonRows as (LessonRow & { order_no: number | null })[] | null) || [])
@@ -111,7 +111,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
 
   const unitIds = units.map((u) => u.id);
   const [questionCountByUnit, { data: topicRows }] = await Promise.all([
-    getQuestionCountsByUnitId(supabase, unitIds),
+    getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true }),
     supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true),
   ]);
   const topicCountByUnit = new Map<number, number>();
@@ -173,7 +173,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   };
   if (!topics.length) return { ...base, topics: [], hasQuestions: false };
 
-  const questionCountByTopic = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id));
+  const questionCountByTopic = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true });
 
   const topicList = topics
     .filter((t) => t.slug)

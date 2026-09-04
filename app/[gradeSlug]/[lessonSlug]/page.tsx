@@ -144,7 +144,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     const topicRows = (topicsData as TopicRow[] | null) || [];
     const topicIds = topicRows.map((t) => t.id);
     const [questionCountsByTopic, { data: contentRows }] = await Promise.all([
-      getQuestionCountsByTopicId(supabase, topicIds),
+      getQuestionCountsByTopicId(supabase, topicIds, { activeOnly: true }),
       topicIds.length
         ? supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).eq('is_published', true)
         : Promise.resolve({ data: [] as { topic_id: number }[] }),

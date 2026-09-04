@@ -71,7 +71,8 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   const { count: topicQuestionCount } = await supabase
     .from('questions')
     .select('id', { count: 'exact', head: true })
-    .eq('topic_id', topic.id);
+    .eq('topic_id', topic.id)
+    .eq('is_active', true);
   const questionCount = topicQuestionCount ?? 0;
 
   if (questionCount === 0) return null;
@@ -199,7 +200,8 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
     const { count } = await supabase
       .from('questions')
       .select('id', { count: 'exact', head: true })
-      .in('topic_id', topicIds);
+      .in('topic_id', topicIds)
+      .eq('is_active', true);
     realQuestionCount = count ?? 0;
   }
 

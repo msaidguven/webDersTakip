@@ -135,7 +135,8 @@ async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]):
   const { data: questionsData } = await supabase
     .from('questions')
     .select('id, topic_id')
-    .in('topic_id', topicIds);
+    .in('topic_id', topicIds)
+    .eq('is_active', true);
   for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
     const unitId = unitIdByTopicId.get(q.topic_id);
     if (unitId == null) continue;

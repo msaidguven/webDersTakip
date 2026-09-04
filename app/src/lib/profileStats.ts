@@ -100,7 +100,8 @@ export async function getProfileStats(
         const { data: questionRows } = await supabase
           .from('questions')
           .select('topic_id')
-          .in('topic_id', [...unitIdByTopicId.keys()]);
+          .in('topic_id', [...unitIdByTopicId.keys()])
+          .eq('is_active', true);
         for (const q of (questionRows as { topic_id: number | null }[] | null) || []) {
           if (q.topic_id == null) continue;
           const unitId = unitIdByTopicId.get(q.topic_id);

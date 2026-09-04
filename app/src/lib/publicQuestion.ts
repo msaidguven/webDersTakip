@@ -18,6 +18,7 @@ export interface PublicQuestionContext {
 
 type ChainRow = {
   id: number;
+  is_active: boolean;
   topics: {
     id: number;
     title: string;
@@ -35,8 +36,9 @@ type ChainRow = {
 };
 
 // Eski /soru/[id] linklerini /soru-bankasi/.../[konu]?soru=ID'e 301 ile yönlendirmek için:
-// bir sorunun ait olduğu sınıf/ders/ünite/konu bağlamını (slug'lar + başlıklar) çözer. Konu
-// ya da ünite pasifse (is_active=false) null döner — isViewerAdmin bypass'ı OLMADAN aynı
+// bir sorunun ait olduğu sınıf/ders/ünite/konu bağlamını (slug'lar + başlıklar) çözer. Sorunun
+// kendisi (ör. SVG bekleyen taslak), konu ya da ünite pasifse (is_active=false) null döner —
+// isViewerAdmin bypass'ı OLMADAN aynı
 // görünürlük kuralına tabi (bkz. quizPageData.ts'teki non-admin davranışı), taslak bir
 // konunun eski linki yeni sayfaya değil 404'e düşer.
 export async function getPublicQuestionContext(questionId: number): Promise<PublicQuestionContext | null> {
@@ -45,13 +47,13 @@ export async function getPublicQuestionContext(questionId: number): Promise<Publ
   const { data } = await supabase
     .from('questions')
     .select(
-      `id, topics!inner(id, title, slug, is_active, units!inner(id, title, slug, is_active, grades!inner(id, name, slug), lessons!inner(id, name, slug)))`
+      `id, is_active, topics!inner(id, title, slug, is_active, units!inner(id, title, slug, is_active, grades!inner(id, name, slug), lessons!inner(id, name, slug)))`
     )
     .eq('id', questionId)
     .maybeSingle();
 
   const row = data as ChainRow | null;
-  if (!row) return null;
+  if (!row || !row.is_active) return null;
 
   const topic = Array.isArray(row.topics) ? row.topics[0] : row.topics;
   if (!topic || !topic.is_active) return null;

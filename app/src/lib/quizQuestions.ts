@@ -192,7 +192,7 @@ async function selectPersonalizedQuestionIds(
 }
 
 async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId);
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true);
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
 
@@ -266,7 +266,12 @@ export async function getAllTopicQuestions(topicId: number | string): Promise<Qu
   // client kullanıyor — /soru-bankasi sayfasının ISR ile cache'lenebilmesi için (bkz. o
   // fonksiyondaki not).
   const supabase = createAnonClient();
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).order('id', { ascending: true });
+  const { data: questionIdRows } = await supabase
+    .from('questions')
+    .select('id')
+    .eq('topic_id', topicId)
+    .eq('is_active', true)
+    .order('id', { ascending: true });
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
   return getQuestionsByIds(questionIds);
 }
@@ -284,7 +289,7 @@ async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceC
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
   if (!topicIds.length) return [];
 
-  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds);
+  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds).eq('is_active', true);
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
 

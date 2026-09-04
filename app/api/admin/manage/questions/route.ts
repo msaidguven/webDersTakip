@@ -125,6 +125,8 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Geçersiz SVG kodu' }, { status: 400 });
       } else {
         patch.svg_content = svg;
+        // Taslak bir soruya (svg_prompt bekleyen) SVG girilip kaydedilince otomatik yayınlanır.
+        patch.is_active = true;
       }
     }
     if ('svg_prompt' in patch) {

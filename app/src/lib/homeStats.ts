@@ -41,7 +41,7 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
       ? supabase.from('topic_contents').select('id, topic_id').in('topic_id', topicIds).eq('is_published', true)
       : Promise.resolve({ data: [] as { id: number; topic_id: number }[] }),
     topicIds.length
-      ? supabase.from('questions').select('id, topic_id').in('topic_id', topicIds)
+      ? supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true)
       : Promise.resolve({ data: [] as { id: number; topic_id: number | null }[] }),
   ]);
 

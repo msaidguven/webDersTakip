@@ -60,7 +60,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const { data: questionsData } = await supabase
         .from('questions')
         .select('id, topic_id')
-        .in('topic_id', topicIds);
+        .in('topic_id', topicIds)
+        .eq('is_active', true);
       for (const q of (questionsData as QuestionRow[] | null) || []) {
         if (q.topic_id == null) continue;
         topicIdsWithQuestions.add(q.topic_id);

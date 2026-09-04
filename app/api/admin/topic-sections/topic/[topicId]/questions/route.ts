@@ -56,6 +56,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
   for (const q of questions) {
     const questionText = q.kind === 'matching' ? 'Aşağıdaki kavramları doğru tanımlarıyla eşleştir.' : q.question_text;
     const solutionText = q.kind === 'matching' ? null : q.solution_text;
+    const svgPrompt = q.kind === 'matching' ? null : q.svg_prompt;
 
     const { data: questionRow, error: qError } = await supabase
       .from('questions')
@@ -67,8 +68,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
         section_id: null,
         source,
         ai_model: aiModel,
-        svg_prompt: q.kind === 'matching' ? null : q.svg_prompt,
+        svg_prompt: svgPrompt,
         svg_position: q.kind === 'matching' ? 'above' : q.svg_position,
+        // SVG istenmiş ama henüz girilmemiş sorular admin SVG'yi ekleyip kaydedene
+        // kadar taslak kalır — bkz. app/api/admin/manage/questions/route.ts PATCH'teki
+        // otomatik yayınlama.
+        is_active: !svgPrompt,
       })
       .select('id')
       .single();

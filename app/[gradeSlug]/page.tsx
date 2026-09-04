@@ -102,7 +102,7 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
     .eq('is_active', true);
 
   const [questionCountByLesson, { data: lessonRows }, { data: unitRows }] = await Promise.all([
-    getQuestionCountsByLessonGrade(supabase, ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id }))),
+    getQuestionCountsByLessonGrade(supabase, ids.map((lessonId) => ({ lessonId, gradeId: gradeData.id })), { activeOnly: true }),
     supabase
       .from('lessons')
       .select('id, name, icon, description, slug, order_no')

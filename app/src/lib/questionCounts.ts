@@ -21,10 +21,20 @@ export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topic
   return ((data as { id: number }[] | null) || []).map((r) => r.id);
 }
 
-export async function getQuestionCountsByTopicId(supabase: AnySupabaseClient, topicIds: number[]): Promise<Map<number, number>> {
+// activeOnly=true, taslak (svg_prompt bekleyen/yayınlanmamış, is_active=false) soruları
+// sayıma dahil etmez — öğrenciye gösterilen sayfalarda kullanılmalı. Admin yönetim
+// ekranları (ve silme akışları, ki taslakları da silmesi gerekir) activeOnly'yi vermeyip
+// gerçek toplamı görmeye devam eder.
+export async function getQuestionCountsByTopicId(
+  supabase: AnySupabaseClient,
+  topicIds: number[],
+  opts?: { activeOnly?: boolean }
+): Promise<Map<number, number>> {
   if (!topicIds.length) return new Map();
 
-  const { data } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds);
+  let query = supabase.from('questions').select('id, topic_id').in('topic_id', topicIds);
+  if (opts?.activeOnly) query = query.eq('is_active', true);
+  const { data } = await query;
 
   const counts = new Map<number, number>();
   for (const q of (data as { id: number; topic_id: number | null }[] | null) || []) {
@@ -34,12 +44,16 @@ export async function getQuestionCountsByTopicId(supabase: AnySupabaseClient, to
   return counts;
 }
 
-export async function getQuestionCountsByUnitId(supabase: AnySupabaseClient, unitIds: number[]): Promise<Map<number, number>> {
+export async function getQuestionCountsByUnitId(
+  supabase: AnySupabaseClient,
+  unitIds: number[],
+  opts?: { activeOnly?: boolean }
+): Promise<Map<number, number>> {
   if (!unitIds.length) return new Map();
 
   const { data: topicsData } = await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds);
   const topics = (topicsData as { id: number; unit_id: number }[] | null) || [];
-  const topicCounts = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id));
+  const topicCounts = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), opts);
 
   const unitCounts = new Map<number, number>();
   for (const t of topics) {
@@ -53,7 +67,8 @@ export async function getQuestionCountsByUnitId(supabase: AnySupabaseClient, uni
 // sahip olabildiği için (lesson_grades ilişkisi) tek başına lessonId yeterli değil.
 export async function getQuestionCountsByLessonGrade(
   supabase: AnySupabaseClient,
-  pairs: { lessonId: number; gradeId: number }[]
+  pairs: { lessonId: number; gradeId: number }[],
+  opts?: { activeOnly?: boolean }
 ): Promise<Map<string, number>> {
   if (!pairs.length) return new Map();
 
@@ -62,11 +77,13 @@ export async function getQuestionCountsByLessonGrade(
 
   // Tek istekte units -> topics -> questions'ı nested embed ile çekip JS'de
   // sayıyoruz; ayrı ayrı sıralı sorgular yerine tek round-trip.
-  const { data: unitsData } = await supabase
+  let unitsQuery = supabase
     .from('units')
     .select('lesson_id, grade_id, topics(questions(id))')
     .in('lesson_id', lessonIds)
     .in('grade_id', gradeIds);
+  if (opts?.activeOnly) unitsQuery = unitsQuery.eq('topics.questions.is_active', true);
+  const { data: unitsData } = await unitsQuery;
   const units = (unitsData as { lesson_id: number; grade_id: number; topics: { questions: { id: number }[] }[] }[] | null) || [];
 
   const result = new Map<string, number>();

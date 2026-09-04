@@ -201,7 +201,7 @@ export async function getUnitsForLesson(
   // kuruluyor (eskiden aktif ünitenin konuları için bunlar ayrıca yeniden sorgulanıyordu).
   const [{ data: questionRows }, { data: contentRows }, { data: contentProgressRows }] = topicIds.length
     ? await Promise.all([
-        supabase.from('questions').select('id, topic_id').in('topic_id', topicIds),
+        supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true),
         supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).eq('is_published', true),
         supabase.from('user_topic_content_progress').select('topic_id, is_completed').eq('user_id', userId).in('topic_id', topicIds),
       ])
