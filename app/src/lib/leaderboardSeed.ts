@@ -10,15 +10,17 @@
 // artıyor ve her yeni haftada sıfırdan yeniden hesaplanıyor.
 
 const SEED_NAMES = [
-  'demir_yumruk', 'kartal34', 'zeka_kupu', 'matematik_krali', 'kod_ninja',
-  'sessiz_fatih', 'isik_hizi', 'bilge_baykus', 'celik_kalem', 'yildiz_avcisi',
-  'kaplan07', 'ruzgar_gulu', 'mavi_simsek', 'karinca09', 'atmaca35',
-  'gece_kartali', 'pusula06', 'sifir_hata', 'dort_dortluk', 'beyin_firtinasi',
-  'hizli_tilki', 'odaklan23', 'caliskan_ari', 'yildiz_tozu', 'kelebek_etkisi',
-  'gri_kurt', 'gizli_deha', 'akilli_ordek', 'keskin_zeka', 'ates_bocegi',
-  'sabirli_kaplumbaga', 'maratoncu', 'son_viraj', 'hedef12', 'cozum_ustasi',
-  'delta_ogrenci', 'omega_zeka', 'bilgi_kupu', 'dolunay42', 'kar_tanesi',
-  'gunes_isigi', 'karanfil06', 'zeytin_dali', 'lale_devri', 'polen35',
+  // Rumuz tarzı
+  'demir_yumruk', 'kartal34', 'zeka_kupu', 'kod_ninja', 'sessiz_fatih',
+  'gece_kartali', 'hizli_tilki', 'keskin_zeka', 'maratoncu', 'cozum_ustasi',
+  'gizli_deha', 'ates_bocegi', 'yildiz_avcisi', 'akilli_ordek', 'son_viraj',
+  // Gerçek isme benzer tarz
+  'ahmet_demir23', 'mehmet_yildiz', 'zeynep_kara56', 'elif_su19', 'yusuf_aydin',
+  'ayse_nur34', 'emre_kaya07', 'buse_celik', 'kerem_ozturk15', 'irem_dogan',
+  'berkay_arslan22', 'sude_kaplan', 'mert_ozdemir08', 'defne_avci', 'alp_koc03',
+  'ecrin_bal17', 'kaan_sahin', 'nisa_bulut29', 'umut_polat11', 'melis_er',
+  'cinar_gunes14', 'yagmur_ceylan', 'taha_kurt08', 'elis_ay25', 'batuhan_deniz',
+  'rana_gun33', 'ege_yavuz17', 'sena_kilic', 'arda_tas06', 'beren_ipek',
 ];
 
 function hashString(str: string): number {
