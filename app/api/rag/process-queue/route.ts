@@ -51,6 +51,24 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!claimed) continue;
 
+    // Soru sorulduktan sonra, cevap gelmeden yorum silinmiş olabilir (normalde
+    // /api/comments/[id] ve /api/admin/all-comments/[id] bu satırı zaten
+    // temizliyor — bkz. o route'lardaki not, kullanıcı sorusu 2026-09-04). Bu,
+    // o temizlikle çakışan küçük bir yarış penceresini (silme tam bu claim'le
+    // aynı anda olduysa) ve olası eski/artık satırları kapatan ek bir güvenlik:
+    // yorum artık yayında değilse boşuna AI'ye sormak yerine sessizce atlanır.
+    if (row.comment_id != null) {
+      const { data: parentComment } = await supabase
+        .from('question_comments')
+        .select('status')
+        .eq('id', row.comment_id)
+        .maybeSingle();
+      if (!parentComment || parentComment.status !== 'published') {
+        await supabase.from('rag_question_queue').delete().eq('id', row.id);
+        continue;
+      }
+    }
+
     try {
       const result =
         row.mode === 'kanka'

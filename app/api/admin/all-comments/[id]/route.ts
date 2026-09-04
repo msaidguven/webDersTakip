@@ -67,10 +67,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (action === 'delete') {
+    // Silinen (ya da kademeli olarak yayından kaldırılan) bir yorum henüz
+    // cevaplanmamış bir rag_question_queue satırına bağlıysa o satır da
+    // temizlenmeli — yoksa worker daha sonra yine de cevaplar, kimsenin
+    // göremeyeceği bir cevap üretip AI kotasını boşa harcar (bkz. öğrenci
+    // tarafındaki aynı temizlik: /api/comments/[id], kullanıcı sorusu 2026-09-04).
     if (kind === 'comment') {
+      const { data: children } = await supabase.from('question_comments').select('id').eq('parent_comment_id', recordId);
+      const childIds = ((children as { id: number }[] | null) || []).map((c) => c.id);
+      await supabase.from('rag_question_queue').delete().in('comment_id', [recordId, ...childIds]);
       await supabase.from('question_comments').update({ status: 'deleted' }).eq('parent_comment_id', recordId);
       await supabase.from('rag_answers').update({ status: 'deleted' }).eq('parent_comment_id', recordId);
     } else {
+      const { data: children } = await supabase.from('question_comments').select('id').eq('parent_ai_answer_id', recordId);
+      const childIds = ((children as { id: number }[] | null) || []).map((c) => c.id);
+      if (childIds.length) await supabase.from('rag_question_queue').delete().in('comment_id', childIds);
       await supabase.from('question_comments').update({ status: 'deleted' }).eq('parent_ai_answer_id', recordId);
       await supabase.from('rag_answers').update({ status: 'deleted' }).eq('parent_rag_answer_id', recordId);
     }

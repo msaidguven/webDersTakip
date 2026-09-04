@@ -35,6 +35,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (comment.status === 'deleted') return NextResponse.json({ error: 'Bu yorum zaten silinmiş' }, { status: 400 });
 
   if (action === 'delete') {
+    // Silinen yorum (ya da @hocam/@kanka'ya bir yanıt olarak yazılmış, kendi
+    // AI sorusu olan bir alt yorum) henüz cevaplanmamış bir rag_question_queue
+    // satırına bağlıysa, o satır da temizlenmeli — yoksa worker daha sonra
+    // yine de cevaplar, kimsenin göremeyeceği (artık silinmiş yoruma bağlı)
+    // bir cevap üretip AI kotasını boşa harcar, kullanıcıya da yanıtı hiçbir
+    // yerde göremeyeceği bir "cevabın hazır" bildirimi gider (kullanıcı
+    // sorusu, 2026-09-04). Kademeli silmedeki kapsamla aynı: sadece üst yorum
+    // ve DOĞRUDAN altındaki yanıtlar (bkz. aşağıdaki cascade).
+    const queueCommentIds = [commentId];
+    if (comment.parent_comment_id == null) {
+      const { data: children } = await service.from('question_comments').select('id').eq('parent_comment_id', commentId);
+      queueCommentIds.push(...((children as { id: number }[] | null) || []).map((c) => c.id));
+    }
+    await service.from('rag_question_queue').delete().in('comment_id', queueCommentIds);
+
     const { error } = await service.from('question_comments').update({ status: 'deleted' }).eq('id', commentId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
