@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Pencil, RotateCcw, Share2, Trash2, Trophy, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Pencil, Play, RotateCcw, Share2, Trash2, Trophy, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
@@ -648,6 +648,11 @@ export default function QuizClient({
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
   const initialResumeIndex = resume ? findFirstUnansweredIndex(initialQuestions, resumedAnsweredIds) : 0;
+  // intro verilen bir bağlamda (bkz. QuizIntro), bildirimden/panelden tıklayınca doğrudan
+  // sayaçlı ilk soruya düşmek yerine önce bir bilgilendirme ekranı gösterip "Başla"
+  // bekleniyor — ama devam eden (en az bir cevabı olan) bir oturum resume ediliyorsa bu
+  // ekranı ATLA, kullanıcıyı zaten kaldığı yere döndürüyoruz.
+  const [started, setStarted] = useState(() => !intro || resumedAnsweredIds.size > 0);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   // remainingQuestionIds boş değilse arka plan yüklemesi tamamlanana kadar false kalır — session
@@ -1097,6 +1102,40 @@ export default function QuizClient({
     );
   }
 
+  if (intro && !started) {
+    return (
+      <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
+        <Link href={exitHref} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
+          <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
+        </Link>
+
+        <div className="rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-6">
+          <p className="mb-1 text-xs font-black uppercase tracking-widest text-indigo-500">{intro.subLabel}</p>
+          <h1 className="text-lg font-black leading-tight text-default sm:text-2xl">{scopeLabel}</h1>
+          {intro.description && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{intro.description}</p>}
+          {(intro.topicCount || intro.questionCount) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {intro.topicCount ? (
+                <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">{intro.topicCount} Konu</span>
+              ) : null}
+              {intro.questionCount ? (
+                <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">{intro.questionCount} Soru</span>
+              ) : null}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setStarted(true)}
+            className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3 text-sm font-black text-white transition-opacity hover:opacity-90"
+          >
+            <Play className="h-4 w-4" /> Başla
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showResult) {
     const percent = gradedQuestions.length ? Math.round((score / gradedQuestions.length) * 100) : 0;
     return (
@@ -1171,24 +1210,6 @@ export default function QuizClient({
       <Link href={exitHref} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
         <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
       </Link>
-
-      {intro && (
-        <div className="mb-3 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-5 sm:p-6">
-          <p className="mb-1 text-xs font-black uppercase tracking-widest text-indigo-500">{intro.subLabel}</p>
-          <h1 className="text-lg font-black leading-tight text-default sm:text-2xl">{scopeLabel}</h1>
-          {intro.description && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{intro.description}</p>}
-          {(intro.topicCount || intro.questionCount) && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {intro.topicCount ? (
-                <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">{intro.topicCount} Konu</span>
-              ) : null}
-              {intro.questionCount ? (
-                <span className="rounded-full border border-default bg-surface px-3 py-1 text-xs font-bold text-muted-foreground">{intro.questionCount} Soru</span>
-              ) : null}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="mb-3 sm:mb-5">
         <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">
