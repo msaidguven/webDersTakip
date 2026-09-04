@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useIsAdmin } from '../hooks/useIsAdmin';
+import { useDisplayName } from '../hooks/useDisplayName';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { Icon } from './icons';
 import { NotificationBell } from './NotificationBell';
@@ -18,6 +19,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, supabase, signOut } = useAuth();
   const isAdmin = useIsAdmin();
+  const displayName = useDisplayName();
   const pathname = usePathname();
   const [streak, setStreak] = React.useState<number | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
@@ -129,7 +131,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden">
                     <div className="px-4 py-3 border-b border-zinc-200 dark:border-default text-sm text-zinc-500 dark:text-muted-foreground truncate">
-                      👋 {user?.email?.split('@')[0]}
+                      👋 {displayName || user?.email?.split('@')[0]}
                     </div>
                     <Link
                       href="/panel"
