@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       supabase.from('question_choices').select('id, choice_text, is_correct').eq('question_id', id),
       supabase.from('question_blank_options').select('id, option_text, is_correct, order_no').eq('question_id', id).order('order_no'),
       supabase.from('question_matching_pairs').select('id, left_text, right_text, order_no').eq('question_id', id).order('order_no'),
-      supabase.from('question_classical').select('model_answer, answer_words').eq('question_id', id).maybeSingle(),
+      supabase.from('question_classical').select('model_answer, key_terms').eq('question_id', id).maybeSingle(),
     ]);
 
     return NextResponse.json({
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
 type ChoiceInput = { choice_text: string; is_correct: boolean };
 type BlankOptionInput = { option_text: string; is_correct: boolean; order_no: number };
 type MatchingPairInput = { left_text: string; right_text: string; order_no: number };
-type ClassicalInput = { model_answer: string | null; answer_words: string[] };
+type ClassicalInput = { model_answer: string | null; key_terms: string[] };
 
 export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
@@ -178,7 +178,7 @@ export async function PATCH(request: NextRequest) {
       const classical = body.classical as ClassicalInput;
       const { error } = await supabase
         .from('question_classical')
-        .upsert({ question_id: questionId, model_answer: classical.model_answer, answer_words: classical.answer_words || [] }, { onConflict: 'question_id' });
+        .upsert({ question_id: questionId, model_answer: classical.model_answer, key_terms: classical.key_terms || [] }, { onConflict: 'question_id' });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

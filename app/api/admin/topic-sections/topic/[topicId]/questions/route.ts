@@ -95,6 +95,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
         .from('question_blank_options')
         .insert(q.options.map((o, idx) => ({ question_id: questionId, option_text: o.text, is_correct: o.is_correct, order_no: idx })));
       detailError = error;
+    } else if (q.kind === 'classical') {
+      const { error } = await supabase
+        .from('question_classical')
+        .insert({ question_id: questionId, model_answer: q.model_answer, key_terms: q.key_terms });
+      detailError = error;
     } else {
       const { error } = await supabase
         .from('question_matching_pairs')

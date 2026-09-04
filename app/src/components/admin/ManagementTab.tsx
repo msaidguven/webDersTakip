@@ -952,7 +952,7 @@ export function QuestionEditModal({
     if (choices.length) body.choices = choices.map((c) => ({ choice_text: c.choice_text, is_correct: c.is_correct }));
     if (blankOptions.length) body.blankOptions = blankOptions.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct }));
     if (matchingPairs.length) body.matchingPairs = matchingPairs.map((p) => ({ left_text: p.left_text, right_text: p.right_text }));
-    if (classicalAnswer) body.classical = { model_answer: classicalAnswer, answer_words: [] };
+    if (classicalAnswer) body.classical = { model_answer: classicalAnswer, key_terms: [] };
 
     const res = await fetch('/api/admin/manage/questions', {
       method: 'PATCH',

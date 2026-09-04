@@ -5,6 +5,7 @@ import { Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-rea
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
+import { extractJson } from '@/app/src/lib/extractJson';
 import SectionContent from '@/app/ders/SectionContent';
 
 type Outcome = {
@@ -69,16 +70,6 @@ const STATUS_COLORS: Record<Section['status'], string> = {
   image_ready: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   published: 'bg-[#6c63ff]/15 text-[#b5b0ff] border-[#6c63ff]/30',
 };
-
-export function extractJson(raw: string): unknown {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1].trim() : trimmed;
-  const start = candidate.indexOf('{');
-  const end = candidate.lastIndexOf('}');
-  const jsonSlice = start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
-  return JSON.parse(jsonSlice);
-}
 
 export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }) {
   const [bundle, setBundle] = useState<Bundle | null>(null);
@@ -1164,6 +1155,11 @@ const MIXED_QUESTIONS_PLACEHOLDER =
   '{"type": "matching", "pairs": [{"left_text": "...", "right_text": "..."}, ...]}' +
   ']}';
 
+const CLASSICAL_QUESTIONS_PLACEHOLDER =
+  '{"ai_model": "...", "questions": [' +
+  '{"type": "classical", "question_text": "...", "svg_prompt": null, "svg_position": "above", "model_answer": "...", "key_terms": ["...", "..."]}' +
+  ']}';
+
 export function QuestionsModal({
   topicId,
   section,
@@ -1172,10 +1168,11 @@ export function QuestionsModal({
 }: {
   topicId: number;
   section: { id: number; heading: string };
-  variant?: 'general' | 'notebooklm';
+  variant?: 'general' | 'notebooklm' | 'classical';
   onClose: () => void;
 }) {
   const isNotebook = variant === 'notebooklm';
+  const isClassical = variant === 'classical';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -1189,7 +1186,7 @@ export function QuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    const promptType = isNotebook ? 'questions_notebooklm' : 'mixed_questions';
+    const promptType = isNotebook ? 'questions_notebooklm' : isClassical ? 'classical_questions' : 'mixed_questions';
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${promptType}`);
       const data = await res.json().catch(() => null);
@@ -1203,7 +1200,7 @@ export function QuestionsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, section.id, isNotebook]);
+  }, [topicId, section.id, isNotebook, isClassical]);
 
   // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
   // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
@@ -1257,11 +1254,13 @@ export function QuestionsModal({
   }
 
   return (
-    <ModalShell title={`Soru Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
+    <ModalShell title={`${isClassical ? 'Açık Uçlu Soru Ekle' : 'Soru Ekle'}${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
           {isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : isClassical
+            ? 'Tek promptla klasik/açık uçlu (öğrencinin yazarak cevapladığı) 3-6 soru, cevap anahtarıyla birlikte üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : 'Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
         </p>
 
@@ -1277,7 +1276,7 @@ export function QuestionsModal({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={12}
-            placeholder={MIXED_QUESTIONS_PLACEHOLDER}
+            placeholder={isClassical ? CLASSICAL_QUESTIONS_PLACEHOLDER : MIXED_QUESTIONS_PLACEHOLDER}
             className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
@@ -2476,10 +2475,11 @@ export function TopicQuestionsModal({
 }: {
   topicId: number;
   topicTitle: string;
-  variant?: 'general' | 'notebooklm';
+  variant?: 'general' | 'notebooklm' | 'classical';
   onClose: () => void;
 }) {
   const isNotebook = variant === 'notebooklm';
+  const isClassical = variant === 'classical';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -2493,7 +2493,7 @@ export function TopicQuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    const promptType = isNotebook ? 'topic_questions' : 'topic_questions_mixed';
+    const promptType = isNotebook ? 'topic_questions' : isClassical ? 'topic_questions_classical' : 'topic_questions_mixed';
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=${promptType}`);
       const data = await res.json().catch(() => null);
@@ -2507,7 +2507,7 @@ export function TopicQuestionsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, isNotebook]);
+  }, [topicId, isNotebook, isClassical]);
 
   useEffect(() => {
     if (!pasted.trim()) return;
@@ -2558,11 +2558,13 @@ export function TopicQuestionsModal({
   }
 
   return (
-    <ModalShell title={`Genel Sorular (Ünite Testi)${isNotebook ? '' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
+    <ModalShell title={`${isClassical ? 'Açık Uçlu Sorular (Ünite Testi)' : 'Genel Sorular (Ünite Testi)'}${isNotebook ? '' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
           {isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : isClassical
+            ? 'Bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI\'a sorun — konunun tüm alt başlıklarının ders notu prompt içine gömülür. Tek bir alt başlığa değil konunun bütününe bakan 6-10 klasik/açık uçlu sentez sorusu, cevap anahtarıyla birlikte üretilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : 'Bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI\'a sorun — konunun tüm alt başlıklarının ders notu prompt içine gömülür. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
         </p>
 
@@ -2578,7 +2580,7 @@ export function TopicQuestionsModal({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={12}
-            placeholder={MIXED_QUESTIONS_PLACEHOLDER}
+            placeholder={isClassical ? CLASSICAL_QUESTIONS_PLACEHOLDER : MIXED_QUESTIONS_PLACEHOLDER}
             className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
@@ -2620,6 +2622,206 @@ export function TopicQuestionsModal({
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+type GeneratedClassicalQuestion = {
+  question_text: string;
+  model_answer: string;
+  key_terms: string;         // düzenleme için virgülle ayrılmış tek metin, kaydederken diziye çevrilir
+  svg_prompt: string;
+  svg_position: 'above' | 'below';
+};
+
+// Manuel kopyala-yapıştır akışının aynısını (13/14 numaralı klasik soru promptu) tek
+// tıkla, doğrudan Gemini API çağrısıyla üretir (bkz. classical-questions/generate route).
+// Üretilen sorular ADMIN ONAYLAMADAN kaydedilmez — burada düzenlenip/silinip "Kaydet"
+// denince, manuel akışla AYNI section/topic questions POST rotasına gönderilir.
+export function ClassicalGenerateModal({
+  topicId,
+  topicTitle,
+  section,
+  onClose,
+}: {
+  topicId: number;
+  topicTitle: string;
+  section?: { id: number; heading: string } | null;
+  onClose: () => void;
+}) {
+  const [count, setCount] = useState(5);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [aiModel, setAiModel] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<GeneratedClassicalQuestion[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setGenerateError(null);
+    setQuestions(null);
+    setSavedCount(null);
+    try {
+      const res = await fetch('/api/admin/topic-sections/classical-questions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, sectionId: section?.id ?? null, count }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setGenerateError(data?.error || 'Üretim başarısız oldu.');
+        return;
+      }
+      type RawQuestion = {
+        question_text: string;
+        model_answer: string;
+        key_terms: string[];
+        svg_prompt: string | null;
+        svg_position: 'above' | 'below';
+      };
+      const raw = (data?.questions || []) as RawQuestion[];
+      setQuestions(raw.map((q) => ({
+        question_text: q.question_text,
+        model_answer: q.model_answer,
+        key_terms: (q.key_terms || []).join(', '),
+        svg_prompt: q.svg_prompt || '',
+        svg_position: q.svg_position === 'below' ? 'below' : 'above',
+      })));
+      setAiModel(data?.aiModel || null);
+    } catch {
+      setGenerateError('Ağ hatası oluştu.');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function updateQuestion(idx: number, patch: Partial<GeneratedClassicalQuestion>) {
+    setQuestions((cur) => (cur ? cur.map((q, i) => (i === idx ? { ...q, ...patch } : q)) : cur));
+  }
+
+  function removeQuestion(idx: number) {
+    setQuestions((cur) => (cur ? cur.filter((_, i) => i !== idx) : cur));
+  }
+
+  async function handleSave() {
+    if (!questions || !questions.length) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const payload = questions.map((q) => ({
+        type: 'classical',
+        question_text: q.question_text.trim(),
+        svg_prompt: q.svg_prompt.trim() || null,
+        svg_position: q.svg_position,
+        model_answer: q.model_answer.trim(),
+        key_terms: q.key_terms.split(',').map((t) => t.trim()).filter(Boolean),
+      }));
+      const url = section
+        ? `/api/admin/topic-sections/section/${section.id}/questions`
+        : `/api/admin/topic-sections/topic/${topicId}/questions`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: payload, ai_model: aiModel }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setSaveError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedCount(data?.savedCount ?? payload.length);
+      setQuestions(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Açık Uçlu Soru Üret (AI) — ${section ? section.heading : topicTitle}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Aynı klasik soru promptu doğrudan Gemini&apos;ye gönderilir. Üretilen sorular burada düzenlenebilir/silinebilir; &quot;Kaydet&quot;e basmadan soru bankasına yazılmaz.
+        </p>
+
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-muted-foreground">Adet</label>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+            className="w-20 rounded-lg border border-border bg-surface p-2 text-xs text-foreground focus:border-[#6c63ff] outline-none"
+          />
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {generating ? 'Üretiliyor...' : 'Üret'}
+          </button>
+        </div>
+
+        {generateError && <p className="text-xs font-bold text-[#ff6584]">{generateError}</p>}
+        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
+
+        {questions && (
+          <div className="space-y-3">
+            {questions.map((q, idx) => (
+              <div key={idx} className="rounded-xl border border-border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">Soru {idx + 1}</span>
+                  <button onClick={() => removeQuestion(idx)} className="text-[10px] font-bold text-[#ff6584] hover:underline">
+                    Sil
+                  </button>
+                </div>
+                <textarea
+                  value={q.question_text}
+                  onChange={(e) => updateQuestion(idx, { question_text: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-border bg-surface p-2 text-xs text-foreground resize-none focus:border-[#6c63ff] outline-none"
+                  placeholder="Soru metni"
+                />
+                <textarea
+                  value={q.model_answer}
+                  onChange={(e) => updateQuestion(idx, { model_answer: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-lg border border-border bg-surface p-2 text-xs text-foreground resize-none focus:border-[#6c63ff] outline-none"
+                  placeholder="Model cevap (cevap anahtarı)"
+                />
+                <input
+                  value={q.key_terms}
+                  onChange={(e) => updateQuestion(idx, { key_terms: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-surface p-2 text-xs text-foreground focus:border-[#6c63ff] outline-none"
+                  placeholder="Anahtar kavramlar (virgülle ayrılmış)"
+                />
+                {q.svg_prompt && (
+                  <p className="text-[10px] text-muted-foreground italic">SVG önerisi: {q.svg_prompt} ({q.svg_position === 'below' ? 'altta' : 'üstte'})</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Kapat
+          </button>
+          {questions && questions.length > 0 && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Kaydediliyor...' : `Kaydet (${questions.length})`}
+            </button>
+          )}
         </div>
       </div>
     </ModalShell>

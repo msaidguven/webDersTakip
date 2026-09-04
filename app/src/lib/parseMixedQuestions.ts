@@ -1,15 +1,16 @@
 // Alt başlığa özel (section) veya konunun geneline ait (topic, section_id boş) AI/manuel
-// karışık soru JSON'unu ("multiple_choice" | "blank" | "matching") doğrulayıp normalize eder.
-// Her iki kaydetme endpoint'i de (section/[sectionId]/questions, topic/[topicId]/questions)
-// aynı çıktı şemasını bekler; mantık burada tek yerde tutulur.
+// karışık soru JSON'unu ("multiple_choice" | "blank" | "matching" | "classical") doğrulayıp
+// normalize eder. Her iki kaydetme endpoint'i de (section/[sectionId]/questions,
+// topic/[topicId]/questions) aynı çıktı şemasını bekler; mantık burada tek yerde tutulur.
 
-export type QuestionType = 'multiple_choice' | 'blank' | 'matching';
+export type QuestionType = 'multiple_choice' | 'blank' | 'matching' | 'classical';
 
 export type SvgPosition = 'above' | 'below';
 export type ParsedMultipleChoice = { kind: 'multiple_choice'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; choices: { text: string; is_correct: boolean }[] };
 export type ParsedBlank = { kind: 'blank'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; options: { text: string; is_correct: boolean }[] };
 export type ParsedMatching = { kind: 'matching'; pairs: { left_text: string; right_text: string }[] };
-export type ParsedQuestion = ParsedMultipleChoice | ParsedBlank | ParsedMatching;
+export type ParsedClassical = { kind: 'classical'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; model_answer: string; key_terms: string[] };
+export type ParsedQuestion = ParsedMultipleChoice | ParsedBlank | ParsedMatching | ParsedClassical;
 
 function parseChoiceList(raw: unknown, min: number, max: number): { text: string; is_correct: boolean }[] | null {
   if (!Array.isArray(raw) || raw.length < min || raw.length > max) return null;
@@ -28,16 +29,22 @@ function parseSvgFields(q: Record<string, unknown>): { svg_prompt: string | null
   return { svg_prompt, svg_position };
 }
 
+function parseKeyTerms(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((t): t is string => typeof t === 'string' && !!t.trim()).map((t) => t.trim());
+}
+
 export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuestion[] | null {
   const obj = body as { type?: unknown; questions?: unknown } | null;
   if (!obj || !Array.isArray(obj.questions) || !obj.questions.length || obj.questions.length > maxQuestions) return null;
 
-  const defaultType: QuestionType = obj.type === 'blank' || obj.type === 'matching' ? obj.type : 'multiple_choice';
+  const defaultType: QuestionType =
+    obj.type === 'blank' || obj.type === 'matching' || obj.type === 'classical' ? obj.type : 'multiple_choice';
   const parsed: ParsedQuestion[] = [];
 
   for (const q of obj.questions as Record<string, unknown>[]) {
     const type: QuestionType =
-      q.type === 'blank' || q.type === 'matching' || q.type === 'multiple_choice' ? q.type : defaultType;
+      q.type === 'blank' || q.type === 'matching' || q.type === 'classical' || q.type === 'multiple_choice' ? q.type : defaultType;
 
     if (type === 'matching') {
       if (!Array.isArray(q.pairs) || q.pairs.length < 2 || q.pairs.length > 10) return null;
@@ -64,6 +71,19 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
       continue;
     }
 
+    if (type === 'classical') {
+      if (typeof q.model_answer !== 'string' || !q.model_answer.trim()) return null;
+      parsed.push({
+        kind: 'classical',
+        question_text: q.question_text.trim(),
+        solution_text,
+        ...parseSvgFields(q),
+        model_answer: q.model_answer.trim(),
+        key_terms: parseKeyTerms(q.key_terms),
+      });
+      continue;
+    }
+
     const choices = parseChoiceList(q.choices, 2, 6);
     if (!choices) return null;
     parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), solution_text, ...parseSvgFields(q), choices });
@@ -72,6 +92,10 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
   return parsed;
 }
 
-export const TYPE_ID: Record<QuestionType, number> = { multiple_choice: 1, blank: 3, matching: 4 };
+// question_types tablosundaki gerçek id'ler: multiple_choice=1, true_false=2, fill_blank=3,
+// classical=4, matching=5 (bkz. fix_matching_question_type_id.sql — matching daha önce
+// burada yanlışlıkla 4 idi, bu da AI ile eklenen matching sorularının DB'de "classical"
+// olarak etiketlenmesine yol açıyordu; o migration mevcut satırları da düzeltiyor).
+export const TYPE_ID: Record<QuestionType, number> = { multiple_choice: 1, blank: 3, matching: 5, classical: 4 };
 export const INVALID_MESSAGE =
-  'Geçersiz soru listesi (çoktan seçmeli: 2-6 şık ve tam 1 doğru; boşluk doldurma: metinde tam bir "_____" ve 2-6 seçenekten tam 1 doğru; eşleştirme: 2-10 çift, hepsi dolu)';
+  'Geçersiz soru listesi (çoktan seçmeli: 2-6 şık ve tam 1 doğru; boşluk doldurma: metinde tam bir "_____" ve 2-6 seçenekten tam 1 doğru; eşleştirme: 2-10 çift, hepsi dolu; açık uçlu: soru metni ve model cevap zorunlu)';

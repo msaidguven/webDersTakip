@@ -50,6 +50,7 @@ const SectionContentEditModal = dynamic(() => import('@/app/src/components/admin
 const TopicCoverImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicCoverImageModal), { ssr: false });
 const TopicHighlightsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightsModal), { ssr: false });
 const TopicQuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicQuestionsModal), { ssr: false });
+const ClassicalGenerateModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ClassicalGenerateModal), { ssr: false });
 const TopicHighlightQuickAddModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightQuickAddModal), { ssr: false });
 const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightEditModal), { ssr: false });
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
@@ -402,13 +403,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
-  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' } | null>(null);
+  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
-  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' } | null>(null);
+  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' } | null>(null);
+  const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [diagramModalTarget, setDiagramModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
@@ -1477,6 +1479,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
                         )}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setTopicQuestionsModalTopic({ id: Number(topic.id), title: topic.title, variant: 'classical' });
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <ListChecks className="h-3.5 w-3.5" /> Açık Uçlu Sorular
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setClassicalGenerateTarget({ topicId: Number(topic.id), topicTitle: topic.title, section: null });
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
+                      </button>
                     </div>
                   </>
                 )}
@@ -1586,6 +1608,36 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
                               <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
                             )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setQuestionsModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading },
+                                variant: 'classical',
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <ListChecks className="h-3.5 w-3.5" /> Açık Uçlu Soru Ekle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setClassicalGenerateTarget({
+                                topicId: Number(topic.id),
+                                topicTitle: topic.title,
+                                section: { id: Number(section.id), heading: section.heading },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
                           </button>
                         </div>
                       </>
@@ -2553,6 +2605,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           variant={topicQuestionsModalTopic.variant}
           onClose={() => {
             setTopicQuestionsModalTopic(null);
+            loadQuestionStatus();
+          }}
+        />
+      )}
+
+      {classicalGenerateTarget && (
+        <ClassicalGenerateModal
+          topicId={classicalGenerateTarget.topicId}
+          topicTitle={classicalGenerateTarget.topicTitle}
+          section={classicalGenerateTarget.section}
+          onClose={() => {
+            setClassicalGenerateTarget(null);
             loadQuestionStatus();
           }}
         />

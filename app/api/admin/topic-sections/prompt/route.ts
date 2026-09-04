@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
+import { buildSvgLessonGuidance, buildQuestionCountInstruction } from '@/app/src/lib/promptHelpers';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -19,9 +20,11 @@ export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
   const type = request.nextUrl.searchParams.get('type');
   const sectionId = request.nextUrl.searchParams.get('sectionId');
+  const countParam = request.nextUrl.searchParams.get('count');
 
   const QUESTION_TEMPLATES: Record<string, string> = {
     mixed_questions: '06-section-mixed-questions.md',
+    classical_questions: '13-section-classical-questions.md',
   };
   const isQuestionType = !!type && type in QUESTION_TEMPLATES;
 
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
     highlights: '07-topic-highlights.md',
     topic_questions: '11-topic-general-questions.md',
     topic_questions_mixed: '12-topic-mixed-questions.md',
+    topic_questions_classical: '14-topic-classical-questions.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -132,7 +136,7 @@ export async function GET(request: NextRequest) {
     let topicContentText = '';
     let sectionHeadingsText = '';
     let sectionRows: { heading: string; body_markdown: string | null }[] = [];
-    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed') {
+    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical') {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
         const { data: sectionsData } = await supabase
@@ -162,7 +166,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (type === 'topic_questions_mixed') {
+    if (type === 'topic_questions_mixed' || type === 'topic_questions_classical') {
       topicContentText = sectionRows
         .filter((s) => s.body_markdown?.trim())
         .map((s) => `### ${s.heading}\n${s.body_markdown}`)
@@ -183,7 +187,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
       .replaceAll('{section_headings}', sectionHeadingsText)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
+      .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '6-10'))
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
   }
@@ -229,7 +234,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
   }
@@ -252,7 +257,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{section_content}', currentSection.body_markdown)
-      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{lesson}', lessonName));
+      .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '3-6'))
+      .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
   }
