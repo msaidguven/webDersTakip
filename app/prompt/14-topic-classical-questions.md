@@ -18,18 +18,20 @@ Konunun alt başlıklarının ders notu:
       "question_text": string,      // öğrencinin yazarak cevaplayacağı açık uçlu soru
       "svg_prompt": string | null,  // SVG kuralı
       "svg_position": "above" | "below",
-      "model_answer": string,       // öğretmenin cevap anahtarı olarak kullanacağı TAM ve doğru cevap; sadece madde değil, düzgün cümle/paragraf halinde
+      "model_answer": string,       // öğretmenin cevap anahtarı; KISA (2-4 cümle) ve öz — uzun ezber paragrafı DEĞİL
       "key_terms": [string]         // cevapta geçmesi beklenen 2-5 anahtar kavram/terim, öğretmenin hızlı kontrolü için
     }
   ]
 }
 
 Kurallar (MUTLAKA uygula):
-- question_text öğrenciyi yazarak, kendi cümleleriyle açıklamaya/karşılaştırmaya/yorumlamaya yönlendirsin — "evet/hayır" ya da tek kelimeyle cevaplanabilecek soru ÜRETME
+- Amaç ezberletmek DEĞİL, öğrencinin konuyu anlayıp anlamadığını kısa ve öz şekilde ölçmek. Hem soru hem model_answer buna göre tasarlanmalı.
+- question_text öğrenciyi yazarak, kendi cümleleriyle KISA bir analiz/yorum/karşılaştırma yapmaya yönlendirsin — ama cevabı bir sayfa tutacak genel/geniş bir konu anlatımı İSTEME, öğrencinin 2-4 cümlede toparlayabileceği net ve odaklı bir şey sor
+- "evet/hayır" ya da tek kelimeyle cevaplanabilecek soru ÜRETME
+- model_answer KESİNLİKLE KISA olsun: 2-4 cümle, gerekli en öz bilgiyi versin — uzun, madde madde her detayı sayan bir paragraf YAZMA
 - SADECE yukarıdaki ders notlarında geçen bilgiden sor, notta olmayan bilgi UYDURMA
 - Her soru farklı bir bilgiyi ölçsün, tekrar YOK
-- model_answer, ders notundaki bilgiye dayanarak eksiksiz ve doğru olsun; yeni bilgi ekleme
-- {grade} seviyesine sade dil kullan
+- {grade} seviyesine sade dil kullan — o yaş grubunun gerçekçi olarak 2-4 cümlede yazabileceği bir beklenti kur
 - Öğrenciye doğrudan hitap etme ("sence" vb.)
 
 {svg_question_instructions}
