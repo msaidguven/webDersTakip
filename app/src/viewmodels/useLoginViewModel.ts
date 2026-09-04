@@ -32,9 +32,14 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error || 'Giriş yapılamadı');
 
-      // bkz. useRegisterViewModel — sunucudan gelen oturum çerezini tarayıcı client'ına
-      // senkronize eder, AuthContext'in onAuthStateChange'i bunu görsün diye.
-      await createClient().auth.getSession();
+      // Sunucu login'i doğruladı ve token'ları döndü — tarayıcıdaki tekil Supabase
+      // instance'ına (AuthContext'in dinlediği) burada yükleniyor. getSession() İŞE
+      // YARAMAZ: GoTrueClient sadece bellekteki (hâlâ eski/boş) oturumu döndürür,
+      // cookie'yi yeniden okumaz — bu yüzden sayfa yenilenene kadar "giriş yapılmamış"
+      // görünüyordu. setSession() hem belleği hem cookie'yi gerçekten günceller.
+      if (result.session) {
+        await createClient().auth.setSession(result.session);
+      }
 
       setState(prev => ({
         ...prev,

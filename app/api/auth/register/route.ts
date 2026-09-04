@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createAnonClient } from '@/utils/supabase/server-anon';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getClientIp, checkAuthRateLimit, recordAuthAttempt, verifyBotChallenge } from '@/app/src/lib/authSecurity';
 
@@ -69,14 +69,23 @@ export async function POST(request: NextRequest) {
 
   // Eski akışta client-side signUp() kullanıcıyı doğrudan oturum açık bırakıyordu; burada
   // aynı deneyimi korumak için hesap sunucuda oluşturulduktan sonra aynı bilgilerle oturum
-  // açılıp cookie'ler response'a yazılıyor. Proje e-posta onayı istiyorsa bu adım sessizce
-  // başarısız olur — kullanıcı normal şekilde /login üzerinden giriş yapar.
+  // açılıp access/refresh token'lar response'ta dönüyor. Client bunları kendi Supabase
+  // instance'ına setSession() ile yükleyip cookie'leri KENDİSİ yazıyor — bunu server'da
+  // (cookie-bound client ile) yapmak session'ı sunucu tarafında set eder ama tarayıcıdaki
+  // Supabase client'ının (AuthContext'in dinlediği) belleğindeki oturumu GÜNCELLEMEZ; kullanıcı
+  // sayfayı yenileyene kadar hâlâ "giriş yapmamış" görünür (bkz. kullanıcının 2026-09-05
+  // bildirdiği bug). Proje e-posta onayı istiyorsa bu adım sessizce session'sız döner —
+  // kullanıcı normal şekilde /login üzerinden giriş yapar.
+  let session: { access_token: string; refresh_token: string } | null = null;
   try {
-    const cookieClient = await createClient();
-    await cookieClient.auth.signInWithPassword({ email, password });
+    const anon = createAnonClient();
+    const { data: signInData } = await anon.auth.signInWithPassword({ email, password });
+    if (signInData.session) {
+      session = { access_token: signInData.session.access_token, refresh_token: signInData.session.refresh_token };
+    }
   } catch {
     // yoksay — hesap oluşturuldu, otomatik oturum açma zorunlu değil
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, session });
 }

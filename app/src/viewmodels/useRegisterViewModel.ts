@@ -77,10 +77,13 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error || 'Kayit yapilamadi');
 
-      // Kayıt sırasında oluşturulan oturum çerezi bu fetch ile geldi ama tarayıcıdaki
-      // Supabase client'ı bunu kendiliğinden bilmez — getSession() çerezleri yeniden
-      // okuyup onAuthStateChange üzerinden AuthContext'i (dolayısıyla useAuth) günceller.
-      await createClient().auth.getSession();
+      // bkz. useLoginViewModel — getSession() değil setSession() gerekiyor, aksi halde
+      // sayfa yenilenene kadar "giriş yapılmamış" görünüyor. E-posta onayı gerekiyorsa
+      // sunucu session döndürmez (result.session null), o zaman burada bekleyen bir şey
+      // yok — kullanıcı /login'e yönlendirilip normal şekilde giriş yapar.
+      if (result.session) {
+        await createClient().auth.setSession(result.session);
+      }
 
       setState(prev => ({
         ...prev,
