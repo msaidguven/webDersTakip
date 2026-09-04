@@ -181,13 +181,20 @@ export function UnitAccordion({ units, topicsByUnitId, defaultOpenUnitId }: Unit
                 </div>
               </button>
 
-              {unit.href && (
+              {unit.href ? (
                 <Link
                   href={unit.href}
                   className="hidden sm:inline-flex shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-md shadow-indigo-200/50 transition-all duration-700 hover:scale-105 hover:shadow-indigo-300/70 active:scale-95"
                 >
                   Test Çöz
                 </Link>
+              ) : (
+                <span
+                  className="hidden sm:inline-flex shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200"
+                  aria-disabled="true"
+                >
+                  Test Çöz
+                </span>
               )}
 
               <button

@@ -285,7 +285,7 @@ export async function getUnitsForLesson(
       ? `${weekLabel} • Tamamlandı`
       : `${weekLabel} • ${totalTopics} Konu • ${totalQuestions} Soru`;
 
-    const href = gradeRow?.slug && lessonRow?.slug && u.slug
+    const href = totalQuestions > 0 && gradeRow?.slug && lessonRow?.slug && u.slug
       ? `/${gradeRow.slug}/${lessonRow.slug}/${u.slug}/unite-testi`
       : undefined;
 

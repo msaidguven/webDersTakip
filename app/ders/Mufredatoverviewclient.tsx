@@ -24,6 +24,7 @@ export type UnitTopic = {
   slug: string | null;
   order_no: number;
   questionCount?: number;
+  hasContent?: boolean;
 };
 
 export type Unit = {
@@ -384,24 +385,46 @@ export default function MufredatOverviewClient({
                       </div>
                     ) : (
                       <div className="divide-y divide-gray-100">
-                        {topics.map((topic, idx) => (
-                          <button
-                            key={topic.id}
-                            onClick={() => goToTopic(unit.slug, topic.slug, start ?? effectiveWeek)}
-                            className="w-full flex items-center gap-3.5 px-5 py-3 text-left hover:bg-gray-50/80 transition-colors group"
-                          >
-                            <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 px-2 py-0.5 rounded-md transition-colors shrink-0">
-                              {displayNo}.{idx + 1}
-                            </span>
-                            <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors truncate">
-                              {topic.title}
-                            </span>
-                            <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
-                              {topic.questionCount ?? 0} soru
-                            </span>
-                            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                          </button>
-                        ))}
+                        {topics.map((topic, idx) => {
+                          const hasContent = topic.hasContent !== false;
+                          if (!hasContent) {
+                            return (
+                              <div
+                                key={topic.id}
+                                aria-disabled="true"
+                                className="w-full flex items-center gap-3.5 px-5 py-3 text-left cursor-not-allowed"
+                              >
+                                <span className="text-xs font-mono font-medium text-gray-300 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
+                                  {displayNo}.{idx + 1}
+                                </span>
+                                <span className="text-sm font-medium text-gray-400 truncate">
+                                  {topic.title}
+                                </span>
+                                <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
+                                  İçerik eklenmemiş
+                                </span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              key={topic.id}
+                              onClick={() => goToTopic(unit.slug, topic.slug, start ?? effectiveWeek)}
+                              className="w-full flex items-center gap-3.5 px-5 py-3 text-left hover:bg-gray-50/80 transition-colors group"
+                            >
+                              <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 px-2 py-0.5 rounded-md transition-colors shrink-0">
+                                {displayNo}.{idx + 1}
+                              </span>
+                              <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors truncate">
+                                {topic.title}
+                              </span>
+                              <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
+                                {topic.questionCount ?? 0} soru
+                              </span>
+                              <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
