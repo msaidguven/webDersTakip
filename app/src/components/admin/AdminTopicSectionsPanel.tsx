@@ -2477,11 +2477,11 @@ export function TopicQuestionsModal({
 }: {
   topicId: number;
   topicTitle: string;
-  variant?: 'general' | 'notebooklm' | 'classical';
+  variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm';
   onClose: () => void;
 }) {
-  const isNotebook = variant === 'notebooklm';
-  const isClassical = variant === 'classical';
+  const isNotebook = variant === 'notebooklm' || variant === 'classical_notebooklm';
+  const isClassical = variant === 'classical' || variant === 'classical_notebooklm';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -2495,7 +2495,7 @@ export function TopicQuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    const promptType = isNotebook ? 'topic_questions' : isClassical ? 'topic_questions_classical' : 'topic_questions_mixed';
+    const promptType = isNotebook && isClassical ? 'topic_questions_classical_notebooklm' : isNotebook ? 'topic_questions' : isClassical ? 'topic_questions_classical' : 'topic_questions_mixed';
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=${promptType}`);
       const data = await res.json().catch(() => null);
@@ -2563,7 +2563,9 @@ export function TopicQuestionsModal({
     <ModalShell title={`${isClassical ? 'Açık Uçlu Sorular (Ünite Testi)' : 'Genel Sorular (Ünite Testi)'}${isNotebook ? '' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          {isNotebook
+          {isNotebook && isClassical
+            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 6-10 klasik/açık uçlu sentez sorusu, kitaba dayanarak ve cevap anahtarıyla birlikte üretilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : isClassical
             ? 'Bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI\'a sorun — konunun tüm alt başlıklarının ders notu prompt içine gömülür. Tek bir alt başlığa değil konunun bütününe bakan 6-10 klasik/açık uçlu sentez sorusu, cevap anahtarıyla birlikte üretilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'

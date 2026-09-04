@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     topic_questions: '11-topic-general-questions.md',
     topic_questions_mixed: '12-topic-mixed-questions.md',
     topic_questions_classical: '14-topic-classical-questions.md',
+    topic_questions_classical_notebooklm: '16-topic-classical-questions-notebooklm.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -55,6 +56,10 @@ export async function GET(request: NextRequest) {
   }
 
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
+  // Klasik soru şablonlarının 4'ü de (içerik/NotebookLM × alt başlık/konu geneli) aynı
+  // çıktı şeması + kalite kurallarını (kısa cevap vb.) paylaşıyor — kaynak (ders notu mu
+  // kitap mı) sadece kendi bağlam/giriş metinlerinde farklılaşıyor, kurallar tek yerden.
+  const classicalQuestionRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_classical-question-rules.md'), 'utf8');
 
   const supabase = createServiceClient();
 
@@ -137,7 +142,7 @@ export async function GET(request: NextRequest) {
     let topicContentText = '';
     let sectionHeadingsText = '';
     let sectionRows: { heading: string; body_markdown: string | null }[] = [];
-    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical') {
+    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical' || type === 'topic_questions_classical_notebooklm') {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
         const { data: sectionsData } = await supabase
@@ -160,7 +165,7 @@ export async function GET(request: NextRequest) {
     // gömmüyoruz (uzunluk/karakter sınırı yüzünden) — sadece hangi alt başlıkları
     // kapsaması gerektiğini kısa bir liste olarak veriyoruz. Diğer AI'lar (topic_questions_mixed)
     // kitaba erişemediği için onlara alt başlıkların tam ders notunu gömüyoruz.
-    if (type === 'topic_questions' || type === 'topic_questions_mixed') {
+    if (type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical_notebooklm') {
       sectionHeadingsText = sectionRows.map((s) => s.heading).join(', ');
       if (!sectionHeadingsText.trim()) {
         return NextResponse.json({ error: 'Önce alt başlık planı oluşturulmalı' }, { status: 409 });
@@ -180,7 +185,10 @@ export async function GET(request: NextRequest) {
     const templatePath = path.join(process.cwd(), 'app', 'prompt', TOPIC_LEVEL_TEMPLATES[type as string]);
     const template = await readFile(templatePath, 'utf8');
 
+    // {classical_question_rules} en başta genişletiliyor ki içindeki {grade} gibi
+    // placeholder'lar da aşağıdaki tek-geçişli replaceAll zincirinde yakalansın.
     const prompt = template
+      .replaceAll('{classical_question_rules}', classicalQuestionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
@@ -229,6 +237,7 @@ export async function GET(request: NextRequest) {
     const template = await readFile(templatePath, 'utf8');
 
     const prompt = template
+      .replaceAll('{classical_question_rules}', classicalQuestionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
@@ -251,6 +260,7 @@ export async function GET(request: NextRequest) {
     const template = await readFile(templatePath, 'utf8');
 
     const prompt = template
+      .replaceAll('{classical_question_rules}', classicalQuestionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)

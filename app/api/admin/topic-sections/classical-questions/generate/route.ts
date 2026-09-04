@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
 
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
   const svgBlock = svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName));
+  // Manuel akışla (prompt/route.ts) AYNI paylaşılan kurallar — tek kaynaktan.
+  const classicalQuestionRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_classical-question-rules.md'), 'utf8');
 
   let prompt: string;
 
@@ -95,7 +97,10 @@ export async function POST(request: NextRequest) {
       : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
     const template = await readFile(path.join(process.cwd(), 'app', 'prompt', '13-section-classical-questions.md'), 'utf8');
+    // {classical_question_rules} en başta genişletiliyor ki içindeki {grade} gibi
+    // placeholder'lar da aşağıdaki tek-geçişli replaceAll zincirinde yakalansın.
     prompt = template
+      .replaceAll('{classical_question_rules}', classicalQuestionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
@@ -140,6 +145,7 @@ export async function POST(request: NextRequest) {
 
     const template = await readFile(path.join(process.cwd(), 'app', 'prompt', '14-topic-classical-questions.md'), 'utf8');
     prompt = template
+      .replaceAll('{classical_question_rules}', classicalQuestionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
