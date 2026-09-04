@@ -7,7 +7,9 @@ type ProfileRoleRow = { role: string | null; is_verified: boolean | null };
 // yetkili olan bir rolün, altındaki öğretmen paneline erişememesi anlamsız olurdu.
 // Öğretmen ise HEM role='teacher' HEM is_verified=true olmalı: role tek başına yeterli
 // değil, kayıt olurken herkes bunu seçebilir — is_verified admin onayını temsil eder
-// (bkz. app/src/components/admin/MembersTab.tsx, aynı alanı zaten yönetiyor).
+// (bkz. app/src/components/admin/MembersTab.tsx, aynı alanı zaten yönetiyor). role
+// döndürülüyor ki çağıran route, "admin her şeyi görür ama öğretmen sadece kendi
+// branşlarını görür" gibi bir ayrım yapabilsin (bkz. classical-questions/options).
 export async function requireTeacher() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,5 +32,5 @@ export async function requireTeacher() {
     return { ok: false as const, response: NextResponse.json({ error: 'Bu alan sadece onaylı öğretmenler içindir' }, { status: 403 }) };
   }
 
-  return { ok: true as const, user };
+  return { ok: true as const, user, role: isAdmin ? 'admin' as const : 'teacher' as const };
 }

@@ -12,8 +12,20 @@ export async function GET(request: NextRequest) {
 
   const gradeId = request.nextUrl.searchParams.get('gradeId');
   const lessonId = request.nextUrl.searchParams.get('lessonId');
+  const mine = request.nextUrl.searchParams.get('mine');
 
   const supabase = createServiceClient();
+
+  // Panelin üstünde "Derslerim" olarak gösterilecek — öğretmenin kayıt olurken
+  // seçtiği branşlar. Admin için anlamlı değil (kayıt olmadığı için), boş döner.
+  if (mine) {
+    if (teacher.role !== 'teacher') return NextResponse.json({ lessons: [] });
+    const { data: rows } = await supabase.from('teacher_lessons').select('lesson_id').eq('teacher_id', teacher.user.id);
+    const ids = ((rows as { lesson_id: number }[] | null) || []).map((r) => r.lesson_id);
+    if (!ids.length) return NextResponse.json({ lessons: [] });
+    const { data } = await supabase.from('lessons').select('id, name').in('id', ids).order('name', { ascending: true });
+    return NextResponse.json({ lessons: data || [] });
+  }
 
   // Öğretmen artık ünite/konu kademeli TEK seçim değil, birden fazla üniteden birden
   // fazla konuyu birlikte işaretleyip tek Word'e alabiliyor — bu yüzden ünite+konu
@@ -52,7 +64,16 @@ export async function GET(request: NextRequest) {
     // filtrede gösterilmesin diye lessons tablosunu doğrudan değil, units
     // üzerinden dolaylı çekiyoruz.
     const { data: unitRows } = await supabase.from('units').select('lesson_id').eq('grade_id', gradeId).eq('is_active', true);
-    const lessonIds = Array.from(new Set(((unitRows as { lesson_id: number }[] | null) || []).map((r) => r.lesson_id)));
+    let lessonIds = Array.from(new Set(((unitRows as { lesson_id: number }[] | null) || []).map((r) => r.lesson_id)));
+
+    // Öğretmen (admin hariç) sadece kendi kayıt olurken seçtiği branş(lar)ı görür —
+    // matematik öğretmeninin fen sorularını taraması anlamlı değil.
+    if (teacher.role === 'teacher') {
+      const { data: teacherLessonRows } = await supabase.from('teacher_lessons').select('lesson_id').eq('teacher_id', teacher.user.id);
+      const teacherLessonIds = new Set(((teacherLessonRows as { lesson_id: number }[] | null) || []).map((r) => r.lesson_id));
+      lessonIds = lessonIds.filter((id) => teacherLessonIds.has(id));
+    }
+
     if (!lessonIds.length) return NextResponse.json({ lessons: [] });
     const { data } = await supabase.from('lessons').select('id, name').in('id', lessonIds).order('name', { ascending: true });
     return NextResponse.json({ lessons: data || [] });

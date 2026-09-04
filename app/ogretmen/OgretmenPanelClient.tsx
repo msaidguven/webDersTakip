@@ -35,6 +35,7 @@ export default function OgretmenPanelClient() {
   const [grades, setGrades] = useState<NameOption[]>([]);
   const [lessons, setLessons] = useState<NameOption[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [myLessons, setMyLessons] = useState<NameOption[] | null>(null);
 
   const [gradeId, setGradeId] = useState('');
   const [lessonId, setLessonId] = useState('');
@@ -61,6 +62,14 @@ export default function OgretmenPanelClient() {
       setGrades(res.data.grades);
     })();
     return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const res = await fetchJson<{ lessons: NameOption[] }>('/api/ogretmen/options?mine=1');
+      if (res.ok) setMyLessons(res.data.lessons);
+    })();
   }, [user]);
 
   function handleGradeChange(value: string) {
@@ -216,6 +225,9 @@ export default function OgretmenPanelClient() {
       <div>
         <h1 className="text-2xl font-black text-default">Açık Uçlu Sorular</h1>
         <p className="text-sm text-muted-foreground mt-1">Sınıf ve ders seçtikten sonra istediğin kadar üniteden/konudan soru işaretleyip tek Word dosyasında indirebilirsin.</p>
+        {myLessons && myLessons.length > 0 && (
+          <p className="text-xs text-muted-foreground mt-2">Derslerim: {myLessons.map((l) => l.name).join(', ')}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">

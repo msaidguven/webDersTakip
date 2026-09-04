@@ -11,19 +11,31 @@ import GoogleSignInButton from '../src/components/GoogleSignInButton';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams?.get('redirectTo') || '/panel';
-  
-  const { isAuthenticated, loading } = useAuth();
+  const explicitRedirectTo = searchParams?.get('redirectTo');
+  const redirectTo = explicitRedirectTo || '/panel';
+
+  const { isAuthenticated, loading, user, supabase } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Giriş yapmış kullanıcıyı yönlendir
+  // Giriş yapmış kullanıcıyı yönlendir — açıkça bir redirectTo verilmemişse (ör.
+  // korumalı bir sayfadan atılmamışsa), öğretmen hesapları öğrenci panelinden
+  // (/panel) değil doğrudan /ogretmen'den devam etsin.
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.push(redirectTo);
+    if (loading || !isAuthenticated || !user) return;
+    if (explicitRedirectTo) {
+      router.push(explicitRedirectTo);
+      return;
     }
-  }, [isAuthenticated, loading, router, redirectTo]);
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (cancelled) return;
+      router.push((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/panel');
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, loading, router, explicitRedirectTo, user, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

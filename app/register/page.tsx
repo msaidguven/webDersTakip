@@ -170,7 +170,13 @@ export default function RegisterPage() {
 
           <GoogleSignInButton redirectTo="/panel" />
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-muted-foreground text-sm">
+              Öğretmen misin?{' '}
+              <Link href="/ogretmen/kayit" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
+                Öğretmen kaydı
+              </Link>
+            </p>
             <p className="text-muted-foreground text-sm">
               Zaten hesabin var mi?{' '}
               <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
