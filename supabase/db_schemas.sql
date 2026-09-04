@@ -123,8 +123,13 @@ CREATE TABLE public.profiles (
   city_id integer,
   district_id bigint,
   school_id bigint,
+  is_banned boolean NOT NULL DEFAULT false,
+  banned_at timestamp with time zone,
+  banned_reason text,
+  banned_by uuid,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES public.profiles(id),
   CONSTRAINT fk_profiles_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id),
   CONSTRAINT fk_profiles_city FOREIGN KEY (city_id) REFERENCES public.cities(id),
   CONSTRAINT fk_profiles_district FOREIGN KEY (district_id) REFERENCES public.districts(id),
@@ -149,7 +154,8 @@ CREATE TABLE public.questions (
   ai_model text,
   svg_content text,
   svg_prompt text,
-  svg_position text NOT NULL DEFAULT 'above' CHECK (svg_position = ANY (ARRAY['above'::text, 'below'::text])),
+  svg_position text NOT NULL DEFAULT 'above'::text CHECK (svg_position = ANY (ARRAY['above'::text, 'below'::text])),
+  is_active boolean NOT NULL DEFAULT true,
   CONSTRAINT questions_pkey PRIMARY KEY (id),
   CONSTRAINT questions_question_type_id_fkey FOREIGN KEY (question_type_id) REFERENCES public.question_types(id),
   CONSTRAINT questions_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
@@ -166,7 +172,7 @@ CREATE TABLE public.question_choices (
 CREATE TABLE public.question_classical (
   question_id bigint NOT NULL,
   model_answer text,
-  answer_words ARRAY NOT NULL DEFAULT '{}'::text[],
+  key_terms ARRAY NOT NULL DEFAULT '{}'::text[],
   CONSTRAINT question_classical_pkey PRIMARY KEY (question_id),
   CONSTRAINT question_classical_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id)
 );
@@ -535,7 +541,7 @@ CREATE TABLE public.question_comments (
   parent_comment_id bigint,
   student_id uuid NOT NULL,
   body text NOT NULL,
-  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'published'::text, 'rejected'::text, 'deleted'::text])),
+  status text NOT NULL DEFAULT 'published'::text CHECK (status = ANY (ARRAY['pending'::text, 'published'::text, 'rejected'::text, 'deleted'::text])),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   reviewed_by uuid,
   reviewed_at timestamp with time zone,
@@ -548,4 +554,60 @@ CREATE TABLE public.question_comments (
   CONSTRAINT question_comments_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id),
   CONSTRAINT question_comments_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
   CONSTRAINT question_comments_parent_ai_answer_id_fkey FOREIGN KEY (parent_ai_answer_id) REFERENCES public.rag_answers(id)
+);
+CREATE TABLE public.rag_question_queue (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  student_id uuid NOT NULL,
+  grade_id bigint NOT NULL,
+  lesson_id bigint NOT NULL,
+  unit_id bigint,
+  quiz_question_id bigint,
+  question text NOT NULL,
+  question_context text,
+  reply_context text,
+  mode text NOT NULL CHECK (mode = ANY (ARRAY['hocam'::text, 'kanka'::text])),
+  parent_comment_id bigint,
+  parent_rag_answer_id bigint,
+  status text NOT NULL DEFAULT 'queued'::text CHECK (status = ANY (ARRAY['queued'::text, 'processing'::text, 'failed'::text])),
+  attempts smallint NOT NULL DEFAULT 0,
+  error text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  comment_id bigint,
+  CONSTRAINT rag_question_queue_pkey PRIMARY KEY (id),
+  CONSTRAINT rag_question_queue_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
+  CONSTRAINT rag_question_queue_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
+  CONSTRAINT rag_question_queue_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT rag_question_queue_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT rag_question_queue_quiz_question_id_fkey FOREIGN KEY (quiz_question_id) REFERENCES public.questions(id),
+  CONSTRAINT rag_question_queue_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.question_comments(id),
+  CONSTRAINT rag_question_queue_parent_rag_answer_id_fkey FOREIGN KEY (parent_rag_answer_id) REFERENCES public.rag_answers(id),
+  CONSTRAINT rag_question_queue_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.question_comments(id)
+);
+CREATE TABLE public.notifications (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  body text,
+  link text,
+  read_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.teacher_lessons (
+  teacher_id uuid NOT NULL,
+  lesson_id bigint NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT teacher_lessons_pkey PRIMARY KEY (teacher_id, lesson_id),
+  CONSTRAINT teacher_lessons_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.profiles(id),
+  CONSTRAINT teacher_lessons_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
+);
+CREATE TABLE public.auth_attempts (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  ip text NOT NULL,
+  kind text NOT NULL CHECK (kind = ANY (ARRAY['register'::text, 'login'::text])),
+  success boolean NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT auth_attempts_pkey PRIMARY KEY (id)
 );
