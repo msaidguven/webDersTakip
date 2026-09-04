@@ -438,6 +438,10 @@ export default function UnitDiscussion({
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
   // başlığına tıklanınca açılıp kapanan bir panel (kullanıcı kararı, 2026-09-02).
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
+  // Yorumlar varsayılan açık gösterildiği yerlerde (bkz. DersClient) çok yorumlu bir
+  // konu sayfayı aşırı uzatmasın diye önce sadece ilk 7 üst seviye yorum/AI cevabı
+  // gösteriliyor, "Daha Fazla Göster" ile 7'şer artıyor (kullanıcı isteği, 2026-09-05).
+  const [visibleFeedCount, setVisibleFeedCount] = useState(7);
   // Yeni bir soruya geçilince panel tekrar kapalı başlar — açık kalsaydı bir önceki
   // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı. hideToggle modunda
   // (soru bankası modali) bu geçerli değil: her modal açılışı zaten TAZE bir mount, "aynı
@@ -529,6 +533,7 @@ export default function UnitDiscussion({
   useEffect(() => {
     loadComments();
     loadAiFeed();
+    setVisibleFeedCount(7);
   }, [loadComments, loadAiFeed]);
 
   // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue, 5 dakikada bir
@@ -908,7 +913,7 @@ export default function UnitDiscussion({
 
       {expanded && feed.length > 0 && (
         <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
-          {feed.map((item) => {
+          {feed.slice(0, visibleFeedCount).map((item) => {
             if (item.kind === 'comment') {
               const name = displayNameOf(item.profiles);
               const isOwn = item.student_id === userId;
@@ -1115,6 +1120,15 @@ export default function UnitDiscussion({
               </div>
             );
           })}
+          {feed.length > visibleFeedCount && (
+            <button
+              type="button"
+              onClick={() => setVisibleFeedCount((n) => n + 7)}
+              className="w-full rounded-lg border border-gray-200 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              Daha Fazla Göster ({feed.length - visibleFeedCount})
+            </button>
+          )}
         </div>
       )}
 

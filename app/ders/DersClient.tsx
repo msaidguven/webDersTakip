@@ -2373,6 +2373,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           lessonId={Number(lessonId)}
                           unitId={Number(activeUnit.id)}
                           unitName={unitTitle}
+                          defaultExpanded
                         />
                       </div>
                     )}
