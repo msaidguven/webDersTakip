@@ -34,6 +34,9 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLe
   const handleLessonClick = (lessonId: string) => {
     if (onSelectLesson) {
       onSelectLesson(lessonId);
+      requestAnimationFrame(() => {
+        document.getElementById('uniteler')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     } else {
       setPendingLessonId(lessonId);
       router.push('/panel');
