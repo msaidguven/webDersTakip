@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
+import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
 
 // ==================== TYPES ====================
 
@@ -1060,7 +1061,7 @@ export function QuestionEditModal({
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(svgPrompt);
+                    navigator.clipboard.writeText(buildSvgGenerationPrompt(svgPrompt));
                     setSvgPromptCopied(true);
                     window.setTimeout(() => setSvgPromptCopied(false), 2000);
                   }}

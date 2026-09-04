@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
+import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
 
 type Choice = { id?: number; choice_text?: string; option_text?: string; is_correct: boolean };
 type MatchingPair = { id?: number; left_text: string; right_text: string; order_no?: number };
@@ -241,7 +242,7 @@ export function QuizQuestionEditModal({
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(svgPrompt);
+                      navigator.clipboard.writeText(buildSvgGenerationPrompt(svgPrompt));
                       setSvgPromptCopied(true);
                       window.setTimeout(() => setSvgPromptCopied(false), 2000);
                     }}

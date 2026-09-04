@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { SITE_URL } from '@/app/src/lib/site';
+import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
+import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
 
 type SvgQuestionItem = {
   id: number;
@@ -39,7 +41,56 @@ function CopyButton({ text, label = 'Kopyala' }: { text: string; label?: string 
   );
 }
 
-function SvgQuestionCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () => void }) {
+function CardHeader({ item, isDone }: { item: SvgQuestionItem; isDone: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        {item.topicTitle && <p className="text-[11px] font-bold text-indigo-400 truncate">{item.topicTitle}</p>}
+        <p className="text-sm text-white line-clamp-2">{item.question_text}</p>
+      </div>
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${isDone ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+        {isDone ? 'Tamamlandı' : 'Bekliyor'}
+      </span>
+    </div>
+  );
+}
+
+// Onaylanmış (svg_content dolu) sorular için sade görünüm — kod kutusu yerine
+// direkt SVG önizlemesi + düzenlemek için asıl soru düzenleme modalına link
+// (kullanıcı isteği 2026-09-04: "kod yerine direk soruları önizleme olarak görsem").
+function DoneSvgCard({ item, onEdit }: { item: SvgQuestionItem; onEdit: () => void }) {
+  const clean = item.svg_content ? sanitizeMathSvg(item.svg_content) : null;
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#111114] p-4 space-y-3">
+      <CardHeader item={item} isDone />
+
+      <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-white/10 bg-white p-3">
+        {clean ? (
+          <div className="max-h-40 max-w-full [&_svg]:max-h-40 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />
+        ) : (
+          <span className="text-xs text-gray-400">Önizleme yok</span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <button type="button" onClick={onEdit} className="text-xs font-bold text-indigo-400 hover:text-indigo-300">
+          Düzenle
+        </button>
+        {item.href && (
+          <>
+            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-400 hover:text-white">
+              Soru Bankasında Göster ↗
+            </a>
+            <CopyButton text={`${SITE_URL}${item.href}`} label="Linki Kopyala" />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PendingSvgCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () => void }) {
   const [svgContent, setSvgContent] = useState(item.svg_content || '');
   const [svgPosition, setSvgPosition] = useState<'above' | 'below'>(item.svg_position);
   const [saving, setSaving] = useState(false);
@@ -63,24 +114,15 @@ function SvgQuestionCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: ()
   }
 
   const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
-  const isDone = !!item.svg_content;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#111114] p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {item.topicTitle && <p className="text-[11px] font-bold text-indigo-400 truncate">{item.topicTitle}</p>}
-          <p className="text-sm text-white line-clamp-2">{item.question_text}</p>
-        </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${isDone ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-          {isDone ? 'Tamamlandı' : 'Bekliyor'}
-        </span>
-      </div>
+      <CardHeader item={item} isDone={false} />
 
       <div>
         <div className="mb-1 flex items-center justify-between">
           <span className="text-xs font-semibold text-gray-400">SVG Prompt</span>
-          {item.svg_prompt && <CopyButton text={item.svg_prompt} />}
+          {item.svg_prompt && <CopyButton text={buildSvgGenerationPrompt(item.svg_prompt)} />}
         </div>
         <div className="max-h-28 overflow-y-auto rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-xs text-gray-300 whitespace-pre-wrap">
           {item.svg_prompt || '—'}
@@ -122,12 +164,9 @@ function SvgQuestionCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: ()
         </div>
         <div className="flex items-center gap-3">
           {item.href && (
-            <>
-              <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-400 hover:text-white">
-                Canlı Aç ↗
-              </a>
-              <CopyButton text={`${SITE_URL}${item.href}`} label="Linki Kopyala" />
-            </>
+            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-400 hover:text-white">
+              Soru Bankasında Göster ↗
+            </a>
           )}
           <button
             type="button"
@@ -148,6 +187,8 @@ export default function SvgQuestionsPanel() {
   const [status, setStatus] = useState<Status>('pending');
   const [items, setItems] = useState<SvgQuestionItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editQuestionId, setEditQuestionId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setItems(null);
@@ -166,6 +207,11 @@ export default function SvgQuestionsPanel() {
     load();
   }, [load]);
 
+  function showNotice(kind: 'success' | 'error', text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice((n) => (n?.text === text ? null : n)), 5000);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -183,6 +229,15 @@ export default function SvgQuestionsPanel() {
       </div>
 
       {error && <p className="text-sm font-bold text-rose-400">{error}</p>}
+      {notice && (
+        <div
+          className={`px-4 py-3 rounded-xl text-sm ${
+            notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/10 text-red-300 border border-red-500/30'
+          }`}
+        >
+          {notice.text}
+        </div>
+      )}
       {items === null && <p className="text-sm text-gray-400 py-8 text-center">Yükleniyor...</p>}
       {items && items.length === 0 && !error && (
         <div className="rounded-2xl border border-white/5 bg-[#111114] p-8 sm:p-12 text-center">
@@ -193,10 +248,26 @@ export default function SvgQuestionsPanel() {
       )}
 
       <div className="space-y-3">
-        {items?.map((item) => (
-          <SvgQuestionCard key={item.id} item={item} onSaved={load} />
-        ))}
+        {items?.map((item) =>
+          item.svg_content ? (
+            <DoneSvgCard key={item.id} item={item} onEdit={() => setEditQuestionId(item.id)} />
+          ) : (
+            <PendingSvgCard key={item.id} item={item} onSaved={load} />
+          )
+        )}
       </div>
+
+      {editQuestionId !== null && (
+        <QuestionEditModal
+          questionId={editQuestionId}
+          onClose={() => setEditQuestionId(null)}
+          onSaved={() => {
+            setEditQuestionId(null);
+            load();
+          }}
+          showNotice={showNotice}
+        />
+      )}
     </div>
   );
 }
