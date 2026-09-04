@@ -26,6 +26,12 @@ export interface RegisterData extends LoginCredentials {
   fullName: string;
   confirmPassword: string;
   gradeId?: number;
+  // Bot koruması — sunucuda (app/api/auth/register) yeniden doğrulanır, bkz. authSecurity.ts
+  honeypot: string;
+  formRenderedAt: number;
+  mathA: number;
+  mathB: number;
+  mathAnswer: string;
 }
 
 export interface AuthViewModel {

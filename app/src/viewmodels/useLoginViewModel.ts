@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { LoginCredentials, AuthState } from '../models/authTypes';
 
-const SUPABASE_URL = 'https://pwzbjhgrhkcdyowknmhe.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8';
-
 interface UseLoginViewModelReturn {
   state: AuthState;
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -27,13 +24,17 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
       });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || 'Giriş yapılamadı');
 
-      if (error) throw error;
+      // bkz. useRegisterViewModel — sunucudan gelen oturum çerezini tarayıcı client'ına
+      // senkronize eder, AuthContext'in onAuthStateChange'i bunu görsün diye.
+      await createClient().auth.getSession();
 
       setState(prev => ({
         ...prev,
@@ -42,11 +43,11 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
       }));
 
       router.push('/');
-    } catch (err: any) {
+    } catch (err) {
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: err.message || 'Giriş yapılamadı',
+        error: err instanceof Error ? err.message : 'Giriş yapılamadı',
       }));
     }
   }, [router]);

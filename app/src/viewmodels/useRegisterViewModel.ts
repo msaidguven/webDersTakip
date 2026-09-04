@@ -69,29 +69,18 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const supabase = createClient();
-      
-      // 1. Kullanıcı oluştur
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || 'Kayit yapilamadi');
 
-      if (authError) throw authError;
-
-      // 2. Profil oluştur
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            full_name: data.fullName,
-            role: 'student',
-            grade_id: data.gradeId ?? null,
-          });
-
-        if (profileError) throw profileError;
-      }
+      // Kayıt sırasında oluşturulan oturum çerezi bu fetch ile geldi ama tarayıcıdaki
+      // Supabase client'ı bunu kendiliğinden bilmez — getSession() çerezleri yeniden
+      // okuyup onAuthStateChange üzerinden AuthContext'i (dolayısıyla useAuth) günceller.
+      await createClient().auth.getSession();
 
       setState(prev => ({
         ...prev,
@@ -100,11 +89,11 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
       }));
 
       router.push('/login?registered=true');
-    } catch (err: any) {
+    } catch (err) {
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: err.message || 'Kayit yapilamadi',
+        error: err instanceof Error ? err.message : 'Kayit yapilamadi',
       }));
     }
   }, [router]);

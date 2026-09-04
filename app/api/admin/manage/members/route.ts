@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('profiles')
-    .select('id, full_name, username, role, grade_id, school_name, branch, is_verified, updated_at, grades(name)')
+    .select('id, full_name, username, role, grade_id, school_name, branch, is_verified, banned_reason, updated_at, grades(name)')
     .order('updated_at', { ascending: false })
     .limit(200);
 
@@ -85,13 +85,15 @@ export async function DELETE(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = await request.json().catch(() => null) as { ids?: unknown; hard?: unknown; unban?: unknown } | null;
+  const body = await request.json().catch(() => null) as { ids?: unknown; hard?: unknown; unban?: unknown; reason?: unknown } | null;
   const ids = Array.isArray(body?.ids) ? body.ids.filter((v): v is string => typeof v === 'string') : [];
   if (!ids.length) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
   if (ids.includes(admin.user.id)) {
     return NextResponse.json({ error: 'Kendi hesabınız üzerinde bu işlemi yapamazsınız' }, { status: 400 });
   }
+
+  const reason = typeof body?.reason === 'string' && body.reason.trim() ? body.reason.trim() : null;
 
   const supabase = createServiceClient();
   const deletedIds: string[] = [];
@@ -107,11 +109,29 @@ export async function DELETE(request: NextRequest) {
       await supabase.from('profiles').delete().eq('id', id);
       deletedIds.push(id);
     } else {
+      const unban = body?.unban === true;
       const { error } = await supabase.auth.admin.updateUserById(id, {
-        ban_duration: body?.unban === true ? 'none' : BAN_DURATION,
+        ban_duration: unban ? 'none' : BAN_DURATION,
       });
-      if (error) failed.push({ id, reason: error.message });
-      else deletedIds.push(id);
+      if (error) {
+        failed.push({ id, reason: error.message });
+        continue;
+      }
+
+      // is_banned kolonu, auth.users.banned_until'ın middleware'de ucuz şekilde
+      // okunabilen bir aynası — banned_until yeni sign-in/refresh'i zaten engelliyor,
+      // bu kolon ise hâlâ geçerli olan access token'la gezinen kullanıcıyı sayfa
+      // isteklerinde yakalamak için (bkz. middleware.ts).
+      await supabase
+        .from('profiles')
+        .update(
+          unban
+            ? { is_banned: false, banned_at: null, banned_reason: null, banned_by: null }
+            : { is_banned: true, banned_at: new Date().toISOString(), banned_reason: reason, banned_by: admin.user.id }
+        )
+        .eq('id', id);
+
+      deletedIds.push(id);
     }
   }
 

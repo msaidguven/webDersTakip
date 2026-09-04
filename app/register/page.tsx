@@ -7,6 +7,10 @@ import { useAuth } from '../src/context/AuthContext';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
+function makeMathChallenge() {
+  return { a: 1 + Math.floor(Math.random() * 9), b: 1 + Math.floor(Math.random() * 9) };
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -18,6 +22,15 @@ export default function RegisterPage() {
     confirmPassword: '',
     gradeId: '',
   });
+
+  // Bot koruması: honeypot (insan görmez/doldurmaz), form açılış zamanı (çok hızlı submit
+  // = bot) ve basit bir toplama sorusu. Üçü de app/api/auth/register'da sunucu tarafında
+  // yeniden doğrulanıyor — burası sadece basit botları erkenden eleyip UX sağlıyor.
+  const [honeypot, setHoneypot] = useState('');
+  const [formRenderedAt] = useState(() => Date.now());
+  const [mathChallenge, setMathChallenge] = useState(makeMathChallenge);
+  const [mathAnswer, setMathAnswer] = useState('');
+  const [botError, setBotError] = useState<string | null>(null);
 
   // Zaten giriş yapmış kullanıcı kayıt formunu görmemeli — login/page.tsx'teki aynı korumanın
   // eşleniği (bkz. bunun eksik olduğu bulunan bug).
@@ -33,12 +46,36 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBotError(null);
+
+    // İnsan kullanıcı honeypot'u hiç görmediği için dolduramaz — doluysa isteği
+    // sunucuya hiç göndermeden burada kes.
+    if (honeypot.trim() !== '') {
+      setBotError('Doğrulama başarısız. Lütfen sayfayı yenileyip tekrar deneyin.');
+      return;
+    }
+    if (Date.now() - formRenderedAt < 3000) {
+      setBotError('Lütfen formu doldurmak için birkaç saniye ayırın ve tekrar deneyin.');
+      return;
+    }
+    if (parseInt(mathAnswer, 10) !== mathChallenge.a + mathChallenge.b) {
+      setBotError('Toplama işleminin sonucu yanlış.');
+      setMathChallenge(makeMathChallenge());
+      setMathAnswer('');
+      return;
+    }
+
     await register({
       fullName: formData.fullName,
       email: formData.email,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
       gradeId: formData.gradeId ? parseInt(formData.gradeId, 10) : undefined,
+      honeypot,
+      formRenderedAt,
+      mathA: mathChallenge.a,
+      mathB: mathChallenge.b,
+      mathAnswer,
     });
   };
 
@@ -71,11 +108,11 @@ export default function RegisterPage() {
         <div className="rounded-2xl bg-surface-elevated border border-default p-8">
           <h2 className="text-xl font-semibold text-default mb-6">Kayit Ol</h2>
 
-          {state.error && (
+          {(state.error || botError) && (
             <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-              {state.error}
-              <button 
-                onClick={clearError}
+              {state.error || botError}
+              <button
+                onClick={() => { clearError(); setBotError(null); }}
                 className="ml-2 text-red-500 hover:text-red-600"
               >
                 ✕
@@ -84,6 +121,20 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Honeypot: insan kullanıcı bunu görmez, botlar genelde tüm inputları doldurur */}
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="website">Website</label>
+              <input
+                id="website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
+
             <div>
               <label className="block text-sm text-muted-foreground mb-2">Kaçıncı sınıftasın?</label>
               <select
@@ -149,6 +200,20 @@ export default function RegisterPage() {
                 onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 className={inputClass}
                 placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                Bot olmadığını doğrula: {mathChallenge.a} + {mathChallenge.b} = ?
+              </label>
+              <input
+                type="number"
+                value={mathAnswer}
+                onChange={(e) => setMathAnswer(e.target.value)}
+                className={inputClass}
+                placeholder="Toplamı yaz"
                 required
               />
             </div>

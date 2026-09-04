@@ -20,7 +20,7 @@ export default function MembersTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [editRow, setEditRow] = useState<Member | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<{ ids: string[]; unban?: boolean } | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ ids: string[] } | null>(null);
 
   const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
     setNotice({ kind, text });
@@ -73,11 +73,11 @@ export default function MembersTab() {
     setSelected(next);
   }
 
-  async function handleBanToggle(ids: string[], hard: boolean, unban?: boolean) {
+  async function handleBanToggle(ids: string[], hard: boolean, unban?: boolean, reason?: string) {
     const res = await fetch('/api/admin/manage/members', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids, hard, unban }),
+      body: JSON.stringify({ ids, hard, unban, reason }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -194,7 +194,10 @@ export default function MembersTab() {
                   </td>
                   <td className="p-3 text-muted-foreground">{m.grades?.name || '—'}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${m.banned ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                    <span
+                      title={m.banned && m.banned_reason ? m.banned_reason : undefined}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-medium ${m.banned ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}
+                    >
                       {m.banned ? 'Pasif' : 'Aktif'}
                     </span>
                   </td>
@@ -227,7 +230,7 @@ export default function MembersTab() {
         <ConfirmMemberModal
           count={confirmTarget.ids.length}
           onCancel={() => setConfirmTarget(null)}
-          onBan={() => handleBanToggle(confirmTarget.ids, false)}
+          onBan={(reason) => handleBanToggle(confirmTarget.ids, false, false, reason)}
           onHardDelete={() => handleBanToggle(confirmTarget.ids, true)}
         />
       )}
@@ -346,19 +349,31 @@ function ConfirmMemberModal({
 }: {
   count: number;
   onCancel: () => void;
-  onBan: () => void;
+  onBan: (reason: string) => void;
   onHardDelete: () => void;
 }) {
+  const [reason, setReason] = useState('');
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-surface-elevated rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
         <h3 className="text-lg font-bold text-foreground mb-2">Ne yapmak istersiniz?</h3>
         <p className="text-muted-foreground text-sm mb-4">
-          {count} üye seçildi. &ldquo;Pasifleştir&rdquo; hesabı geri döndürülebilir şekilde askıya alır (giriş yapamaz). &ldquo;Kalıcı Sil&rdquo; hesabı ve tüm
-          verilerini kalıcı olarak siler — geri alınamaz.
+          {count} üye seçildi. &ldquo;Pasifleştir&rdquo; hesabı geri döndürülebilir şekilde askıya alır (giriş yapamaz, açık oturumu da sonlandırılır).
+          &ldquo;Kalıcı Sil&rdquo; hesabı ve tüm verilerini kalıcı olarak siler — geri alınamaz.
         </p>
+        <div className="mb-4">
+          <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Yasaklama nedeni (opsiyonel)</label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="Ör. Uygunsuz içerik paylaşımı"
+            className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
+          />
+        </div>
         <div className="flex flex-col gap-2 sm:gap-3">
-          <button onClick={onBan} className="px-4 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-500 text-sm">
+          <button onClick={() => onBan(reason)} className="px-4 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-500 text-sm">
             Pasifleştir (Yasakla)
           </button>
           <button onClick={onHardDelete} className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 text-sm">
