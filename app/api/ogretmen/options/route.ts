@@ -12,29 +12,39 @@ export async function GET(request: NextRequest) {
 
   const gradeId = request.nextUrl.searchParams.get('gradeId');
   const lessonId = request.nextUrl.searchParams.get('lessonId');
-  const unitId = request.nextUrl.searchParams.get('unitId');
 
   const supabase = createServiceClient();
 
-  if (unitId) {
-    const { data } = await supabase
-      .from('topics')
-      .select('id, title')
-      .eq('unit_id', unitId)
-      .eq('is_active', true)
-      .order('order_no', { ascending: true });
-    return NextResponse.json({ topics: data || [] });
-  }
-
+  // Öğretmen artık ünite/konu kademeli TEK seçim değil, birden fazla üniteden birden
+  // fazla konuyu birlikte işaretleyip tek Word'e alabiliyor — bu yüzden ünite+konu
+  // ağacı tek seferde (nested) dönüyor, checklist UI'ı ayrı ayrı istek atmasın.
   if (gradeId && lessonId) {
-    const { data } = await supabase
+    const { data: unitRows } = await supabase
       .from('units')
       .select('id, title')
       .eq('grade_id', gradeId)
       .eq('lesson_id', lessonId)
       .eq('is_active', true)
       .order('order_no', { ascending: true });
-    return NextResponse.json({ units: data || [] });
+    const units = (unitRows as { id: number; title: string }[] | null) || [];
+    if (!units.length) return NextResponse.json({ units: [] });
+
+    const { data: topicRows } = await supabase
+      .from('topics')
+      .select('id, title, unit_id')
+      .in('unit_id', units.map((u) => u.id))
+      .eq('is_active', true)
+      .order('order_no', { ascending: true });
+    const topicsByUnit = new Map<number, { id: number; title: string }[]>();
+    ((topicRows as { id: number; title: string; unit_id: number }[] | null) || []).forEach((t) => {
+      const list = topicsByUnit.get(t.unit_id) || [];
+      list.push({ id: t.id, title: t.title });
+      topicsByUnit.set(t.unit_id, list);
+    });
+
+    return NextResponse.json({
+      units: units.map((u) => ({ id: u.id, title: u.title, topics: topicsByUnit.get(u.id) || [] })),
+    });
   }
 
   if (gradeId) {
