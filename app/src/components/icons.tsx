@@ -96,7 +96,13 @@ const icons: Record<string, React.FC<{ className?: string; size?: number }>> = {
       <line x1="9" y1="9" x2="15" y2="15" />
     </svg>
   ),
-  
+  'x': ({ className, size = 24 }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  ),
+
   // Activity
   'calculator': ({ className, size = 24 }) => (
     <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

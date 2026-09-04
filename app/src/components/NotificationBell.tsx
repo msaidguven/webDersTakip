@@ -82,6 +82,11 @@ export function NotificationBell() {
     await supabase.from('notifications').update({ read_at: now }).eq('user_id', user.id).is('read_at', null);
   }
 
+  async function deleteNotification(id: number) {
+    setItems((prev) => prev.filter((n) => n.id !== id));
+    await supabase.from('notifications').delete().eq('id', id);
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center">
@@ -129,37 +134,46 @@ export function NotificationBell() {
             ) : (
               items.map((n) => {
                 const content = (
-                  <div
-                    className={`px-4 py-3 border-b border-zinc-100 dark:border-default/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-surface-elevated transition-colors ${
-                      !n.read_at ? 'bg-indigo-50/60 dark:bg-indigo-500/5' : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {!n.read_at && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-default truncate">{n.title}</p>
-                        {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
-                        <p className="text-[11px] text-muted-foreground mt-1">{formatRelative(n.created_at)}</p>
-                      </div>
+                  <div className="flex items-start gap-2">
+                    {!n.read_at && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-default truncate">{n.title}</p>
+                      {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                      <p className="text-[11px] text-muted-foreground mt-1">{formatRelative(n.created_at)}</p>
                     </div>
                   </div>
                 );
-                return n.link ? (
-                  <Link
+                return (
+                  <div
                     key={n.id}
-                    href={n.link}
-                    onClick={() => {
-                      markRead(n);
-                      setIsOpen(false);
-                    }}
-                    className="block"
+                    className={`flex items-start gap-1 pl-4 pr-2 py-3 border-b border-zinc-100 dark:border-default/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-surface-elevated transition-colors ${
+                      !n.read_at ? 'bg-indigo-50/60 dark:bg-indigo-500/5' : ''
+                    }`}
                   >
-                    {content}
-                  </Link>
-                ) : (
-                  <button key={n.id} onClick={() => markRead(n)} className="block w-full text-left">
-                    {content}
-                  </button>
+                    {n.link ? (
+                      <Link
+                        href={n.link}
+                        onClick={() => {
+                          markRead(n);
+                          setIsOpen(false);
+                        }}
+                        className="block min-w-0 flex-1"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <button onClick={() => markRead(n)} className="block min-w-0 flex-1 text-left">
+                        {content}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteNotification(n.id)}
+                      aria-label="Bildirimi sil"
+                      className="shrink-0 mt-0.5 p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  </div>
                 );
               })
             )}

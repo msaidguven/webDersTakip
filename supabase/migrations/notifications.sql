@@ -20,10 +20,10 @@ create index if not exists idx_notifications_user_created on public.notification
 alter table public.notifications enable row level security;
 
 -- Bildirimler tamamen "kendine özel" (bir başkasınınkini görmek/değiştirmek anlamsız),
--- bu yüzden okuma ve "okundu" işaretleme doğrudan client'tan RLS ile yapılıyor —
--- bu ikisi için ayrı bir API route'una gerek yok. Oluşturma (insert) SADECE worker'ın
--- (service role, RLS bypass) işi — öğrenci kendine/başkasına sahte bildirim
--- ekleyemesin diye burada bilerek bir insert policy'si YOK.
+-- bu yüzden okuma, "okundu" işaretleme ve silme doğrudan client'tan RLS ile
+-- yapılıyor — bunlar için ayrı bir API route'una gerek yok. Oluşturma (insert)
+-- SADECE worker'ın (service role, RLS bypass) işi — öğrenci kendine/başkasına
+-- sahte bildirim ekleyemesin diye burada bilerek bir insert policy'si YOK.
 drop policy if exists "notifications_own_read" on public.notifications;
 create policy "notifications_own_read" on public.notifications
   for select using (auth.uid() = user_id);
@@ -31,3 +31,10 @@ create policy "notifications_own_read" on public.notifications
 drop policy if exists "notifications_own_mark_read" on public.notifications;
 create policy "notifications_own_mark_read" on public.notifications
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Kullanıcı isteği (2026-09-04): kendi bildirimini silebilsin. Denetim/moderasyon
+-- gereken bir kayıt değil (comments'teki soft-delete deseninin aksine), o yüzden
+-- gerçek DELETE burada güvenli.
+drop policy if exists "notifications_own_delete" on public.notifications;
+create policy "notifications_own_delete" on public.notifications
+  for delete using (auth.uid() = user_id);
