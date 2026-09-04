@@ -111,7 +111,10 @@ export default function AllCommentsPanel() {
     setPage(1);
   }, [status, kind, search, reviewed]);
 
-  async function handleAction(item: Item, action: 'publish' | 'reject' | 'delete' | 'restore' | 'review') {
+  async function handleAction(item: Item, action: 'publish' | 'reject' | 'delete' | 'restore' | 'review' | 'purge') {
+    if (action === 'purge' && !window.confirm('Bu kaydı kalıcı olarak silmek istediğine emin misin? Bu işlem geri alınamaz.')) {
+      return;
+    }
     setBusyId(item.id);
     try {
       const numericId = item.id.replace(/^(comment|ai)-/, '');
@@ -125,21 +128,27 @@ export default function AllCommentsPanel() {
         showNotice('error', data.error || 'İşlem başarısız');
         return;
       }
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === item.id
-            ? action === 'review'
-              ? { ...it, reviewedAt: new Date().toISOString() }
-              : { ...it, status: data.status }
-            : it
-        )
-      );
+      if (action === 'purge') {
+        setItems((prev) => prev.filter((it) => it.id !== item.id));
+        setTotal((t) => Math.max(0, t - 1));
+      } else {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? action === 'review'
+                ? { ...it, reviewedAt: new Date().toISOString() }
+                : { ...it, status: data.status }
+              : it
+          )
+        );
+      }
       const labels: Record<string, string> = {
         publish: 'Yayınlandı',
         reject: 'Reddedildi',
         delete: 'Silindi',
         restore: 'Geri yüklendi (inceleme bekliyor)',
         review: 'İncelendi olarak işaretlendi',
+        purge: 'Kalıcı olarak silindi',
       };
       showNotice('success', labels[action]);
     } catch {
@@ -285,13 +294,22 @@ export default function AllCommentsPanel() {
                     </button>
                   )}
                   {item.status === 'deleted' && (
-                    <button
-                      onClick={() => handleAction(item, 'restore')}
-                      disabled={busyId === item.id}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-40"
-                    >
-                      Geri Yükle
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleAction(item, 'restore')}
+                        disabled={busyId === item.id}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-40"
+                      >
+                        Geri Yükle
+                      </button>
+                      <button
+                        onClick={() => handleAction(item, 'purge')}
+                        disabled={busyId === item.id}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-40"
+                      >
+                        Kalıcı Olarak Sil
+                      </button>
+                    </>
                   )}
                   {!item.reviewedAt && (
                     <button

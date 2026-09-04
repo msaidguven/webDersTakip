@@ -19,6 +19,13 @@ const ACTION_TO_STATUS: Record<string, string> = {
 // yan etkisi olarak yazılıyordu — burada TEK BAŞINA, status'a dokunmadan yazılıyor.
 const REVIEW_ACTION = 'review';
 
+// Kullanıcı isteği (2026-09-04): admin önce "Sil"le (yayından kaldırır, status='deleted',
+// kayıt duruyor) — ama zaten silinmiş bir kaydı panelde artık kalıcı olarak da
+// silebilsin ("önce sil diyerek işaretle, sonra kalıcı sil"). PURGE bu yüzden
+// SADECE status zaten 'deleted' olan kayıtlarda çalışıyor; gerçek bir DB DELETE'tir,
+// geri alınamaz.
+const PURGE_ACTION = 'purge';
+
 // question_comments ("Yorumlar" görünümü) ve rag_answers ("AI'ye Sorulanlar") aynı
 // publish/reject/delete/restore mekaniğini paylaşıyor (eski, tek-tablolu
 // /api/admin/question-comments/[id]'in yerini alıyor; /api/admin/rag/qa/[id] hâlâ
@@ -40,8 +47,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (kind !== 'comment' && kind !== 'ai') {
     return NextResponse.json({ error: 'kind "comment" veya "ai" olmalı' }, { status: 400 });
   }
-  if (typeof action !== 'string' || (!(action in ACTION_TO_STATUS) && action !== REVIEW_ACTION)) {
-    return NextResponse.json({ error: 'action "publish", "reject", "delete", "restore" veya "review" olmalı' }, { status: 400 });
+  if (typeof action !== 'string' || (!(action in ACTION_TO_STATUS) && action !== REVIEW_ACTION && action !== PURGE_ACTION)) {
+    return NextResponse.json({ error: 'action "publish", "reject", "delete", "restore", "review" veya "purge" olmalı' }, { status: 400 });
   }
 
   const table = kind === 'comment' ? 'question_comments' : 'rag_answers';
@@ -54,6 +61,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .eq('id', recordId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, reviewed: true });
+  }
+
+  if (action === PURGE_ACTION) {
+    const { data: record } = await supabase.from(table).select('status').eq('id', recordId).maybeSingle();
+    if (!record) return NextResponse.json({ error: 'Kayıt bulunamadı' }, { status: 404 });
+    if (record.status !== 'deleted') {
+      return NextResponse.json({ error: 'Sadece önce silinmiş kayıtlar kalıcı olarak silinebilir' }, { status: 400 });
+    }
+
+    // rag_question_queue.comment_id -> question_comments(id) CASCADE değil; hâlâ
+    // referans eden bir satır varsa hard delete FK hatasıyla başarısız olur.
+    // Normalde soft-delete sırasında zaten temizleniyor (bkz. yukarıdaki 'delete'
+    // dalı) — burada olası bir kalıntıya karşı best-effort bir daha temizleniyor.
+    const commentIds = kind === 'comment' ? [recordId] : [];
+    const parentColumn = kind === 'comment' ? 'parent_comment_id' : 'parent_ai_answer_id';
+    const { data: children } = await supabase.from('question_comments').select('id').eq(parentColumn, recordId);
+    commentIds.push(...((children as { id: number }[] | null) || []).map((c) => c.id));
+    if (commentIds.length) await supabase.from('rag_question_queue').delete().in('comment_id', commentIds);
+
+    const { error } = await supabase.from(table).delete().eq('id', recordId);
+    if (error) return NextResponse.json({ error: `Kalıcı silinemedi: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ ok: true, purged: true });
   }
 
   const nextStatus = ACTION_TO_STATUS[action];
