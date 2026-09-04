@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   // yüklenen kaynak kitabı temel alır — bu yüzden section_content gerekmez.
   const NOTEBOOK_QUESTION_TEMPLATES: Record<string, string> = {
     questions_notebooklm: '10-section-questions-notebooklm.md',
+    classical_questions_notebooklm: '15-section-classical-questions-notebooklm.md',
   };
   const isNotebookQuestionType = !!type && type in NOTEBOOK_QUESTION_TEMPLATES;
 

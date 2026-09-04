@@ -1168,11 +1168,11 @@ export function QuestionsModal({
 }: {
   topicId: number;
   section: { id: number; heading: string };
-  variant?: 'general' | 'notebooklm' | 'classical';
+  variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm';
   onClose: () => void;
 }) {
-  const isNotebook = variant === 'notebooklm';
-  const isClassical = variant === 'classical';
+  const isNotebook = variant === 'notebooklm' || variant === 'classical_notebooklm';
+  const isClassical = variant === 'classical' || variant === 'classical_notebooklm';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -1186,7 +1186,7 @@ export function QuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    const promptType = isNotebook ? 'questions_notebooklm' : isClassical ? 'classical_questions' : 'mixed_questions';
+    const promptType = isNotebook && isClassical ? 'classical_questions_notebooklm' : isNotebook ? 'questions_notebooklm' : isClassical ? 'classical_questions' : 'mixed_questions';
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${promptType}`);
       const data = await res.json().catch(() => null);
@@ -1257,7 +1257,9 @@ export function QuestionsModal({
     <ModalShell title={`${isClassical ? 'Açık Uçlu Soru Ekle' : 'Soru Ekle'}${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          {isNotebook
+          {isNotebook && isClassical
+            ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Klasik/açık uçlu (öğrencinin yazarak cevapladığı) 3-6 soru, kitaba dayanarak ve cevap anahtarıyla birlikte üretilir — özet ders notuna değil doğrudan kitaba bağlı kalır. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
+            : isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : isClassical
             ? 'Tek promptla klasik/açık uçlu (öğrencinin yazarak cevapladığı) 3-6 soru, cevap anahtarıyla birlikte üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
