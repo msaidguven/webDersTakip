@@ -92,96 +92,36 @@ function buildTopicsByUnitId(
 
 // Öğrencinin sınıfındaki (grade_id) TÜM aktif dersleri, her birinin TÜM üniteleri
 // üzerinden toplanmış soru sayısı/çözülen sayısıyla döner — panelin ders kartları
-// (LessonExplorer'ın ilk seviyesi) bunu kullanır. getUnitsForLesson'la aynı desende
-// (topics → questions → test_session_answers) ama tek bir dersle sınırlı değil, tüm
-// sınıf için TEK seferde hesaplanıyor.
+// (LessonExplorer'ın ilk seviyesi) bunu kullanır. Bu hesap tek bir Postgres fonksiyonunda
+// (web_get_lessons_with_progress) yapılıyor — ilk sürüm 5 ardışık JS-side sorguyla
+// yapıyordu (lesson_grades→lessons, units, topics, questions, test_session_answers),
+// her round-trip'in sabit gecikmesi üst üste binip gerçek veride 0.5-3 saniyeye çıkıyordu
+// (bkz. kullanıcıyla 2026-09-05 performans tartışması). Tek RPC çağrısı bunu tek
+// round-trip'e indiriyor.
 export async function getLessonsWithProgressForGrade(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   userId: string,
   gradeId: number
 ): Promise<LessonProgress[]> {
-  const { data: lessonGradeRows } = await supabase
-    .from('lesson_grades')
-    .select('lesson_id, lessons(id, name, icon, is_active)')
-    .eq('grade_id', gradeId)
-    .eq('is_active', true);
+  const { data } = await supabase.rpc('web_get_lessons_with_progress', { p_user_id: userId, p_grade_id: gradeId });
 
-  type LessonRow = { id: number; name: string; icon: string | null; is_active: boolean };
-  type LessonGradeRow = { lesson_id: number; lessons: LessonRow | LessonRow[] | null };
+  type Row = { lesson_id: number; lesson_name: string; icon: string | null; total_questions: number; solved_questions: number };
+  const rows = (data as Row[] | null) || [];
 
-  const lessonById = new Map<number, LessonRow>();
-  for (const row of ((lessonGradeRows as LessonGradeRow[] | null) || [])) {
-    const lessonRow = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
-    if (!lessonRow || lessonRow.is_active === false) continue;
-    lessonById.set(lessonRow.id, lessonRow);
-  }
-
-  if (lessonById.size === 0) return [];
-
-  const { data: unitRows } = await supabase
-    .from('units')
-    .select('id, lesson_id')
-    .eq('grade_id', gradeId)
-    .eq('is_active', true);
-  const units = (unitRows as { id: number; lesson_id: number }[] | null) || [];
-  const lessonIdByUnitId = new Map(units.map((u) => [u.id, u.lesson_id]));
-  const unitIds = units.map((u) => u.id);
-
-  const { data: topicRows } = unitIds.length
-    ? await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true)
-    : { data: [] as { id: number; unit_id: number }[] };
-  const topics = (topicRows as { id: number; unit_id: number }[] | null) || [];
-  const lessonIdByTopicId = new Map<number, number>();
-  for (const t of topics) {
-    const lessonId = lessonIdByUnitId.get(t.unit_id);
-    if (lessonId != null) lessonIdByTopicId.set(t.id, lessonId);
-  }
-  const topicIds = topics.map((t) => t.id);
-
-  const { data: questionRows } = topicIds.length
-    ? await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true)
-    : { data: [] as { id: number; topic_id: number }[] };
-  const questions = (questionRows as { id: number; topic_id: number }[] | null) || [];
-
-  const totalByLesson = new Map<number, number>();
-  const lessonIdByQuestionId = new Map<number, number>();
-  for (const q of questions) {
-    const lessonId = lessonIdByTopicId.get(q.topic_id);
-    if (lessonId == null) continue;
-    totalByLesson.set(lessonId, (totalByLesson.get(lessonId) ?? 0) + 1);
-    lessonIdByQuestionId.set(q.id, lessonId);
-  }
-  const allQuestionIds = questions.map((q) => q.id);
-
-  const { data: answerRows } = allQuestionIds.length
-    ? await supabase.from('test_session_answers').select('question_id').eq('user_id', userId).in('question_id', allQuestionIds)
-    : { data: [] as { question_id: number }[] };
-
-  const solvedIdsByLesson = new Map<number, Set<number>>();
-  for (const a of (answerRows as { question_id: number }[] | null) || []) {
-    const lessonId = lessonIdByQuestionId.get(a.question_id);
-    if (lessonId == null) continue;
-    const set = solvedIdsByLesson.get(lessonId) || new Set<number>();
-    set.add(a.question_id);
-    solvedIdsByLesson.set(lessonId, set);
-  }
-
-  const lessons: LessonProgress[] = Array.from(lessonById.values()).map((lesson) => {
-    const totalQuestions = totalByLesson.get(lesson.id) ?? 0;
-    const solvedQuestions = solvedIdsByLesson.get(lesson.id)?.size ?? 0;
+  return rows.map((row) => {
+    const totalQuestions = row.total_questions ?? 0;
+    const solvedQuestions = row.solved_questions ?? 0;
     const progress = totalQuestions > 0 ? Math.min(100, Math.round((solvedQuestions / totalQuestions) * 100)) : 0;
     return {
-      id: String(lesson.id),
-      name: lesson.name,
-      icon: lesson.icon || '📘',
+      id: String(row.lesson_id),
+      name: row.lesson_name,
+      icon: row.icon || '📘',
       totalQuestions,
       solvedQuestions,
       progress,
     };
   });
-  lessons.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-  return lessons;
 }
 
 export interface LessonUnitsResult {
