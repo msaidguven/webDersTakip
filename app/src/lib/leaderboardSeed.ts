@@ -53,7 +53,7 @@ export function getSeedLeaderboardEntries(weekStart: string): { displayName: str
     const rand = mulberry32(hashString(`${weekStart}:${name}`));
     let totalQuestions = 0;
     for (let day = 0; day <= elapsedDays; day++) {
-      totalQuestions += 3 + Math.floor(rand() * 22); // günlük ~3-24 soru
+      totalQuestions += 9 + Math.floor(rand() * 25); // günlük ~9-33 soru
     }
     return { displayName: name, totalQuestions };
   });
