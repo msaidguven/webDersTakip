@@ -41,7 +41,7 @@ function ProgressBar({ progress, tone }: { progress: number; tone: 'emerald' | '
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-1 gap-2.5">
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="h-28 rounded-2xl bg-white/5 animate-pulse" />
       ))}
@@ -159,25 +159,28 @@ export function LessonExplorer({
             actionLabel="Derse Başla"
           />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 gap-2.5">
             {lessons.map((lesson, index) => (
               <button
                 key={lesson.id}
                 onClick={() => handleLessonClick(lesson.id)}
-                className="group flex flex-col gap-3 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-4 text-left transition-all hover:border-indigo-500/30 hover:bg-surface active:scale-[0.98]"
+                className="group flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-4 text-left transition-all hover:border-indigo-500/30 hover:bg-surface active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(index)} text-lg shadow-sm transition-transform duration-200 group-hover:scale-105`}
-                  >
-                    {lesson.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-default truncate">{lesson.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{lesson.totalQuestions} Soru</p>
-                  </div>
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(index)} text-lg shadow-sm transition-transform duration-200 group-hover:scale-105`}
+                >
+                  {lesson.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-default truncate">{lesson.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{lesson.totalQuestions} Soru</p>
                 </div>
-                {lesson.totalQuestions > 0 && <ProgressBar progress={lesson.progress} tone={lesson.progress >= 100 ? 'emerald' : 'indigo'} />}
+                {lesson.totalQuestions > 0 && (
+                  <div className="hidden w-28 shrink-0 sm:block">
+                    <ProgressBar progress={lesson.progress} tone={lesson.progress >= 100 ? 'emerald' : 'indigo'} />
+                  </div>
+                )}
+                <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </button>
             ))}
           </div>
@@ -220,39 +223,42 @@ export function LessonExplorer({
             subtitle={units.length === 0 ? 'Yakında bu ders için üniteler eklenecek.' : 'Farklı bir filtre deneyebilirsin.'}
           />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 gap-2.5">
             {filteredUnits.map((unit) => {
               const isCompleted = unit.status === 'completed';
               const isActive = unit.id === activeUnitId;
               return (
                 <div
                   key={unit.id}
-                  className={`flex flex-col gap-3 rounded-2xl border p-3.5 sm:p-4 transition-all ${
+                  className={`flex items-center gap-2 rounded-2xl border p-3.5 sm:p-4 transition-all ${
                     isActive ? 'border-indigo-500/40 bg-indigo-500/5' : 'border-default bg-surface-elevated'
                   }`}
                 >
-                  <button onClick={() => handleUnitClick(unit.id)} className="group flex flex-1 flex-col gap-2 text-left">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform duration-200 group-hover:scale-105 ${
-                          isCompleted ? 'bg-gradient-to-br from-emerald-400 to-emerald-500' : 'bg-gradient-to-br from-indigo-400 to-indigo-500'
-                        }`}
-                      >
-                        <Icon name={isCompleted ? 'check' : 'play'} size={13} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-default truncate">{unit.title}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{unit.subtitle}</p>
-                      </div>
+                  <button onClick={() => handleUnitClick(unit.id)} className="group flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform duration-200 group-hover:scale-105 ${
+                        isCompleted ? 'bg-gradient-to-br from-emerald-400 to-emerald-500' : 'bg-gradient-to-br from-indigo-400 to-indigo-500'
+                      }`}
+                    >
+                      <Icon name={isCompleted ? 'check' : 'play'} size={13} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-default truncate">{unit.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{unit.subtitle}</p>
                     </div>
-                    {unit.totalQuestions > 0 && <ProgressBar progress={unit.progress} tone={isCompleted ? 'emerald' : 'indigo'} />}
+                    {unit.totalQuestions > 0 && (
+                      <div className="hidden w-28 shrink-0 sm:block">
+                        <ProgressBar progress={unit.progress} tone={isCompleted ? 'emerald' : 'indigo'} />
+                      </div>
+                    )}
+                    <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </button>
                   {unit.href && (
                     <Link
                       href={unit.href}
-                      className="text-center px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-sm transition-transform active:scale-95"
+                      className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-sm transition-transform active:scale-95"
                     >
-                      Ünite Testi
+                      Test
                     </Link>
                   )}
                 </div>
@@ -276,7 +282,7 @@ export function LessonExplorer({
       {topics.length === 0 ? (
         <EmptyState title="Bu ünitede henüz konu yok" subtitle="Yakında bu ünite için konular eklenecek." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 gap-2.5">
           {topics.map((topic) => {
             const fullyDone = topic.contentCompleted && topic.quizCompleted;
             return (
