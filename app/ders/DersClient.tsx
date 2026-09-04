@@ -9,7 +9,6 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
-  Clock,
   BookOpen,
   Trophy,
   CheckCircle2,
@@ -57,6 +56,7 @@ const TopicHighlightQuickAddModal = dynamic(() => import('@/app/src/components/a
 const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightEditModal), { ssr: false });
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { slugifyHeading } from '@/app/src/lib/site';
+import { getLessonColor } from '@/app/src/lib/homeMapping';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
@@ -96,6 +96,7 @@ type Content = {
 };
 type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 type ProfileRoleRow = { role: string | null };
+type GradeLesson = { id: number; name: string; slug: string | null; icon: string | null };
 
 interface DersClientProps {
   initialData: {
@@ -105,6 +106,10 @@ interface DersClientProps {
     outcomes: Outcome[];
     contents: Content[];
     units?: Unit[];
+    // Üst hiyerarşi barındaki "Ders Değiştir" dropdown'u için — o sınıftaki tüm aktif
+    // dersler (bkz. kullanıcının 2026-09-05 isteği: sayfadan çıkmadan hızlıca ders
+    // değiştirebilme).
+    gradeLessons?: GradeLesson[];
     totalWeeks: number;
     termStartDate?: string | null;
     termEndDate?: string | null;
@@ -132,15 +137,6 @@ function buildSectionSlugs(sections: TopicSection[]): Map<string | number, strin
     bySectionId.set(section.id, count === 0 ? base : `${base}-${count + 1}`);
   });
   return bySectionId;
-}
-
-// Konunun tüm alt başlıklarındaki metnin kaba bir kelime sayımından okuma süresi tahmini
-// üretir (~180 kelime/dk, Türkçe için makul bir varsayılan). Görsel/diyagram-ağırlıklı
-// bölümlerde bu bir alt sınır olur, kesin bir ölçüm değil — sadece bir fikir vermek için.
-function estimateReadingMinutes(sections: TopicSection[]): number {
-  const text = sections.map((s) => s.html || '').join(' ').replace(/<[^>]*>/g, ' ');
-  const wordCount = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(wordCount / 180));
 }
 
 // Genel amaçlı, TTL'li localStorage önbelleği. Herhangi bir veri için (sadece
@@ -415,7 +411,7 @@ function QuizCtaCards({
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const { user, supabase } = useAuth();
 
-  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug } = initialData;
+  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, gradeLessons = [] } = initialData;
 
   const pickInitialTopicId = (contentsList: Content[], topicSlug: string | null) => {
     if (topicSlug) {
@@ -451,6 +447,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
   const [icindekilerOpen, setIcindekilerOpen] = useState(false);
+  const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
+  const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
@@ -609,7 +607,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   );
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
   const activeUnitSlug = activeUnit?.slug || unitSlug || null;
-  const activeTopicHref = buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic?.slug || null);
 
   // Aktif ünite değiştikçe sidebar index'inde SADECE o ünite açık kalsın (akordeon)
   useEffect(() => {
@@ -1858,25 +1855,95 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             <div className="max-w-5xl mx-auto p-3 sm:p-5 lg:p-8">
 
-              {/* Breadcrumb */}
-              <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-4">
-                <Link href="/" className="hover:text-indigo-600 transition-colors">Anasayfa</Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                <Link href={`/${gradeSlug}`} className="hover:text-indigo-600 transition-colors">{gradeName}</Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                <Link href={overviewHref} className="hover:text-indigo-600 transition-colors">{lessonName}</Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                <Link href={`${overviewHref}#${activeUnitSlug || ''}`} className="hover:text-indigo-600 transition-colors">{unitTitle}</Link>
-                {activeTopic && (
-                  <>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    {activeTopicHref ? (
-                      <Link href={activeTopicHref} className="text-slate-500">{activeTopic.title}</Link>
-                    ) : (
-                      <span className="text-slate-500">{activeTopic.title}</span>
-                    )}
-                  </>
-                )}
+              {/* Ders/Ünite hiyerarşi barı — hangi sınıf/ders/ünitede olduğun her zaman
+                  belirgin olsun ve sayfadan çıkmadan hızlıca ders/ünite değiştirebilesin diye
+                  (bkz. kullanıcının 2026-09-05 isteği). Mobilde de görünür — eski breadcrumb
+                  sadece sm+ ekranlarda görünüyordu. */}
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
+                <Link
+                  href="/"
+                  title="Anasayfa"
+                  className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 sm:flex"
+                >
+                  <BookOpen className="h-4 w-4" />
+                </Link>
+                <Link
+                  href={`/${gradeSlug}`}
+                  className="shrink-0 text-xs font-black text-white/80 transition-colors hover:text-white"
+                >
+                  {gradeName}
+                </Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/50" />
+
+                {/* Ders (lesson) değiştirici */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); }}
+                    className="flex items-center gap-1.5 rounded-xl bg-white/20 px-3 py-1.5 text-sm font-black text-white transition-colors hover:bg-white/30"
+                  >
+                    {lessonName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${lessonSwitcherOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {lessonSwitcherOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setLessonSwitcherOpen(false)} />
+                      <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        {gradeLessons.map((lesson, idx) => (
+                          <Link
+                            key={lesson.id}
+                            href={lesson.slug ? `/${gradeSlug}/${lesson.slug}` : overviewHref}
+                            onClick={() => setLessonSwitcherOpen(false)}
+                            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-bold transition-colors ${
+                              lesson.name === lessonName ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${getLessonColor(idx)} text-sm text-white`}>
+                              {lesson.icon || '📘'}
+                            </span>
+                            <span className="min-w-0 truncate">{lesson.name}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/50" />
+
+                {/* Ünite değiştirici */}
+                <div className="relative min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); }}
+                    className="flex w-full items-center gap-1.5 rounded-xl bg-white/20 px-3 py-1.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/30"
+                  >
+                    <span className="min-w-0 flex-1 truncate">{unitTitle}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${unitSwitcherOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {unitSwitcherOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setUnitSwitcherOpen(false)} />
+                      <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        {sortedUnits.map((unit) => (
+                          <button
+                            key={unit.id}
+                            type="button"
+                            onClick={() => {
+                              handleUnitHeaderClick(unit);
+                              setUnitSwitcherOpen(false);
+                              contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
+                              String(unit.id) === String(activeUnit?.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="min-w-0 truncate">{unit.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Mobile Topics Dropdown */}
@@ -2017,21 +2084,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
                         )}
-                      </div>
-                    )}
-                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 0 && (
-                      <div className="not-prose mb-8 flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-500">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                          <Clock className="h-3.5 w-3.5 text-slate-400" /> {estimateReadingMinutes(activeTopic.sections)} dk okuma
-                        </span>
-                        {activeTopic.sections.length > 1 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                            <BookOpen className="h-3.5 w-3.5 text-slate-400" /> {activeTopic.sections.length} alt konu
-                          </span>
-                        )}
-                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600">
-                          Konu Anlatımı
-                        </span>
                       </div>
                     )}
                     {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (

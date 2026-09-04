@@ -145,6 +145,29 @@ async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]):
   return questionCountByUnit;
 }
 
+type GradeLessonRow = { id: number; name: string; slug: string | null; icon: string | null };
+
+// Konu sayfasındaki yeni "Ders Değiştir" dropdown'u için — o sınıftaki TÜM aktif dersler.
+// Öğrenci sayfadan hiç çıkmadan başka bir derse geçebilsin diye (bkz. kullanıcının
+// 2026-09-05 isteği: "koca sayfada hangi ders belli değil, hızlı ders/ünite değiştirebilse iyi olur").
+async function fetchGradeLessons(supabase: Supabase, gradeId: number): Promise<GradeLessonRow[]> {
+  const { data } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id, lessons(id, name, slug, icon, is_active)')
+    .eq('grade_id', gradeId)
+    .eq('is_active', true);
+
+  type Row = { lesson_id: number; lessons: GradeLessonRow & { is_active: boolean } | (GradeLessonRow & { is_active: boolean })[] | null };
+  const lessons: GradeLessonRow[] = [];
+  for (const row of ((data as Row[] | null) || [])) {
+    const lessonRow = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
+    if (!lessonRow || lessonRow.is_active === false) continue;
+    lessons.push({ id: lessonRow.id, name: lessonRow.name, slug: lessonRow.slug, icon: lessonRow.icon });
+  }
+  lessons.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  return lessons;
+}
+
 function normalizeDescription(text: string, maxLength = 158) {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= maxLength) return clean;
@@ -237,9 +260,10 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // ÇEKMİYORUZ — sadece açılan konu (decodedTopicSlug) tam yüklenir, diğerleri sidebar
   // için hafif kalır ve client tarafında ihtiyaç oldukça (DersClient ->
   // ensureTopicContentLoaded) yüklenir.
-  const [questionCountByUnit, { outcomes, contents }] = await Promise.all([
+  const [questionCountByUnit, { outcomes, contents }, gradeLessons] = await Promise.all([
     computeQuestionCountByUnit(supabase, units),
     getLessonWeekData(supabase, activeUnit.id, week, false, { slug: decodedTopicSlug }),
+    fetchGradeLessons(supabase, gId),
   ]);
 
   const unitsWithQuestionFlag = units.map((u) => {
@@ -261,6 +285,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     outcomes,
     contents,
     units: unitsWithQuestionFlag,
+    gradeLessons,
     totalWeeks,
     week,
     termStartDate,
