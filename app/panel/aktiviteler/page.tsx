@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../src/context/AuthContext';
 import { getRecentActivities } from '../../src/lib/dashboardActivities';
+import { getWeeklyActiveDays } from '../../src/lib/dashboardStreak';
 import { Activity } from '../../src/models/types';
 import { ActivityFeed } from '../../src/components/ActivityFeed';
 import { AuthPrompt } from '../../src/components/AuthPrompt';
@@ -14,6 +15,7 @@ export default function ActivityHistoryPage() {
   const { user, loading: authLoading, supabase } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [fullName, setFullName] = useState<string | null>(null);
+  const [weeklyActiveDays, setWeeklyActiveDays] = useState<boolean[]>();
   const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
@@ -22,13 +24,15 @@ export default function ActivityHistoryPage() {
     (async () => {
       setIsFetching(true);
       try {
-        const [result, { data: profile }] = await Promise.all([
+        const [result, { data: profile }, days] = await Promise.all([
           getRecentActivities(supabase, user.id, HISTORY_LIMIT),
           supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+          getWeeklyActiveDays(supabase, user.id),
         ]);
         if (!cancelled) {
           setActivities(result);
           setFullName((profile as { full_name: string | null } | null)?.full_name ?? null);
+          setWeeklyActiveDays(days);
         }
       } finally {
         if (!cancelled) setIsFetching(false);
@@ -45,6 +49,7 @@ export default function ActivityHistoryPage() {
     <PanelShell
       isAuthenticated={!!user}
       userName={fullName || 'Öğrenci'}
+      weeklyActiveDays={weeklyActiveDays}
       title="Tüm Aktivitelerin"
       subtitle="Geçmişteki tüm test denemelerin."
     >

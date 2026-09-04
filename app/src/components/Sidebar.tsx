@@ -2,22 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Icon } from './icons';
-import { useSidebarLessons } from '../viewmodels/useSidebarLessons';
-import { setPendingLessonId } from '../lib/panelLessonBridge';
-import { getLessonColor } from '../lib/homeMapping';
+import { WeeklyProgress } from './WeeklyProgress';
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
   isAuthenticated: boolean;
   userName?: string;
-  // Sadece panel anasayfası verir — o zaman bir derse tıklamak sayfa değiştirmeden
-  // doğrudan ünite/konu listesini günceller. Başka bir panel sayfasındaysak (profil,
-  // siralama, aktiviteler) bu prop yok; o durumda /panel'e gidip oraya bırakılan
-  // "pending" dersi panel kendi mount olduğunda uygular (bkz. panelLessonBridge).
-  onSelectLesson?: (lessonId: string) => void;
+  weeklyActiveDays?: boolean[];
 }
 
 function getInitials(name: string): string {
@@ -26,24 +19,7 @@ function getInitials(name: string): string {
   return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 }
 
-export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLesson }: SidebarProps) {
-  const { status, lessons, gradeOptions, selectedGradeId, setSelectedGradeId, saving, saveGrade } =
-    useSidebarLessons();
-  const router = useRouter();
-
-  const handleLessonClick = (lessonId: string) => {
-    if (onSelectLesson) {
-      onSelectLesson(lessonId);
-      requestAnimationFrame(() => {
-        document.getElementById('uniteler')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    } else {
-      setPendingLessonId(lessonId);
-      router.push('/panel');
-    }
-    onClose?.();
-  };
-
+export function Sidebar({ isOpen, onClose, isAuthenticated, userName, weeklyActiveDays }: SidebarProps) {
   return (
     <aside className={`
       fixed left-0 top-[60px] sm:top-[72px] h-[calc(100vh-60px)] sm:h-[calc(100vh-72px)] w-[280px] bg-surface border-r border-default z-40 flex flex-col
@@ -59,86 +35,16 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, onSelectLe
         ✕
       </button>
 
-      {/* Dersler (Mobilde panel anasayfasında istatistiklerin altında göründüğü için mobilde sidebar'da gizlenir) */}
-      <nav className="hidden lg:block flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-          Derslerim
-        </p>
-
-        {!isAuthenticated && (
-          <p className="px-3 text-sm text-muted-foreground">
-            Derslerini görmek için giriş yap.
-          </p>
+      {/* Dersler kartları artık panel içeriğinde (LessonExplorer) — sidebar'da onun yerine
+          haftalık ilerleme özeti var. Mobilde panel anasayfasında istatistiklerin altında da
+          ayrıca gösterildiği için mobil sidebar'da gizli, aynı bilgiyi iki kez göstermemek için. */}
+      <div className="hidden lg:block flex-1 px-3 py-6 overflow-y-auto">
+        {!isAuthenticated ? (
+          <p className="px-3 text-sm text-muted-foreground">Haftalık ilerlemeni görmek için giriş yap.</p>
+        ) : (
+          <WeeklyProgress activeDays={weeklyActiveDays} />
         )}
-
-        {isAuthenticated && status === 'loading' && (
-          <div className="space-y-1 px-1">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-2 py-2">
-                <div className="h-9 w-9 shrink-0 rounded-xl bg-white/5 animate-pulse" />
-                <div className="h-3.5 flex-1 rounded-full bg-white/5 animate-pulse" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {isAuthenticated && status === 'need-grade' && (
-          <div className="relative mx-1 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent p-3.5 space-y-2.5">
-            <div className="absolute -right-6 -top-6 w-20 h-20 bg-indigo-500/10 rounded-full blur-2xl" />
-            <p className="relative text-sm text-default font-semibold">Önce sınıfını seç</p>
-            <p className="relative text-xs text-muted-foreground leading-relaxed">
-              Derslerini gösterebilmemiz için hangi sınıfta olduğunu seçmelisin.
-            </p>
-            <select
-              value={selectedGradeId ?? ''}
-              onChange={(e) => setSelectedGradeId(e.target.value ? Number(e.target.value) : null)}
-              className="relative w-full text-sm rounded-xl bg-surface border border-default px-3 py-2 text-default"
-            >
-              <option value="">Sınıf seç...</option>
-              {gradeOptions.map((grade) => (
-                <option key={grade.id} value={grade.id}>
-                  {grade.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={saveGrade}
-              disabled={!selectedGradeId || saving}
-              className="relative w-full text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 shadow-lg shadow-indigo-500/20 transition-opacity disabled:opacity-50"
-            >
-              {saving ? 'Kaydediliyor...' : 'Kaydet'}
-            </button>
-          </div>
-        )}
-
-        {isAuthenticated && status === 'ready' && lessons.length === 0 && (
-          <p className="px-3 text-sm text-muted-foreground">Bu sınıf için ders bulunamadı.</p>
-        )}
-
-        {isAuthenticated &&
-          status === 'ready' &&
-          lessons.map((lesson, index) => (
-            <button
-              key={lesson.id}
-              onClick={() => handleLessonClick(lesson.id)}
-              className="group relative w-full flex items-center gap-3 px-2 py-2 rounded-xl transition-colors duration-200 hover:bg-white/5"
-            >
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(index)} text-base shadow-sm transition-transform duration-200 group-hover:scale-105 group-hover:rotate-3`}
-              >
-                {lesson.icon}
-              </span>
-              <span className="flex-1 min-w-0 text-left text-sm font-medium text-default truncate">
-                {lesson.name}
-              </span>
-              <Icon
-                name="chevron-right"
-                size={14}
-                className="shrink-0 text-muted-foreground opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0"
-              />
-            </button>
-          ))}
-      </nav>
+      </div>
 
       {/* User Profile */}
       <div className="p-4 border-t border-default">

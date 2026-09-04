@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Unit, UnitTopic } from '@/app/src/models/types';
+import { LessonProgress, Unit, UnitTopic } from '@/app/src/models/types';
 import { getCurriculumCalendar } from './curriculumCalendar';
 import { getCurrentCurriculumWeek } from './routeParsing';
 
@@ -14,11 +14,6 @@ type UnitRow = {
 
 type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number };
 
-export interface LessonOption {
-  id: string;
-  name: string;
-}
-
 export interface DashboardUnitsResult {
   units: Unit[];
   lessonName: string | null;
@@ -27,12 +22,11 @@ export interface DashboardUnitsResult {
   totalWeeks: number;
   activeUnitId: string | null;
   topicsByUnitId: Record<string, UnitTopic[]>;
-  // Öğrencinin sınıfındaki TÜM dersler — panelde ders sekmeleri için (bkz.
-  // docs/site-iyilestirme-plani.md madde 1 tartışması, 2026-09-02: panel eskiden sadece
-  // en son pratik yapılan tek dersi gösteriyordu, kullanıcı diğer derslerin de erişilebilir
-  // olmasını istedi). selectedLessonId, units/activeUnit* alanlarının hangi derse ait
-  // olduğunu gösterir — sekmeye tıklayınca getUnitsForLesson ile yeniden çekilir.
-  lessons: LessonOption[];
+  // Öğrencinin sınıfındaki TÜM dersler, her biri kendi toplam soru/çözülen sayısıyla —
+  // panelin ders kartları için (bkz. LessonExplorer). Üniteler artık BURADA eagerly
+  // çekilmiyor — sadece kullanıcı bir derse tıklayınca getUnitsForLesson ile (selectLesson
+  // üzerinden) yükleniyor, bkz. useDashboardViewModel.
+  lessons: LessonProgress[];
   selectedLessonId: string | null;
   gradeId: number | null;
 }
@@ -96,30 +90,96 @@ function buildTopicsByUnitId(
   return result;
 }
 
-// Öğrencinin sınıfında (grade_id) tanımlı, aktif TÜM dersleri döner — panelin ders
-// sekmeleri için. lesson_grades hem dersin o sınıfta aktif olup olmadığını (is_active)
-// hem de dersin kendisinin aktif olup olmadığını (lessons.is_active) ayrı ayrı tutuyor,
-// ikisi de true olmalı.
-export async function getLessonsForGrade(
+// Öğrencinin sınıfındaki (grade_id) TÜM aktif dersleri, her birinin TÜM üniteleri
+// üzerinden toplanmış soru sayısı/çözülen sayısıyla döner — panelin ders kartları
+// (LessonExplorer'ın ilk seviyesi) bunu kullanır. getUnitsForLesson'la aynı desende
+// (topics → questions → test_session_answers) ama tek bir dersle sınırlı değil, tüm
+// sınıf için TEK seferde hesaplanıyor.
+export async function getLessonsWithProgressForGrade(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
+  userId: string,
   gradeId: number
-): Promise<LessonOption[]> {
-  const { data } = await supabase
+): Promise<LessonProgress[]> {
+  const { data: lessonGradeRows } = await supabase
     .from('lesson_grades')
-    .select('lesson_id, lessons(id, name, is_active)')
+    .select('lesson_id, lessons(id, name, icon, is_active)')
     .eq('grade_id', gradeId)
     .eq('is_active', true);
 
-  type Row = { lesson_id: number; lessons: { id: number; name: string; is_active: boolean } | { id: number; name: string; is_active: boolean }[] | null };
-  const rows = (data as Row[] | null) || [];
+  type LessonRow = { id: number; name: string; icon: string | null; is_active: boolean };
+  type LessonGradeRow = { lesson_id: number; lessons: LessonRow | LessonRow[] | null };
 
-  const lessons: LessonOption[] = [];
-  for (const row of rows) {
+  const lessonById = new Map<number, LessonRow>();
+  for (const row of ((lessonGradeRows as LessonGradeRow[] | null) || [])) {
     const lessonRow = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
     if (!lessonRow || lessonRow.is_active === false) continue;
-    lessons.push({ id: String(lessonRow.id), name: lessonRow.name });
+    lessonById.set(lessonRow.id, lessonRow);
   }
+
+  if (lessonById.size === 0) return [];
+
+  const { data: unitRows } = await supabase
+    .from('units')
+    .select('id, lesson_id')
+    .eq('grade_id', gradeId)
+    .eq('is_active', true);
+  const units = (unitRows as { id: number; lesson_id: number }[] | null) || [];
+  const lessonIdByUnitId = new Map(units.map((u) => [u.id, u.lesson_id]));
+  const unitIds = units.map((u) => u.id);
+
+  const { data: topicRows } = unitIds.length
+    ? await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true)
+    : { data: [] as { id: number; unit_id: number }[] };
+  const topics = (topicRows as { id: number; unit_id: number }[] | null) || [];
+  const lessonIdByTopicId = new Map<number, number>();
+  for (const t of topics) {
+    const lessonId = lessonIdByUnitId.get(t.unit_id);
+    if (lessonId != null) lessonIdByTopicId.set(t.id, lessonId);
+  }
+  const topicIds = topics.map((t) => t.id);
+
+  const { data: questionRows } = topicIds.length
+    ? await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true)
+    : { data: [] as { id: number; topic_id: number }[] };
+  const questions = (questionRows as { id: number; topic_id: number }[] | null) || [];
+
+  const totalByLesson = new Map<number, number>();
+  const lessonIdByQuestionId = new Map<number, number>();
+  for (const q of questions) {
+    const lessonId = lessonIdByTopicId.get(q.topic_id);
+    if (lessonId == null) continue;
+    totalByLesson.set(lessonId, (totalByLesson.get(lessonId) ?? 0) + 1);
+    lessonIdByQuestionId.set(q.id, lessonId);
+  }
+  const allQuestionIds = questions.map((q) => q.id);
+
+  const { data: answerRows } = allQuestionIds.length
+    ? await supabase.from('test_session_answers').select('question_id').eq('user_id', userId).in('question_id', allQuestionIds)
+    : { data: [] as { question_id: number }[] };
+
+  const solvedIdsByLesson = new Map<number, Set<number>>();
+  for (const a of (answerRows as { question_id: number }[] | null) || []) {
+    const lessonId = lessonIdByQuestionId.get(a.question_id);
+    if (lessonId == null) continue;
+    const set = solvedIdsByLesson.get(lessonId) || new Set<number>();
+    set.add(a.question_id);
+    solvedIdsByLesson.set(lessonId, set);
+  }
+
+  const lessons: LessonProgress[] = Array.from(lessonById.values()).map((lesson) => {
+    const totalQuestions = totalByLesson.get(lesson.id) ?? 0;
+    const solvedQuestions = solvedIdsByLesson.get(lesson.id)?.size ?? 0;
+    const progress = totalQuestions > 0 ? Math.min(100, Math.round((solvedQuestions / totalQuestions) * 100)) : 0;
+    return {
+      id: String(lesson.id),
+      name: lesson.name,
+      icon: lesson.icon || '📘',
+      totalQuestions,
+      solvedQuestions,
+      progress,
+    };
+  });
   lessons.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
   return lessons;
 }
@@ -331,51 +391,49 @@ export async function getUnitsForLesson(
   };
 }
 
-// Kullanıcının profildeki (varsa) grade_id'siyle en son test_sessions kaydından türetilen
-// VARSAYILAN ders bağlamı için ünite listesini gerçek veriden kurar (+ sınıftaki diğer tüm
-// dersleri, panelin ders sekmeleri için — bkz. LessonOption). Panel kalıcı bir "sınıf/ders"
-// seçimi tutmadığı için (bkz. app/src/viewmodels/useHomeViewModel.ts akışı) en son pratik
-// yaptığı ders/sınıf en makul varsayılan bağlamdır; hiç test_sessions kaydı yoksa null döner
-// ve çağıran taraf "henüz bir derse başlamadın" boş durumunu gösterir.
+// Panelin ders kartları (LessonExplorer'ın ilk seviyesi) için sınıf id'sini belirler ve
+// o sınıftaki tüm dersleri ilerlemeleriyle döner. Üniteler artık BURADA eagerly
+// çekilmiyor — kullanıcı bir derse tıklayınca selectLesson (getUnitsForLesson) ile
+// yükleniyor (bkz. useDashboardViewModel). Sınıf önce profildeki grade_id'den, o yoksa
+// (nadir: profilde sınıf hiç seçilmemiş ama daha önce test çözülmüş) en son test_sessions
+// kaydından belirlenir; ikisi de yoksa null döner ve çağıran taraf "henüz bir derse
+// başlamadın" boş durumunu gösterir.
 export async function getDashboardUnitsData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   userId: string,
   profileGradeId: number | null
 ): Promise<DashboardUnitsResult | null> {
-  let sessionQuery = supabase
-    .from('test_sessions')
-    .select('lesson_id, grade_id')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (profileGradeId) sessionQuery = sessionQuery.eq('grade_id', profileGradeId);
-  let { data: sessionRows } = await sessionQuery;
+  let gradeId = profileGradeId;
 
-  if (!sessionRows?.length && profileGradeId) {
-    const { data: anySessionRows } = await supabase
+  if (!gradeId) {
+    const { data: sessionRows } = await supabase
       .from('test_sessions')
-      .select('lesson_id, grade_id')
+      .select('grade_id')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1);
-    sessionRows = anySessionRows;
+    gradeId = (sessionRows?.[0] as { grade_id: number } | undefined)?.grade_id ?? null;
   }
 
-  const session = sessionRows?.[0] as { lesson_id: number; grade_id: number } | undefined;
-  if (!session) return null;
+  if (!gradeId) return null;
 
-  const { lesson_id: lessonId, grade_id: gradeId } = session;
-
-  const [lessonUnits, lessons] = await Promise.all([
-    getUnitsForLesson(supabase, userId, lessonId, gradeId),
-    getLessonsForGrade(supabase, gradeId),
+  const [lessons, { data: grade }] = await Promise.all([
+    getLessonsWithProgressForGrade(supabase, userId, gradeId),
+    supabase.from('grades').select('name').eq('id', gradeId).maybeSingle(),
   ]);
+  const gradeName = (grade as { name: string } | null)?.name ?? null;
 
   return {
-    ...lessonUnits,
+    units: [],
+    lessonName: null,
+    gradeName,
+    currentWeek: 0,
+    totalWeeks: 0,
+    activeUnitId: null,
+    topicsByUnitId: {},
     lessons,
-    selectedLessonId: String(lessonId),
+    selectedLessonId: null,
     gradeId,
   };
 }

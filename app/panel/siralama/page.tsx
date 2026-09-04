@@ -5,10 +5,12 @@ import { useAuth } from '../../src/context/AuthContext';
 import { AuthPrompt } from '../../src/components/AuthPrompt';
 import { LeaderboardCard } from '../../src/components/LeaderboardCard';
 import { PanelShell } from '../../src/components/PanelShell';
+import { getWeeklyActiveDays } from '../../src/lib/dashboardStreak';
 
 export default function LeaderboardPage() {
   const { user, loading: authLoading, supabase } = useAuth();
   const [fullName, setFullName] = useState<string | null>(null);
+  const [weeklyActiveDays, setWeeklyActiveDays] = useState<boolean[]>();
 
   useEffect(() => {
     if (!user) return;
@@ -21,6 +23,9 @@ export default function LeaderboardPage() {
       .then(({ data }: { data: { full_name: string | null } | null }) => {
         if (!cancelled) setFullName(data?.full_name ?? null);
       });
+    getWeeklyActiveDays(supabase, user.id).then((days) => {
+      if (!cancelled) setWeeklyActiveDays(days);
+    });
     return () => {
       cancelled = true;
     };
@@ -30,6 +35,7 @@ export default function LeaderboardPage() {
     <PanelShell
       isAuthenticated={!!user}
       userName={fullName || 'Öğrenci'}
+      weeklyActiveDays={weeklyActiveDays}
       title="Haftalık Sıralama"
       subtitle="Sınıfındaki (aynı sınıf seviyesindeki) herkesle bu hafta çözdüğün soru sayısına göre karşılaştırma."
     >

@@ -17,6 +17,17 @@ export interface Week {
   status: 'past' | 'current' | 'future' | 'locked';
 }
 
+// Panel anasayfasındaki ders kartları için — ünite kartlarıyla aynı görsel dilde
+// (soru sayısı + progress bar), bkz. LessonExplorer.
+export interface LessonProgress {
+  id: string;
+  name: string;
+  icon: string;
+  totalQuestions: number;
+  solvedQuestions: number;
+  progress: number;
+}
+
 export interface Unit {
   id: string;
   title: string;
@@ -90,7 +101,7 @@ export interface DashboardData {
   recentActivities: Activity[];
   activeUnitId: string | null;
   topicsByUnitId: Record<string, UnitTopic[]>;
-  lessons: { id: string; name: string }[];
+  lessons: LessonProgress[];
   selectedLessonId: string | null;
 }
 

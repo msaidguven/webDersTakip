@@ -9,9 +9,9 @@ interface PanelShellProps {
   userName?: string;
   title?: string;
   subtitle?: string;
-  // Sadece panel anasayfası verir — sidebar'daki bir derse tıklandığında, sayfa
-  // gezinmeden doğrudan o dersin ünite/konu listesine geçmek için (bkz. Sidebar).
-  onSelectLesson?: (lessonId: string) => void;
+  // Sidebar'daki haftalık ilerleme kartı için — panel anasayfası gerçek veriyi verir,
+  // vermeyen sayfalarda WeeklyProgress kendi güvenli varsayılanıyla (tüm gün pasif) render olur.
+  weeklyActiveDays?: boolean[];
   children: React.ReactNode;
 }
 
@@ -20,7 +20,7 @@ interface PanelShellProps {
 // artık site genelindeki tek header'dan (MainLayout) geliyor — burada panele özgü
 // ikinci bir header yok, sadece mobilde Sidebar'ı açan bir menü düğmesi (+ varsa
 // sayfaya özgü başlık) kalıyor.
-export function PanelShell({ isAuthenticated, userName, title, subtitle, onSelectLesson, children }: PanelShellProps) {
+export function PanelShell({ isAuthenticated, userName, title, subtitle, weeklyActiveDays, children }: PanelShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -32,7 +32,7 @@ export function PanelShell({ isAuthenticated, userName, title, subtitle, onSelec
         onClose={() => setSidebarOpen(false)}
         isAuthenticated={isAuthenticated}
         userName={userName}
-        onSelectLesson={onSelectLesson}
+        weeklyActiveDays={weeklyActiveDays}
       />
 
       {sidebarOpen && (

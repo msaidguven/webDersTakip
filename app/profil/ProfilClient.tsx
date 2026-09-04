@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/app/src/context/AuthContext';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
 import { getProfileStats } from '@/app/src/lib/profileStats';
+import { getWeeklyActiveDays } from '@/app/src/lib/dashboardStreak';
 import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { PanelShell } from '@/app/src/components/PanelShell';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
@@ -124,6 +125,7 @@ export default function ProfilClient() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
   const [comments, setComments] = useState<MyComment[] | null>(null);
+  const [weeklyActiveDays, setWeeklyActiveDays] = useState<boolean[]>();
 
   useEffect(() => {
     setFullName((authUser?.user_metadata?.full_name as string | undefined) || 'Öğrenci');
@@ -138,6 +140,9 @@ export default function ProfilClient() {
     let cancelled = false;
     getProfileStats(supabase, authUser.id).then((result) => {
       if (!cancelled) setStats(result);
+    });
+    getWeeklyActiveDays(supabase, authUser.id).then((days) => {
+      if (!cancelled) setWeeklyActiveDays(days);
     });
     return () => {
       cancelled = true;
@@ -237,6 +242,7 @@ export default function ProfilClient() {
     <PanelShell
       isAuthenticated={!!authUser}
       userName={fullName}
+      weeklyActiveDays={weeklyActiveDays}
       title="Profilim"
       subtitle="Hesap bilgilerini ve performansını yönet."
     >

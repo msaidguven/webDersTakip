@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { useDashboardViewModel } from '../src/viewmodels/useDashboardViewModel';
-import { takePendingLessonId } from '../src/lib/panelLessonBridge';
 import { PanelShell } from '../src/components/PanelShell';
 import { StatsRow } from '../src/components/StatsRow';
 import { SRSWidget } from '../src/components/SRSWidget';
@@ -12,16 +10,7 @@ import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { LeaderboardCard } from '../src/components/LeaderboardCard';
-import { UnitAccordion } from '../src/components/UnitAccordion';
-import { MobileLessonsCard } from '../src/components/MobileLessonsCard';
-
-type UnitFilter = 'all' | 'in_progress' | 'completed';
-
-const UNIT_FILTERS: { id: UnitFilter; label: string }[] = [
-  { id: 'all', label: 'Tümü' },
-  { id: 'in_progress', label: 'Devam Edenler' },
-  { id: 'completed', label: 'Tamamlananlar' },
-];
+import { LessonExplorer } from '../src/components/LessonExplorer';
 
 // Panel artık tek bir global spinnerla değil, her bölüm kendi verisi gelince ayrı ayrı
 // dolduruluyor (bkz. kullanıcının "adım adım yüklensin, hepsini beklemeden" isteği,
@@ -31,8 +20,6 @@ function SkeletonBlock({ className = '' }: { className?: string }) {
 }
 
 export default function PanelPage() {
-  const [unitFilter, setUnitFilter] = useState<UnitFilter>('all');
-  const pendingLessonIdRef = useRef<string | null>(null);
   const {
     data,
     isAuthenticated,
@@ -48,20 +35,6 @@ export default function PanelPage() {
     handleSRSReview,
   } = useDashboardViewModel();
 
-  // Panel dışında bir sayfadayken (profil, siralama, aktiviteler) sidebar'dan bir derse
-  // tıklanırsa önce buraya yönlendiriliyor; hangi dersin seçileceği panelLessonBridge
-  // (sessionStorage) ile taşınıyor — mount olur olmaz bir kere okunup temizleniyor,
-  // sonra üniteler yüklenince (selectLesson'ın ihtiyaç duyduğu sınıf bağlamı hazır olunca) uygulanıyor.
-  useEffect(() => {
-    pendingLessonIdRef.current = takePendingLessonId();
-  }, []);
-
-  useEffect(() => {
-    if (isUnitsLoading || !pendingLessonIdRef.current) return;
-    selectLesson(pendingLessonIdRef.current);
-    pendingLessonIdRef.current = null;
-  }, [isUnitsLoading, selectLesson]);
-
   if (isAuthResolving) {
     return (
       <PanelShell isAuthenticated={false}>
@@ -76,7 +49,7 @@ export default function PanelPage() {
     <PanelShell
       isAuthenticated={isAuthenticated}
       userName={data.user.name}
-      onSelectLesson={selectLesson}
+      weeklyActiveDays={data.weeklyActiveDays}
     >
       {/* Welcome Section */}
       <div className="relative overflow-hidden mb-6 sm:mb-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-500/15 via-purple-500/10 to-pink-500/10 border border-default p-5 sm:p-8">
@@ -160,13 +133,10 @@ export default function PanelPage() {
             )}
           </div>
 
-          {/* Mobile Lessons Card (Sadece mobilde istatistiklerin altında görünür) */}
+          {/* Haftalık ilerleme (masaüstünde bunun yerine sidebar'da gösteriliyor — bkz.
+              Sidebar.tsx; burada sadece mobilde, sidebar gizli olduğu için) */}
           <div className="lg:hidden mb-6 sm:mb-8">
-            <MobileLessonsCard
-              isAuthenticated={isAuthenticated}
-              selectedLessonId={data.selectedLessonId}
-              onSelectLesson={selectLesson}
-            />
+            {isUnitsLoading ? <SkeletonBlock className="h-40" /> : <WeeklyProgress activeDays={data.weeklyActiveDays} />}
           </div>
         </>
       ) : (
@@ -184,86 +154,28 @@ export default function PanelPage() {
             <SRSWidget review={data.srsReview} onReview={handleSRSReview} />
           )}
 
-          {/* Units Section */}
+          {/* Dersler → Üniteler → Konular gezgini — tek bileşen, mobil/web aynı */}
           <div id="uniteler" className="scroll-mt-24">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-default">Üniteler</h2>
-                {unitsContext && (unitsContext.lessonName || unitsContext.gradeName) && (
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                    {[unitsContext.gradeName, unitsContext.lessonName].filter(Boolean).join(' • ')}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-1 px-1 sm:mx-0 sm:px-0">
-                {UNIT_FILTERS.map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setUnitFilter(filter.id)}
-                    className={`px-3 sm:px-4 py-2 text-xs sm:text-sm transition-colors rounded-lg whitespace-nowrap ${
-                      unitFilter === filter.id
-                        ? 'bg-primary/10 text-indigo-400 border border-primary/20'
-                        : 'text-muted-foreground hover:text-default hover:bg-white/5'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {!isAuthenticated ? (
-              <AuthPrompt message="Ünitelerini ve ilerlemeni görmek için giriş yap." />
-            ) : isUnitsLoading || isSwitchingLesson ? (
-              <div className="space-y-2">
-                {[0, 1, 2, 3].map((i) => (
-                  <SkeletonBlock key={i} className="h-16" />
-                ))}
-              </div>
-            ) : data.units.length > 0 ? (
-              (() => {
-                const filteredUnits =
-                  unitFilter === 'all' ? data.units : data.units.filter((u) => u.status === unitFilter);
-                return filteredUnits.length > 0 ? (
-                  <UnitAccordion
-                    units={filteredUnits}
-                    topicsByUnitId={data.topicsByUnitId}
-                    defaultOpenUnitId={data.activeUnitId}
-                  />
-                ) : (
-                  <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 text-center">
-                    <p className="text-muted-foreground text-sm">
-                      {unitFilter === 'in_progress' ? 'Devam eden ünite yok.' : 'Henüz tamamlanan ünite yok.'}
-                    </p>
-                  </div>
-                );
-              })()
+              <AuthPrompt message="Derslerini ve ilerlemeni görmek için giriş yap." />
             ) : (
-              <div className="rounded-2xl bg-surface-elevated border border-default p-6 sm:p-8 text-center">
-                <p className="text-default font-medium mb-1">Henüz bir derse başlamadın</p>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Üniteler burada görünsün diye önce bir sınıf ve ders seçip ilk testini çöz.
-                </p>
-                <Link
-                  href="/"
-                  className="inline-block px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
-                >
-                  Derse Başla
-                </Link>
-              </div>
+              <LessonExplorer
+                lessons={data.lessons}
+                isLessonsLoading={isUnitsLoading}
+                units={data.units}
+                topicsByUnitId={data.topicsByUnitId}
+                activeUnitId={data.activeUnitId}
+                isSwitchingLesson={isSwitchingLesson}
+                gradeName={unitsContext?.gradeName ?? null}
+                lessonName={unitsContext?.lessonName ?? null}
+                onSelectLesson={selectLesson}
+              />
             )}
           </div>
         </div>
 
-        {/* Right Column - Weekly & Activity (1/3) */}
+        {/* Right Column - Activity & Leaderboard (1/3) */}
         <div className="space-y-6 sm:space-y-8">
-          {/* Weekly Progress */}
-          {isAuthenticated && isUnitsLoading ? (
-            <SkeletonBlock className="h-64" />
-          ) : (
-            <WeeklyProgress activeDays={data.weeklyActiveDays} />
-          )}
-
           {/* Activity Feed — panelde sadece yarım kalan testler gösteriliyor, tamamlananlar
               için zaten /panel/aktiviteler tam geçmişi var */}
           {isAuthenticated && isActivityLoading ? (
