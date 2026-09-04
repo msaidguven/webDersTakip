@@ -855,7 +855,7 @@ export default function UnitDiscussion({
   };
 
   return (
-    <div className={hideToggle ? '' : 'bg-white rounded-xl border border-gray-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
+    <div className={hideToggle ? '' : 'bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
       {!hideToggle && (
         <button
           type="button"
@@ -863,11 +863,11 @@ export default function UnitDiscussion({
           className={`flex w-full items-center gap-2 text-left ${expanded ? 'mb-3' : ''}`}
         >
           <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
-          <h2 className="flex-1 text-base font-semibold text-gray-900">
+          <h2 className="flex-1 text-base font-black text-slate-900">
             {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
-            {commentTotal > 0 && <span className="ml-1.5 font-normal text-gray-400">({commentTotal})</span>}
+            {commentTotal > 0 && <span className="ml-1.5 font-normal text-slate-400">({commentTotal})</span>}
           </h2>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
       )}
 

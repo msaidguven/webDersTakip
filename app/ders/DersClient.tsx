@@ -8,6 +8,8 @@ import { useAuth } from '@/app/src/context/AuthContext';
 import {
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  Clock,
   BookOpen,
   Trophy,
   CheckCircle2,
@@ -130,6 +132,15 @@ function buildSectionSlugs(sections: TopicSection[]): Map<string | number, strin
     bySectionId.set(section.id, count === 0 ? base : `${base}-${count + 1}`);
   });
   return bySectionId;
+}
+
+// Konunun tüm alt başlıklarındaki metnin kaba bir kelime sayımından okuma süresi tahmini
+// üretir (~180 kelime/dk, Türkçe için makul bir varsayılan). Görsel/diyagram-ağırlıklı
+// bölümlerde bu bir alt sınır olur, kesin bir ölçüm değil — sadece bir fikir vermek için.
+function estimateReadingMinutes(sections: TopicSection[]): number {
+  const text = sections.map((s) => s.html || '').join(' ').replace(/<[^>]*>/g, ' ');
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(wordCount / 180));
 }
 
 // Genel amaçlı, TTL'li localStorage önbelleği. Herhangi bir veri için (sadece
@@ -313,43 +324,91 @@ function TopicCompleteButton({ topicId }: { topicId: string | number }) {
   );
 }
 
-// Sayfanın en altında, konunun (alt başlıklar + konu geneli) tüm sorularını kapsayan
-// tek kavrama testi linkini gösterir; soru yoksa hiç görünmez.
-function TopicQuizLink({ topicId, href }: { topicId: string | number; href: string | null }) {
-  const [count, setCount] = useState<number | null>(null);
+// Sayfanın en altında, konu kavrama testi ve ünite testi için yan yana iki kart —
+// eskiden tek başına küçük bir "Konu Kavrama Testi" pill'i vardı, "Ünite Testi" ise
+// üst app bar'da ayrı bir yerdeydi (bkz. kullanıcının referans görseliyle 2026-09-05
+// isteği: ikisi burada, birlikte, daha belirgin olsun). Konu testinin soru sayısı
+// client'ta ayrıca çekiliyor (server'da topic bazlı soru sayısı önceden hesaplanmıyor);
+// ünite testinin sayısı zaten initialData.units üzerinden (test_question_count) geliyor.
+function QuizCtaCards({
+  topicId,
+  topicHref,
+  unitTitle,
+  unitHref,
+  showUnitCard,
+  unitQuestionCount,
+}: {
+  topicId: string | number;
+  topicHref: string | null;
+  unitTitle: string;
+  unitHref: string | null;
+  showUnitCard: boolean;
+  unitQuestionCount?: number;
+}) {
+  const [topicCount, setTopicCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setCount(null);
+    setTopicCount(null);
     fetch(`/api/topic-test-questions?topicId=${topicId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { questions?: unknown[] } | null) => {
-        if (!cancelled) setCount(data?.questions?.length ?? 0);
+        if (!cancelled) setTopicCount(data?.questions?.length ?? 0);
       })
       .catch(() => {
-        if (!cancelled) setCount(0);
+        if (!cancelled) setTopicCount(0);
       });
     return () => {
       cancelled = true;
     };
   }, [topicId]);
 
-  if (count === 0 || !href) return null;
+  const showTopicCard = topicCount !== 0 && !!topicHref;
+  const showEmeraldCard = showUnitCard && !!unitHref;
+
+  if (!showTopicCard && !showEmeraldCard) return null;
 
   return (
-    <Link
-      href={href}
-      className="not-prose mt-10 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 sm:px-5"
-    >
-      <span className="flex items-center gap-2 text-sm font-black text-amber-700">
-        <Trophy className="h-4 w-4 text-amber-600 shrink-0" /> Konu Kavrama Testi Çöz
-      </span>
-      {count != null && (
-        <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-2 py-0.5 text-xs font-black text-amber-800 shrink-0">
-          {count} Soru
-        </span>
+    <div className="not-prose mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {showTopicCard && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:p-5">
+          <div className="flex items-center gap-2.5 text-sm font-black text-indigo-700">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-sm">
+              <ListChecks className="h-4.5 w-4.5" />
+            </span>
+            Konu Kavrama Testi
+          </div>
+          <p className="flex-1 text-xs font-medium leading-relaxed text-indigo-900/70">
+            Bu konudaki bilgilerini pekiştirmek için {topicCount ?? ''} soruluk kavrama testi çöz.
+          </p>
+          <Link
+            href={topicHref!}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-indigo-700"
+          >
+            Teste Başla <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       )}
-    </Link>
+      {showEmeraldCard && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
+          <div className="flex items-center gap-2.5 text-sm font-black text-emerald-700">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+              <Trophy className="h-4.5 w-4.5" />
+            </span>
+            Ünite Testi
+          </div>
+          <p className="flex-1 text-xs font-medium leading-relaxed text-emerald-900/70">
+            {unitTitle} ünitesini{unitQuestionCount ? ` ${unitQuestionCount} soruluk` : ''} test etmek için ünite testini çöz.
+          </p>
+          <Link
+            href={unitHref!}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-700"
+          >
+            Teste Başla <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -391,6 +450,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
+  const [icindekilerOpen, setIcindekilerOpen] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
@@ -446,6 +506,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   useEffect(() => {
     if (selectedTopicId == null) return;
     setExpandedTopicIds(new Set([String(selectedTopicId)]));
+  }, [selectedTopicId]);
+
+  // Konu değişince İçindekiler kutusu her seferinde kapalı başlasın — bir önceki
+  // konunun açık bıraktığı durumla kafa karıştırmasın.
+  useEffect(() => {
+    setIcindekilerOpen(false);
   }, [selectedTopicId]);
 
   const toggleTopicExpanded = (id: string | number) => {
@@ -1683,20 +1749,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             <Target className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Kazanımlar</span>
           </button>
 
-          {(activeUnit?.has_questions !== false || isAdmin) && (
-            <Link
-              href={gradeSlug && lessonSlug && activeUnitSlug ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi` : `/karisik-test?lesson_id=${lessonId}&week=${week}`}
-              className="flex h-9 items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 sm:px-4 text-xs font-black text-amber-600 shadow-sm hover:bg-amber-100 transition-colors"
-            >
-              <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ünite Testi</span>
-              {isAdmin && activeUnit?.has_questions && (
-                <span className="inline-flex items-center justify-center rounded-full bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-black text-amber-800">
-                  {activeUnit.test_question_count}
-                </span>
-              )}
-            </Link>
-          )}
-
           <Link
             href="/profil"
             title="Ayarlar"
@@ -1967,6 +2019,52 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         )}
                       </div>
                     )}
+                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 0 && (
+                      <div className="not-prose mb-8 flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-500">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" /> {estimateReadingMinutes(activeTopic.sections)} dk okuma
+                        </span>
+                        {activeTopic.sections.length > 1 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                            <BookOpen className="h-3.5 w-3.5 text-slate-400" /> {activeTopic.sections.length} alt konu
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600">
+                          Konu Anlatımı
+                        </span>
+                      </div>
+                    )}
+                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (
+                      <div className="not-prose mb-8 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/50">
+                        <button
+                          type="button"
+                          onClick={() => setIcindekilerOpen((v) => !v)}
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-black text-indigo-700">
+                            <BookOpen className="h-4 w-4 text-indigo-500" /> İçindekiler
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-black text-indigo-500">
+                            Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
+                          </span>
+                        </button>
+                        {icindekilerOpen && (
+                          <div className="space-y-0.5 border-t border-indigo-100/70 bg-white px-2.5 py-2.5">
+                            {activeTopic.sections.map((section, idx) => (
+                              <button
+                                key={section.id}
+                                type="button"
+                                onClick={() => goToSectionAnchor(activeTopicSectionSlugs.get(section.id) || String(section.id))}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                              >
+                                <span className="shrink-0 text-xs font-black text-indigo-400">{idx + 1}</span>
+                                <span className="min-w-0 truncate">{section.heading}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {activeTopic?.heroImageUrl && (
                       <>
                         <button
@@ -2219,11 +2317,53 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
+                    {activeTopic && contents.length > 1 && (() => {
+                      const prevTopic = contents[selectedTopicIndex - 1] ?? null;
+                      const nextTopic = contents[selectedTopicIndex + 1] ?? null;
+                      const prevHref = prevTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, prevTopic.slug || null) : null;
+                      const nextHref = nextTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, nextTopic.slug || null) : null;
+                      return (
+                        <nav aria-label="Konu navigasyonu" className="not-prose mt-10 grid grid-cols-2 gap-3 border-t border-slate-100 pt-6">
+                          {prevTopic && prevHref ? (
+                            <Link
+                              href={prevHref}
+                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
+                            >
+                              <ChevronLeft className="h-4 w-4 shrink-0 text-slate-400" />
+                              <span className="min-w-0">
+                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Önceki Konu</span>
+                                <span className="block truncate text-sm font-bold text-slate-700">{prevTopic.title}</span>
+                              </span>
+                            </Link>
+                          ) : <div />}
+                          {nextTopic && nextHref ? (
+                            <Link
+                              href={nextHref}
+                              className="flex items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-right transition-colors hover:border-indigo-200 hover:bg-indigo-50"
+                            >
+                              <span className="min-w-0">
+                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Sonraki Konu</span>
+                                <span className="block truncate text-sm font-bold text-slate-700">{nextTopic.title}</span>
+                              </span>
+                              <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                            </Link>
+                          ) : <div />}
+                        </nav>
+                      );
+                    })()}
                     {activeTopic && <TopicCompleteButton topicId={activeTopic.id} />}
                     {activeTopic && (
-                      <TopicQuizLink
+                      <QuizCtaCards
                         topicId={activeTopic.id}
-                        href={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
+                        topicHref={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
+                        unitTitle={unitTitle}
+                        unitHref={
+                          gradeSlug && lessonSlug && activeUnitSlug
+                            ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi`
+                            : `/karisik-test?lesson_id=${lessonId}&week=${week}`
+                        }
+                        showUnitCard={activeUnit?.has_questions !== false || isAdmin}
+                        unitQuestionCount={activeUnit?.test_question_count}
                       />
                     )}
                     {activeTopic && activeUnit && (
@@ -2235,38 +2375,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           unitName={unitTitle}
                         />
                       </div>
-                    )}
-                    {activeTopic && (
-                      <nav aria-label="Konu içi bağlantılar" className="not-prose mt-10 border-t border-slate-100 pt-6">
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Bu konudan sonra</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {contents.map((topic) => {
-                            const isCurrentTopic = String(topic.id) === String(activeTopic?.id);
-                            if (isCurrentTopic) {
-                              return (
-                                <span
-                                  key={topic.id}
-                                  aria-current="page"
-                                  className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-700"
-                                >
-                                  {topic.title}
-                                </span>
-                              );
-                            }
-                            const href = buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, topic.slug || null);
-                            if (!href) return null;
-                            return (
-                              <Link
-                                key={topic.id}
-                                href={href}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                              >
-                                {topic.title}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </nav>
                     )}
                   </div>
                 </div>
