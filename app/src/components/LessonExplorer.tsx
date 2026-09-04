@@ -164,23 +164,23 @@ export function LessonExplorer({
               <button
                 key={lesson.id}
                 onClick={() => handleLessonClick(lesson.id)}
-                className="group flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-4 text-left transition-all hover:border-indigo-500/30 hover:bg-surface active:scale-[0.98]"
+                className="group flex flex-col gap-2.5 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-4 text-left transition-all hover:border-indigo-500/30 hover:bg-surface active:scale-[0.98]"
               >
-                <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(index)} text-lg shadow-sm transition-transform duration-200 group-hover:scale-105`}
-                >
-                  {lesson.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-default truncate">{lesson.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{lesson.totalQuestions} Soru</p>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(index)} text-lg shadow-sm transition-transform duration-200 group-hover:scale-105`}
+                  >
+                    {lesson.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-default truncate">{lesson.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{lesson.totalQuestions} Soru</p>
+                  </div>
+                  <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                 </div>
                 {lesson.totalQuestions > 0 && (
-                  <div className="hidden w-28 shrink-0 sm:block">
-                    <ProgressBar progress={lesson.progress} tone={lesson.progress >= 100 ? 'emerald' : 'indigo'} />
-                  </div>
+                  <ProgressBar progress={lesson.progress} tone={lesson.progress >= 100 ? 'emerald' : 'indigo'} />
                 )}
-                <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </button>
             ))}
           </div>
@@ -230,37 +230,35 @@ export function LessonExplorer({
               return (
                 <div
                   key={unit.id}
-                  className={`flex items-center gap-2 rounded-2xl border p-3.5 sm:p-4 transition-all ${
+                  className={`flex flex-col gap-2.5 rounded-2xl border p-3.5 sm:p-4 transition-all ${
                     isActive ? 'border-indigo-500/40 bg-indigo-500/5' : 'border-default bg-surface-elevated'
                   }`}
                 >
-                  <button onClick={() => handleUnitClick(unit.id)} className="group flex min-w-0 flex-1 items-center gap-2.5 text-left">
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform duration-200 group-hover:scale-105 ${
-                        isCompleted ? 'bg-gradient-to-br from-emerald-400 to-emerald-500' : 'bg-gradient-to-br from-indigo-400 to-indigo-500'
-                      }`}
-                    >
-                      <Icon name={isCompleted ? 'check' : 'play'} size={13} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-default truncate">{unit.title}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{unit.subtitle}</p>
-                    </div>
-                    {unit.totalQuestions > 0 && (
-                      <div className="hidden w-28 shrink-0 sm:block">
-                        <ProgressBar progress={unit.progress} tone={isCompleted ? 'emerald' : 'indigo'} />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleUnitClick(unit.id)} className="group flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform duration-200 group-hover:scale-105 ${
+                          isCompleted ? 'bg-gradient-to-br from-emerald-400 to-emerald-500' : 'bg-gradient-to-br from-indigo-400 to-indigo-500'
+                        }`}
+                      >
+                        <Icon name={isCompleted ? 'check' : 'play'} size={13} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-default truncate">{unit.title}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{unit.subtitle}</p>
                       </div>
+                      <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                    {unit.href && (
+                      <Link
+                        href={unit.href}
+                        className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-sm transition-transform active:scale-95"
+                      >
+                        Test
+                      </Link>
                     )}
-                    <Icon name="chevron-right" size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </button>
-                  {unit.href && (
-                    <Link
-                      href={unit.href}
-                      className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-sm transition-transform active:scale-95"
-                    >
-                      Test
-                    </Link>
-                  )}
+                  </div>
+                  {unit.totalQuestions > 0 && <ProgressBar progress={unit.progress} tone={isCompleted ? 'emerald' : 'indigo'} />}
                 </div>
               );
             })}
