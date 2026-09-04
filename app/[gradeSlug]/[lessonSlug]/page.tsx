@@ -172,27 +172,25 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     questionCount: (topicsByUnit[u.id] ?? []).reduce((sum, t) => sum + t.questionCount, 0),
   }));
 
-  // Sınıf değiştirme dropdown'u — SADECE bu dersin gerçekten sunulduğu sınıflar
-  // listelenir. Önceden tüm aktif sınıflar listeleniyordu; bir ders her sınıfta
-  // okutulmayabildiği için (ör. Bilişim Teknolojileri sadece 5/7/8'de var, 6'da yok)
-  // kullanıcı o sınıfa geçince "Ders bulunamadı"na düşüyordu (bkz. kullanıcının
-  // 2026-09-05 bildirdiği bug — aslında lesson_grades.is_active=false ile KASTEN
-  // kapatılmış bir kombinasyon, ama dropdown bunu hiç filtrelemiyordu).
-  const [{ data: allGradesData }, { data: lessonActiveGradesData }] = await Promise.all([
+  // Sınıf değiştirme dropdown'u — bir sınıf SADECE bu ders için lesson_grades'te AÇIKÇA
+  // is_active=false ile kapatılmışsa listeden çıkarılır (ör. Bilişim Teknolojileri 6.
+  // sınıfta böyle kapalı, kullanıcı o sınıfa geçince "Ders bulunamadı"na düşüyordu — bkz.
+  // 2026-09-05 bildirilen bug). İLK versiyonum bunun TERSİNİ yapmıştı (satırı YOKSA da
+  // sınıfı gizliyordu) — bu, satırı hiç girilmemiş her ders/sınıf kombinasyonunu (ki çoğu
+  // öyle) dropdown'dan silip gerçek bir regresyon yarattı. Doğrusu bu sayfanın kendi
+  // "Ders bulunamadı" kontrolüyle BİREBİR aynı kural olmalı: satır yoksa = açık, satır
+  // is_active=false ise = kapalı. Böylece dropdown ile hedef sayfa asla çelişmez.
+  const [{ data: allGradesData }, { data: disabledGradeRows }] = await Promise.all([
     supabase
       .from('grades')
       .select('id, name, slug, order_no')
       .eq('is_active', true)
       .order('order_no', { ascending: true }),
-    supabase.from('lesson_grades').select('grade_id').eq('lesson_id', lId).eq('is_active', true),
+    supabase.from('lesson_grades').select('grade_id').eq('lesson_id', lId).eq('is_active', false),
   ]);
-  // Şu an görüntülenen sınıf, buraya kadar gelindiyse zaten geçerli (yukarıdaki
-  // is_active === false kontrolünden geçti) — lesson_grades'te satırı hiç yoksa bile
-  // (nadir/geçiş durumu) kendi sınıfının dropdown'dan kaybolmaması için garantiye alınır.
-  const lessonActiveGradeIds = new Set(((lessonActiveGradesData as { grade_id: number }[] | null) || []).map((r) => r.grade_id));
-  lessonActiveGradeIds.add(gId);
+  const disabledGradeIds = new Set(((disabledGradeRows as { grade_id: number }[] | null) || []).map((r) => r.grade_id));
   const allGrades = ((allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || [])
-    .filter((g) => lessonActiveGradeIds.has(g.id))
+    .filter((g) => !disabledGradeIds.has(g.id))
     .map((g) => ({
       id: g.id,
       name: g.name,
