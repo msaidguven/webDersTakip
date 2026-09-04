@@ -164,7 +164,7 @@ function IssueBadge({ count }: { count: number }) {
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg className={`w-3.5 h-3.5 text-gray-500 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );
@@ -180,13 +180,13 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
 
 function MiniStat({ icon, label, value, tone }: { icon: string; label: string; value: number; tone: 'ok' | 'warn' }) {
   return (
-    <div className="bg-[#111114] border border-white/5 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 flex items-center gap-3">
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0 ${tone === 'warn' ? 'bg-red-500/15' : 'bg-indigo-500/15'}`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <div className={`font-bold text-lg leading-tight ${tone === 'warn' && value > 0 ? 'text-red-300' : 'text-white'}`}>{value}</div>
-        <div className="text-gray-500 text-xs truncate">{label}</div>
+        <div className={`font-bold text-lg leading-tight ${tone === 'warn' && value > 0 ? 'text-red-300' : 'text-foreground'}`}>{value}</div>
+        <div className="text-muted-foreground text-xs truncate">{label}</div>
       </div>
     </div>
   );
@@ -333,7 +333,7 @@ export default function ContentAuditTab() {
     return (
       <div className="py-16 flex items-center justify-center gap-3">
         <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-gray-400 text-sm">Yükleniyor...</span>
+        <span className="text-muted-foreground text-sm">Yükleniyor...</span>
       </div>
     );
   }
@@ -342,7 +342,7 @@ export default function ContentAuditTab() {
     return (
       <div className="py-16 text-center">
         <p className="text-red-400 mb-2">Veri yüklenirken hata oluştu</p>
-        <p className="text-gray-500 text-sm">{error}</p>
+        <p className="text-muted-foreground text-sm">{error}</p>
       </div>
     );
   }
@@ -351,13 +351,13 @@ export default function ContentAuditTab() {
     <div className="py-4 sm:py-8">
       <header className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white">İçerik Kontrol</h2>
-          <p className="text-sm sm:text-base text-gray-400">Soldan bir ders seçin, eksikleri tek bakışta görün</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">İçerik Kontrol</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">Soldan bir ders seçin, eksikleri tek bakışta görün</p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-[#111114] border border-white/10 text-xs sm:text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white disabled:opacity-50 transition-all"
+          className="shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-card border border-border text-xs sm:text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 transition-all"
         >
           <RefreshIcon spinning={refreshing} />
           <span className="hidden sm:inline">{refreshing ? 'Güncelleniyor...' : 'Yenile'}</span>
@@ -367,8 +367,8 @@ export default function ContentAuditTab() {
       {scopeActive && scopedSummary ? (
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-3">
-            <p className="text-xs text-gray-400">
-              <span className="text-white font-semibold">{selectedGrade?.name}. Sınıf → {selectedLesson?.name}</span> için özet
+            <p className="text-xs text-muted-foreground">
+              <span className="text-foreground font-semibold">{selectedGrade?.name}. Sınıf → {selectedLesson?.name}</span> için özet
             </p>
             <button onClick={resetScope} className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300">
               ← Genel özete dön
@@ -405,7 +405,7 @@ export default function ContentAuditTab() {
               key={g.id}
               onClick={() => selectGrade(g.id)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-                active ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                active ? 'bg-indigo-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
               <span>🎓</span>
@@ -415,12 +415,12 @@ export default function ContentAuditTab() {
             </button>
           );
         })}
-        {tree.length === 0 && <p className="text-gray-500 text-xs py-2">Sınıf bulunamadı</p>}
+        {tree.length === 0 && <p className="text-muted-foreground text-xs py-2">Sınıf bulunamadı</p>}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Sol: Ders navigasyonu (seçili sınıfa ait) */}
-        <nav className="lg:w-72 shrink-0 bg-[#111114] border border-white/5 rounded-2xl p-2 max-h-72 lg:max-h-[calc(100vh-300px)] overflow-y-auto">
+        <nav className="lg:w-72 shrink-0 bg-card border border-border rounded-2xl p-2 max-h-72 lg:max-h-[calc(100vh-300px)] overflow-y-auto">
           {selectedGrade?.lessons.map((l) => {
             const active = l.lessonId === effectiveLessonId;
             return (
@@ -428,7 +428,7 @@ export default function ContentAuditTab() {
                 key={l.lessonId}
                 onClick={() => selectLesson(l.lessonId)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm transition-all ${
-                  active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-gray-300 hover:bg-white/5 border border-transparent'
+                  active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-muted-foreground hover:bg-accent border border-transparent'
                 }`}
               >
                 <span>📚</span>
@@ -439,22 +439,22 @@ export default function ContentAuditTab() {
             );
           })}
           {selectedGrade && selectedGrade.lessons.length === 0 && (
-            <p className="text-gray-500 text-xs text-center py-6">Ders bulunamadı</p>
+            <p className="text-muted-foreground text-xs text-center py-6">Ders bulunamadı</p>
           )}
-          {!selectedGrade && <p className="text-gray-500 text-xs text-center py-6">Üstten bir sınıf seçin</p>}
+          {!selectedGrade && <p className="text-muted-foreground text-xs text-center py-6">Üstten bir sınıf seçin</p>}
         </nav>
 
         {/* Sağ: Seçili dersin ünite/konu tablosu */}
         <div className="flex-1 min-w-0">
           {!selectedLesson ? (
-            <div className="bg-[#111114] border border-white/5 rounded-2xl p-10 text-center text-gray-500 text-sm">
+            <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground text-sm">
               Soldan bir ders seçin
             </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                <h3 className="text-white font-semibold">
-                  {selectedGrade?.name}. Sınıf <span className="text-gray-500">→</span> {selectedLesson.name}
+                <h3 className="text-foreground font-semibold">
+                  {selectedGrade?.name}. Sınıf <span className="text-muted-foreground">→</span> {selectedLesson.name}
                 </h3>
                 <ExistPill ok={selectedLesson.units.length > 0} okLabel={`${selectedLesson.units.length} ünite`} badLabel="Ünite yok" />
                 <ExistPill ok={selectedLesson.issueCount === 0} okLabel="Tamamlandı" badLabel={`${selectedLesson.issueCount} eksik`} />
@@ -465,22 +465,22 @@ export default function ContentAuditTab() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Ünite veya konu ara..."
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#111114] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-card border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
-                <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111114] border border-white/10 text-sm text-gray-300 cursor-pointer select-none">
+                <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border text-sm text-muted-foreground cursor-pointer select-none">
                   <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} className="accent-indigo-500" />
                   Sadece eksikleri göster
                 </label>
               </div>
 
-              <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {filteredUnits.length === 0 ? (
-                  <p className="text-gray-500 text-sm text-center py-10">Sonuç bulunamadı</p>
+                  <p className="text-muted-foreground text-sm text-center py-10">Sonuç bulunamadı</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[640px]">
                       <thead>
-                        <tr className="text-left text-gray-500 text-xs uppercase tracking-wide border-b border-white/5">
+                        <tr className="text-left text-muted-foreground text-xs uppercase tracking-wide border-b border-border">
                           <th className="py-2.5 px-3 font-medium">Konu</th>
                           <th className="py-2.5 px-3 font-medium whitespace-nowrap">Kazanım</th>
                           <th className="py-2.5 px-3 font-medium whitespace-nowrap">İçerik</th>
@@ -488,7 +488,7 @@ export default function ContentAuditTab() {
                           <th className="py-2.5 px-3 w-8"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-border">
                         {filteredUnits.map((u) => (
                           <UnitRows key={u.id} unit={u} expandedTopics={expandedTopics} onToggleTopic={toggleTopic} />
                         ))}
@@ -510,11 +510,11 @@ export default function ContentAuditTab() {
 function UnitRows({ unit, expandedTopics, onToggleTopic }: { unit: UnitNode; expandedTopics: Set<number>; onToggleTopic: (id: number) => void }) {
   return (
     <>
-      <tr className="bg-white/[0.03]">
+      <tr className="bg-surface-elevated">
         <td colSpan={5} className="py-2 px-3">
           <div className="flex items-center gap-2">
             <span>📁</span>
-            <span className="font-semibold text-white">{unit.title}</span>
+            <span className="font-semibold text-foreground">{unit.title}</span>
             <InactiveTag active={unit.is_active} />
             <div className="ml-auto">
               <ExistPill ok={unit.topics.length > 0} okLabel={`${unit.topics.length} konu`} badLabel="Konu yok" />
@@ -524,7 +524,7 @@ function UnitRows({ unit, expandedTopics, onToggleTopic }: { unit: UnitNode; exp
       </tr>
       {unit.topics.length === 0 && (
         <tr>
-          <td colSpan={5} className="text-gray-500 text-xs py-1.5 px-3 pl-9">Bu üniteye bağlı konu bulunmuyor</td>
+          <td colSpan={5} className="text-muted-foreground text-xs py-1.5 px-3 pl-9">Bu üniteye bağlı konu bulunmuyor</td>
         </tr>
       )}
       {unit.topics.map((t) => (
@@ -537,9 +537,9 @@ function UnitRows({ unit, expandedTopics, onToggleTopic }: { unit: UnitNode; exp
 function TopicRows({ topic, open, onToggle }: { topic: TopicNode; open: boolean; onToggle: () => void }) {
   return (
     <>
-      <tr onClick={onToggle} className="cursor-pointer hover:bg-white/5">
+      <tr onClick={onToggle} className="cursor-pointer hover:bg-accent">
         <td className="py-2 px-3 pl-9">
-          <span className="text-white">{topic.title}</span>
+          <span className="text-foreground">{topic.title}</span>
           <InactiveTag active={topic.is_active} />
         </td>
         <td className="py-2 px-3">
@@ -559,14 +559,14 @@ function TopicRows({ topic, open, onToggle }: { topic: TopicNode; open: boolean;
         <tr>
           <td colSpan={5} className="pb-2 px-3 pl-9">
             {!topic.content ? (
-              <p className="text-gray-500 text-xs py-1">İçerik oluşturulmamış.</p>
+              <p className="text-muted-foreground text-xs py-1">İçerik oluşturulmamış.</p>
             ) : topic.content.sections.length === 0 ? (
               <p className="text-red-300/80 text-xs py-1">İçerik var ama alt konu (başlık) eklenmemiş.</p>
             ) : (
               <div className="space-y-1 py-1">
                 {topic.content.sections.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 text-xs text-gray-300 py-1">
-                    <span className="text-gray-600">🧩</span>
+                  <div key={s.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                    <span className="text-muted-foreground">🧩</span>
                     <span className="truncate">{s.heading}</span>
                     <span className="ml-auto px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-300 whitespace-nowrap">
                       {SECTION_STATUS_LABELS[s.status] || s.status}

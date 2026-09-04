@@ -111,10 +111,10 @@ export default function RagReportsPanel() {
       )}
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Yükleniyor…</p>
+        <p className="text-muted-foreground text-sm">Yükleniyor…</p>
       ) : items.length === 0 ? (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-8 text-center">
-          <p className="text-gray-500 text-sm">Bekleyen bildirim yok 🎉</p>
+        <div className="bg-card rounded-2xl border border-border p-8 text-center">
+          <p className="text-muted-foreground text-sm">Bekleyen bildirim yok 🎉</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -122,32 +122,32 @@ export default function RagReportsPanel() {
             const answer = answerOf(row);
             if (!answer) return null;
             return (
-              <div key={row.id} className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
+              <div key={row.id} className="bg-card rounded-2xl border border-border p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-300">{bookLabel(answer)}</span>
-                  <span className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
                 </div>
 
                 {answer.question_context && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-1">Sorulduğu test sorusu</p>
-                    <p className="text-gray-400 text-xs whitespace-pre-wrap">{answer.question_context}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Sorulduğu test sorusu</p>
+                    <p className="text-muted-foreground text-xs whitespace-pre-wrap">{answer.question_context}</p>
                   </div>
                 )}
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-1">Soru</p>
-                  <p className="text-white text-sm">{answer.question}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Soru</p>
+                  <p className="text-foreground text-sm">{answer.question}</p>
                 </div>
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-1">AI Cevabı ({answer.model})</p>
-                  <p className="text-gray-300 text-sm whitespace-pre-wrap">{answer.answer}</p>
+                  <p className="text-xs text-muted-foreground mb-1">AI Cevabı ({answer.model})</p>
+                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">{answer.answer}</p>
                 </div>
 
                 {row.reason && (
                   <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-1">Öğrencinin bildirim notu</p>
+                    <p className="text-xs text-muted-foreground mb-1">Öğrencinin bildirim notu</p>
                     <p className="text-amber-300 text-sm">{row.reason}</p>
                   </div>
                 )}
@@ -170,7 +170,7 @@ export default function RagReportsPanel() {
                   <button
                     onClick={() => handleAction(row.id, 'dismiss')}
                     disabled={busyId === row.id}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-40"
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-surface text-muted-foreground hover:bg-accent disabled:opacity-40"
                   >
                     Bildirimi Kapat (Sorun Yok)
                   </button>

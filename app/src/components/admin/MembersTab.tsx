@@ -100,8 +100,8 @@ export default function MembersTab() {
   return (
     <div className="py-4 sm:py-8">
       <header className="mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Üyeler</h2>
-        <p className="text-sm sm:text-base text-gray-400">Kullanıcı hesaplarını görüntüle, düzenle, pasifleştir veya sil</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Üyeler</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">Kullanıcı hesaplarını görüntüle, düzenle, pasifleştir veya sil</p>
       </header>
 
       {notice && (
@@ -114,10 +114,10 @@ export default function MembersTab() {
         </div>
       )}
 
-      <div className="bg-[#111114] rounded-xl border border-white/5 p-3 sm:p-4 mb-4 flex flex-wrap gap-2 sm:gap-3 items-end">
+      <div className="bg-card rounded-xl border border-border p-3 sm:p-4 mb-4 flex flex-wrap gap-2 sm:gap-3 items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Rol</label>
-          <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-36">
+          <label className="text-muted-foreground text-xs">Rol</label>
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-36">
             <option value="">Tümü</option>
             <option value="student">Öğrenci</option>
             <option value="teacher">Öğretmen</option>
@@ -125,16 +125,16 @@ export default function MembersTab() {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Ara</label>
+          <label className="text-muted-foreground text-xs">Ara</label>
           <div className="flex gap-1">
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
               placeholder="İsim veya kullanıcı adı..."
-              className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-48 sm:w-64"
+              className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-48 sm:w-64"
             />
-            <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm">
+            <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-secondary-foreground text-sm">
               Ara
             </button>
           </div>
@@ -158,18 +158,18 @@ export default function MembersTab() {
       )}
 
       {loading ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Yükleniyor...</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Yükleniyor...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Üye bulunamadı</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Üye bulunamadı</p>
         </div>
       ) : (
-        <div className="bg-[#111114] rounded-xl border border-white/5 overflow-x-auto">
+        <div className="bg-card rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[720px]">
             <thead>
-              <tr className="border-b border-white/5 text-gray-400 text-xs uppercase">
+              <tr className="border-b border-border text-muted-foreground text-xs uppercase">
                 <th className="p-3 text-left w-10">
                   <input type="checkbox" checked={selected.size > 0 && selected.size === items.length} onChange={toggleSelectAll} className="accent-indigo-500" />
                 </th>
@@ -181,18 +181,18 @@ export default function MembersTab() {
                 <th className="p-3 text-right w-40">İşlem</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {items.map((m) => (
-                <tr key={m.id} className="hover:bg-white/5">
+                <tr key={m.id} className="hover:bg-accent">
                   <td className="p-3">
                     <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleSelect(m.id)} className="accent-indigo-500" />
                   </td>
-                  <td className="p-3 text-gray-200">{m.full_name || m.username || '—'}</td>
-                  <td className="p-3 text-gray-400">{m.email || '—'}</td>
+                  <td className="p-3 text-foreground">{m.full_name || m.username || '—'}</td>
+                  <td className="p-3 text-muted-foreground">{m.email || '—'}</td>
                   <td className="p-3">
                     <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300">{ROLE_LABELS[m.role] || m.role}</span>
                   </td>
-                  <td className="p-3 text-gray-400">{m.grades?.name || '—'}</td>
+                  <td className="p-3 text-muted-foreground">{m.grades?.name || '—'}</td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${m.banned ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
                       {m.banned ? 'Pasif' : 'Aktif'}
@@ -285,32 +285,32 @@ function MemberEditModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface-elevated rounded-xl sm:rounded-2xl border border-border w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h3 className="text-lg sm:text-xl font-bold text-white">Üye Düzenle</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">×</button>
+          <h3 className="text-lg sm:text-xl font-bold text-foreground">Üye Düzenle</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
         </div>
 
         <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Ad Soyad</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Ad Soyad</label>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500" />
           </div>
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Kullanıcı Adı</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Kullanıcı Adı</label>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500" />
           </div>
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Rol</label>
-            <select value={roleValue} onChange={(e) => setRoleValue(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500">
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Rol</label>
+            <select value={roleValue} onChange={(e) => setRoleValue(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500">
               <option value="student">Öğrenci</option>
               <option value="teacher">Öğretmen</option>
               <option value="admin">Admin</option>
             </select>
           </div>
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Sınıf</label>
-            <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500">
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Sınıf</label>
+            <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500">
               <option value="">Belirtilmemiş</option>
               {grades.map((g) => (
                 <option key={g.id} value={g.id}>{g.label}</option>
@@ -318,17 +318,17 @@ function MemberEditModal({
             </select>
           </div>
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Okul</label>
-            <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Okul</label>
+            <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500" />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isVerified} onChange={(e) => setIsVerified(e.target.checked)} className="w-4 h-4 accent-indigo-500" />
-            <span className="text-gray-300 text-sm">Doğrulanmış hesap</span>
+            <span className="text-muted-foreground text-sm">Doğrulanmış hesap</span>
           </label>
         </div>
 
         <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">İptal</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm">İptal</button>
           <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 text-sm">
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
@@ -351,9 +351,9 @@ function ConfirmMemberModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-md p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-white mb-2">Ne yapmak istersiniz?</h3>
-        <p className="text-gray-400 text-sm mb-4">
+      <div className="bg-surface-elevated rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
+        <h3 className="text-lg font-bold text-foreground mb-2">Ne yapmak istersiniz?</h3>
+        <p className="text-muted-foreground text-sm mb-4">
           {count} üye seçildi. &ldquo;Pasifleştir&rdquo; hesabı geri döndürülebilir şekilde askıya alır (giriş yapamaz). &ldquo;Kalıcı Sil&rdquo; hesabı ve tüm
           verilerini kalıcı olarak siler — geri alınamaz.
         </p>
@@ -364,7 +364,7 @@ function ConfirmMemberModal({
           <button onClick={onHardDelete} className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 text-sm">
             Kalıcı Sil
           </button>
-          <button onClick={onCancel} className="px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">
+          <button onClick={onCancel} className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm">
             Vazgeç
           </button>
         </div>

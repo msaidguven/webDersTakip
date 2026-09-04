@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
+import { AdminThemeProvider } from '@/app/src/components/admin/AdminThemeProvider';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -19,5 +20,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/');
   }
 
-  return <>{children}</>;
+  return <AdminThemeProvider>{children}</AdminThemeProvider>;
 }

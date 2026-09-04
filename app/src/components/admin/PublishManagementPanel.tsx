@@ -171,9 +171,9 @@ export default function PublishManagementPanel() {
         </div>
       )}
 
-      <div className="flex rounded-2xl border border-white/10 bg-[#111114] overflow-hidden min-h-[600px] shadow-xl shadow-black/20">
+      <div className="flex rounded-2xl border border-border bg-card overflow-hidden min-h-[600px] shadow-xl shadow-black/20">
         {/* Kolon 1: Sınıflar */}
-        <div className="w-52 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.015]">
+        <div className="w-52 shrink-0 border-r border-border flex flex-col bg-foreground/[0.015]">
           <ColumnHeader icon="🎓" label="Sınıflar" count={grades.length} />
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {grades.map((g) => (
@@ -184,7 +184,7 @@ export default function PublishManagementPanel() {
         </div>
 
         {/* Kolon 2: Dersler */}
-        <div className="w-72 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.008]">
+        <div className="w-72 shrink-0 border-r border-border flex flex-col bg-foreground/[0.008]">
           <ColumnHeader
             icon="📚"
             label="Dersler"
@@ -217,10 +217,10 @@ export default function PublishManagementPanel() {
         {/* Kolon 3: Üniteler */}
         <div className="flex-1 min-w-0 flex flex-col">
           {selectedLesson ? (
-            <div className="border-b border-white/5 p-4 flex items-center justify-between gap-4 bg-gradient-to-r from-white/[0.03] to-transparent">
+            <div className="border-b border-border p-4 flex items-center justify-between gap-4 bg-gradient-to-r from-foreground/[0.03] to-transparent">
               <div className="min-w-0">
-                <p className="text-gray-500 text-xs">{selectedGrade?.label}</p>
-                <h2 className="text-white font-bold text-lg truncate">{selectedLesson.name}</h2>
+                <p className="text-muted-foreground text-xs">{selectedGrade?.label}</p>
+                <h2 className="text-foreground font-bold text-lg truncate">{selectedLesson.name}</h2>
               </div>
               <LabeledSwitch
                 checked={selectedLesson.isActive}
@@ -249,8 +249,8 @@ export default function PublishManagementPanel() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/5 bg-white/[0.02]">
-                  <label className="flex items-center gap-2.5 text-xs text-gray-400 cursor-pointer select-none">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border bg-foreground/[0.02]">
+                  <label className="flex items-center gap-2.5 text-xs text-muted-foreground cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={units.length > 0 && selectedUnitIds.size === units.length}
@@ -276,9 +276,9 @@ export default function PublishManagementPanel() {
                     </div>
                   )}
                 </div>
-                <ul className="divide-y divide-white/5">
+                <ul className="divide-y divide-border">
                   {units.map((u) => (
-                    <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.025] transition-colors">
+                    <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-foreground/[0.025] transition-colors">
                       <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                         <input
                           type="checkbox"
@@ -286,8 +286,8 @@ export default function PublishManagementPanel() {
                           onChange={() => toggleUnitSelection(u.id)}
                           className="accent-indigo-500 shrink-0"
                         />
-                        <span className="text-[11px] text-gray-600 font-mono w-6 shrink-0">{u.order_no}</span>
-                        <span className="text-sm text-gray-200 truncate">{u.title}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono w-6 shrink-0">{u.order_no}</span>
+                        <span className="text-sm text-foreground truncate">{u.title}</span>
                       </label>
                       <LabeledSwitch
                         checked={u.is_active}
@@ -310,12 +310,12 @@ export default function PublishManagementPanel() {
 
 function ColumnHeader({ icon, label, count, sub }: { icon: string; label: string; count?: number; sub?: string }) {
   return (
-    <div className="px-3.5 py-3.5 border-b border-white/5 flex items-center justify-between gap-2">
-      <p className="text-gray-400 text-xs uppercase font-bold tracking-wide flex items-center gap-1.5">
+    <div className="px-3.5 py-3.5 border-b border-border flex items-center justify-between gap-2">
+      <p className="text-muted-foreground text-xs uppercase font-bold tracking-wide flex items-center gap-1.5">
         <span>{icon}</span>
         {label}
       </p>
-      {(count != null || sub) && <p className="text-gray-600 text-[11px] whitespace-nowrap">{sub ?? count}</p>}
+      {(count != null || sub) && <p className="text-muted-foreground text-[11px] whitespace-nowrap">{sub ?? count}</p>}
     </div>
   );
 }
@@ -327,7 +327,7 @@ function NavRow({ active, label, onClick }: { active: boolean; label: string; on
       className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm truncate transition-colors border-l-2 ${
         active
           ? 'bg-indigo-500/15 text-indigo-300 border-indigo-400 font-medium'
-          : 'text-gray-300 hover:bg-white/5 border-transparent'
+          : 'text-muted-foreground hover:bg-accent border-transparent'
       }`}
     >
       {label}
@@ -353,12 +353,12 @@ function LessonNavRow({
   return (
     <div
       className={`w-full flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg transition-colors border-l-2 ${
-        active ? 'bg-indigo-500/15 border-indigo-400' : 'hover:bg-white/5 border-transparent'
+        active ? 'bg-indigo-500/15 border-indigo-400' : 'hover:bg-accent border-transparent'
       }`}
     >
       <button
         onClick={onSelect}
-        className={`flex-1 min-w-0 text-left text-sm truncate py-1 ${active ? 'text-indigo-300 font-medium' : 'text-gray-300'}`}
+        className={`flex-1 min-w-0 text-left text-sm truncate py-1 ${active ? 'text-indigo-300 font-medium' : 'text-muted-foreground'}`}
       >
         {label}
       </button>
@@ -384,7 +384,7 @@ function MiniSwitch({ checked, saving, onClick }: { checked: boolean; saving: bo
       onClick={onClick}
       disabled={saving}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50 ${
-        checked ? 'bg-emerald-500' : 'bg-white/15'
+        checked ? 'bg-emerald-500' : 'bg-input'
       }`}
     >
       <span
@@ -411,7 +411,7 @@ function LabeledSwitch({
 }) {
   return (
     <div className="flex items-center gap-2.5 shrink-0">
-      <span className={`text-xs font-bold whitespace-nowrap ${checked ? 'text-emerald-300' : 'text-gray-500'}`}>
+      <span className={`text-xs font-bold whitespace-nowrap ${checked ? 'text-emerald-300' : 'text-muted-foreground'}`}>
         {saving ? 'Kaydediliyor…' : checked ? onLabel : offLabel}
       </span>
       <button
@@ -421,7 +421,7 @@ function LabeledSwitch({
         onClick={onClick}
         disabled={saving}
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50 ${
-          checked ? 'bg-emerald-500' : 'bg-white/15'
+          checked ? 'bg-emerald-500' : 'bg-input'
         }`}
       >
         <span
@@ -435,5 +435,5 @@ function LabeledSwitch({
 }
 
 function EmptyColumnHint({ text }: { text: string }) {
-  return <p className="text-gray-600 text-sm px-2 py-4 text-center">{text}</p>;
+  return <p className="text-muted-foreground text-sm px-2 py-4 text-center">{text}</p>;
 }

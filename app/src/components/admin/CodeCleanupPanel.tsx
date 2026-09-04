@@ -91,8 +91,8 @@ export default function CodeCleanupPanel() {
   return (
     <div className="py-4 sm:py-8">
       <header className="mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Kod Temizliği</h2>
-        <p className="text-sm sm:text-base text-gray-400">
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Kod Temizliği</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Başlığının başında müfredat kodu (ör. &quot;BT.6.3.1.&quot;) bulunan ünite/konuları tespit eder; kodu curriculum_code
           alanına taşıyıp başlığı temizler.
         </p>
@@ -131,18 +131,18 @@ export default function CodeCleanupPanel() {
       </div>
 
       {loading ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Taranıyor...</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Taranıyor...</p>
         </div>
       ) : candidates.length === 0 ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Temizlenecek başlık bulunamadı — hepsi temiz.</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Temizlenecek başlık bulunamadı — hepsi temiz.</p>
         </div>
       ) : (
-        <div className="bg-[#111114] rounded-xl border border-white/5 overflow-x-auto">
+        <div className="bg-card rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[800px]">
             <thead>
-              <tr className="border-b border-white/5 text-gray-400 text-xs uppercase">
+              <tr className="border-b border-border text-muted-foreground text-xs uppercase">
                 <th className="p-3 text-left w-10">
                   <input type="checkbox" checked={selected.size > 0 && selected.size === candidates.length} onChange={toggleSelectAll} className="accent-indigo-500" />
                 </th>
@@ -153,18 +153,18 @@ export default function CodeCleanupPanel() {
                 <th className="p-3 text-right w-28">İşlem</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {candidates.map((c) => (
-                <tr key={rowKey(c)} className="hover:bg-white/5">
+                <tr key={rowKey(c)} className="hover:bg-accent">
                   <td className="p-3">
                     <input type="checkbox" checked={selected.has(rowKey(c))} onChange={() => toggleSelect(rowKey(c))} className="accent-indigo-500" />
                   </td>
-                  <td className="p-3 text-gray-400">{ENTITY_LABELS[c.entityType]}</td>
-                  <td className="p-3 text-gray-300 max-w-xs truncate">{c.currentTitle}</td>
+                  <td className="p-3 text-muted-foreground">{ENTITY_LABELS[c.entityType]}</td>
+                  <td className="p-3 text-muted-foreground max-w-xs truncate">{c.currentTitle}</td>
                   <td className="p-3">
                     <code className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs">{c.code}</code>
                   </td>
-                  <td className="p-3 text-white max-w-xs truncate">{c.cleanTitle}</td>
+                  <td className="p-3 text-foreground max-w-xs truncate">{c.cleanTitle}</td>
                   <td className="p-3 text-right">
                     <button onClick={() => applyItems([c])} disabled={applying} className="text-indigo-400 hover:text-indigo-300 text-xs disabled:opacity-50">
                       Uygula

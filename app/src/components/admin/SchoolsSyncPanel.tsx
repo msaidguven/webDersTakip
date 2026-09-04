@@ -67,25 +67,25 @@ export default function SchoolsSyncPanel() {
   return (
     <div className="py-4 sm:py-8">
       <header className="mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Okullar</h2>
-        <p className="text-sm sm:text-base text-gray-400">MEB okul dizinini (il/ilçe/okul adı) senkronize et</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Okullar</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">MEB okul dizinini (il/ilçe/okul adı) senkronize et</p>
       </header>
 
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6 max-w-2xl">
+      <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 max-w-2xl">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-gray-400 text-sm">Kayıtlı okul sayısı</p>
-            <p className="text-2xl font-bold text-white">{loadingStatus ? '...' : (count ?? 0).toLocaleString('tr-TR')}</p>
+            <p className="text-muted-foreground text-sm">Kayıtlı okul sayısı</p>
+            <p className="text-2xl font-bold text-foreground">{loadingStatus ? '...' : (count ?? 0).toLocaleString('tr-TR')}</p>
           </div>
           <div className="text-right">
-            <p className="text-gray-400 text-sm">Son güncelleme</p>
-            <p className="text-white text-sm">
+            <p className="text-muted-foreground text-sm">Son güncelleme</p>
+            <p className="text-foreground text-sm">
               {loadingStatus ? '...' : lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleString('tr-TR') : 'Hiç çalıştırılmadı'}
             </p>
           </div>
         </div>
 
-        <p className="text-gray-400 text-sm mb-4">
+        <p className="text-muted-foreground text-sm mb-4">
           MEB&apos;in resmi okul dizininden İlkokul, Ortaokul, Lise ve Anaokulu türündeki kurumları çeker; il/ilçe ile
           eşleştirip kaydeder. İşlem yaklaşık 1-2 dakika sürer, veritabanını bozmadan tekrar tekrar çalıştırılabilir
           (var olan kayıtlar güncellenir, yenileri eklenir).
@@ -121,13 +121,13 @@ export default function SchoolsSyncPanel() {
 
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-md p-4 sm:p-6">
-            <h3 className="text-lg font-bold text-white mb-2">Okulları güncelle?</h3>
-            <p className="text-gray-400 text-sm mb-4">
+          <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
+            <h3 className="text-lg font-bold text-foreground mb-2">Okulları güncelle?</h3>
+            <p className="text-muted-foreground text-sm mb-4">
               MEB&apos;den ~50.000 okul çekilip veritabanına yazılacak. Bu işlem 1-2 dakika sürebilir, sayfadan ayrılmayın.
             </p>
             <div className="flex gap-2 sm:gap-3">
-              <button onClick={() => setConfirmOpen(false)} className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">
+              <button onClick={() => setConfirmOpen(false)} className="flex-1 px-4 py-2 rounded-xl bg-surface text-foreground hover:bg-accent text-sm">
                 Vazgeç
               </button>
               <button onClick={runSync} className="flex-1 px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 text-sm">

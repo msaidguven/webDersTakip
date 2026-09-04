@@ -166,7 +166,7 @@ export default function AllCommentsPanel() {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -175,7 +175,7 @@ export default function AllCommentsPanel() {
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value)}
-          className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm"
         >
           {KIND_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -184,7 +184,7 @@ export default function AllCommentsPanel() {
         <select
           value={reviewed}
           onChange={(e) => setReviewed(e.target.value)}
-          className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm"
         >
           {REVIEWED_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -197,9 +197,9 @@ export default function AllCommentsPanel() {
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
             placeholder="Yorum/soru/cevap içinde ara..."
-            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder:text-gray-500"
+            className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground"
           />
-          <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm shrink-0">
+          <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-secondary-foreground text-sm shrink-0">
             Ara
           </button>
         </div>
@@ -211,13 +211,13 @@ export default function AllCommentsPanel() {
         </div>
       )}
 
-      <p className="text-xs text-gray-500">{total} kayıt</p>
+      <p className="text-xs text-muted-foreground">{total} kayıt</p>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Yükleniyor…</p>
+        <p className="text-muted-foreground text-sm">Yükleniyor…</p>
       ) : items.length === 0 ? (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-8 text-center">
-          <p className="text-gray-500 text-sm">Filtreyle eşleşen kayıt yok.</p>
+        <div className="bg-card rounded-2xl border border-border p-8 text-center">
+          <p className="text-muted-foreground text-sm">Filtreyle eşleşen kayıt yok.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -225,42 +225,42 @@ export default function AllCommentsPanel() {
             const statusBadge = STATUS_BADGE[item.status];
             const kindBadge = item.kind === 'comment' ? KIND_BADGE[item.isReply ? 'reply' : 'comment'] : KIND_BADGE[item.mode || 'hocam'];
             return (
-              <div key={item.id} className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
+              <div key={item.id} className="bg-card rounded-2xl border border-border p-4 sm:p-6">
                 <div className="flex flex-wrap items-center gap-2 mb-3">
                   <span className={`text-xs px-2 py-1 rounded-full ${kindBadge.className}`}>{kindBadge.text}</span>
                   <span className={`text-xs px-2 py-1 rounded-full ${statusBadge.className}`}>{statusBadge.text}</span>
-                  <span className={`text-xs px-2 py-1 rounded-full ${item.reviewedAt ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-gray-400'}`}>
+                  <span className={`text-xs px-2 py-1 rounded-full ${item.reviewedAt ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
                     {item.reviewedAt ? '✓ İncelendi' : 'İncelenmedi'}
                   </span>
-                  <span className="text-xs text-gray-500">{studentLabel(item.student)}</span>
-                  <span className="text-xs text-gray-600 ml-auto">{new Date(item.createdAt).toLocaleString('tr-TR')}</span>
+                  <span className="text-xs text-muted-foreground">{studentLabel(item.student)}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{new Date(item.createdAt).toLocaleString('tr-TR')}</span>
                 </div>
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-1">Bağlam</p>
+                  <p className="text-xs text-muted-foreground mb-1">Bağlam</p>
                   {item.href ? (
                     <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 text-sm underline underline-offset-2">
                       {item.contextLabel || 'Soruya git'} ↗
                     </a>
                   ) : (
-                    <p className="text-white text-sm">{item.contextLabel || '—'}</p>
+                    <p className="text-foreground text-sm">{item.contextLabel || '—'}</p>
                   )}
                 </div>
 
                 {item.kind === 'comment' ? (
                   <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-1">Yorum</p>
-                    <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{item.body}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Yorum</p>
+                    <p className="text-foreground text-sm whitespace-pre-wrap break-words">{item.body}</p>
                   </div>
                 ) : (
                   <div className="mb-4 space-y-2">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Soru</p>
-                      <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{item.question}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Soru</p>
+                      <p className="text-foreground text-sm whitespace-pre-wrap break-words">{item.question}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Cevap</p>
-                      <p className="text-gray-400 text-sm whitespace-pre-wrap break-words">{item.answer}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Cevap</p>
+                      <p className="text-muted-foreground text-sm whitespace-pre-wrap break-words">{item.answer}</p>
                     </div>
                   </div>
                 )}
@@ -332,15 +332,15 @@ export default function AllCommentsPanel() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm disabled:opacity-30"
+            className="px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-secondary-foreground text-sm disabled:opacity-30"
           >
             ← Önceki
           </button>
-          <span className="text-xs text-gray-500">{page} / {totalPages}</span>
+          <span className="text-xs text-muted-foreground">{page} / {totalPages}</span>
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasMore}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm disabled:opacity-30"
+            className="px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-secondary-foreground text-sm disabled:opacity-30"
           >
             Sonraki →
           </button>

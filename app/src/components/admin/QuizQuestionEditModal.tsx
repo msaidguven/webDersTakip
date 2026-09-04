@@ -28,7 +28,7 @@ function ChoiceListEditor({
 }) {
   return (
     <div>
-      <span className="mb-2 block text-xs font-semibold text-gray-400">{title}</span>
+      <span className="mb-2 block text-xs font-semibold text-muted-foreground">{title}</span>
       <div className="space-y-2">
         {items.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2">
@@ -47,7 +47,7 @@ function ChoiceListEditor({
                 next[idx] = { ...next[idx], [textKey]: e.target.value };
                 onChange(next);
               }}
-              className="flex-1 rounded-lg border border-white/10 bg-black/50 px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+              className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
             />
           </div>
         ))}
@@ -143,66 +143,66 @@ export function QuizQuestionEditModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#111114] p-4 sm:p-6">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">Soru Düzenle{typeCode ? ` (${typeCode})` : ''}</h3>
-          <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-white">
+          <h3 className="text-lg font-bold text-foreground">Soru Düzenle{typeCode ? ` (${typeCode})` : ''}</h3>
+          <button onClick={onClose} className="text-xl leading-none text-muted-foreground hover:text-foreground">
             ×
           </button>
         </div>
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-gray-400">Yükleniyor...</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Yükleniyor...</p>
         ) : (
           <div className="space-y-4">
             {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-400">{error}</p>}
             <div>
-              <label className="mb-1 block text-xs text-gray-400 sm:text-sm">Soru Metni</label>
+              <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Soru Metni</label>
               <textarea
                 value={questionText}
                 onChange={(e) => setQuestionText(e.target.value)}
                 rows={3}
-                className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs text-gray-400 sm:text-sm">Zorluk (1-5)</label>
+                <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Zorluk (1-5)</label>
                 <input
                   type="number"
                   min={1}
                   max={5}
                   value={difficulty}
                   onChange={(e) => setDifficulty(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-gray-400 sm:text-sm">Puan (1-10)</label>
+                <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Puan (1-10)</label>
                 <input
                   type="number"
                   min={1}
                   max={10}
                   value={score}
                   onChange={(e) => setScore(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-gray-400 sm:text-sm">Çözüm Açıklaması</label>
+              <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Çözüm Açıklaması</label>
               <textarea
                 value={solutionText}
                 onChange={(e) => setSolutionText(e.target.value)}
                 rows={2}
-                className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-gray-400 sm:text-sm">SVG Görsel (opsiyonel)</label>
+              <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">SVG Görsel (opsiyonel)</label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <textarea
                   value={svgContent}
@@ -210,9 +210,9 @@ export function QuizQuestionEditModal({
                   rows={6}
                   placeholder="<svg ...>...</svg>"
                   spellCheck={false}
-                  className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 font-mono text-xs text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 font-mono text-xs text-foreground outline-none focus:border-indigo-500"
                 />
-                <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-white/10 bg-white p-3">
+                <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-border bg-white p-3">
                   {(() => {
                     const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
                     if (!clean) return <span className="text-xs text-gray-400">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
@@ -222,12 +222,12 @@ export function QuizQuestionEditModal({
               </div>
               {svgContent.trim() && (
                 <div className="mt-2 flex items-center gap-3">
-                  <span className="text-xs text-gray-400">SVG konumu:</span>
-                  <label className="flex items-center gap-1 text-xs text-gray-300">
+                  <span className="text-xs text-muted-foreground">SVG konumu:</span>
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     <input type="radio" name="svgPosition" checked={svgPosition === 'above'} onChange={() => setSvgPosition('above')} className="accent-indigo-500" />
                     Soru kökünün üstünde
                   </label>
-                  <label className="flex items-center gap-1 text-xs text-gray-300">
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     <input type="radio" name="svgPosition" checked={svgPosition === 'below'} onChange={() => setSvgPosition('below')} className="accent-indigo-500" />
                     Soru kökünün altında
                   </label>
@@ -237,7 +237,7 @@ export function QuizQuestionEditModal({
 
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <label className="block text-xs text-gray-400 sm:text-sm">SVG Prompt (bu soru için çizim talimatı — başka bir AI&apos;ye vermek üzere)</label>
+                <label className="block text-xs text-muted-foreground sm:text-sm">SVG Prompt (bu soru için çizim talimatı — başka bir AI&apos;ye vermek üzere)</label>
                 {svgPrompt.trim() && (
                   <button
                     type="button"
@@ -257,7 +257,7 @@ export function QuizQuestionEditModal({
                 onChange={(e) => setSvgPrompt(e.target.value)}
                 rows={4}
                 placeholder="Bu soru için AI'nin ürettiği SVG çizim promptu (varsa)"
-                className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-xs text-foreground outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -265,7 +265,7 @@ export function QuizQuestionEditModal({
             {blankOptions.length > 0 && <ChoiceListEditor title="Boşluk Seçenekleri" items={blankOptions} textKey="option_text" onChange={setBlankOptions} />}
             {matchingPairs.length > 0 && (
               <div>
-                <span className="mb-2 block text-xs font-semibold text-gray-400">Eşleştirme Çiftleri</span>
+                <span className="mb-2 block text-xs font-semibold text-muted-foreground">Eşleştirme Çiftleri</span>
                 <div className="space-y-2">
                   {matchingPairs.map((p, idx) => (
                     <div key={idx} className="flex gap-2">
@@ -276,7 +276,7 @@ export function QuizQuestionEditModal({
                           next[idx] = { ...next[idx], left_text: e.target.value };
                           setMatchingPairs(next);
                         }}
-                        className="flex-1 rounded-lg border border-white/10 bg-black/50 px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+                        className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
                       />
                       <input
                         value={p.right_text}
@@ -285,7 +285,7 @@ export function QuizQuestionEditModal({
                           next[idx] = { ...next[idx], right_text: e.target.value };
                           setMatchingPairs(next);
                         }}
-                        className="flex-1 rounded-lg border border-white/10 bg-black/50 px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+                        className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
                       />
                     </div>
                   ))}
@@ -294,12 +294,12 @@ export function QuizQuestionEditModal({
             )}
             {(classicalAnswer !== '' || typeCode === 'classical') && (
               <div>
-                <label className="mb-1 block text-xs text-gray-400 sm:text-sm">Örnek Cevap (Klasik Soru)</label>
+                <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Örnek Cevap (Klasik Soru)</label>
                 <textarea
                   value={classicalAnswer}
                   onChange={(e) => setClassicalAnswer(e.target.value)}
                   rows={4}
-                  className="w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
                 />
               </div>
             )}
@@ -308,7 +308,7 @@ export function QuizQuestionEditModal({
 
         {!loading && (
           <div className="mt-4 flex gap-2 sm:mt-6 sm:gap-3">
-            <button onClick={onClose} className="flex-1 rounded-xl bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10">
+            <button onClick={onClose} className="flex-1 rounded-xl bg-surface px-4 py-2 text-sm text-foreground hover:bg-accent">
               İptal
             </button>
             <button

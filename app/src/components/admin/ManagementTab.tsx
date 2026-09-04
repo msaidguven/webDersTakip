@@ -216,7 +216,7 @@ export const ENTITIES: EntityConfig[] = [
 
 function StatusBadge({ active, activeLabel = 'Aktif', inactiveLabel = 'Pasif' }: { active: boolean; activeLabel?: string; inactiveLabel?: string }) {
   return (
-    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-400'}`}>
+    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-muted text-muted-foreground'}`}>
       {active ? activeLabel : inactiveLabel}
     </span>
   );
@@ -447,8 +447,8 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
   return (
     <div className="py-4 sm:py-8">
       <header className="mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Yönetim</h2>
-        <p className="text-sm sm:text-base text-gray-400">İçerik, soru, konu, alt konu, ünite ve kazanımları tek tek veya toplu düzenle/sil</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Yönetim</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">İçerik, soru, konu, alt konu, ünite ve kazanımları tek tek veya toplu düzenle/sil</p>
       </header>
 
       {notice && (
@@ -468,7 +468,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
             key={e.key}
             onClick={() => setEntityKey(e.key)}
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-              entityKey === e.key ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+              entityKey === e.key ? 'bg-indigo-500 text-white' : 'bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             {e.label}
@@ -477,7 +477,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
       </div>
 
       {/* Filters */}
-      <div className="bg-[#111114] rounded-xl border border-white/5 p-3 sm:p-4 mb-4 flex flex-wrap gap-2 sm:gap-3 items-end">
+      <div className="bg-card rounded-xl border border-border p-3 sm:p-4 mb-4 flex flex-wrap gap-2 sm:gap-3 items-end">
         <FilterSelect label="Sınıf" value={gradeId} onChange={(v) => { setGradeId(v); setUnitId(''); setTopicId(''); }} options={grades} />
         <FilterSelect label="Ders" value={lessonId} onChange={(v) => { setLessonId(v); setUnitId(''); setTopicId(''); }} options={lessons} />
         {entityKey !== 'units' && (
@@ -500,16 +500,16 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
         ))}
         {entityKey !== 'sections' && (
           <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs">Ara</label>
+            <label className="text-muted-foreground text-xs">Ara</label>
             <div className="flex gap-1">
               <input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
                 placeholder="Metin ara..."
-                className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-40 sm:w-56"
+                className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-40 sm:w-56"
               />
-              <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm">
+              <button onClick={() => setSearch(searchInput)} className="px-3 py-2 bg-secondary hover:bg-accent rounded-lg text-foreground text-sm">
                 Ara
               </button>
             </div>
@@ -539,7 +539,7 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
               <button onClick={() => handleBulkActive(true)} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs sm:text-sm hover:bg-emerald-500/30">
                 Aktifleştir
               </button>
-              <button onClick={() => handleBulkActive(false)} className="px-3 py-1.5 bg-gray-500/20 text-gray-300 rounded-lg text-xs sm:text-sm hover:bg-gray-500/30">
+              <button onClick={() => handleBulkActive(false)} className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm hover:bg-accent">
                 Pasifleştir
               </button>
             </>
@@ -555,22 +555,22 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
 
       {/* List */}
       {listRequiresTopic ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Listeyi görmek için önce bir Konu seçin</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Listeyi görmek için önce bir Konu seçin</p>
         </div>
       ) : loading ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Yükleniyor...</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Yükleniyor...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Kayıt bulunamadı</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Kayıt bulunamadı</p>
         </div>
       ) : (
-        <div className="bg-[#111114] rounded-xl border border-white/5 overflow-x-auto">
+        <div className="bg-card rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead>
-              <tr className="border-b border-white/5 text-gray-400 text-xs uppercase">
+              <tr className="border-b border-border text-muted-foreground text-xs uppercase">
                 <th className="p-3 text-left w-10">
                   <input type="checkbox" checked={selected.size > 0 && selected.size === items.length} onChange={toggleSelectAll} className="accent-indigo-500" />
                 </th>
@@ -582,14 +582,14 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
                 <th className="p-3 text-right w-32">İşlem</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {items.map((row) => (
-                <tr key={row.id} className="hover:bg-white/5">
+                <tr key={row.id} className="hover:bg-accent">
                   <td className="p-3">
                     <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelect(row.id)} className="accent-indigo-500" />
                   </td>
                   {entity.columns.map((c) => (
-                    <td key={c.key} className="p-3 text-gray-200 max-w-xs truncate">
+                    <td key={c.key} className="p-3 text-foreground max-w-xs truncate">
                       {c.render ? c.render(row) : String(row[c.key] ?? '—')}
                     </td>
                   ))}
@@ -640,11 +640,11 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: LookupRow[] }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-gray-400 text-xs">{label}</label>
+      <label className="text-muted-foreground text-xs">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-36 sm:w-44"
+        className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-36 sm:w-44"
       >
         <option value="">Tümü</option>
         {options.map((o) => (
@@ -660,11 +660,11 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
 function StaticFilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-gray-400 text-xs">{label}</label>
+      <label className="text-muted-foreground text-xs">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-36 sm:w-44"
+        className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-36 sm:w-44"
       >
         <option value="">Tümü</option>
         {options.map((o) => (
@@ -741,21 +741,21 @@ function UnitToolsBar({
   }
 
   return (
-    <div className="bg-[#111114] rounded-xl border border-white/5 p-3 sm:p-4 mb-4 flex flex-wrap gap-3 items-end">
+    <div className="bg-card rounded-xl border border-border p-3 sm:p-4 mb-4 flex flex-wrap gap-3 items-end">
       <div className="flex flex-col gap-1">
-        <label className="text-gray-400 text-xs">Haftalık Ders Saati</label>
+        <label className="text-muted-foreground text-xs">Haftalık Ders Saati</label>
         <div className="flex gap-1">
           <input
             type="number"
             min={1}
             value={weeklyHoursInput}
             onChange={(e) => setWeeklyHoursInput(e.target.value)}
-            className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-20"
+            className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-20"
           />
           <button
             onClick={handleSaveWeeklyHours}
             disabled={savingHours}
-            className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm disabled:opacity-50"
+            className="px-3 py-2 bg-secondary hover:bg-accent rounded-lg text-foreground text-sm disabled:opacity-50"
           >
             Kaydet
           </button>
@@ -827,7 +827,7 @@ function FieldInput({ field, value, onChange }: { field: FieldConfig; value: unk
     return (
       <label className="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} className="w-4 h-4 accent-indigo-500" />
-        <span className="text-gray-300 text-sm">{field.label}</span>
+        <span className="text-muted-foreground text-sm">{field.label}</span>
       </label>
     );
   }
@@ -835,11 +835,11 @@ function FieldInput({ field, value, onChange }: { field: FieldConfig; value: unk
   if (field.type === 'select') {
     return (
       <div>
-        <label className="block text-gray-400 text-xs sm:text-sm mb-1">{field.label}</label>
+        <label className="block text-muted-foreground text-xs sm:text-sm mb-1">{field.label}</label>
         <select
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+          className="w-full bg-surface border border-border rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-foreground text-sm focus:border-indigo-500 outline-none"
         >
           {field.options?.map((o) => (
             <option key={o.value} value={o.value}>
@@ -853,24 +853,24 @@ function FieldInput({ field, value, onChange }: { field: FieldConfig; value: unk
   if (field.type === 'textarea') {
     return (
       <div>
-        <label className="block text-gray-400 text-xs sm:text-sm mb-1">{field.label}</label>
+        <label className="block text-muted-foreground text-xs sm:text-sm mb-1">{field.label}</label>
         <textarea
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           rows={field.rows || 4}
-          className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none resize-y font-mono"
+          className="w-full bg-surface border border-border rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-foreground text-sm focus:border-indigo-500 outline-none resize-y font-mono"
         />
       </div>
     );
   }
   return (
     <div>
-      <label className="block text-gray-400 text-xs sm:text-sm mb-1">{field.label}</label>
+      <label className="block text-muted-foreground text-xs sm:text-sm mb-1">{field.label}</label>
       <input
         type={field.type === 'number' ? 'number' : 'text'}
         value={stringValue}
         onChange={(e) => onChange(field.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
-        className="w-full bg-black/50 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+        className="w-full bg-surface border border-border rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-foreground text-sm focus:border-indigo-500 outline-none"
       />
     </div>
   );
@@ -972,56 +972,56 @@ export function QuestionEditModal({
   return (
     <ModalShell title={`Soru Düzenle${typeCode ? ` (${typeCode})` : ''}`} onClose={onClose} wide>
       {loading ? (
-        <p className="text-gray-400 text-sm py-8 text-center">Yükleniyor...</p>
+        <p className="text-muted-foreground text-sm py-8 text-center">Yükleniyor...</p>
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Soru Metni</label>
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Soru Metni</label>
             <textarea
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               rows={3}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
+              className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-400 text-xs sm:text-sm mb-1">Zorluk (1-5)</label>
+              <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Zorluk (1-5)</label>
               <input
                 type="number"
                 min={1}
                 max={5}
                 value={difficulty}
                 onChange={(e) => setDifficulty(Number(e.target.value))}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
+                className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs sm:text-sm mb-1">Puan (1-10)</label>
+              <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Puan (1-10)</label>
               <input
                 type="number"
                 min={1}
                 max={10}
                 value={score}
                 onChange={(e) => setScore(Number(e.target.value))}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
+                className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">Çözüm Açıklaması</label>
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Çözüm Açıklaması</label>
             <textarea
               value={solutionText}
               onChange={(e) => setSolutionText(e.target.value)}
               rows={2}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
+              className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-gray-400 text-xs sm:text-sm mb-1">SVG Görsel (opsiyonel)</label>
+            <label className="block text-muted-foreground text-xs sm:text-sm mb-1">SVG Görsel (opsiyonel)</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <textarea
                 value={svgContent}
@@ -1029,24 +1029,24 @@ export function QuestionEditModal({
                 rows={8}
                 placeholder="<svg ...>...</svg>"
                 spellCheck={false}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-xs font-mono outline-none focus:border-indigo-500"
+                className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-xs font-mono outline-none focus:border-indigo-500"
               />
-              <div className="flex items-center justify-center rounded-xl border border-white/10 bg-white p-3 min-h-[9rem]">
+              <div className="flex items-center justify-center rounded-xl border border-border bg-white p-3 min-h-[9rem]">
                 {(() => {
                   const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
-                  if (!clean) return <span className="text-gray-400 text-xs">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
+                  if (!clean) return <span className="text-gray-500 text-xs">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
                   return <div className="max-h-64 max-w-full [&_svg]:max-h-64 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
                 })()}
               </div>
             </div>
             {svgContent.trim() && (
               <div className="mt-2 flex items-center gap-3">
-                <span className="text-gray-400 text-xs">SVG konumu:</span>
-                <label className="flex items-center gap-1 text-gray-300 text-xs">
+                <span className="text-muted-foreground text-xs">SVG konumu:</span>
+                <label className="flex items-center gap-1 text-muted-foreground text-xs">
                   <input type="radio" name="svgPosition" checked={svgPosition === 'above'} onChange={() => setSvgPosition('above')} className="accent-indigo-500" />
                   Soru kökünün üstünde
                 </label>
-                <label className="flex items-center gap-1 text-gray-300 text-xs">
+                <label className="flex items-center gap-1 text-muted-foreground text-xs">
                   <input type="radio" name="svgPosition" checked={svgPosition === 'below'} onChange={() => setSvgPosition('below')} className="accent-indigo-500" />
                   Soru kökünün altında
                 </label>
@@ -1056,7 +1056,7 @@ export function QuestionEditModal({
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-gray-400 text-xs sm:text-sm">SVG Prompt (bu soru için çizim talimatı — başka bir AI&apos;ye vermek üzere)</label>
+              <label className="block text-muted-foreground text-xs sm:text-sm">SVG Prompt (bu soru için çizim talimatı — başka bir AI&apos;ye vermek üzere)</label>
               {svgPrompt.trim() && (
                 <button
                   type="button"
@@ -1076,7 +1076,7 @@ export function QuestionEditModal({
               onChange={(e) => setSvgPrompt(e.target.value)}
               rows={4}
               placeholder="Bu soru için AI'nin ürettiği SVG çizim promptu (varsa)"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500"
+              className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-xs outline-none focus:border-indigo-500"
             />
           </div>
 
@@ -1088,7 +1088,7 @@ export function QuestionEditModal({
           )}
           {matchingPairs.length > 0 && (
             <div>
-              <span className="text-xs font-semibold text-gray-400 block mb-2">Eşleştirme Çiftleri</span>
+              <span className="text-xs font-semibold text-muted-foreground block mb-2">Eşleştirme Çiftleri</span>
               <div className="space-y-2">
                 {matchingPairs.map((p, idx) => (
                   <div key={idx} className="flex gap-2">
@@ -1099,7 +1099,7 @@ export function QuestionEditModal({
                         next[idx] = { ...next[idx], left_text: e.target.value };
                         setMatchingPairs(next);
                       }}
-                      className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-indigo-500"
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-foreground text-sm outline-none focus:border-indigo-500"
                     />
                     <input
                       value={p.right_text}
@@ -1108,7 +1108,7 @@ export function QuestionEditModal({
                         next[idx] = { ...next[idx], right_text: e.target.value };
                         setMatchingPairs(next);
                       }}
-                      className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-indigo-500"
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-foreground text-sm outline-none focus:border-indigo-500"
                     />
                   </div>
                 ))}
@@ -1117,12 +1117,12 @@ export function QuestionEditModal({
           )}
           {classicalAnswer !== '' || typeCode === 'classical' ? (
             <div>
-              <label className="block text-gray-400 text-xs sm:text-sm mb-1">Örnek Cevap (Klasik Soru)</label>
+              <label className="block text-muted-foreground text-xs sm:text-sm mb-1">Örnek Cevap (Klasik Soru)</label>
               <textarea
                 value={classicalAnswer}
                 onChange={(e) => setClassicalAnswer(e.target.value)}
                 rows={4}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none focus:border-indigo-500"
+                className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm outline-none focus:border-indigo-500"
               />
             </div>
           ) : null}
@@ -1146,7 +1146,7 @@ function ChoiceListEditor<T extends { choice_text?: string; option_text?: string
 }) {
   return (
     <div>
-      <span className="text-xs font-semibold text-gray-400 block mb-2">{title}</span>
+      <span className="text-xs font-semibold text-muted-foreground block mb-2">{title}</span>
       <div className="space-y-2">
         {items.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2">
@@ -1168,7 +1168,7 @@ function ChoiceListEditor<T extends { choice_text?: string; option_text?: string
                 next[idx] = { ...next[idx], [textKey]: e.target.value };
                 onChange(next);
               }}
-              className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-indigo-500"
+              className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-foreground text-sm outline-none focus:border-indigo-500"
             />
           </div>
         ))}
@@ -1182,10 +1182,10 @@ function ChoiceListEditor<T extends { choice_text?: string; option_text?: string
 function ModalShell({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className={`bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} p-4 sm:p-6 max-h-[90vh] overflow-y-auto`}>
+      <div className={`bg-card rounded-xl sm:rounded-2xl border border-border w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} p-4 sm:p-6 max-h-[90vh] overflow-y-auto`}>
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h3 className="text-lg sm:text-xl font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">
+          <h3 className="text-lg sm:text-xl font-bold text-foreground">{title}</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">
             ×
           </button>
         </div>
@@ -1198,7 +1198,7 @@ function ModalShell({ title, onClose, children, wide }: { title: string; onClose
 function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSave: () => void; saving: boolean }) {
   return (
     <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-      <button onClick={onCancel} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all text-sm">
+      <button onClick={onCancel} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-surface text-foreground hover:bg-accent transition-all text-sm">
         İptal
       </button>
       <button
@@ -1229,9 +1229,9 @@ function ConfirmDeleteModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-md p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-white mb-2">Silinsin mi?</h3>
-        <p className="text-gray-400 text-sm mb-4">
+      <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
+        <h3 className="text-lg font-bold text-foreground mb-2">Silinsin mi?</h3>
+        <p className="text-muted-foreground text-sm mb-4">
           {count} {entityLabel.toLowerCase()} kaydı{allowHard ? ' kalıcı olarak' : ''} silinecek. Bu işlem geri alınamaz.
           {!allowHard && ' (Bağlı kayıtlar varsa "Pasifleştir" ile gizlemeyi tercih edebilirsiniz.)'}
         </p>
@@ -1245,7 +1245,7 @@ function ConfirmDeleteModal({
           <button
             onClick={onCancel}
             disabled={deleting}
-            className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 disabled:opacity-50 text-sm"
+            className="flex-1 px-4 py-2 rounded-xl bg-surface text-foreground hover:bg-accent disabled:opacity-50 text-sm"
           >
             Vazgeç
           </button>
@@ -1263,9 +1263,9 @@ function ConfirmDeleteModal({
               <button
                 onClick={() => onConfirm(false)}
                 disabled={deleting}
-                className="flex-1 px-4 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-500 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-accent disabled:opacity-50 text-sm flex items-center justify-center gap-2"
               >
-                {deleting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {deleting && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
                 {deleting ? 'İşleniyor...' : 'Pasifleştir'}
               </button>
               <button

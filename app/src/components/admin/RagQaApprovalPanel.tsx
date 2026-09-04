@@ -97,28 +97,28 @@ export default function RagQaApprovalPanel() {
       )}
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Yükleniyor…</p>
+        <p className="text-muted-foreground text-sm">Yükleniyor…</p>
       ) : items.length === 0 ? (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-8 text-center">
-          <p className="text-gray-500 text-sm">Onay bekleyen soru-cevap yok 🎉</p>
+        <div className="bg-card rounded-2xl border border-border p-8 text-center">
+          <p className="text-muted-foreground text-sm">Onay bekleyen soru-cevap yok 🎉</p>
         </div>
       ) : (
         <div className="space-y-3">
           {items.map((row) => (
-            <div key={row.id} className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
+            <div key={row.id} className="bg-card rounded-2xl border border-border p-4 sm:p-6">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">{bookLabel(row)}</span>
-                <span className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
+                <span className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString('tr-TR')}</span>
               </div>
 
               <div className="mb-3">
-                <p className="text-xs text-gray-500 mb-1">Soru</p>
-                <p className="text-white text-sm">{row.question}</p>
+                <p className="text-xs text-muted-foreground mb-1">Soru</p>
+                <p className="text-foreground text-sm">{row.question}</p>
               </div>
 
               <div className="mb-4">
-                <p className="text-xs text-gray-500 mb-1">AI Cevabı ({row.model})</p>
-                <p className="text-gray-300 text-sm whitespace-pre-wrap">{row.answer}</p>
+                <p className="text-xs text-muted-foreground mb-1">AI Cevabı ({row.model})</p>
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap">{row.answer}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">

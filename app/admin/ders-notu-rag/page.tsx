@@ -5,6 +5,7 @@ import Link from 'next/link';
 import RagDocumentsPanel from '@/app/src/components/admin/RagDocumentsPanel';
 import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
+import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,12 +15,13 @@ export default function DersNotuRagPage() {
   const [tab, setTab] = useState<Tab>('reports');
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
-      <header className="sticky top-0 z-10 bg-[#111114] border-b border-white/5 px-4 sm:px-6 py-3 flex items-center gap-4">
-        <Link href="/admin" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-10 bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center gap-4">
+        <Link href="/admin" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
           <span>←</span> Admin Paneline Dön
         </Link>
-        <h1 className="font-bold text-white text-sm sm:text-base">Ders Notu Soru-Cevap (RAG)</h1>
+        <h1 className="font-bold text-foreground text-sm sm:text-base flex-1">Ders Notu Soru-Cevap (RAG)</h1>
+        <AdminThemeToggle />
       </header>
       <main className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -40,7 +42,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-        active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+        active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       {label}

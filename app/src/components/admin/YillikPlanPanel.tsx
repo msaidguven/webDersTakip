@@ -496,7 +496,7 @@ export default function YillikPlanPanel() {
             if (f) handleFile(f);
           }}
           className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-            dragOver ? 'border-indigo-400 bg-indigo-500/10' : 'border-zinc-300 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/20'
+            dragOver ? 'border-indigo-400 bg-indigo-500/10' : 'border-border hover:border-border'
           }`}
         >
           <input
@@ -506,8 +506,8 @@ export default function YillikPlanPanel() {
             className="absolute inset-0 opacity-0 cursor-pointer"
           />
           <div className="text-3xl mb-2">📄</div>
-          <p className="text-sm font-bold text-zinc-900 dark:text-white">DOCX sürükle veya tıkla</p>
-          <p className="text-xs text-zinc-500 dark:text-gray-500 mt-1">Yıllık plan tablosu içeren .docx dosyası</p>
+          <p className="text-sm font-bold text-foreground">DOCX sürükle veya tıkla</p>
+          <p className="text-xs text-muted-foreground mt-1">Yıllık plan tablosu içeren .docx dosyası</p>
           {fileName && <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 mt-3">{parsing ? '⏳ ' : '✅ '}{fileName}</p>}
         </div>
         {parseError && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {parseError}</p>}
@@ -542,13 +542,13 @@ export default function YillikPlanPanel() {
         <Card title="Veri Düzenleyici">
           <RowTable rows={rows} onUpdate={updateRow} onUpdateKazanim={updateKazanim} onDelete={deleteRow} onAdd={addRow} />
           <details className="mt-4">
-            <summary className="text-xs font-bold text-zinc-500 dark:text-gray-400 cursor-pointer">Ham JSON olarak düzenle</summary>
+            <summary className="text-xs font-bold text-muted-foreground cursor-pointer">Ham JSON olarak düzenle</summary>
             <textarea
               value={rawJson}
               onChange={(e) => setRawJson(e.target.value)}
               rows={10}
               spellCheck={false}
-              className="w-full mt-2 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/40 p-3 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
+              className="w-full mt-2 rounded-lg border border-border bg-surface p-3 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
             />
             <div className="flex items-center gap-3 mt-2">
               <button onClick={applyRawJson} className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors">
@@ -625,7 +625,7 @@ export default function YillikPlanPanel() {
 
       {activeTab === 'tymm' && (
       <Card title="TYMM'den İçerik Aktar">
-        <p className="text-xs text-zinc-500 dark:text-gray-500 mb-4">
+        <p className="text-xs text-muted-foreground mb-4">
           Yeni müfredat (tymm.meb.gov.tr) sayfasındaki ünite/konu/kazanım/anahtar kavram metnini önce ÇEKER ve
           önizler — hiçbir şey otomatik kaydedilmez. Gerekirse metni düzeltip ünite ünite elle onaylayınca DB&apos;ye
           yazılır. Hafta ataması &quot;Hafta Ata&quot; sekmesinde ayrı bir adımda yapılır.
@@ -635,7 +635,7 @@ export default function YillikPlanPanel() {
           <button
             onClick={() => setTymmBulkMode(false)}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              !tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20'
+              !tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-border text-muted-foreground hover:border-border'
             }`}
           >
             Tek Ünite
@@ -643,7 +643,7 @@ export default function YillikPlanPanel() {
           <button
             onClick={() => setTymmBulkMode(true)}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20'
+              tymmBulkMode ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-border text-muted-foreground hover:border-border'
             }`}
           >
             Toplu (Ders/Sınıf Sayfası)
@@ -651,14 +651,14 @@ export default function YillikPlanPanel() {
         </div>
 
         <div className="mb-3">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">Müfredat Yılı (ör. 2025-2026)</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Müfredat Yılı (ör. 2025-2026)</label>
           <input
             value={tymmYear}
             onChange={(e) => setTymmYear(e.target.value)}
             placeholder="2025-2026"
-            className="w-full sm:w-64 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+            className="w-full sm:w-64 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
           />
-          <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-1">Kaydetmeden hemen önce kontrol et — sonradan değiştirirsen aynı içerik yeniden (mükerrer) kaydedilir.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Kaydetmeden hemen önce kontrol et — sonradan değiştirirsen aynı içerik yeniden (mükerrer) kaydedilir.</p>
         </div>
 
         {(!lessonId || !gradeId) && (
@@ -667,17 +667,17 @@ export default function YillikPlanPanel() {
           </p>
         )}
 
-        <div className="h-px bg-zinc-200 dark:bg-white/5 mb-4" />
+        <div className="h-px bg-border mb-4" />
 
         {!tymmBulkMode ? (
           <>
             <div className="mb-3">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">TYMM Ünite URL&apos;i</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">TYMM Ünite URL&apos;i</label>
               <input
                 value={tymmUrl}
                 onChange={(e) => setTymmUrl(e.target.value)}
                 placeholder="https://tymm.meb.gov.tr/.../unite/408"
-                className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
               />
             </div>
 
@@ -692,11 +692,11 @@ export default function YillikPlanPanel() {
             {fetchErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {fetchErr}</p>}
 
             {previewUnit && (
-              <div className="mt-4 rounded-xl border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20 p-4">
+              <div className="mt-4 rounded-xl border border-border bg-surface p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{previewUnit.unitTitle}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-0.5">
+                    <p className="text-sm font-bold text-foreground truncate">{previewUnit.unitTitle}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {previewUnit.learningOutcomes.length} konu ·{' '}
                       {previewUnit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
                     </p>
@@ -723,7 +723,7 @@ export default function YillikPlanPanel() {
                     🔍 İncele
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {saveResult.topicsCreated} yeni konu · {saveResult.outcomesCreated} yeni kazanım
                   {saveResult.outcomesSkipped > 0 && ` · ${saveResult.outcomesSkipped} zaten vardı`}
                 </p>
@@ -734,14 +734,14 @@ export default function YillikPlanPanel() {
         ) : (
           <>
             <div className="mb-3">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">TYMM Ders/Sınıf Sayfası URL&apos;i</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">TYMM Ders/Sınıf Sayfası URL&apos;i</label>
               <input
                 value={bulkPageUrl}
                 onChange={(e) => setBulkPageUrl(e.target.value)}
                 placeholder="https://tymm.meb.gov.tr/ogretim-programlari/din-kulturu-ve-ahlak-bilgisi-dersi/6"
-                className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
               />
-              <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-1">Bu sayfadaki tüm üniteler bulunup çekilir — hiçbiri otomatik kaydedilmez, ünite ünite onaylarsın.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Bu sayfadaki tüm üniteler bulunup çekilir — hiçbiri otomatik kaydedilmez, ünite ünite onaylarsın.</p>
             </div>
 
             <button
@@ -757,13 +757,13 @@ export default function YillikPlanPanel() {
             {bulkItems && (
               <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full bg-zinc-100 dark:bg-white/5 overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-emerald-400 transition-all"
                       style={{ width: `${(bulkItems.filter((it) => it.saveResult).length / bulkItems.length) * 100}%` }}
                     />
                   </div>
-                  <p className="text-xs font-bold text-zinc-500 dark:text-gray-400 flex-shrink-0">
+                  <p className="text-xs font-bold text-muted-foreground flex-shrink-0">
                     {bulkItems.filter((it) => it.saveResult).length}/{bulkItems.length} kaydedildi
                   </p>
                 </div>
@@ -773,18 +773,18 @@ export default function YillikPlanPanel() {
                   return (
                   <div
                     key={item.url}
-                    className={`rounded-xl border p-4 transition-colors ${item.saveResult ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20'}`}
+                    className={`rounded-xl border p-4 transition-colors ${item.saveResult ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border bg-surface'}`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
                           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                            item.saveResult ? 'border-emerald-400 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-500'
+                            item.saveResult ? 'border-emerald-400 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-border text-muted-foreground'
                           }`}
                         >
                           {item.saveResult ? '✓' : idx + 1}
                         </span>
-                        <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{item.title}</p>
+                        <p className="text-sm font-bold text-foreground truncate">{item.title}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {item.saveResult ? (
@@ -808,7 +808,7 @@ export default function YillikPlanPanel() {
                     </div>
 
                     {item.unit && (
-                      <p className="text-[11px] text-zinc-500 dark:text-gray-500 mt-1 ml-[34px]">
+                      <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">
                         {topicCount} konu · {outcomeCount} kazanım
                       </p>
                     )}
@@ -816,7 +816,7 @@ export default function YillikPlanPanel() {
                     {item.fetchError && <p className="text-xs text-red-600 dark:text-red-400 mt-2">❌ {item.fetchError}</p>}
 
                     {item.saveResult ? (
-                      <p className="text-xs text-zinc-500 dark:text-gray-400 mt-1.5 ml-[34px]">
+                      <p className="text-xs text-muted-foreground mt-1.5 ml-[34px]">
                         ✅ Kaydedildi (ünite #{item.saveResult.unitId}) · {item.saveResult.topicsCreated} yeni konu ·{' '}
                         {item.saveResult.outcomesCreated} yeni kazanım
                         {item.saveResult.outcomesSkipped > 0 && ` · ${item.saveResult.outcomesSkipped} zaten vardı`}
@@ -836,7 +836,7 @@ export default function YillikPlanPanel() {
 
       {activeTab === 'weeks' && (
       <Card title="DOCX'ten Hafta Ata">
-        <p className="text-xs text-zinc-500 dark:text-gray-500 mb-4">
+        <p className="text-xs text-muted-foreground mb-4">
           Yukarıda TYMM&apos;den aktarılmış bir ünitenin konu/kazanımlarına, DOCX&apos;ten çıkan hafta sırasını atar. Metin benzerliğine değil, konu/kazanım SAYISININ birebir
           eşleşmesine dayanır — sayılar uyuşmazsa hiçbir şey kaydedilmez.
         </p>
@@ -850,25 +850,25 @@ export default function YillikPlanPanel() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">Ünite ID</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ünite ID</label>
               <input
                 value={weekUnitId}
                 onChange={(e) => setWeekUnitId(e.target.value)}
                 placeholder="TYMM’den Aktar sekmesinden otomatik dolar"
-                className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
               />
             </div>
           </div>
 
           <div className="mb-4">
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1.5">Bu ünite DOCX&apos;teki hangi üniteye denk geliyor?</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Bu ünite DOCX&apos;teki hangi üniteye denk geliyor?</label>
             <div className="flex flex-wrap gap-1.5">
               {uniteler.map((u) => (
                 <button
                   key={u}
                   onClick={() => setWeekUniteName(u)}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    weekUniteName === u ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20'
+                    weekUniteName === u ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-border text-muted-foreground hover:border-border'
                   }`}
                 >
                   {u}
@@ -896,13 +896,13 @@ export default function YillikPlanPanel() {
                   </p>
                   <div className="space-y-2 max-h-72 overflow-y-auto">
                     {weekPreview.preview.map((t) => (
-                      <div key={t.topicId} className="rounded-lg border border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-black/20 p-2.5">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-white">{t.topicTitle}</p>
+                      <div key={t.topicId} className="rounded-lg border border-border bg-surface p-2.5">
+                        <p className="text-xs font-bold text-foreground">{t.topicTitle}</p>
                         <ul className="mt-1 space-y-0.5">
                           {t.outcomes.map((o) => (
-                            <li key={o.id} className="text-[11px] text-zinc-500 dark:text-gray-400">
+                            <li key={o.id} className="text-[11px] text-muted-foreground">
                               {o.code && <span className="text-indigo-600 dark:text-indigo-300 font-mono">{o.code}) </span>}{o.description}
-                              <span className="text-zinc-400 dark:text-gray-600"> — hafta {o.startWeek === o.endWeek ? o.startWeek : `${o.startWeek}-${o.endWeek}`}</span>
+                              <span className="text-muted-foreground"> — hafta {o.startWeek === o.endWeek ? o.startWeek : `${o.startWeek}-${o.endWeek}`}</span>
                             </li>
                           ))}
                         </ul>
@@ -924,16 +924,16 @@ export default function YillikPlanPanel() {
                     ❌ Sayılar uyuşmuyor — hiçbir şey kaydedilmedi
                   </p>
                   {weekPreview.result.reason === 'topic-count-mismatch' && (
-                    <div className="text-xs text-zinc-500 dark:text-gray-400 space-y-2">
+                    <div className="text-xs text-muted-foreground space-y-2">
                       <p>DB&apos;de {weekPreview.result.tymmCount} konu, DOCX&apos;te {weekPreview.result.docxCount} konu var.</p>
                       <div className="grid grid-cols-2 gap-2">
-                        <div><p className="font-bold text-zinc-500 dark:text-gray-500 mb-1">DB</p>{weekPreview.result.dbTopicTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
-                        <div><p className="font-bold text-zinc-500 dark:text-gray-500 mb-1">DOCX</p>{weekPreview.result.docxTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
+                        <div><p className="font-bold text-muted-foreground mb-1">DB</p>{weekPreview.result.dbTopicTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
+                        <div><p className="font-bold text-muted-foreground mb-1">DOCX</p>{weekPreview.result.docxTitles.map((t, i) => <p key={i}>{t}</p>)}</div>
                       </div>
                     </div>
                   )}
                   {weekPreview.result.reason === 'outcome-count-mismatch' && (
-                    <p className="text-xs text-zinc-500 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       &quot;{weekPreview.result.dbTopicTitle}&quot; ({weekPreview.result.dbCount} kazanım) ile DOCX&apos;teki
                       &quot;{weekPreview.result.docxTopicTitle}&quot; ({weekPreview.result.docxCount} kazanım) sayıca uyuşmuyor.
                       Muhtemelen DOCX&apos;te bu konuya sınav haftası gibi kazanım-olmayan bir satır karışmış olabilir —
@@ -941,7 +941,7 @@ export default function YillikPlanPanel() {
                     </p>
                   )}
                   {weekPreview.result.reason === 'no-docx-rows' && (
-                    <p className="text-xs text-zinc-500 dark:text-gray-400">DOCX&apos;te &quot;{weekPreview.result.uniteName}&quot; adında bir ünite bulunamadı.</p>
+                    <p className="text-xs text-muted-foreground">DOCX&apos;te &quot;{weekPreview.result.uniteName}&quot; adında bir ünite bulunamadı.</p>
                   )}
                 </div>
               ) : null}
@@ -1024,28 +1024,28 @@ function TymmUnitEditor({
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1">Ünite Başlığı</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Ünite Başlığı</label>
           <input
             value={unit.unitTitle}
             onChange={(e) => { const v = e.target.value; onChange((u) => ({ ...u, unitTitle: v })); }}
-            className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1">Ders Saati</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Ders Saati</label>
           <input
             type="number"
             value={unit.durationHours ?? ''}
             onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; onChange((u) => ({ ...u, durationHours: v })); }}
-            className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
           />
         </div>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500">Anahtar Kavramlar</label>
-          <button onClick={() => setEditingKeyConcepts((v) => !v)} className="text-zinc-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors text-xs" title="Düzenle">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Anahtar Kavramlar</label>
+          <button onClick={() => setEditingKeyConcepts((v) => !v)} className="text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors text-xs" title="Düzenle">
             {editingKeyConcepts ? '✓ Bitti' : '✏️'}
           </button>
         </div>
@@ -1057,40 +1057,40 @@ function TymmUnitEditor({
               onChange((u) => ({ ...u, keyConcepts: list }));
             }}
             placeholder="virgülle ayır"
-            className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
           />
         ) : unit.keyConcepts.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {unit.keyConcepts.map((k, i) => (
-              <span key={i} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-gray-300 border border-zinc-300 dark:border-white/10">{k}</span>
+              <span key={i} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-muted text-foreground border border-border">{k}</span>
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-zinc-400 dark:text-gray-600 italic">yok</p>
+          <p className="text-[11px] text-muted-foreground italic">yok</p>
         )}
       </div>
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500">Konular ({unit.learningOutcomes.length})</label>
-          <span className="text-[10px] text-zinc-400 dark:text-gray-600">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Konular ({unit.learningOutcomes.length})</label>
+          <span className="text-[10px] text-muted-foreground">
             toplam {unit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
           </span>
         </div>
-        <ol className="space-y-0.5 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20 p-2">
+        <ol className="space-y-0.5 rounded-lg border border-border bg-surface p-2">
           {unit.learningOutcomes.map((outcome, oi) => (
             <li key={oi}>
               <button
                 onClick={() => setEditingTopic(oi)}
                 className={`w-full text-left text-xs px-1.5 py-1 rounded-md flex items-center gap-1.5 transition-colors ${
-                  editingTopic === oi ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'text-zinc-700 dark:text-gray-300 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-indigo-300'
+                  editingTopic === oi ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'text-foreground hover:bg-accent hover:text-indigo-600 dark:hover:text-indigo-300'
                 }`}
               >
-                <span className="text-zinc-400 dark:text-gray-600 font-mono flex-shrink-0">{oi + 1}.</span>
-                <span className="flex-1 truncate">{outcome.topicTitle || <span className="italic text-zinc-400 dark:text-gray-600">(başlıksız)</span>}</span>
+                <span className="text-muted-foreground font-mono flex-shrink-0">{oi + 1}.</span>
+                <span className="flex-1 truncate">{outcome.topicTitle || <span className="italic text-muted-foreground">(başlıksız)</span>}</span>
                 <span
                   className={`flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                    outcome.components.length === 0 ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10' : 'text-zinc-500 dark:text-gray-500 bg-zinc-100 dark:bg-white/5'
+                    outcome.components.length === 0 ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10' : 'text-muted-foreground bg-muted'
                   }`}
                 >
                   {outcome.components.length}
@@ -1108,19 +1108,19 @@ function TymmUnitEditor({
               <div className="flex items-start gap-2 mb-1.5">
                 <div className="flex-1 space-y-1.5">
                   <div>
-                    <label className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-0.5">Konu Başlığı (İçerik Çerçevesi)</label>
+                    <label className="block text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Konu Başlığı (İçerik Çerçevesi)</label>
                     <input
                       value={outcome.topicTitle}
                       onChange={(e) => {
                         const v = e.target.value;
                         onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.map((o, i) => (i === oi ? { ...o, topicTitle: v } : o)) }));
                       }}
-                      className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                      className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-xs font-bold text-foreground outline-none focus:border-indigo-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-0.5">
-                      Öğrenme Çıktısı {outcome.code && <span className="font-mono normal-case text-zinc-400 dark:text-gray-600">({outcome.code})</span>}
+                    <label className="block text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">
+                      Öğrenme Çıktısı {outcome.code && <span className="font-mono normal-case text-muted-foreground">({outcome.code})</span>}
                     </label>
                     <textarea
                       value={outcome.title}
@@ -1129,7 +1129,7 @@ function TymmUnitEditor({
                         onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.map((o, i) => (i === oi ? { ...o, title: v } : o)) }));
                       }}
                       rows={2}
-                      className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-zinc-700 dark:text-gray-300 outline-none focus:border-indigo-400 resize-y"
+                      className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-[11px] text-foreground outline-none focus:border-indigo-400 resize-y"
                     />
                   </div>
                 </div>
@@ -1158,7 +1158,7 @@ function TymmUnitEditor({
                           ),
                         }));
                       }}
-                      className="w-16 flex-shrink-0 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono outline-none focus:border-indigo-400 text-center"
+                      className="w-16 flex-shrink-0 bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono outline-none focus:border-indigo-400 text-center"
                     />
                     <textarea
                       value={comp.text}
@@ -1172,7 +1172,7 @@ function TymmUnitEditor({
                         }));
                       }}
                       rows={1}
-                      className="flex-1 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-2 py-1 text-[11px] text-zinc-700 dark:text-gray-300 outline-none focus:border-indigo-400 resize-y"
+                      className="flex-1 bg-surface border border-border rounded px-2 py-1 text-[11px] text-foreground outline-none focus:border-indigo-400 resize-y"
                     />
                     <button
                       onClick={() =>
@@ -1211,28 +1211,28 @@ function TymmUnitEditor({
               </div>
             </div>
           ) : (
-            <div key={oi} className="group rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20 hover:border-zinc-400 dark:hover:border-white/20 transition-colors p-3">
+            <div key={oi} className="group rounded-lg border border-border bg-surface hover:border-border transition-colors p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-zinc-900 dark:text-white">{outcome.topicTitle || <span className="italic text-zinc-400 dark:text-gray-600">(başlıksız)</span>}</p>
-                  <p className="text-[10px] text-zinc-500 dark:text-gray-500 mt-0.5">
-                    {outcome.code && <span className="font-mono text-zinc-400 dark:text-gray-600">{outcome.code}. </span>}
+                  <p className="text-xs font-bold text-foreground">{outcome.topicTitle || <span className="italic text-muted-foreground">(başlıksız)</span>}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {outcome.code && <span className="font-mono text-muted-foreground">{outcome.code}. </span>}
                     {outcome.title}
                   </p>
                 </div>
                 <button
                   onClick={() => setEditingTopic(oi)}
-                  className="flex-shrink-0 text-zinc-500 dark:text-gray-500 group-hover:text-zinc-700 dark:group-hover:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors text-sm"
+                  className="flex-shrink-0 text-muted-foreground group-hover:text-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors text-sm"
                   title="Bu konuyu düzenle"
                 >
                   ✏️
                 </button>
               </div>
-              <ul className="mt-2 space-y-1 pl-1 border-l border-zinc-200 dark:border-white/5">
+              <ul className="mt-2 space-y-1 pl-1 border-l border-border">
                 {outcome.components.map((comp, ci) => (
-                  <li key={ci} className="text-[11px] text-zinc-700 dark:text-gray-300 leading-relaxed pl-2">
+                  <li key={ci} className="text-[11px] text-foreground leading-relaxed pl-2">
                     <span className="text-indigo-600 dark:text-indigo-300 font-mono">{comp.letter}) </span>
-                    {comp.text || <span className="italic text-zinc-400 dark:text-gray-600">(boş)</span>}
+                    {comp.text || <span className="italic text-muted-foreground">(boş)</span>}
                   </li>
                 ))}
                 {outcome.components.length === 0 && <li className="text-[11px] text-amber-600 dark:text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
@@ -1245,7 +1245,7 @@ function TymmUnitEditor({
       {unmatchedLines.length > 0 && (
         <details>
           <summary className="text-[11px] font-bold text-amber-600 dark:text-amber-400 cursor-pointer">⚠️ {unmatchedLines.length} satır ayrıştırılamadı</summary>
-          <div className="mt-1 text-[11px] text-zinc-500 dark:text-gray-500 space-y-0.5 max-h-32 overflow-y-auto">
+          <div className="mt-1 text-[11px] text-muted-foreground space-y-0.5 max-h-32 overflow-y-auto">
             {unmatchedLines.map((l, i) => <p key={i}>{l}</p>)}
           </div>
         </details>
@@ -1273,15 +1273,15 @@ function SplitCompareView({
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white dark:bg-[#111114] rounded-2xl border border-zinc-300 dark:border-white/10 w-full h-full max-w-[1400px] flex flex-col sm:flex-row overflow-hidden"
+        className="bg-card rounded-2xl border border-border w-full h-full max-w-[1400px] flex flex-col sm:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-full sm:w-1/2 h-1/2 sm:h-full overflow-y-auto p-5 border-b sm:border-b-0 sm:border-r border-zinc-300 dark:border-white/10">
+        <div className="w-full sm:w-1/2 h-1/2 sm:h-full overflow-y-auto p-5 border-b sm:border-b-0 sm:border-r border-border">
           <div className="flex items-center justify-between mb-4 gap-3">
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">{title}</h3>
+            <h3 className="text-sm font-bold text-foreground truncate">{title}</h3>
             <button
               onClick={onClose}
-              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors text-lg leading-none"
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-lg leading-none"
             >
               ✕
             </button>
@@ -1291,7 +1291,7 @@ function SplitCompareView({
 
         <div className="w-full sm:w-1/2 h-1/2 sm:h-full overflow-y-auto p-5">
           <div className="flex items-center justify-between mb-4 gap-3">
-            <h3 className="text-sm font-bold text-zinc-500 dark:text-gray-400">TYMM&apos;den çekilen bölümler</h3>
+            <h3 className="text-sm font-bold text-muted-foreground">TYMM&apos;den çekilen bölümler</h3>
             <a href={tymmUrl} target="_blank" rel="noreferrer" className="flex-shrink-0 text-[11px] text-indigo-600 dark:text-indigo-300 hover:text-indigo-500 dark:hover:text-indigo-200">
               Tam sayfayı aç ↗
             </a>
@@ -1308,7 +1308,7 @@ function SplitCompareView({
 // sohbeti: "ekran görüntüsü gibi ama sadece çektiğimiz bölümler"). Stil önemli değil,
 // okunabilir olması yeterli.
 function TymmRawSectionsView({ rawSections }: { rawSections: TymmRawSections | null }) {
-  if (!rawSections) return <p className="text-xs text-zinc-500 dark:text-gray-500">Yükleniyor…</p>;
+  if (!rawSections) return <p className="text-xs text-muted-foreground">Yükleniyor…</p>;
   const sections: { label: string; value: string }[] = [
     { label: 'İçerik Çerçevesi', value: rawSections.contentFramework },
     { label: 'Anahtar Kavramlar', value: rawSections.keyConcepts },
@@ -1318,9 +1318,9 @@ function TymmRawSectionsView({ rawSections }: { rawSections: TymmRawSections | n
     <div className="space-y-4">
       {sections.map((s) => (
         <div key={s.label}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-1">{s.label}</p>
-          <div className="rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-black/20 p-3 text-[11px] text-zinc-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-            {s.value || <span className="italic text-zinc-400 dark:text-gray-600">bulunamadı</span>}
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{s.label}</p>
+          <div className="rounded-lg border border-border bg-surface p-3 text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">
+            {s.value || <span className="italic text-muted-foreground">bulunamadı</span>}
           </div>
         </div>
       ))}
@@ -1419,26 +1419,26 @@ function TymmInspectModal({ target, onClose }: { target: InspectTarget; onClose:
       right={<TymmRawSectionsView rawSections={rawSections} />}
       left={
         <>
-          {loading && <p className="text-xs text-zinc-500 dark:text-gray-500">Yükleniyor…</p>}
+          {loading && <p className="text-xs text-muted-foreground">Yükleniyor…</p>}
           {err && <p className="text-xs text-red-600 dark:text-red-400">❌ {err}</p>}
           {data && (
             <div className="space-y-3">
               {data.unit.key_concepts && data.unit.key_concepts.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {data.unit.key_concepts.map((k) => (
-                    <span key={k} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-gray-300 border border-zinc-300 dark:border-white/10">{k}</span>
+                    <span key={k} className="px-2 py-1 rounded-md text-[10px] font-semibold bg-muted text-foreground border border-border">{k}</span>
                   ))}
                 </div>
               )}
               {data.topics.map((t, ti) => (
-                <div key={t.id} className="rounded-lg border border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-black/20 p-3">
-                  <p className="text-xs font-bold text-zinc-900 dark:text-white">
-                    <span className="text-zinc-400 dark:text-gray-600 font-mono">{ti + 1}.</span> {t.title}
+                <div key={t.id} className="rounded-lg border border-border bg-surface p-3">
+                  <p className="text-xs font-bold text-foreground">
+                    <span className="text-muted-foreground font-mono">{ti + 1}.</span> {t.title}
                   </p>
-                  {t.learningOutcome && <p className="text-[10px] text-zinc-500 dark:text-gray-500 mt-0.5 mb-1.5">{t.learningOutcome}</p>}
-                  <ul className="space-y-1 mt-1.5 border-l border-zinc-200 dark:border-white/5">
+                  {t.learningOutcome && <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">{t.learningOutcome}</p>}
+                  <ul className="space-y-1 mt-1.5 border-l border-border">
                     {t.outcomes.map((o) => (
-                      <li key={o.id} className="text-[11px] text-zinc-500 dark:text-gray-400 pl-2">
+                      <li key={o.id} className="text-[11px] text-muted-foreground pl-2">
                         {o.code && <span className="text-indigo-600 dark:text-indigo-300 font-mono">{o.code}) </span>}{o.description}
                       </li>
                     ))}
@@ -1464,15 +1464,15 @@ function TabBar({
   onSelect: (key: string) => void;
 }) {
   return (
-    <div className="flex gap-1.5 p-1 rounded-xl bg-zinc-100 dark:bg-black/20 border border-zinc-200 dark:border-white/5 overflow-x-auto">
+    <div className="flex gap-1.5 p-1 rounded-xl bg-muted border border-border overflow-x-auto">
       {tabs.map((t) => (
         <button
           key={t.key}
           onClick={() => onSelect(t.key)}
           className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
             active === t.key
-              ? 'bg-white dark:bg-[#111114] text-indigo-600 dark:text-indigo-300 shadow-sm'
-              : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-800 dark:hover:text-gray-200'
+              ? 'bg-card text-indigo-600 dark:text-indigo-300 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           {t.label}
@@ -1484,8 +1484,8 @@ function TabBar({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#111114] rounded-2xl border border-zinc-200 dark:border-white/5 p-5 sm:p-6">
-      <h3 className="text-[11px] font-black uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-4">{title}</h3>
+    <div className="bg-card rounded-2xl border border-border p-5 sm:p-6">
+      <h3 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-4">{title}</h3>
       {children}
     </div>
   );
@@ -1493,9 +1493,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-zinc-100 dark:bg-white/5 rounded-xl border border-zinc-200 dark:border-white/5 p-3 text-center">
+    <div className="bg-muted rounded-xl border border-border p-3 text-center">
       <div className="text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">{value}</div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-gray-500 mt-0.5">{label}</div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }
@@ -1514,15 +1514,15 @@ function StepFlow({ rows, results }: { rows: EditableRow[] | null; results: Reco
           <div className="flex items-center gap-2">
             <div
               className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
-                s.done ? 'border-emerald-400 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-500'
+                s.done ? 'border-emerald-400 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-border text-muted-foreground'
               }`}
             >
               {s.done ? '✓' : i + 1}
             </div>
-            <span className={`text-[11px] font-bold ${s.done ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-gray-500'}`}>{s.label}</span>
+            <span className={`text-[11px] font-bold ${s.done ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>{s.label}</span>
           </div>
           {i < steps.length - 1 && (
-            <div className={`flex-1 h-0.5 mx-3 max-w-10 ${s.done ? 'bg-emerald-400' : 'bg-zinc-200 dark:bg-white/10'}`} />
+            <div className={`flex-1 h-0.5 mx-3 max-w-10 ${s.done ? 'bg-emerald-400' : 'bg-border'}`} />
           )}
         </React.Fragment>
       ))}
@@ -1547,9 +1547,9 @@ function PickList<T extends { id: number; name: string }>({
 }) {
   return (
     <div className={disabled ? 'opacity-50 pointer-events-none' : undefined}>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-gray-500 mb-2">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
       <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-        {items.length === 0 && <p className="text-xs text-zinc-500 dark:text-gray-500 py-2 text-center">{emptyMessage}</p>}
+        {items.length === 0 && <p className="text-xs text-muted-foreground py-2 text-center">{emptyMessage}</p>}
         {items.map((item) => (
           <button
             key={item.id}
@@ -1557,12 +1557,12 @@ function PickList<T extends { id: number; name: string }>({
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm font-semibold transition-colors ${
               selectedId === item.id
                 ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
-                : 'border-zinc-300 dark:border-white/10 text-zinc-500 dark:text-gray-400 hover:border-zinc-400 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-white'
+                : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedId === item.id ? 'bg-indigo-400' : 'bg-zinc-300 dark:bg-white/20'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedId === item.id ? 'bg-indigo-400' : 'bg-muted-foreground/40'}`} />
             <span className="flex-1 truncate">{item.name}</span>
-            <span className="text-[10px] font-mono text-zinc-500 dark:text-gray-500">#{item.id}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">#{item.id}</span>
           </button>
         ))}
       </div>
@@ -1589,11 +1589,11 @@ function StepRunner({
   onRun: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-black/20 p-4">
+    <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-sm font-bold text-zinc-900 dark:text-white">{title}</p>
-          <p className="text-xs text-zinc-500 dark:text-gray-500 mt-0.5">{description}</p>
+          <p className="text-sm font-bold text-foreground">{title}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
         <button
           onClick={onRun}
@@ -1607,21 +1607,21 @@ function StepRunner({
       {result && (
         <div className="flex gap-4 mt-3 text-xs font-mono">
           <span className="text-emerald-600 dark:text-emerald-400">✅ {result.basarili}</span>
-          <span className="text-zinc-500 dark:text-gray-500">⊘ {result.atlanmis}</span>
+          <span className="text-muted-foreground">⊘ {result.atlanmis}</span>
           <span className="text-red-600 dark:text-red-400">❌ {result.hata}</span>
-          {result.hafta_atlanmis != null && <span className="text-zinc-500 dark:text-gray-500">📅 ⊘{result.hafta_atlanmis}</span>}
+          {result.hafta_atlanmis != null && <span className="text-muted-foreground">📅 ⊘{result.hafta_atlanmis}</span>}
         </div>
       )}
 
       {logs.length > 0 && (
-        <div className="mt-3 bg-zinc-100 dark:bg-black/40 rounded-lg border border-zinc-200 dark:border-white/5 p-3 max-h-56 overflow-y-auto font-mono text-[11px] leading-relaxed">
+        <div className="mt-3 bg-surface-elevated rounded-lg border border-border p-3 max-h-56 overflow-y-auto font-mono text-[11px] leading-relaxed">
           {logs.map((l, i) => (
             <div
               key={i}
               className={
                 l.level === 'success' ? 'text-emerald-600 dark:text-emerald-400' :
                 l.level === 'error' ? 'text-red-600 dark:text-red-400' :
-                l.level === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-gray-400'
+                l.level === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
               }
             >
               {l.msg}
@@ -1648,40 +1648,40 @@ function RowTable({
 }) {
   return (
     <div className="space-y-3">
-      <div className="max-h-[600px] overflow-auto rounded-lg border border-zinc-200 dark:border-white/5">
+      <div className="max-h-[600px] overflow-auto rounded-lg border border-border">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-zinc-100 dark:bg-[#1a1a20]">
+          <thead className="sticky top-0 bg-muted">
             <tr>
-              <th className="text-left font-bold text-zinc-500 dark:text-gray-400 p-2 w-16">Hafta</th>
-              <th className="text-left font-bold text-zinc-500 dark:text-gray-400 p-2 min-w-[140px]">Ünite</th>
-              <th className="text-left font-bold text-zinc-500 dark:text-gray-400 p-2 min-w-[140px]">Konu</th>
-              <th className="text-left font-bold text-zinc-500 dark:text-gray-400 p-2 min-w-[480px]">Kazanımlar (JSON)</th>
+              <th className="text-left font-bold text-muted-foreground p-2 w-16">Hafta</th>
+              <th className="text-left font-bold text-muted-foreground p-2 min-w-[140px]">Ünite</th>
+              <th className="text-left font-bold text-muted-foreground p-2 min-w-[140px]">Konu</th>
+              <th className="text-left font-bold text-muted-foreground p-2 min-w-[480px]">Kazanımlar (JSON)</th>
               <th className="p-2 w-10" />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r._id} className="border-t border-zinc-200 dark:border-white/5">
+              <tr key={r._id} className="border-t border-border">
                 <td className="p-1.5">
                   <input
                     type="number"
                     value={r.week_no ?? ''}
                     onChange={(e) => onUpdate(r._id, 'week_no', e.target.value)}
-                    className="w-14 bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                    className="w-14 bg-surface border border-border rounded px-1.5 py-1 text-foreground outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
                   <input
                     value={r.ünite}
                     onChange={(e) => onUpdate(r._id, 'ünite', e.target.value)}
-                    className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                    className="w-full bg-surface border border-border rounded px-1.5 py-1 text-foreground outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
                   <input
                     value={r.konu}
                     onChange={(e) => onUpdate(r._id, 'konu', e.target.value)}
-                    className="w-full bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-1.5 py-1 text-zinc-900 dark:text-white outline-none focus:border-indigo-400"
+                    className="w-full bg-surface border border-border rounded px-1.5 py-1 text-foreground outline-none focus:border-indigo-400"
                   />
                 </td>
                 <td className="p-1.5">
@@ -1689,7 +1689,7 @@ function RowTable({
                     defaultValue={JSON.stringify(r.kazanım, null, 2)}
                     onBlur={(e) => onUpdateKazanim(r._id, e.target.value)}
                     rows={6}
-                    className="w-full min-w-[460px] bg-white dark:bg-black/30 border border-zinc-300 dark:border-white/10 rounded px-2 py-1.5 text-zinc-700 dark:text-gray-200 font-mono text-xs leading-relaxed outline-none focus:border-indigo-400 resize-y"
+                    className="w-full min-w-[460px] bg-surface border border-border rounded px-2 py-1.5 text-foreground font-mono text-xs leading-relaxed outline-none focus:border-indigo-400 resize-y"
                   />
                 </td>
                 <td className="p-1.5 text-center">

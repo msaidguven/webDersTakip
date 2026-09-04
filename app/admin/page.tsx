@@ -8,6 +8,7 @@ import ManagementShell from '@/app/src/components/admin/ManagementShell';
 import MembersTab from '@/app/src/components/admin/MembersTab';
 import SchoolsSyncPanel from '@/app/src/components/admin/SchoolsSyncPanel';
 import CodeCleanupPanel from '@/app/src/components/admin/CodeCleanupPanel';
+import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 // Dinamik rendering - SSR yerine client-side çalıştır
 export const dynamic = 'force-dynamic';
@@ -36,43 +37,47 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
+    <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#111114] border-b border-white/5 px-4 py-3 flex items-center justify-between">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
             <span className="text-sm font-bold text-white">A</span>
           </div>
-          <span className="font-bold text-white text-sm">Admin</span>
+          <span className="font-bold text-foreground text-sm">Admin</span>
         </Link>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 text-white"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {sidebarOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminThemeToggle />
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 text-foreground"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {sidebarOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Sidebar - Desktop: fixed, Mobile: overlay */}
-      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-[#111114] border-r border-white/5 z-40 transition-transform duration-300 flex flex-col ${
+      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-40 transition-transform duration-300 flex flex-col ${
         sidebarOpen ? 'left-0' : '-left-64 lg:left-0'
       }`}>
-        <div className="hidden lg:block p-6 shrink-0">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+        <div className="hidden lg:flex p-6 shrink-0 items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shrink-0">
               <span className="text-lg font-bold text-white">A</span>
             </div>
-            <div>
-              <h1 className="font-bold text-white">Admin Panel</h1>
-              <p className="text-xs text-gray-400">Ders Takip</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-foreground truncate">Admin Panel</h1>
+              <p className="text-xs text-muted-foreground truncate">Ders Takip</p>
             </div>
           </Link>
+          <AdminThemeToggle />
         </div>
 
         <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0 flex-1 overflow-y-auto">
@@ -83,56 +88,56 @@ export default function AdminPanel() {
           <NavButton active={activeTab === 'code-cleanup'} onClick={() => { setActiveTab('code-cleanup'); setSidebarOpen(false); }} icon="🧹" label="Kod Temizliği" />
           <Link
             href="/admin/arama"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🔎</span>
             <span className="font-medium truncate">Arama</span>
           </Link>
           <Link
             href="/admin/icerik-kontrol"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🔍</span>
             <span className="font-medium truncate">İçerik Kontrol</span>
           </Link>
           <Link
             href="/admin/yayin-yonetimi"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🚀</span>
             <span className="font-medium truncate">Yayın Yönetimi</span>
           </Link>
           <Link
             href="/admin/yillik-plan"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">📅</span>
             <span className="font-medium truncate">Yıllık Plan Yükleme</span>
           </Link>
           <Link
             href="/admin/takvim"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🗓️</span>
             <span className="font-medium truncate">Akademik Takvim</span>
           </Link>
           <Link
             href="/admin/ders-notu-rag"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🤖</span>
             <span className="font-medium truncate">Ders Notu Soru-Cevap</span>
           </Link>
           <Link
             href="/admin/tum-yorumlar"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🗂️</span>
             <span className="font-medium truncate">Tüm Yorumlar ve Sorular</span>
           </Link>
           <Link
             href="/admin/svg-sorulari"
-            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-gray-400 hover:bg-white/5 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">📐</span>
             <span className="font-medium truncate">SVG Soruları</span>
@@ -169,7 +174,7 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
       className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base ${
         active
           ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-          : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       <span className="text-base sm:text-lg">{icon}</span>
@@ -239,8 +244,8 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
   return (
     <div className="py-4 sm:py-8">
       <header className="mb-6 sm:mb-8">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
-        <p className="text-sm sm:text-base text-gray-400">Platform genel durumu</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">Platform genel durumu</p>
       </header>
 
       {/* Stats Grid - Mobil: 2 kolon, Desktop: 4 kolon */}
@@ -257,25 +262,25 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Activity */}
-        <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Son Aktiviteler</h3>
+        <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Son Aktiviteler</h3>
           <div className="space-y-2 sm:space-y-3">
             {recentActivity.map((item, i) => (
-              <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5">
+              <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent">
                 <span className="text-lg sm:text-xl">{item.type === 'question' ? '❓' : '📝'}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs sm:text-sm truncate">{item.title}</p>
-                  <p className="text-gray-500 text-xs">{new Date(item.date).toLocaleDateString('tr-TR')}</p>
+                  <p className="text-foreground text-xs sm:text-sm truncate">{item.title}</p>
+                  <p className="text-muted-foreground text-xs">{new Date(item.date).toLocaleDateString('tr-TR')}</p>
                 </div>
               </div>
             ))}
-            {recentActivity.length === 0 && <p className="text-gray-500 text-sm">Henüz aktivite yok</p>}
+            {recentActivity.length === 0 && <p className="text-muted-foreground text-sm">Henüz aktivite yok</p>}
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Hızlı İşlemler</h3>
+        <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Hızlı İşlemler</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             <QuickActionButton icon="📁" label="Üniteler" onClick={() => onGoManage('units')} />
             <QuickActionButton icon="📄" label="Konular" onClick={() => onGoManage('topics')} />
@@ -283,17 +288,17 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
             <QuickActionButton icon="📝" label="İçerikler" onClick={() => onGoManage('contents')} />
             <QuickActionButton icon="🎯" label="Kazanımlar" onClick={() => onGoManage('outcomes')} />
             <QuickActionButton icon="❓" label="Sorular" onClick={() => onGoManage('questions')} />
-            <Link href="/admin/arama" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
+            <Link href="/admin/arama" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left">
               <span className="text-sm">🔎</span>
-              <span className="text-white text-xs sm:text-sm font-medium truncate">Arama</span>
+              <span className="text-foreground text-xs sm:text-sm font-medium truncate">Arama</span>
             </Link>
-            <Link href="/admin/icerik-kontrol" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
+            <Link href="/admin/icerik-kontrol" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left">
               <span className="text-sm">🔍</span>
-              <span className="text-white text-xs sm:text-sm font-medium truncate">İçerik Kontrol</span>
+              <span className="text-foreground text-xs sm:text-sm font-medium truncate">İçerik Kontrol</span>
             </Link>
-            <Link href="/admin/svg-sorulari" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left">
+            <Link href="/admin/svg-sorulari" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left">
               <span className="text-sm">📐</span>
-              <span className="text-white text-xs sm:text-sm font-medium truncate">SVG Soruları</span>
+              <span className="text-foreground text-xs sm:text-sm font-medium truncate">SVG Soruları</span>
             </Link>
             <QuickActionButton icon="👥" label="Üyeler" onClick={onGoMembers} />
             <QuickActionButton icon="🏫" label="Okullar" onClick={onGoSchools} />
@@ -309,13 +314,13 @@ function StatCard({ title, value, icon, color, onClick }: { title: string; value
   return (
     <Comp
       onClick={onClick}
-      className={`w-full text-left bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-3 sm:p-5 hover:border-white/10 transition-all ${onClick ? 'cursor-pointer' : ''}`}
+      className={`w-full text-left bg-card rounded-xl sm:rounded-2xl border border-border p-3 sm:p-5 hover:border-muted-foreground/30 transition-all ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-base sm:text-lg mb-2 sm:mb-3`}>
         {icon}
       </div>
-      <p className="text-xl sm:text-2xl font-bold text-white">{value.toLocaleString()}</p>
-      <p className="text-gray-400 text-xs sm:text-sm">{title}</p>
+      <p className="text-xl sm:text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
+      <p className="text-muted-foreground text-xs sm:text-sm">{title}</p>
     </Comp>
   );
 }
@@ -324,10 +329,10 @@ function QuickActionButton({ icon, label, onClick }: { icon: string; label: stri
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left"
+      className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left"
     >
       <span className="text-sm">{icon}</span>
-      <span className="text-white text-xs sm:text-sm font-medium truncate">{label}</span>
+      <span className="text-foreground text-xs sm:text-sm font-medium truncate">{label}</span>
     </button>
   );
 }
@@ -336,10 +341,10 @@ function QuickActionButton({ icon, label, onClick }: { icon: string; label: stri
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex items-center gap-3">
         <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-gray-400 text-sm">Yükleniyor...</span>
+        <span className="text-muted-foreground text-sm">Yükleniyor...</span>
       </div>
     </div>
   );

@@ -122,7 +122,7 @@ export default function BulkDeletePanel() {
   return (
     <div className="flex flex-col lg:flex-row gap-4">
       <aside className="lg:w-48 shrink-0">
-        <p className="text-gray-500 text-xs uppercase font-medium mb-2">Sınıflar</p>
+        <p className="text-muted-foreground text-xs uppercase font-medium mb-2">Sınıflar</p>
         <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
           {grades.map((g) => (
             <SidebarItem key={g.id} active={gradeId === g.id} label={g.label} onClick={() => setGradeId(g.id)} />
@@ -149,7 +149,7 @@ export default function BulkDeletePanel() {
               {lessons.map((l) => (
                 <TabButton key={l.id} active={lessonId === l.id} label={l.label} onClick={() => setLessonId(l.id)} />
               ))}
-              {!lessons.length && <p className="text-gray-600 text-sm px-1 py-2">Bu sınıfta ders yok</p>}
+              {!lessons.length && <p className="text-muted-foreground text-sm px-1 py-2">Bu sınıfta ders yok</p>}
             </div>
 
             {lessonId == null ? (
@@ -157,10 +157,10 @@ export default function BulkDeletePanel() {
             ) : loadingUnits ? (
               <EmptyHint text="Yükleniyor..." />
             ) : (
-              <div className="bg-[#111114] rounded-xl border border-white/5 overflow-x-auto">
+              <div className="bg-card rounded-xl border border-border overflow-x-auto">
                 <table className="w-full text-sm min-w-[760px]">
                   <thead>
-                    <tr className="border-b border-white/5 text-gray-400 text-xs uppercase">
+                    <tr className="border-b border-border text-muted-foreground text-xs uppercase">
                       <th className="p-3 text-left font-medium">Ünite</th>
                       <th className="p-3 text-left font-medium">Konu</th>
                       <th className="p-3 text-left font-medium">Kazanım</th>
@@ -169,13 +169,13 @@ export default function BulkDeletePanel() {
                       <th className="p-3 text-left font-medium">İşlemler</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
-                    <tr className="bg-white/[0.03]">
-                      <td className="p-3 text-gray-200 font-medium">Bu ders + sınıfın tamamı ({units.length} ünite)</td>
-                      <td className="p-3 text-gray-400">{totals.topics}</td>
-                      <td className="p-3 text-gray-400">{totals.outcomes}</td>
-                      <td className="p-3 text-gray-400">{totals.questions}</td>
-                      <td className="p-3 text-gray-400">{totals.contents}</td>
+                  <tbody className="divide-y divide-border">
+                    <tr className="bg-surface-elevated">
+                      <td className="p-3 text-foreground font-medium">Bu ders + sınıfın tamamı ({units.length} ünite)</td>
+                      <td className="p-3 text-muted-foreground">{totals.topics}</td>
+                      <td className="p-3 text-muted-foreground">{totals.outcomes}</td>
+                      <td className="p-3 text-muted-foreground">{totals.questions}</td>
+                      <td className="p-3 text-muted-foreground">{totals.contents}</td>
                       <td className="p-3">
                         <div className="flex flex-wrap gap-2">
                           <DangerButton
@@ -194,12 +194,12 @@ export default function BulkDeletePanel() {
                       </td>
                     </tr>
                     {units.map((u) => (
-                      <tr key={u.id} className="hover:bg-white/5">
-                        <td className="p-3 text-gray-200">{u.title}</td>
-                        <td className="p-3 text-gray-400">{u.topicCount}</td>
-                        <td className="p-3 text-gray-400">{u.outcomeCount}</td>
-                        <td className="p-3 text-gray-400">{u.questionCount}</td>
-                        <td className="p-3 text-gray-400">{u.contentCount}</td>
+                      <tr key={u.id} className="hover:bg-accent">
+                        <td className="p-3 text-foreground">{u.title}</td>
+                        <td className="p-3 text-muted-foreground">{u.topicCount}</td>
+                        <td className="p-3 text-muted-foreground">{u.outcomeCount}</td>
+                        <td className="p-3 text-muted-foreground">{u.questionCount}</td>
+                        <td className="p-3 text-muted-foreground">{u.contentCount}</td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-2">
                             <DangerButton
@@ -226,7 +226,7 @@ export default function BulkDeletePanel() {
                     ))}
                     {!units.length && (
                       <tr>
-                        <td className="p-4 text-gray-500 text-sm" colSpan={6}>
+                        <td className="p-4 text-muted-foreground text-sm" colSpan={6}>
                           Bu ders+sınıfta ünite yok
                         </td>
                       </tr>
@@ -257,7 +257,7 @@ function SidebarItem({ active, label, onClick }: { active: boolean; label: strin
     <button
       onClick={onClick}
       className={`px-3 py-2 rounded-lg text-left text-sm whitespace-nowrap transition-all ${
-        active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+        active ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       {label}
@@ -270,7 +270,7 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
     <button
       onClick={onClick}
       className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-        active ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+        active ? 'bg-indigo-500 text-white' : 'bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       {label}
@@ -280,8 +280,8 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-      <p className="text-gray-400 text-sm">{text}</p>
+    <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+      <p className="text-muted-foreground text-sm">{text}</p>
     </div>
   );
 }
@@ -289,7 +289,7 @@ function EmptyHint({ text }: { text: string }) {
 function DangerButton({ children, count, onClick }: { children: React.ReactNode; count: number; onClick: () => void }) {
   if (!count) {
     return (
-      <span className="px-2.5 py-1.5 bg-white/5 text-gray-600 rounded-lg text-xs whitespace-nowrap cursor-not-allowed">
+      <span className="px-2.5 py-1.5 bg-surface text-muted-foreground/60 rounded-lg text-xs whitespace-nowrap cursor-not-allowed">
         {children} (0)
       </span>
     );
@@ -316,13 +316,13 @@ function ConfirmModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-md p-4 sm:p-6">
-        <h3 className="text-lg sm:text-xl font-bold text-white mb-3">{title}</h3>
-        <p className="text-gray-300 text-sm">
+      <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
+        <h3 className="text-lg sm:text-xl font-bold text-foreground mb-3">{title}</h3>
+        <p className="text-muted-foreground text-sm">
           <span className="text-red-300 font-semibold">{count} kayıt</span> kalıcı olarak silinecek. Bu işlem geri alınamaz. Emin misiniz?
         </p>
         <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-          <button onClick={onCancel} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all text-sm">
+          <button onClick={onCancel} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-surface text-foreground hover:bg-accent transition-all text-sm">
             İptal
           </button>
           <button

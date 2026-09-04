@@ -46,7 +46,7 @@ function CardHeader({ item, isDone }: { item: SvgQuestionItem; isDone: boolean }
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         {item.topicTitle && <p className="text-[11px] font-bold text-indigo-400 truncate">{item.topicTitle}</p>}
-        <p className="text-sm text-white line-clamp-2">{item.question_text}</p>
+        <p className="text-sm text-foreground line-clamp-2">{item.question_text}</p>
       </div>
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${isDone ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
         {isDone ? 'Tamamlandı' : 'Bekliyor'}
@@ -62,10 +62,10 @@ function DoneSvgCard({ item, onEdit }: { item: SvgQuestionItem; onEdit: () => vo
   const clean = item.svg_content ? sanitizeMathSvg(item.svg_content) : null;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#111114] p-4 space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
       <CardHeader item={item} isDone />
 
-      <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-white/10 bg-white p-3">
+      <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-border bg-white p-3">
         {clean ? (
           <div className="max-h-40 max-w-full [&_svg]:max-h-40 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />
         ) : (
@@ -79,7 +79,7 @@ function DoneSvgCard({ item, onEdit }: { item: SvgQuestionItem; onEdit: () => vo
         </button>
         {item.href && (
           <>
-            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-400 hover:text-white">
+            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-muted-foreground hover:text-foreground">
               Soru Bankasında Göster ↗
             </a>
             <CopyButton text={`${SITE_URL}${item.href}`} label="Linki Kopyala" />
@@ -116,21 +116,21 @@ function PendingSvgCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () 
   const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#111114] p-4 space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
       <CardHeader item={item} isDone={false} />
 
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-400">SVG Prompt</span>
+          <span className="text-xs font-semibold text-muted-foreground">SVG Prompt</span>
           {item.svg_prompt && <CopyButton text={buildSvgGenerationPrompt(item.svg_prompt)} />}
         </div>
-        <div className="max-h-28 overflow-y-auto rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-xs text-gray-300 whitespace-pre-wrap">
+        <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
           {item.svg_prompt || '—'}
         </div>
       </div>
 
       <div>
-        <span className="mb-1 block text-xs font-semibold text-gray-400">AI&apos;den dönen SVG kodunu buraya yapıştır</span>
+        <span className="mb-1 block text-xs font-semibold text-muted-foreground">AI&apos;den dönen SVG kodunu buraya yapıştır</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <textarea
             value={svgContent}
@@ -138,9 +138,9 @@ function PendingSvgCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () 
             rows={5}
             placeholder="<svg ...>...</svg>"
             spellCheck={false}
-            className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 font-mono text-xs text-white outline-none focus:border-indigo-500"
+            className="w-full rounded-xl border border-border bg-surface px-3 py-2 font-mono text-xs text-foreground outline-none focus:border-indigo-500"
           />
-          <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-white/10 bg-white p-3">
+          <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-border bg-white p-3">
             {!clean ? (
               <span className="text-xs text-gray-400">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>
             ) : (
@@ -152,19 +152,19 @@ function PendingSvgCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () 
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">Konum:</span>
-          <label className="flex items-center gap-1 text-xs text-gray-300">
+          <span className="text-xs text-muted-foreground">Konum:</span>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
             <input type="radio" name={`pos-${item.id}`} checked={svgPosition === 'above'} onChange={() => setSvgPosition('above')} className="accent-indigo-500" />
             Üstte
           </label>
-          <label className="flex items-center gap-1 text-xs text-gray-300">
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
             <input type="radio" name={`pos-${item.id}`} checked={svgPosition === 'below'} onChange={() => setSvgPosition('below')} className="accent-indigo-500" />
             Altta
           </label>
         </div>
         <div className="flex items-center gap-3">
           {item.href && (
-            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-400 hover:text-white">
+            <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-muted-foreground hover:text-foreground">
               Soru Bankasında Göster ↗
             </a>
           )}
@@ -220,7 +220,7 @@ export default function SvgQuestionsPanel() {
             key={t.key}
             onClick={() => setStatus(t.key)}
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-              status === t.key ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+              status === t.key ? 'bg-indigo-500 text-white' : 'bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             {t.label}
@@ -238,10 +238,10 @@ export default function SvgQuestionsPanel() {
           {notice.text}
         </div>
       )}
-      {items === null && <p className="text-sm text-gray-400 py-8 text-center">Yükleniyor...</p>}
+      {items === null && <p className="text-sm text-muted-foreground py-8 text-center">Yükleniyor...</p>}
       {items && items.length === 0 && !error && (
-        <div className="rounded-2xl border border-white/5 bg-[#111114] p-8 sm:p-12 text-center">
-          <p className="text-sm text-gray-400">
+        <div className="rounded-2xl border border-border bg-card p-8 sm:p-12 text-center">
+          <p className="text-sm text-muted-foreground">
             {status === 'pending' ? 'Bekleyen SVG sorusu yok 🎉' : status === 'done' ? 'Henüz tamamlanan SVG sorusu yok' : 'SVG istenen soru yok'}
           </p>
         </div>

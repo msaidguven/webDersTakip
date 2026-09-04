@@ -150,7 +150,7 @@ export default function SearchTab() {
           onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
           placeholder="Soru veya içerik metni ara..."
           autoFocus
-          className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-indigo-500"
+          className="flex-1 bg-surface border border-border rounded-xl px-4 py-3 text-foreground text-sm outline-none focus:border-indigo-500"
         />
         <button
           onClick={handleSearchSubmit}
@@ -161,16 +161,16 @@ export default function SearchTab() {
       </div>
 
       {/* Filters */}
-      <div className="bg-[#111114] rounded-xl border border-white/5 p-3 sm:p-4 mb-6 flex flex-wrap gap-3 items-end">
+      <div className="bg-card rounded-xl border border-border p-3 sm:p-4 mb-6 flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Kapsam</label>
+          <label className="text-muted-foreground text-xs">Kapsam</label>
           <div className="flex gap-1.5">
             {SCOPE_OPTIONS.map((o) => (
               <button
                 key={o.key}
                 onClick={() => handleScopeChange(o.key)}
                 className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-                  scope === o.key ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                  scope === o.key ? 'bg-indigo-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
                 {o.label}
@@ -194,17 +194,17 @@ export default function SearchTab() {
         </div>
       )}
 
-      {loading && <p className="text-gray-400 text-sm">Aranıyor...</p>}
+      {loading && <p className="text-muted-foreground text-sm">Aranıyor...</p>}
 
       {!loading && searched && !error && (
-        <p className="text-gray-500 text-xs mb-4">&quot;{query}&quot; için {totalResults} sonuç bulundu</p>
+        <p className="text-muted-foreground text-xs mb-4">&quot;{query}&quot; için {totalResults} sonuç bulundu</p>
       )}
 
       {!loading && scope !== 'contents' && questions.items.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold flex items-center gap-2">
-              ❓ Sorular <span className="text-gray-500 text-xs font-normal">({questions.total}{questions.truncated ? '+' : ''})</span>
+            <h3 className="text-foreground font-semibold flex items-center gap-2">
+              ❓ Sorular <span className="text-muted-foreground text-xs font-normal">({questions.total}{questions.truncated ? '+' : ''})</span>
             </h3>
             {scope === 'all' && questions.total > questions.items.length && (
               <button onClick={() => handleSeeAll('questions')} className="text-indigo-400 hover:text-indigo-300 text-xs font-medium">
@@ -214,17 +214,17 @@ export default function SearchTab() {
           </div>
           <div className="space-y-2">
             {questions.items.map((q) => (
-              <div key={q.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
+              <div key={q.id} className="bg-card rounded-xl border border-border p-4 flex items-start justify-between gap-3 hover:border-border transition-all">
                 <div className="min-w-0">
-                  <p className="text-gray-200 text-sm line-clamp-2">{q.question_text}</p>
-                  <p className="text-gray-500 text-xs mt-1">{[q.topicTitle, q.typeCode].filter(Boolean).join(' • ')}</p>
+                  <p className="text-foreground text-sm line-clamp-2">{q.question_text}</p>
+                  <p className="text-muted-foreground text-xs mt-1">{[q.topicTitle, q.typeCode].filter(Boolean).join(' • ')}</p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2">
                   {q.href && (
                     <Link
                       href={q.href}
                       target="_blank"
-                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs whitespace-nowrap"
+                      className="px-3 py-1.5 bg-muted hover:bg-accent text-muted-foreground rounded-lg text-xs whitespace-nowrap"
                     >
                       Soru Bankasında Aç ↗
                     </Link>
@@ -248,8 +248,8 @@ export default function SearchTab() {
       {!loading && scope !== 'questions' && contents.items.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold flex items-center gap-2">
-              📝 İçerikler <span className="text-gray-500 text-xs font-normal">({contents.total}{contents.truncated ? '+' : ''})</span>
+            <h3 className="text-foreground font-semibold flex items-center gap-2">
+              📝 İçerikler <span className="text-muted-foreground text-xs font-normal">({contents.total}{contents.truncated ? '+' : ''})</span>
             </h3>
             {scope === 'all' && contents.total > contents.items.length && (
               <button onClick={() => handleSeeAll('contents')} className="text-indigo-400 hover:text-indigo-300 text-xs font-medium">
@@ -259,10 +259,10 @@ export default function SearchTab() {
           </div>
           <div className="space-y-2">
             {contents.items.map((c) => (
-              <div key={c.id} className="bg-[#111114] rounded-xl border border-white/5 p-4 flex items-start justify-between gap-3 hover:border-white/10 transition-all">
+              <div key={c.id} className="bg-card rounded-xl border border-border p-4 flex items-start justify-between gap-3 hover:border-border transition-all">
                 <div className="min-w-0">
-                  <p className="text-gray-200 text-sm line-clamp-2">{c.title}</p>
-                  <p className="text-gray-500 text-xs mt-1">{[c.topicTitle, c.is_published ? 'Yayında' : 'Taslak'].filter(Boolean).join(' • ')}</p>
+                  <p className="text-foreground text-sm line-clamp-2">{c.title}</p>
+                  <p className="text-muted-foreground text-xs mt-1">{[c.topicTitle, c.is_published ? 'Yayında' : 'Taslak'].filter(Boolean).join(' • ')}</p>
                 </div>
                 {c.href ? (
                   <Link
@@ -273,7 +273,7 @@ export default function SearchTab() {
                     Ders Sayfasına Git ↗
                   </Link>
                 ) : (
-                  <span className="shrink-0 px-3 py-1.5 bg-white/5 text-gray-500 rounded-lg text-xs whitespace-nowrap cursor-not-allowed" title="Konu/ünite/ders/sınıf slug'ı eksik olduğu için sayfa linki oluşturulamadı">
+                  <span className="shrink-0 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs whitespace-nowrap cursor-not-allowed" title="Konu/ünite/ders/sınıf slug'ı eksik olduğu için sayfa linki oluşturulamadı">
                     Link yok
                   </span>
                 )}
@@ -287,8 +287,8 @@ export default function SearchTab() {
       )}
 
       {!loading && searched && !error && totalResults === 0 && (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Sonuç bulunamadı</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Sonuç bulunamadı</p>
         </div>
       )}
 
@@ -310,11 +310,11 @@ export default function SearchTab() {
 function SimpleSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: LookupRow[] }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-gray-400 text-xs">{label}</label>
+      <label className="text-muted-foreground text-xs">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm w-36 sm:w-44"
+        className="bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm w-36 sm:w-44"
       >
         <option value="">Tümü</option>
         {options.map((o) => (
@@ -335,17 +335,17 @@ function Pagination({ page, pageSize, total, onChange }: { page: number; pageSiz
       <button
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
-        className="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-xs sm:text-sm hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs sm:text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
       >
         ← Önceki
       </button>
-      <span className="text-gray-500 text-xs">
+      <span className="text-muted-foreground text-xs">
         Sayfa {page} / {totalPages} • {total} sonuç
       </span>
       <button
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
-        className="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-xs sm:text-sm hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs sm:text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Sonraki →
       </button>

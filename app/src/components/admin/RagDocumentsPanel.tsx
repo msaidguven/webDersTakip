@@ -195,8 +195,8 @@ export default function RagDocumentsPanel() {
         </div>
       )}
 
-      <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
-        <h3 className="text-white font-semibold mb-4">Sınıf, Ders ve Ünite Seç</h3>
+      <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+        <h3 className="text-foreground font-semibold mb-4">Sınıf, Ders ve Ünite Seç</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Select label="Sınıf" value={gradeId} onChange={setGradeId} options={grades} />
           <Select label="Ders" value={lessonId} onChange={setLessonId} options={lessons} disabled={gradeId == null} />
@@ -210,8 +210,8 @@ export default function RagDocumentsPanel() {
         </div>
 
         {units.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-white/5">
-            <p className="text-xs text-gray-500 mb-2">Ünite ilerlemesi — hangi ünitelerin NotebookLM metni eklendiğini gösterir, PDF yüklemesini kapsamaz:</p>
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">Ünite ilerlemesi — hangi ünitelerin NotebookLM metni eklendiğini gösterir, PDF yüklemesini kapsamaz:</p>
             <div className="flex flex-wrap gap-2">
               {units.map((u) => {
                 const done = readyUnitIds.has(u.id);
@@ -223,7 +223,7 @@ export default function RagDocumentsPanel() {
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                       done
                         ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                        : 'bg-muted border-border text-muted-foreground hover:border-muted-foreground/30'
                     } ${unitId === u.id ? 'ring-1 ring-indigo-400' : ''}`}
                   >
                     {done ? '✅' : '⬜'} {u.title}
@@ -236,10 +236,10 @@ export default function RagDocumentsPanel() {
       </div>
 
       {gradeId != null && lessonId != null && (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
+        <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-semibold">PDF Yükle (50MB altı)</h3>
-            <label className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-white/5 text-gray-500' : 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'}`}>
+            <h3 className="text-foreground font-semibold">PDF Yükle (50MB altı)</h3>
+            <label className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-muted text-muted-foreground' : 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'}`}>
               {uploading ? 'Yükleniyor…' : '+ PDF Yükle'}
               <input
                 type="file"
@@ -254,7 +254,7 @@ export default function RagDocumentsPanel() {
               />
             </label>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Aynı sınıf/ders için birden fazla cilt yükleyebilirsiniz (ör. &quot;Sosyal Bilgiler 1&quot;, &quot;Sosyal Bilgiler 2&quot;) — hepsi tek bir arama kapsamında birleşir. Supabase Free plan yükleme boyutu 50MB ile sınırlı; daha büyük PDF'ler için aşağıdaki NotebookLM akışını kullanın.
           </p>
         </div>
@@ -274,22 +274,22 @@ export default function RagDocumentsPanel() {
       )}
 
       {gradeId != null && lessonId != null && (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
-          <h3 className="text-white font-semibold mb-4">Kaynaklar</h3>
+        <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+          <h3 className="text-foreground font-semibold mb-4">Kaynaklar</h3>
           {loadingDocs ? (
-            <p className="text-gray-500 text-sm">Yükleniyor…</p>
+            <p className="text-muted-foreground text-sm">Yükleniyor…</p>
           ) : documents.length === 0 ? (
-            <p className="text-gray-500 text-sm">Bu sınıf/ders için henüz kaynak eklenmemiş.</p>
+            <p className="text-muted-foreground text-sm">Bu sınıf/ders için henüz kaynak eklenmemiş.</p>
           ) : (
             <div className="space-y-2">
               {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5">
+                <div key={doc.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-white text-sm truncate">{doc.title}</p>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-400 shrink-0">{SOURCE_LABEL[doc.source]}</span>
+                      <p className="text-foreground text-sm truncate">{doc.title}</p>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{SOURCE_LABEL[doc.source]}</span>
                     </div>
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-muted-foreground text-xs">
                       {unitTitleOf(doc) ? `${unitTitleOf(doc)} · ` : ''}
                       {doc.status === 'ready' && (doc.page_count ? `${doc.page_count} sayfa · ${doc.chunk_count} parça` : `${doc.chunk_count} parça`)}
                       {doc.status === 'failed' && doc.error_message}
@@ -373,19 +373,19 @@ function NotebookLmUnitUploader({
   }
 
   return (
-    <div className="bg-[#111114] rounded-2xl border border-white/5 p-4 sm:p-6">
-      <h3 className="text-white font-semibold mb-1">NotebookLM ile Ünite Ekle (50MB üstü PDF'ler için)</h3>
-      <p className="text-xs text-gray-500 mb-4">
+    <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+      <h3 className="text-foreground font-semibold mb-1">NotebookLM ile Ünite Ekle (50MB üstü PDF'ler için)</h3>
+      <p className="text-xs text-muted-foreground mb-4">
         Bu prompt&apos;u, kaynak olarak kitabın PDF&apos;ini yüklediğin NotebookLM notebook&apos;unda sor; dönen düz metni aşağıya yapıştırıp kaydet. Kitabı tamamen kapsamak için her üniteyi ayrı ayrı yapmanız gerekir.
       </p>
 
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-gray-400">Prompt</span>
+          <span className="text-xs text-muted-foreground">Prompt</span>
           <button
             onClick={handleCopy}
             disabled={loadingPrompt || !prompt}
-            className="text-xs px-3 py-1 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-40"
+            className="text-xs px-3 py-1 rounded-lg bg-muted text-muted-foreground hover:bg-accent disabled:opacity-40"
           >
             {copied ? 'Kopyalandı ✓' : 'Kopyala'}
           </button>
@@ -394,19 +394,19 @@ function NotebookLmUnitUploader({
           readOnly
           value={loadingPrompt ? 'Yükleniyor…' : prompt}
           rows={6}
-          className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono resize-none"
+          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground font-mono resize-none"
         />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">NotebookLM&apos;in düz metin çıktısını buraya yapıştır</label>
+        <label className="block text-xs text-muted-foreground mb-1.5">NotebookLM&apos;in düz metin çıktısını buraya yapıştır</label>
         <textarea
           value={pasted}
           onChange={(e) => setPasted(e.target.value)}
           rows={8}
           disabled={saving}
           placeholder="NotebookLM'den dönen metni buraya yapıştırın…"
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-60 resize-y"
+          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground disabled:opacity-60 resize-y"
         />
         <button
           onClick={handleSave}
@@ -431,16 +431,16 @@ function Select({
 }) {
   return (
     <div>
-      <label className="block text-xs text-gray-400 mb-1">{label}</label>
+      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
       <select
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-40"
+        className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground disabled:opacity-40"
       >
-        <option value="" className="bg-[#1a1a1e] text-white">Seçin…</option>
+        <option value="" className="bg-popover text-popover-foreground">Seçin…</option>
         {options.map((o) => (
-          <option key={o.id} value={o.id} className="bg-[#1a1a1e] text-white">{o.label}</option>
+          <option key={o.id} value={o.id} className="bg-popover text-popover-foreground">{o.label}</option>
         ))}
       </select>
     </div>

@@ -331,14 +331,14 @@ export default function CurriculumCalendarPanel() {
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* ---- Eğitim-Öğretim Yılı Başlangıcı ---- */}
-      <section className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+      <section className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
         <div className="flex items-start gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-lg shrink-0">
             🗓️
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-white">Eğitim-Öğretim Yılı Başlangıcı / Bitişi</h2>
-            <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
+            <h2 className="text-base sm:text-lg font-bold text-foreground">Eğitim-Öğretim Yılı Başlangıcı / Bitişi</h2>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
               1. haftanın Pazartesi tarihi ve okulun bittiği tarih. Sitedeki tüm &quot;kaçıncı hafta&quot; hesapları
               — aşağıdaki tatiller de dahil edilerek — buna göre yapılır; bitiş tarihi Kazanımlar modalinin
               gezinme sınırını belirler.
@@ -347,26 +347,26 @@ export default function CurriculumCalendarPanel() {
         </div>
 
         {loadingTerm ? (
-          <p className="text-gray-500 text-sm">Yükleniyor...</p>
+          <p className="text-muted-foreground text-sm">Yükleniyor...</p>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4 flex-wrap">
             <div className="flex-1 min-w-[140px] max-w-xs">
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">1. Hafta Başlangıcı</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">1. Hafta Başlangıcı</label>
               <input
                 type="date"
                 value={termStartInput}
                 onChange={(e) => setTermStartInput(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:[color-scheme:dark]"
               />
             </div>
 
             <div className="flex-1 min-w-[140px] max-w-xs">
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Okul Bitiş Tarihi</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Okul Bitiş Tarihi</label>
               <input
                 type="date"
                 value={termEndInput}
                 onChange={(e) => setTermEndInput(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:[color-scheme:dark]"
               />
             </div>
 
@@ -389,7 +389,7 @@ export default function CurriculumCalendarPanel() {
         )}
 
         {termUpdatedAt && (
-          <p className="text-gray-600 text-xs mt-3">Son güncelleme: {new Date(termUpdatedAt).toLocaleString('tr-TR')}</p>
+          <p className="text-muted-foreground text-xs mt-3">Son güncelleme: {new Date(termUpdatedAt).toLocaleString('tr-TR')}</p>
         )}
 
         {termNotice && (
@@ -406,15 +406,15 @@ export default function CurriculumCalendarPanel() {
       </section>
 
       {/* ---- Özel Haftalar ---- */}
-      <section className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+      <section className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center text-lg shrink-0">
               🏖️
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white">Özel Haftalar</h2>
-              <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Özel Haftalar</h2>
+              <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
                 Tatiller gerçek takvim tarihiyle girilir — kazanımlar hafta atlamadığı için sonraki haftaların
                 tarihi bu tatili otomatik hesaba katar.
               </p>
@@ -446,10 +446,10 @@ export default function CurriculumCalendarPanel() {
         )}
 
         {loadingItems ? (
-          <p className="text-gray-500 text-sm py-8 text-center">Yükleniyor...</p>
+          <p className="text-muted-foreground text-sm py-8 text-center">Yükleniyor...</p>
         ) : !visibleItems.length ? (
           <div className="text-center py-10 sm:py-14">
-            <p className="text-gray-500 text-sm">Henüz özel hafta eklenmemiş.</p>
+            <p className="text-muted-foreground text-sm">Henüz özel hafta eklenmemiş.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -466,35 +466,35 @@ export default function CurriculumCalendarPanel() {
                 <div
                   key={item.id}
                   className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border transition-all ${
-                    item.isActive ? 'bg-white/[0.03] border-white/5' : 'bg-white/[0.01] border-white/5 opacity-50'
+                    item.isActive ? 'bg-surface border-border' : 'border-border opacity-50'
                   }`}
                 >
                   <div className="flex items-center gap-3 sm:w-32 shrink-0">
                     {isBreak ? (
-                      <div className="w-11 h-11 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-lg">
+                      <div className="w-11 h-11 rounded-lg bg-surface flex items-center justify-center shrink-0 text-lg">
                         📅
                       </div>
                     ) : (
-                      <div className="w-11 h-11 rounded-lg bg-white/5 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase leading-none">Hafta</span>
-                        <span className="text-white font-bold text-sm leading-tight">{item.curriculumWeek}</span>
+                      <div className="w-11 h-11 rounded-lg bg-surface flex flex-col items-center justify-center shrink-0">
+                        <span className="text-[9px] text-muted-foreground font-bold uppercase leading-none">Hafta</span>
+                        <span className="text-foreground font-bold text-sm leading-tight">{item.curriculumWeek}</span>
                       </div>
                     )}
-                    {dateLabel && <span className="text-gray-500 text-xs sm:hidden">{dateLabel}</span>}
+                    {dateLabel && <span className="text-muted-foreground text-xs sm:hidden">{dateLabel}</span>}
                   </div>
 
-                  <div className="hidden sm:block text-gray-500 text-xs w-32 shrink-0">{dateLabel || '—'}</div>
+                  <div className="hidden sm:block text-muted-foreground text-xs w-32 shrink-0">{dateLabel || '—'}</div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${meta.badge}`}>
                         {meta.icon} {meta.label}
                       </span>
-                      <p className="text-white font-semibold text-sm truncate">{item.title}</p>
+                      <p className="text-foreground font-semibold text-sm truncate">{item.title}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-1">
-                      {item.subtitle && <p className="text-gray-400 text-xs truncate">{item.subtitle}</p>}
-                      <span className="text-gray-600 text-xs">
+                      {item.subtitle && <p className="text-muted-foreground text-xs truncate">{item.subtitle}</p>}
+                      <span className="text-muted-foreground text-xs">
                         {gradeLabel(item.gradeIds, grades)} · {item.lessonName || 'Tüm dersler'}
                       </span>
                     </div>
@@ -504,17 +504,17 @@ export default function CurriculumCalendarPanel() {
                     <button
                       onClick={() => toggleActive(item)}
                       title={item.isActive ? 'Pasifleştir' : 'Aktifleştir'}
-                      className={`relative w-10 h-6 rounded-full transition-colors ${item.isActive ? 'bg-indigo-500' : 'bg-white/10'}`}
+                      className={`relative w-10 h-6 rounded-full transition-colors ${item.isActive ? 'bg-indigo-500' : 'bg-input'}`}
                     >
                       <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background transition-transform ${
                           item.isActive ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
                     </button>
                     <button
                       onClick={() => openEdit(item)}
-                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all"
+                      className="p-2 rounded-lg bg-surface hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                       title="Düzenle"
                     >
                       ✏️
@@ -549,11 +549,11 @@ export default function CurriculumCalendarPanel() {
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-md p-4 sm:p-6">
-            <h3 className="text-lg font-bold text-white mb-2">&quot;{deleteTarget.title}&quot; silinsin mi?</h3>
-            <p className="text-gray-400 text-sm mb-4">Bu özel hafta kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
+          <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
+            <h3 className="text-lg font-bold text-foreground mb-2">&quot;{deleteTarget.title}&quot; silinsin mi?</h3>
+            <p className="text-muted-foreground text-sm mb-4">Bu özel hafta kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
             <div className="flex gap-2 sm:gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 text-sm">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2 rounded-xl bg-surface text-foreground hover:bg-accent text-sm">
                 Vazgeç
               </button>
               <button
@@ -576,7 +576,7 @@ function FilterPill({ active, label, onClick }: { active: boolean; label: string
     <button
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-        active ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+        active ? 'bg-indigo-500 text-white' : 'bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       {label}
@@ -590,7 +590,7 @@ function ChipToggle({ active, label, onClick }: { active: boolean; label: string
       type="button"
       onClick={onClick}
       className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
-        active ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+        active ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-surface border-border text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
       {label}
@@ -626,19 +626,19 @@ function FormModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-[#111114] rounded-xl sm:rounded-2xl border border-white/10 w-full max-w-lg p-4 sm:p-6 my-8">
-        <h3 className="text-lg font-bold text-white mb-4">{form.id ? 'Özel Haftayı Düzenle' : 'Yeni Özel Hafta'}</h3>
+      <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-lg p-4 sm:p-6 my-8">
+        <h3 className="text-lg font-bold text-foreground mb-4">{form.id ? 'Özel Haftayı Düzenle' : 'Yeni Özel Hafta'}</h3>
 
         <div className="space-y-3.5">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Tür</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tür</label>
             <select
               value={form.eventType}
               onChange={(e) => update('eventType', e.target.value as EventType)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
               {(Object.keys(EVENT_TYPE_META) as EventType[]).map((t) => (
-                <option key={t} value={t} className="bg-[#111114]">
+                <option key={t} value={t} className="bg-card">
                   {EVENT_TYPE_META[t].icon} {EVENT_TYPE_META[t].label}
                 </option>
               ))}
@@ -647,7 +647,7 @@ function FormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlangıç Tarihi</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Başlangıç Tarihi</label>
               <input
                 type="date"
                 value={form.startDate}
@@ -655,53 +655,53 @@ function FormModal({
                   const value = e.target.value;
                   setForm((prev) => (prev ? { ...prev, startDate: value, endDate: prev.endDate || value } : prev));
                 }}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:[color-scheme:dark]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Bitiş Tarihi {isBreak ? '' : '(opsiyonel)'}</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Bitiş Tarihi {isBreak ? '' : '(opsiyonel)'}</label>
               <input
                 type="date"
                 value={form.endDate}
                 onChange={(e) => update('endDate', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 [color-scheme:dark]"
+                className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:[color-scheme:dark]"
               />
             </div>
           </div>
           {isBreak ? (
-            <p className="text-gray-500 text-xs -mt-2">
+            <p className="text-muted-foreground text-xs -mt-2">
               Öğretim haftaları bu tarih aralığını atlamaz, sadece sonraki haftaların takvim tarihi bu kadar ileri kayar.
             </p>
           ) : (
-            <p className="text-gray-500 text-xs -mt-2">
+            <p className="text-muted-foreground text-xs -mt-2">
               {dateHint ? <>→ Bu tarih <span className="text-indigo-300 font-semibold">{dateHint}. haftaya</span> denk geliyor.</> : 'Başlangıç tarihini girin, hangi öğretim haftasına denk geldiği otomatik hesaplanacak.'}
             </p>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Başlık</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Başlık</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => update('title', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               placeholder="ör. Yarıyıl Tatili"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Alt Başlık (opsiyonel)</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Alt Başlık (opsiyonel)</label>
             <input
               type="text"
               value={form.subtitle}
               onChange={(e) => update('subtitle', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               placeholder="ör. 2 hafta sürer"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Sınıf(lar)</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sınıf(lar)</label>
             <div className="flex flex-wrap gap-1.5">
               <ChipToggle active={form.gradeIds.length === 0} label="Tüm sınıflar" onClick={() => update('gradeIds', [])} />
               {grades.map((g) => (
@@ -718,26 +718,26 @@ function FormModal({
           </div>
 
           <div className="max-w-[calc(50%-0.375rem)]">
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Ders</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Ders</label>
             <select
               value={form.lessonId}
               onChange={(e) => update('lessonId', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
-              <option value="" className="bg-[#111114]">Tüm dersler</option>
+              <option value="" className="bg-card">Tüm dersler</option>
               {lessons.map((l) => (
-                <option key={l.id} value={l.id} className="bg-[#111114]">{l.name}</option>
+                <option key={l.id} value={l.id} className="bg-card">{l.name}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">İçerik (opsiyonel, HTML)</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">İçerik (opsiyonel, HTML)</label>
             <textarea
               value={form.contentHtml}
               onChange={(e) => update('contentHtml', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 resize-none"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 resize-none"
               placeholder="Bu hafta özel olarak gösterilecek içerik (varsa)"
             />
           </div>
@@ -749,12 +749,12 @@ function FormModal({
               onChange={(e) => update('isActive', e.target.checked)}
               className="w-4 h-4 rounded accent-indigo-500"
             />
-            <span className="text-sm text-gray-300">Aktif (sitede/hesaplamalarda dikkate alınsın)</span>
+            <span className="text-sm text-muted-foreground">Aktif (sitede/hesaplamalarda dikkate alınsın)</span>
           </label>
         </div>
 
         <div className="flex gap-2 sm:gap-3 mt-6">
-          <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-all text-sm">
+          <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl bg-surface text-foreground hover:bg-accent transition-all text-sm">
             Vazgeç
           </button>
           <button

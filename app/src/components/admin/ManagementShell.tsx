@@ -21,7 +21,7 @@ export default function ManagementShell() {
             key={s.key}
             onClick={() => setSection(s.key)}
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-              section === s.key ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+              section === s.key ? 'bg-indigo-500 text-white' : 'bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             {s.label}
@@ -31,8 +31,8 @@ export default function ManagementShell() {
 
       {section === 'bulk-delete' && <BulkDeletePanel />}
       {section === 'single-delete' && (
-        <div className="bg-[#111114] rounded-xl border border-white/5 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-sm">Yakında</p>
+        <div className="bg-card rounded-xl border border-border p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground text-sm">Yakında</p>
         </div>
       )}
     </div>

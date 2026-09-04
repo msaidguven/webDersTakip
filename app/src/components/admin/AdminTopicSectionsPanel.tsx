@@ -158,7 +158,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#2e3348] bg-[#1a1d27]/60 p-6 text-sm text-[#8b90a7]">
+      <div className="rounded-2xl border border-dashed border-border bg-card/60 p-6 text-sm text-muted-foreground">
         Yönetim paneli yükleniyor...
       </div>
     );
@@ -173,11 +173,11 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const outcomesSpanMultipleWeeks = distinctWeekRanges.size > 1;
 
   return (
-    <div className="rounded-2xl border border-dashed border-[#6c63ff]/40 bg-[#15121f] p-6">
+    <div className="rounded-2xl border border-dashed border-[#6c63ff]/40 bg-background p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-[#b5b0ff]">Admin</div>
-          <h3 className="text-lg font-black text-[#e8eaf0]">Alt Başlık &amp; İçerik Yönetimi</h3>
+          <h3 className="text-lg font-black text-foreground">Alt Başlık &amp; İçerik Yönetimi</h3>
         </div>
         {bundle.topicContent && (
           <button
@@ -196,9 +196,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       </div>
 
       {/* Kazanımlar */}
-      <div className="mb-5 rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
+      <div className="mb-5 rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7]">Kazanımlar</span>
+          <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Kazanımlar</span>
           {bundle.missingCodeCount > 0 && (
             <button
               onClick={handleAssignCodes}
@@ -216,16 +216,16 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           </p>
         )}
         {bundle.outcomes.length === 0 ? (
-          <p className="text-xs text-[#8b90a7]">Bu konu için tanımlı kazanım bulunamadı.</p>
+          <p className="text-xs text-muted-foreground">Bu konu için tanımlı kazanım bulunamadı.</p>
         ) : (
           <ul className="space-y-1.5">
             {bundle.outcomes.map((o) => (
-              <li key={o.id} className="flex items-start gap-2 text-xs text-[#c8cad8]">
-                <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono font-bold ${o.code ? 'bg-[#222636] text-[#b5b0ff]' : 'bg-amber-400/10 text-amber-300'}`}>
+              <li key={o.id} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono font-bold ${o.code ? 'bg-surface-elevated text-[#b5b0ff]' : 'bg-amber-400/10 text-amber-300'}`}>
                   {o.code || `${o.previewCode}?`}
                 </span>
                 <span className="flex-1">{o.description}</span>
-                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${o.startWeek == null ? 'bg-amber-400/10 text-amber-300' : 'bg-[#222636] text-[#8b90a7]'}`}>
+                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${o.startWeek == null ? 'bg-amber-400/10 text-amber-300' : 'bg-surface-elevated text-muted-foreground'}`}>
                   {outcomeWeekLabel(o)}
                 </span>
               </li>
@@ -236,12 +236,12 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {/* Plan oluştur */}
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7]">Alt Başlıklar</span>
+        <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Alt Başlıklar</span>
         <button
           onClick={() => setPlanModalOpen(true)}
           disabled={!canCreatePlan}
           title={!canCreatePlan ? 'Önce tüm kazanımlara kod atanmalı' : undefined}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#6c63ff] bg-[#6c63ff]/20 px-4 py-2 text-xs font-extrabold text-[#e8eaf0] hover:bg-[#6c63ff]/30 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#6c63ff] bg-[#6c63ff]/20 px-4 py-2 text-xs font-extrabold text-foreground hover:bg-[#6c63ff]/30 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
         >
           {bundle.sections.length ? <RefreshCw className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
           {bundle.sections.length ? 'Planı Yeniden Oluştur' : 'Alt Başlık Planı Oluştur'}
@@ -249,38 +249,38 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       </div>
 
       {bundle.sections.length === 0 ? (
-        <p className="text-sm text-[#8b90a7]">
+        <p className="text-sm text-muted-foreground">
           {canCreatePlan
             ? 'Bu konu için henüz alt başlık planı yok. Yukarıdaki butonla 1. prompt’u kopyalayıp AI’a verin, sonucu yapıştırıp kaydedin.'
             : 'Plan oluşturmadan önce yukarıdaki "Eksik Kodları Ata" butonuyla tüm kazanımlara kod atayın.'}
         </p>
       ) : (
-        <div className="rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
-          <p className="mb-3 text-xs text-[#8b90a7]">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="mb-3 text-xs text-muted-foreground">
             AI ile içerik/görsel oluşturma soldaki içindekiler menüsünde ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
             Küçük düzeltme veya eklemeler için aşağıda her alt başlığın yanındaki <Pencil className="inline h-3 w-3 align-[-1px]" /> simgesiyle içeriği doğrudan (AI&apos;a gitmeden) düzenleyebilirsiniz.
           </p>
           {/* Ağacın kökü: ana konu */}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base leading-none">📘</span>
-            <span className="text-sm font-black text-[#e8eaf0]">{bundle.topic.title}</span>
+            <span className="text-sm font-black text-foreground">{bundle.topic.title}</span>
           </div>
 
           {/* Alt başlıklar: ana konunun altında hiyerarşik dallar */}
-          <div className="ml-3 border-l border-[#2e3348] pl-4 space-y-2.5">
+          <div className="ml-3 border-l border-border pl-4 space-y-2.5">
             {bundle.sections.map((section, idx) => (
               <div key={section.id} className="relative">
-                <span className="absolute -left-4 top-[18px] h-px w-4 bg-[#2e3348]" />
-                <div className="flex items-start gap-3 rounded-xl border border-[#2e3348] bg-[#12151f] px-4 py-3">
-                  <div className="h-7 w-7 shrink-0 rounded-lg bg-[#222636] border border-[#2e3348] flex items-center justify-center text-xs font-black text-[#8b90a7] mt-0.5">
+                <span className="absolute -left-4 top-[18px] h-px w-4 bg-border" />
+                <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
+                  <div className="h-7 w-7 shrink-0 rounded-lg bg-surface-elevated border border-border flex items-center justify-center text-xs font-black text-muted-foreground mt-0.5">
                     {idx + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-[#e8eaf0] truncate">{section.heading}</div>
+                    <div className="text-sm font-bold text-foreground truncate">{section.heading}</div>
                     {section.outcomes.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {section.outcomes.map((o) => (
-                          <span key={o.id} className="rounded bg-[#222636] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#b5b0ff]" title={o.description}>
+                          <span key={o.id} className="rounded bg-surface-elevated px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#b5b0ff]" title={o.description}>
                             {o.code}
                           </span>
                         ))}
@@ -397,15 +397,15 @@ export function SectionContentEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl border border-[#2e3348] bg-[#12151f] p-6 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-5xl rounded-2xl border border-border bg-surface-elevated p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-base font-black text-[#e8eaf0]">İçeriği Düzenle — {section.heading}</h4>
-          <button onClick={onClose} className="text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <h4 className="text-base font-black text-foreground">İçeriği Düzenle — {section.heading}</h4>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mb-4 text-xs text-[#8b90a7] leading-relaxed">
+        <p className="mb-4 text-xs text-muted-foreground leading-relaxed">
           Küçük düzeltme/eklemeler için metni doğrudan değiştirebilirsiniz. Tasarımın bozulmaması için mevcut biçimi koruyun:
           kalın terim için <code className="text-[#b5b0ff]">**terim**: açıklama</code>, madde için satır başında{' '}
           <code className="text-[#b5b0ff]">- </code>, alt madde için bir kademe içeri{' '}
@@ -416,17 +416,17 @@ export function SectionContentEditModal({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#8b90a7] block mb-1.5">Markdown</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Markdown</span>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={18}
-              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+              className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
             />
           </div>
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide text-[#8b90a7] block mb-1.5">Önizleme</span>
-            <div className="rounded-xl border border-[#2e3348] bg-[#f9fafb] p-4 max-h-[420px] overflow-y-auto">
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
+            <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[420px] overflow-y-auto">
               {previewHtml ? (
                 <SectionContent html={previewHtml} imageUrl={section.image_url} caption={section.heading} diagramSvg={section.diagram_svg} />
               ) : (
@@ -439,7 +439,7 @@ export function SectionContentEditModal({
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#c8cad8] hover:bg-[#1a1d27] transition-colors"
+            className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-accent transition-colors"
           >
             Vazgeç
           </button>
@@ -603,17 +603,17 @@ function HeroHighlightsPanel({
   }
 
   return (
-    <div className="mb-5 rounded-xl border border-[#2e3348] bg-[#1a1d27] p-4">
-      <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-[#8b90a7] block mb-3">Kapak Görseli &amp; Anahtar Kavramlar</span>
+    <div className="mb-5 rounded-xl border border-border bg-card p-4">
+      <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground block mb-3">Kapak Görseli &amp; Anahtar Kavramlar</span>
 
       <div className="mb-4">
-        <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Alt Başlık (konu başlığının hemen altında görünür)</span>
+        <span className="text-xs font-bold text-muted-foreground block mb-1.5">Alt Başlık (konu başlığının hemen altında görünür)</span>
         <div className="flex gap-2">
           <input
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
             placeholder="Örn. Bilgisayarın beyni"
-            className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-[#6c63ff] outline-none"
           />
           <button
             onClick={handleSubtitleSave}
@@ -626,7 +626,7 @@ function HeroHighlightsPanel({
       </div>
 
       <div className="mb-4">
-        <span className="text-xs font-bold text-[#8b90a7] block mb-1.5">Kapak Görseli</span>
+        <span className="text-xs font-bold text-muted-foreground block mb-1.5">Kapak Görseli</span>
         {heroImagePrompt && (
           <div className="mb-3">
             <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI görsel üretim promptu (kopyalayıp bir görsel aracına verin)</span>
@@ -636,7 +636,7 @@ function HeroHighlightsPanel({
         <div className="space-y-3">
           {heroUrl && (
             <div className="flex items-center gap-3">
-              <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
+              <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-border" />
               <button
                 onClick={handleHeroRemove}
                 disabled={heroBusy}
@@ -651,7 +651,7 @@ function HeroHighlightsPanel({
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
               onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-              className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+              className="flex-1 text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-surface-elevated file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-foreground"
             />
             <button
               onClick={handleHeroUpload}
@@ -676,25 +676,25 @@ function HeroHighlightsPanel({
       </div>
 
       <div>
-        <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+        <span className="text-xs font-bold text-muted-foreground block mb-2">
           Anahtar Kavramlar (opsiyonel — konunun en önemli terimleri ve tanımları)
         </span>
         <div className="space-y-3">
           {concepts.map((c, idx) => (
-            <div key={idx} className="rounded-lg border border-[#2e3348] bg-[#12151f] p-3">
+            <div key={idx} className="rounded-lg border border-border bg-surface-elevated p-3">
               <div className="flex gap-2 mb-2">
                 <input
                   value={c.icon}
                   onChange={(e) => updateConcept(idx, 'icon', e.target.value)}
                   placeholder="🧠"
                   maxLength={4}
-                  className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-1.5 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+                  className="w-14 shrink-0 rounded-lg border border-border bg-surface px-2 py-1.5 text-center text-sm text-foreground focus:border-[#6c63ff] outline-none"
                 />
                 <input
                   value={c.title}
                   onChange={(e) => updateConcept(idx, 'title', e.target.value)}
                   placeholder="Kavram / terim"
-                  className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+                  className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
                 />
                 <button
                   type="button"
@@ -710,7 +710,7 @@ function HeroHighlightsPanel({
                 onChange={(e) => updateConcept(idx, 'description', e.target.value)}
                 placeholder="Açıklama / tanım"
                 rows={2}
-                className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-1.5 text-xs text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-foreground resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
           ))}
@@ -718,7 +718,7 @@ function HeroHighlightsPanel({
         <button
           type="button"
           onClick={addConcept}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#2e3348] px-3 py-1.5 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] hover:border-[#6c63ff]/40 transition-colors"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:border-[#6c63ff]/40 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" /> Kavram Ekle
         </button>
@@ -738,10 +738,10 @@ function HeroHighlightsPanel({
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-[#2e3348] bg-[#12151f] p-6 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-xl rounded-2xl border border-border bg-surface-elevated p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-base font-black text-[#e8eaf0]">{title}</h4>
-          <button onClick={onClose} className="text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <h4 className="text-base font-black text-foreground">{title}</h4>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -767,7 +767,7 @@ export function PromptCopyBox({ prompt, loading }: { prompt: string; loading: bo
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-[#8b90a7]">Prompt</span>
+        <span className="text-xs font-bold text-muted-foreground">Prompt</span>
         <button
           onClick={handleCopy}
           disabled={loading || !prompt}
@@ -781,7 +781,7 @@ export function PromptCopyBox({ prompt, loading }: { prompt: string; loading: bo
         readOnly
         value={loading ? 'Yükleniyor...' : prompt}
         rows={6}
-        className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#c8cad8] font-mono resize-none"
+        className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-muted-foreground font-mono resize-none"
       />
     </div>
   );
@@ -903,7 +903,7 @@ export function PlanModal({
             <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
             <div>
-              <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+              <span className="text-xs font-bold text-muted-foreground block mb-2">
                 AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
               </span>
               <textarea
@@ -911,7 +911,7 @@ export function PlanModal({
                 onChange={(e) => setPasted(e.target.value)}
                 rows={8}
                 placeholder='{"sections": [...], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
-                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
 
@@ -924,13 +924,13 @@ export function PlanModal({
           {onManageMore ? (
             <button
               onClick={onManageMore}
-              className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
+              className="text-xs font-bold text-muted-foreground hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
             >
               Kazanım / kapak görseli / anahtar kavramlar yönetimi
             </button>
           ) : <span />}
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               İptal
             </button>
             {!missingCodes && (
@@ -1078,13 +1078,13 @@ export function NotebookPlanModal({
           </div>
         ) : (
           <>
-            <p className="text-xs text-[#8b90a7]">
+            <p className="text-xs text-muted-foreground">
               Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Alt başlıklar, her başlığın içeriği ve görsel promptları TEK seferde JSON olarak gelir; aşağıya yapıştırıp tek seferde kaydedin.
             </p>
             <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
             <div>
-              <span className="text-xs font-bold text-[#8b90a7] block mb-2">
+              <span className="text-xs font-bold text-muted-foreground block mb-2">
                 NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
               </span>
               <textarea
@@ -1092,18 +1092,18 @@ export function NotebookPlanModal({
                 onChange={(e) => setPasted(e.target.value)}
                 rows={10}
                 placeholder='{"ai_model": "...", "sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
-                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+              <span className="text-xs font-bold text-muted-foreground block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
               <input
                 list="ai-model-options-notebook"
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
                 placeholder="ör. NotebookLM"
-                className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+                className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
               />
               <datalist id="ai-model-options-notebook">
                 <option value="NotebookLM" />
@@ -1123,13 +1123,13 @@ export function NotebookPlanModal({
           {onManageMore ? (
             <button
               onClick={onManageMore}
-              className="text-xs font-bold text-[#8b90a7] hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
+              className="text-xs font-bold text-muted-foreground hover:text-[#b5b0ff] transition-colors underline underline-offset-2"
             >
               Kazanım / kapak görseli / anahtar kavramlar yönetimi
             </button>
           ) : <span />}
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               İptal
             </button>
             {!missingCodes && (
@@ -1259,7 +1259,7 @@ export function QuestionsModal({
   return (
     <ModalShell title={`Soru Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-xs text-[#8b90a7]">
+        <p className="text-xs text-muted-foreground">
           {isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru kitaba dayanarak üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : 'Tek promptla çoktan seçmeli, boşluk doldurma ve eşleştirme karışık 3-7 soru üretilir; AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
@@ -1272,24 +1272,24 @@ export function QuestionsModal({
         )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={12}
             placeholder={MIXED_QUESTIONS_PLACEHOLDER}
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
             list={isNotebook ? 'ai-model-options-notebook-questions' : 'ai-model-options-questions'}
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
             placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
           />
           {isNotebook ? (
             <datalist id="ai-model-options-notebook-questions">
@@ -1309,7 +1309,7 @@ export function QuestionsModal({
         {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             Kapat
           </button>
           <button
@@ -1434,7 +1434,7 @@ export function SectionModal({
     <ModalShell title={`İçerik Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         {isNotebook && (
-          <p className="text-xs text-[#8b90a7]">
+          <p className="text-xs text-muted-foreground">
             Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun; içerik kitaba dayanarak üretilir.
           </p>
         )}
@@ -1442,24 +1442,24 @@ export function SectionModal({
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={8}
             placeholder='{"body_markdown": "...", "ai_model": "..."}'
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
             list={isNotebook ? 'ai-model-options-notebook-section' : 'ai-model-options'}
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
             placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
           />
           {isNotebook ? (
             <datalist id="ai-model-options-notebook-section">
@@ -1478,7 +1478,7 @@ export function SectionModal({
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             İptal
           </button>
           <button
@@ -1547,9 +1547,9 @@ function ImageGalleryGrid({
     }
   }
 
-  if (loading) return <p className="text-xs text-[#8b90a7]">Galeri yükleniyor...</p>;
+  if (loading) return <p className="text-xs text-muted-foreground">Galeri yükleniyor...</p>;
   if (error) return <p className="text-xs font-bold text-[#ff6584]">{error}</p>;
-  if (!items.length) return <p className="text-xs text-[#8b90a7]">Bu ünitede henüz başka görsel yok.</p>;
+  if (!items.length) return <p className="text-xs text-muted-foreground">Bu ünitede henüz başka görsel yok.</p>;
 
   return (
     <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
@@ -1558,13 +1558,13 @@ function ImageGalleryGrid({
           <button
             type="button"
             onClick={() => onSelect(item.path)}
-            className="block w-full aspect-square overflow-hidden rounded-lg border border-[#2e3348] hover:border-[#6c63ff] transition-colors"
+            className="block w-full aspect-square overflow-hidden rounded-lg border border-border hover:border-[#6c63ff] transition-colors"
             title={item.inUse ? 'Kullanımda' : 'Kullanılmıyor'}
           >
             <img src={item.url} alt="" className="h-full w-full object-cover" />
           </button>
           {item.inUse && (
-            <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-bold text-[#c8cad8]">
+            <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-bold text-muted-foreground">
               kullanımda
             </span>
           )}
@@ -1742,7 +1742,7 @@ export function ImageModal({
   return (
     <ModalShell title={`Görsel Ekle — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-xs text-[#8b90a7]">
+        <p className="text-xs text-muted-foreground">
           Önce bu promptu bir AI&apos;a sorun; hem görsel üretim promptunu hem de görselin kısa Türkçe alt metnini (SEO/erişilebilirlik için) JSON olarak üretir. Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı image_prompt&apos;un sonuna otomatik eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
         </p>
 
@@ -1753,13 +1753,13 @@ export function ImageModal({
         )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={rawPrompt}
             onChange={(e) => setRawPrompt(e.target.value)}
             rows={5}
             placeholder='{"image_prompt": "A clean, educational illustration of ...", "alt_text": "..."}'
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
           <button
             type="button"
@@ -1780,17 +1780,17 @@ export function ImageModal({
         )}
 
         {savedImageAlt && (
-          <p className="text-xs text-[#8b90a7]">
+          <p className="text-xs text-muted-foreground">
             <span className="font-bold text-[#6c63ff]">Alt metin:</span> {savedImageAlt}
           </p>
         )}
 
-        <div className="border-t border-[#2e3348] pt-4 space-y-3">
-          <span className="text-xs font-bold text-[#8b90a7] block">Görsel Dosyası</span>
+        <div className="border-t border-border pt-4 space-y-3">
+          <span className="text-xs font-bold text-muted-foreground block">Görsel Dosyası</span>
 
           {imageUrl && (
             <div className="flex items-center gap-3">
-              <img src={imageUrl} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#2e3348]" />
+              <img src={imageUrl} alt="" className="h-20 w-20 rounded-lg object-cover border border-border" />
               <button
                 type="button"
                 onClick={handleImageRemove}
@@ -1807,7 +1807,7 @@ export function ImageModal({
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
               onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-              className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+              className="flex-1 text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-surface-elevated file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-foreground"
             />
             <button
               type="button"
@@ -1834,7 +1834,7 @@ export function ImageModal({
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             Kapat
           </button>
         </div>
@@ -1946,7 +1946,7 @@ export function DiagramModal({
   return (
     <ModalShell title={`Diyagram Ekle — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-xs text-[#8b90a7]">
+        <p className="text-xs text-muted-foreground">
           Önce bu promptu bir AI&apos;a sorun; ders notundaki sayı/ölçüyle birebir tutarlı bir SVG diyagram kodu üretir
           (sayı doğrusu, kesir modeli, ölçü etiketli şekil vb.). Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin —
           harici bir görsel aracına gitmenize gerek yok, kod doğrudan sayfada render edilir.
@@ -1959,13 +1959,13 @@ export function DiagramModal({
         )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={rawPrompt}
             onChange={(e) => setRawPrompt(e.target.value)}
             rows={6}
             placeholder='{"diagram_svg": "<svg viewBox=\"0 0 300 160\">...</svg>"}'
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
           <button
             type="button"
@@ -1979,10 +1979,10 @@ export function DiagramModal({
         </div>
 
         {savedSvg && (
-          <div className="border-t border-[#2e3348] pt-4">
-            <span className="text-xs font-bold text-[#8b90a7] block mb-2">Kayıtlı diyagram</span>
+          <div className="border-t border-border pt-4">
+            <span className="text-xs font-bold text-muted-foreground block mb-2">Kayıtlı diyagram</span>
             <div
-              className="rounded-lg border border-[#2e3348] bg-white p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs"
+              className="rounded-lg border border-border bg-white p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs"
               dangerouslySetInnerHTML={{ __html: sanitizeMathSvg(savedSvg) || '' }}
             />
             <button
@@ -1997,7 +1997,7 @@ export function DiagramModal({
         )}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             Kapat
           </button>
         </div>
@@ -2184,16 +2184,16 @@ export function TopicCoverImageModal({
   return (
     <ModalShell title="Konu Kapak Görseli" onClose={onClose}>
       {loadingBundle ? (
-        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+        <p className="text-sm text-muted-foreground">Yükleniyor...</p>
       ) : bundleError ? (
         <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
       ) : !topicContentId ? (
-        <p className="text-sm text-[#8b90a7]">
+        <p className="text-sm text-muted-foreground">
           Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
         </p>
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-[#8b90a7]">
+          <p className="text-xs text-muted-foreground">
             Önce bu promptu bir AI&apos;a sorun; hem görsel üretim promptunu hem de görselin kısa Türkçe alt metnini (SEO/erişilebilirlik için) JSON olarak üretir. Ardından AI&apos;dan gelen JSON&apos;u aşağıya yapıştırıp kaydedin — &quot;görselde yazı varsa Türkçe olsun&quot; kuralı image_prompt&apos;un sonuna otomatik eklenir. Son olarak hazır promptu bir görsel üretim aracına verip görseli yükleyin.
           </p>
 
@@ -2204,13 +2204,13 @@ export function TopicCoverImageModal({
           )}
 
           <div>
-            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+            <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
             <textarea
               value={rawPrompt}
               onChange={(e) => setRawPrompt(e.target.value)}
               rows={5}
               placeholder='{"image_prompt": "A clean, educational illustration of ...", "alt_text": "..."}'
-              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+              className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
             />
             <button
               type="button"
@@ -2231,17 +2231,17 @@ export function TopicCoverImageModal({
           )}
 
           {savedAlt && (
-            <p className="text-xs text-[#8b90a7]">
+            <p className="text-xs text-muted-foreground">
               <span className="font-bold text-[#6c63ff]">Alt metin:</span> {savedAlt}
             </p>
           )}
 
-          <div className="border-t border-[#2e3348] pt-4 space-y-3">
-            <span className="text-xs font-bold text-[#8b90a7] block">Görsel Dosyası</span>
+          <div className="border-t border-border pt-4 space-y-3">
+            <span className="text-xs font-bold text-muted-foreground block">Görsel Dosyası</span>
 
             {heroUrl && (
               <div className="flex items-center gap-3">
-                <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-[#2e3348]" />
+                <img src={heroUrl} alt="" className="h-20 w-32 rounded-lg object-cover border border-border" />
                 <button
                   type="button"
                   onClick={handleHeroRemove}
@@ -2258,7 +2258,7 @@ export function TopicCoverImageModal({
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-                className="flex-1 text-xs text-[#c8cad8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#222636] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#e8eaf0]"
+                className="flex-1 text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-surface-elevated file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-foreground"
               />
               <button
                 type="button"
@@ -2285,7 +2285,7 @@ export function TopicCoverImageModal({
           </div>
 
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               Kapat
             </button>
           </div>
@@ -2413,16 +2413,16 @@ export function TopicHighlightsModal({
   return (
     <ModalShell title="Anahtar Kavramları Güncelle" onClose={onClose}>
       {loadingBundle ? (
-        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+        <p className="text-sm text-muted-foreground">Yükleniyor...</p>
       ) : bundleError ? (
         <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
       ) : !topicContentId ? (
-        <p className="text-sm text-[#8b90a7]">
+        <p className="text-sm text-muted-foreground">
           Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
         </p>
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-[#8b90a7]">
+          <p className="text-xs text-muted-foreground">
             Bu prompt SADECE anahtar kavramları üretir; konunun diğer alanlarına (alt başlık, ders notu, kapak görseli) dokunmadan sadece bu listeyi günceller. AI çıktısını aşağıya yapıştırıp kaydedin — mevcut kavramların yerine geçer.
           </p>
 
@@ -2433,13 +2433,13 @@ export function TopicHighlightsModal({
           )}
 
           <div>
-            <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+            <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
             <textarea
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
               rows={10}
               placeholder='{"highlights": [{"icon": "🧠", "title": "...", "description": "..."}]}'
-              className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+              className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
             />
           </div>
 
@@ -2447,7 +2447,7 @@ export function TopicHighlightsModal({
           {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} kavram kaydedildi.</p>}
 
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               Kapat
             </button>
             <button
@@ -2560,7 +2560,7 @@ export function TopicQuestionsModal({
   return (
     <ModalShell title={`Genel Sorular (Ünite Testi)${isNotebook ? '' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-xs text-[#8b90a7]">
+        <p className="text-xs text-muted-foreground">
           {isNotebook
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'
             : 'Bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI\'a sorun — konunun tüm alt başlıklarının ders notu prompt içine gömülür. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 10-15 sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'}
@@ -2573,24 +2573,24 @@ export function TopicQuestionsModal({
         )}
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
           <textarea
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={12}
             placeholder={MIXED_QUESTIONS_PLACEHOLDER}
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-3 text-xs text-[#e8eaf0] font-mono resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
 
         <div>
-          <span className="text-xs font-bold text-[#8b90a7] block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI modeli (JSON&apos;daki &quot;ai_model&quot;den otomatik alınır, gerekirse düzeltin — boş bırakılırsa Manuel sayılır)</span>
           <input
             list={isNotebook ? 'ai-model-options-topic-questions-notebook' : 'ai-model-options-topic-questions'}
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
             placeholder={isNotebook ? 'ör. NotebookLM' : 'ör. Claude Sonnet 5'}
-            className="w-full rounded-xl border border-[#2e3348] bg-black/40 p-2.5 text-xs text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
           />
           {isNotebook ? (
             <datalist id="ai-model-options-topic-questions-notebook">
@@ -2610,7 +2610,7 @@ export function TopicQuestionsModal({
         {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             Kapat
           </button>
           <button
@@ -2704,11 +2704,11 @@ export function TopicHighlightQuickAddModal({
   return (
     <ModalShell title="Yeni Anahtar Kavram Ekle" onClose={onClose}>
       {loading ? (
-        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+        <p className="text-sm text-muted-foreground">Yükleniyor...</p>
       ) : loadError ? (
         <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>
       ) : !topicContentId ? (
-        <p className="text-sm text-[#8b90a7]">
+        <p className="text-sm text-muted-foreground">
           Önce bu konu için alt başlık planı oluşturulmalı (sidebar&apos;daki &quot;Alt Başlık Planı Prompt&apos;u&quot; ile).
         </p>
       ) : (
@@ -2719,13 +2719,13 @@ export function TopicHighlightQuickAddModal({
               onChange={(e) => setIcon(e.target.value)}
               placeholder="🧠"
               maxLength={4}
-              className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-2 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+              className="w-14 shrink-0 rounded-lg border border-border bg-surface px-2 py-2 text-center text-sm text-foreground focus:border-[#6c63ff] outline-none"
             />
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Kavram / terim"
-              className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+              className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-[#6c63ff] outline-none"
             />
           </div>
           <textarea
@@ -2733,11 +2733,11 @@ export function TopicHighlightQuickAddModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Açıklama / tanım"
             rows={3}
-            className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground resize-none focus:border-[#6c63ff] outline-none"
           />
           {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               İptal
             </button>
             <button
@@ -2871,7 +2871,7 @@ export function TopicHighlightEditModal({
   return (
     <ModalShell title="Anahtar Kavramı Düzenle" onClose={onClose}>
       {loading ? (
-        <p className="text-sm text-[#8b90a7]">Yükleniyor...</p>
+        <p className="text-sm text-muted-foreground">Yükleniyor...</p>
       ) : loadError ? (
         <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>
       ) : (
@@ -2882,13 +2882,13 @@ export function TopicHighlightEditModal({
               onChange={(e) => setIcon(e.target.value)}
               placeholder="🧠"
               maxLength={4}
-              className="w-14 shrink-0 rounded-lg border border-[#2e3348] bg-black/40 px-2 py-2 text-center text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+              className="w-14 shrink-0 rounded-lg border border-border bg-surface px-2 py-2 text-center text-sm text-foreground focus:border-[#6c63ff] outline-none"
             />
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Kavram / terim"
-              className="flex-1 rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] focus:border-[#6c63ff] outline-none"
+              className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-[#6c63ff] outline-none"
             />
           </div>
           <textarea
@@ -2896,7 +2896,7 @@ export function TopicHighlightEditModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Açıklama / tanım"
             rows={3}
-            className="w-full rounded-lg border border-[#2e3348] bg-black/40 px-3 py-2 text-sm text-[#e8eaf0] resize-none focus:border-[#6c63ff] outline-none"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground resize-none focus:border-[#6c63ff] outline-none"
           />
           {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
           <div className="flex items-center justify-between gap-2">
@@ -2908,7 +2908,7 @@ export function TopicHighlightEditModal({
               Sil
             </button>
             <div className="flex gap-2">
-              <button onClick={onClose} className="rounded-xl border border-[#2e3348] px-4 py-2 text-xs font-bold text-[#8b90a7] hover:text-[#e8eaf0] transition-colors">
+              <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                 İptal
               </button>
               <button
