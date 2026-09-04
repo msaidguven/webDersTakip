@@ -172,18 +172,33 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     questionCount: (topicsByUnit[u.id] ?? []).reduce((sum, t) => sum + t.questionCount, 0),
   }));
 
-  // Tüm sınıflar (sınıf değiştirme sidebar/dropdown'u için)
-  const { data: allGradesData } = await supabase
-    .from('grades')
-    .select('id, name, slug, order_no')
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
-  const allGrades = ((allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || []).map((g) => ({
-    id: g.id,
-    name: g.name,
-    slug: g.slug,
-    icon: getGradeIcon(g.order_no),
-  }));
+  // Sınıf değiştirme dropdown'u — SADECE bu dersin gerçekten sunulduğu sınıflar
+  // listelenir. Önceden tüm aktif sınıflar listeleniyordu; bir ders her sınıfta
+  // okutulmayabildiği için (ör. Bilişim Teknolojileri sadece 5/7/8'de var, 6'da yok)
+  // kullanıcı o sınıfa geçince "Ders bulunamadı"na düşüyordu (bkz. kullanıcının
+  // 2026-09-05 bildirdiği bug — aslında lesson_grades.is_active=false ile KASTEN
+  // kapatılmış bir kombinasyon, ama dropdown bunu hiç filtrelemiyordu).
+  const [{ data: allGradesData }, { data: lessonActiveGradesData }] = await Promise.all([
+    supabase
+      .from('grades')
+      .select('id, name, slug, order_no')
+      .eq('is_active', true)
+      .order('order_no', { ascending: true }),
+    supabase.from('lesson_grades').select('grade_id').eq('lesson_id', lId).eq('is_active', true),
+  ]);
+  // Şu an görüntülenen sınıf, buraya kadar gelindiyse zaten geçerli (yukarıdaki
+  // is_active === false kontrolünden geçti) — lesson_grades'te satırı hiç yoksa bile
+  // (nadir/geçiş durumu) kendi sınıfının dropdown'dan kaybolmaması için garantiye alınır.
+  const lessonActiveGradeIds = new Set(((lessonActiveGradesData as { grade_id: number }[] | null) || []).map((r) => r.grade_id));
+  lessonActiveGradeIds.add(gId);
+  const allGrades = ((allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || [])
+    .filter((g) => lessonActiveGradeIds.has(g.id))
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      icon: getGradeIcon(g.order_no),
+    }));
 
   // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
   const siblingLessonGradesQuery = supabase
