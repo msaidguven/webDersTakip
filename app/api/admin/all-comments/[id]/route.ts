@@ -22,9 +22,10 @@ const REVIEW_ACTION = 'review';
 // question_comments ("Yorumlar" görünümü) ve rag_answers ("AI'ye Sorulanlar") aynı
 // publish/reject/delete/restore mekaniğini paylaşıyor (eski, tek-tablolu
 // /api/admin/question-comments/[id]'in yerini alıyor; /api/admin/rag/qa/[id] hâlâ
-// duruyor, ayrı bir amacı — hızlı "onay bekleyenler" listesi — var). delete'teki
-// kademeli davranış öğrenci tarafındaki /api/comments/[id] ve /api/rag/answers/[id]
-// ile birebir aynı.
+// duruyor, ayrı bir amacı — hızlı "onay bekleyenler" listesi — var). rag_answers'ı
+// silme artık SADECE burada, admin'e özel — öğrenciler kendi sordukları soruyu
+// (question_comments) silebilir ama AI'nin cevabını silemez (kullanıcı isteği,
+// 2026-09-04); eski öğrenci-tarafı /api/rag/answers/[id] route'u bu yüzden kaldırıldı.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;

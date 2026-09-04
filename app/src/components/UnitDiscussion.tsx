@@ -62,7 +62,6 @@ type DiscussionHandlers = {
   editingId: number | null;
   editText: string;
   commentBusyId: number | null;
-  aiBusyId: number | null;
   replyTarget: ReplyTarget;
   replyText: string;
   submitting: boolean;
@@ -71,7 +70,6 @@ type DiscussionHandlers = {
   onSaveEdit: (c: CommentEntry) => void;
   onEditTextChange: (v: string) => void;
   onDeleteComment: (c: CommentEntry) => void;
-  onDeleteAi: (item: AiEntry) => void;
   onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
   onReportSubmit: (item: AiEntry) => void;
   onSetReplyTarget: (target: ReplyTarget) => void;
@@ -152,8 +150,15 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
   const isEditing = editingId === comment.id;
   const isBusy = commentBusyId === comment.id;
   const nested = repliesOfComment(comment.id);
+  const name = displayNameOf(comment.profiles);
   return (
-    <div id={`disc-c${comment.id}`}>
+    <div id={`disc-c${comment.id}`} className="flex items-start gap-2.5">
+      <Avatar name={name} url={avatarUrlOf(comment.profiles)} />
+      <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-gray-900">{name}</span>
+        <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString('tr-TR')}</span>
+      </div>
       {isEditing ? (
         <div className="space-y-1.5">
           <textarea
@@ -231,6 +236,7 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
         onReplyTextChange={handlers.onReplyTextChange}
         onSubmit={handlers.onReplySubmit}
       />
+      </div>
     </div>
   );
 }
@@ -290,7 +296,7 @@ function ReplyAiRow({
   // eski/uç durumlar için varsayılan true kalıyor) bu üst bilgi burada gösterilir.
   showQuestion?: boolean;
 }) {
-  const { userId, aiBusyId, onDeleteAi, onReportPatch, onReportSubmit, repliesOfAi } = handlers;
+  const { onReportPatch, onReportSubmit, repliesOfAi } = handlers;
   const name = displayNameOf(item.profiles);
   const nested = repliesOfAi(item.id);
   return (
@@ -321,15 +327,6 @@ function ReplyAiRow({
                     >
                       Yanıtla
                     </button>
-                    {item.student_id === userId && (
-                      <button
-                        onClick={() => onDeleteAi(item)}
-                        disabled={aiBusyId === item.id}
-                        className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                      >
-                        Sil
-                      </button>
-                    )}
                     <button
                       onClick={() => onReportPatch(item.id, { reportState: 'open' })}
                       className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
@@ -464,10 +461,6 @@ export default function UnitDiscussion({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [commentBusyId, setCommentBusyId] = useState<number | null>(null);
-  // rag_answers.id ve question_comments.id ayrı sıralar, aynı sayıyla çakışabilir —
-  // AI kayıtları için ayrı bir "meşgul" state'i tutuyoruz ki bu çakışma yanlışlıkla
-  // alakasız bir yorumu da "meşgul" gösterip düğmelerini kilitlemesin.
-  const [aiBusyId, setAiBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -813,29 +806,6 @@ export default function UnitDiscussion({
     }
   }
 
-  async function handleDeleteAiEntry(item: AiEntry) {
-    if (!window.confirm('Bu soruyu silmek istediğine emin misin? Yorumu varsa onlar da kaldırılır.')) return;
-    setAiBusyId(item.id);
-    try {
-      const res = await fetch(`/api/rag/answers/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete' }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || 'Silinemedi');
-        return;
-      }
-      setAiEntries((prev) => prev.filter((a) => a.id !== item.id && a.parent_rag_answer_id !== item.id));
-      setComments((prev) => prev.filter((c) => c.parent_ai_answer_id !== item.id));
-    } catch {
-      setError('Silinemedi, lütfen tekrar deneyin');
-    } finally {
-      setAiBusyId(null);
-    }
-  }
-
   if (availability === 'loading') return null;
 
   const topLevelComments = comments.filter((c) => !c.parent_comment_id && !c.parent_ai_answer_id);
@@ -864,7 +834,6 @@ export default function UnitDiscussion({
     editingId,
     editText,
     commentBusyId,
-    aiBusyId,
     replyTarget,
     replyText,
     submitting,
@@ -876,7 +845,6 @@ export default function UnitDiscussion({
     onSaveEdit: saveEdit,
     onEditTextChange: setEditText,
     onDeleteComment: handleDeleteComment,
-    onDeleteAi: handleDeleteAiEntry,
     onReportPatch: (id, patch) => updateAiEntry(id, patch),
     onReportSubmit: submitReport,
     onSetReplyTarget: setReplyTarget,
@@ -1083,15 +1051,6 @@ export default function UnitDiscussion({
                               >
                                 Yanıtla
                               </button>
-                              {item.student_id === userId && (
-                                <button
-                                  onClick={() => handleDeleteAiEntry(item)}
-                                  disabled={aiBusyId === item.id}
-                                  className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                                >
-                                  Sil
-                                </button>
-                              )}
                               <button
                                 onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
                                 className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
