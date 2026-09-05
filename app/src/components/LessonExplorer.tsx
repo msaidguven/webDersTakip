@@ -88,12 +88,16 @@ function BackButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-function TopicActionButton({ href, label, completed }: { href?: string; label: string; completed?: boolean }) {
-  const base = 'flex-1 text-center px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all active:scale-95';
+// Küçük, sessiz aksiyon rozetleri — önceden dolu renkli (bg-indigo-500 vb.) ve
+// flex-1 (yarı genişlik) oldukları için konu başlığından daha çok göz alıyorlardı
+// (kullanıcının 2026-09-05 geri bildirimi). Artık tonlu/soft arkaplan, doğal
+// genişlik — başlık birincil odak, bu butonlar ikincil kalıyor.
+function TopicActionButton({ href, label, icon, completed }: { href?: string; label: string; icon: string; completed?: boolean }) {
+  const base = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors active:scale-95';
   if (!href) {
     return (
-      <span className={`${base} bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-muted-foreground cursor-not-allowed border border-gray-200 dark:border-default`} aria-disabled="true">
-        {label}
+      <span className={`${base} bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-muted-foreground cursor-not-allowed`} aria-disabled="true">
+        <Icon name={icon} size={12} /> {label}
       </span>
     );
   }
@@ -102,11 +106,11 @@ function TopicActionButton({ href, label, completed }: { href?: string; label: s
       href={href}
       className={`${base} ${
         completed
-          ? 'bg-emerald-500 text-white shadow-sm hover:bg-emerald-600'
-          : 'bg-indigo-500 text-white shadow-sm hover:bg-indigo-600'
+          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400'
+          : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400'
       }`}
     >
-      {label}
+      <Icon name={icon} size={12} /> {label}
     </Link>
   );
 }
@@ -293,11 +297,11 @@ export function LessonExplorer({
                   >
                     <Icon name={fullyDone ? 'check' : 'bookmark'} size={13} />
                   </span>
-                  <p className="text-sm font-medium text-default flex-1 min-w-0 truncate">{topic.title}</p>
+                  <p className="text-[15px] font-bold text-default flex-1 min-w-0 truncate">{topic.title}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" completed={topic.contentCompleted} />
-                  <TopicActionButton href={topic.quizHref} label="Soru Çöz" completed={topic.quizCompleted} />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" icon="book" completed={topic.contentCompleted} />
+                  <TopicActionButton href={topic.quizHref} label="Soru Çöz" icon="help-circle" completed={topic.quizCompleted} />
                 </div>
                 {topic.totalQuestions > 0 && (
                   <div className="flex items-center gap-2">
