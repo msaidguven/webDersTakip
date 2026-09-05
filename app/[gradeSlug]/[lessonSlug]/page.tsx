@@ -172,31 +172,52 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     questionCount: (topicsByUnit[u.id] ?? []).reduce((sum, t) => sum + t.questionCount, 0),
   }));
 
-  // Sınıf değiştirme dropdown'u — bir sınıf SADECE bu ders için lesson_grades'te AÇIKÇA
-  // is_active=false ile kapatılmışsa listeden çıkarılır (ör. Bilişim Teknolojileri 6.
-  // sınıfta böyle kapalı, kullanıcı o sınıfa geçince "Ders bulunamadı"na düşüyordu — bkz.
-  // 2026-09-05 bildirilen bug). İLK versiyonum bunun TERSİNİ yapmıştı (satırı YOKSA da
-  // sınıfı gizliyordu) — bu, satırı hiç girilmemiş her ders/sınıf kombinasyonunu (ki çoğu
-  // öyle) dropdown'dan silip gerçek bir regresyon yarattı. Doğrusu bu sayfanın kendi
-  // "Ders bulunamadı" kontrolüyle BİREBİR aynı kural olmalı: satır yoksa = açık, satır
-  // is_active=false ise = kapalı. Böylece dropdown ile hedef sayfa asla çelişmez.
-  const [{ data: allGradesData }, { data: disabledGradeRows }] = await Promise.all([
-    supabase
-      .from('grades')
-      .select('id, name, slug, order_no')
-      .eq('is_active', true)
-      .order('order_no', { ascending: true }),
-    supabase.from('lesson_grades').select('grade_id').eq('lesson_id', lId).eq('is_active', false),
-  ]);
-  const disabledGradeIds = new Set(((disabledGradeRows as { grade_id: number }[] | null) || []).map((r) => r.grade_id));
-  const allGrades = ((allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || [])
-    .filter((g) => !disabledGradeIds.has(g.id))
-    .map((g) => ({
+  // Sınıf değiştirme dropdown'u — TÜM aktif sınıflar HER ZAMAN listelenir, hiçbiri
+  // gizlenmez (kullanıcının 2026-09-05 kesin isteği). Daha önce burada dersin o sınıfta
+  // aktif olup olmadığına göre sınıfı gizleyen iki versiyon denendi, ikisi de veri
+  // seyrekliği/güvenilirliği yüzünden gerçek sınıfları kaybettirdi. Doğru çözüm sınıfı
+  // gizlemek değil: seçilen sınıfta BU ders yoksa link doğrudan aynı ders slug'ına değil,
+  // o sınıfta GERÇEKTEN var olan bir derse gider (varsa aynı ders, yoksa o sınıfın ilk
+  // dersi) — böylece hiçbir zaman "Ders bulunamadı" ölü ucuna düşülmez.
+  const { data: allGradesData } = await supabase
+    .from('grades')
+    .select('id, name, slug, order_no')
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+  const activeGradeRows = (allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || [];
+  const activeGradeIds = activeGradeRows.map((g) => g.id);
+
+  const { data: gradeLessonRows } = activeGradeIds.length
+    ? await supabase
+        .from('lesson_grades')
+        .select('grade_id, lesson_id, lessons(slug, name, is_active)')
+        .in('grade_id', activeGradeIds)
+        .eq('is_active', true)
+    : { data: [] as { grade_id: number; lesson_id: number; lessons: { slug: string | null; name: string; is_active: boolean } | { slug: string | null; name: string; is_active: boolean }[] | null }[] };
+
+  type GradeLessonRow = { grade_id: number; lesson_id: number; lessons: { slug: string | null; name: string; is_active: boolean } | { slug: string | null; name: string; is_active: boolean }[] | null };
+  const lessonsByGrade = new Map<number, { lessonId: number; slug: string | null; name: string }[]>();
+  for (const row of ((gradeLessonRows as GradeLessonRow[] | null) || [])) {
+    const lessonRow = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
+    if (!lessonRow || lessonRow.is_active === false || !lessonRow.slug) continue;
+    const list = lessonsByGrade.get(row.grade_id) || [];
+    list.push({ lessonId: row.lesson_id, slug: lessonRow.slug, name: lessonRow.name });
+    lessonsByGrade.set(row.grade_id, list);
+  }
+  for (const list of lessonsByGrade.values()) list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
+  const allGrades = activeGradeRows.map((g) => {
+    const gradeLessonList = lessonsByGrade.get(g.id) || [];
+    const sameLesson = gradeLessonList.find((l) => l.lessonId === lId);
+    const targetLessonSlug = sameLesson?.slug ?? gradeLessonList[0]?.slug ?? null;
+    return {
       id: g.id,
       name: g.name,
       slug: g.slug,
       icon: getGradeIcon(g.order_no),
-    }));
+      lessonSlug: targetLessonSlug,
+    };
+  });
 
   // Aynı sınıftaki diğer dersler (hızlı ders değiştirme menüsü için)
   const siblingLessonGradesQuery = supabase

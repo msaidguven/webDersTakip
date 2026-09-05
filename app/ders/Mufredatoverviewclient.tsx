@@ -52,6 +52,10 @@ export type GradeOption = {
   name: string;
   slug: string | null;
   icon?: string | null;
+  // Bu sınıfta gösterilecek ders slug'ı — şu an açık olan ders o sınıfta VARSA aynısı,
+  // yoksa o sınıfta gerçekten var olan başka bir ders (server'da hesaplanıyor, bkz.
+  // page.tsx). Sınıf değiştirince asla ölü bir "Ders bulunamadı" linkine düşülmesin diye.
+  lessonSlug?: string | null;
 };
 
 interface MufredatOverviewClientProps {
@@ -154,7 +158,12 @@ export default function MufredatOverviewClient({
   const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedSlug = e.target.value;
     if (!selectedSlug || selectedSlug === gradeSlug) return;
-    router.push(lessonSlug ? `/${selectedSlug}/${lessonSlug}` : `/${selectedSlug}`);
+    // Seçilen sınıfta bu ders yoksa server'ın hesapladığı targetLessonSlug (o sınıfta
+    // gerçekten var olan bir ders) kullanılır — aynı ders slug'ını körü körüne
+    // tekrarlamak "Ders bulunamadı" ölü ucuna düşürüyordu (bkz. GradeOption.lessonSlug).
+    const targetGrade = allGrades.find((g) => g.slug === selectedSlug);
+    const targetLessonSlug = targetGrade?.lessonSlug ?? lessonSlug;
+    router.push(targetLessonSlug ? `/${selectedSlug}/${targetLessonSlug}` : `/${selectedSlug}`);
   };
 
   const showLessonDropdown = !!gradeSlug && gradeLessons.filter((l) => l.slug).length > 1;
@@ -234,10 +243,11 @@ export default function MufredatOverviewClient({
               <nav className="space-y-0.5">
                 {allGrades.filter((g) => g.slug).map((g) => {
                   const active = g.slug === gradeSlug;
+                  const targetLessonSlug = g.lessonSlug ?? lessonSlug;
                   return (
                     <Link
                       key={g.id}
-                      href={lessonSlug ? `/${g.slug}/${lessonSlug}` : `/${g.slug}`}
+                      href={targetLessonSlug ? `/${g.slug}/${targetLessonSlug}` : `/${g.slug}`}
                       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                         active
                           ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
