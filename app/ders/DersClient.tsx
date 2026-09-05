@@ -54,6 +54,7 @@ const TopicHighlightQuickAddModal = dynamic(() => import('@/app/src/components/a
 const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightEditModal), { ssr: false });
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
+import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards } from './DersClientCards';
@@ -75,7 +76,6 @@ import {
   UNIT_TOPICS_CACHE_TTL_MS,
   unitTopicsCacheKey,
   buildTopicHref,
-  buildTopicTestHref,
   buildTopicQuestionBankHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
@@ -2284,12 +2284,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic && (
                       <QuizCtaCards
                         topicId={activeTopic.id}
-                        topicHref={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
+                        // Konu Testi ve Ünite Testi butonları artık ayrı /kavrama-testi ve
+                        // /unite-testi sayfalarına değil, doğrudan Soru Bankası'nın o konu/ünite
+                        // sayfasına gidiyor — orası zaten AYNI puanlı testi (TestStatusCard ile,
+                        // giriş yapmışsa öne çıkan kişiselleştirilmiş test) cevap anahtarlı soru
+                        // listesiyle birlikte gösteriyor (bkz. kullanıcının 2026-09-05 isteği).
+                        topicHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                         questionBankHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                         unitTitle={unitTitle}
                         unitHref={
                           gradeSlug && lessonSlug && activeUnitSlug
-                            ? `/${gradeSlug}/${lessonSlug}/${activeUnitSlug}/unite-testi`
+                            ? buildSoruBankasiUnitPath(gradeSlug, lessonSlug, activeUnitSlug)
                             : `/karisik-test?lesson_id=${lessonId}&week=${week}`
                         }
                         showUnitCard={activeUnit?.has_questions !== false || isAdmin}
