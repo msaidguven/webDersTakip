@@ -1,13 +1,12 @@
 // app/soru-bankasi/[sinif]/[ders]/[unite]/page.tsx
-// /soru-bankasi hiyerarşisinde ünite seviyesi — SON SAYFA burası (kullanıcının 2026-09-05
-// isteği: "son sayfa ünite olsa, konular orada olmasa"). Konular artık ayrı bir sayfaya
-// GİTMİYOR, bu sayfada açılıp kapanan bir accordion (bkz. SoruBankasiUnitAccordion.tsx) —
-// tıklanan konunun soruları lazy fetch ile geliyor, tek seferde ünitedeki tüm sorular
-// (bazı ünitelerde 180'e kadar) render edilmiyor. Konunun kendi sayfası ([konu]/page.tsx)
-// SEO/paylaşım linki olarak hâlâ yaşıyor, sadece buradan artık link verilmiyor.
+// /soru-bankasi hiyerarşisinde ünite seviyesi. Konular BURADA accordion olarak açılıp
+// sorularını göstermiyor — her konu kendi sayfasına (bkz. [konu]/page.tsx) link veriyor
+// (kullanıcının 2026-09-05 isteği: "konular akordiyon olarak soruları değil, konu
+// sayfasına yönlendirsin" — önceki accordion denemesinin geri alınması).
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiUnitData,
@@ -16,7 +15,6 @@ import {
   buildSoruBankasiUnitPath,
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
-import SoruBankasiUnitAccordion from '@/app/src/components/SoruBankasiUnitAccordion';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
 import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSection';
 
@@ -97,15 +95,21 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
 
       {data.topics.length > 0 ? (
         <SoruBankasiBrowseSection questionCount={data.topics.reduce((sum, t) => sum + t.questionCount, 0)}>
-          <SoruBankasiUnitAccordion
-            topics={data.topics}
-            gradeSlug={data.gradeSlug}
-            lessonSlug={data.lessonSlug}
-            unitSlug={data.unitSlug}
-            gradeId={data.gradeId}
-            lessonId={data.lessonId}
-            unitId={data.unitId}
-          />
+          <div className="space-y-2.5">
+            {data.topics.map((topic) => (
+              <Link
+                key={topic.id}
+                href={`/soru-bankasi/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${topic.slug}`}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-default">{topic.title}</p>
+                  <span className="mt-1 inline-block text-xs font-bold text-muted-foreground">{topic.questionCount} soru</span>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
+          </div>
         </SoruBankasiBrowseSection>
       ) : (
         <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu ünitede henüz konu eklenmemiş.</p>
