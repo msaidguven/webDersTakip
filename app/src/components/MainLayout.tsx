@@ -47,20 +47,22 @@ export function MainLayout({ children }: MainLayoutProps) {
   React.useEffect(() => {
     setIsProfileMenuOpen(false);
   }, [pathname]);
-  // Konu okuma sayfası (DersClient) ve admin paneli kendi sabit header/footer
-  // çerçevesini yönetir; bu yüzden global nav ve LegalFooter burada devre dışı
-  // bırakılır. /ders?... rotası (query tabanlı) ve karşılık gelen
-  // /[grade]/[lesson]/[unit]/[topic] pretty-URL rotası (DersClient içeriği
-  // yüklendikten sonra history.replaceState ile bu formata geçiyor) aynı sayfa
+  // Konu okuma sayfası (DersClient) artık kendi header'ını göstermiyor; global nav
+  // burada kalıyor (bkz. kullanıcının 2026-09-05 isteği). Admin paneli ise hâlâ kendi
+  // sabit header/footer çerçevesini yönetir. /ders?... rotası (query tabanlı) ve
+  // karşılık gelen /[grade]/[lesson]/[unit]/[topic] pretty-URL rotası (DersClient
+  // içeriği yüklendikten sonra history.replaceState ile bu formata geçiyor) aynı sayfa
   // olduğu için ikisi de eşleşmeli.
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
   const isTopicContentRoute = pathSegments.length === 4;
+  const isDersRoute = pathname === '/ders' || isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
-  const hideHeader = pathname === '/ders' || pathname?.endsWith('/icerik') || isTopicContentRoute || isAdminRoute;
+  const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
   // Test çözme sayfalarında (kavrama-testi/ünite-testi) header kalır ama footer'ın hukuki
-  // linkleri odağı dağıtmasın diye gizlenir.
+  // linkleri odağı dağıtmasın diye gizlenir. Ders sayfası da kendi Geri/İleri footer'ını
+  // yönettiği için LegalFooter'ı burada gizli tutuyoruz (global header'ı gösterse bile).
   const isTestPageRoute = pathname?.endsWith('/kavrama-testi') || pathname?.endsWith('/unite-testi');
-  const hideFooter = hideHeader || isTestPageRoute;
+  const hideFooter = hideHeader || isDersRoute || isTestPageRoute;
 
   return (
     <div className="min-h-screen bg-default">

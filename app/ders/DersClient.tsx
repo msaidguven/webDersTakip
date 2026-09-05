@@ -17,7 +17,6 @@ import {
   X,
   Clipboard,
   Check,
-  Settings,
   MoreVertical,
   Lightbulb,
   PanelLeftClose,
@@ -1415,44 +1414,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   };
 
   return (
-    <div className="flex h-dvh flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
-
-      {/* TOP APP BAR */}
-      <header className="shrink-0 bg-white border-b border-slate-200 px-3 sm:px-6 h-16 flex items-center gap-3 sm:gap-6 z-30">
-        <button className="lg:hidden text-slate-700 bg-slate-50 p-2 rounded-full hover:bg-slate-100 transition-colors shrink-0" onClick={() => setSidebarOpen(true)}>
-          <Menu className="h-5 w-5" />
-        </button>
-
-        <Link href="/" title="Anasayfa" className="flex items-center gap-2 sm:gap-3 shrink-0 group">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-all group-hover:scale-105">
-            <span className="text-lg sm:text-xl">🎓</span>
-          </div>
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-base sm:text-xl font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Ders Takip
-            </span>
-            <span className="text-xs sm:text-sm font-bold text-indigo-500/70">.net</span>
-          </div>
-        </Link>
-
-        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
-          <button
-            type="button"
-            onClick={openKazanimlarModal}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 sm:px-4 text-xs font-black text-emerald-600 shadow-sm hover:bg-emerald-100 transition-colors"
-          >
-            <Target className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Kazanımlar</span>
-          </button>
-
-          <Link
-            href="/profil"
-            title="Ayarlar"
-            className="h-9 w-9 flex items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-          >
-            <Settings className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
+    <div className="flex h-[calc(100dvh-60px)] sm:h-[calc(100dvh-72px)] flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
 
       <div className="flex min-h-0 flex-1 overflow-hidden relative">
 
@@ -1566,6 +1528,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   (bkz. kullanıcının 2026-09-05 isteği). Mobilde de görünür — eski breadcrumb
                   sadece sm+ ekranlarda görünüyordu. */}
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
                 <Link
                   href="/"
                   title="Anasayfa"
@@ -2070,8 +2039,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-                {/* RIGHT SIDEBAR: ünite özeti + MEB takvimi + ipucu */}
+                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+                  <button
+                    type="button"
+                    onClick={openKazanimlarModal}
+                    className="flex h-11 items-center justify-center gap-1.5 rounded-2xl bg-emerald-50 border border-emerald-100 px-4 text-sm font-black text-emerald-600 shadow-sm hover:bg-emerald-100 transition-colors"
+                  >
+                    <Target className="h-4 w-4" /> Kazanımlar
+                  </button>
+
                   {unitQuestionSummary && (
                     <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-2 mb-3">
