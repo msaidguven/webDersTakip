@@ -1,13 +1,21 @@
 'use client';
 
-// /soru-bankasi sayfasındaki soru listesini + üstteki "X/Y cevaplandı, Z doğru" sayacını +
-// büyüteç (+/-) kontrolünü + sağdaki "optik" soru haritasını render eder. Sayaç sadece
-// puanlanabilir sorular (çoktan seçmeli/boşluk doldurma/eşleştirme) üzerinden hesaplanır —
-// açık uçlu sorularda otomatik doğru/yanlış sinyali yok, sadece "cevap gösterildi" durumu var
-// (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu). State tamamen bu oturuma
-// özel client-side state'tir, backend'e yazılmaz.
+// /soru-bankasi sayfasındaki soru görünümünü render eder — TEK SORU MODU (kullanıcının
+// 2026-09-05 isteği): SEO için tüm sorular yine sunucu tarafında render edilen HTML'de tam
+// olarak var (aşağıdaki map hepsini koşulsuz döndürüyor), ama görsel olarak sadece
+// `activeIndex`'teki soru gösteriliyor (diğerleri Tailwind'in `hidden` class'ıyla, yani
+// display:none ile gizli) — Google CSS ile gizlenmiş içeriği indexlemeden çıkarmıyor
+// (bkz. Google Search Central rehberi), bu "cloaking" değil çünkü bot ve kullanıcı AYNI
+// HTML'i alıyor, sadece kullanıcıda üstüne bir JS katmanı biniyor. Önceki/Sonraki soru
+// butonları ve sağdaki "optik" soru haritası sadece bu index'i değiştiriyor, yeni bir veri
+// çekmiyor (100 soru zaten ilk yüklemede DOM'da). Üstteki "X/Y cevaplandı, Z doğru" sayacı
+// sadece puanlanabilir sorular (çoktan seçmeli/boşluk doldurma/eşleştirme) üzerinden
+// hesaplanır — açık uçlu sorularda otomatik doğru/yanlış sinyali yok, sadece "cevap
+// gösterildi" durumu var (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu).
+// Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
+// takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Minus, MessageCircle, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Minus, MessageCircle, Plus, X } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader from '@/app/src/components/QuestionCardHeader';
@@ -95,6 +103,7 @@ export default function QuestionBankBoard({
   const [questions, setQuestions] = useState(initialQuestions);
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
   const [scale, setScale] = useState(MIN_SCALE);
+  const [activeIndex, setActiveIndex] = useState(0);
   // Yorumlar bir modalde açılıyor, tek seferde en fazla bir tanesi — UnitDiscussion
   // (kendi auth/veri sorgularını mount olur olmaz çalıştırıyor) sadece modal açılınca
   // monte ediliyor, yoksa bir konudaki onlarca soru için aynı anda onlarca sorgu ateşlenirdi.
@@ -119,6 +128,19 @@ export default function QuestionBankBoard({
     return () => window.removeEventListener('soru-bankasi:open-comments', handler);
   }, []);
 
+  // ?soru=ID ile gelen paylaşım linkleri (bkz. QuestionBankHighlight.tsx) artık scroll
+  // etmiyor — tek soru modunda "o soruyu göster" demek activeIndex'i değiştirmek demek.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
+      if (questionId == null) return;
+      const index = questions.findIndex((q) => q.id === questionId);
+      if (index !== -1) setActiveIndex(index);
+    };
+    window.addEventListener('soru-bankasi:focus-question', handler);
+    return () => window.removeEventListener('soru-bankasi:focus-question', handler);
+  }, [questions]);
+
   useEffect(() => {
     const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
     if (saved >= MIN_SCALE && saved <= MAX_SCALE) setScale(saved);
@@ -137,12 +159,12 @@ export default function QuestionBankBoard({
   }, []);
 
   const handleDeleted = useCallback((questionId: number) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setQuestions((prev) => {
+      const next = prev.filter((q) => q.id !== questionId);
+      setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
+      return next;
+    });
   }, []);
-
-  const scrollToQuestion = (id: number) => {
-    document.getElementById(`soru-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   return (
     <>
@@ -178,9 +200,33 @@ export default function QuestionBankBoard({
         </div>
       </div>
 
-      <div className="space-y-3 sm:space-y-4">
+      {questions.length > 0 && (
+        <div className="mb-3 space-y-1.5 sm:mb-4">
+          <p className="text-xs font-black text-muted-foreground">
+            Soru {activeIndex + 1} / {questions.length}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-default/10">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all"
+              style={{ width: `${((activeIndex + 1) / questions.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div>
         {questions.map((q, i) => (
-          <div key={q.id} id={`soru-${q.id}`} className="scroll-mt-24 rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
+          <div
+            key={q.id}
+            id={`soru-${q.id}`}
+            // display:none inline style ile gizleniyor (Tailwind'in genel `hidden`
+            // class'ını KULLANMIYORUZ — sayfada başka amaçlarla `hidden` kullanan öğeler
+            // olabilir, noscript override'ının SADECE bu soru kartlarını hedeflemesi için
+            // ayrı bir işaretleyici class (question-bank-item) gerekiyor, bkz.
+            // [konu]/page.tsx'teki noscript stili.
+            className="question-bank-item rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6"
+            style={{ display: i === activeIndex ? undefined : 'none' }}
+          >
             <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
             <div style={{ zoom: scale }}>
               <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
@@ -197,12 +243,33 @@ export default function QuestionBankBoard({
         ))}
       </div>
 
+      {questions.length > 1 && (
+        <div className="mt-4 flex items-center justify-between gap-3 sm:mt-6">
+          <button
+            type="button"
+            onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            disabled={activeIndex === 0}
+            className="flex items-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 py-2.5 text-xs font-black text-default transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" /> Önceki Soru
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveIndex((i) => Math.min(questions.length - 1, i + 1))}
+            disabled={activeIndex === questions.length - 1}
+            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+          >
+            Sonraki Soru <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {commentsForId != null && (() => {
-        const activeIndex = questions.findIndex((q) => q.id === commentsForId);
-        const activeQuestion = activeIndex === -1 ? null : questions[activeIndex];
+        const commentQuestionIndex = questions.findIndex((q) => q.id === commentsForId);
+        const activeQuestion = commentQuestionIndex === -1 ? null : questions[commentQuestionIndex];
         if (!activeQuestion) return null;
         return (
-          <CommentsModal index={activeIndex} onClose={() => setCommentsForId(null)}>
+          <CommentsModal index={commentQuestionIndex} onClose={() => setCommentsForId(null)}>
             <UnitDiscussion
               gradeId={gradeId}
               lessonId={lessonId}
@@ -227,10 +294,12 @@ export default function QuestionBankBoard({
               <button
                 key={q.id}
                 type="button"
-                onClick={() => scrollToQuestion(q.id)}
+                onClick={() => setActiveIndex(i)}
                 title={`Soru ${i + 1}`}
                 aria-label={`Soru ${i + 1}'e git`}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(answers[q.id])}`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(answers[q.id])} ${
+                  i === activeIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
+                }`}
               >
                 {i + 1}
               </button>

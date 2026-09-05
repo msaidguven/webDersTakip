@@ -78,11 +78,13 @@ export default async function QuestionBankPage({ params }: PageProps) {
         }}
       />
       {/* Cevap/açıklama blokları JS ile CSS collapse (.cevap-aciklama / .cevap-marker,
-          bkz. QuizClient.tsx) kullanılarak varsayılan gizleniyor. JS kapalıyken bu override
-          devreye girer ve her şey (SEO içeriği zaten DOM'da tam olsa da) görsel olarak da
-          açık görünür — progressive enhancement. */}
+          bkz. QuizClient.tsx) kullanılarak varsayılan gizleniyor; tek soru modunda (bkz.
+          QuestionBankBoard.tsx) aktif olmayan sorular da display:none ile gizleniyor
+          (.question-bank-item). JS kapalıyken bu override devreye girer ve her şey (SEO
+          içeriği zaten DOM'da tam olsa da) görsel olarak da açık görünür — progressive
+          enhancement. */}
       <noscript>
-        <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}`}</style>
+        <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}.question-bank-item{display:block!important}`}</style>
       </noscript>
       <Suspense fallback={null}>
         <QuestionBankHighlight />
