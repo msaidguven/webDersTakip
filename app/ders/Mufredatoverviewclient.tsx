@@ -122,6 +122,11 @@ export default function MufredatOverviewClient({
   // SearchParamsSync tanımı). currentWeek prop'u sunucunun hesapladığı VARSAYILAN; URL'de
   // ?hafta= varsa onu tercih ediyoruz.
   const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
+  // Konu satırları artık "Konu Anlatımı" + "Soru Bankası" butonlarını her zaman göstermek
+  // yerine tek satırlık, tıklanınca açılan bir akordeon — kullanıcının 2026-09-06 isteği:
+  // "akordiyon olsun, açılan satırda konu ve soru butonları görünsün". Bir seferde sadece
+  // TEK konu açık kalır (id yerine Set kullanmıyoruz, tek elemanlı state yeterli).
+  const [expandedTopicId, setExpandedTopicId] = useState<number | null>(null);
   const haftaParam = searchParams.get('hafta');
   const effectiveWeek = haftaParam ? parseInt(haftaParam, 10) || currentWeek : currentWeek;
 
@@ -396,51 +401,60 @@ export default function MufredatOverviewClient({
                             ? `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
                             : null;
 
+                          const isExpanded = expandedTopicId === topic.id;
+
                           return (
-                            <div key={topic.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:gap-3.5">
-                              <div className="flex min-w-0 items-center gap-2.5">
+                            <div key={topic.id}>
+                              {/* Tek satır, tıklanınca akordeon gibi açılır — Konu Anlatımı/Soru
+                                  Bankası butonları artık her zaman görünmüyor, sadece açılınca
+                                  (kullanıcının 2026-09-06 isteği: "akordiyon olsun, açılan satırda
+                                  konu ve soru butonları görünsün"). */}
+                              <button
+                                type="button"
+                                onClick={() => setExpandedTopicId(isExpanded ? null : topic.id)}
+                                className="flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors hover:bg-gray-50"
+                              >
                                 <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
                                   {displayNo}.{idx + 1}
                                 </span>
-                                {/* Mobilde bu satır, iki eylem butonuyla (Konu Anlatımı + Soru Bankası)
-                                    AYNI satırdaydı — shrink-0 butonlar tüm genişliği alınca konu
-                                    başlığına neredeyse hiç yer kalmıyor, tek harfe kırpılıyordu
-                                    (kullanıcının 2026-09-06 bildirdiği bug). Mobilde başlık kendi
-                                    satırında, butonlar altta; sm+ ekranlarda eskisi gibi tek satır. */}
                                 <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
                                   {topic.title}
                                 </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {!hasContent ? (
-                                  <span className="text-xs text-gray-300 px-2 py-1">İçerik eklenmemiş</span>
-                                ) : topicHref ? (
-                                  <Link
-                                    href={topicHref}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
-                                  >
-                                    <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
-                                  </Link>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => goToWeek(start ?? effectiveWeek)}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
-                                  >
-                                    <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
-                                  </button>
-                                )}
-                                {bankHref ? (
-                                  <Link
-                                    href={bankHref}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md transition-colors"
-                                  >
-                                    <ListChecks className="h-3.5 w-3.5" /> Soru Bankası · {questionCount}
-                                  </Link>
-                                ) : (
-                                  <span className="text-xs text-gray-300 px-2 py-1">Soru yok</span>
-                                )}
-                              </div>
+                                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              {isExpanded && (
+                                <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
+                                  {!hasContent ? (
+                                    <span className="text-xs text-gray-300 px-2 py-1">İçerik eklenmemiş</span>
+                                  ) : topicHref ? (
+                                    <Link
+                                      href={topicHref}
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                    >
+                                      <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
+                                    </Link>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => goToWeek(start ?? effectiveWeek)}
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                    >
+                                      <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
+                                    </button>
+                                  )}
+                                  {bankHref ? (
+                                    <Link
+                                      href={bankHref}
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md transition-colors"
+                                    >
+                                      <ListChecks className="h-3.5 w-3.5" /> Soru Bankası · {questionCount}
+                                    </Link>
+                                  ) : (
+                                    <span className="text-xs text-gray-300 px-2 py-1">Soru yok</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
