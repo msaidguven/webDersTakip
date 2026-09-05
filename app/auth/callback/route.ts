@@ -28,12 +28,17 @@ export async function GET(request: NextRequest) {
 
       if (!existingProfile) {
         const meta = data.user.user_metadata || {};
-        await supabase.from('profiles').insert({
+        const { error: insertError } = await supabase.from('profiles').insert({
           id: data.user.id,
           full_name: meta.full_name || meta.name || null,
           avatar_url: meta.avatar_url || meta.picture || null,
           role: 'student',
         });
+
+        if (insertError) {
+          console.error('OAuth profil oluşturma hatası:', insertError, { userId: data.user.id });
+          return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`);
+        }
       }
 
       return NextResponse.redirect(`${origin}${redirectTo}`);
