@@ -10,7 +10,6 @@ import {
   BookOpen,
   Calendar,
   ChevronDown,
-  ChevronRight,
   GraduationCap,
   Layers,
   ListChecks,
@@ -137,14 +136,6 @@ export default function MufredatOverviewClient({
       params.set('ders', lessonId);
       router.push(`/ders/icerik?${params.toString()}`);
     }
-  };
-
-  const goToTopic = (unitSlug: string | null, topicSlug: string | null, fallbackWeek: number) => {
-    if (gradeSlug && lessonSlug && unitSlug && topicSlug) {
-      router.push(`/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`);
-      return;
-    }
-    goToWeek(fallbackWeek);
   };
 
   const changeLessonsHref = gradeSlug ? `/${gradeSlug}` : '/';
@@ -397,42 +388,53 @@ export default function MufredatOverviewClient({
                       <div className="divide-y divide-gray-100">
                         {topics.map((topic, idx) => {
                           const hasContent = topic.hasContent !== false;
-                          if (!hasContent) {
-                            return (
-                              <div
-                                key={topic.id}
-                                aria-disabled="true"
-                                className="w-full flex items-center gap-3.5 px-5 py-3 text-left cursor-not-allowed"
-                              >
-                                <span className="text-xs font-mono font-medium text-gray-300 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
-                                  {displayNo}.{idx + 1}
-                                </span>
-                                <span className="text-sm font-medium text-gray-400 truncate">
-                                  {topic.title}
-                                </span>
-                                <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
-                                  İçerik eklenmemiş
-                                </span>
-                              </div>
-                            );
-                          }
+                          const questionCount = topic.questionCount ?? 0;
+                          const topicHref = gradeSlug && lessonSlug && unit.slug && topic.slug
+                            ? `/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
+                            : null;
+                          const bankHref = questionCount > 0 && gradeSlug && lessonSlug && unit.slug && topic.slug
+                            ? `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
+                            : null;
+
                           return (
-                            <button
-                              key={topic.id}
-                              onClick={() => goToTopic(unit.slug, topic.slug, start ?? effectiveWeek)}
-                              className="w-full flex items-center gap-3.5 px-5 py-3 text-left hover:bg-gray-50/80 transition-colors group"
-                            >
-                              <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 px-2 py-0.5 rounded-md transition-colors shrink-0">
+                            <div key={topic.id} className="flex items-center gap-3.5 px-5 py-3">
+                              <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
                                 {displayNo}.{idx + 1}
                               </span>
-                              <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors truncate">
+                              <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
                                 {topic.title}
                               </span>
-                              <span className="text-xs text-gray-400 font-medium ml-auto shrink-0">
-                                {topic.questionCount ?? 0} soru
-                              </span>
-                              <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                            </button>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {!hasContent ? (
+                                  <span className="text-xs text-gray-300 px-2 py-1">İçerik eklenmemiş</span>
+                                ) : topicHref ? (
+                                  <Link
+                                    href={topicHref}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                  >
+                                    <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => goToWeek(start ?? effectiveWeek)}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                  >
+                                    <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
+                                  </button>
+                                )}
+                                {bankHref ? (
+                                  <Link
+                                    href={bankHref}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md transition-colors"
+                                  >
+                                    <ListChecks className="h-3.5 w-3.5" /> Soru Bankası · {questionCount}
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-gray-300 px-2 py-1">Soru yok</span>
+                                )}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
