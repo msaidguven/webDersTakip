@@ -18,6 +18,7 @@ import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type Topic
 import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
 import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
+import TestStatusCard from '@/app/src/components/TestStatusCard';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -98,6 +99,23 @@ export default async function QuestionBankPage({ params }: PageProps) {
         <h1 className="mt-1 text-lg font-black leading-tight text-default sm:text-2xl">{data.topicTitle} Soru Bankası</h1>
         <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{questions.length} soru — cevap anahtarıyla birlikte</p>
       </div>
+
+      {/* Aşağıdaki liste inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı test
+          (Konu Kavrama Testi) aynı sayfadan modal olarak başlatılıyor — bkz.
+          TestStatusCard.tsx, app/soru-bankasi/@modal. */}
+      {questions.length > 0 && (
+        <div className="mb-4 sm:mb-6">
+          <TestStatusCard
+            scope="topic"
+            topicId={data.topicId}
+            unitId={data.unitId}
+            testHref={`${buildTopicPath(data)}/kavrama-testi`}
+            title="Kavrama Testi"
+            icon="list-checks"
+            color="indigo"
+          />
+        </div>
+      )}
 
       <QuestionBankBoard
         questions={questions}

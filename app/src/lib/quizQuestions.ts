@@ -191,7 +191,7 @@ async function selectPersonalizedQuestionIds(
   return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
 }
 
-async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
+export async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
   const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true);
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
@@ -284,7 +284,7 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
   return resolveQuestions(questionIds, { preserveOrder: true });
 }
 
-async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
+export async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
   const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
   if (!topicIds.length) return [];

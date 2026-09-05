@@ -8,7 +8,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Trophy, ArrowRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiUnitData,
@@ -18,6 +17,7 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiUnitAccordion from '@/app/src/components/SoruBankasiUnitAccordion';
+import TestStatusCard from '@/app/src/components/TestStatusCard';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -76,28 +76,20 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
         </div>
       )}
 
-      {/* Soru bankası inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı testi de
-          aynı sayfadan başlatabilsin diye ünite testine buton — konu sayfasındaki
-          QuizCtaCards'la (DersClientCards.tsx) BİREBİR aynı isim/renk/ikon/CTA metni
-          kullanılıyor, aynı hedefe iki farklı yerden farklı görünümle gitmesin diye
-          (bkz. [[feedback_information_architecture_discipline]]). */}
+      {/* Soru bankası inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı test de
+          aynı sayfadan (modal olarak, bkz. app/soru-bankasi/@modal) başlatılıyor — kartın
+          durumu (Teste Başla / Devam Et + istatistik) client'ta ayrıca çekiliyor, bkz.
+          TestStatusCard.tsx (bkz. [[feedback_information_architecture_discipline]]). */}
       {data.hasQuestions && (
-        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:mb-6 sm:p-5">
-          <div className="flex items-center gap-2.5 text-sm font-black text-emerald-700">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
-              <Trophy className="h-4.5 w-4.5" />
-            </span>
-            Ünite Testi
-          </div>
-          <p className="flex-1 text-xs font-medium leading-relaxed text-emerald-900/70">
-            Aşağıdakiler cevap anahtarıyla inceleme amaçlı — {data.unitTitle} ünitesini puanlı test etmek için ünite testini çöz.
-          </p>
-          <Link
-            href={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-700"
-          >
-            Teste Başla <ArrowRight className="h-4 w-4" />
-          </Link>
+        <div className="mb-4 sm:mb-6">
+          <TestStatusCard
+            scope="unit"
+            unitId={data.unitId}
+            testHref={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`}
+            title="Ünite Testi"
+            icon="trophy"
+            color="emerald"
+          />
         </div>
       )}
 

@@ -1,14 +1,11 @@
 // Panelden "Soru Çöz" / "Devam Et" tıklanınca aynı /.../kavrama-testi URL'ini overlay olarak
-// açan intercepting route. Gerçek (SEO'lu) sayfayla aynı veri/oturum mantığını
-// (quizPageData.ts) kullanır — sadece JSON-LD/generateMetadata yok, o görev gerçek sayfada
-// kalıyor. Doğrudan bu URL'e girilirse (yenileme, dışarıdan link) Next.js bu route'u değil,
-// gerçek page.tsx'i render eder.
+// açan intercepting route. Gerçek içerik/oturum mantığı artık paylaşılan
+// TopicTestModalContent'te (bkz. app/src/components/QuizModalContent.tsx) — soru bankasının
+// kendi @modal'ı da (app/soru-bankasi/@modal/...) aynı fonksiyonu, sadece farklı bir
+// exitHref ile çağırıyor. Doğrudan bu URL'e girilirse (yenileme, dışarıdan link) Next.js bu
+// route'u değil, gerçek page.tsx'i render eder.
 
-import { notFound } from 'next/navigation';
-import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
-import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, loadTopicQuizState } from '@/app/src/lib/quizPageData';
-import QuizWithAsk from '@/app/src/components/QuizWithAsk';
-import QuizModal from '@/app/src/components/QuizModal';
+import { TopicTestModalContent } from '@/app/src/components/QuizModalContent';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,33 +23,5 @@ interface PageProps {
 
 export default async function TopicTestModal({ params }: PageProps) {
   const { gradeSlug, lessonSlug, unitSlug, topicSlug } = await params;
-  const data = await getTopicTestPageData(gradeSlug, lessonSlug, unitSlug, topicSlug);
-
-  if (!data) {
-    notFound();
-  }
-
-  const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadTopicQuizState(data);
-
-  return (
-    <QuizModal>
-      <QuizWithAsk
-        key={data.topicId}
-        gradeId={data.gradeId}
-        lessonId={data.lessonId}
-        unitId={data.unitId}
-        topicId={data.topicId}
-        scopeLabel={`${data.topicTitle} Kavrama Testi`}
-        exitHref={buildTopicPath(data)}
-        exitLabel="Konuya Dön"
-        initialQuestions={initialQuestions}
-        remainingQuestionIds={remainingQuestionIds}
-        allCaughtUp={allCaughtUp}
-        reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
-        secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
-        resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
-        questionBankPathBase={buildQuestionBankPath(data)}
-      />
-    </QuizModal>
-  );
+  return <TopicTestModalContent gradeSlug={gradeSlug} lessonSlug={lessonSlug} unitSlug={unitSlug} topicSlug={topicSlug} />;
 }
