@@ -78,14 +78,16 @@ function academicYearLabel(): string {
   return now.getMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
-// Her ünite için farklı ama sade vurgu renkleri
+// Her ünite için farklı ama sade vurgu renkleri — headerBg, kullanıcının 2026-09-06 verdiği
+// lacivert+nane yeşili tasarım referansına göre eklendi: ünite başlık şeridi artık düz gri
+// değil, o ünitenin vurgu rengiyle hafifçe tonlanıyor (mockup'taki gibi).
 const UNIT_ACCENTS = [
-  { border: 'border-l-4 border-l-indigo-500', badge: 'bg-indigo-100 text-indigo-700' },
-  { border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 text-purple-700' },
-  { border: 'border-l-4 border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700' },
-  { border: 'border-l-4 border-l-amber-500', badge: 'bg-amber-100 text-amber-700' },
-  { border: 'border-l-4 border-l-rose-500', badge: 'bg-rose-100 text-rose-700' },
-  { border: 'border-l-4 border-l-sky-500', badge: 'bg-sky-100 text-sky-700' },
+  { border: 'border-l-4 border-l-indigo-500', badge: 'bg-indigo-100 text-indigo-700', headerBg: 'bg-indigo-50/60' },
+  { border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 text-purple-700', headerBg: 'bg-purple-50/60' },
+  { border: 'border-l-4 border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700', headerBg: 'bg-emerald-50/60' },
+  { border: 'border-l-4 border-l-amber-500', badge: 'bg-amber-100 text-amber-700', headerBg: 'bg-amber-50/60' },
+  { border: 'border-l-4 border-l-rose-500', badge: 'bg-rose-100 text-rose-700', headerBg: 'bg-rose-50/60' },
+  { border: 'border-l-4 border-l-sky-500', badge: 'bg-sky-100 text-sky-700', headerBg: 'bg-sky-50/60' },
 ];
 
 // useSearchParams() bir bileşeni statik/ISR render'da Suspense'e sokup client-only render'a
@@ -290,19 +292,22 @@ export default function MufredatOverviewClient({
           {/* Ana İçerik */}
           <div className="min-w-0">
 
-            {/* Ders Başlığı */}
-            <div className="bg-white rounded-xl border border-gray-200/70 shadow-sm p-6 sm:p-7 mb-7">
+            {/* Ders Başlığı — kullanıcının 2026-09-06 verdiği lacivert+nane yeşili tasarım
+                referansına göre nane yeşili tonlandı (mockup'taki gibi); site genelindeki
+                üst menü kasıtlı olarak dokunulmadı, sadece bu sayfanın kartları (kullanıcının
+                tercihi: "hızlıca denemek istiyorum" → küçük, geri alınabilir kapsam). */}
+            <div className="bg-emerald-50/60 rounded-xl border border-emerald-100 shadow-sm p-6 sm:p-7 mb-7">
               <div className="flex items-center gap-5">
-                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-indigo-50 flex items-center justify-center text-3xl sm:text-4xl shrink-0 ring-1 ring-indigo-100">
+                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-white flex items-center justify-center text-3xl sm:text-4xl shrink-0 ring-1 ring-emerald-100 shadow-sm">
                   {lessonIcon || '📘'}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/70 text-emerald-700 text-xs font-medium ring-1 ring-emerald-100">
                       <GraduationCap className="h-3 w-3" />
                       {gradeName}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/70 text-emerald-700 text-xs font-medium ring-1 ring-emerald-100">
                       <Calendar className="h-3 w-3" />
                       {academicYearLabel()}
                     </span>
@@ -312,15 +317,15 @@ export default function MufredatOverviewClient({
                   </h1>
                   <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-500">
                     <span className="inline-flex items-center gap-1.5">
-                      <Layers className="h-4 w-4 text-gray-400" />
+                      <Layers className="h-4 w-4 text-indigo-500" />
                       {units.length} Ünite
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="h-4 w-4 text-gray-400" />
+                      <BookOpen className="h-4 w-4 text-sky-500" />
                       {totalTopics} Konu
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <ListChecks className="h-4 w-4 text-gray-400" />
+                      <ListChecks className="h-4 w-4 text-amber-500" />
                       {totalQuestions} Soru
                     </span>
                   </div>
@@ -350,7 +355,7 @@ export default function MufredatOverviewClient({
                   >
                     {/* Ünite Başlığı */}
                     <div className={`px-5 py-4 flex items-center gap-4 ${
-                      isDraftUnit ? 'bg-amber-50/50' : 'bg-gray-50/50'
+                      isDraftUnit ? 'bg-amber-50/50' : accent.headerBg
                     }`}>
                       <span className={`h-9 w-9 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
                         isDraftUnit ? 'bg-amber-100 text-amber-700' : accent.badge
@@ -430,7 +435,7 @@ export default function MufredatOverviewClient({
                                   ) : topicHref ? (
                                     <Link
                                       href={topicHref}
-                                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                      className="inline-flex items-center gap-1 text-xs font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 px-2.5 py-1 rounded-full transition-colors"
                                     >
                                       <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
                                     </Link>
@@ -438,7 +443,7 @@ export default function MufredatOverviewClient({
                                     <button
                                       type="button"
                                       onClick={() => goToWeek(start ?? effectiveWeek)}
-                                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                                      className="inline-flex items-center gap-1 text-xs font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 px-2.5 py-1 rounded-full transition-colors"
                                     >
                                       <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
                                     </button>
@@ -446,7 +451,7 @@ export default function MufredatOverviewClient({
                                   {bankHref ? (
                                     <Link
                                       href={bankHref}
-                                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md transition-colors"
+                                      className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
                                     >
                                       <ListChecks className="h-3.5 w-3.5" /> Soru Bankası · {questionCount}
                                     </Link>
