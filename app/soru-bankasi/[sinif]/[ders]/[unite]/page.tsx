@@ -87,7 +87,6 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
             unitId={data.unitId}
             testHref={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`}
             title="Ünite Testi"
-            icon="trophy"
             color="emerald"
           />
         </div>

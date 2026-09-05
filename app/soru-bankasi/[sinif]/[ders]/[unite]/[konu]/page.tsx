@@ -113,7 +113,6 @@ export default async function QuestionBankPage({ params }: PageProps) {
             unitId={data.unitId}
             testHref={`${buildTopicPath(data)}/kavrama-testi`}
             title="Kavrama Testi"
-            icon="list-checks"
             color="indigo"
           />
         </div>

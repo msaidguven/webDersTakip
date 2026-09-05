@@ -5,21 +5,16 @@
 // verisini client'ta ayrıca çeker (DersClientCards.tsx'teki topicCount fetch'iyle aynı
 // desen) — /api/soru-bankasi/topic-status veya unit-status'tan gelen sonuca göre ya "Teste
 // Başla" (+ bu konuda/ünitede bugüne kadarki doğru/yanlış) ya da "Teste Devam Et" (+ yarım
-// kalan oturumun ilerlemesi) gösterir. "Teste Başla"/"Devam Et" linki her iki durumda da
-// AYNI /.../kavrama-testi veya /.../unite-testi URL'i — hangi soruların geleceğine (devam mı
-// yeni mi) zaten o sayfanın kendi mantığı (loadTopicQuizState/loadUnitQuizState) karar
-// veriyor, burası sadece doğru metni/sayıyı gösteriyor. Soru bankasının kendi @modal'ı
-// sayesinde bu link normal tıklamada sayfadan hiç ayrılmadan overlay açar.
+// kalan oturumun ilerlemesi, dairesel gösterge ile) gösterir. "Teste Başla"/"Devam Et" linki
+// her iki durumda da AYNI /.../kavrama-testi veya /.../unite-testi URL'i — hangi soruların
+// geleceğine (devam mı yeni mi) zaten o sayfanın kendi mantığı (loadTopicQuizState/
+// loadUnitQuizState) karar veriyor, burası sadece doğru metni/sayıyı gösteriyor. Soru
+// bankasının kendi @modal'ı sayesinde bu link normal tıklamada sayfadan hiç ayrılmadan
+// overlay açar.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ListChecks, Loader2, Trophy } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
-
-// Server Component'ten (soru bankası sayfaları) doğrudan lucide component referansı
-// GEÇİRİLEMEZ (RSC serileştirme hatası: "Functions cannot be passed directly to Client
-// Components") — bu yüzden ikon bir string anahtar olarak geliyor, gerçek component burada
-// (zaten client tarafında) map'leniyor.
-const ICONS = { trophy: Trophy, 'list-checks': ListChecks } as const;
 
 interface TestStatusCardProps {
   scope: 'topic' | 'unit';
@@ -27,35 +22,47 @@ interface TestStatusCardProps {
   unitId: number;
   testHref: string;
   title: string;
-  icon: keyof typeof ICONS;
   color: 'indigo' | 'emerald';
 }
 
 const COLOR_CLASSES = {
-  indigo: {
-    border: 'border-indigo-100',
-    bg: 'bg-indigo-50/60',
-    text: 'text-indigo-700',
-    subtext: 'text-indigo-900/70',
-    badge: 'bg-indigo-500',
-    button: 'bg-indigo-600 hover:bg-indigo-700',
-    bar: 'bg-indigo-500',
-  },
-  emerald: {
-    border: 'border-emerald-100',
-    bg: 'bg-emerald-50/60',
-    text: 'text-emerald-700',
-    subtext: 'text-emerald-900/70',
-    badge: 'bg-emerald-500',
-    button: 'bg-emerald-600 hover:bg-emerald-700',
-    bar: 'bg-emerald-500',
-  },
+  indigo: { ring: 'text-indigo-500', button: 'bg-indigo-600 hover:bg-indigo-700' },
+  emerald: { ring: 'text-emerald-500', button: 'bg-emerald-600 hover:bg-emerald-700' },
 } as const;
 
-export default function TestStatusCard({ scope, topicId, unitId, testHref, title, icon, color }: TestStatusCardProps) {
+// r=40, çevre = 2*pi*40 ≈ 251.33 — yüzdeye göre strokeDashoffset hesaplanıyor,
+// -rotate-90 ile başlangıç 12 yönüne (saat başı) çekiliyor.
+const RING_RADIUS = 40;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function ProgressRing({ percent, ringClass, label, sublabel }: { percent: number; ringClass: string; label: string; sublabel: string }) {
+  const offset = RING_CIRCUMFERENCE * (1 - Math.min(100, Math.max(0, percent)) / 100);
+  return (
+    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        <circle cx="50" cy="50" r={RING_RADIUS} fill="none" strokeWidth="9" style={{ stroke: 'var(--border)' }} />
+        <circle
+          cx="50"
+          cy="50"
+          r={RING_RADIUS}
+          fill="none"
+          strokeWidth="9"
+          strokeLinecap="round"
+          className={ringClass}
+          style={{ stroke: 'currentColor', strokeDasharray: RING_CIRCUMFERENCE, strokeDashoffset: offset, transition: 'stroke-dashoffset 0.4s ease' }}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className="text-xl font-black text-default">{label}</span>
+        <span className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">{sublabel}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function TestStatusCard({ scope, topicId, unitId, testHref, title, color }: TestStatusCardProps) {
   const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
   const classes = COLOR_CLASSES[color];
-  const Icon = ICONS[icon];
 
   useEffect(() => {
     let cancelled = false;
@@ -80,48 +87,61 @@ export default function TestStatusCard({ scope, topicId, unitId, testHref, title
   const resumable = status?.resumable ?? null;
 
   return (
-    <div className={`flex flex-col gap-3 rounded-2xl border ${classes.border} ${classes.bg} p-4 sm:p-5`}>
-      <div className={`flex items-center gap-2.5 text-sm font-black ${classes.text}`}>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${classes.badge} text-white shadow-sm`}>
-          <Icon className="h-4.5 w-4.5" />
-        </span>
-        {title}
-      </div>
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-default bg-surface-elevated p-4 text-center sm:p-6">
+      <p className="text-base font-black text-default sm:text-lg">{title}</p>
 
       {!status ? (
-        <div className={`flex items-center gap-2 text-xs font-bold ${classes.subtext}`}>
+        <div className="flex items-center gap-2 py-4 text-xs font-bold text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Durum yükleniyor…
         </div>
       ) : resumable ? (
         <>
-          <div className="space-y-1.5">
-            <p className={`text-xs font-medium leading-relaxed ${classes.subtext}`}>
-              Yarım kalan bir testin var: {resumable.answeredCount}/{resumable.total} · {resumable.correctCount} doğru, {resumable.wrongCount} yanlış
-            </p>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
-              <div
-                className={`h-full rounded-full ${classes.bar}`}
-                style={{ width: `${resumable.total ? Math.round((resumable.answeredCount / resumable.total) * 100) : 0}%` }}
-              />
+          <p className="-mt-2 text-xs font-bold text-muted-foreground sm:text-sm">Tamamlanmamış bir testiniz var</p>
+
+          <ProgressRing
+            percent={resumable.total ? (resumable.answeredCount / resumable.total) * 100 : 0}
+            ringClass={classes.ring}
+            label={`${resumable.answeredCount}/${resumable.total}`}
+            sublabel="Soru"
+          />
+
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-1.5 text-sm font-black text-default">
+              {resumable.correctCount} DOĞRU <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="flex items-center gap-1.5 text-sm font-black text-default">
+              {resumable.wrongCount} YANLIŞ <XCircle className="h-4 w-4 text-rose-500" />
             </div>
           </div>
+
           <Link
             href={testHref}
-            className={`flex items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-2.5 text-sm font-black text-white transition-colors`}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors`}
           >
             Teste Devam Et <ArrowRight className="h-4 w-4" />
           </Link>
         </>
       ) : (
         <>
-          <p className={`flex-1 text-xs font-medium leading-relaxed ${classes.subtext}`}>
+          <p className="-mt-2 text-xs font-bold text-muted-foreground sm:text-sm">
             {status.testSize} soruluk test
-            {status.loggedIn && status.solved > 0 ? ` — bu ${scope === 'topic' ? 'konuda' : 'ünitede'} şimdiye kadar ${status.solved} çözülmüş, ${status.correct} doğru, ${status.wrong} yanlış` : ''}
             {!status.loggedIn ? ' — giriş yaparsan ilerlemen kaydedilir' : ''}
           </p>
+
+          {status.loggedIn && status.solved > 0 && (
+            <div className="flex items-center gap-5">
+              <div className="flex items-center gap-1.5 text-sm font-black text-default">
+                {status.correct} DOĞRU <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="flex items-center gap-1.5 text-sm font-black text-default">
+                {status.wrong} YANLIŞ <XCircle className="h-4 w-4 text-rose-500" />
+              </div>
+            </div>
+          )}
+
           <Link
             href={testHref}
-            className={`flex items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-2.5 text-sm font-black text-white transition-colors`}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors`}
           >
             Teste Başla <ArrowRight className="h-4 w-4" />
           </Link>
