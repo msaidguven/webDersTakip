@@ -64,6 +64,19 @@ const COLOR_CLASSES = {
 const RING_RADIUS = 40;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+// Kartın en üst satırındaki küçük istatistik kutucukları (Soru/Çözülen/Doğru/Yanlış) —
+// kullanıcının 2026-09-06 isteği: "soru sayısı, çözülen, doğru, yanlış bilgisini card'lar
+// ekleyerek güzelleştirelim", eskiden burası sadece "10 soruluk test" düz metniydi.
+function StatTile({ value, label, tone }: { value: number; label: string; tone?: 'emerald' | 'rose' }) {
+  const toneClass = tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : 'text-default';
+  return (
+    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-surface px-2 py-2.5">
+      <span className={`text-lg font-black sm:text-xl ${toneClass}`}>{value}</span>
+      <span className="text-[9px] font-black uppercase tracking-wide text-muted-foreground sm:text-[10px]">{label}</span>
+    </div>
+  );
+}
+
 function ProgressRing({ percent, ringClass, label, sublabel }: { percent: number; ringClass: string; label: string; sublabel: string }) {
   const offset = RING_CIRCUMFERENCE * (1 - Math.min(100, Math.max(0, percent)) / 100);
   return (
@@ -203,28 +216,36 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         </>
       ) : (
         <>
-          <p className="-mt-2 text-xs font-bold text-muted-foreground sm:text-sm">
-            {status.testSize} soruluk test
-            {!status.loggedIn ? ' — giriş yaparsan ilerlemen kaydedilir' : ''}
-          </p>
-
-          {status.loggedIn && status.solved > 0 && (
-            <div className="flex items-center gap-5">
-              <div className="flex items-center gap-1.5 text-sm font-black text-default">
-                {status.correct} DOĞRU <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="flex items-center gap-1.5 text-sm font-black text-default">
-                {status.wrong} YANLIŞ <XCircle className="h-4 w-4 text-rose-500" />
-              </div>
+          {status.loggedIn && status.solved > 0 ? (
+            <div className="grid w-full grid-cols-4 gap-2">
+              <StatTile value={status.poolSize} label="Soru" />
+              <StatTile value={status.solved} label="Çözülen" />
+              <StatTile value={status.correct} label="Doğru" tone="emerald" />
+              <StatTile value={status.wrong} label="Yanlış" tone="rose" />
             </div>
+          ) : (
+            <StatTile value={status.poolSize} label="Soru Bankası" />
+          )}
+
+          {!status.loggedIn && (
+            <p className="-mt-1 text-xs font-bold text-muted-foreground">Giriş yaparsan ilerlemen kaydedilir</p>
           )}
 
           <a
             href={testHref}
             onClick={startOrResumeTest}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
           >
-            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Başla <ArrowRight className="h-4 w-4" /></>}
+            {testLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 text-sm font-black">
+                  Teste Başla <ArrowRight className="h-4 w-4" />
+                </span>
+                <span className="text-[11px] font-bold text-white/80">{status.testSize} Soru Çöz</span>
+              </>
+            )}
           </a>
         </>
       )}
