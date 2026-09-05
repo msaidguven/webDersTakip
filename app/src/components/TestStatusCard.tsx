@@ -20,7 +20,7 @@
 // açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
 // akışa yönlendiriliyor.
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 import QuizModal from '@/app/src/components/QuizModal';
@@ -197,13 +197,14 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             sublabel="Soru"
           />
 
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-1.5 text-sm font-black text-default">
-              {resumable.correctCount} DOĞRU <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            </div>
-            <div className="flex items-center gap-1.5 text-sm font-black text-default">
-              {resumable.wrongCount} YANLIŞ <XCircle className="h-4 w-4 text-rose-500" />
-            </div>
+          {/* Yarım kalan oturumda da fresh-state'teki AYNI kutucuklar (kullanıcının
+              2026-09-06 isteği: burada da doğru/yanlış/çözülen soru sayısını göster) —
+              poolSize toplam soru bankasını, resumable.* ise BU oturumun ilerlemesini gösterir. */}
+          <div className="grid w-full grid-cols-4 gap-2">
+            <StatTile value={status.poolSize} label="Soru" />
+            <StatTile value={resumable.answeredCount} label="Çözülen" />
+            <StatTile value={resumable.correctCount} label="Doğru" tone="emerald" />
+            <StatTile value={resumable.wrongCount} label="Yanlış" tone="rose" />
           </div>
 
           <a
