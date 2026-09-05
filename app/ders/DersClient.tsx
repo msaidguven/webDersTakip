@@ -1656,12 +1656,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         `}>
           <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
             {!tocCollapsed && (
-              <Link
-                href={overviewHref}
-                className="flex items-center gap-1.5 text-xs font-black text-indigo-600 hover:text-indigo-700 transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" /> Müfredata Dön
-              </Link>
+              <div className="flex flex-col gap-0.5">
+                <Link
+                  href={overviewHref}
+                  className="flex items-center gap-1.5 text-xs font-black text-indigo-600 hover:text-indigo-700 transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Müfredata Dön
+                </Link>
+                <span className="pl-5 text-[11px] font-semibold text-slate-400">{gradeName} {lessonName}</span>
+              </div>
             )}
             <button
               type="button"
@@ -1771,8 +1774,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <BookOpen className="h-4 w-4" />
                   </Link>
 
-                  {/* Sınıf değiştirici */}
-                  <div className="relative min-w-0 flex-1 sm:flex-none">
+                  {/* Sınıf değiştirici — Ders'in yanında, kompakt (kullanıcının 2026-09-05
+                      isteği: "dersi sınıfın yanına al") */}
+                  <div className="relative min-w-0 flex-none">
                     <button
                       type="button"
                       onClick={() => { setGradeSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setUnitSwitcherOpen(false); setTopicSwitcherOpen(false); }}
@@ -1806,9 +1810,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </>
                     )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
                   {/* Ders (lesson) değiştirici */}
                   <div className="relative min-w-0 flex-1">
                     <button
@@ -1850,8 +1852,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </>
                     )}
                   </div>
+                </div>
 
-                  {/* Ünite değiştirici */}
+                <div className="flex items-center gap-2">
+                  {/* Ünite değiştirici — artık kendi satırında tek başına (tam genişlik),
+                      ünite adları uzun olduğunda daha az kırpılsın diye. */}
                   <div className="relative min-w-0 flex-1">
                     <button
                       type="button"
