@@ -116,13 +116,6 @@ export function buildSectionImageAlt(sectionHeading: string, topicTitle: string,
   return `${gradeName} ${lessonName} ${topicTitle}: ${sectionHeading} görseli`;
 }
 
-// Kazanımlar müfredat yılı içinde neredeyse hiç değişmiyor; 10 günde bir tazelemek yeterli.
-export const KAZANIMLAR_CACHE_TTL_MS = 10 * 24 * 60 * 60 * 1000; // 10 gün
-
-export function kazanimlarCacheKey(gradeId: string, lessonId: string) {
-  return `ders-kazanimlar-all:${gradeId}:${lessonId}`;
-}
-
 export const SPECIAL_WEEK_META: Record<SpecialWeekEvent['eventType'], { icon: string; card: string }> = {
   break: { icon: '🏖️', card: 'bg-amber-50 border-amber-200 text-amber-800' },
   special_content: { icon: '✨', card: 'bg-indigo-50 border-indigo-200 text-indigo-800' },

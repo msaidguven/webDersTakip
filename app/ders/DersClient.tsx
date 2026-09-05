@@ -61,8 +61,6 @@ import {
   type Outcome,
   type WeekedOutcome,
   type SpecialWeekEvent,
-  type TopicSection,
-  type TopicHighlight,
   type Content,
   type Unit,
   type ProfileRoleRow,
@@ -76,8 +74,6 @@ import {
   buildTopicTestHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
-  KAZANIMLAR_CACHE_TTL_MS,
-  kazanimlarCacheKey,
   SPECIAL_WEEK_META,
   STUDY_TIPS,
 } from './dersHelpers';
@@ -129,7 +125,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeTopicId, setActiveTopicId] = useState<string | number | null>(
     pickInitialTopicId(initialData.contents, initialData.topicSlug)
   );
-  const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
@@ -152,7 +147,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
-  const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
   const [unitTopicsCache, setUnitTopicsCache] = useState<Record<string, Content[]>>({});
@@ -166,7 +160,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
-  const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
@@ -175,9 +168,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
   const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  // Bir TOC tıklaması başka bir konuya geçiş gerektirdiğinde, o konunun içeriği
-  // render edilene kadar hangi alt başlığa kaydırılacağını burada bekletiyoruz.
-  const pendingScrollSlugRef = useRef<string | null>(null);
   const initialHashHandledRef = useRef(false);
 
   const selectedTopicIndex = useMemo(() => {
@@ -201,22 +191,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setStudyTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)]);
   }, [selectedTopicId]);
 
-  // Akordeon: sadece seçili konunun alt başlıkları açık kalsın, diğer konularınki kapansın
-  useEffect(() => {
-    if (selectedTopicId == null) return;
-    setExpandedTopicIds(new Set([String(selectedTopicId)]));
-  }, [selectedTopicId]);
-
   // Konu değişince İçindekiler kutusu her seferinde kapalı başlasın — bir önceki
   // konunun açık bıraktığı durumla kafa karıştırmasın.
   useEffect(() => {
     setIcindekilerOpen(false);
   }, [selectedTopicId]);
-
-  const toggleTopicExpanded = (id: string | number) => {
-    const key = String(id);
-    setExpandedTopicIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
-  };
 
   // Müfredat özeti (üniteler + haftalar) sayfasına dönüş linki
   const overviewHref = useMemo(() => {
@@ -508,25 +487,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       }
     }
     setSidebarOpen(false);
-  };
-
-  // Başka bir konudaki/üniteredeki bir alt başlığa tıklanınca: önce o konuyu aktif
-  // yapar, içerik render olduktan sonra pendingScrollSlugRef üzerinden anchor'a kayar.
-  const selectUnitSection = (unit: Unit, topicId: string | number, slug: string) => {
-    let list = contents;
-    if (String(unit.id) !== String(activeUnit?.id)) {
-      const cached = unitTopicsCache[String(unit.id)];
-      if (cached) {
-        list = cached;
-        setContents(cached);
-      }
-      setManualUnitId(Number(unit.id));
-    }
-    setActiveTopicId(topicId);
-    pendingScrollSlugRef.current = slug;
-    setSidebarOpen(false);
-    const topic = list.find((c) => String(c.id) === String(topicId));
-    if (topic) void ensureTopicContentLoaded(topic, unit);
   };
 
   const totalTopics = contents.length;
@@ -883,24 +843,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   }, [gradeSlug, lessonSlug, activeUnit?.slug, activeTopic?.slug]);
 
-  // Bir TOC tıklaması konu değişikliği gerektirdiyse (selectUnitSection), yeni
-  // konunun alt başlıkları DOM'a yazıldıktan sonra bekleyen anchor'a kaydır.
-  useEffect(() => {
-    if (!pendingScrollSlugRef.current) return;
-    const slug = pendingScrollSlugRef.current;
-    pendingScrollSlugRef.current = null;
-    requestAnimationFrame(() => {
-      const el = document.getElementById(slug);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (gradeSlug && lessonSlug && activeUnit?.slug && activeTopic?.slug) {
-          const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}#${slug}`;
-          window.history.replaceState(null, '', url);
-        }
-      }
-    });
-  }, [activeTopic?.id, gradeSlug, lessonSlug, activeUnit?.slug]);
-
   // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
   // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
   useEffect(() => {
@@ -913,29 +855,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       document.getElementById(decodeURIComponent(hash))?.scrollIntoView({ block: 'start' });
     });
   }, [activeTopic]);
-
-  // Uzun, tüm alt başlıkların art arda göründüğü sayfada kullanıcı kaydırdıkça
-  // sol menüde hangi alt başlıkta olduğunu vurgulamak için basit bir scroll-spy.
-  useEffect(() => {
-    const sectionEls = Array.from(document.querySelectorAll('[data-section-anchor]')) as HTMLElement[];
-    if (!sectionEls.length) {
-      setActiveSectionSlug(null);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) {
-          setActiveSectionSlug(visible[0].target.getAttribute('data-section-anchor'));
-        }
-      },
-      { root: contentRef.current, rootMargin: '-15% 0px -70% 0px', threshold: 0 }
-    );
-    sectionEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [activeTopic?.id]);
 
   useEffect(() => {
     setUnits(initialData.units || []);
@@ -1040,8 +959,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopicIndex, contents, activeUnit?.id]);
 
-  const sections = activeTopic?.sections || [];
-
   const runViewTransition = (direction: 'forward' | 'backward', update: () => void) => {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
     if (!doc.startViewTransition) {
@@ -1096,26 +1013,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     const isActive = isActiveUnitList && idx === selectedTopicIndex;
     const isCompleted = isActiveUnitList && idx < selectedTopicIndex;
     const showAdminMenu = isAdmin && !tocCollapsed;
-    const hasSections = !!topic.sections?.length;
-    const isTopicExpanded = expandedTopicIds.has(String(topic.id));
-    const showExpandToggle = hasSections && !tocCollapsed;
-    const showSectionTree = showExpandToggle && isTopicExpanded;
-    const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
-    const topicSectionSlugs = showSectionTree ? buildSectionSlugs(topic.sections!) : null;
+    const rightControlsCount = showAdminMenu ? 1 : 0;
 
     const handleTopicClick = () => {
       if (isActiveUnitList) {
         goToTopic(idx);
       } else {
         selectUnitTopic(unit, topic.id);
-      }
-    };
-
-    const handleSectionClick = (slug: string) => {
-      if (isActiveUnitList) {
-        goToSectionAnchor(slug);
-      } else {
-        selectUnitSection(unit, topic.id, slug);
       }
     };
 
@@ -1128,7 +1032,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           className={`
             w-full flex items-center gap-3 rounded-xl transition-colors duration-200 text-left
             ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
-            ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
+            ${rightControlsCount === 1 ? 'pr-8' : ''}
             ${isActive ? 'bg-violet-50/80' : 'hover:bg-slate-50'}
           `}
         >
@@ -1157,24 +1061,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           )}
         </button>
 
-        {(showExpandToggle || showAdminMenu) && (
+        {showAdminMenu && (
           <div className="absolute right-1 top-1 flex items-center gap-0.5">
-            {showExpandToggle && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleTopicExpanded(topic.id);
-                }}
-                title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
-                className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-              >
-                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
-              </button>
-            )}
-
-            {showAdminMenu && (
-              <div className="relative">
+            <div className="relative">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1267,152 +1156,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </>
                 )}
               </div>
-            )}
           </div>
         )}
       </div>
 
-      {showSectionTree && (
-        <div className="ml-8 mt-1 mb-2 border-l border-slate-200 pl-3 space-y-0.5">
-          {topic.sections!.map((section, sIdx) => {
-            const slug = topicSectionSlugs!.get(section.id)!;
-            const isSectionActive = isActiveUnitList && activeSectionSlug === slug;
-            return (
-              <div key={section.id} className="relative">
-                <button
-                  type="button"
-                  onClick={() => handleSectionClick(slug)}
-                  title={section.heading}
-                  className={`flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
-                    isSectionActive
-                      ? 'bg-indigo-100 text-indigo-700 font-black'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-                  }`}
-                >
-                  <span className="truncate">{sIdx + 1}. {section.heading}</span>
-                  {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
-                    <span title="Bu alt başlığa soru eklenmiş" className="shrink-0">
-                      <Check className="h-3 w-3 text-emerald-500" />
-                    </span>
-                  )}
-                </button>
-
-                {isAdmin && (
-                  <div className="absolute right-0.5 top-0.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id));
-                      }}
-                      className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                    >
-                      <MoreVertical className="h-3 w-3" />
-                    </button>
-
-                    {String(sectionMenuOpenId) === String(section.id) && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
-                        <div className="absolute right-0 top-6 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setSectionModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setImageModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ImagePlus className="h-3.5 w-3.5" /> Görsel Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setDiagramModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt, diagram_svg: section.diagramSvg },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Shapes className="h-3.5 w-3.5" /> Diyagram Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setQuestionsModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
-                            {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
-                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setQuestionsModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading },
-                                variant: 'classical',
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ListChecks className="h-3.5 w-3.5" /> Açık Uçlu Soru Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setClassicalGenerateTarget({
-                                topicId: Number(topic.id),
-                                topicTitle: topic.title,
-                                section: { id: Number(section.id), heading: section.heading },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
       </div>
     );
   };
@@ -1656,7 +1403,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 >
                   <span className="min-w-0">
                     <span className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
-                      {selectedTopicIndex + 1}. Konu{sections.length ? ` • ${sections.length} Alt Başlık` : ''}
+                      {selectedTopicIndex + 1}. Konu
                     </span>
                     <span className="block text-sm font-bold text-slate-800 truncate">
                       {activeTopic?.title}
@@ -1671,66 +1418,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl space-y-1">
                       {contents.map((topic, idx) => {
                         const isActiveTopic = idx === selectedTopicIndex;
-                        const hasSections = !!topic.sections?.length;
-                        const isExpanded = expandedTopicIds.has(String(topic.id));
-                        const mobileSectionSlugs = hasSections ? buildSectionSlugs(topic.sections!) : null;
                         return (
-                          <div key={topic.id} className="relative">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                goToTopic(idx);
-                                setMobileTopicMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center gap-2 rounded-lg py-2.5 pl-3 text-left text-sm font-bold transition-colors ${hasSections ? 'pr-9' : 'pr-3'} ${
-                                isActiveTopic ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span className="flex-1 min-w-0 truncate">{idx + 1}. {topic.title}</span>
-                            </button>
-
-                            {hasSections && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleTopicExpanded(topic.id);
-                                }}
-                                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                              >
-                                <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                              </button>
-                            )}
-
-                            {hasSections && isExpanded && (
-                              <div className="ml-4 mb-1 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3">
-                                {topic.sections!.map((section, sIdx) => {
-                                  const slug = mobileSectionSlugs!.get(section.id)!;
-                                  const isActiveSection = isActiveTopic && activeSectionSlug === slug;
-                                  return (
-                                    <button
-                                      key={section.id}
-                                      type="button"
-                                      onClick={() => {
-                                        if (isActiveTopic) {
-                                          goToSectionAnchor(slug);
-                                        } else {
-                                          setActiveTopicId(topic.id);
-                                          pendingScrollSlugRef.current = slug;
-                                        }
-                                        setMobileTopicMenuOpen(false);
-                                      }}
-                                      className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
-                                        isActiveSection ? 'bg-indigo-100 text-indigo-700 font-black' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-                                      }`}
-                                    >
-                                      {sIdx + 1}. {section.heading}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            key={topic.id}
+                            type="button"
+                            onClick={() => {
+                              goToTopic(idx);
+                              setMobileTopicMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-2 rounded-lg py-2.5 px-3 text-left text-sm font-bold transition-colors ${
+                              isActiveTopic ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="flex-1 min-w-0 truncate">{idx + 1}. {topic.title}</span>
+                          </button>
                         );
                       })}
                     </div>
