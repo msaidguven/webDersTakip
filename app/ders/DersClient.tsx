@@ -131,7 +131,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   );
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mobileTopicMenuOpen, setMobileTopicMenuOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   // kazanimlarWeek "takvim haftası"dır (week prop'u öğretim haftasıdır) — bkz. totalCalendarWeeks
@@ -1040,8 +1039,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopicIndex, contents, activeUnit?.id]);
 
-  const sections = activeTopic?.sections || [];
-
   const runViewTransition = (direction: 'forward' | 'backward', update: () => void) => {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
     if (!doc.startViewTransition) {
@@ -1556,6 +1553,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             <div className="max-w-5xl mx-auto p-3 sm:p-5 lg:p-8">
 
+              <div className="grid grid-cols-1 gap-5 items-start lg:grid-cols-[1fr_260px]">
+              {/* SOL SÜTUN: hiyerarşi barı + mobil konu dropdown'u + içerik kartı — sağdaki
+                  260px'lik özet sütunuyla AYNI grid satırında, aynı hizada kalsınlar diye
+                  hepsi tek bir grid item (kullanıcının 2026-09-05 bildirdiği bug: hiyerarşi
+                  barı önceden bu grid'in DIŞINDA, tam container genişliğindeydi — bu da onu
+                  sağdaki özet sütununun üzerine taşıyormuş gibi görünmesine yol açıyordu). */}
+              <div className="min-w-0">
+
               {/* Ders/Ünite hiyerarşi barı — hangi sınıf/ders/ünitede olduğun her zaman
                   belirgin olsun ve sayfadan çıkmadan hızlıca ders/ünite değiştirebilesin diye
                   (bkz. kullanıcının 2026-09-05 isteği). Mobilde de görünür — eski breadcrumb
@@ -1647,98 +1652,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-              {/* Mobile Topics Dropdown */}
-              <div className="md:hidden mb-4 relative">
-                <button
-                  type="button"
-                  onClick={() => setMobileTopicMenuOpen((v) => !v)}
-                  className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
-                      {selectedTopicIndex + 1}. Konu{sections.length ? ` • ${sections.length} Alt Başlık` : ''}
-                    </span>
-                    <span className="block text-sm font-bold text-slate-800 truncate">
-                      {activeTopic?.title}
-                    </span>
-                  </span>
-                  <ChevronRight className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${mobileTopicMenuOpen ? 'rotate-90' : ''}`} />
-                </button>
-
-                {mobileTopicMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setMobileTopicMenuOpen(false)} />
-                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl space-y-1">
-                      {contents.map((topic, idx) => {
-                        const isActiveTopic = idx === selectedTopicIndex;
-                        const hasSections = !!topic.sections?.length;
-                        const isExpanded = expandedTopicIds.has(String(topic.id));
-                        const mobileSectionSlugs = hasSections ? buildSectionSlugs(topic.sections!) : null;
-                        return (
-                          <div key={topic.id} className="relative">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                goToTopic(idx);
-                                setMobileTopicMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center gap-2 rounded-lg py-2.5 pl-3 text-left text-sm font-bold transition-colors ${hasSections ? 'pr-9' : 'pr-3'} ${
-                                isActiveTopic ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span className="flex-1 min-w-0 truncate">{idx + 1}. {topic.title}</span>
-                            </button>
-
-                            {hasSections && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleTopicExpanded(topic.id);
-                                }}
-                                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                              >
-                                <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                              </button>
-                            )}
-
-                            {hasSections && isExpanded && (
-                              <div className="ml-4 mb-1 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3">
-                                {topic.sections!.map((section, sIdx) => {
-                                  const slug = mobileSectionSlugs!.get(section.id)!;
-                                  const isActiveSection = isActiveTopic && activeSectionSlug === slug;
-                                  return (
-                                    <button
-                                      key={section.id}
-                                      type="button"
-                                      onClick={() => {
-                                        if (isActiveTopic) {
-                                          goToSectionAnchor(slug);
-                                        } else {
-                                          setActiveTopicId(topic.id);
-                                          pendingScrollSlugRef.current = slug;
-                                        }
-                                        setMobileTopicMenuOpen(false);
-                                      }}
-                                      className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
-                                        isActiveSection ? 'bg-indigo-100 text-indigo-700 font-black' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-                                      }`}
-                                    >
-                                      {sIdx + 1}. {section.heading}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 items-start lg:grid-cols-[1fr_260px]">
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
@@ -1795,7 +1708,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
                         >
                           <span className="flex items-center gap-2 text-sm font-black text-indigo-700">
-                            <BookOpen className="h-4 w-4 text-indigo-500" /> İçindekiler
+                            <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
+                            <span className="min-w-0">
+                              <span className="block">İçindekiler</span>
+                              <span className="block truncate text-[11px] font-semibold text-indigo-500/70">{unitTitle}</span>
+                            </span>
                           </span>
                           <span className="flex items-center gap-1 text-xs font-black text-indigo-500">
                             Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
@@ -2132,6 +2049,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     )}
                   </div>
                 </div>
+              </div>
 
                 {/* RIGHT SIDEBAR: ünite özeti + MEB takvimi + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
