@@ -1652,6 +1652,45 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
+              {/* İçindekiler — konunun kendi alt başlıkları, hiyerarşi barının hemen altında
+                  (kullanıcının 2026-09-05 isteği: içerik kartının içine gömülüyken çok aşağıda
+                  kalıyordu). */}
+              {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (
+                <div className="mb-4 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/50">
+                  <button
+                    type="button"
+                    onClick={() => setIcindekilerOpen((v) => !v)}
+                    className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-black text-indigo-700">
+                      <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span className="min-w-0">
+                        <span className="block">İçindekiler</span>
+                        <span className="block truncate text-[11px] font-semibold text-indigo-500/70">{unitTitle}</span>
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1 text-xs font-black text-indigo-500">
+                      Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
+                    </span>
+                  </button>
+                  {icindekilerOpen && (
+                    <div className="space-y-0.5 border-t border-indigo-100/70 bg-white px-2.5 py-2.5">
+                      {activeTopic.sections.map((section, idx) => (
+                        <button
+                          key={section.id}
+                          type="button"
+                          onClick={() => goToSectionAnchor(activeTopicSectionSlugs.get(section.id) || String(section.id))}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <span className="shrink-0 text-xs font-black text-indigo-400">{idx + 1}</span>
+                          <span className="min-w-0 truncate">{section.heading}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
                   <div className="p-5 sm:p-8 lg:p-10">
@@ -1697,41 +1736,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
-                        )}
-                      </div>
-                    )}
-                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (
-                      <div className="not-prose mb-8 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/50">
-                        <button
-                          type="button"
-                          onClick={() => setIcindekilerOpen((v) => !v)}
-                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
-                        >
-                          <span className="flex items-center gap-2 text-sm font-black text-indigo-700">
-                            <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
-                            <span className="min-w-0">
-                              <span className="block">İçindekiler</span>
-                              <span className="block truncate text-[11px] font-semibold text-indigo-500/70">{unitTitle}</span>
-                            </span>
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-black text-indigo-500">
-                            Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
-                          </span>
-                        </button>
-                        {icindekilerOpen && (
-                          <div className="space-y-0.5 border-t border-indigo-100/70 bg-white px-2.5 py-2.5">
-                            {activeTopic.sections.map((section, idx) => (
-                              <button
-                                key={section.id}
-                                type="button"
-                                onClick={() => goToSectionAnchor(activeTopicSectionSlugs.get(section.id) || String(section.id))}
-                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-                              >
-                                <span className="shrink-0 text-xs font-black text-indigo-400">{idx + 1}</span>
-                                <span className="min-w-0 truncate">{section.heading}</span>
-                              </button>
-                            ))}
-                          </div>
                         )}
                       </div>
                     )}
