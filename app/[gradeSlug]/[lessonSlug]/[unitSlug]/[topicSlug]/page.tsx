@@ -146,6 +146,18 @@ async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]):
 }
 
 type GradeLessonRow = { id: number; name: string; slug: string | null; icon: string | null };
+type GradeOptionRow = { id: number; name: string; slug: string | null };
+
+// Hiyerarşi barındaki "Sınıf" dropdown'u için — tüm yayındaki sınıflar. Ders/ünite
+// dropdown'larıyla aynı desende: sayfadan hiç çıkmadan sınıf da değiştirilebilsin diye.
+async function fetchAllGrades(supabase: Supabase): Promise<GradeOptionRow[]> {
+  const { data } = await supabase
+    .from('grades')
+    .select('id, name, slug')
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+  return (data as GradeOptionRow[] | null) || [];
+}
 
 // Konu sayfasındaki yeni "Ders Değiştir" dropdown'u için — o sınıftaki TÜM aktif dersler.
 // Öğrenci sayfadan hiç çıkmadan başka bir derse geçebilsin diye (bkz. kullanıcının
@@ -260,10 +272,11 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // ÇEKMİYORUZ — sadece açılan konu (decodedTopicSlug) tam yüklenir, diğerleri sidebar
   // için hafif kalır ve client tarafında ihtiyaç oldukça (DersClient ->
   // ensureTopicContentLoaded) yüklenir.
-  const [questionCountByUnit, { outcomes, contents }, gradeLessons] = await Promise.all([
+  const [questionCountByUnit, { outcomes, contents }, gradeLessons, allGrades] = await Promise.all([
     computeQuestionCountByUnit(supabase, units),
     getLessonWeekData(supabase, activeUnit.id, week, false, { slug: decodedTopicSlug }),
     fetchGradeLessons(supabase, gId),
+    fetchAllGrades(supabase),
   ]);
 
   const unitsWithQuestionFlag = units.map((u) => {
@@ -286,6 +299,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     contents,
     units: unitsWithQuestionFlag,
     gradeLessons,
+    allGrades,
     totalWeeks,
     week,
     termStartDate,

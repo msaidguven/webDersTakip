@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/src/context/AuthContext';
 import {
   ChevronRight,
@@ -66,6 +67,8 @@ import {
   type Unit,
   type ProfileRoleRow,
   type GradeLesson,
+  type GradeOption,
+  type PendingUnit,
   buildSectionSlugs,
   readPersistentCache,
   writePersistentCache,
@@ -94,6 +97,9 @@ interface DersClientProps {
     // dersler (bkz. kullanıcının 2026-09-05 isteği: sayfadan çıkmadan hızlıca ders
     // değiştirebilme).
     gradeLessons?: GradeLesson[];
+    // Hiyerarşi barındaki "Sınıf" dropdown'u için — tüm yayındaki sınıflar (bkz.
+    // kullanıcının 2026-09-05 isteği: sınıf da ders/ünite gibi dropdown olsun).
+    allGrades?: GradeOption[];
     totalWeeks: number;
     termStartDate?: string | null;
     termEndDate?: string | null;
@@ -111,8 +117,9 @@ interface DersClientProps {
 
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const { user, supabase } = useAuth();
+  const router = useRouter();
 
-  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, gradeLessons = [] } = initialData;
+  const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, gradeLessons = [], allGrades = [] } = initialData;
 
   const pickInitialTopicId = (contentsList: Content[], topicSlug: string | null) => {
     if (topicSlug) {
@@ -149,6 +156,24 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [icindekilerOpen, setIcindekilerOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
+  const [gradeSwitcherOpen, setGradeSwitcherOpen] = useState(false);
+  // Hiyerarşi barında sınıf/ders seçimi, ünite seçilene kadar sadece "bekleyen" (pending)
+  // bir seçimdir — sayfa/içerik hiç değişmez, sadece dropdown'lar yeniden dolar (bkz.
+  // kullanıcının 2026-09-05 isteği: "sınıf ve ünite seçince sayfa değişmesin, sadece
+  // açılır menüler yenilensin; ünite seçince sayfa ve içerik yenilensin"). Ünite seçilip
+  // COMMIT edildiğinde: aynı sınıf+ders içindeyse mevcut anlık (navigasyonsuz) ünite
+  // değişimi kullanılır; farklıysa gerçek bir sayfa geçişi yapılır (bu derste/sınıfta
+  // units/contents/outcomes gibi neredeyse HER state farklı olduğu için).
+  const [pendingGradeId, setPendingGradeId] = useState<number>(() => Number(gradeId));
+  const [pendingGradeName, setPendingGradeName] = useState(gradeName);
+  const [pendingGradeSlug, setPendingGradeSlug] = useState(gradeSlug);
+  const [pendingLessons, setPendingLessons] = useState<GradeLesson[]>(gradeLessons);
+  const [pendingLessonId, setPendingLessonId] = useState<number>(() => Number(lessonId));
+  const [pendingLessonName, setPendingLessonName] = useState(lessonName);
+  const [pendingLessonSlug, setPendingLessonSlug] = useState(lessonSlug);
+  // null = "commit edilmiş sınıf/dersle aynı" (Ünite dropdown'u doğrudan sortedUnits'i gösterir)
+  const [pendingUnits, setPendingUnits] = useState<PendingUnit[] | null>(null);
+  const [pendingLoading, setPendingLoading] = useState(false);
   const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
   const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
@@ -305,6 +330,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     () => [...units].sort((a, b) => a.order_no - b.order_no),
     [units]
   );
+  // Ünite dropdown'unun gösterdiği liste — sınıf/ders için bekleyen (henüz commit
+  // edilmemiş) bir seçim varsa o seçime ait üniteler (fetchUnitsForLesson'dan), yoksa
+  // doğrudan bu sayfanın kendi üniteleri.
+  const unitDropdownOptions: PendingUnit[] = pendingUnits ?? sortedUnits;
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
   const activeUnitSlug = activeUnit?.slug || unitSlug || null;
 
@@ -476,6 +505,138 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       setActiveTopicId(firstTopic.id);
     }
     setManualUnitId(Number(unit.id));
+  };
+
+  // pendingGrade/pendingLesson hâlâ commit edilmiş (URL'deki) sınıf/dersle aynı mı?
+  const isPendingSameAsCommitted = pendingGradeId === Number(gradeId) && pendingLessonId === Number(lessonId);
+
+  async function fetchLessonsForGrade(gId: number): Promise<GradeLesson[]> {
+    try {
+      const res = await fetch(`/api/grade-lessons?gradeId=${gId}`);
+      if (!res.ok) return [];
+      const data = (await res.json()) as { lessons?: GradeLesson[] };
+      return data.lessons || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function fetchUnitsForLesson(gId: number, lId: number): Promise<PendingUnit[]> {
+    try {
+      const res = await fetch(`/api/lesson-units?gradeId=${gId}&lessonId=${lId}`);
+      if (!res.ok) return [];
+      const data = (await res.json()) as {
+        units?: { id: number; title: string; slug: string | null; orderNo: number; isActive: boolean; firstTopicSlug: string | null }[];
+      };
+      return (data.units || []).map((u) => ({
+        id: u.id,
+        title: u.title,
+        slug: u.slug,
+        order_no: u.orderNo,
+        start_week: null,
+        end_week: null,
+        is_active: u.isActive,
+        firstTopicSlug: u.firstTopicSlug,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  // Sınıf SONRA ders seçimi art arda hızlıca yapılırsa, sınıf seçiminin tetiklediği ünite
+  // fetch'i, ders seçiminin tetiklediği (daha yeni) fetch'ten SONRA dönebilir — bu da eski
+  // (yanlış derse ait) üniteleri pendingUnits'e yazıp sessizce ezerdi (kullanıcı gözlemledi:
+  // Ders etiketi doğru dersi gösterirken Ünite listesi/commit linki hâlâ ESKİ derse aitti).
+  // Her pending-değiştiren aksiyon kendi "nesil" numarasını alır; bir fetch dönene kadar daha
+  // YENİ bir aksiyon başlamışsa (nesil ilerlemişse) sonucu sessizce atılır.
+  const pendingRequestIdRef = useRef(0);
+
+  // Sınıf dropdown'unda bir sınıfa tıklanınca: sadece bekleyen seçimi günceller, sayfa/içerik
+  // DEĞİŞMEZ. O sınıftaki dersleri çekip Ders dropdown'unu doldurur; mevcut ders o sınıfta da
+  // varsa onu korur, yoksa ilk dersi bekleyen seçim yapar ve onun ünitelerini çeker.
+  const handleGradeDropdownSelect = async (grade: GradeOption) => {
+    setGradeSwitcherOpen(false);
+    if (grade.id === pendingGradeId) return;
+    const requestId = ++pendingRequestIdRef.current;
+
+    setPendingGradeId(grade.id);
+    setPendingGradeName(grade.name);
+    setPendingGradeSlug(grade.slug);
+    setPendingLoading(true);
+    try {
+      const lessons = grade.id === Number(gradeId) ? gradeLessons : await fetchLessonsForGrade(grade.id);
+      if (pendingRequestIdRef.current !== requestId) return;
+      setPendingLessons(lessons);
+
+      const keepLesson = lessons.find((l) => l.slug === pendingLessonSlug) || lessons[0] || null;
+      if (!keepLesson) {
+        setPendingLessonId(NaN);
+        setPendingLessonName('');
+        setPendingLessonSlug(null);
+        setPendingUnits([]);
+        return;
+      }
+
+      setPendingLessonId(keepLesson.id);
+      setPendingLessonName(keepLesson.name);
+      setPendingLessonSlug(keepLesson.slug);
+
+      const sameAsCommitted = grade.id === Number(gradeId) && keepLesson.id === Number(lessonId);
+      const nextUnits = sameAsCommitted ? null : await fetchUnitsForLesson(grade.id, keepLesson.id);
+      if (pendingRequestIdRef.current !== requestId) return;
+      setPendingUnits(nextUnits);
+    } finally {
+      if (pendingRequestIdRef.current === requestId) setPendingLoading(false);
+    }
+  };
+
+  // Ders dropdown'unda bir derse tıklanınca: aynı mantık — sayfa/içerik değişmez, sadece o
+  // dersin üniteleri Ünite dropdown'una çekilir.
+  const handleLessonDropdownSelect = async (lesson: GradeLesson) => {
+    setLessonSwitcherOpen(false);
+    if (lesson.id === pendingLessonId) return;
+    const requestId = ++pendingRequestIdRef.current;
+
+    setPendingLessonId(lesson.id);
+    setPendingLessonName(lesson.name);
+    setPendingLessonSlug(lesson.slug);
+
+    const sameAsCommitted = pendingGradeId === Number(gradeId) && lesson.id === Number(lessonId);
+    if (sameAsCommitted) {
+      setPendingUnits(null);
+      return;
+    }
+    setPendingLoading(true);
+    try {
+      const nextUnits = await fetchUnitsForLesson(pendingGradeId, lesson.id);
+      if (pendingRequestIdRef.current !== requestId) return;
+      setPendingUnits(nextUnits);
+    } finally {
+      if (pendingRequestIdRef.current === requestId) setPendingLoading(false);
+    }
+  };
+
+  // Ünite dropdown'unda bir üniteye tıklanınca: BU seçim commit'tir. Sınıf/ders hâlâ
+  // mevcut sayfayla aynıysa (kullanıcı sadece ünite değiştirdi) mevcut navigasyonsuz
+  // anlık geçiş kullanılır. Farklıysa (sınıf ve/veya ders de değişti) gerçek bir sayfa
+  // geçişi yapılır — o derste units/contents/outcomes/kazanımlar gibi hemen hemen HER
+  // state farklı olduğu için bunları client'ta manuel senkronize etmek yerine sunucudan
+  // taze bir sayfa istemek çok daha güvenli (bkz. dosyanın başındaki geçmiş bug yorumları).
+  const handleUnitDropdownSelect = (unit: PendingUnit) => {
+    setUnitSwitcherOpen(false);
+    if (isPendingSameAsCommitted) {
+      void handleUnitHeaderClick(unit);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (!pendingGradeSlug || !pendingLessonSlug || !unit.slug) {
+      if (pendingGradeSlug && pendingLessonSlug) router.push(`/${pendingGradeSlug}/${pendingLessonSlug}`);
+      return;
+    }
+    const url = unit.firstTopicSlug
+      ? `/${pendingGradeSlug}/${pendingLessonSlug}/${unit.slug}/${unit.firstTopicSlug}`
+      : `/${pendingGradeSlug}/${pendingLessonSlug}`;
+    router.push(url);
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
@@ -1525,106 +1686,146 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <div className="min-w-0">
 
               {/* Ders/Ünite hiyerarşi barı — hangi sınıf/ders/ünitede olduğun her zaman
-                  belirgin olsun ve sayfadan çıkmadan hızlıca ders/ünite değiştirebilesin diye
-                  (bkz. kullanıcının 2026-09-05 isteği). Mobilde de görünür — eski breadcrumb
-                  sadece sm+ ekranlarda görünüyordu. */}
-              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(true)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
-                >
-                  <Menu className="h-4 w-4" />
-                </button>
-                <Link
-                  href="/"
-                  title="Anasayfa"
-                  className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 sm:flex"
-                >
-                  <BookOpen className="h-4 w-4" />
-                </Link>
-                <Link
-                  href={`/${gradeSlug}`}
-                  className="shrink-0 text-xs font-black text-white/80 transition-colors hover:text-white"
-                >
-                  {gradeName}
-                </Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/50" />
-
-                {/* Ders (lesson) değiştirici */}
-                <div className="relative shrink-0">
+                  belirgin olsun ve sayfadan çıkmadan hızlıca sınıf/ders/ünite değiştirebilesin
+                  diye (bkz. kullanıcının 2026-09-05 isteği). Mobilde de görünür — eski
+                  breadcrumb sadece sm+ ekranlarda görünüyordu. Sınıf/Ders/Ünite İKİ satıra
+                  bölünmüş (ikonlar + sınıf üstte, ders + ünite altta) — hepsi tek satırda
+                  olunca (kullanıcının 2026-09-05 şikayeti) ünite adı "Gök..." gibi kırpılıyordu;
+                  Ders/Ünite'nin kendi satırında yarım yarıya yer alması bunu çözüyor. Sınıf/Ders
+                  seçimi, Ünite seçilene kadar sadece BEKLEYEN bir seçimdir — sayfa/içerik
+                  değişmez, sadece dropdown'lar yeniden dolar (bkz. handleGradeDropdownSelect/
+                  handleLessonDropdownSelect/handleUnitDropdownSelect). */}
+              <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); }}
-                    className="flex flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
+                    onClick={() => setSidebarOpen(true)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
                   >
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ders</span>
-                    <span className="flex items-center gap-1.5 text-sm font-black text-white">
-                      {lessonName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${lessonSwitcherOpen ? 'rotate-180' : ''}`} />
-                    </span>
+                    <Menu className="h-4 w-4" />
                   </button>
-                  {lessonSwitcherOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setLessonSwitcherOpen(false)} />
-                      <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                        {gradeLessons.map((lesson, idx) => (
-                          <Link
-                            key={lesson.id}
-                            href={lesson.slug ? `/${gradeSlug}/${lesson.slug}` : overviewHref}
-                            onClick={() => setLessonSwitcherOpen(false)}
-                            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-bold transition-colors ${
-                              lesson.name === lessonName ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${getLessonColor(idx)} text-sm text-white`}>
-                              {lesson.icon || '📘'}
-                            </span>
-                            <span className="min-w-0 truncate">{lesson.name}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <Link
+                    href="/"
+                    title="Anasayfa"
+                    className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 sm:flex"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                  </Link>
+
+                  {/* Sınıf değiştirici */}
+                  <div className="relative min-w-0 flex-1 sm:flex-none">
+                    <button
+                      type="button"
+                      onClick={() => { setGradeSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setUnitSwitcherOpen(false); }}
+                      className="flex flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Sınıf</span>
+                      <span className="flex items-center gap-1.5 text-sm font-black text-white">
+                        {pendingGradeName || gradeName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${gradeSwitcherOpen ? 'rotate-180' : ''}`} />
+                      </span>
+                    </button>
+                    {gradeSwitcherOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setGradeSwitcherOpen(false)} />
+                        <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                          {allGrades.map((grade) => (
+                            <button
+                              key={grade.id}
+                              type="button"
+                              onClick={() => handleGradeDropdownSelect(grade)}
+                              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
+                                grade.id === pendingGradeId ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span className="min-w-0 truncate">{grade.name}</span>
+                            </button>
+                          ))}
+                          {!allGrades.length && (
+                            <span className="block px-2.5 py-2 text-sm text-slate-400">{pendingGradeName || gradeName}</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/50" />
+                <div className="flex items-center gap-2">
+                  {/* Ders (lesson) değiştirici */}
+                  <div className="relative min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); setGradeSwitcherOpen(false); }}
+                      className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ders</span>
+                      <span className="flex w-full items-center gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-black text-white">{pendingLessonName || lessonName}</span>
+                        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${lessonSwitcherOpen ? 'rotate-180' : ''}`} />
+                      </span>
+                    </button>
+                    {lessonSwitcherOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setLessonSwitcherOpen(false)} />
+                        <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                          {pendingLessons.map((lesson, idx) => (
+                            <button
+                              key={lesson.id}
+                              type="button"
+                              onClick={() => handleLessonDropdownSelect(lesson)}
+                              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
+                                lesson.id === pendingLessonId ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${getLessonColor(idx)} text-sm text-white`}>
+                                {lesson.icon || '📘'}
+                              </span>
+                              <span className="min-w-0 truncate">{lesson.name}</span>
+                            </button>
+                          ))}
+                          {!pendingLessons.length && (
+                            <span className="block px-2.5 py-2 text-sm text-slate-400">{pendingLoading ? 'Yükleniyor…' : 'Bu sınıfta ders yok'}</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
 
-                {/* Ünite değiştirici */}
-                <div className="relative min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); }}
-                    className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
-                  >
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ünite</span>
-                    <span className="flex w-full items-center gap-1.5">
-                      <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">{unitTitle}</span>
-                      <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${unitSwitcherOpen ? 'rotate-180' : ''}`} />
-                    </span>
-                  </button>
-                  {unitSwitcherOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setUnitSwitcherOpen(false)} />
-                      <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                        {sortedUnits.map((unit) => (
-                          <button
-                            key={unit.id}
-                            type="button"
-                            onClick={() => {
-                              handleUnitHeaderClick(unit);
-                              setUnitSwitcherOpen(false);
-                              contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
-                              String(unit.id) === String(activeUnit?.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className="min-w-0 truncate">{unit.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  {/* Ünite değiştirici */}
+                  <div className="relative min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setGradeSwitcherOpen(false); }}
+                      className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ünite</span>
+                      <span className="flex w-full items-center gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">{unitTitle}</span>
+                        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${unitSwitcherOpen ? 'rotate-180' : ''}`} />
+                      </span>
+                    </button>
+                    {unitSwitcherOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setUnitSwitcherOpen(false)} />
+                        <div className="absolute right-0 top-full z-50 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                          {unitDropdownOptions.map((unit) => (
+                            <button
+                              key={unit.id}
+                              type="button"
+                              onClick={() => handleUnitDropdownSelect(unit)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
+                                isPendingSameAsCommitted && String(unit.id) === String(activeUnit?.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span className="min-w-0 truncate">{unit.title}</span>
+                            </button>
+                          ))}
+                          {!unitDropdownOptions.length && (
+                            <span className="block px-2.5 py-2 text-sm text-slate-400">{pendingLoading ? 'Yükleniyor…' : 'Bu ders + sınıfta ünite yok'}</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -42,6 +42,12 @@ export type Content = {
 export type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 export type ProfileRoleRow = { role: string | null };
 export type GradeLesson = { id: number; name: string; slug: string | null; icon: string | null };
+export type GradeOption = { id: number; name: string; slug: string | null };
+// Hiyerarşi barındaki Ünite dropdown'u, sınıf/ders değişimi bekleyen (henüz commit
+// edilmemiş) bir seçimken /api/lesson-units'ten gelen üniteleri gösterir — bu yüzden
+// Unit'e ek olarak, o ünitenin ilk konusunun slug'ını da taşır (farklı derse/sınıfa
+// geçiş linkini kurmak için, bkz. DersClient.tsx: handleUnitDropdownSelect).
+export type PendingUnit = Unit & { firstTopicSlug?: string | null };
 
 export type { CurriculumBreak };
 
