@@ -722,6 +722,12 @@ export default function QuizClient({
   // zaten bu soru setiyle eşleşecek şekilde seed'lendiği için).
   const { isAuthenticated, user, supabase } = useAuth();
   const [sessionId, setSessionId] = useState<number | null>(resume?.sessionId ?? null);
+  // Oturum artık soru seti yüklenir yüklenmez DEĞİL, kullanıcı en az 1 soruyu cevaplayınca
+  // açılıyor (kullanıcının 2026-09-06 isteği: "sadece tıkladı, hiç soru çözmedi ama yarım
+  // kalan test diye kayıtlı kalıyordu" — istemeden tıklayıp hemen çıkanlar için anlamsız bir
+  // test_sessions kaydı oluşmasın). resume ile devam ediliyorsa zaten en az bir cevap
+  // verilmiş demektir, baştan true.
+  const [hasAnsweredOnce, setHasAnsweredOnce] = useState(!!resume);
   const clientIdRef = useRef<string>('');
   const sessionQuestionsKeyRef = useRef<string | null>(resume ? initialQuestions.map((q) => q.id).join(',') : null);
   const finishedSessionRef = useRef<number | null>(null);
@@ -792,11 +798,13 @@ export default function QuizClient({
           setFeedback({});
           setShowResult(false);
           // Yeni soru seti = yeni deneme: önceki oturumla ilişkiyi kes, aşağıdaki
-          // session efekti yeni questions için yeni bir test_sessions açacak.
+          // session efekti yeni questions için yeni bir test_sessions açacak — ama yine
+          // ancak ilk cevap verilince (hasAnsweredOnce sıfırlanıyor).
           setSessionId(null);
           sessionQuestionsKeyRef.current = null;
           finishedSessionRef.current = null;
           pendingAnswersRef.current = [];
+          setHasAnsweredOnce(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -812,10 +820,13 @@ export default function QuizClient({
   // (isAuthenticated=false) hiç çalışmaz — quiz normal şekilde, kayıtsız çözülür.
   // questionsFullyLoaded beklenir: aksi halde önce [ilkSoru] için, sonra arka plan yüklemesi
   // bitince tam set için olmak üzere İKİ AYRI test_sessions açılırdı (questions değişince bu
-  // efekt yeniden tetiklenir). Kullanıcı ilk soruyu bu sırada cevaplarsa pendingAnswersRef
-  // zaten kaybetmeden kuyruklar, session açılınca flush edilir.
+  // efekt yeniden tetiklenir). hasAnsweredOnce beklenir: sadece tıklayıp hiç soru çözmeden
+  // çıkanlar için anlamsız bir "yarım kalan test" kaydı oluşmasın diye (kullanıcının
+  // 2026-09-06 isteği) — session artık soru seti yüklenir yüklenmez değil, İLK CEVAP
+  // verilince açılıyor. Kullanıcı ilk soruyu bu sırada (session henüz açılmadan) cevaplarsa
+  // pendingAnswersRef zaten kaybetmeden kuyruklar, session açılınca flush edilir.
   useEffect(() => {
-    if (!isAuthenticated || !user || questions.length === 0 || !questionsFullyLoaded) return;
+    if (!isAuthenticated || !user || questions.length === 0 || !questionsFullyLoaded || !hasAnsweredOnce) return;
     const questionsKey = questions.map((q) => q.id).join(',');
     if (sessionQuestionsKeyRef.current === questionsKey) return;
     sessionQuestionsKeyRef.current = questionsKey;
@@ -846,7 +857,7 @@ export default function QuizClient({
     // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
     // kullanıcı için bile yeni bir referansla gelir, id ise gerçekten değişmediği sürece sabittir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id, questions, questionsFullyLoaded, supabase, gradeId, lessonId, unitId, topicId]);
+  }, [isAuthenticated, user?.id, questions, questionsFullyLoaded, hasAnsweredOnce, supabase, gradeId, lessonId, unitId, topicId]);
 
   // sessionId hazır olduğunda: önce (varsa) oturum açılmadan önce kuyruklanmış
   // cevapları gönderir, ancak ONDAN SONRA — test zaten bitmişse (showResult) —
@@ -898,6 +909,9 @@ export default function QuizClient({
 
   function recordAnswer(questionId: number, isCorrect: boolean) {
     if (!user) return;
+    // İLK cevap: yukarıdaki efeği (henüz hiç tetiklenmediyse) tetikleyip test oturumunu
+    // açtırır — session artık soru seti yüklenir yüklenmez değil, burada açılıyor.
+    if (!hasAnsweredOnce) setHasAnsweredOnce(true);
     const durationSeconds = Math.max(0, Math.round((Date.now() - questionStartRef.current) / 1000));
     // Oturum RPC'si henüz dönmediyse (nadir, çok hızlı cevaplama) kaybetmeden kuyruğa
     // al — sessionId gelince yukarıdaki efekt bunu gönderecek.
