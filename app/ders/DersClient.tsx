@@ -1586,9 +1586,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   <button
                     type="button"
                     onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); }}
-                    className="flex items-center gap-1.5 rounded-xl bg-white/20 px-3 py-1.5 text-sm font-black text-white transition-colors hover:bg-white/30"
+                    className="flex flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
                   >
-                    {lessonName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${lessonSwitcherOpen ? 'rotate-180' : ''}`} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ders</span>
+                    <span className="flex items-center gap-1.5 text-sm font-black text-white">
+                      {lessonName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${lessonSwitcherOpen ? 'rotate-180' : ''}`} />
+                    </span>
                   </button>
                   {lessonSwitcherOpen && (
                     <>
@@ -1621,10 +1624,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   <button
                     type="button"
                     onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); }}
-                    className="flex w-full items-center gap-1.5 rounded-xl bg-white/20 px-3 py-1.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/30"
+                    className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
                   >
-                    <span className="min-w-0 flex-1 truncate">{unitTitle}</span>
-                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${unitSwitcherOpen ? 'rotate-180' : ''}`} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ünite</span>
+                    <span className="flex w-full items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">{unitTitle}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${unitSwitcherOpen ? 'rotate-180' : ''}`} />
+                    </span>
                   </button>
                   {unitSwitcherOpen && (
                     <>
@@ -1656,33 +1662,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   (kullanıcının 2026-09-05 isteği: içerik kartının içine gömülüyken çok aşağıda
                   kalıyordu). */}
               {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (
-                <div className="mb-4 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/50">
+                <div className="mb-4 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/50">
                   <button
                     type="button"
                     onClick={() => setIcindekilerOpen((v) => !v)}
                     className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
                   >
-                    <span className="flex items-center gap-2 text-sm font-black text-indigo-700">
-                      <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <span className="flex items-center gap-2 text-sm font-black text-violet-700">
+                      <BookOpen className="h-4 w-4 text-violet-500 shrink-0" />
                       <span className="min-w-0">
-                        <span className="block">İçindekiler</span>
-                        <span className="block truncate text-[11px] font-semibold text-indigo-500/70">{unitTitle}</span>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-violet-500/70">Konular</span>
+                        <span className="block truncate">İçindekiler</span>
                       </span>
                     </span>
-                    <span className="flex items-center gap-1 text-xs font-black text-indigo-500">
+                    <span className="flex items-center gap-1 text-xs font-black text-violet-500">
                       Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
                     </span>
                   </button>
                   {icindekilerOpen && (
-                    <div className="space-y-0.5 border-t border-indigo-100/70 bg-white px-2.5 py-2.5">
+                    <div className="space-y-0.5 border-t border-violet-100/70 bg-white px-2.5 py-2.5">
                       {activeTopic.sections.map((section, idx) => (
                         <button
                           key={section.id}
                           type="button"
                           onClick={() => goToSectionAnchor(activeTopicSectionSlugs.get(section.id) || String(section.id))}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
                         >
-                          <span className="shrink-0 text-xs font-black text-indigo-400">{idx + 1}</span>
+                          <span className="shrink-0 text-xs font-black text-violet-400">{idx + 1}</span>
                           <span className="min-w-0 truncate">{section.heading}</span>
                         </button>
                       ))}
