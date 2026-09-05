@@ -340,15 +340,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [pendingUnits, setPendingUnits] = useState<PendingUnit[]>(sortedUnits);
   const [pendingUnitId, setPendingUnitId] = useState<number | null>(() => (activeUnit?.id != null ? Number(activeUnit.id) : null));
   const [pendingUnitName, setPendingUnitName] = useState(unitTitle);
-  const [pendingUnitSlug, setPendingUnitSlug] = useState<string | null>(activeUnitSlug);
-  // null = "commit edilmiş ünitedeki (contents) konularla aynı" — Konu dropdown'u doğrudan
-  // contents'i gösterir; dolu bir dizi ise farklı bir üniteye ait, henüz commit edilmemiş
-  // bir konu listesidir.
-  const [pendingTopics, setPendingTopics] = useState<Content[] | null>(null);
   // Konu dropdown'unun gösterdiği liste: ünite henüz seçilmediyse (sınıf/ders değişip
-  // zincir sıfırlandıysa) boş — "önce ünite seçin"; seçildiyse o ünitenin konuları
-  // (pendingTopics'ten, henüz commit edilmemişse) veya doğrudan bu sayfanın kendi konuları.
-  const konuDropdownOptions: Content[] = pendingUnitId == null ? [] : (pendingTopics ?? contents);
+  // zincir sıfırlandıysa) boş — "önce ünite seçin"; seçildiyse Ünite seçimi ARTIK KENDİSİ
+  // commit olduğu için (kullanıcının 2026-09-05 isteği: "ünite seçilince konu seçin demesin,
+  // ilk konu seçilsin") burası her zaman gerçek/güncel contents'i gösterir.
+  const konuDropdownOptions: Content[] = pendingUnitId == null ? [] : contents;
   // Zincirin tamamı (sınıf/ders/ünite) committed sayfayla TAM eşleşiyor mu? Eşleşmiyorsa Konu
   // pill'i gerçek activeTopic yerine "Konu seçin" placeholder'ı gösterir (bkz. handleUnitDropdownSelect).
   const isChainFullyResolved =
@@ -370,8 +366,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (pendingGradeId === Number(gradeId) && pendingLessonId === Number(lessonId) && pendingUnitId !== id) {
       setPendingUnitId(id);
       setPendingUnitName(activeUnit.title);
-      setPendingUnitSlug(activeUnit.slug ?? null);
-      setPendingTopics(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeUnit?.id, gradeId, lessonId]);
@@ -575,27 +569,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   }
 
-  // /api/lesson-week-data gradeId/lessonId'yi kullanmaz (sadece unitId+week) — bu yüzden
-  // HERHANGİ bir ünitenin konu listesini (henüz commit edilmemiş, sadece dropdown'da
-  // önizlenen bir ünite dahil) çekmek için güvenle kullanılabilir.
-  async function fetchTopicsForUnit(unit: PendingUnit): Promise<Content[]> {
-    try {
-      const params = new URLSearchParams({
-        gradeId: String(pendingGradeId),
-        lessonId: String(pendingLessonId ?? ''),
-        unitId: String(unit.id),
-        week: String(unit.start_week || week),
-        publicOnly: '1',
-      });
-      const res = await fetch(`/api/lesson-week-data?${params.toString()}`);
-      if (!res.ok) return [];
-      const data = (await res.json()) as { contents?: Content[] };
-      return data.contents || [];
-    } catch {
-      return [];
-    }
-  }
-
   // Sınıf SONRA ders seçimi art arda hızlıca yapılırsa, sınıf seçiminin tetiklediği ünite
   // fetch'i, ders seçiminin tetiklediği (daha yeni) fetch'ten SONRA dönebilir — bu da eski
   // (yanlış derse ait) verileri sessizce ezerdi (kullanıcı gözlemledi: Ders etiketi doğru
@@ -622,8 +595,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setPendingUnits([]);
     setPendingUnitId(null);
     setPendingUnitName('');
-    setPendingUnitSlug(null);
-    setPendingTopics(null);
     setPendingLoading(true);
     try {
       const lessons = grade.id === Number(gradeId) ? gradeLessons : await fetchLessonsForGrade(grade.id);
@@ -647,8 +618,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setPendingUnits([]);
     setPendingUnitId(null);
     setPendingUnitName('');
-    setPendingUnitSlug(null);
-    setPendingTopics(null);
     setPendingLoading(true);
     try {
       const nextUnits = await fetchUnitsForLesson(pendingGradeId, lesson.id);
@@ -659,9 +628,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   };
 
-  // Ünite dropdown'unda bir üniteye tıklanınca: hâlâ sayfa/içerik DEĞİŞMEZ, sadece o
-  // ünitenin konuları çekilip Konu dropdown'u doldurulur ("Konu seçin" placeholder'ı
-  // görünür). Asıl commit (sayfa/içerik yenileme) artık Konu seçildiğinde olur.
+  // Ünite dropdown'unda bir üniteye tıklanınca: BU seçim commit'tir — ilk konusu otomatik
+  // seçilip içeriği hemen gösterilir (kullanıcının 2026-09-05 isteği: "ünite seçilince konu
+  // seçin demesin, ilk konu seçilsin"). Sınıf/ders hâlâ mevcut sayfayla aynıysa navigasyonsuz
+  // anlık geçiş kullanılır; farklıysa (sınıf ve/veya ders de değiştiyse) gerçek bir sayfa
+  // geçişi yapılır — o derste units/outcomes/kazanımlar gibi hemen hemen HER state farklı
+  // olduğu için bunları client'ta manuel senkronize etmek yerine sunucudan taze bir sayfa
+  // istemek çok daha güvenli (bkz. dosyanın başındaki geçmiş bug yorumları). Konu dropdown'u
+  // (handleTopicDropdownSelect) bu ilk konudan SONRA aynı ünite içinde başka bir konuya
+  // geçmek için hâlâ kullanılabilir.
   const handleUnitDropdownSelect = async (unit: PendingUnit) => {
     setUnitSwitcherOpen(false);
     if (unit.id === pendingUnitId) return;
@@ -669,49 +644,41 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
     setPendingUnitId(unit.id);
     setPendingUnitName(unit.title);
-    setPendingUnitSlug(unit.slug);
-    setPendingTopics(null);
-    setPendingLoading(true);
-    try {
-      const sameAsCommitted = pendingGradeId === Number(gradeId) && pendingLessonId === Number(lessonId) && Number(unit.id) === Number(activeUnit?.id);
-      const nextTopics = sameAsCommitted ? contents : await fetchTopicsForUnit(unit);
-      if (pendingRequestIdRef.current !== requestId) return;
-      setPendingTopics(sameAsCommitted ? null : nextTopics);
-    } finally {
-      if (pendingRequestIdRef.current === requestId) setPendingLoading(false);
-    }
-  };
 
-  // Konu dropdown'unda bir konuya tıklanınca: BU seçim commit'tir. Sınıf/ders/ünite hâlâ
-  // mevcut sayfayla aynıysa (yani kullanıcı sadece aynı ünite içinde konu değiştirdi)
-  // mevcut navigasyonsuz anlık geçiş kullanılır. Ünite farklıysa (ama sınıf/ders aynıysa)
-  // az önce çekilmiş konu listesi doğrudan client'ta içerik olarak basılır — yine
-  // navigasyonsuz. Sınıf ve/veya ders de değiştiyse gerçek bir sayfa geçişi yapılır (o
-  // derste units/outcomes/kazanımlar gibi hemen hemen HER state farklı olduğu için
-  // bunları client'ta manuel senkronize etmek yerine sunucudan taze bir sayfa istemek
-  // çok daha güvenli, bkz. dosyanın başındaki geçmiş bug yorumları).
-  const handleTopicDropdownSelect = (topic: Content) => {
-    setTopicSwitcherOpen(false);
     const sameLessonAsCommitted = pendingGradeId === Number(gradeId) && pendingLessonId === Number(lessonId);
-
     if (sameLessonAsCommitted) {
-      const sameUnitAsCommitted = pendingUnitId != null && Number(pendingUnitId) === Number(activeUnit?.id);
-      if (sameUnitAsCommitted) {
-        const idx = contents.findIndex((c) => String(c.id) === String(topic.id));
-        if (idx >= 0) goToTopic(idx);
-      } else if (pendingUnitId != null) {
-        const topics = pendingTopics ?? [];
-        setContents(topics);
-        setActiveTopicId(topic.id);
-        setManualUnitId(Number(pendingUnitId));
-        setUnitTopicsCache((prev) => ({ ...prev, [String(pendingUnitId)]: topics }));
+      setPendingLoading(true);
+      try {
+        const topics = unitTopicsCacheRef.current[String(unit.id)] || (await ensureUnitTopicsLoaded(unit));
+        if (pendingRequestIdRef.current !== requestId) return;
+        const firstTopic = topics[0];
+        if (firstTopic) {
+          setContents(topics);
+          setActiveTopicId(firstTopic.id);
+        }
+        setManualUnitId(Number(unit.id));
+        contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      } finally {
+        if (pendingRequestIdRef.current === requestId) setPendingLoading(false);
       }
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (!pendingGradeSlug || !pendingLessonSlug || !pendingUnitSlug || !topic.slug) return;
-    router.push(`/${pendingGradeSlug}/${pendingLessonSlug}/${pendingUnitSlug}/${topic.slug}`);
+    if (!pendingGradeSlug || !pendingLessonSlug) return;
+    const url = unit.firstTopicSlug
+      ? `/${pendingGradeSlug}/${pendingLessonSlug}/${unit.slug}/${unit.firstTopicSlug}`
+      : `/${pendingGradeSlug}/${pendingLessonSlug}`;
+    router.push(url);
+  };
+
+  // Konu dropdown'unda bir konuya tıklanınca: Ünite seçimi zaten commit olduğu için (bkz.
+  // handleUnitDropdownSelect) bu her zaman AYNI (zaten aktif) ünite içinde bir konu
+  // değişimidir — navigasyonsuz, mevcut contents üzerinden.
+  const handleTopicDropdownSelect = (topic: Content) => {
+    setTopicSwitcherOpen(false);
+    const idx = contents.findIndex((c) => String(c.id) === String(topic.id));
+    if (idx >= 0) goToTopic(idx);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const selectUnitTopic = (unit: Unit, topicId: string | number) => {
