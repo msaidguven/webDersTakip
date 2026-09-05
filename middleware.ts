@@ -61,6 +61,20 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const response = NextResponse.next();
 
+  // Soru bankası konu sayfasına ?soru=ID paylaşım linkiyle gelindiğinde: taban URL
+  // (parametresiz) asıl SEO sayfası olarak indekslenmeye devam etsin, ama ?soru= varyasyonu
+  // Google'da AYRI bir sayfa olarak indekslenmesin (ileride 100.000 soruya kadar
+  // ölçeklenince yüz binlerce parametreli URL indekse girerdi). Canonical zaten her zaman
+  // parametresiz taban URL'i gösteriyor (bkz. [konu]/page.tsx generateMetadata) — bu header
+  // onu tamamlıyor. Meta robots etiketi yerine HTTP header kullanıyoruz: aksi halde
+  // searchParams'ı sayfanın kendisinde/generateMetadata'da okumak gerekirdi, bu da sayfayı
+  // ISR cache'inden çıkarırdı (bkz. [konu]/page.tsx'teki "?soru= artık sunucuda okunmuyor"
+  // notu) — middleware, sayfanın render/cache mekanizmasına hiç dokunmadan sadece HTTP
+  // response'a bu header'ı ekliyor.
+  if (pathname.startsWith('/soru-bankasi/') && request.nextUrl.searchParams.has('soru')) {
+    response.headers.set('X-Robots-Tag', 'noindex, follow');
+  }
+
   if (PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     if (await isRequestBanned(request, response)) {
       const redirect = NextResponse.redirect(new URL('/banned', request.url));
@@ -106,5 +120,6 @@ export const config = {
     '/dashboard/:path*',
     '/dashboard',
     '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug',
+    '/soru-bankasi/:path*',
   ],
 };
