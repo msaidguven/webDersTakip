@@ -15,13 +15,19 @@ export async function GET(request: Request) {
   // tüm konuların tam içeriği döner.
   const topicIdParam = searchParams.get('topicId');
   const topicId = topicIdParam != null ? Number(topicIdParam) : null;
+  // Konu sayfasının hiyerarşi barındaki Sınıf/Ders/Ünite/Konu dropdown zinciri (DersClient.tsx:
+  // fetchTopicsForUnit) henüz commit edilmemiş, FARKLI bir ders/sınıfa ait üniteleri önizlerken
+  // bunu gönderir — o sayfa admin dahil KİMSEYE taslak göstermiyor, bu yüzden admin bypass'ı
+  // burada devre dışı bırakılır (mevcut aynı-ders içi ünite ısıtma/önbellekleme çağrıları
+  // publicOnly göndermez, onların davranışı değişmez).
+  const publicOnly = searchParams.get('publicOnly') === '1';
 
   if (![gradeId, lessonId, unitId, week].every(Number.isFinite)) {
     return NextResponse.json({ error: 'Eksik veya hatalı parametre' }, { status: 400 });
   }
 
   const supabase = await createClient();
-  const isAdmin = await isViewerAdmin(supabase);
+  const isAdmin = !publicOnly && (await isViewerAdmin(supabase));
   const { outcomes, contents } = await getLessonWeekData(
     supabase,
     unitId,

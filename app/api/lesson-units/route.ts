@@ -12,13 +12,19 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const gradeId = Number(searchParams.get('gradeId'));
   const lessonId = Number(searchParams.get('lessonId'));
+  // Konu sayfasının hiyerarşi barındaki Sınıf/Ders/Ünite dropdown zinciri (DersClient.tsx)
+  // bu uç noktayı çağırırken bunu her zaman gönderir — o sayfa admin dahil KİMSEYE taslak
+  // göstermiyor (bkz. [gradeSlug]/.../page.tsx'teki "her zaman herkese aynı, tamamen public
+  // içerik döner" notu); publicOnly olmadan admin bypass'ı diğer çağıranlar için (Yayın
+  // Yönetimi paneli, anasayfa ders seçici) olduğu gibi kalır.
+  const publicOnly = searchParams.get('publicOnly') === '1';
 
   if (![gradeId, lessonId].every(Number.isFinite)) {
     return NextResponse.json({ error: 'Eksik veya hatalı parametre' }, { status: 400 });
   }
 
   const supabase = await createClient();
-  const isAdmin = await isViewerAdmin(supabase);
+  const isAdmin = !publicOnly && (await isViewerAdmin(supabase));
 
   if (!isAdmin) {
     const { data: lessonGradeData } = await supabase

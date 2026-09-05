@@ -539,7 +539,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
   async function fetchUnitsForLesson(gId: number, lId: number): Promise<PendingUnit[]> {
     try {
-      const res = await fetch(`/api/lesson-units?gradeId=${gId}&lessonId=${lId}`);
+      const res = await fetch(`/api/lesson-units?gradeId=${gId}&lessonId=${lId}&publicOnly=1`);
       if (!res.ok) return [];
       const data = (await res.json()) as {
         units?: { id: number; title: string; slug: string | null; orderNo: number; isActive: boolean; firstTopicSlug: string | null }[];
@@ -569,6 +569,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         lessonId: String(pendingLessonId ?? ''),
         unitId: String(unit.id),
         week: String(unit.start_week || week),
+        publicOnly: '1',
       });
       const res = await fetch(`/api/lesson-week-data?${params.toString()}`);
       if (!res.ok) return [];
