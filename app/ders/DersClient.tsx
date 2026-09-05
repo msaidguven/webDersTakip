@@ -153,7 +153,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
-  const [icindekilerOpen, setIcindekilerOpen] = useState(false);
+  const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
   const [gradeSwitcherOpen, setGradeSwitcherOpen] = useState(false);
@@ -231,10 +231,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setExpandedTopicIds(new Set([String(selectedTopicId)]));
   }, [selectedTopicId]);
 
-  // Konu değişince İçindekiler kutusu her seferinde kapalı başlasın — bir önceki
+  // Konu değişince Konu dropdown'u her seferinde kapalı başlasın — bir önceki
   // konunun açık bıraktığı durumla kafa karıştırmasın.
   useEffect(() => {
-    setIcindekilerOpen(false);
+    setTopicSwitcherOpen(false);
   }, [selectedTopicId]);
 
   const toggleTopicExpanded = (id: string | number) => {
@@ -1716,7 +1716,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   <div className="relative min-w-0 flex-1 sm:flex-none">
                     <button
                       type="button"
-                      onClick={() => { setGradeSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setUnitSwitcherOpen(false); }}
+                      onClick={() => { setGradeSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setUnitSwitcherOpen(false); setTopicSwitcherOpen(false); }}
                       className="flex flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
                     >
                       <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Sınıf</span>
@@ -1754,7 +1754,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   <div className="relative min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); setGradeSwitcherOpen(false); }}
+                      onClick={() => { setLessonSwitcherOpen((v) => !v); setUnitSwitcherOpen(false); setGradeSwitcherOpen(false); setTopicSwitcherOpen(false); }}
                       className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
                     >
                       <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ders</span>
@@ -1794,7 +1794,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   <div className="relative min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setGradeSwitcherOpen(false); }}
+                      onClick={() => { setUnitSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setGradeSwitcherOpen(false); setTopicSwitcherOpen(false); }}
                       className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
                     >
                       <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ünite</span>
@@ -1827,55 +1827,54 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* İçindekiler — bu ÜNİTEdeki tüm ana konular (contents), hiyerarşi barının
-                  hemen altında. Yanlış anladığım bir önceki hali, aktif konunun kendi ALT
-                  başlıklarını listeliyordu — kullanıcının 2026-09-05 düzeltmesi: burası
-                  "konular" (ana konu listesi), "alt konu" değil. */}
-              {contents.length > 1 && (
-                <div className="mb-4 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/50">
-                  <button
-                    type="button"
-                    onClick={() => setIcindekilerOpen((v) => !v)}
-                    className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left sm:px-5"
-                  >
-                    <span className="flex items-center gap-2 text-sm font-black text-violet-700">
-                      <BookOpen className="h-4 w-4 text-violet-500 shrink-0" />
-                      <span className="min-w-0">
-                        <span className="block text-[9px] font-bold uppercase tracking-wider text-violet-500/70">Konular</span>
-                        <span className="block truncate">İçindekiler</span>
+                {/* Konu (topic) değiştirici — eskiden hiyerarşi barının ALTINDA ayrı, farklı
+                    renkli (mor) bir "İçindekiler" kutusuydu; kullanıcının 2026-09-05 isteğiyle
+                    Sınıf/Ders/Ünite ile AYNI menüye, aynı renge taşındı ve statik "İçindekiler"
+                    yazısı yerine artık aktif konunun adını gösteriyor (Ünite pill'iyle aynı
+                    mantık). Sadece birden fazla konu varsa gösterilir. */}
+                {contents.length > 1 && (
+                  <div className="relative min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => { setTopicSwitcherOpen((v) => !v); setLessonSwitcherOpen(false); setGradeSwitcherOpen(false); setUnitSwitcherOpen(false); }}
+                      className="flex w-full flex-col items-start rounded-xl bg-white/20 px-3 py-1.5 text-left transition-colors hover:bg-white/30"
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Konu</span>
+                      <span className="flex w-full items-center gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">{activeTopic?.title || unitTitle}</span>
+                        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${topicSwitcherOpen ? 'rotate-180' : ''}`} />
                       </span>
-                    </span>
-                    <span className="flex items-center gap-1 text-xs font-black text-violet-500">
-                      Görüntüle <ChevronDown className={`h-4 w-4 transition-transform ${icindekilerOpen ? 'rotate-180' : ''}`} />
-                    </span>
-                  </button>
-                  {icindekilerOpen && (
-                    <div className="space-y-0.5 border-t border-violet-100/70 bg-white px-2.5 py-2.5">
-                      {contents.map((topic, idx) => {
-                        const isActiveTopic = idx === selectedTopicIndex;
-                        return (
-                          <button
-                            key={topic.id}
-                            type="button"
-                            onClick={() => {
-                              goToTopic(idx);
-                              setIcindekilerOpen(false);
-                            }}
-                            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
-                              isActiveTopic ? 'bg-violet-100 text-violet-700' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'
-                            }`}
-                          >
-                            <span className="shrink-0 text-xs font-black text-violet-400">{idx + 1}</span>
-                            <span className="min-w-0 truncate">{topic.title}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+                    </button>
+                    {topicSwitcherOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setTopicSwitcherOpen(false)} />
+                        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                          {contents.map((topic, idx) => {
+                            const isActiveTopic = idx === selectedTopicIndex;
+                            return (
+                              <button
+                                key={topic.id}
+                                type="button"
+                                onClick={() => {
+                                  goToTopic(idx);
+                                  setTopicSwitcherOpen(false);
+                                }}
+                                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
+                                  isActiveTopic ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="shrink-0 text-xs font-black text-slate-400">{idx + 1}</span>
+                                <span className="min-w-0 truncate">{topic.title}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
 
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
