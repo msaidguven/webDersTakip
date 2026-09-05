@@ -5,7 +5,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trophy, ArrowRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiUnitData,
@@ -69,6 +69,31 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
       {!data.hasQuestions && (
         <div className="mb-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
           Taslak — bu ünitede henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
+        </div>
+      )}
+
+      {/* Soru bankası inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı testi de
+          aynı sayfadan başlatabilsin diye ünite testine buton — konu sayfasındaki
+          QuizCtaCards'la (DersClientCards.tsx) BİREBİR aynı isim/renk/ikon/CTA metni
+          kullanılıyor, aynı hedefe iki farklı yerden farklı görünümle gitmesin diye
+          (bkz. [[feedback_information_architecture_discipline]]). */}
+      {data.hasQuestions && (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:mb-6 sm:p-5">
+          <div className="flex items-center gap-2.5 text-sm font-black text-emerald-700">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+              <Trophy className="h-4.5 w-4.5" />
+            </span>
+            Ünite Testi
+          </div>
+          <p className="flex-1 text-xs font-medium leading-relaxed text-emerald-900/70">
+            Aşağıdakiler cevap anahtarıyla inceleme amaçlı — {data.unitTitle} ünitesini puanlı test etmek için ünite testini çöz.
+          </p>
+          <Link
+            href={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-700"
+          >
+            Teste Başla <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       )}
 
