@@ -1658,10 +1658,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-              {/* İçindekiler — konunun kendi alt başlıkları, hiyerarşi barının hemen altında
-                  (kullanıcının 2026-09-05 isteği: içerik kartının içine gömülüyken çok aşağıda
-                  kalıyordu). */}
-              {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 && (
+              {/* İçindekiler — bu ÜNİTEdeki tüm ana konular (contents), hiyerarşi barının
+                  hemen altında. Yanlış anladığım bir önceki hali, aktif konunun kendi ALT
+                  başlıklarını listeliyordu — kullanıcının 2026-09-05 düzeltmesi: burası
+                  "konular" (ana konu listesi), "alt konu" değil. */}
+              {contents.length > 1 && (
                 <div className="mb-4 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/50">
                   <button
                     type="button"
@@ -1681,17 +1682,25 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </button>
                   {icindekilerOpen && (
                     <div className="space-y-0.5 border-t border-violet-100/70 bg-white px-2.5 py-2.5">
-                      {activeTopic.sections.map((section, idx) => (
-                        <button
-                          key={section.id}
-                          type="button"
-                          onClick={() => goToSectionAnchor(activeTopicSectionSlugs.get(section.id) || String(section.id))}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
-                        >
-                          <span className="shrink-0 text-xs font-black text-violet-400">{idx + 1}</span>
-                          <span className="min-w-0 truncate">{section.heading}</span>
-                        </button>
-                      ))}
+                      {contents.map((topic, idx) => {
+                        const isActiveTopic = idx === selectedTopicIndex;
+                        return (
+                          <button
+                            key={topic.id}
+                            type="button"
+                            onClick={() => {
+                              goToTopic(idx);
+                              setIcindekilerOpen(false);
+                            }}
+                            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
+                              isActiveTopic ? 'bg-violet-100 text-violet-700' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'
+                            }`}
+                          >
+                            <span className="shrink-0 text-xs font-black text-violet-400">{idx + 1}</span>
+                            <span className="min-w-0 truncate">{topic.title}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
