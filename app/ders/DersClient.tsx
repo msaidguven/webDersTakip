@@ -1654,28 +1654,37 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${tocCollapsed ? 'lg:w-[76px]' : 'lg:w-[280px]'}
         `}>
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-            {!tocCollapsed && (
-              <div className="flex flex-col gap-0.5">
+          <div className="border-b border-slate-100 shrink-0">
+            <div className="p-4 pb-2 flex items-center justify-between">
+              {!tocCollapsed && (
                 <Link
                   href={overviewHref}
                   className="flex items-center gap-1.5 text-xs font-black text-indigo-600 hover:text-indigo-700 transition-colors"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Müfredata Dön
                 </Link>
-                <span className="pl-5 text-[11px] font-semibold text-slate-400">{gradeName} {lessonName}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setTocCollapsed((v) => !v)}
+                className="hidden lg:flex text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-50 ml-auto"
+              >
+                {tocCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </button>
+              <button className="lg:hidden text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 p-2 rounded-full" onClick={() => setSidebarOpen(false)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Sınıf + ders — ünitelerin hemen üstünde, belirgin bir rozet olarak (kullanıcının
+                2026-09-05 isteği: "biraz daha belirgin olsun"; eskiden "Müfredata Dön"
+                linkinin altında ufak gri bir alt yazıydı, kolayca gözden kaçıyordu). */}
+            {!tocCollapsed && (
+              <div className="px-4 pb-3">
+                <span className="inline-block rounded-lg bg-indigo-50 px-2.5 py-1 text-sm font-black text-indigo-700">
+                  {gradeName} {lessonName}
+                </span>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setTocCollapsed((v) => !v)}
-              className="hidden lg:flex text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-50 ml-auto"
-            >
-              {tocCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
-            <button className="lg:hidden text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 p-2 rounded-full" onClick={() => setSidebarOpen(false)}>
-              <X className="h-4 w-4" />
-            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1" style={{ scrollbarWidth: 'none' }}>
