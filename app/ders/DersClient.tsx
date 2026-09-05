@@ -2375,8 +2375,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       const prevHref = prevTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, prevTopic.slug || null) : null;
                       const nextHref = nextTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, nextTopic.slug || null) : null;
                       return (
-                        <nav aria-label="Konu navigasyonu" className="not-prose mt-10 grid grid-cols-2 gap-3 border-t border-slate-100 pt-6">
-                          {prevTopic && prevHref ? (
+                        <nav aria-label="Konu navigasyonu" className="not-prose mt-10 grid grid-cols-1 gap-2.5 border-t border-slate-100 pt-6">
+                          {prevTopic && prevHref && (
                             <Link
                               href={prevHref}
                               className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
@@ -2387,19 +2387,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 <span className="block truncate text-sm font-bold text-slate-700">{prevTopic.title}</span>
                               </span>
                             </Link>
-                          ) : <div />}
-                          {nextTopic && nextHref ? (
+                          )}
+                          {nextTopic && nextHref && (
                             <Link
                               href={nextHref}
-                              className="flex items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-right transition-colors hover:border-indigo-200 hover:bg-indigo-50"
+                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
                             >
-                              <span className="min-w-0">
+                              <span className="min-w-0 flex-1">
                                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Sonraki Konu</span>
                                 <span className="block truncate text-sm font-bold text-slate-700">{nextTopic.title}</span>
                               </span>
                               <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
                             </Link>
-                          ) : <div />}
+                          )}
                         </nav>
                       );
                     })()}
