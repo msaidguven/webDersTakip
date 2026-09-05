@@ -223,10 +223,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     setStudyTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)]);
   }, [selectedTopicId]);
 
-  // Akordeon: sadece seçili konunun alt başlıkları açık kalsın, diğer konularınki kapansın
+  // Konu değişince alt başlıklar (alt konular) KAPALI başlasın — otomatik açılmasınlar,
+  // sadece kullanıcı konunun yanındaki ok işaretine tıklayınca (toggleTopicExpanded)
+  // görünsünler (kullanıcının 2026-09-05 isteği).
   useEffect(() => {
     if (selectedTopicId == null) return;
-    setExpandedTopicIds(new Set([String(selectedTopicId)]));
+    setExpandedTopicIds(new Set());
   }, [selectedTopicId]);
 
   // Konu değişince Konu dropdown'u her seferinde kapalı başlasın — bir önceki
@@ -355,6 +357,24 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     pendingUnitId != null &&
     activeUnit?.id != null &&
     pendingUnitId === Number(activeUnit.id);
+
+  // Sidebar'dan bir üniteye/konuya tıklamak (selectUnitTopic/selectUnitSection) hiyerarşi
+  // barının pending state'inden TAMAMEN bağımsız, ayrı (daha eski) bir yol — bu yüzden
+  // sidebar'dan ünite değiştirilince hiyerarşi barındaki Ünite/Konu pill'leri güncellenmeden
+  // ESKİ üniteyi göstermeye devam ederdi. Aktif ünite (activeUnit) her değiştiğinde ve hâlâ
+  // aynı sınıf+ders içindeysek (sidebar sınıf/ders değiştirmiyor), pending ünite state'ini de
+  // buna senkronize eder.
+  useEffect(() => {
+    if (activeUnit?.id == null) return;
+    const id = Number(activeUnit.id);
+    if (pendingGradeId === Number(gradeId) && pendingLessonId === Number(lessonId) && pendingUnitId !== id) {
+      setPendingUnitId(id);
+      setPendingUnitName(activeUnit.title);
+      setPendingUnitSlug(activeUnit.slug ?? null);
+      setPendingTopics(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUnit?.id, gradeId, lessonId]);
 
   // Aktif ünite değiştikçe sidebar index'inde SADECE o ünite açık kalsın (akordeon)
   useEffect(() => {
@@ -509,21 +529,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   // Üniteye tıklayınca: zaten aktifse sadece aç/kapa; değilse o üniteyi aktif yap
   // ve ilk konusunu otomatik seç (aktif görünmesi için içerik de değişir),
   // ama mobilde sidebar'ı kapatma — kullanıcı gezinmeye devam edebilsin.
-  const handleUnitHeaderClick = async (unit: Unit) => {
+  const handleUnitHeaderClick = (unit: Unit) => {
     const key = String(unit.id);
-
-    if (String(unit.id) === String(activeUnit?.id)) {
-      setExpandedUnitIds((prev) => (prev.has(key) ? new Set() : new Set([key])));
-      return;
+    const willExpand = !expandedUnitIds.has(key);
+    setExpandedUnitIds(willExpand ? new Set([key]) : new Set());
+    // Sadece akordeonu açar/kapatır — İÇERİK DEĞİŞMEZ (kullanıcının 2026-09-05 isteği:
+    // "hemen içerik değişmesin, konuyu seçince içerik değişsin"). Konu listesini hazır
+    // etmek için (henüz önbellekte yoksa) arkaplanda yükler; seçim yalnızca bir KONUya
+    // tıklanınca olur (bkz. renderTopicItem -> selectUnitTopic).
+    if (willExpand && String(unit.id) !== String(activeUnit?.id) && !unitTopicsCacheRef.current[key]) {
+      void ensureUnitTopicsLoaded(unit);
     }
-
-    const topics = unitTopicsCacheRef.current[key] || (await ensureUnitTopicsLoaded(unit));
-    const firstTopic = topics[0];
-    if (firstTopic) {
-      setContents(topics);
-      setActiveTopicId(firstTopic.id);
-    }
-    setManualUnitId(Number(unit.id));
   };
 
   async function fetchLessonsForGrade(gId: number): Promise<GradeLesson[]> {
