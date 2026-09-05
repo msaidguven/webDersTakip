@@ -2289,8 +2289,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         // sayfasına gidiyor — orası zaten AYNI puanlı testi (TestStatusCard ile,
                         // giriş yapmışsa öne çıkan kişiselleştirilmiş test) cevap anahtarlı soru
                         // listesiyle birlikte gösteriyor (bkz. kullanıcının 2026-09-05 isteği).
+                        // Ayrı bir "Soru Bankası" kartı artık yok — aynı linke gittiği için
+                        // kullanıcının isteğiyle tek karta indirildi.
                         topicHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
-                        questionBankHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                         unitTitle={unitTitle}
                         unitHref={
                           gradeSlug && lessonSlug && activeUnitSlug
