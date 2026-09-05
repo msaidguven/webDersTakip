@@ -174,9 +174,19 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
     unitTitle: unit.title,
     unitSlug: unit.slug || decodedUnitSlug,
   };
-  if (!topics.length) return { ...base, topics: [], hasQuestions: false };
+  if (!topics.length) return { ...base, topics: [], bannerImageUrl: null, hasQuestions: false };
 
-  const questionCountByTopic = await getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true });
+  // Konu görselleri (topic_contents.hero_image_url) — hem ünite banner'ı (ilk konunun
+  // görseli) hem de "Konu Bazlı Analizler" listesindeki her konunun kendi küçük görseli
+  // için (bkz. kullanıcının 2026-09-06 verdiği tasarım referansı).
+  const [questionCountByTopic, { data: topicContentRows }] = await Promise.all([
+    getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true }),
+    supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', topics.map((t) => t.id)),
+  ]);
+  const heroImageByTopic = new Map<number, string | null>();
+  for (const row of (topicContentRows as { topic_id: number; hero_image_url: string | null }[] | null) || []) {
+    heroImageByTopic.set(row.topic_id, row.hero_image_url);
+  }
 
   const topicList = topics
     .filter((t) => t.slug)
@@ -185,10 +195,14 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
       title: t.title,
       slug: t.slug as string,
       questionCount: questionCountByTopic.get(t.id) ?? 0,
+      heroImageUrl: heroImageByTopic.get(t.id) ?? null,
     }))
     .filter((t) => t.questionCount > 0);
 
-  return { ...base, topics: topicList, hasQuestions: topicList.some((t) => t.questionCount > 0) };
+  // topics zaten order_no'ya göre sıralı çekildi — ilk konu (sorusu olan) ünitenin banner'ı.
+  const bannerImageUrl = topicList[0]?.heroImageUrl ?? null;
+
+  return { ...base, topics: topicList, bannerImageUrl, hasQuestions: topicList.some((t) => t.questionCount > 0) };
 });
 
 export type SoruBankasiUnitData = NonNullable<Awaited<ReturnType<typeof getSoruBankasiUnitData>>>;

@@ -2,11 +2,11 @@
 // /soru-bankasi hiyerarşisinde ünite seviyesi. Konular BURADA accordion olarak açılıp
 // sorularını göstermiyor — her konu kendi sayfasına (bkz. [konu]/page.tsx) link veriyor
 // (kullanıcının 2026-09-05 isteği: "konular akordiyon olarak soruları değil, konu
-// sayfasına yönlendirsin" — önceki accordion denemesinin geri alınması).
+// sayfasına yönlendirsin"). Banner görseli + "Konu Bazlı Analizler" bölümü kullanıcının
+// 2026-09-06 verdiği tasarım referansına göre eklendi (bkz. SoruBankasiUnitTopicAnalytics.tsx).
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiUnitData,
@@ -16,7 +16,7 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
-import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSection';
+import SoruBankasiUnitTopicAnalytics from '@/app/src/components/SoruBankasiUnitTopicAnalytics';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -61,6 +61,13 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
         ← {data.lessonName} Soru Bankası
       </Link>
 
+      {data.bannerImageUrl && (
+        <div className="mb-4 overflow-hidden rounded-2xl sm:mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data.bannerImageUrl} alt={data.unitTitle} className="h-32 w-full object-cover sm:h-44" />
+        </div>
+      )}
+
       <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
         <p className="text-xs font-black uppercase tracking-widest text-indigo-500">
           {data.gradeName} • {data.lessonName}
@@ -94,23 +101,13 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
       )}
 
       {data.topics.length > 0 ? (
-        <SoruBankasiBrowseSection questionCount={data.topics.reduce((sum, t) => sum + t.questionCount, 0)}>
-          <div className="space-y-2.5">
-            {data.topics.map((topic) => (
-              <Link
-                key={topic.id}
-                href={`/soru-bankasi/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${topic.slug}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-default">{topic.title}</p>
-                  <span className="mt-1 inline-block text-xs font-bold text-muted-foreground">{topic.questionCount} soru</span>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
-        </SoruBankasiBrowseSection>
+        <SoruBankasiUnitTopicAnalytics
+          unitId={data.unitId}
+          topics={data.topics}
+          gradeSlug={data.gradeSlug}
+          lessonSlug={data.lessonSlug}
+          unitSlug={data.unitSlug}
+        />
       ) : (
         <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu ünitede henüz konu eklenmemiş.</p>
       )}

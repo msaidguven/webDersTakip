@@ -64,3 +64,62 @@ export async function getSoruBankasiTestStatus(
       : null,
   };
 }
+
+export interface TopicStatEntry {
+  topicId: number;
+  poolSize: number;
+  solved: number;
+  correct: number;
+  wrong: number;
+}
+
+// Ünite sayfasındaki "Konu Bazlı Analizler" bölümü için — o ünitedeki HER konunun
+// soru/çözülen/doğru/yanlış sayısını TEK seferde döner (konu başına ayrı sorgu yerine;
+// bkz. kullanıcının "sıralı sorgu yerine tek istek" tercihi). getSoruBankasiTestStatus'tan
+// farklı olarak resumable/testSize taşımaz — bu sadece bir özet tablo, test başlatma
+// mantığı hâlâ TestStatusCard/getSoruBankasiTestStatus'ta.
+export async function getUnitTopicStats(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  userId: string | null,
+  topicIds: number[]
+): Promise<TopicStatEntry[]> {
+  if (!topicIds.length) return [];
+
+  const { data: questionRows } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true);
+  const rows = (questionRows as { id: number; topic_id: number }[] | null) || [];
+
+  const questionIdsByTopic = new Map<number, number[]>();
+  const topicIdByQuestionId = new Map<number, number>();
+  for (const row of rows) {
+    const list = questionIdsByTopic.get(row.topic_id) || [];
+    list.push(row.id);
+    questionIdsByTopic.set(row.topic_id, list);
+    topicIdByQuestionId.set(row.id, row.topic_id);
+  }
+
+  const statsByTopic = new Map<number, { solved: number; correct: number }>();
+  if (userId && rows.length) {
+    const { data: statsRows } = await supabase
+      .from('user_question_stats')
+      .select('question_id, last_answer_correct')
+      .eq('user_id', userId)
+      .in('question_id', rows.map((r) => r.id))
+      .gt('total_attempts', 0);
+
+    for (const stat of (statsRows as { question_id: number; last_answer_correct: boolean }[] | null) || []) {
+      const topicId = topicIdByQuestionId.get(stat.question_id);
+      if (topicId == null) continue;
+      const entry = statsByTopic.get(topicId) || { solved: 0, correct: 0 };
+      entry.solved += 1;
+      if (stat.last_answer_correct) entry.correct += 1;
+      statsByTopic.set(topicId, entry);
+    }
+  }
+
+  return topicIds.map((topicId) => {
+    const poolSize = questionIdsByTopic.get(topicId)?.length ?? 0;
+    const { solved, correct } = statsByTopic.get(topicId) || { solved: 0, correct: 0 };
+    return { topicId, poolSize, solved, correct, wrong: solved - correct };
+  });
+}
