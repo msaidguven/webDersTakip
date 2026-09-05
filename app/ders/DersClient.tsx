@@ -1832,8 +1832,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     renkli (mor) bir "İçindekiler" kutusuydu; kullanıcının 2026-09-05 isteğiyle
                     Sınıf/Ders/Ünite ile AYNI menüye, aynı renge taşındı ve statik "İçindekiler"
                     yazısı yerine artık aktif konunun adını gösteriyor (Ünite pill'iyle aynı
-                    mantık). Sadece birden fazla konu varsa gösterilir. */}
-                {contents.length > 1 && (
+                    mantık). Ünitenin tek konusu olsa bile gösterilir — Sınıf/Ders/Ünite'yle
+                    aynı hizada, tutarlı dursun diye (kullanıcının 2026-09-05 tercihi; aşağıdaki
+                    önceki/sonraki konu navigasyonu hâlâ >1 konu şartı arıyor, o farklı bir amaç). */}
+                {contents.length > 0 && (
                   <div className="relative min-w-0">
                     <button
                       type="button"
