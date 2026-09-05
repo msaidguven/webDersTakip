@@ -292,22 +292,26 @@ export default function MufredatOverviewClient({
           {/* Ana İçerik */}
           <div className="min-w-0">
 
-            {/* Ders Başlığı — kullanıcının 2026-09-06 verdiği lacivert+nane yeşili tasarım
-                referansına göre nane yeşili tonlandı (mockup'taki gibi); site genelindeki
-                üst menü kasıtlı olarak dokunulmadı, sadece bu sayfanın kartları (kullanıcının
-                tercihi: "hızlıca denemek istiyorum" → küçük, geri alınabilir kapsam). */}
-            <div className="bg-emerald-50/60 rounded-xl border border-emerald-100 shadow-sm p-6 sm:p-7 mb-7">
-              <div className="flex items-center gap-5">
-                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-white flex items-center justify-center text-3xl sm:text-4xl shrink-0 ring-1 ring-emerald-100 shadow-sm">
+            {/* Ders Başlığı — kullanıcının 2026-09-06 verdiği lacivert+nane yeşili, "premium/
+                glassmorphism" tasarım referansına göre; ilk denemem çok yüzeysel kaldı
+                (sadece birkaç renk sınıfı) — bu, gerçek bir görsel yükseltme: yumuşak
+                gradyan zemin, daha büyük köşe yuvarlaklığı, derinlikli ikon kutusu ve
+                istatistikler artık düz metin değil, ayrı "chip" kartlar (bkz. Soru Bankası
+                sayfalarındaki StatTile ile aynı dil — sitede tutarlı bir örüntü). Site
+                genelindeki üst menüye hâlâ dokunulmadı (kapsam kararı aynı kalıyor). */}
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 shadow-md shadow-emerald-900/5 p-6 sm:p-8 mb-7">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-200/25 blur-3xl" />
+              <div className="relative flex items-center gap-5">
+                <div className="flex h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-white text-3xl sm:text-4xl shadow-sm ring-1 ring-emerald-100">
                   {lessonIcon || '📘'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/70 text-emerald-700 text-xs font-medium ring-1 ring-emerald-100">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-100/80 backdrop-blur-sm">
                       <GraduationCap className="h-3 w-3" />
                       {gradeName}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/70 text-emerald-700 text-xs font-medium ring-1 ring-emerald-100">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-100/80 backdrop-blur-sm">
                       <Calendar className="h-3 w-3" />
                       {academicYearLabel()}
                     </span>
@@ -315,20 +319,30 @@ export default function MufredatOverviewClient({
                   <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
                     {lessonName}
                   </h1>
-                  <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-500">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Layers className="h-4 w-4 text-indigo-500" />
-                      {units.length} Ünite
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="h-4 w-4 text-sky-500" />
-                      {totalTopics} Konu
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <ListChecks className="h-4 w-4 text-amber-500" />
-                      {totalQuestions} Soru
-                    </span>
-                  </div>
+                </div>
+              </div>
+
+              <div className="relative mt-5 grid grid-cols-3 gap-2.5 sm:gap-3">
+                <div className="flex flex-col items-center gap-1 rounded-2xl bg-white/70 py-3 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600">
+                    <Layers className="h-4 w-4" />
+                  </span>
+                  <span className="text-lg font-black text-gray-900">{units.length}</span>
+                  <span className="text-[11px] font-semibold text-gray-500">Ünite</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 rounded-2xl bg-white/70 py-3 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10 text-sky-600">
+                    <BookOpen className="h-4 w-4" />
+                  </span>
+                  <span className="text-lg font-black text-gray-900">{totalTopics}</span>
+                  <span className="text-[11px] font-semibold text-gray-500">Konu</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 rounded-2xl bg-white/70 py-3 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                    <ListChecks className="h-4 w-4" />
+                  </span>
+                  <span className="text-lg font-black text-gray-900">{totalQuestions}</span>
+                  <span className="text-[11px] font-semibold text-gray-500">Soru</span>
                 </div>
               </div>
             </div>
@@ -347,7 +361,7 @@ export default function MufredatOverviewClient({
                   <div
                     key={unit.id}
                     id={unit.slug ?? undefined}
-                    className={`scroll-mt-4 rounded-xl border bg-white shadow-sm overflow-hidden transition-shadow hover:shadow-md ${
+                    className={`scroll-mt-4 rounded-2xl border bg-white shadow-sm overflow-hidden transition-all hover:shadow-md ${
                       isDraftUnit
                         ? 'border-amber-200/70 bg-amber-50/30'
                         : `border-gray-200/70 ${accent.border}`
@@ -357,7 +371,7 @@ export default function MufredatOverviewClient({
                     <div className={`px-5 py-4 flex items-center gap-4 ${
                       isDraftUnit ? 'bg-amber-50/50' : accent.headerBg
                     }`}>
-                      <span className={`h-9 w-9 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
+                      <span className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 shadow-sm ${
                         isDraftUnit ? 'bg-amber-100 text-amber-700' : accent.badge
                       }`}>
                         {displayNo}
@@ -417,9 +431,11 @@ export default function MufredatOverviewClient({
                               <button
                                 type="button"
                                 onClick={() => setExpandedTopicId(isExpanded ? null : topic.id)}
-                                className="flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors hover:bg-gray-50"
+                                className={`flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors hover:bg-gray-50 ${
+                                  isExpanded ? 'bg-gray-50/80' : ''
+                                }`}
                               >
-                                <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
+                                <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
                                   {displayNo}.{idx + 1}
                                 </span>
                                 <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
