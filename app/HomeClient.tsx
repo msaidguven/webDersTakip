@@ -98,7 +98,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
             </div>
           )}
 
-          <QuickAccess />
+          <QuickAccess gradeSlug={selectedGrade?.slug} />
 
           {selectedGrade && (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
