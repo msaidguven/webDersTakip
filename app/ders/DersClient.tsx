@@ -73,6 +73,7 @@ import {
   unitTopicsCacheKey,
   buildTopicHref,
   buildTopicTestHref,
+  buildTopicQuestionBankHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
   KAZANIMLAR_CACHE_TTL_MS,
@@ -2014,6 +2015,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <QuizCtaCards
                         topicId={activeTopic.id}
                         topicHref={buildTopicTestHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
+                        questionBankHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
                         unitTitle={unitTitle}
                         unitHref={
                           gradeSlug && lessonSlug && activeUnitSlug

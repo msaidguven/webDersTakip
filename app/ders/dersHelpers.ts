@@ -101,6 +101,14 @@ export function buildTopicTestHref(gradeSlug: string | null, lessonSlug: string 
   return `${topicHref}/kavrama-testi`;
 }
 
+// Konu sayfasından Soru Bankası'na ters yön link — önceden sadece ders/ünite özet
+// sayfasından (Mufredatoverviewclient.tsx) erişilebiliyordu, konu sayfasında hiç yoktu
+// (bkz. [[feedback_information_architecture_discipline]], kullanıcının 2026-09-05 isteği).
+export function buildTopicQuestionBankHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
+  if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
+  return `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
+}
+
 // Kısa ve SEO'ya uygun tutmak için ünite adını (en az ayırt edici, en tekrarcı kısım)
 // ve dolgu kelimelerini ("dersi", "ünitesinde", "konusunu anlatan") atlıyoruz. AI, görsel
 // üretilirken görselin GERÇEKTE ne içerdiğine dair kısa bir alt metin de üretiyor

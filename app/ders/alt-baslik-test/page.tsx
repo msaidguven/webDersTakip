@@ -1,6 +1,7 @@
 // app/ders/alt-baslik-test/page.tsx
-// Eski ?sectionId= tabanlı URL için geriye dönük uyumluluk: section'ın ait olduğu
-// sınıf/ders/ünite/konu slug'larını bulup yeni SEO uyumlu, konu seviyesindeki
+// LEGACY — sadece redirect, yeni UI'dan buraya link VERME. Eski ?sectionId= tabanlı URL
+// için geriye dönük uyumluluk: section'ın ait olduğu sınıf/ders/ünite/konu slug'larını
+// bulup yeni SEO uyumlu, konu seviyesindeki
 // /[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/kavrama-testi
 // adresine kalıcı olarak yönlendirir (artık alt başlık bazlı ayrı test yok).
 

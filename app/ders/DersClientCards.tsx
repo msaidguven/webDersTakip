@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CheckCircle2, ListChecks, Pencil, Trophy } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle2, Library, ListChecks, Pencil, Trophy } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
 import type { TopicHighlight } from './dersHelpers';
@@ -113,6 +113,7 @@ export function TopicCompleteButton({ topicId }: { topicId: string | number }) {
 export function QuizCtaCards({
   topicId,
   topicHref,
+  questionBankHref,
   unitTitle,
   unitHref,
   showUnitCard,
@@ -120,6 +121,7 @@ export function QuizCtaCards({
 }: {
   topicId: string | number;
   topicHref: string | null;
+  questionBankHref: string | null;
   unitTitle: string;
   unitHref: string | null;
   showUnitCard: boolean;
@@ -145,18 +147,19 @@ export function QuizCtaCards({
 
   const showTopicCard = topicCount !== 0 && !!topicHref;
   const showEmeraldCard = showUnitCard && !!unitHref;
+  const showBankCard = topicCount !== 0 && !!questionBankHref;
 
-  if (!showTopicCard && !showEmeraldCard) return null;
+  if (!showTopicCard && !showEmeraldCard && !showBankCard) return null;
 
   return (
-    <div className="not-prose mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="not-prose mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {showTopicCard && (
         <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:p-5">
           <div className="flex items-center gap-2.5 text-sm font-black text-indigo-700">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-sm">
               <ListChecks className="h-4.5 w-4.5" />
             </span>
-            Konu Kavrama Testi
+            Konu Testi
           </div>
           <p className="flex-1 text-xs font-medium leading-relaxed text-indigo-900/70">
             Bu konudaki bilgilerini pekiştirmek için {topicCount ?? ''} soruluk kavrama testi çöz.
@@ -166,6 +169,25 @@ export function QuizCtaCards({
             className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-indigo-700"
           >
             Teste Başla <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+      {showBankCard && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 p-4 sm:p-5">
+          <div className="flex items-center gap-2.5 text-sm font-black text-violet-700">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500 text-white shadow-sm">
+              <Library className="h-4.5 w-4.5" />
+            </span>
+            Soru Bankası
+          </div>
+          <p className="flex-1 text-xs font-medium leading-relaxed text-violet-900/70">
+            Puansız, cevap anahtarıyla — soruları tek tek incelemek/tekrar etmek için.
+          </p>
+          <Link
+            href={questionBankHref!}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-violet-700"
+          >
+            İncele <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       )}

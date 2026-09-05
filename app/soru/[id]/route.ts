@@ -1,4 +1,5 @@
 // app/soru/[id]/route.ts
+// LEGACY — sadece redirect, yeni UI'dan buraya link VERME.
 // Eski tekil soru paylaşım sayfası — artık burada render YOK, sadece 301/308 (kalıcı)
 // yönlendirme var. Hedef, sorunun ait olduğu konunun /soru-bankasi sayfası, aynı soru
 // id'si ?soru= parametresiyle taşınıyor (bkz. app/soru-bankasi/.../page.tsx). Böylece daha

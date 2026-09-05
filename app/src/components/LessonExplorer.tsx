@@ -258,7 +258,7 @@ export function LessonExplorer({
                         href={unit.href}
                         className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-sm transition-transform active:scale-95"
                       >
-                        Test
+                        Ünite Testi
                       </Link>
                     )}
                   </div>
@@ -301,7 +301,7 @@ export function LessonExplorer({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <TopicActionButton href={topic.contentHref} label="Konu Anlatımı" icon="book" completed={topic.contentCompleted} />
-                  <TopicActionButton href={topic.quizHref} label="Soru Çöz" icon="help-circle" completed={topic.quizCompleted} />
+                  <TopicActionButton href={topic.quizHref} label="Konu Testi" icon="help-circle" completed={topic.quizCompleted} />
                 </div>
                 {topic.totalQuestions > 0 && (
                   <div className="flex items-center gap-2">

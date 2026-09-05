@@ -164,10 +164,13 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const topics = (topicRows as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
 
   const base = {
+    gradeId: grade.id,
     gradeName: grade.name,
     gradeSlug: grade.slug || decodedGradeSlug,
+    lessonId: lesson.id,
     lessonName: lesson.name,
     lessonSlug: lesson.slug || decodedLessonSlug,
+    unitId: unit.id,
     unitTitle: unit.title,
     unitSlug: unit.slug || decodedUnitSlug,
   };
@@ -178,6 +181,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const topicList = topics
     .filter((t) => t.slug)
     .map((t) => ({
+      id: t.id,
       title: t.title,
       slug: t.slug as string,
       questionCount: questionCountByTopic.get(t.id) ?? 0,
