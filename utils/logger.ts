@@ -10,6 +10,6 @@ export const logger = {
     if (isDev) console.warn(...args);
   },
   error: (...args: LogArgs) => {
-    if (isDev) console.error(...args);
+    console.error(...args);
   },
 };
