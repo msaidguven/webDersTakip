@@ -2,10 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SRSReview } from '@/app/src/models/types';
 
 // user_question_stats.next_review_at bugüne veya geçmişe denk gelen sorular "tekrar zamanı
-// gelmiş" sayılır (bkz. fix_rebuild_user_question_stats_srs_bugs.sql'deki SRS motoru: her doğru
-// cevapta streak'e göre 3-90 gün sonrasına, yanlışta 1 gün sonrasına ertelenir). SRS soru
-// bazlı bir mekanizma olduğu için hangi ders/ünitede olduğuna bakılmaksızın kullanıcının tüm
-// tekrar borcu gösterilir; profildeki grade_id varsa sadece o sınıfla sınırlanır.
+// gelmiş" sayılır (bkz. srs_adaptive_engine.sql'deki SRS motoru: doğru cevapta ease_factor'a
+// göre adaptif aralık — ilk iki doğru sabit 1/6 gün, sonrası önceki aralık × ease_factor, max
+// 180 gün — yanlışta 1 güne resetlenir). SRS soru bazlı bir mekanizma olduğu için hangi
+// ders/ünitede olduğuna bakılmaksızın kullanıcının tüm tekrar borcu gösterilir; profildeki
+// grade_id varsa sadece o sınıfla sınırlanır.
 export async function getDueSrsCount(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
@@ -14,8 +15,9 @@ export async function getDueSrsCount(
 ): Promise<number> {
   let query = supabase
     .from('user_question_stats')
-    .select('*', { count: 'exact', head: true })
+    .select('*, questions!inner(is_active)', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .eq('questions.is_active', true)
     .lte('next_review_at', new Date().toISOString());
   if (profileGradeId) query = query.eq('grade_id', profileGradeId);
 
@@ -23,8 +25,13 @@ export async function getDueSrsCount(
   return count ?? 0;
 }
 
-// "Şimdi Tekrar Et" akışı için gerçek soru id'lerini döner (sadece sayı değil) — en acil
-// (en eski next_review_at) sorular önce, tek testte en fazla `limit` soru olacak şekilde.
+// "Şimdi Tekrar Et" akışı için gerçek soru id'lerini döner (sadece sayı değil). Sıralama
+// artık salt "en eski next_review_at" değil — önce ai_help_count (öğrenci @hocam/@kanka'ya
+// sormuşsa "anlamadım" sinyali en güçlüsü), sonra wrong_attempts (kronik yanlış = "leech")
+// azalan, en son next_review_at artan. Böylece kronik zorlanılan bir soru, sırf tesadüfen
+// daha geç due olan sıradan bir sorunun arkasında kalmıyor (bkz. SRS backlog madde 2-3,
+// [[project_srs_improvement_backlog]]). Taslak (is_active=false) sorular hiç gösterilmez —
+// diğer soru listeleme kodlarıyla (quizQuestions.ts) aynı kural.
 export async function getDueSrsQuestionIds(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
@@ -34,9 +41,12 @@ export async function getDueSrsQuestionIds(
 ): Promise<number[]> {
   let query = supabase
     .from('user_question_stats')
-    .select('question_id, next_review_at')
+    .select('question_id, next_review_at, wrong_attempts, ai_help_count, questions!inner(is_active)')
     .eq('user_id', userId)
+    .eq('questions.is_active', true)
     .lte('next_review_at', new Date().toISOString())
+    .order('ai_help_count', { ascending: false })
+    .order('wrong_attempts', { ascending: false })
     .order('next_review_at', { ascending: true })
     .limit(limit);
   if (profileGradeId) query = query.eq('grade_id', profileGradeId);
