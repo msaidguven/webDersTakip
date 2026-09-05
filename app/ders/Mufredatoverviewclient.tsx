@@ -397,13 +397,20 @@ export default function MufredatOverviewClient({
                             : null;
 
                           return (
-                            <div key={topic.id} className="flex items-center gap-3.5 px-5 py-3">
-                              <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
-                                {displayNo}.{idx + 1}
-                              </span>
-                              <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
-                                {topic.title}
-                              </span>
+                            <div key={topic.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:gap-3.5">
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
+                                  {displayNo}.{idx + 1}
+                                </span>
+                                {/* Mobilde bu satır, iki eylem butonuyla (Konu Anlatımı + Soru Bankası)
+                                    AYNI satırdaydı — shrink-0 butonlar tüm genişliği alınca konu
+                                    başlığına neredeyse hiç yer kalmıyor, tek harfe kırpılıyordu
+                                    (kullanıcının 2026-09-06 bildirdiği bug). Mobilde başlık kendi
+                                    satırında, butonlar altta; sm+ ekranlarda eskisi gibi tek satır. */}
+                                <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
+                                  {topic.title}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {!hasContent ? (
                                   <span className="text-xs text-gray-300 px-2 py-1">İçerik eklenmemiş</span>
