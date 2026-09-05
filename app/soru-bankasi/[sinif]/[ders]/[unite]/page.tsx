@@ -18,6 +18,7 @@ import {
 } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiUnitAccordion from '@/app/src/components/SoruBankasiUnitAccordion';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
+import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSection';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -77,9 +78,9 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
       )}
 
       {/* Soru bankası inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı test de
-          aynı sayfadan (modal olarak, bkz. app/soru-bankasi/@modal) başlatılıyor — kartın
-          durumu (Teste Başla / Devam Et + istatistik) client'ta ayrıca çekiliyor, bkz.
-          TestStatusCard.tsx (bkz. [[feedback_information_architecture_discipline]]). */}
+          aynı sayfada, URL hiç değişmeden, saf client-side modal olarak başlatılıyor —
+          kartın durumu (Teste Başla / Devam Et + istatistik) client'ta ayrıca çekiliyor,
+          bkz. TestStatusCard.tsx (bkz. [[feedback_information_architecture_discipline]]). */}
       {data.hasQuestions && (
         <div className="mb-4 sm:mb-6">
           <TestStatusCard
@@ -95,15 +96,17 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
       )}
 
       {data.topics.length > 0 ? (
-        <SoruBankasiUnitAccordion
-          topics={data.topics}
-          gradeSlug={data.gradeSlug}
-          lessonSlug={data.lessonSlug}
-          unitSlug={data.unitSlug}
-          gradeId={data.gradeId}
-          lessonId={data.lessonId}
-          unitId={data.unitId}
-        />
+        <SoruBankasiBrowseSection questionCount={data.topics.reduce((sum, t) => sum + t.questionCount, 0)}>
+          <SoruBankasiUnitAccordion
+            topics={data.topics}
+            gradeSlug={data.gradeSlug}
+            lessonSlug={data.lessonSlug}
+            unitSlug={data.unitSlug}
+            gradeId={data.gradeId}
+            lessonId={data.lessonId}
+            unitId={data.unitId}
+          />
+        </SoruBankasiBrowseSection>
       ) : (
         <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu ünitede henüz konu eklenmemiş.</p>
       )}

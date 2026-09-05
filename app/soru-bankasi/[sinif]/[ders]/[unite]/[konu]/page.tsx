@@ -19,6 +19,7 @@ import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLess
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
 import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
+import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSection';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -124,14 +125,21 @@ export default async function QuestionBankPage({ params }: PageProps) {
         </div>
       )}
 
-      <QuestionBankBoard
-        questions={questions}
-        basePath={buildQuestionBankPath(data)}
-        gradeId={data.gradeId}
-        lessonId={data.lessonId}
-        unitId={data.unitId}
-        commentCounts={commentCounts}
-      />
+      {/* Giriş yapmamış kullanıcı direkt 100 soruyu görsün (varsayılan açık); giriş
+          yapmışsa yukarıdaki kişiselleştirilmiş 10 soruluk test öne çıksın diye bu bölüm
+          kapalı başlasın — SEO'ya etkisi yok, sunucu render'ı her zaman açık/tam, sadece
+          mount sonrası client'ta (giriş durumu öğrenilince) kapatılıyor. Bkz.
+          SoruBankasiBrowseSection.tsx. */}
+      <SoruBankasiBrowseSection questionCount={questions.length}>
+        <QuestionBankBoard
+          questions={questions}
+          basePath={buildQuestionBankPath(data)}
+          gradeId={data.gradeId}
+          lessonId={data.lessonId}
+          unitId={data.unitId}
+          commentCounts={commentCounts}
+        />
+      </SoruBankasiBrowseSection>
 
       {unitData && unitPath && unitData.topics.length > 1 && (
         <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
