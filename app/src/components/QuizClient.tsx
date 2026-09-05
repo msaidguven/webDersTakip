@@ -620,6 +620,28 @@ export interface QuizClientProps {
   // testi/tekrar gibi karışık-konulu bağlamlarda geçilmez — paylaş linki o durumda eski
   // /soru/[id]'de kalır, ki bu artık /soru-bankasi'na 301 ile yönleniyor.
   questionBankPathBase?: string;
+  // Verilirse "exitHref"e Link ile NAVİGASYON yapmak yerine bu callback çağrılır (ör. soru
+  // bankasının kendi client-side modalı — kullanıcının 2026-09-05 isteği: URL hiç
+  // değişmesin, sayfadan hiç ayrılınmasın). Verilmezse davranış eskisiyle birebir aynı
+  // (exitHref'e normal Link navigasyonu).
+  onExit?: () => void;
+}
+
+// exitHref'e Link ile git (varsayılan, mevcut tüm çağıranlar) ya da onExit callback'ini
+// çağır (soru bankasının pure client-side modalı) — aynı görünüm, sadece "çıkış" farklı.
+function ExitLink({ href, label, onExit, className }: { href: string; label: string; onExit?: () => void; className: string }) {
+  if (onExit) {
+    return (
+      <button type="button" onClick={onExit} className={className}>
+        <ArrowLeft className="h-3.5 w-3.5" /> {label}
+      </button>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      <ArrowLeft className="h-3.5 w-3.5" /> {label}
+    </Link>
+  );
 }
 
 function findFirstUnansweredIndex(questions: QuizQuestion[], answeredIds: Set<number>): number {
@@ -644,6 +666,7 @@ export default function QuizClient({
   resume,
   allCaughtUp: initialAllCaughtUp = false,
   questionBankPathBase,
+  onExit,
 }: QuizClientProps) {
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
@@ -1074,12 +1097,12 @@ export default function QuizClient({
         <p className="mb-6 text-sm font-medium text-muted-foreground">
           Şu anlık çözülecek yeni veya tekrar zamanı gelmiş soru yok. Az sonra tekrar uğra!
         </p>
-        <Link
+        <ExitLink
           href={exitHref}
+          label={exitLabel}
+          onExit={onExit}
           className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
-        </Link>
+        />
       </div>
     );
   }
@@ -1092,12 +1115,12 @@ export default function QuizClient({
         </div>
         <h1 className="mb-2 text-lg font-black text-default">Bu konu için henüz soru yok</h1>
         <p className="mb-6 text-sm font-medium text-muted-foreground">Yakında bu konu için sorular eklenecek.</p>
-        <Link
+        <ExitLink
           href={exitHref}
+          label={exitLabel}
+          onExit={onExit}
           className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
-        </Link>
+        />
       </div>
     );
   }
@@ -1105,9 +1128,12 @@ export default function QuizClient({
   if (intro && !started) {
     return (
       <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
-        <Link href={exitHref} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
-          <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
-        </Link>
+        <ExitLink
+          href={exitHref}
+          label={exitLabel}
+          onExit={onExit}
+          className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4"
+        />
 
         <div className="rounded-2xl border border-default bg-surface-elevated p-3.5 sm:p-6">
           <p className="mb-1 text-xs font-black uppercase tracking-widest text-indigo-500">{intro.subLabel}</p>
@@ -1188,12 +1214,12 @@ export default function QuizClient({
             >
               <RotateCcw className="h-3.5 w-3.5" /> Tekrar Çöz
             </button>
-            <Link
+            <ExitLink
               href={exitHref}
+              label={exitLabel}
+              onExit={onExit}
               className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
-            </Link>
+            />
           </div>
         </div>
       </div>
@@ -1207,9 +1233,12 @@ export default function QuizClient({
 
   return (
     <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
-      <Link href={exitHref} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
-        <ArrowLeft className="h-3.5 w-3.5" /> {exitLabel}
-      </Link>
+      <ExitLink
+        href={exitHref}
+        label={exitLabel}
+        onExit={onExit}
+        className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4"
+      />
 
       <div className="mb-3 sm:mb-5">
         <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">

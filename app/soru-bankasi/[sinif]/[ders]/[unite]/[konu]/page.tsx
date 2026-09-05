@@ -103,15 +103,21 @@ export default async function QuestionBankPage({ params }: PageProps) {
       </div>
 
       {/* Aşağıdaki liste inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı test
-          (Konu Kavrama Testi) aynı sayfadan modal olarak başlatılıyor — bkz.
-          TestStatusCard.tsx, app/soru-bankasi/@modal. */}
+          (Konu Kavrama Testi) aynı sayfada, URL hiç değişmeden, saf client-side modal
+          olarak başlatılıyor — bkz. TestStatusCard.tsx. Slug'lar data.* yerine route
+          param'larından (sinif/ders/unite/konu) veriliyor — TopicTestPageData'daki
+          gradeSlug/lessonSlug/unitSlug/topicSlug DB'den nullable geliyor, bu URL
+          param'ları zaten garanti non-null string. */}
       {questions.length > 0 && (
         <div className="mb-4 sm:mb-6">
           <TestStatusCard
             scope="topic"
+            gradeSlug={sinif}
+            lessonSlug={ders}
+            unitSlug={unite}
+            topicSlug={konu}
             topicId={data.topicId}
             unitId={data.unitId}
-            testHref={`${buildTopicPath(data)}/kavrama-testi`}
             title="Kavrama Testi"
             color="indigo"
           />

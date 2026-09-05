@@ -1,9 +1,12 @@
 // app/src/components/QuizModal.tsx
-// Panelden açılan testler için overlay kabuğu (Next.js intercepting route'lar tarafından
-// kullanılır — bkz. app/panel/@modal). Mobilde tam ekran, masaüstünde büyük ortalanmış panel.
-// Kapatma (X / Escape / backdrop) her zaman router.back() ile önceki (panel) sayfaya döner —
-// bu, QuizClient içindeki "Konuya/Üniteye Dön" linklerinden (gerçek sayfaya tam navigasyon)
-// bilinçli olarak farklı bir "çıkış" anlamına gelir.
+// Overlay kabuğu — iki farklı açılış şekli kullanıyor:
+//   1) Intercepting route'lar (bkz. app/panel/@modal, app/soru-bankasi/@modal): gerçek bir
+//      route navigasyonuyla açılır, kapatma router.back() ile önceki sayfaya döner.
+//   2) Soru bankasının kendi client-side modalı (bkz. TestStatusCard.tsx, kullanıcının
+//      2026-09-05 isteği: "URL hiç değişmesin"): hiçbir navigasyon olmadan, saf React
+//      state ile açılır — bu durumda `onClose` prop'u verilir, router.back() ÇAĞRILMAZ
+//      (çağrılırsa kullanıcıyı soru bankası sayfasına gelmeden ÖNCEKİ sayfaya atardı).
+// Mobilde tam ekran, masaüstünde büyük ortalanmış panel.
 
 'use client';
 
@@ -12,9 +15,13 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { emitQuizModalClosed } from '../lib/panelRefreshBridge';
 
-export default function QuizModal({ children }: { children: React.ReactNode }) {
+export default function QuizModal({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) {
   const router = useRouter();
   const close = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
     // Panel sayfası bu slot'un altında mount'lu kalır (bkz. panel/layout.tsx) — router.back()
     // onu yeniden mount etmediği için, kapanışı panele haber vermek üzere ayrıca bir sinyal
     // yayınlıyoruz (bkz. panelRefreshBridge, kullanıcının "modal kapanınca otomatik güncellensin" isteği).

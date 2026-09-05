@@ -84,8 +84,10 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
         <div className="mb-4 sm:mb-6">
           <TestStatusCard
             scope="unit"
+            gradeSlug={data.gradeSlug}
+            lessonSlug={data.lessonSlug}
+            unitSlug={data.unitSlug}
             unitId={data.unitId}
-            testHref={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/unite-testi`}
             title="Ünite Testi"
             color="emerald"
           />

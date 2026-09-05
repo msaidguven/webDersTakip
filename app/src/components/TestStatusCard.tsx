@@ -2,25 +2,54 @@
 
 // Soru bankası sayfalarındaki (konu ve ünite seviyesi) "Teste Başla"/"Teste Devam Et" kartı.
 // Sayfanın geri kalanı (SEO içeriği, İncele modu) statik/ISR kalsın diye bu kart kendi
-// verisini client'ta ayrıca çeker (DersClientCards.tsx'teki topicCount fetch'iyle aynı
-// desen) — /api/soru-bankasi/topic-status veya unit-status'tan gelen sonuca göre ya "Teste
-// Başla" (+ bu konuda/ünitede bugüne kadarki doğru/yanlış) ya da "Teste Devam Et" (+ yarım
-// kalan oturumun ilerlemesi, dairesel gösterge ile) gösterir. "Teste Başla"/"Devam Et" linki
-// her iki durumda da AYNI /.../kavrama-testi veya /.../unite-testi URL'i — hangi soruların
-// geleceğine (devam mı yeni mi) zaten o sayfanın kendi mantığı (loadTopicQuizState/
-// loadUnitQuizState) karar veriyor, burası sadece doğru metni/sayıyı gösteriyor. Soru
-// bankasının kendi @modal'ı sayesinde bu link normal tıklamada sayfadan hiç ayrılmadan
-// overlay açar.
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+// durumunu (topic-status/unit-status) client'ta ayrıca çeker (DersClientCards.tsx'teki
+// topicCount fetch'iyle aynı desen) — sonuca göre ya "Teste Başla" (+ bu konuda/ünitede
+// bugüne kadarki doğru/yanlış) ya da "Teste Devam Et" (+ yarım kalan oturumun ilerlemesi,
+// dairesel gösterge ile) gösterir.
+//
+// ÖNEMLİ (kullanıcının 2026-09-05 isteği, sertçe tekrarlandı): tıklama URL'İ HİÇ
+// DEĞİŞTİRMEZ. Önceki sürüm Next.js intercepting route (app/soru-bankasi/@modal) ile
+// /.../kavrama-testi URL'ine "sanal" geçiş yapıyordu — bu teknik olarak doğru çalışıyordu
+// (adres çubuğu değişse de görsel olarak modal açılıyordu) ama kullanıcı adres çubuğunun
+// değişmesini istemiyor, özellikle ?soru=ID gibi bir konuma deep-link'lenmişken o URL'de
+// kalınmasını istiyor. Bu yüzden artık HİÇ navigasyon yok: tıklanınca /api/soru-bankasi/
+// topic-test veya unit-test'ten QuizWithAsk'ın ihtiyaç duyduğu HER ŞEY tek istekte çekilir,
+// sonuç saf React state'te tutulup QuizModal + QuizWithAsk aynı sayfada (gerçek
+// kavrama-testi/unite-testi sayfasıyla AYNI motor, AYNI veri fonksiyonları) render edilir.
+// href yine de gerçek test sayfasına işaret ediyor (JS kapalıyken / orta-tık yeni sekmede
+// açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
+// akışa yönlendiriliyor.
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import QuizModal from '@/app/src/components/QuizModal';
+import QuizWithAsk from '@/app/src/components/QuizWithAsk';
+
+interface TestData {
+  gradeId: number;
+  lessonId: number;
+  unitId: number;
+  topicId?: number;
+  scopeLabel: string;
+  initialQuestions: QuizQuestion[];
+  remainingQuestionIds: number[];
+  allCaughtUp: boolean;
+  resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
+  reloadEndpoint: string;
+  questionBankPathBase?: string;
+  secondsPerQuestion?: number | null;
+  intro?: { subLabel: string; description: string | null; topicCount: number | null; questionCount: number | null };
+}
 
 interface TestStatusCardProps {
   scope: 'topic' | 'unit';
+  gradeSlug: string;
+  lessonSlug: string;
+  unitSlug: string;
+  topicSlug?: string;
   topicId?: number;
   unitId: number;
-  testHref: string;
   title: string;
   color: 'indigo' | 'emerald';
 }
@@ -60,29 +89,79 @@ function ProgressRing({ percent, ringClass, label, sublabel }: { percent: number
   );
 }
 
-export default function TestStatusCard({ scope, topicId, unitId, testHref, title, color }: TestStatusCardProps) {
+export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color }: TestStatusCardProps) {
   const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
+  const [testData, setTestData] = useState<TestData | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
   const classes = COLOR_CLASSES[color];
+
+  const testHref =
+    scope === 'topic' ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}/kavrama-testi` : `/${gradeSlug}/${lessonSlug}/${unitSlug}/unite-testi`;
+
+  const fetchStatus = useCallback(
+    (onDone: (data: SoruBankasiTestStatus | null) => void) => {
+      const url =
+        scope === 'topic'
+          ? `/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`
+          : `/api/soru-bankasi/unit-status?unitId=${unitId}`;
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : null))
+        .then(onDone)
+        .catch(() => onDone(null));
+    },
+    [scope, topicId, unitId]
+  );
+
+  // Test kapandığında (bkz. closeTest) durumu tazelemek için — bir sonraki soru/oturum
+  // için "kaç çözüldü" sayısı güncel kalsın diye. Kasıtlı olarak eski cevabı hemen
+  // sıfırlamıyor (setStatus(null)) — kapanış anında kısa bir "yükleniyor" flaşı yerine
+  // yeni veri gelene kadar eski sayılar görünmeye devam etsin diye.
+  const refetchStatus = useCallback(() => fetchStatus(setStatus), [fetchStatus]);
 
   useEffect(() => {
     let cancelled = false;
     setStatus(null);
-    const url =
-      scope === 'topic'
-        ? `/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`
-        : `/api/soru-bankasi/unit-status?unitId=${unitId}`;
-    fetch(url)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: SoruBankasiTestStatus | null) => {
-        if (!cancelled) setStatus(data);
-      })
-      .catch(() => {
-        if (!cancelled) setStatus(null);
-      });
+    fetchStatus((data) => {
+      if (!cancelled) setStatus(data);
+    });
     return () => {
       cancelled = true;
     };
-  }, [scope, topicId, unitId]);
+  }, [fetchStatus]);
+
+  const startOrResumeTest = useCallback(
+    async (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // Orta tık / cmd-tık / ctrl-tık / shift-tık: tarayıcının doğal "yeni sekmede aç"
+      // davranışına bırak, sadece düz sol tıkı yakalıyoruz.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      if (testLoading) return;
+
+      setTestLoading(true);
+      setTestError(null);
+      try {
+        const url =
+          scope === 'topic'
+            ? `/api/soru-bankasi/topic-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}&topicSlug=${topicSlug}`
+            : `/api/soru-bankasi/unit-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('failed');
+        const data = (await res.json()) as TestData;
+        setTestData(data);
+      } catch {
+        setTestError('Test yüklenemedi, tekrar dener misin?');
+      } finally {
+        setTestLoading(false);
+      }
+    },
+    [scope, gradeSlug, lessonSlug, unitSlug, topicSlug, testLoading]
+  );
+
+  const closeTest = useCallback(() => {
+    setTestData(null);
+    refetchStatus();
+  }, [refetchStatus]);
 
   const resumable = status?.resumable ?? null;
 
@@ -114,12 +193,13 @@ export default function TestStatusCard({ scope, topicId, unitId, testHref, title
             </div>
           </div>
 
-          <Link
+          <a
             href={testHref}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors`}
+            onClick={startOrResumeTest}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
           >
-            Teste Devam Et <ArrowRight className="h-4 w-4" />
-          </Link>
+            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Devam Et <ArrowRight className="h-4 w-4" /></>}
+          </a>
         </>
       ) : (
         <>
@@ -139,13 +219,40 @@ export default function TestStatusCard({ scope, topicId, unitId, testHref, title
             </div>
           )}
 
-          <Link
+          <a
             href={testHref}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors`}
+            onClick={startOrResumeTest}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
           >
-            Teste Başla <ArrowRight className="h-4 w-4" />
-          </Link>
+            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Başla <ArrowRight className="h-4 w-4" /></>}
+          </a>
         </>
+      )}
+
+      {testError && <p className="text-xs font-bold text-rose-500">{testError}</p>}
+
+      {testData && (
+        <QuizModal onClose={closeTest}>
+          <QuizWithAsk
+            key={testData.resume?.sessionId ?? 'new'}
+            gradeId={testData.gradeId}
+            lessonId={testData.lessonId}
+            unitId={testData.unitId}
+            topicId={testData.topicId}
+            scopeLabel={testData.scopeLabel}
+            exitHref={testHref}
+            exitLabel="Kapat"
+            onExit={closeTest}
+            initialQuestions={testData.initialQuestions}
+            remainingQuestionIds={testData.remainingQuestionIds}
+            allCaughtUp={testData.allCaughtUp}
+            reloadEndpoint={testData.reloadEndpoint}
+            secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
+            resume={testData.resume}
+            questionBankPathBase={testData.questionBankPathBase}
+            intro={testData.intro}
+          />
+        </QuizModal>
       )}
     </div>
   );
