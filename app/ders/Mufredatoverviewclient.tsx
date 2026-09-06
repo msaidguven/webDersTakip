@@ -317,9 +317,17 @@ export default function MufredatOverviewClient({
                       {academicYearLabel()}
                     </span>
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
-                    {lessonName}
+                  {/* H1'de sınıf+ders+"Yeni Müfredat" birlikte — kullanıcının 2026-09-06
+                      isteği: "her sınıf her ders için bunu yazacağız, SEO için" (insanların
+                      arattığı "6. sınıf sosyal bilgiler yeni müfredat" gibi sorgularla
+                      birebir eşleşsin diye), dinamik olarak HER sınıf/ders kombinasyonunda
+                      aynı şablon. */}
+                  <h1 className="text-xl sm:text-2xl font-bold leading-snug text-gray-900">
+                    {gradeName} {lessonName} <span className="text-emerald-600">Yeni Müfredat</span>
                   </h1>
+                  <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                    {lessonName} dersi yeni müfredata uygun konu anlatımları, testler ve sorularla burada.
+                  </p>
                 </div>
               </div>
 
