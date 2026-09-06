@@ -37,18 +37,18 @@ export function HomeHero({ isAuthenticated, gradeSlug }: { isAuthenticated: bool
               <UserPlus className="h-4 w-4" /> Ücretsiz Üye Ol
             </Link>
           )}
+          {/* "Dersleri Keşfet"in yanına/altına üçüncü kısayol — kullanıcının 2026-09-06
+              isteği: önce mobilde eklendi, sonra "sadece mobilde değil webde de görünsün"
+              denilince diğer iki butonla aynı satıra/genişliğe alındı. */}
+          {gradeSlug && (
+            <Link
+              href={`/soru-bankasi/${gradeSlug}`}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-6 py-3 text-sm font-black text-default transition-colors hover:bg-surface sm:w-auto"
+            >
+              <FileQuestion className="h-4 w-4" /> Soru Bankası
+            </Link>
+          )}
         </div>
-        {/* Mobilde "Dersleri Keşfet"in altına ayrı bir Soru Bankası kısayolu — kullanıcının
-            2026-09-06 isteği. sm+ ekranlarda zaten "Hızlı Erişim" bölümünde bir Soru Bankası
-            linki var (bkz. QuickAccess.tsx), burada sadece mobilde tekrarlanıyor. */}
-        {gradeSlug && (
-          <Link
-            href={`/soru-bankasi/${gradeSlug}`}
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-6 py-3 text-sm font-black text-default transition-colors hover:bg-surface sm:hidden"
-          >
-            <FileQuestion className="h-4 w-4" /> Soru Bankası
-          </Link>
-        )}
         {!isAuthenticated && (
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:mt-5 lg:justify-start">
             <Info className="h-3.5 w-3.5" /> Üye olmadan tüm içerikleri kullanabilirsin. Sadece ilerlemen kayıt altına alınmaz.
