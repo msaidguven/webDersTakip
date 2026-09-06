@@ -2,14 +2,16 @@
 // Ünite tanıtım sayfası (kullanıcının 2026-09-06 isteği) — ünite kapak görseli + konuların
 // başlık/kapak görseli/kısa açıklamasını listeler, her konu kartı gerçek konu sayfasına
 // (DersClient) link verir. Bilinçli olarak DersClient'ın sidebar'ını/aktif konu state'ini
-// KULLANMIYOR (bkz. unitOverviewPageData.ts) — bu yüzden burada hiçbir ünite/konu "seçili"
-// görünmüyor, sadece nötr bir tanıtım/liste sayfası.
+// KULLANMIYOR (bkz. unitOverviewPageData.ts) — sadece nötr bir tanıtım/liste sayfası, üstteki
+// Sınıf/Ders/Ünite/Konu hızlı değiştirici de (UnitHierarchyBar) navigasyon tabanlı, konu
+// dropdown'u bu sayfada hiçbir zaman "seçili" göstermiyor (bkz. o dosyadaki not).
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { BookOpen } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getUnitOverviewData } from '@/app/src/lib/unitOverviewPageData';
+import UnitHierarchyBar from '@/app/src/components/UnitHierarchyBar';
 
 export const revalidate = 3600;
 
@@ -58,6 +60,19 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
       <Link href={lessonPath} className="mb-2 inline-block text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
         ← {data.lessonName} Müfredatı
       </Link>
+
+      <UnitHierarchyBar
+        gradeName={data.gradeName}
+        gradeSlug={data.gradeSlug}
+        lessonName={data.lessonName}
+        lessonSlug={data.lessonSlug}
+        unitTitle={data.unitTitle}
+        unitSlug={data.unitSlug}
+        allGrades={data.allGrades}
+        gradeLessons={data.gradeLessons}
+        units={data.siblingUnits}
+        topics={data.topics}
+      />
 
       {data.coverImageUrl && (
         <div className="mb-4 overflow-hidden rounded-2xl sm:mb-6">
