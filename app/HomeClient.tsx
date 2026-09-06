@@ -83,7 +83,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
       <main className="relative py-8 sm:py-14 px-4 sm:px-8">
         <div className="mx-auto max-w-6xl space-y-10 sm:space-y-14">
           <div className="space-y-8 sm:space-y-10">
-            <HomeHero isAuthenticated={isAuthenticated} />
+            <HomeHero isAuthenticated={isAuthenticated} gradeSlug={selectedGrade?.slug} />
             <div className="rounded-2xl border border-default bg-surface-elevated p-3 shadow-sm sm:p-4">
               <StatsBar stats={stats} />
             </div>

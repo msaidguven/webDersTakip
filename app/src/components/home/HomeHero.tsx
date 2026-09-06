@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Info, LayoutDashboard, UserPlus } from 'lucide-react';
+import { FileQuestion, Info, LayoutDashboard, UserPlus } from 'lucide-react';
 
-export function HomeHero({ isAuthenticated }: { isAuthenticated: boolean }) {
+export function HomeHero({ isAuthenticated, gradeSlug }: { isAuthenticated: boolean; gradeSlug?: string | null }) {
   return (
     <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-10">
       <div className="text-center lg:text-left">
@@ -38,6 +38,17 @@ export function HomeHero({ isAuthenticated }: { isAuthenticated: boolean }) {
             </Link>
           )}
         </div>
+        {/* Mobilde "Dersleri Keşfet"in altına ayrı bir Soru Bankası kısayolu — kullanıcının
+            2026-09-06 isteği. sm+ ekranlarda zaten "Hızlı Erişim" bölümünde bir Soru Bankası
+            linki var (bkz. QuickAccess.tsx), burada sadece mobilde tekrarlanıyor. */}
+        {gradeSlug && (
+          <Link
+            href={`/soru-bankasi/${gradeSlug}`}
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-6 py-3 text-sm font-black text-default transition-colors hover:bg-surface sm:hidden"
+          >
+            <FileQuestion className="h-4 w-4" /> Soru Bankası
+          </Link>
+        )}
         {!isAuthenticated && (
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:mt-5 lg:justify-start">
             <Info className="h-3.5 w-3.5" /> Üye olmadan tüm içerikleri kullanabilirsin. Sadece ilerlemen kayıt altına alınmaz.
