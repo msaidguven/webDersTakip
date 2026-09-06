@@ -243,9 +243,11 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
       {!status ? (
         // Metin yerine iskelet (skeleton) — "Durum yükleniyor…" gibi teknik bir cümle SSR
         // HTML'ine (fetch client'ta tamamlanana kadar) sızmasın diye (kullanıcının 2026-09-06
-        // SEO denetimi isteği). Ekran okuyucular için durum sr-only bir etiketle korunuyor.
-        <div className="grid w-full animate-pulse grid-cols-4 gap-2" role="status">
-          <span className="sr-only">Durum yükleniyor…</span>
+        // SEO denetimi isteği). Önceki sr-only <span> hâlâ sayfanın metin içeriğinde
+        // görünüyordu (denetim araçları öznitelik değil, gerçek metin düğümü arıyor) — bu
+        // yüzden etiket artık bir metin DÜĞÜMÜ değil, aria-label ÖZNİTELİĞİ: ekran
+        // okuyucular hâlâ duyuruyor ama sayfanın çıkarılan metninde hiç yer almıyor.
+        <div className="grid w-full animate-pulse grid-cols-4 gap-2" role="status" aria-label="Durum yükleniyor">
           <div className="h-14 rounded-xl bg-surface" />
           <div className="h-14 rounded-xl bg-surface" />
           <div className="h-14 rounded-xl bg-surface" />
