@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradeData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
+import { getLessonColor } from '@/app/src/lib/homeMapping';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -55,9 +56,12 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
           <Link
             key={lesson.slug}
             href={buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug)}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+            className="flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
           >
-            <div className="min-w-0">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(lesson.colorIndex)} text-lg shadow-sm`}>
+              {lesson.icon}
+            </span>
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-black text-default">{lesson.name}</p>
               {lesson.questionCount === 0 ? (
                 <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-500">Taslak</span>

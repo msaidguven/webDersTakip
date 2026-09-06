@@ -53,15 +53,19 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
   }
 
   const [{ data: lessonRows }, questionCountByLesson] = await Promise.all([
-    supabase.from('lessons').select('id, name, slug, order_no').in('id', lessonIds).eq('is_active', true).order('order_no', { ascending: true }),
+    supabase.from('lessons').select('id, name, slug, order_no, icon').in('id', lessonIds).eq('is_active', true).order('order_no', { ascending: true }),
     getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id })), { activeOnly: true }),
   ]);
 
-  const lessons = ((lessonRows as (LessonRow & { order_no: number | null })[] | null) || [])
+  // icon/order_no anasayfadaki ders kartlarıyla (bkz. homeStats.ts + LessonGrid.tsx) AYNI
+  // kaynaktan — kullanıcının 2026-09-06 isteği: "derslere resim icon ekle".
+  const lessons = ((lessonRows as (LessonRow & { order_no: number | null; icon: string | null })[] | null) || [])
     .filter((lesson) => lesson.slug)
-    .map((lesson) => ({
+    .map((lesson, idx) => ({
       name: lesson.name,
       slug: lesson.slug as string,
+      icon: lesson.icon || '📘',
+      colorIndex: lesson.order_no ?? idx,
       questionCount: questionCountByLesson.get(`${lesson.id}:${grade.id}`) ?? 0,
     }))
     .filter((lesson) => lesson.questionCount > 0);
