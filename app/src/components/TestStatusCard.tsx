@@ -219,7 +219,12 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         </>
       ) : (
         <>
-          {status.loggedIn && status.solved > 0 ? (
+          {/* Giriş yapmış kullanıcıda 4 kutucuk (Soru/Çözülen/Doğru/Yanlış) HER ZAMAN
+              gösterilir — daha önce solved>0 şartı vardı, hiç çözülmemişse tek "Soru
+              Bankası" kutucuğuna düşüyordu; kullanıcı referans görselinde bu 4'ünün her
+              zaman bir arada olduğunu belirtti (2026-09-06). 0 olsa bile "0 Çözülen/0
+              Doğru/0 Yanlış" göstermek, hiç göstermemekten daha bilgilendirici. */}
+          {status.loggedIn ? (
             <div className="grid w-full grid-cols-4 gap-2">
               <StatTile value={status.poolSize} label="Soru" />
               <StatTile value={status.solved} label="Çözülen" />
