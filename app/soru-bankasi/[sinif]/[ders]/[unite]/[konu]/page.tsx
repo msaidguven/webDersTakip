@@ -46,6 +46,8 @@ export async function generateStaticParams(): Promise<Params[]> {
 
 function buildBreadcrumbJsonLd(data: TopicTestPageData) {
   const path = buildQuestionBankPath(data);
+  // Ünite seviyesi eksikti (Sınıf -> Ders -> Konu, arada Ünite atlanıyordu) — kullanıcının
+  // 2026-09-06 SEO denetiminde istediği tam hiyerarşi: Sınıf -> Ders -> Ünite -> Konu.
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -53,8 +55,9 @@ function buildBreadcrumbJsonLd(data: TopicTestPageData) {
       { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: SITE_URL },
       { '@type': 'ListItem', position: 2, name: data.gradeName, item: `${SITE_URL}/${data.gradeSlug}` },
       { '@type': 'ListItem', position: 3, name: data.lessonName, item: `${SITE_URL}/${data.gradeSlug}/${data.lessonSlug}` },
-      { '@type': 'ListItem', position: 4, name: data.topicTitle, item: `${SITE_URL}${buildTopicPath(data)}` },
-      { '@type': 'ListItem', position: 5, name: `${data.topicTitle} Soru Bankası`, item: `${SITE_URL}${path}` },
+      { '@type': 'ListItem', position: 4, name: data.unitTitle, item: `${SITE_URL}/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}` },
+      { '@type': 'ListItem', position: 5, name: data.topicTitle, item: `${SITE_URL}${buildTopicPath(data)}` },
+      { '@type': 'ListItem', position: 6, name: `${data.topicTitle} Soru Bankası`, item: `${SITE_URL}${path}` },
     ],
   };
 }
@@ -106,8 +109,26 @@ export default async function QuestionBankPage({ params }: PageProps) {
       )}
 
       <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
+        {/* Sınıf/Ders/Ünite artık düz metin değil, gerçek link — hem görünür breadcrumb hem
+            iç linkleme (kullanıcının 2026-09-06 SEO denetimi isteği: "breadcrumb linkleri
+            çalışmalı", "iç linkleme"). Aynı görsel stil korunuyor, sadece <p> yerine
+            tıklanabilir segmentler. */}
         <p className="text-xs font-black uppercase tracking-widest text-indigo-500">
-          {data.gradeName} • {data.lessonName} • {data.unitTitle}
+          <Link href={buildSoruBankasiGradePath(sinif)} className="hover:underline">
+            {data.gradeName}
+          </Link>{' '}
+          •{' '}
+          <Link href={buildSoruBankasiLessonPath(sinif, ders)} className="hover:underline">
+            {data.lessonName}
+          </Link>{' '}
+          •{' '}
+          {unitPath ? (
+            <Link href={unitPath} className="hover:underline">
+              {data.unitTitle}
+            </Link>
+          ) : (
+            data.unitTitle
+          )}
         </p>
         <h1 className="mt-1 text-lg font-black leading-tight text-default sm:text-2xl">{data.topicTitle} Soru Bankası</h1>
         <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{questions.length} soru — cevap anahtarıyla birlikte</p>
@@ -151,28 +172,37 @@ export default async function QuestionBankPage({ params }: PageProps) {
         />
       </SoruBankasiBrowseSection>
 
-      {unitData && unitPath && unitData.topics.length > 1 && (
+      {/* Alt/ders/sınıf soru bankası hub'larına link HER ZAMAN gösteriliyor (kullanıcının
+          2026-09-06 SEO denetimi isteği: iç linkleme) — eskiden bu ünitenin birden fazla
+          konusu yoksa tüm blok (hub linkleri dahil) gizleniyordu, tek konulu ünitelerde
+          sayfanın yukarı hiyerarşiye giden tek yolu üstteki geri linki kalıyordu. Konu
+          "pill"leri hâlâ sadece >1 konu varken anlamlı olduğu için o kısım koşullu kalıyor. */}
+      {unitData && unitPath && (
         <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
           <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{unitData.unitTitle}</p>
-          <h2 className="mt-1 text-sm font-black text-default">Bu Ünitedeki Diğer Konular</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {unitData.topics.map((topic) =>
-              topic.slug === data.topicSlug ? (
-                <span key={topic.slug} className="rounded-full border border-indigo-400/60 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-500">
-                  {topic.title}
-                </span>
-              ) : (
-                <Link
-                  key={topic.slug}
-                  href={`${unitPath}/${topic.slug}`}
-                  className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-                >
-                  {topic.title}
-                </Link>
-              )
-            )}
-          </div>
-          <div className="mt-4 flex flex-col gap-1.5 border-t border-default pt-3 text-xs font-bold">
+          {unitData.topics.length > 1 && (
+            <>
+              <h2 className="mt-1 text-sm font-black text-default">Bu Ünitedeki Diğer Konular</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {unitData.topics.map((topic) =>
+                  topic.slug === data.topicSlug ? (
+                    <span key={topic.slug} className="rounded-full border border-indigo-400/60 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-500">
+                      {topic.title}
+                    </span>
+                  ) : (
+                    <Link
+                      key={topic.slug}
+                      href={`${unitPath}/${topic.slug}`}
+                      className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+                    >
+                      {topic.title}
+                    </Link>
+                  )
+                )}
+              </div>
+            </>
+          )}
+          <div className={`flex flex-col gap-1.5 text-xs font-bold ${unitData.topics.length > 1 ? 'mt-4 border-t border-default pt-3' : 'mt-3'}`}>
             <Link href={buildSoruBankasiLessonPath(unitData.gradeSlug, unitData.lessonSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
               → Tüm {unitData.lessonName} Soru Bankaları
             </Link>

@@ -241,8 +241,15 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
       <p className="text-base font-black text-default sm:text-lg">{title}</p>
 
       {!status ? (
-        <div className="flex items-center gap-2 py-4 text-xs font-bold text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Durum yükleniyor…
+        // Metin yerine iskelet (skeleton) — "Durum yükleniyor…" gibi teknik bir cümle SSR
+        // HTML'ine (fetch client'ta tamamlanana kadar) sızmasın diye (kullanıcının 2026-09-06
+        // SEO denetimi isteği). Ekran okuyucular için durum sr-only bir etiketle korunuyor.
+        <div className="grid w-full animate-pulse grid-cols-4 gap-2" role="status">
+          <span className="sr-only">Durum yükleniyor…</span>
+          <div className="h-14 rounded-xl bg-surface" />
+          <div className="h-14 rounded-xl bg-surface" />
+          <div className="h-14 rounded-xl bg-surface" />
+          <div className="h-14 rounded-xl bg-surface" />
         </div>
       ) : (
         <>
