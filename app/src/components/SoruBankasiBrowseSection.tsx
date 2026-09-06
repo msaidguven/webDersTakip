@@ -1,29 +1,35 @@
 'use client';
 
-// Soru bankasının "İncele" (100 soru, cevap anahtarlı) bölümünü sarmalayan, giriş durumuna
-// göre varsayılan açık/kapalı olan katlanır kutu — kullanıcının 2026-09-05 isteği: giriş
-// yapmamışsa direkt 100 soruyu görsün (mevcut davranış), giriş yapmışsa üstteki
-// TestStatusCard'daki kişiselleştirilmiş 10 soruluk test öne çıksın, 100 soruluk banka
-// "Soru Bankası — N Soru" başlığıyla kapalı bir bölüm olarak altta kalsın.
+// Soru bankasının "İncele" (100 soru, cevap anahtarlı) bölümünü sarmalayan kutu — kullanıcının
+// 2026-09-06 isteği: giriş yapmamışsa direkt soruları görsün (mevcut davranış, "Teste Başla"
+// zaten TestStatusCard'da devre dışı), giriş yapmışsa bu bölüm HİÇ görünmesin — kişiselleştirilmiş
+// teste yönlensin, cevapları burada okuyup "çözmüş" gibi görünmesin.
 //
 // SEO KRİTİK: children (QuestionBankBoard, TÜM soruları içeren) HER ZAMAN koşulsuz render
 // edilir — sadece CSS ile (display:none, tek soru modundaki aynı teknik) gizlenir/gösterilir.
-// İlk (sunucu) render'da state HER ZAMAN "açık" — hangi kullanıcı olursa olsun, crawler dahil,
-// başlangıç HTML'i her zaman tam içerikli. Giriş durumu SADECE mount SONRASI, client'ta
-// öğrenilip (varsa) kapatmak için kullanılıyor — bu yüzden hydration uyuşmazlığı da olmuyor
-// (sunucu ve client'ın ilk render'ı birebir aynı: açık).
+// İlk (sunucu) render'da state HER ZAMAN "açık" — hangi kullanıcı olursa olsun, crawler dahil
+// (Googlebot zaten oturumsuz/misafir sayılır), başlangıç HTML'i her zaman tam içerikli. Giriş
+// durumu SADECE mount SONRASI, client'ta öğrenilip gizlemek için kullanılıyor — bu yüzden
+// hydration uyuşmazlığı da olmuyor (sunucu ve client'ın ilk render'ı birebir aynı: açık).
 import { useEffect, useState } from 'react';
 import { ChevronDown, Library } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 export default function SoruBankasiBrowseSection({ questionCount, children }: { questionCount: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
+  // true olunca bölüm TAMAMEN gizlenir (başlık dahil) — sadece giriş yapmış kullanıcıda,
+  // sadece mount sonrası. Deep-link (?soru=ID) geldiğinde bu FALSE'a dönüp bölüm yeniden
+  // görünür olur — paylaşılan bir soru linki giriş yapmış kullanıcıda da çalışmaya devam eder.
+  const [hiddenForLoggedIn, setHiddenForLoggedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!cancelled && user) setOpen(false);
+      if (!cancelled && user) {
+        setOpen(false);
+        setHiddenForLoggedIn(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -31,13 +37,18 @@ export default function SoruBankasiBrowseSection({ questionCount, children }: { 
   }, []);
 
   // ?soru=ID ile bir soruya deep-link'lenmişse (bkz. QuestionBankHighlight.tsx) bölüm
-  // kapalı kalırsa hedef soru görünmez olurdu — bu event geldiğinde giriş durumundan
+  // kapalı/gizli kalırsa hedef soru görünmez olurdu — bu event geldiğinde giriş durumundan
   // BAĞIMSIZ olarak zorla açıyoruz.
   useEffect(() => {
-    const handler = () => setOpen(true);
+    const handler = () => {
+      setOpen(true);
+      setHiddenForLoggedIn(false);
+    };
     window.addEventListener('soru-bankasi:focus-question', handler);
     return () => window.removeEventListener('soru-bankasi:focus-question', handler);
   }, []);
+
+  if (hiddenForLoggedIn) return null;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-default bg-surface-elevated">

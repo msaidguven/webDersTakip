@@ -237,22 +237,36 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             </p>
           )}
 
-          <a
-            href={testHref}
-            onClick={startOrResumeTest}
-            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
-          >
-            {testLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <span className="flex items-center gap-1.5 text-sm font-black">
-                  Teste Başla <ArrowRight className="h-4 w-4" />
-                </span>
-                <span className="text-[11px] font-bold text-white/80">{status.testSize} Soru Çöz</span>
-              </>
-            )}
-          </a>
+          {/* Giriş yapılmamışsa "Teste Başla" devre dışı — kaydedilmeyen bir test açmanın
+              anlamı yok, giriş yapması için yönlendiriliyor (kullanıcının 2026-09-06 isteği).
+              Soru Bankası (cevap anahtarlı, tam liste) bölümü ise misafirde hâlâ açık kalıyor
+              (bkz. SoruBankasiBrowseSection.tsx) — en azından o içerikten faydalansın. */}
+          {status.loggedIn ? (
+            <a
+              href={testHref}
+              onClick={startOrResumeTest}
+              className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              {testLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <span className="flex items-center gap-1.5 text-sm font-black">
+                    Teste Başla <ArrowRight className="h-4 w-4" />
+                  </span>
+                  <span className="text-[11px] font-bold text-white/80">{status.testSize} Soru Çöz</span>
+                </>
+              )}
+            </a>
+          ) : (
+            <div
+              aria-disabled="true"
+              className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-200 px-4 py-3 text-gray-400"
+            >
+              <span className="text-sm font-black">Teste Başla</span>
+              <span className="text-[11px] font-bold">Giriş yapmanız gerekiyor</span>
+            </div>
+          )}
         </>
       )}
 
