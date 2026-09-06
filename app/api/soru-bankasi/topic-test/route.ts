@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
   const data = await getTopicTestPageData(gradeSlug, lessonSlug, unitSlug, topicSlug);
   if (!data) return NextResponse.json({ error: 'Konu bulunamadı' }, { status: 404 });
 
-  const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadTopicQuizState(data);
+  // forceNew=1: kullanıcı "aynı ünitede yarım kalmış bir testin var" uyarısında "Yeni Test
+  // Başlat"a bastı — eski (çakışan) oturum kapatılıp yeni test normal şekilde planlanır.
+  const forceNew = request.nextUrl.searchParams.get('forceNew') === '1';
+  const { resumable, conflict, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadTopicQuizState(data, { forceNew });
 
   return NextResponse.json({
     gradeId: data.gradeId,
@@ -32,6 +35,7 @@ export async function GET(request: NextRequest) {
     initialQuestions,
     remainingQuestionIds,
     allCaughtUp,
+    conflict,
     resume: resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null,
     reloadEndpoint: `/api/topic-test-questions?topicId=${data.topicId}`,
     questionBankPathBase: buildQuestionBankPath(data),

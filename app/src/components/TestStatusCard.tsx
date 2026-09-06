@@ -20,6 +20,7 @@
 // açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
 // akışa yönlendiriliyor.
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
@@ -35,11 +36,24 @@ interface TestData {
   initialQuestions: QuizQuestion[];
   remainingQuestionIds: number[];
   allCaughtUp: boolean;
+  conflict: ConflictInfo | null;
   resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
   reloadEndpoint: string;
   questionBankPathBase?: string;
   secondsPerQuestion?: number | null;
   intro?: { subLabel: string; description: string | null; topicCount: number | null; questionCount: number | null };
+}
+
+// Aynı ünitenin konu testi ile ünite testi aynı soru havuzunu paylaşıyor — ikisi aynı anda
+// açık kalırsa biri diğerini "hayalete" çevirebiliyor (bkz. quizResume.ts'teki
+// findConflictingSession). Yeni bir test başlatılırken böyle bir çakışma bulunursa, sessizce
+// üstüne yazmak yerine kullanıcıya seçim sunuluyor (kullanıcının 2026-09-06 isteği).
+interface ConflictInfo {
+  sessionId: number;
+  scopeLabel: string;
+  href: string;
+  total: number;
+  answeredCount: number;
 }
 
 interface TestStatusCardProps {
@@ -134,6 +148,7 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   const [testData, setTestData] = useState<TestData | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const classes = COLOR_CLASSES[color];
 
   const testHref =
@@ -170,24 +185,25 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
     };
   }, [fetchStatus]);
 
-  const startOrResumeTest = useCallback(
-    async (event: React.MouseEvent<HTMLAnchorElement>) => {
-      // Orta tık / cmd-tık / ctrl-tık / shift-tık: tarayıcının doğal "yeni sekmede aç"
-      // davranışına bırak, sadece düz sol tıkı yakalıyoruz.
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      event.preventDefault();
+  const requestTest = useCallback(
+    async (forceNew: boolean) => {
       if (testLoading) return;
-
       setTestLoading(true);
       setTestError(null);
+      setConflictInfo(null);
       try {
-        const url =
+        const base =
           scope === 'topic'
             ? `/api/soru-bankasi/topic-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}&topicSlug=${topicSlug}`
             : `/api/soru-bankasi/unit-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}`;
+        const url = forceNew ? `${base}&forceNew=1` : base;
         const res = await fetch(url);
         if (!res.ok) throw new Error('failed');
         const data = (await res.json()) as TestData;
+        if (data.conflict) {
+          setConflictInfo(data.conflict);
+          return;
+        }
         setTestData(data);
       } catch {
         setTestError('Test yüklenemedi, tekrar dener misin?');
@@ -197,6 +213,21 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
     },
     [scope, gradeSlug, lessonSlug, unitSlug, topicSlug, testLoading]
   );
+
+  const startOrResumeTest = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // Orta tık / cmd-tık / ctrl-tık / shift-tık: tarayıcının doğal "yeni sekmede aç"
+      // davranışına bırak, sadece düz sol tıkı yakalıyoruz.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      void requestTest(false);
+    },
+    [requestTest]
+  );
+
+  // "Aynı ünitede yarım kalmış testin var" uyarısındaki "Yeni Test Başlat" — eski (çakışan)
+  // oturum kapatılıp bu test normal şekilde başlatılır (bkz. quizPageData.ts'teki forceNew).
+  const startNewIgnoringConflict = useCallback(() => void requestTest(true), [requestTest]);
 
   const closeTest = useCallback(() => {
     setTestData(null);
@@ -267,6 +298,31 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             >
               {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Devam Et <ArrowRight className="h-4 w-4" /></>}
             </a>
+          ) : status.loggedIn && conflictInfo ? (
+            // Aynı ünitede zaten açık, çakışan bir oturum var — sessizce üstüne yazmak
+            // yerine kullanıcıya seçim sunuluyor (kullanıcının 2026-09-06 isteği: "önceki
+            // testin linkini de verelim, isterse önce onu açabilsin").
+            <div className="w-full rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-left">
+              <p className="text-xs font-bold text-amber-800">
+                Bu ünitede yarım kalmış bir testin var: {conflictInfo.scopeLabel} ({conflictInfo.answeredCount}/{conflictInfo.total})
+              </p>
+              <div className="mt-2.5 flex gap-2">
+                <Link
+                  href={conflictInfo.href}
+                  className="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-center text-xs font-black text-amber-800 transition-colors hover:bg-amber-100"
+                >
+                  Yarım Kalan Teste Git
+                </Link>
+                <button
+                  type="button"
+                  onClick={startNewIgnoringConflict}
+                  disabled={testLoading}
+                  className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-center text-xs font-black text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                >
+                  {testLoading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'Yeni Test Başlat'}
+                </button>
+              </div>
+            </div>
           ) : status.loggedIn ? (
             <a
               href={testHref}

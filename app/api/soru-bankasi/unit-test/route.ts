@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
   const data = await getUnitTestPageData(gradeSlug, lessonSlug, unitSlug);
   if (!data) return NextResponse.json({ error: 'Ünite bulunamadı' }, { status: 404 });
 
-  const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadUnitQuizState(data);
+  // forceNew=1: kullanıcı "aynı ünitede yarım kalmış bir konu testin var" uyarısında "Yeni
+  // Test Başlat"a bastı — eski (çakışan) oturum kapatılıp yeni test normal şekilde planlanır.
+  const forceNew = request.nextUrl.searchParams.get('forceNew') === '1';
+  const { resumable, conflict, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadUnitQuizState(data, { forceNew });
 
   return NextResponse.json({
     gradeId: data.gradeId,
@@ -25,6 +28,7 @@ export async function GET(request: NextRequest) {
     initialQuestions,
     remainingQuestionIds,
     allCaughtUp,
+    conflict,
     resume: resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null,
     reloadEndpoint: `/api/unit-test-questions?unitId=${data.unitId}`,
     secondsPerQuestion: initialQuestions.length > 0 ? SECONDS_PER_QUESTION : null,
