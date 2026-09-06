@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import { getDueSrsQuestionIds } from '@/app/src/lib/dashboardSrs';
 import { getQuestionsByIds, MAX_QUESTIONS_PER_TEST, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { findResumableSession } from '@/app/src/lib/quizResume';
 import QuizClient from '@/app/src/components/QuizClient';
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +24,15 @@ export default async function SrsReviewPage() {
   const { data: profile } = await supabase.from('profiles').select('grade_id').eq('id', user.id).maybeSingle();
   const gradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
 
-  const questionIds = await getDueSrsQuestionIds(supabase, user.id, gradeId, MAX_QUESTIONS_PER_TEST);
+  // Kullanıcının zaten bitmemiş bir SRS oturumu varsa (unitId=null, topicId=null ile
+  // işaretleniyor) sıfırdan yeni bir oturum açıp eskisini terk etmek yerine onunla devam
+  // edilir — konu/ünite testlerindeki AYNI resume mekanizması (bkz. quizResume.ts). Öncesinde
+  // her "/tekrar" ziyareti ayrı bir test_sessions satırı açıp hiçbirini bitirmiyordu
+  // (kullanıcının 2026-09-06 bulduğu, DB'de sessizce biriken oturumlar).
+  const resumable = await findResumableSession(supabase, user.id, null, null);
+  const questionIds = resumable ? [] : await getDueSrsQuestionIds(supabase, user.id, gradeId, MAX_QUESTIONS_PER_TEST);
 
-  if (questionIds.length === 0) {
+  if (!resumable && questionIds.length === 0) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface shadow-sm text-3xl">
@@ -45,7 +52,7 @@ export default async function SrsReviewPage() {
     );
   }
 
-  const initialQuestions = await getQuestionsByIds(questionIds);
+  const initialQuestions = resumable ? resumable.questions : await getQuestionsByIds(questionIds);
 
   return (
     <QuizClient
@@ -64,6 +71,7 @@ export default async function SrsReviewPage() {
       lessonId={null}
       unitId={null}
       topicId={null}
+      resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : undefined}
     />
   );
 }
