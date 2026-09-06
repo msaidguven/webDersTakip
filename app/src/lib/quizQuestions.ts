@@ -7,7 +7,7 @@ export type Pair = { id: number; left_text: string; right_text: string };
 export type SvgPosition = 'above' | 'below';
 export type MultipleChoiceQuestion = { id: number; type: 'multiple_choice'; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition; choices: Option[] };
 export type BlankQuestion = { id: number; type: 'blank'; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition; options: Option[] };
-export type MatchingQuestion = { id: number; type: 'matching'; pairs: Pair[] };
+export type MatchingQuestion = { id: number; type: 'matching'; question_text: string; pairs: Pair[] };
 export type ClassicalQuestion = { id: number; type: 'classical'; question_text: string; svg_content: string | null; svg_position: SvgPosition; modelAnswer: string | null };
 export type QuizQuestion = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion | ClassicalQuestion;
 
@@ -26,7 +26,7 @@ export function formatQuestionContext(q: QuizQuestion): string {
         .map((o, i) => `${letter(i)}) ${o.text}${o.is_correct ? ' — doğru cevap bu' : ''}`)
         .join('\n')}`;
     case 'matching':
-      return `Öğrencinin şu anda baktığı eşleştirme sorusu, doğru çiftler:\n${q.pairs
+      return `Öğrencinin şu anda baktığı eşleştirme sorusu: ${q.question_text}\nDoğru çiftler:\n${q.pairs
         .map((p) => `${p.left_text} — ${p.right_text}`)
         .join('\n')}`;
     case 'classical':
@@ -110,7 +110,11 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
     }
     const pairs = shuffle(pairsByQuestion.get(q.id) || []);
     if (pairs.length >= 2) {
-      all.push({ id: q.id, type: 'matching', pairs });
+      // question_text sorgu SELECT'inde zaten çekiliyordu ama eşleştirme sorusu nesnesi
+      // kurulurken atlanıyordu — soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla
+      // eşleştirin") hiç gösterilmiyordu, sadece jenerik "Eşleştirme Sorusu" yazısı
+      // görünüyordu (kullanıcının 2026-09-06 bildirdiği bug).
+      all.push({ id: q.id, type: 'matching', question_text: q.question_text, pairs });
       return;
     }
     if (classicalByQuestion.has(q.id)) {

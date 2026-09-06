@@ -219,6 +219,10 @@ export function MatchingView({
 
   return (
     <div>
+      {/* Soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla eşleştirin") — diğer üç görünümün
+          (MultipleChoiceOrBlankView, ClassicalView) hepsi kendi question_text'ini gösteriyordu,
+          bu bileşen hiç göstermiyordu (kullanıcının 2026-09-06 bildirdiği bug). */}
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg">{question.question_text}</p>
       <p className="mb-4 text-xs font-bold text-muted-foreground">
         Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
       </p>
@@ -384,7 +388,7 @@ export function QuestionAnswerKeyItem({
         {svgPosition !== 'below' && svg}
         <p className="text-sm font-bold text-default">
           {index != null ? `${index + 1}. ` : ''}
-          {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
+          {q.question_text}
         </p>
         {svgPosition === 'below' && svg}
         {q.type === 'multiple_choice' && (
@@ -461,7 +465,7 @@ export function QuestionAnswerKeyItem({
       {svgPosition !== 'below' && svg}
       <p className="text-sm font-bold text-default">
         {index != null ? `${index + 1}. ` : ''}
-        {q.type === 'matching' ? 'Eşleştirme Sorusu' : q.question_text}
+        {q.question_text}
       </p>
       {svgPosition === 'below' && svg}
 
@@ -1067,7 +1071,6 @@ export default function QuizClient({
   }
 
   function shareTextFor(q: QuizQuestion): string {
-    if (q.type === 'matching') return 'Bu eşleştirme sorusuna bir bak!';
     return q.question_text;
   }
 
@@ -1198,7 +1201,7 @@ export default function QuizClient({
             {questions.map((q, i) => {
               const isClassical = q.type === 'classical';
               const isCorrectQ = !!correct[q.id];
-              const label = q.type === 'matching' ? `${i + 1}. Eşleştirme Sorusu` : `${i + 1}. ${q.question_text}`;
+              const label = `${i + 1}. ${q.question_text}`;
               return (
                 <button
                   key={q.id}
