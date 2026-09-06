@@ -57,6 +57,12 @@ async function resolveTopicPaths(supabase: Supabase, topicIds: number[]): Promis
     // Soru bankası (cevap anahtarı) sayfası aynı konunun sorularını gösteriyor — soru
     // eklendiğinde/silindiğinde veya konu içeriği değiştiğinde bu da güncel olmalı.
     paths.push(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`);
+    // Ünite tanıtım sayfası (bkz. [unitSlug]/page.tsx) ve soru bankası ünite sayfası da bu
+    // konunun kapak görselini/kısa açıklamasını gösteriyor — eksikse (kullanıcının
+    // 2026-09-06 bulduğu bug: "konu resmi eklendi ama ünite sayfasında görünmüyor")
+    // bunlar bir saate kadar bayat kalırdı.
+    paths.push(`/${gradeSlug}/${lessonSlug}/${unit.slug}`);
+    paths.push(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}`);
   }
   return paths;
 }
@@ -105,7 +111,10 @@ async function resolveGradeLessonPaths(
     if (!lessonSlug) continue;
     paths.add(`/${gradeSlug}/${lessonSlug}`);
     paths.add(`/soru-bankasi/${gradeSlug}/${lessonSlug}`);
-    if (p.unitSlug) paths.add(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${p.unitSlug}`);
+    if (p.unitSlug) {
+      paths.add(`/${gradeSlug}/${lessonSlug}/${p.unitSlug}`);
+      paths.add(`/soru-bankasi/${gradeSlug}/${lessonSlug}/${p.unitSlug}`);
+    }
   }
   return Array.from(paths);
 }

@@ -25,6 +25,7 @@ export type UnitTopic = {
   order_no: number;
   questionCount?: number;
   hasContent?: boolean;
+  heroImageUrl?: string | null;
 };
 
 export type Unit = {
@@ -461,6 +462,19 @@ export default function MufredatOverviewClient({
                                 <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
                                   {displayNo}.{idx + 1}
                                 </span>
+                                {/* Küçük konu görseli (kullanıcının 2026-09-06 isteği: "bu
+                                    sayfalara da küçük resimler eklenebilir mi") — AYNI
+                                    topic_contents.hero_image_url, görseli olmayan konularda
+                                    hiç gösterilmiyor (satır zaten kompakt, boş kutu eklemeye
+                                    gerek yok). */}
+                                {topic.heroImageUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={topic.heroImageUrl}
+                                    alt=""
+                                    className="h-6 w-6 shrink-0 rounded-md object-cover"
+                                  />
+                                )}
                                 <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
                                   {topic.title}
                                 </span>

@@ -130,9 +130,14 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
 
-  // Her ünite için konu listesi (sayı etiketi + doğrudan görünen liste)
+  // Her ünite için konu listesi (sayı etiketi + doğrudan görünen liste). heroImageUrl
+  // (kullanıcının 2026-09-06 isteği: "bu sayfalara da küçük resimler eklenebilir mi") —
+  // ünite tanıtım sayfasındaki/soru bankasındaki AYNI topic_contents.hero_image_url.
   const unitIds = units.map((u) => u.id);
-  let topicsByUnit: Record<number, { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean }[]> = {};
+  let topicsByUnit: Record<
+    number,
+    { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null }[]
+  > = {};
   if (unitIds.length > 0) {
     const { data: topicsData } = await supabase
       .from('topics')
@@ -146,23 +151,32 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     const [questionCountsByTopic, { data: contentRows }] = await Promise.all([
       getQuestionCountsByTopicId(supabase, topicIds, { activeOnly: true }),
       topicIds.length
-        ? supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).eq('is_published', true)
-        : Promise.resolve({ data: [] as { topic_id: number }[] }),
+        ? supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', topicIds).eq('is_published', true)
+        : Promise.resolve({ data: [] as { topic_id: number; hero_image_url: string | null }[] }),
     ]);
-    const contentTopicIds = new Set(((contentRows as { topic_id: number }[] | null) || []).map((r) => r.topic_id));
+    const contentByTopicId = new Map(
+      ((contentRows as { topic_id: number; hero_image_url: string | null }[] | null) || []).map((r) => [r.topic_id, r.hero_image_url])
+    );
 
-    topicsByUnit = topicRows.reduce((acc, t) => {
-      if (!acc[t.unit_id]) acc[t.unit_id] = [];
-      acc[t.unit_id].push({
-        id: t.id,
-        title: t.title,
-        slug: t.slug,
-        order_no: t.order_no,
-        questionCount: questionCountsByTopic.get(t.id) ?? 0,
-        hasContent: contentTopicIds.has(t.id),
-      });
-      return acc;
-    }, {} as Record<number, { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean }[]>);
+    topicsByUnit = topicRows.reduce(
+      (acc, t) => {
+        if (!acc[t.unit_id]) acc[t.unit_id] = [];
+        acc[t.unit_id].push({
+          id: t.id,
+          title: t.title,
+          slug: t.slug,
+          order_no: t.order_no,
+          questionCount: questionCountsByTopic.get(t.id) ?? 0,
+          hasContent: contentByTopicId.has(t.id),
+          heroImageUrl: contentByTopicId.get(t.id) ?? null,
+        });
+        return acc;
+      },
+      {} as Record<
+        number,
+        { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null }[]
+      >
+    );
   }
 
   const unitsWithTopicCount: Unit[] = units.map((u) => ({
