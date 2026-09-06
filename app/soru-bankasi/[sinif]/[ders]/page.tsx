@@ -4,15 +4,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiLessonData,
   buildSoruBankasiGradePath,
   buildSoruBankasiLessonPath,
-  buildSoruBankasiUnitPath,
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
+import SoruBankasiLessonUnits from '@/app/src/components/SoruBankasiLessonUnits';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -66,28 +65,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
         </div>
       )}
 
-      <div className="space-y-2.5">
-        {data.units.map((unit) => (
-          <Link
-            key={unit.slug}
-            href={buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, unit.slug)}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-default">{unit.title}</p>
-              {unit.questionCount === 0 ? (
-                <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-500">Taslak</span>
-              ) : (
-                <span className="mt-1 inline-block text-xs font-bold text-muted-foreground">
-                  {unit.topicCount} konu • {unit.questionCount} soru
-                </span>
-              )}
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
-        {data.units.length === 0 && <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu derste henüz ünite eklenmemiş.</p>}
-      </div>
+      <SoruBankasiLessonUnits units={data.units} gradeSlug={data.gradeSlug} lessonSlug={data.lessonSlug} />
     </div>
   );
 }

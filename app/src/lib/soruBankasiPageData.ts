@@ -112,20 +112,40 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   const unitIds = units.map((u) => u.id);
   const [questionCountByUnit, { data: topicRows }] = await Promise.all([
     getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true }),
-    supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true),
+    supabase.from('topics').select('id, unit_id, order_no').in('unit_id', unitIds).eq('is_active', true).order('order_no', { ascending: true }),
   ]);
+  const topicIdsByUnit = new Map<number, number[]>();
   const topicCountByUnit = new Map<number, number>();
-  for (const t of (topicRows as { id: number; unit_id: number }[] | null) || []) {
+  for (const t of (topicRows as { id: number; unit_id: number; order_no: number | null }[] | null) || []) {
     topicCountByUnit.set(t.unit_id, (topicCountByUnit.get(t.unit_id) ?? 0) + 1);
+    const list = topicIdsByUnit.get(t.unit_id) ?? [];
+    list.push(t.id);
+    topicIdsByUnit.set(t.unit_id, list);
+  }
+
+  // Ünite kartlarındaki görsel — kullanıcının "resimler db de vardı" işaret ettiği eski
+  // tasarıma benzesin diye (bkz. [gradeSlug]/[lessonSlug]/page.tsx eski kartları): her
+  // konunun kendi görseli olmayabildiğinden (bkz. gerçek veri — bazı ünitelerde sadece
+  // ortadaki bir konunun görseli var), ünitenin İLK konusu değil, sırayla görseli OLAN
+  // ilk konu temsilci görsel olarak alınıyor.
+  const allTopicIds = topicRows?.length ? (topicRows as { id: number }[]).map((t) => t.id) : [];
+  const { data: topicContentRows } = allTopicIds.length
+    ? await supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', allTopicIds)
+    : { data: [] as { topic_id: number; hero_image_url: string | null }[] };
+  const heroImageByTopic = new Map<number, string | null>();
+  for (const row of (topicContentRows as { topic_id: number; hero_image_url: string | null }[] | null) || []) {
+    heroImageByTopic.set(row.topic_id, row.hero_image_url);
   }
 
   const unitList = units
     .filter((u) => u.slug)
     .map((u) => ({
+      id: u.id,
       title: u.title,
       slug: u.slug as string,
       topicCount: topicCountByUnit.get(u.id) ?? 0,
       questionCount: questionCountByUnit.get(u.id) ?? 0,
+      imageUrl: (topicIdsByUnit.get(u.id) ?? []).map((topicId) => heroImageByTopic.get(topicId)).find((url) => !!url) ?? null,
     }))
     .filter((u) => u.questionCount > 0);
 
