@@ -62,8 +62,10 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
       </Link>
 
       <UnitHierarchyBar
+        gradeId={data.gradeId}
         gradeName={data.gradeName}
         gradeSlug={data.gradeSlug}
+        lessonId={data.lessonId}
         lessonName={data.lessonName}
         lessonSlug={data.lessonSlug}
         unitTitle={data.unitTitle}

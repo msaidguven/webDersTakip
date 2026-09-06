@@ -1,16 +1,18 @@
 'use client';
 
 // Ünite tanıtım sayfasındaki (/[gradeSlug]/[lessonSlug]/[unitSlug]) Sınıf/Ders/Ünite/Konu
-// hızlı değiştirici — kullanıcının 2026-09-06 isteği: "içeriğin gösterildiği sayfadaki
-// üstteki açılır menüler de gösterilsin". Görsel olarak DersClient.tsx'teki hiyerarşi
-// barının BİREBİR aynısı, ama etkileşim farklı: DersClient sayfadan çıkmadan iç state'i
-// günceller (kademeli "pending" seçim), burada ise her seçenek gerçek bir <Link> — bu sayfa
-// zaten hafif/SEO'lu bir liste sayfası olduğu için her tıklama basitçe ilgili sayfaya
-// gider. Konu dropdown'u bu yüzden hiçbir zaman "seçili" göstermez (bu sayfada açık bir konu
-// yok) — DersClient'taki "Konu seçin" placeholder'ıyla aynı görsel dil.
-import { useState } from 'react';
+// hızlı değiştirici — DersClient.tsx'teki hiyerarşi barıyla AYNI zincir mantığı: Sınıf ve
+// Ders seçimi "bekleyen" (pending) bir seçimdir, sayfadan AYRILMAZ, sadece bir alt
+// seviyenin dropdown içeriğini günceller (kullanıcının 2026-09-06 isteği: "sınıf ve ders
+// seçince bu sayfadan ayrılmasın, sadece açılır menülerin içeriği güncellensin"). Ünite
+// seçimi ise commit'tir — o ünitenin (muhtemelen farklı sınıf/ders altındaki) tanıtım
+// sayfasına GERÇEKTEN gider. Konu, sadece zincir hâlâ bu sayfanın kendi
+// sınıf/ders/ünitesiyle aynıyken (yani Sınıf/Ders'te başka bir şeye tıklanmadıysa)
+// gösterilir — aksi halde hangi konuların listeleneceği belirsizleşir.
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, ChevronDown } from 'lucide-react';
+import { BookOpen, ChevronDown, Loader2 } from 'lucide-react';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
 
 interface GradeOption {
@@ -37,8 +39,10 @@ interface TopicOption {
 }
 
 interface UnitHierarchyBarProps {
+  gradeId: number;
   gradeName: string;
   gradeSlug: string;
+  lessonId: number;
   lessonName: string;
   lessonSlug: string;
   unitTitle: string;
@@ -51,9 +55,33 @@ interface UnitHierarchyBarProps {
 
 type OpenMenu = 'grade' | 'lesson' | 'unit' | 'topic' | null;
 
+async function fetchLessonsForGrade(gradeId: number): Promise<LessonOption[]> {
+  try {
+    const res = await fetch(`/api/grade-lessons?gradeId=${gradeId}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { lessons?: LessonOption[] };
+    return data.lessons || [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchUnitsForLesson(gradeId: number, lessonId: number): Promise<UnitOption[]> {
+  try {
+    const res = await fetch(`/api/lesson-units?gradeId=${gradeId}&lessonId=${lessonId}&publicOnly=1`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { units?: { id: number; title: string; slug: string | null }[] };
+    return (data.units || []).filter((u): u is { id: number; title: string; slug: string } => !!u.slug);
+  } catch {
+    return [];
+  }
+}
+
 export default function UnitHierarchyBar({
+  gradeId,
   gradeName,
   gradeSlug,
+  lessonId,
   lessonName,
   lessonSlug,
   unitTitle,
@@ -63,8 +91,65 @@ export default function UnitHierarchyBar({
   units,
   topics,
 }: UnitHierarchyBarProps) {
+  const router = useRouter();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const toggle = (menu: OpenMenu) => setOpenMenu((v) => (v === menu ? null : menu));
+
+  // Bekleyen (henüz commit edilmemiş) Sınıf/Ders seçimi — sayfanın kendi (URL'deki)
+  // sınıf/ders/ünitesinden farklı olabilir, Ünite'ye tıklanana kadar sayfa değişmez.
+  const [pendingGrade, setPendingGrade] = useState({ id: gradeId, name: gradeName, slug: gradeSlug });
+  const [pendingLesson, setPendingLesson] = useState<{ id: number; name: string; slug: string } | null>({ id: lessonId, name: lessonName, slug: lessonSlug });
+  const [pendingLessons, setPendingLessons] = useState<LessonOption[]>(gradeLessons);
+  const [pendingUnits, setPendingUnits] = useState<UnitOption[]>(units);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const requestIdRef = useRef(0);
+
+  // Zincir hâlâ bu sayfanın kendi sınıf/dersiyle aynıysa (Sınıf/Ders'te başka bir şeye
+  // tıklanmadıysa) Konu dropdown'u bu ünitenin konularını gösterebilir — aksi halde hangi
+  // ünitenin konuları gösterileceği belirsiz olurdu, o yüzden gizleniyor.
+  const isOnOwnUnit = pendingGrade.id === gradeId && pendingLesson?.id === lessonId;
+
+  const handleGradeSelect = async (grade: GradeOption) => {
+    setOpenMenu(null);
+    if (grade.id === pendingGrade.id) return;
+    const requestId = ++requestIdRef.current;
+
+    setPendingGrade({ id: grade.id, name: grade.name, slug: grade.slug });
+    setPendingLesson(null);
+    setPendingUnits([]);
+    setPendingLoading(true);
+    try {
+      const lessons = grade.id === gradeId ? gradeLessons : await fetchLessonsForGrade(grade.id);
+      if (requestIdRef.current !== requestId) return;
+      setPendingLessons(lessons);
+    } finally {
+      if (requestIdRef.current === requestId) setPendingLoading(false);
+    }
+  };
+
+  const handleLessonSelect = async (lesson: LessonOption) => {
+    setOpenMenu(null);
+    if (lesson.id === pendingLesson?.id) return;
+    const requestId = ++requestIdRef.current;
+
+    setPendingLesson({ id: lesson.id, name: lesson.name, slug: lesson.slug });
+    setPendingUnits([]);
+    setPendingLoading(true);
+    try {
+      const nextUnits = pendingGrade.id === gradeId && lesson.id === lessonId ? units : await fetchUnitsForLesson(pendingGrade.id, lesson.id);
+      if (requestIdRef.current !== requestId) return;
+      setPendingUnits(nextUnits);
+    } finally {
+      if (requestIdRef.current === requestId) setPendingLoading(false);
+    }
+  };
+
+  // Ünite seçimi commit'tir — o ünitenin tanıtım sayfasına gerçekten gider.
+  const handleUnitSelect = (unit: UnitOption) => {
+    setOpenMenu(null);
+    if (!pendingLesson) return;
+    router.push(`/${pendingGrade.slug}/${pendingLesson.slug}/${unit.slug}`);
+  };
 
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:mb-6 sm:p-3">
@@ -86,7 +171,7 @@ export default function UnitHierarchyBar({
           >
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Sınıf</span>
             <span className="flex items-center gap-1.5 text-sm font-black text-white">
-              {gradeName} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${openMenu === 'grade' ? 'rotate-180' : ''}`} />
+              {pendingGrade.name} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${openMenu === 'grade' ? 'rotate-180' : ''}`} />
             </span>
           </button>
           {openMenu === 'grade' && (
@@ -94,18 +179,18 @@ export default function UnitHierarchyBar({
               <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
               <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                 {allGrades.map((grade) => (
-                  <Link
+                  <button
                     key={grade.id}
-                    href={grade.lessonSlug ? `/${grade.slug}/${grade.lessonSlug}` : `/${grade.slug}`}
-                    onClick={() => setOpenMenu(null)}
+                    type="button"
+                    onClick={() => void handleGradeSelect(grade)}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
-                      grade.slug === gradeSlug ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                      grade.id === pendingGrade.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span className="min-w-0 truncate">{grade.name}</span>
-                  </Link>
+                  </button>
                 ))}
-                {!allGrades.length && <span className="block px-2.5 py-2 text-sm text-slate-400">{gradeName}</span>}
+                {!allGrades.length && <span className="block px-2.5 py-2 text-sm text-slate-400">{pendingGrade.name}</span>}
               </div>
             </>
           )}
@@ -120,7 +205,9 @@ export default function UnitHierarchyBar({
           >
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ders</span>
             <span className="flex w-full items-center gap-1.5">
-              <span className="min-w-0 flex-1 truncate text-sm font-black text-white">{lessonName}</span>
+              <span className={`min-w-0 flex-1 truncate text-sm text-white ${pendingLesson ? 'font-black' : 'italic text-white/70'}`}>
+                {pendingLesson ? pendingLesson.name : 'Ders seçin'}
+              </span>
               <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${openMenu === 'lesson' ? 'rotate-180' : ''}`} />
             </span>
           </button>
@@ -128,22 +215,24 @@ export default function UnitHierarchyBar({
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
               <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                {gradeLessons.map((lesson, idx) => (
-                  <Link
+                {pendingLessons.map((lesson, idx) => (
+                  <button
                     key={lesson.id}
-                    href={`/${gradeSlug}/${lesson.slug}`}
-                    onClick={() => setOpenMenu(null)}
+                    type="button"
+                    onClick={() => void handleLessonSelect(lesson)}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
-                      lesson.slug === lessonSlug ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                      lesson.id === pendingLesson?.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${getLessonColor(idx)} text-sm text-white`}>
                       {lesson.icon || '📘'}
                     </span>
                     <span className="min-w-0 truncate">{lesson.name}</span>
-                  </Link>
+                  </button>
                 ))}
-                {!gradeLessons.length && <span className="block px-2.5 py-2 text-sm text-slate-400">Bu sınıfta ders yok</span>}
+                {!pendingLessons.length && (
+                  <span className="block px-2.5 py-2 text-sm text-slate-400">{pendingLoading ? 'Yükleniyor…' : 'Bu sınıfta ders yok'}</span>
+                )}
               </div>
             </>
           )}
@@ -160,36 +249,47 @@ export default function UnitHierarchyBar({
           >
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ünite</span>
             <span className="flex w-full items-center gap-1.5">
-              <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">{unitTitle}</span>
-              <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${openMenu === 'unit' ? 'rotate-180' : ''}`} />
+              <span className={`min-w-0 flex-1 truncate text-sm text-white ${isOnOwnUnit ? 'font-bold' : 'italic text-white/70'}`}>
+                {isOnOwnUnit ? unitTitle : 'Ünite seçin'}
+              </span>
+              {pendingLoading ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white" />
+              ) : (
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform text-white ${openMenu === 'unit' ? 'rotate-180' : ''}`} />
+              )}
             </span>
           </button>
           {openMenu === 'unit' && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
               <div className="absolute right-0 top-full z-50 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                {units.map((unit) => (
-                  <Link
+                {pendingUnits.map((unit) => (
+                  <button
                     key={unit.id}
-                    href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
-                    onClick={() => setOpenMenu(null)}
+                    type="button"
+                    onClick={() => handleUnitSelect(unit)}
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-bold transition-colors ${
-                      unit.slug === unitSlug ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                      isOnOwnUnit && unit.slug === unitSlug ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span className="min-w-0 truncate">{unit.title}</span>
-                  </Link>
+                  </button>
                 ))}
-                {!units.length && <span className="block px-2.5 py-2 text-sm text-slate-400">Bu ders + sınıfta ünite yok</span>}
+                {!pendingUnits.length && (
+                  <span className="block px-2.5 py-2 text-sm text-slate-400">
+                    {!pendingLesson ? 'Önce ders seçin' : pendingLoading ? 'Yükleniyor…' : 'Bu ders + sınıfta ünite yok'}
+                  </span>
+                )}
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Konu — bu sayfada açık bir konu olmadığı için her zaman "Konu seçin" placeholder'ı;
-          bir konuya tıklamak bu sayfadan gerçek konu sayfasına GİDER. */}
-      {topics.length > 0 && (
+      {/* Konu — sadece zincir hâlâ bu sayfanın kendi sınıf/dersiyle aynıyken (isOnOwnUnit)
+          gösterilir; bu sayfada açık bir konu olmadığı için hep "Konu seçin" placeholder'ı,
+          bir konuya tıklamak gerçek konu sayfasına GİDER. */}
+      {isOnOwnUnit && topics.length > 0 && (
         <div className="relative min-w-0">
           <button
             type="button"

@@ -138,8 +138,10 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
     .map((u) => ({ id: u.id, title: u.title, slug: u.slug as string }));
 
   return {
+    gradeId: grade.id,
     gradeName: grade.name,
     gradeSlug: grade.slug || decodedGradeSlug,
+    lessonId: lesson.id,
     lessonName: lesson.name,
     lessonSlug: lesson.slug || decodedLessonSlug,
     unitId: unit.id,
