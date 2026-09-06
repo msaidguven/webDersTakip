@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { logger } from '@/utils/logger';
@@ -61,7 +61,7 @@ interface HomeClientProps {
 }
 
 export default function HomeClient({ initialGrades, stats, gradeSections, weeklyTopics }: HomeClientProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
     revalidateOnFocus: false,
@@ -75,6 +75,37 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
     () => resolvedGrades.find((g) => g.id === selectedGradeId) ?? resolvedGrades[0] ?? null,
     [resolvedGrades, selectedGradeId]
   );
+
+  // Sekmeler (ve dolayısıyla "Soru Bankası" kısayolu) varsayılan olarak İLK sınıfa (5. Sınıf)
+  // düşüyordu — giriş yapmış bir 6/7/8. sınıf öğrencisi hiç sekme değiştirmeden "Soru
+  // Bankası"na tıklarsa kendi sınıfı yerine 5. Sınıf'a gidiyordu (kullanıcının 2026-09-06
+  // bildirdiği bug). Profildeki grade_id varsa (bkz. useSidebarLessons.ts'teki aynı desen)
+  // sekme seçimini SESSİZCE ona göre başlatıyoruz — kullanıcı zaten manuel bir sekmeye
+  // bastıysa (hasManualSelectionRef) üzerine yazmıyoruz.
+  const hasManualSelectionRef = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetch('/api/profile/update')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { profile: { grade_id: number | null } | null } | null) => {
+        if (cancelled || hasManualSelectionRef.current) return;
+        const gradeId = data?.profile?.grade_id;
+        if (gradeId != null) setSelectedGradeId(String(gradeId));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // user (nesne) yerine user?.id: AuthContext sekme odağa her geldiğinde yeni bir user
+    // nesnesi üretiyor, aynı kullanıcı için bile referans değişiyor (bkz. useSidebarLessons.ts'teki aynı not).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleSelectGrade = (gradeId: string) => {
+    hasManualSelectionRef.current = true;
+    setSelectedGradeId(gradeId);
+  };
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -91,7 +122,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
 
           {resolvedGrades.length > 0 && selectedGrade && (
             <div id="derslerimi" className="space-y-8 sm:space-y-10">
-              <GradeTabs grades={resolvedGrades} selectedGradeId={selectedGrade.id} onSelect={setSelectedGradeId} />
+              <GradeTabs grades={resolvedGrades} selectedGradeId={selectedGrade.id} onSelect={handleSelectGrade} />
               <div id="derslerimiz">
                 <LessonGrid grade={selectedGrade} section={gradeSections[selectedGrade.id]} />
               </div>
