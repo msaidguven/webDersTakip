@@ -219,24 +219,22 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         </>
       ) : (
         <>
-          {/* Giriş yapmış kullanıcıda 4 kutucuk (Soru/Çözülen/Doğru/Yanlış) HER ZAMAN
-              gösterilir — daha önce solved>0 şartı vardı, hiç çözülmemişse tek "Soru
-              Bankası" kutucuğuna düşüyordu; kullanıcı referans görselinde bu 4'ünün her
-              zaman bir arada olduğunu belirtti (2026-09-06). 0 olsa bile "0 Çözülen/0
-              Doğru/0 Yanlış" göstermek, hiç göstermemekten daha bilgilendirici. */}
-          {status.loggedIn ? (
-            <div className="grid w-full grid-cols-4 gap-2">
-              <StatTile value={status.poolSize} label="Soru" />
-              <StatTile value={status.solved} label="Çözülen" />
-              <StatTile value={status.correct} label="Doğru" tone="emerald" />
-              <StatTile value={status.wrong} label="Yanlış" tone="rose" />
-            </div>
-          ) : (
-            <StatTile value={status.poolSize} label="Soru Bankası" />
-          )}
+          {/* 4 kutucuk (Soru/Çözülen/Doğru/Yanlış) artık giriş durumundan BAĞIMSIZ her
+              zaman gösteriliyor — misafirde solved/correct/wrong zaten 0 gelir
+              (getSoruBankasiTestStatus'un guest dalı), bu görsel olarak "istatistik
+              tutulmuyor, giriş yaparsan tutulur" mesajını daha net anlatıyor
+              (kullanıcının 2026-09-06 isteği). */}
+          <div className="grid w-full grid-cols-4 gap-2">
+            <StatTile value={status.poolSize} label="Soru" />
+            <StatTile value={status.solved} label="Çözülen" />
+            <StatTile value={status.correct} label="Doğru" tone="emerald" />
+            <StatTile value={status.wrong} label="Yanlış" tone="rose" />
+          </div>
 
           {!status.loggedIn && (
-            <p className="-mt-1 text-xs font-bold text-muted-foreground">Giriş yaparsan ilerlemen kaydedilir</p>
+            <p className="-mt-1 text-xs font-bold text-muted-foreground">
+              İstatistiklerin tutulması için giriş yapmanız gerekmektedir
+            </p>
           )}
 
           <a
