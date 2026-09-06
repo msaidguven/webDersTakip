@@ -33,18 +33,37 @@ export async function getSoruBankasiTestStatus(
     return { loggedIn: !!userId, poolSize, testSize, solved: 0, correct: 0, wrong: 0, resumable: null };
   }
 
-  const [{ data: statsRows }, resumable] = await Promise.all([
+  const [{ data: statsRows }, resumableSession] = await Promise.all([
     supabase
       .from('user_question_stats')
-      .select('last_answer_correct')
+      .select('question_id, last_answer_correct')
       .eq('user_id', userId)
       .in('question_id', questionIds)
       .gt('total_attempts', 0),
     findResumableSession(supabase, userId, unitId, topicId),
   ]);
 
-  const rows = (statsRows as { last_answer_correct: boolean }[] | null) || [];
+  const rows = (statsRows as { question_id: number; last_answer_correct: boolean }[] | null) || [];
   const correct = rows.filter((r) => r.last_answer_correct).length;
+
+  // Bir oturum "yarım kalmış" görünse de, atanmış sorularının HEPSİ başka bir yoldan (ör.
+  // ünite testi — aynı unit_id'yi paylaşıp bu konunun sorularını da havuzuna alıyor, ya da
+  // SRS tekrarı) zaten cevaplanmışsa artık işlevsizdir: kullanıcı "her şeyi çözdüm" görürken
+  // aynı anda "yarım kalan testin var" görmesi kafa karıştırıcı (kullanıcının 2026-09-06 bug
+  // raporu). answeredQuestionIds sadece o an çektiğimiz pool'a ait — resumable'ın sorularından
+  // biri pool DIŞINDaysa (nadir, havuz sonradan değiştiyse) temkinli davranıp oturumu
+  // hayalet SAYMIYORUZ (yanlışlıkla gerçek bir ilerlemeyi kapatmamak için).
+  const answeredQuestionIds = new Set(rows.map((r) => r.question_id));
+  let resumable = resumableSession;
+  if (resumable && resumable.questions.every((q) => answeredQuestionIds.has(q.id))) {
+    // Service-role client kullanıldığı için finish_test_session RPC'sindeki auth.uid()
+    // kontrolü çalışmaz — bunun yerine doğrudan UPDATE (findResumableSession zaten
+    // user_id = userId şartıyla getirdiği için sahiplik burada zaten doğrulanmış durumda).
+    // Aynı tabloyu güncellediği için mevcut trg_on_test_completed tetikleyicisi de (bkz.
+    // auto_complete_web_quiz_session_when_answered.sql) normal şekilde tetiklenir.
+    await supabase.from('test_sessions').update({ completed_at: new Date().toISOString() }).eq('id', resumable.sessionId).is('completed_at', null);
+    resumable = null;
+  }
 
   return {
     loggedIn: true,
