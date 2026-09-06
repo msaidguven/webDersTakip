@@ -75,7 +75,6 @@ import {
   writePersistentCache,
   UNIT_TOPICS_CACHE_TTL_MS,
   unitTopicsCacheKey,
-  buildTopicHref,
   buildTopicQuestionBankHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
@@ -2246,40 +2245,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
-                    {activeTopic && contents.length > 1 && (() => {
-                      const prevTopic = contents[selectedTopicIndex - 1] ?? null;
-                      const nextTopic = contents[selectedTopicIndex + 1] ?? null;
-                      const prevHref = prevTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, prevTopic.slug || null) : null;
-                      const nextHref = nextTopic ? buildTopicHref(gradeSlug, lessonSlug, activeUnitSlug, nextTopic.slug || null) : null;
-                      return (
-                        <nav aria-label="Konu navigasyonu" className="not-prose mt-10 grid grid-cols-1 gap-2.5 border-t border-slate-100 pt-6">
-                          {prevTopic && prevHref && (
-                            <Link
-                              href={prevHref}
-                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
-                            >
-                              <ChevronLeft className="h-4 w-4 shrink-0 text-slate-400" />
-                              <span className="min-w-0">
-                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Önceki Konu</span>
-                                <span className="block truncate text-sm font-bold text-slate-700">{prevTopic.title}</span>
-                              </span>
-                            </Link>
-                          )}
-                          {nextTopic && nextHref && (
-                            <Link
-                              href={nextHref}
-                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
-                            >
-                              <span className="min-w-0 flex-1">
-                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Sonraki Konu</span>
-                                <span className="block truncate text-sm font-bold text-slate-700">{nextTopic.title}</span>
-                              </span>
-                              <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-                            </Link>
-                          )}
-                        </nav>
-                      );
-                    })()}
                     {activeTopic && <TopicCompleteButton topicId={activeTopic.id} />}
                     {activeTopic && (
                       <QuizCtaCards
