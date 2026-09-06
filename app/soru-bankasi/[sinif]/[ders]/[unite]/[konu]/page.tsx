@@ -91,9 +91,19 @@ export default async function QuestionBankPage({ params }: PageProps) {
         <QuestionBankHighlight />
       </Suspense>
 
-      <Link href={buildTopicPath(data)} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
-        <ArrowLeft className="h-3.5 w-3.5" /> {data.topicTitle}&apos;a Dön
+      {/* Geri linki artık konu içeriğine (buildTopicPath) değil, bir üst seviyeye — ünitenin
+          soru bankası sayfasına gidiyor (kullanıcının 2026-09-06 isteği). unitPath yoksa
+          (nadir, unitData çekilemediyse) konu içeriğine dönmeye devam eder. */}
+      <Link href={unitPath ?? buildTopicPath(data)} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4">
+        <ArrowLeft className="h-3.5 w-3.5" /> {unitPath ? `${data.unitTitle} Soru Bankası` : `${data.topicTitle}'a Dön`}
       </Link>
+
+      {data.heroImageUrl && (
+        <div className="mb-4 overflow-hidden rounded-2xl sm:mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data.heroImageUrl} alt={data.topicTitle} className="h-32 w-full object-cover sm:h-44" />
+        </div>
+      )}
 
       <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
         <p className="text-xs font-black uppercase tracking-widest text-indigo-500">

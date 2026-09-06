@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   Calendar,
   ChevronDown,
@@ -401,6 +402,20 @@ export default function MufredatOverviewClient({
                           </span>
                         </div>
                       </div>
+
+                      {/* Ünitenin kendi tanıtım sayfasına (kapak görseli + konu kartları,
+                          bkz. [unitSlug]/page.tsx) link — kullanıcının 2026-09-06 isteği:
+                          "konulara link verdiğimiz gibi ünite sayfasına da güzel bi link
+                          veren buton ekleyelim". Taslak ünitelerin sayfası olmadığından
+                          (getUnitOverviewData is_active filtreliyor) buton gizleniyor. */}
+                      {!isDraftUnit && unit.slug && (
+                        <Link
+                          href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200/70 transition-colors hover:bg-gray-50"
+                        >
+                          Üniteye Git <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
                     </div>
 
                     {/* Konular */}

@@ -67,12 +67,14 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   if (!topic) return null;
 
   // Gerçek soru sayısı: questions.topic_id (section_id'si dolu ya da boş fark etmeksizin,
-  // /api/topic-test-questions ile aynı ilişki).
-  const { count: topicQuestionCount } = await supabase
-    .from('questions')
-    .select('id', { count: 'exact', head: true })
-    .eq('topic_id', topic.id)
-    .eq('is_active', true);
+  // /api/topic-test-questions ile aynı ilişki). Kapak görseli (topic_contents.hero_image_url)
+  // ile birlikte — konu sayfası (DersClient) için zaten üretilmiş görsel, soru bankası
+  // sayfasında da banner olarak kullanılıyor (bkz. kullanıcının 2026-09-06 isteği: "konu
+  // kapak resmi db de vardı").
+  const [{ count: topicQuestionCount }, { data: topicContentData }] = await Promise.all([
+    supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id).eq('is_active', true),
+    supabase.from('topic_contents').select('hero_image_url').eq('topic_id', topic.id).maybeSingle(),
+  ]);
   const questionCount = topicQuestionCount ?? 0;
 
   if (questionCount === 0) return null;
@@ -92,6 +94,7 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
     lessonSlug: lesson.slug,
     unitSlug: unit.slug,
     topicSlug: topic.slug,
+    heroImageUrl: (topicContentData as { hero_image_url: string | null } | null)?.hero_image_url ?? null,
   };
 });
 
