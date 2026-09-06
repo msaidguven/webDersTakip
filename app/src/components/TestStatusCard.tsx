@@ -198,10 +198,12 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
           />
 
           {/* Yarım kalan oturumda da fresh-state'teki AYNI kutucuklar (kullanıcının
-              2026-09-06 isteği: burada da doğru/yanlış/çözülen soru sayısını göster) —
-              poolSize toplam soru bankasını, resumable.* ise BU oturumun ilerlemesini gösterir. */}
+              2026-09-06 isteği: burada da doğru/yanlış/çözülen soru sayısını göster).
+              "Soru" burada TOPLAM soru bankasını (poolSize, ör. 136) DEĞİL, yukarıdaki
+              halkayla (0/10) aynı şeyi — BU oturumun kaç sorudan oluştuğunu (resumable.total)
+              gösteriyor; kullanıcı ikisinin uyuşmadığını fark etti (2026-09-06 bug raporu). */}
           <div className="grid w-full grid-cols-4 gap-2">
-            <StatTile value={status.poolSize} label="Soru" />
+            <StatTile value={resumable.total} label="Soru" />
             <StatTile value={resumable.answeredCount} label="Çözülen" />
             <StatTile value={resumable.correctCount} label="Doğru" tone="emerald" />
             <StatTile value={resumable.wrongCount} label="Yanlış" tone="rose" />
@@ -272,7 +274,10 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
             resume={testData.resume}
             questionBankPathBase={testData.questionBankPathBase}
-            intro={testData.intro}
+            // intro BİLEREK verilmiyor: kullanıcı zaten bu karttaki "Teste Başla/Devam Et"
+            // butonuna tıklayarak testi başlatmayı onaylamış oluyor — modal içinde ayrıca bir
+            // "kapak sayfası" (intro) gösterip ikinci kez "Başla" dedirtmek gereksiz bir adım
+            // (kullanıcının 2026-09-06 bildirdiği bug).
           />
         </QuizModal>
       )}
