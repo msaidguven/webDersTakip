@@ -60,15 +60,28 @@ const COLOR_CLASSES = {
 } as const;
 
 // r=40, çevre = 2*pi*40 ≈ 251.33 — yüzdeye göre strokeDashoffset hesaplanıyor,
-// -rotate-90 ile başlangıç 12 yönüne (saat başı) çekiliyor.
+// -rotate-90 ile başlangıç 12 yönüne (saat başı) çekiliyor. Yarım kalan test bölümü
+// (compact) daha küçük bir halka kullanıyor (kullanıcının 2026-09-06 isteği).
 const RING_RADIUS = 40;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const RING_RADIUS_COMPACT = 30;
+const RING_CIRCUMFERENCE_COMPACT = 2 * Math.PI * RING_RADIUS_COMPACT;
 
 // Kartın en üst satırındaki küçük istatistik kutucukları (Soru/Çözülen/Doğru/Yanlış) —
 // kullanıcının 2026-09-06 isteği: "soru sayısı, çözülen, doğru, yanlış bilgisini card'lar
 // ekleyerek güzelleştirelim", eskiden burası sadece "10 soruluk test" düz metniydi.
-function StatTile({ value, label, tone }: { value: number; label: string; tone?: 'emerald' | 'rose' }) {
+// `compact`, yarım kalan test bölümü (kullanıcının 2026-09-06 isteği: "genel bilgiler
+// üstte normal boyut, yarım kalan test verileri altta biraz daha küçük") için.
+function StatTile({ value, label, tone, compact }: { value: number; label: string; tone?: 'emerald' | 'rose'; compact?: boolean }) {
   const toneClass = tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : 'text-default';
+  if (compact) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 rounded-lg bg-surface px-1.5 py-1.5">
+        <span className={`text-sm font-black ${toneClass}`}>{value}</span>
+        <span className="text-[8px] font-black uppercase tracking-wide text-muted-foreground">{label}</span>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-0.5 rounded-xl bg-surface px-2 py-2.5">
       <span className={`text-lg font-black sm:text-xl ${toneClass}`}>{value}</span>
@@ -77,26 +90,40 @@ function StatTile({ value, label, tone }: { value: number; label: string; tone?:
   );
 }
 
-function ProgressRing({ percent, ringClass, label, sublabel }: { percent: number; ringClass: string; label: string; sublabel: string }) {
-  const offset = RING_CIRCUMFERENCE * (1 - Math.min(100, Math.max(0, percent)) / 100);
+function ProgressRing({
+  percent,
+  ringClass,
+  label,
+  sublabel,
+  compact,
+}: {
+  percent: number;
+  ringClass: string;
+  label: string;
+  sublabel: string;
+  compact?: boolean;
+}) {
+  const radius = compact ? RING_RADIUS_COMPACT : RING_RADIUS;
+  const circumference = compact ? RING_CIRCUMFERENCE_COMPACT : RING_CIRCUMFERENCE;
+  const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
   return (
-    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+    <div className={`relative flex shrink-0 items-center justify-center ${compact ? 'h-20 w-20' : 'h-28 w-28'}`}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={RING_RADIUS} fill="none" strokeWidth="9" style={{ stroke: 'var(--border)' }} />
+        <circle cx="50" cy="50" r={radius} fill="none" strokeWidth={compact ? '7' : '9'} style={{ stroke: 'var(--border)' }} />
         <circle
           cx="50"
           cy="50"
-          r={RING_RADIUS}
+          r={radius}
           fill="none"
-          strokeWidth="9"
+          strokeWidth={compact ? '7' : '9'}
           strokeLinecap="round"
           className={ringClass}
-          style={{ stroke: 'currentColor', strokeDasharray: RING_CIRCUMFERENCE, strokeDashoffset: offset, transition: 'stroke-dashoffset 0.4s ease' }}
+          style={{ stroke: 'currentColor', strokeDasharray: circumference, strokeDashoffset: offset, transition: 'stroke-dashoffset 0.4s ease' }}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-xl font-black text-default">{label}</span>
-        <span className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">{sublabel}</span>
+        <span className={`font-black text-default ${compact ? 'text-sm' : 'text-xl'}`}>{label}</span>
+        <span className="text-[9px] font-black uppercase tracking-wide text-muted-foreground">{sublabel}</span>
       </div>
     </div>
   );
@@ -186,44 +213,12 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         <div className="flex items-center gap-2 py-4 text-xs font-bold text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Durum yükleniyor…
         </div>
-      ) : resumable ? (
-        <>
-          <p className="-mt-2 text-xs font-bold text-muted-foreground sm:text-sm">Tamamlanmamış bir testiniz var</p>
-
-          <ProgressRing
-            percent={resumable.total ? (resumable.answeredCount / resumable.total) * 100 : 0}
-            ringClass={classes.ring}
-            label={`${resumable.answeredCount}/${resumable.total}`}
-            sublabel="Soru"
-          />
-
-          {/* Yarım kalan oturumda da fresh-state'teki AYNI kutucuklar (kullanıcının
-              2026-09-06 isteği: burada da doğru/yanlış/çözülen soru sayısını göster).
-              "Soru" burada TOPLAM soru bankasını (poolSize, ör. 136) DEĞİL, yukarıdaki
-              halkayla (0/10) aynı şeyi — BU oturumun kaç sorudan oluştuğunu (resumable.total)
-              gösteriyor; kullanıcı ikisinin uyuşmadığını fark etti (2026-09-06 bug raporu). */}
-          <div className="grid w-full grid-cols-4 gap-2">
-            <StatTile value={resumable.total} label="Soru" />
-            <StatTile value={resumable.answeredCount} label="Çözülen" />
-            <StatTile value={resumable.correctCount} label="Doğru" tone="emerald" />
-            <StatTile value={resumable.wrongCount} label="Yanlış" tone="rose" />
-          </div>
-
-          <a
-            href={testHref}
-            onClick={startOrResumeTest}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
-          >
-            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Devam Et <ArrowRight className="h-4 w-4" /></>}
-          </a>
-        </>
       ) : (
         <>
-          {/* 4 kutucuk (Soru/Çözülen/Doğru/Yanlış) artık giriş durumundan BAĞIMSIZ her
-              zaman gösteriliyor — misafirde solved/correct/wrong zaten 0 gelir
-              (getSoruBankasiTestStatus'un guest dalı), bu görsel olarak "istatistik
-              tutulmuyor, giriş yaparsan tutulur" mesajını daha net anlatıyor
-              (kullanıcının 2026-09-06 isteği). */}
+          {/* Genel bilgiler HER ZAMAN üstte, normal boyutta — yarım kalan bir test olsa
+              bile bu konuda/ünitede bugüne kadarki toplam durum kaybolmasın (kullanıcının
+              2026-09-06 isteği: "ünite sayfasındaki gibi tamamını da göstersin, genel
+              bilgileri üstte, yarım kalan testle ilgili verileri altta göstersin"). */}
           <div className="grid w-full grid-cols-4 gap-2">
             <StatTile value={status.poolSize} label="Soru" />
             <StatTile value={status.solved} label="Çözülen" />
@@ -231,17 +226,48 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             <StatTile value={status.wrong} label="Yanlış" tone="rose" />
           </div>
 
-          {!status.loggedIn && (
+          {!status.loggedIn && !resumable && (
             <p className="-mt-1 text-xs font-bold text-muted-foreground">
               İstatistiklerin tutulması için giriş yapmanız gerekmektedir
             </p>
+          )}
+
+          {/* Yarım kalan test varsa ALTTA, daha küçük bir blokta — genel bilgilerle
+              karışmasın diye kendi çerçevesi var. */}
+          {resumable && (
+            <div className="flex w-full flex-col items-center gap-2.5 rounded-xl border border-default/60 bg-surface/60 p-3">
+              <p className="text-[11px] font-bold text-muted-foreground">Tamamlanmamış bir testiniz var</p>
+
+              <ProgressRing
+                compact
+                percent={resumable.total ? (resumable.answeredCount / resumable.total) * 100 : 0}
+                ringClass={classes.ring}
+                label={`${resumable.answeredCount}/${resumable.total}`}
+                sublabel="Soru"
+              />
+
+              <div className="grid w-full grid-cols-4 gap-1.5">
+                <StatTile compact value={resumable.total} label="Soru" />
+                <StatTile compact value={resumable.answeredCount} label="Çözülen" />
+                <StatTile compact value={resumable.correctCount} label="Doğru" tone="emerald" />
+                <StatTile compact value={resumable.wrongCount} label="Yanlış" tone="rose" />
+              </div>
+            </div>
           )}
 
           {/* Giriş yapılmamışsa "Teste Başla" devre dışı — kaydedilmeyen bir test açmanın
               anlamı yok, giriş yapması için yönlendiriliyor (kullanıcının 2026-09-06 isteği).
               Soru Bankası (cevap anahtarlı, tam liste) bölümü ise misafirde hâlâ açık kalıyor
               (bkz. SoruBankasiBrowseSection.tsx) — en azından o içerikten faydalansın. */}
-          {status.loggedIn ? (
+          {resumable ? (
+            <a
+              href={testHref}
+              onClick={startOrResumeTest}
+              className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Devam Et <ArrowRight className="h-4 w-4" /></>}
+            </a>
+          ) : status.loggedIn ? (
             <a
               href={testHref}
               onClick={startOrResumeTest}
