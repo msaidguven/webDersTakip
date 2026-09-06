@@ -14,6 +14,9 @@ import { getQuestionCountsByLessonGrade, getQuestionCountsByUnitId, getQuestionC
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
 
+export function buildSoruBankasiIndexPath() {
+  return `/soru-bankasi`;
+}
 export function buildSoruBankasiGradePath(gradeSlug: string) {
   return `/soru-bankasi/${gradeSlug}`;
 }
@@ -34,6 +37,53 @@ export function buildSoruBankasiBreadcrumbJsonLd(items: { name: string; path: st
     ],
   };
 }
+
+// /soru-bankasi kök (sınıf listeleme) sayfasının veri kaynağı — anasayfadan buraya, buradan
+// sınıflara (getSoruBankasiGradeData) iniliyor (kullanıcının 2026-09-06 isteği: "anasayfadan
+// buraya, buradan da sınıflara gitsin"). Soru sayısı her sınıf için lesson_grades üzerinden
+// toplanıyor — [sinif]/page.tsx'teki ders bazlı sayımın sınıf düzeyine toplanmış hali.
+export const getSoruBankasiGradesIndexData = cache(async function getSoruBankasiGradesIndexData() {
+  const supabase = createAnonClient();
+
+  const { data: gradeRows } = await supabase
+    .from('grades')
+    .select('id, name, slug, order_no')
+    .eq('is_active', true)
+    .order('order_no', { ascending: true });
+  const grades = (gradeRows as { id: number; name: string; slug: string | null; order_no: number | null }[] | null) || [];
+  const gradeIds = grades.map((g) => g.id);
+  if (!gradeIds.length) return { grades: [], hasQuestions: false };
+
+  const { data: lessonGradeRows } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id, grade_id')
+    .eq('is_active', true)
+    .in('grade_id', gradeIds);
+  const pairs = ((lessonGradeRows as { lesson_id: number; grade_id: number }[] | null) || []).map((row) => ({
+    lessonId: row.lesson_id,
+    gradeId: row.grade_id,
+  }));
+  const questionCountByLessonGrade = await getQuestionCountsByLessonGrade(supabase, pairs, { activeOnly: true });
+
+  const questionCountByGrade = new Map<number, number>();
+  for (const pair of pairs) {
+    const count = questionCountByLessonGrade.get(`${pair.lessonId}:${pair.gradeId}`) ?? 0;
+    questionCountByGrade.set(pair.gradeId, (questionCountByGrade.get(pair.gradeId) ?? 0) + count);
+  }
+
+  const gradeList = grades
+    .filter((g) => g.slug)
+    .map((g) => ({
+      name: g.name,
+      slug: g.slug as string,
+      level: g.order_no ?? 0,
+      questionCount: questionCountByGrade.get(g.id) ?? 0,
+    }));
+
+  return { grades: gradeList, hasQuestions: gradeList.some((g) => g.questionCount > 0) };
+});
+
+export type SoruBankasiGradesIndexData = Awaited<ReturnType<typeof getSoruBankasiGradesIndexData>>;
 
 export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeData(gradeSlug: string) {
   const supabase = createAnonClient();

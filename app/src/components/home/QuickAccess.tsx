@@ -4,28 +4,23 @@ import { BookOpen, FileQuestion, Layers, PlayCircle, Sparkles } from 'lucide-rea
 // Bu kısayollardan "Soru Bankası" hariç hiçbirinin hedef sayfası yok (bkz.
 // docs/site-iyilestirme-plani.md) — kartlar referans tasarımla aynı görünsün diye duruyor
 // ama bilerek link değil (404'e düşürmesin). Soru Bankası artık gerçek bir sayfaya sahip
-// (bkz. kullanıcının 2026-09-06 isteği: "anasayfaya soru bankası linki ekle") — seçili
-// sınıfın soru bankası köküne gidiyor.
+// (bkz. kullanıcının 2026-09-06 isteği: "anasayfaya soru bankası linki ekle") — sınıf
+// seçimi kendi listeleme sayfasında yapıldığından (/soru-bankasi köküne) doğrudan gidiyor.
 const ITEMS = [
   { icon: Layers, label: 'Üniteler', description: 'Tüm üniteleri görüntüle' },
   { icon: BookOpen, label: 'Konular', description: 'Konulara göz at' },
-  { icon: FileQuestion, label: 'Soru Bankası', description: 'Binlerce soru çöz', hrefKey: 'soru-bankasi' as const },
+  { icon: FileQuestion, label: 'Soru Bankası', description: 'Binlerce soru çöz', href: '/soru-bankasi' },
   { icon: Sparkles, label: 'Denemeler', description: 'Deneme sınavları çöz' },
   { icon: PlayCircle, label: 'Konu Anlatımları', description: 'Video ve PDF içerikler' },
 ];
 
-export function QuickAccess({ gradeSlug }: { gradeSlug?: string | null }) {
-  const hrefByKey: Record<string, string | undefined> = {
-    'soru-bankasi': gradeSlug ? `/soru-bankasi/${gradeSlug}` : undefined,
-  };
-
+export function QuickAccess() {
   return (
     <div>
       <h2 className="mb-1 text-lg font-black text-default sm:text-xl">⚡ Hızlı Erişim</h2>
       <p className="mb-4 text-sm text-muted-foreground">Aradığın içeriğe hızlıca ulaş.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {ITEMS.map(({ icon: Icon, label, description, hrefKey }) => {
-          const href = hrefKey ? hrefByKey[hrefKey] : undefined;
+        {ITEMS.map(({ icon: Icon, label, description, href }) => {
           const content = (
             <>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 text-indigo-500">

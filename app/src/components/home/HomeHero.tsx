@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FileQuestion, Info, LayoutDashboard, UserPlus } from 'lucide-react';
 
-export function HomeHero({ isAuthenticated, gradeSlug }: { isAuthenticated: boolean; gradeSlug?: string | null }) {
+export function HomeHero({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-10">
       <div className="text-center lg:text-left">
@@ -39,15 +39,15 @@ export function HomeHero({ isAuthenticated, gradeSlug }: { isAuthenticated: bool
           )}
           {/* "Dersleri Keşfet"in yanına/altına üçüncü kısayol — kullanıcının 2026-09-06
               isteği: önce mobilde eklendi, sonra "sadece mobilde değil webde de görünsün"
-              denilince diğer iki butonla aynı satıra/genişliğe alındı. */}
-          {gradeSlug && (
-            <Link
-              href={`/soru-bankasi/${gradeSlug}`}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-6 py-3 text-sm font-black text-default transition-colors hover:bg-surface sm:w-auto"
-            >
-              <FileQuestion className="h-4 w-4" /> Soru Bankası
-            </Link>
-          )}
+              denilince diğer iki butonla aynı satıra/genişliğe alındı. Sınıfa göre değil
+              /soru-bankasi köküne linkleniyor — sınıf seçimi oradaki listeleme sayfasında
+              yapılıyor (aynı gün: "anasayfadan buraya, buradan da sınıflara gitsin"). */}
+          <Link
+            href="/soru-bankasi"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-6 py-3 text-sm font-black text-default transition-colors hover:bg-surface sm:w-auto"
+          >
+            <FileQuestion className="h-4 w-4" /> Soru Bankası
+          </Link>
         </div>
         {!isAuthenticated && (
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:mt-5 lg:justify-start">
