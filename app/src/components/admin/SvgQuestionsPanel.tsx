@@ -122,7 +122,9 @@ function PendingSvgCard({ item, onSaved }: { item: SvgQuestionItem; onSaved: () 
       <div>
         <div className="mb-1 flex items-center justify-between">
           <span className="text-xs font-semibold text-muted-foreground">SVG Prompt</span>
-          {item.svg_prompt && <CopyButton text={buildSvgGenerationPrompt(item.svg_prompt)} />}
+          {item.svg_prompt && (
+            <CopyButton text={buildSvgGenerationPrompt({ questionText: item.question_text, svgPrompt: item.svg_prompt, topicTitle: item.topicTitle })} />
+          )}
         </div>
         <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
           {item.svg_prompt || '—'}

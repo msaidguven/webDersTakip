@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const { data: question, error } = await supabase
       .from('questions')
-      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, svg_prompt, svg_position, question_types(code)')
+      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, svg_prompt, svg_position, question_types(code), topics(title)')
       .eq('id', id)
       .maybeSingle();
 
@@ -31,8 +31,11 @@ export async function GET(request: NextRequest) {
       supabase.from('question_classical').select('model_answer, key_terms').eq('question_id', id).maybeSingle(),
     ]);
 
+    const topicsRel = (question as { topics?: { title: string } | { title: string }[] | null }).topics;
+    const topicTitle = (Array.isArray(topicsRel) ? topicsRel[0]?.title : topicsRel?.title) || null;
+
     return NextResponse.json({
-      question,
+      question: { ...question, topicTitle },
       choices: choices || [],
       blankOptions: blankOptions || [],
       matchingPairs: matchingPairs || [],

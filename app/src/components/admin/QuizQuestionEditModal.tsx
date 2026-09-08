@@ -76,6 +76,7 @@ export function QuizQuestionEditModal({
   const [svgPrompt, setSvgPrompt] = useState('');
   const [svgPosition, setSvgPosition] = useState<'above' | 'below'>('above');
   const [svgPromptCopied, setSvgPromptCopied] = useState(false);
+  const [topicTitle, setTopicTitle] = useState<string | null>(null);
   const [typeCode, setTypeCode] = useState('');
   const [choices, setChoices] = useState<Choice[]>([]);
   const [blankOptions, setBlankOptions] = useState<Choice[]>([]);
@@ -98,6 +99,7 @@ export function QuizQuestionEditModal({
       setSvgContent(data.question.svg_content || '');
       setSvgPrompt(data.question.svg_prompt || '');
       setSvgPosition(data.question.svg_position === 'below' ? 'below' : 'above');
+      setTopicTitle(data.question.topicTitle || null);
       setTypeCode(data.question.question_types?.code || '');
       setChoices(data.choices || []);
       setBlankOptions(data.blankOptions || []);
@@ -242,7 +244,7 @@ export function QuizQuestionEditModal({
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(buildSvgGenerationPrompt(svgPrompt));
+                      navigator.clipboard.writeText(buildSvgGenerationPrompt({ questionText, svgPrompt, topicTitle }));
                       setSvgPromptCopied(true);
                       window.setTimeout(() => setSvgPromptCopied(false), 2000);
                     }}
