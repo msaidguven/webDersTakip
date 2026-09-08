@@ -14,6 +14,7 @@
 // AYNI endpoint'e (/api/admin/topic-sections/section/[sectionId]/questions) devrediliyor —
 // burada paralel bir kaydetme mantığı icat edilmiyor.
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 type Choice = { text: string; is_correct: boolean };
 type DraftQuestion = {
@@ -48,6 +49,10 @@ export default function AiQuestionDraftsPanel() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  // Kullanıcının 2026-09-08 isteği: "11 soruyu birden görüyorum, karıştırma ihtimali
+  // yüksek" — taslaklar artık akordiyon: her alt başlık kapalı bir kategori satırı,
+  // aynı anda SADECE biri açık kalabiliyor.
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   // Her taslağın kendi düzenlenebilir soru listesi — server'dan gelenden bağımsız,
   // admin silme/düzenleme yaptıkça burada değişir.
   const [editableQuestions, setEditableQuestions] = useState<Record<number, DraftQuestion[]>>({});
@@ -205,19 +210,31 @@ export default function AiQuestionDraftsPanel() {
           <p className="text-muted-foreground text-sm">Onay bekleyen AI soru taslağı yok 🎉</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {drafts.map((draft) => {
             const questions = editableQuestions[draft.id] || [];
             const busy = busyId === draft.id;
+            const isOpen = expandedId === draft.id;
             return (
-              <div key={draft.id} className="bg-card rounded-2xl border border-border p-4 sm:p-6">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
-                    {draft.gradeName} · {draft.lessonName} · {draft.unitTitle} · {draft.topicTitle}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{new Date(draft.createdAt).toLocaleString('tr-TR')}</span>
-                </div>
-                <p className="mb-3 text-sm font-bold text-foreground">{draft.heading}</p>
+              <div key={draft.id} className="bg-card rounded-2xl border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExpandedId((cur) => (cur === draft.id ? null : draft.id))}
+                  className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-surface"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="mb-1 inline-block text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
+                      {draft.gradeName} · {draft.lessonName} · {draft.unitTitle} · {draft.topicTitle}
+                    </span>
+                    <p className="truncate text-sm font-bold text-foreground">{draft.heading}</p>
+                  </div>
+                  <span className="shrink-0 text-xs font-black text-muted-foreground">{questions.length} soru</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isOpen && (
+                <div className="border-t border-border p-4 pt-3 sm:p-6 sm:pt-4">
+                <p className="mb-3 text-xs text-muted-foreground">{new Date(draft.createdAt).toLocaleString('tr-TR')} tarihinde üretildi</p>
 
                 <div className="space-y-3">
                   {questions.map((q, qIdx) => {
@@ -291,6 +308,8 @@ export default function AiQuestionDraftsPanel() {
                     Kaydet ({questions.length})
                   </button>
                 </div>
+                </div>
+                )}
               </div>
             );
           })}
