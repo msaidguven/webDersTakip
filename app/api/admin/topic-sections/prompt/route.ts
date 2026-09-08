@@ -233,6 +233,15 @@ export async function GET(request: NextRequest) {
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
   if (isNotebookQuestionType) {
+    // Kardeş alt başlıklarla örtüşen soru üretilmesin diye (kullanıcının 2026-09-08
+    // bulduğu sorun: kitap içeriği alt başlık sınırlarını net ayırmayınca AI aynı bilgiden
+    // birden fazla alt başlık için soru üretiyordu) — bkz. 02-section-content.md'deki AYNI
+    // {other_headings} deseni.
+    const otherHeadingsForQuestions = sections
+      .filter((s) => String(s.id) !== String(sectionId))
+      .map((s) => s.heading)
+      .join(', ') || 'Yok';
+
     const templatePath = path.join(process.cwd(), 'app', 'prompt', NOTEBOOK_QUESTION_TEMPLATES[type as string]);
     const template = await readFile(templatePath, 'utf8');
 
@@ -244,6 +253,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
+      .replaceAll('{other_headings}', otherHeadingsForQuestions)
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });

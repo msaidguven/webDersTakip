@@ -8,6 +8,7 @@ Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
 Alt başlık: {heading}
 Kazanımlar: {section_outcomes}
+Bu konunun diğer alt başlıkları (bunlar AYRI sorulacak — bu başlıklarla örtüşen/bunlara ait bilgiden soru ÜRETME, sadece "{heading}" ile ilgili bilgiden sor): {other_headings}
 
 Çıktı (sadece JSON):
 {

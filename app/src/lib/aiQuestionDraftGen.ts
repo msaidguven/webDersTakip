@@ -36,6 +36,23 @@ export interface DraftGenerationResult {
   sectionId?: number;
 }
 
+// Kardeş alt başlıklarla örtüşen soru üretilmesin diye (kullanıcının 2026-09-08 bulduğu
+// sorun) — manuel "Soru Ekle (NotebookLM)" akışındaki AYNI {other_headings} deseni
+// (bkz. app/api/admin/topic-sections/prompt/route.ts).
+async function buildOtherHeadingsText(supabase: Supabase, sectionId: number): Promise<string> {
+  const { data: currentSection } = await supabase.from('topic_content_sections').select('topic_content_id').eq('id', sectionId).maybeSingle();
+  const topicContentId = (currentSection as { topic_content_id: number } | null)?.topic_content_id;
+  if (topicContentId == null) return 'Yok';
+
+  const { data: siblingSections } = await supabase
+    .from('topic_content_sections')
+    .select('id, heading')
+    .eq('topic_content_id', topicContentId)
+    .order('order_no', { ascending: true });
+  const others = ((siblingSections as { id: number; heading: string }[] | null) || []).filter((s) => s.id !== sectionId).map((s) => s.heading);
+  return others.length ? others.join(', ') : 'Yok';
+}
+
 async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sectionId: number): Promise<string> {
   const { data: outcomesData } = await supabase
     .from('outcomes')
@@ -92,7 +109,10 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
   const bookContent = await fetchUnitBookContent(supabase, eligible.unit_id);
   if (!bookContent) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG kitap içeriği bulunamadı` };
 
-  const sectionOutcomesText = await buildSectionOutcomesText(supabase, eligible.topic_id, eligible.section_id);
+  const [sectionOutcomesText, otherHeadingsText] = await Promise.all([
+    buildSectionOutcomesText(supabase, eligible.topic_id, eligible.section_id),
+    buildOtherHeadingsText(supabase, eligible.section_id),
+  ]);
 
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
   const svgBlock = svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(eligible.lesson_name));
@@ -105,6 +125,7 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
     .replaceAll('{topic}', eligible.topic_title)
     .replaceAll('{heading}', eligible.section_heading)
     .replaceAll('{section_outcomes}', sectionOutcomesText)
+    .replaceAll('{other_headings}', otherHeadingsText)
     .replaceAll('{book_content}', bookContent)
     .replaceAll('{svg_question_instructions}', svgBlock);
 
