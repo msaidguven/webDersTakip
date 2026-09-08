@@ -56,6 +56,7 @@ export default function RagDocumentsPanel() {
   const [gradeId, setGradeId] = useState<number | null>(null);
   const [lessonId, setLessonId] = useState<number | null>(null);
   const [unitId, setUnitId] = useState<number | null>(null);
+  const [loadingLessons, setLoadingLessons] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
@@ -79,6 +80,12 @@ export default function RagDocumentsPanel() {
     setLessonId(null);
     setLessons([]);
     if (gradeId == null) return;
+    // Ders listesi gelene kadar "Ders" kutusu disabled kalmalı (bkz. Select
+    // kullanımı aşağıda): options fetch tamamlanmadan kutu tıklanabilir
+    // olursa, kullanıcı native dropdown'ı açık tutarken seçenekler arkadan
+    // güncellenir — Chrome bu durumda açık olan dropdown'ı anında kapatıyor
+    // ("açılır açılmaz kapanıyor" şikayetinin sebebi buydu).
+    setLoadingLessons(true);
     const supabase = createClient();
     (async () => {
       const { data } = await supabase
@@ -93,6 +100,7 @@ export default function RagDocumentsPanel() {
         .filter((l): l is Row => !!l)
         .sort((a, b) => a.label.localeCompare(b.label, 'tr'));
       setLessons(rows);
+      setLoadingLessons(false);
     })();
   }, [gradeId]);
 
@@ -200,7 +208,7 @@ export default function RagDocumentsPanel() {
         <h3 className="text-foreground font-semibold mb-4">Sınıf, Ders ve Ünite Seç</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Select label="Sınıf" value={gradeId} onChange={setGradeId} options={grades} />
-          <Select label="Ders" value={lessonId} onChange={setLessonId} options={lessons} disabled={gradeId == null} />
+          <Select label="Ders" value={lessonId} onChange={setLessonId} options={lessons} disabled={gradeId == null || loadingLessons} />
           <Select
             label="Ünite (NotebookLM için)"
             value={unitId}
