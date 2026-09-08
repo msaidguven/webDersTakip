@@ -5,6 +5,10 @@ import { processRagDocument } from '@/app/src/lib/rag/processDocument';
 
 const BUCKET = 'rag-documents';
 
+// PDF metne çevirme artık sayfa-bazlı Gemini çağrılarına bölünüyor (bkz.
+// pdfExtract.ts); büyük kitaplarda varsayılan süreyi aşabiliyor.
+export const maxDuration = 300;
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;

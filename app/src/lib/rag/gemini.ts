@@ -10,6 +10,7 @@ const EMBEDDING_DIMENSIONS = 768; // supabase/migrations/add_rag_document_qa.sql
 export const CHAT_MODEL = 'gemini-2.5-flash';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
 
 function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY;
@@ -67,6 +68,113 @@ export async function embedDocumentChunks(chunks: string[]): Promise<number[][]>
 export async function embedQuestion(question: string): Promise<number[]> {
   const [embedding] = await embedBatch([question], 'RETRIEVAL_QUERY');
   return embedding;
+}
+
+type GeminiFile = { name: string; uri: string; state: string };
+
+// PDF'i doğrudan Gemini'ye gönderebilmek için önce Files API'ye yüklüyoruz
+// (resumable upload protokolü: start -> upload+finalize), sonra dönen file
+// uri'sini generateContent'te referans veriyoruz. Büyük dosyalarda (>~kaç MB)
+// state 'PROCESSING' dönebiliyor, bu yüzden 'ACTIVE' olana kadar kısa aralıklarla
+// yokluyoruz.
+async function uploadFileToGemini(buffer: Buffer, mimeType: string, displayName: string): Promise<GeminiFile> {
+  const startRes = await fetch(`${UPLOAD_BASE}?key=${getApiKey()}`, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(buffer.byteLength),
+      'X-Goog-Upload-Header-Content-Type': mimeType,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ file: { displayName } }),
+  });
+  if (!startRes.ok) {
+    throw new Error(`Gemini dosya yükleme başlatılamadı (${startRes.status}): ${await startRes.text().catch(() => '')}`);
+  }
+  const uploadUrl = startRes.headers.get('x-goog-upload-url');
+  if (!uploadUrl) throw new Error('Gemini yükleme URL\'i alınamadı');
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': mimeType,
+      'Content-Length': String(buffer.byteLength),
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+    },
+    body: new Uint8Array(buffer),
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`Gemini dosya yükleme tamamlanamadı (${uploadRes.status}): ${await uploadRes.text().catch(() => '')}`);
+  }
+  const data = (await uploadRes.json()) as { file: GeminiFile };
+  return waitForFileActive(data.file);
+}
+
+async function waitForFileActive(file: GeminiFile): Promise<GeminiFile> {
+  let current = file;
+  let attempts = 0;
+  while (current.state === 'PROCESSING' && attempts < 20) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const res = await fetch(`${API_BASE}/${current.name}?key=${getApiKey()}`);
+    if (!res.ok) throw new Error(`Gemini dosya durumu alınamadı (${res.status})`);
+    current = (await res.json()) as GeminiFile;
+    attempts++;
+  }
+  if (current.state !== 'ACTIVE') {
+    throw new Error(`Gemini dosyası kullanılabilir hale gelmedi (durum: ${current.state})`);
+  }
+  return current;
+}
+
+export async function uploadPdfForTranscription(buffer: Buffer, displayName: string): Promise<GeminiFile> {
+  return uploadFileToGemini(buffer, 'application/pdf', displayName);
+}
+
+// İşlem bitince yüklenen dosyayı siliyoruz (Gemini zaten 48 saat sonra otomatik
+// siliyor ama gereksiz yere bekletmeye gerek yok). Best-effort: başarısız olursa
+// asıl işlemi bozmasın diye hata yutuluyor.
+export async function deleteGeminiFile(name: string): Promise<void> {
+  await fetch(`${API_BASE}/${name}?key=${getApiKey()}`, { method: 'DELETE' }).catch(() => {});
+}
+
+const PDF_TRANSCRIBE_PROMPT_TEMPLATE = (startPage: number, endPage: number) => `Bu PDF bir ders kitabının ${startPage}-${endPage}. sayfalarını, sırayla ve eksiksiz içeriyor (bu dosyadaki ilk sayfa kitabın ${startPage}. sayfasıdır). Görevin bu sayfaları eksiksiz düz metne dökmek:
+
+- Matematiksel ifadeleri (kesir, üs, kök, denklem, formül) okunabilir düz metin/LaTeX benzeri notasyonla yaz (ör. "x^2 + 3x - 4 = 0", "1/2", "karekök(16)") — asla atlama veya görmezden gelme.
+- Şekil, grafik, tablo veya diyagram varsa içeriğini ve gösterdiği bilgiyi kısaca sözel olarak özetle (ör. "Şekilde dik kenarları 3 cm ve 4 cm olan bir dik üçgen var").
+- Sayfa sırasını koru ve her sayfanın başına gerçek sayfa numarasıyla "### Sayfa N" başlığı koy.
+- Kitabın normal metnini (anlatım, soru, örnek, açıklama) olduğu gibi aktar; yorum ekleme, özetleme veya kısaltma yapma.
+- Bir sayfada anlamlı içerik yoksa (boş sayfa, sadece dekoratif görsel) o sayfa için sadece başlığı yaz ve altına "(içerik yok)" ekle.`;
+
+// Bir PDF parçasını (birkaç sayfalık alt-PDF) Gemini'nin multimodal PDF
+// anlayışıyla düz metne çevirir. pdfjs'in düz metin çıkarımının aksine
+// formülleri ve şekil/tablo içeriğini kaybetmez — özellikle matematik/fen
+// kitapları için gerekli.
+export async function transcribePdfBatch(fileUri: string, mimeType: string, startPage: number, endPage: number): Promise<string> {
+  const res = await fetch(`${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { fileData: { mimeType, fileUri } },
+            { text: PDF_TRANSCRIBE_PROMPT_TEMPLATE(startPage, endPage) },
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0 },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Gemini PDF transkripsiyon hatası (${res.status}): ${await res.text().catch(() => '')}`);
+  }
+  const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
+  if (!text) throw new Error('Gemini PDF transkripsiyonu boş döndü');
+  return text;
 }
 
 export type AnswerResult = { answer: string; model: string };
