@@ -2,13 +2,15 @@ name: AI Question Draft Worker
 
 # RAG kuyruğu (rag-queue-worker.yml) boşken 5 dakikalık döngüler boşa gidiyordu —
 # kullanıcının 2026-09-08 isteği: bunun yerine, kitabı yüklü ünitelerdeki sorusu eksik
-# alt başlıklar için 3 saatte bir tek bir AI soru taslağı üretilsin (admin onaylayana
-# kadar yayınlanmaz, bkz. app/api/admin/ai-question-drafts). Ayrı bir workflow olarak
-# tutuluyor ki @kanka/@hocam akışının sıklığına/mantığına hiç dokunulmasın; aynı worker
-# secret'ı paylaşılıyor.
+# alt başlıklar için saatte bir tek bir AI soru taslağı üretilsin (admin onaylayana
+# kadar yayınlanmaz, bkz. app/api/admin/ai-question-drafts). Başlangıçta 3 saatte birdi;
+# @kanka/@hocam tarafında gerçek kullanımın çok düşük olduğu (son 7 günde ~9 cevap)
+# görülünce 2026-09-09'da saatte bire çıkarıldı — ücretsiz Gemini kotasını doldurma
+# riski yok. Ayrı bir workflow olarak tutuluyor ki @kanka/@hocam akışının sıklığına/
+# mantığına hiç dokunulmasın; aynı worker secret'ı paylaşılıyor.
 on:
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 * * * *'
   workflow_dispatch: {}
 
 jobs:
