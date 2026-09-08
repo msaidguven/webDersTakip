@@ -506,7 +506,7 @@ export default function MufredatOverviewClient({
                                       href={bankHref}
                                       className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
                                     >
-                                      <ListChecks className="h-3.5 w-3.5" /> Soru Bankası · {questionCount}
+                                      <ListChecks className="h-3.5 w-3.5" /> {questionCount} Soru
                                     </Link>
                                   ) : (
                                     <span className="text-xs text-gray-300 px-2 py-1">Soru yok</span>
