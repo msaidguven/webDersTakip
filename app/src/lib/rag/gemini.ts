@@ -18,6 +18,26 @@ function getApiKey(): string {
   return key;
 }
 
+// PDF transkripsiyonu bir kitap için onlarca sayfa-batch'i çağırabiliyor;
+// Gemini'nin "model şu an yoğun" (503) gibi geçici hataları tek bir batch'i
+// tüm kitabın işlenmesini bozacak şekilde patlatmasın diye üstel gecikmeyle
+// birkaç kez deneniyor.
+async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const retryable = /"(code|status)":\s*"?(503|429|UNAVAILABLE|RESOURCE_EXHAUSTED)"?/i.test(message) || /\(50[03]\)/.test(message);
+      if (!retryable || i === attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * 2 ** i));
+    }
+  }
+  throw lastErr;
+}
+
 type EmbedTaskType = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY';
 
 async function embedBatch(texts: string[], taskType: EmbedTaskType): Promise<number[][]> {
@@ -152,29 +172,89 @@ const PDF_TRANSCRIBE_PROMPT_TEMPLATE = (startPage: number, endPage: number) => `
 // formülleri ve şekil/tablo içeriğini kaybetmez — özellikle matematik/fen
 // kitapları için gerekli.
 export async function transcribePdfBatch(fileUri: string, mimeType: string, startPage: number, endPage: number): Promise<string> {
-  const res = await fetch(`${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { fileData: { mimeType, fileUri } },
-            { text: PDF_TRANSCRIBE_PROMPT_TEMPLATE(startPage, endPage) },
-          ],
-        },
-      ],
-      generationConfig: { temperature: 0 },
-    }),
+  return withRetry(async () => {
+    const res = await fetch(`${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { fileData: { mimeType, fileUri } },
+              { text: PDF_TRANSCRIBE_PROMPT_TEMPLATE(startPage, endPage) },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Gemini PDF transkripsiyon hatası (${res.status}): ${await res.text().catch(() => '')}`);
+    }
+    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
+    if (!text) throw new Error('Gemini PDF transkripsiyonu boş döndü');
+    return text;
   });
-  if (!res.ok) {
-    throw new Error(`Gemini PDF transkripsiyon hatası (${res.status}): ${await res.text().catch(() => '')}`);
-  }
-  const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
-  if (!text) throw new Error('Gemini PDF transkripsiyonu boş döndü');
-  return text;
+}
+
+const PDF_TRANSCRIBE_UNIT_PROMPT_TEMPLATE = (startPage: number, endPage: number, units: { title: string }[]) => `Bu PDF bir ders kitabının ${startPage}-${endPage}. sayfalarını, sırayla ve eksiksiz içeriyor (bu dosyadaki ilk sayfa kitabın ${startPage}. sayfasıdır).
+
+Görevin iki parçalı:
+
+1) Her sayfanın bizim sistemimizdeki hangi üniteye ait olduğunu belirlemek. ÜNİTE LİSTESİ (SADECE bu listedeki başlıkları kullan, kitabın kendi bölüm/etkinlik adını DEĞİL — kitaptaki başlık farklı yazılmış olsa bile konusuna göre en yakın eşleşeni seç):
+${units.map((u, i) => `${i + 1}. ${u.title}`).join('\n')}
+Bir sayfa bu ünitelerin hiçbirine ait değilse (kapak, içindekiler, sözlük, cevap anahtarı, ölçme-değerlendirme gibi ünite dışı sayfalar) "YOK" yaz.
+
+2) Sayfanın içeriğini eksiksiz düz metne dökmek.
+
+Her sayfa için TAM olarak şu formatta başla (başka hiçbir başlık biçimi kullanma):
+### Sayfa <gerçek sayfa numarası> | ÜNİTE: <yukarıdaki listeden tam başlık ya da YOK>
+
+Sonra o sayfanın içeriğini yaz. İçerik kuralları:
+- Matematiksel ifadeleri (kesir, üs, kök, denklem, formül) ASLA atlama; okunabilir düz metin notasyonuyla yaz (ör. "x^2 + 3x - 4 = 0", "1/2", "karekök(16)").
+- Şekil, grafik, tablo veya diyagram varsa içeriğini ve gösterdiği bilgiyi kısaca sözel olarak özetle.
+- Sayfa sırasını koru, kitabın normal metnini (anlatım, soru, örnek) olduğu gibi aktar; yorum ekleme, özetleme veya kısaltma yapma.
+- Bir sayfada anlamlı içerik yoksa (boş sayfa, sadece dekoratif görsel) içerik kısmına sadece "(içerik yok)" yaz.`;
+
+// transcribePdfBatch'in ünite-tespitli hali: kitap otomatik olarak sitedeki
+// gerçek ünite listesine göre etiketleniyor (bkz. pdfExtract.ts'teki
+// parseTaggedPages) — admin artık NotebookLM'de olduğu gibi elle ünite ünite
+// prompt sormak zorunda kalmadan, doğrudan yüklenen kitap otomatik ünitelere
+// bölünüyor.
+export async function transcribePdfBatchWithUnits(
+  fileUri: string,
+  mimeType: string,
+  startPage: number,
+  endPage: number,
+  units: { title: string }[]
+): Promise<string> {
+  return withRetry(async () => {
+    const res = await fetch(`${API_BASE}/models/${CHAT_MODEL}:generateContent?key=${getApiKey()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { fileData: { mimeType, fileUri } },
+              { text: PDF_TRANSCRIBE_UNIT_PROMPT_TEMPLATE(startPage, endPage, units) },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Gemini PDF transkripsiyon hatası (${res.status}): ${await res.text().catch(() => '')}`);
+    }
+    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
+    if (!text) throw new Error('Gemini PDF transkripsiyonu boş döndü');
+    return text;
+  });
 }
 
 export type AnswerResult = { answer: string; model: string };

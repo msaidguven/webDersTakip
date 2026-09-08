@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await processRagDocument(supabase, document.id, gradeId, lessonId, buffer);
+    await processRagDocument(supabase, document.id, gradeId, lessonId, fileName, buffer);
   } catch (err) {
     // processRagDocument zaten rag_documents.status='failed' yazdı; admin panelinde görünür.
     const message = err instanceof Error ? err.message : String(err);

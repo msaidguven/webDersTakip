@@ -25,7 +25,12 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const { error: deleteError } = await supabase.from('rag_documents').delete().eq('id', documentId);
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
 
-  await supabase.storage.from(BUCKET).remove([document.file_path]);
+  // file_path NotebookLM metin kayıtlarında ve otomatik ünite tespitiyle
+  // üretilen ek segment satırlarında null olabilir (tek bir yüklemeden birden
+  // fazla rag_documents satırı doğabiliyor, dosya sadece ilkinde tutuluyor).
+  if (document.file_path) {
+    await supabase.storage.from(BUCKET).remove([document.file_path]);
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -43,10 +43,11 @@ function unitTitleOf(doc: DocumentRow): string | null {
   return single?.title || null;
 }
 
-// Ders notu PDF'leri konu/üniteye göre değil, sınıf+ders (kitap) bazında
-// ayrılıyor (ör. "5. Sınıf Sosyal Bilgiler 1" ve "... 2" aynı ders+sınıfın iki
-// cildi) — bu yüzden seçim burada sadece iki kademeli: Sınıf -> Ders. Ünite
-// seçimi sadece NotebookLM'e ünite bazlı prompt üretmek için kullanılıyor.
+// Bu ekranda üst seçim iki kademeli: Sınıf -> Ders (PDF, "5. Sınıf Sosyal
+// Bilgiler 1"/"...2" gibi bir kitabın cildi olarak yükleniyor, konuya göre
+// değil). Ünite seçimi burada sadece NotebookLM'e ünite bazlı prompt üretmek
+// için kullanılıyor — PDF yükleme yolunda ünite ayrımını Gemini otomatik
+// yapıyor (bkz. processDocument.ts), admin ünite seçmek zorunda değil.
 export default function RagDocumentsPanel() {
   const [grades, setGrades] = useState<Row[]>([]);
   const [lessons, setLessons] = useState<Row[]>([]);
@@ -255,7 +256,7 @@ export default function RagDocumentsPanel() {
             </label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Aynı sınıf/ders için birden fazla cilt yükleyebilirsiniz (ör. &quot;Sosyal Bilgiler 1&quot;, &quot;Sosyal Bilgiler 2&quot;) — hepsi tek bir arama kapsamında birleşir. Supabase Free plan yükleme boyutu 50MB ile sınırlı; daha büyük PDF'ler için aşağıdaki NotebookLM akışını kullanın.
+            Aynı sınıf/ders için birden fazla cilt/parça yükleyebilirsiniz (ör. &quot;Sosyal Bilgiler 1&quot;, &quot;Sosyal Bilgiler 2&quot; ya da 50MB sınırı için bölünmüş parçalar) — hepsi tek bir arama kapsamında birleşir. Ünite tanımlıysa içerik otomatik olarak doğru üniteye etiketlenir (bir ünite birden fazla parçaya dağılmış olsa bile). Supabase Free plan yükleme boyutu 50MB ile sınırlı; daha büyük PDF'ler için aşağıdaki NotebookLM akışını kullanın.
           </p>
         </div>
       )}
