@@ -1,8 +1,9 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Pencil, Play, RotateCcw, Share2, Trash2, Trophy, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Trash2, Trophy, X, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
@@ -114,24 +115,105 @@ function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () 
   );
 }
 
+const MIN_IMAGE_ZOOM = 1;
+const MAX_IMAGE_ZOOM = 3;
+const IMAGE_ZOOM_STEP = 0.25;
+
 export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   // sanitizeMathSvg (DOMPurify) window/DOM gerektirir; bu bileşen /soru-bankasi gibi
   // SSR sayfalarında da render edildiği için temizlemeyi sunucu tarafında DEĞİL, mount
   // sonrası client'ta yapıyoruz (bkz. SectionContent.tsx'teki aynı desen) — aksi halde
   // sunucuda "window is not defined" ile sayfa 500 verir.
   const [clean, setClean] = useState<string | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     setClean(svgContent ? sanitizeMathSvg(svgContent) : null);
   }, [svgContent]);
 
+  // Tam ekran açıkken Escape ile kapansın — SectionContent.tsx'teki konu anlatımı
+  // görsel/diyagram zoom'uyla aynı davranış.
+  useEffect(() => {
+    if (!zoomed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomed(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [zoomed]);
+
   if (!clean) return null;
+
   return (
-    <div
-      role="img"
-      className="mb-4 flex justify-center rounded-xl border border-default bg-white p-3 [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-56 [&_svg]:max-w-full sm:[&_svg]:max-h-64"
-      dangerouslySetInnerHTML={{ __html: clean }}
-    />
+    <>
+      <button
+        type="button"
+        role="img"
+        onClick={() => {
+          setZoom(1);
+          setZoomed(true);
+        }}
+        title="Büyütmek için tıkla"
+        className="mb-4 flex w-full cursor-zoom-in justify-center rounded-xl border border-default bg-white p-3 transition hover:border-indigo-300 hover:shadow-sm [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-56 [&_svg]:max-w-full sm:[&_svg]:max-h-64"
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+      {zoomed && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm sm:p-8"
+          onClick={() => setZoomed(false)}
+        >
+          <div
+            className="relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-end gap-1.5 border-b border-default p-2">
+              <div className="flex items-center gap-0.5 rounded-lg border border-default pr-1">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(MIN_IMAGE_ZOOM, +(z - IMAGE_ZOOM_STEP).toFixed(2)))}
+                  disabled={zoom <= MIN_IMAGE_ZOOM}
+                  aria-label="Küçült"
+                  title="Küçült"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-10 text-center text-[11px] font-black text-muted-foreground">%{Math.round(zoom * 100)}</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(MAX_IMAGE_ZOOM, +(z + IMAGE_ZOOM_STEP).toFixed(2)))}
+                  disabled={zoom >= MAX_IMAGE_ZOOM}
+                  aria-label="Büyüt"
+                  title="Büyüt"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setZoomed(false)}
+                aria-label="Kapat"
+                title="Kapat"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-auto p-6">
+              <div
+                style={{ zoom }}
+                role="img"
+                className="mx-auto w-fit [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: clean }}
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
