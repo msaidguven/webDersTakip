@@ -90,12 +90,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError?.message || 'Belge kaydedilemedi' }, { status: 500 });
   }
 
+  // Büyük kitaplarda (onlarca sayfa-batch'i) işlem maxDuration'ı (300sn) aşıp
+  // fonksiyon platform tarafından sessizce (hiçbir catch/finally çalışmadan)
+  // öldürülebiliyor — bu durumda satır kalıcı olarak 'processing'de takılı
+  // kalıyordu (2026-09-08'de canlıda gözlemlendi). Bu yarış, gerçek kill'den
+  // önce satırı 'failed' olarak işaretleyip admin panelinde görünür kılıyor.
+  const SOFT_TIMEOUT_MS = 270_000;
   try {
-    await processRagDocument(supabase, document.id, gradeId, lessonId, fileName, buffer);
+    await Promise.race([
+      processRagDocument(supabase, document.id, gradeId, lessonId, fileName, buffer),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('İşlem zaman aşımına uğradı (PDF çok büyük olabilir) — daha küçük parçalara bölüp tekrar deneyin.')), SOFT_TIMEOUT_MS);
+      }),
+    ]);
   } catch (err) {
-    // processRagDocument zaten rag_documents.status='failed' yazdı; admin panelinde görünür.
     const message = err instanceof Error ? err.message : String(err);
     console.error('RAG belge işleme hatası', message);
+    // status='processing' koruması: processRagDocument kendi hatasında satırı
+    // zaten 'failed' yazmış olabilir, ya da ilk segment bu sırada 'ready' olmuş
+    // olabilir — sadece hâlâ 'processing'de takılı kalanı güncelliyoruz.
+    await supabase
+      .from('rag_documents')
+      .update({ status: 'failed', error_message: message, updated_at: new Date().toISOString() })
+      .eq('id', document.id)
+      .eq('status', 'processing');
   }
 
   return NextResponse.json({ id: document.id });

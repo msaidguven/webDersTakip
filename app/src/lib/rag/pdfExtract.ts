@@ -7,9 +7,12 @@ export type PdfTextSegment = { unitId: number | null; unitTitle: string | null; 
 export type PdfExtractResult = { pageCount: number; segments: PdfTextSegment[] };
 
 // Kitap tek seferde Gemini'ye gönderilmiyor çünkü çıktı token limiti büyük
-// kitaplarda yetersiz kalabiliyor; ~20 sayfalık alt-PDF'lere bölünüp en fazla
-// 3 tanesi eşzamanlı transkribe ediliyor.
-const PAGES_PER_BATCH = 20;
+// kitaplarda yetersiz kalabiliyor; ~12 sayfalık alt-PDF'lere bölünüp en fazla
+// 3 tanesi eşzamanlı transkribe ediliyor. 20'den 12'ye düşürüldü: 91 sayfalık
+// gerçek bir kitapta (5 batch) toplam süre route'taki 300sn maxDuration'ı
+// aşıp fonksiyonun sessizce öldürülmesine yol açmıştı (2026-09-08) — daha
+// küçük batch'ler her çağrıyı hızlandırıp toplam riski azaltıyor.
+const PAGES_PER_BATCH = 12;
 const MAX_CONCURRENT_BATCHES = 3;
 
 async function getPageCount(buffer: Buffer): Promise<number> {
