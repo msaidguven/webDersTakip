@@ -119,9 +119,17 @@ export default function AiQuestionDraftsPanel() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
     });
-    return res.ok;
+    if (!res.ok) return { ok: false, claimed: false };
+    const data = await res.json().catch(() => null);
+    return { ok: true, claimed: data?.claimed !== false };
   }
 
+  // ÖNEMLİ (kullanıcının 2026-09-08 bulduğu bug: çift tıklama/iki sekme aynı taslağı iki
+  // kez kaydedince sorular tekrarlı ekleniyordu): durum güncellemesi artık soruları
+  // /section/[sectionId]/questions'a göndermeden ÖNCE, atomik bir "kilitleme" adımı
+  // olarak çağrılıyor. persistStatus, sadece durum HÂLÂ 'pending'se satırı günceller
+  // (bkz. o route'taki .eq('status','pending')) — ikinci bir çağrı claimed:false döner
+  // ve bu fonksiyon soruları HİÇ eklemeden çıkar.
   async function handleSave(draft: Draft, wantMore: boolean) {
     setBusyId(draft.id);
     try {
@@ -129,10 +137,20 @@ export default function AiQuestionDraftsPanel() {
       if (kept.length === 0) {
         // Hiçbir soru tutulmadıysa "tam red" ile aynı — ayrıca boş bir kaydetme isteği
         // atmaya gerek yok.
-        const ok = await persistStatus(draft.id, 'reject');
+        const { ok, claimed } = await persistStatus(draft.id, 'reject');
         if (!ok) { showNotice('error', 'İşlem başarısız oldu'); return; }
         setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
-        showNotice('success', 'Taslak reddedildi (hiçbir soru tutulmadı)');
+        showNotice(claimed ? 'success' : 'error', claimed ? 'Taslak reddedildi (hiçbir soru tutulmadı)' : 'Bu taslak zaten işlenmişti, tekrar işlenmedi');
+        return;
+      }
+
+      const { ok, claimed } = await persistStatus(draft.id, wantMore ? 'mark_saved_want_more' : 'mark_saved');
+      if (!ok) { showNotice('error', 'İşlem başarısız oldu'); return; }
+      if (!claimed) {
+        // Başka bir istek (çift tık, ikinci sekme) bu taslağı ZATEN işlemiş — soruları
+        // TEKRAR eklemiyoruz, sadece ekrandan kaldırıp durumu bildiriyoruz.
+        setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
+        showNotice('error', 'Bu taslak zaten kaydedilmiş/reddedilmiş — tekrar kaydedilmedi');
         return;
       }
 
@@ -143,12 +161,13 @@ export default function AiQuestionDraftsPanel() {
       });
       const saveData = await saveRes.json().catch(() => null);
       if (!saveRes.ok) {
-        showNotice('error', saveData?.error || 'Sorular kaydedilemedi');
+        // Durum zaten 'saved'e döndü ama sorular eklenemedi — nadir bir ağ/validasyon
+        // hatası; taslağı listede TUTUYORUZ ki admin fark edip elle tekrar denesin
+        // (persistStatus artık claimed:false dönüp bir daha soru eklenmesini engelleyecek,
+        // bu yüzden burada ayrı bir "tekrar dene" akışı yok — manuel kontrol gerekir).
+        showNotice('error', `${saveData?.error || 'Sorular kaydedilemedi'} — taslağın durumu değişti, admin ile kontrol edin`);
         return;
       }
-
-      const ok = await persistStatus(draft.id, wantMore ? 'mark_saved_want_more' : 'mark_saved');
-      if (!ok) { showNotice('error', 'Sorular kaydedildi ama taslak durumu güncellenemedi'); return; }
 
       setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
       showNotice('success', `${saveData?.savedCount ?? kept.length} soru kaydedildi${wantMore ? ' — bu alt başlık için tekrar üretim kuyruğa alındı' : ''}`);
@@ -162,10 +181,10 @@ export default function AiQuestionDraftsPanel() {
   async function handleRejectAll(draft: Draft) {
     setBusyId(draft.id);
     try {
-      const ok = await persistStatus(draft.id, 'reject');
+      const { ok, claimed } = await persistStatus(draft.id, 'reject');
       if (!ok) { showNotice('error', 'İşlem başarısız oldu'); return; }
       setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
-      showNotice('success', 'Taslak reddedildi');
+      showNotice(claimed ? 'success' : 'error', claimed ? 'Taslak reddedildi' : 'Bu taslak zaten işlenmişti');
     } finally {
       setBusyId(null);
     }
