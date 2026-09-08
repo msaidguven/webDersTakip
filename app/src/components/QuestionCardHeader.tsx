@@ -6,7 +6,7 @@
 // buraya, tek seferde bir soru değil aynı anda 20-70 soru kartı render edildiği için (her
 // kartın kendi paylaş/silme durumu olması gerektiğinden) ayrı bir component olarak taşındı.
 import { useState } from 'react';
-import { Pencil, Share2, Trash2 } from 'lucide-react';
+import { Minus, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { TYPE_LABELS } from '@/app/src/components/QuizClient';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
@@ -16,23 +16,11 @@ function shareTextFor(q: QuizQuestion): string {
   return q.question_text;
 }
 
-export default function QuestionCardHeader({
-  question: q,
-  isAdmin,
-  basePath,
-  onDeleted,
-}: {
-  question: QuizQuestion;
-  isAdmin: boolean;
-  basePath: string;
-  onDeleted: (questionId: number) => void;
-}) {
+// Soru kartının altındaki birleşik "Yorum Yap / Soru Paylaş" eylem çubuğunda kullanılıyor
+// (bkz. QuestionBankBoard.tsx) — paylaşım mantığı burada kalıyor çünkü q.id/basePath'e
+// ihtiyaç duyuyor, ama üst header'daki ayrı ikondan çıkarılıp alttaki çubuğa taşındı.
+export function ShareQuestionButton({ question: q, basePath }: { question: QuizQuestion; basePath: string }) {
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
-  const [editOpen, setEditOpen] = useState(false);
-  const [editSaved, setEditSaved] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleShare = async () => {
     const url = `${window.location.origin}${basePath}?soru=${q.id}`;
@@ -52,6 +40,41 @@ export default function QuestionCardHeader({
       // Clipboard API yoksa (çok eski tarayıcı) sessizce yok say
     }
   };
+
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+    >
+      <Share2 className="h-3.5 w-3.5" /> {shareState === 'copied' ? 'Bağlantı kopyalandı!' : 'Soru Paylaş'}
+    </button>
+  );
+}
+
+const MIN_SCALE = 1;
+const MAX_SCALE = 2.2;
+
+export default function QuestionCardHeader({
+  question: q,
+  isAdmin,
+  onDeleted,
+  scale,
+  onScaleDecrease,
+  onScaleIncrease,
+}: {
+  question: QuizQuestion;
+  isAdmin: boolean;
+  onDeleted: (questionId: number) => void;
+  scale: number;
+  onScaleDecrease: () => void;
+  onScaleIncrease: () => void;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaved, setEditSaved] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -76,19 +99,33 @@ export default function QuestionCardHeader({
   return (
     <>
       <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
-        <span className="inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+        <span className="inline-block rounded-full bg-indigo-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">
           {TYPE_LABELS[q.type]}
         </span>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="Soruyu paylaş"
-            title="Soruyu paylaş"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-0.5 rounded-lg border border-default pr-1">
+            <button
+              type="button"
+              onClick={onScaleDecrease}
+              disabled={scale <= MIN_SCALE}
+              aria-label="Yazıyı küçült"
+              title="Yazıyı küçült"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <span className="w-8 text-center text-[10px] font-black text-muted-foreground">%{Math.round(scale * 100)}</span>
+            <button
+              type="button"
+              onClick={onScaleIncrease}
+              disabled={scale >= MAX_SCALE}
+              aria-label="Yazıyı büyüt"
+              title="Yazıyı büyüt (akıllı tahta için)"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {isAdmin && (
             <>
               <button
@@ -113,7 +150,6 @@ export default function QuestionCardHeader({
           )}
         </div>
       </div>
-      {shareState === 'copied' && <p className="mb-2 text-xs font-bold text-emerald-500">Bağlantı kopyalandı!</p>}
       {editSaved && <p className="mb-2 text-xs font-bold text-emerald-500">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
 
       {editOpen && (

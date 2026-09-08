@@ -473,11 +473,11 @@ export function QuestionAnswerKeyItem({
         <ul className="mt-2.5 space-y-1.5 text-sm">
           {optionList.map((opt) => {
             const isChosen = selectedId === opt.id;
-            let cls = 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5';
+            let cls = 'border border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5';
             if (answered) {
-              if (opt.is_correct) cls = 'border-emerald-400/60 bg-emerald-500/10 text-emerald-500 font-bold';
-              else if (isChosen) cls = 'border-rose-400/60 bg-rose-500/10 text-rose-500 font-bold';
-              else cls = 'border-default bg-surface text-muted-foreground opacity-60';
+              if (opt.is_correct) cls = 'border-2 border-emerald-500 bg-emerald-500/10 text-emerald-500 font-bold';
+              else if (isChosen) cls = 'border-2 border-rose-500 bg-rose-500/10 text-rose-500 font-bold';
+              else cls = 'border border-default bg-surface text-muted-foreground opacity-60';
             }
             return (
               <li key={opt.id}>
@@ -487,7 +487,7 @@ export function QuestionAnswerKeyItem({
                   disabled={selectedId != null}
                   aria-expanded={answered}
                   aria-controls={explanationId}
-                  className={`flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-left font-medium transition-colors disabled:cursor-default ${cls}`}
+                  className={`flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left font-medium transition-colors disabled:cursor-default ${cls}`}
                 >
                   <span
                     data-open={answered}
@@ -525,33 +525,56 @@ export function QuestionAnswerKeyItem({
         </button>
       )}
 
-      <div
-        id={explanationId}
-        data-open={answered}
-        aria-hidden={!answered}
-        className="cevap-aciklama grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out data-[open=true]:grid-rows-[1fr] data-[open=true]:opacity-100 data-[open=true]:mt-2.5"
-      >
-        <div className="overflow-hidden">
-          {q.type === 'matching' && (
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              {q.pairs.map((p) => (
-                <li key={p.id}>
-                  <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
-                </li>
-              ))}
-            </ul>
-          )}
-          {q.type === 'classical' && q.modelAnswer && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-black text-indigo-500">Model Cevap: </span>
-              {q.modelAnswer}
-            </p>
-          )}
-          {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-            <p className="text-xs text-muted-foreground">{q.solution_text}</p>
-          )}
-        </div>
-      </div>
+      {(() => {
+        const selectedOption = optionList?.find((o) => o.id === selectedId);
+        const matchAllCorrect = q.type === 'matching' && q.pairs.every((p) => assignment[p.id] === p.id);
+        const hasExplanation =
+          q.type === 'matching' || (q.type === 'classical' && !!q.modelAnswer) || ((q.type === 'multiple_choice' || q.type === 'blank') && !!q.solution_text);
+        const accentCls =
+          q.type === 'classical'
+            ? 'border-indigo-500 bg-indigo-500/5'
+            : q.type === 'matching'
+              ? matchAllCorrect
+                ? 'border-emerald-500 bg-emerald-500/5'
+                : 'border-rose-500 bg-rose-500/5'
+              : selectedOption?.is_correct
+                ? 'border-emerald-500 bg-emerald-500/5'
+                : 'border-rose-500 bg-rose-500/5';
+
+        return (
+          <div
+            id={explanationId}
+            data-open={answered}
+            aria-hidden={!answered}
+            className="cevap-aciklama grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out data-[open=true]:grid-rows-[1fr] data-[open=true]:opacity-100 data-[open=true]:mt-2.5"
+          >
+            <div className="overflow-hidden">
+              {hasExplanation && (
+                <div className={`rounded-r-lg border-l-4 p-3 ${accentCls}`}>
+                  {q.type === 'matching' && (
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {q.pairs.map((p) => (
+                        <li key={p.id}>
+                          <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {q.type === 'classical' && q.modelAnswer && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-black text-indigo-500">Model Cevap: </span>
+                      {q.modelAnswer}
+                    </p>
+                  )}
+                  {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+                    <p className="text-xs text-muted-foreground">{q.solution_text}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

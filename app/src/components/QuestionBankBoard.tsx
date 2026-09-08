@@ -15,10 +15,10 @@
 // Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
 // takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Minus, MessageCircle, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MessageCircle, X } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
-import QuestionCardHeader from '@/app/src/components/QuestionCardHeader';
+import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 
@@ -151,7 +151,6 @@ export default function QuestionBankBoard({
   }, [scale]);
 
   const scoreableIds = useMemo(() => questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id), [questions]);
-  const answeredCount = scoreableIds.filter((id) => id in answers).length;
   const correctCount = scoreableIds.filter((id) => answers[id] === 'correct').length;
 
   const handleAnswered = useCallback((questionId: number, status: AnswerStatus) => {
@@ -168,48 +167,22 @@ export default function QuestionBankBoard({
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-default bg-surface-elevated px-3.5 py-2.5 sm:mb-6 sm:px-4">
-        <div className="text-xs font-black">
-          <span className="text-default">
-            {answeredCount}/{scoreableIds.length} soru cevaplandı
-          </span>
-          <span className="ml-2.5 text-emerald-500">{correctCount} doğru</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setScale((s) => Math.max(MIN_SCALE, Math.round((s - SCALE_STEP) * 100) / 100))}
-            disabled={scale <= MIN_SCALE}
-            aria-label="Yazıyı küçült"
-            title="Yazıyı küçült"
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-default text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <span className="w-9 text-center text-[10px] font-black text-muted-foreground">%{Math.round(scale * 100)}</span>
-          <button
-            type="button"
-            onClick={() => setScale((s) => Math.min(MAX_SCALE, Math.round((s + SCALE_STEP) * 100) / 100))}
-            disabled={scale >= MAX_SCALE}
-            aria-label="Yazıyı büyüt"
-            title="Yazıyı büyüt (akıllı tahta için)"
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-default text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
       {questions.length > 0 && (
-        <div className="mb-3 space-y-1.5 sm:mb-4">
-          <p className="text-xs font-black text-muted-foreground">
-            Soru {activeIndex + 1} / {questions.length}
-          </p>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-default/10">
-            <div
-              className="h-full rounded-full bg-indigo-500 transition-all"
-              style={{ width: `${((activeIndex + 1) / questions.length) * 100}%` }}
-            />
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-default bg-surface-elevated px-3.5 py-2.5 sm:mb-6 sm:px-4">
+          <span className="shrink-0 rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-black text-indigo-500">
+            Soru {activeIndex + 1}/{questions.length}
+          </span>
+          <span className="shrink-0 text-xs font-black text-emerald-500">{correctCount} doğru</span>
+          <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:max-w-40">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-default/10">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all"
+                style={{ width: `${((activeIndex + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-[10px] font-black text-muted-foreground">
+              %{Math.round(((activeIndex + 1) / questions.length) * 100)}
+            </span>
           </div>
         </div>
       )}
@@ -227,18 +200,29 @@ export default function QuestionBankBoard({
             className="question-bank-item rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6"
             style={{ display: i === activeIndex ? undefined : 'none' }}
           >
-            <QuestionCardHeader question={q} isAdmin={isAdmin} basePath={basePath} onDeleted={handleDeleted} />
+            <QuestionCardHeader
+              question={q}
+              isAdmin={isAdmin}
+              onDeleted={handleDeleted}
+              scale={scale}
+              onScaleDecrease={() => setScale((s) => Math.max(MIN_SCALE, Math.round((s - SCALE_STEP) * 100) / 100))}
+              onScaleIncrease={() => setScale((s) => Math.min(MAX_SCALE, Math.round((s + SCALE_STEP) * 100) / 100))}
+            />
             <div style={{ zoom: scale }}>
               <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
             </div>
 
-            <button
-              type="button"
-              onClick={() => setCommentsForId(q.id)}
-              className="mt-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
-            >
-              <MessageCircle className="h-3.5 w-3.5" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
-            </button>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
+              <button
+                type="button"
+                onClick={() => setCommentsForId(q.id)}
+                className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> Yorum Yap{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
+              </button>
+              <div className="h-4 w-px shrink-0 bg-default/30" />
+              <ShareQuestionButton question={q} basePath={basePath} />
+            </div>
           </div>
         ))}
       </div>
