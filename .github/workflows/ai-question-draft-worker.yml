@@ -1,0 +1,21 @@
+name: AI Question Draft Worker
+
+# RAG kuyruğu (rag-queue-worker.yml) boşken 5 dakikalık döngüler boşa gidiyordu —
+# kullanıcının 2026-09-08 isteği: bunun yerine, kitabı yüklü ünitelerdeki sorusu eksik
+# alt başlıklar için 3 saatte bir tek bir AI soru taslağı üretilsin (admin onaylayana
+# kadar yayınlanmaz, bkz. app/api/admin/ai-question-drafts). Ayrı bir workflow olarak
+# tutuluyor ki @kanka/@hocam akışının sıklığına/mantığına hiç dokunulmasın; aynı worker
+# secret'ı paylaşılıyor.
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  generate-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call generate-practice-question endpoint
+        run: |
+          curl -sf -X POST "https://www.derstakip.net/api/rag/generate-practice-question" \
+            -H "Authorization: Bearer ${{ secrets.RAG_QUEUE_WORKER_SECRET }}"

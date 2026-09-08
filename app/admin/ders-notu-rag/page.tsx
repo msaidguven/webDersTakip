@@ -5,11 +5,12 @@ import Link from 'next/link';
 import RagDocumentsPanel from '@/app/src/components/admin/RagDocumentsPanel';
 import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
+import AiQuestionDraftsPanel from '@/app/src/components/admin/AiQuestionDraftsPanel';
 import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'reports' | 'qa' | 'documents';
+type Tab = 'reports' | 'qa' | 'documents' | 'drafts';
 
 export default function DersNotuRagPage() {
   const [tab, setTab] = useState<Tab>('reports');
@@ -28,10 +29,12 @@ export default function DersNotuRagPage() {
           <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} label="Bildirilenler" />
           <TabButton active={tab === 'qa'} onClick={() => setTab('qa')} label="Onay Bekleyenler" />
           <TabButton active={tab === 'documents'} onClick={() => setTab('documents')} label="Ders Notu PDF'leri" />
+          <TabButton active={tab === 'drafts'} onClick={() => setTab('drafts')} label="AI Soru Taslakları" />
         </div>
         {tab === 'reports' && <RagReportsPanel />}
         {tab === 'qa' && <RagQaApprovalPanel />}
         {tab === 'documents' && <RagDocumentsPanel />}
+        {tab === 'drafts' && <AiQuestionDraftsPanel />}
       </main>
     </div>
   );
