@@ -15,7 +15,7 @@
 // Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
 // takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LayoutGrid, MessageCircle, X } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
@@ -112,6 +112,10 @@ export default function QuestionBankBoard({
   // (ör. "c88" bir yorum, "a56" bir AI cevabı) — UnitDiscussion'a geçiliyor, o da
   // feed yüklenince o kayda kaydırıp kısa süreliğine vurguluyor.
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
+  // Mobilde masaüstündeki sabit yan "optik" panel yerine kullanılan alt sayfa (bottom
+  // sheet) — dar ekranda fixed bir yan panel ya içeriğin üstüne biner ya da hiç sığmaz,
+  // bu yüzden bir FAB ile açılıp kapanan bir liste olarak gösteriliyor.
+  const [mapOpen, setMapOpen] = useState(false);
 
   // Profildeki "Yorumlarım"dan ?soru=ID&yorum=... ile gelen deep-link'ler (bkz.
   // QuestionBankHighlight) ilgili sorunun yorum modalini otomatik açsın diye —
@@ -149,6 +153,20 @@ export default function QuestionBankBoard({
   useEffect(() => {
     localStorage.setItem(FONT_SCALE_KEY, String(scale));
   }, [scale]);
+
+  useEffect(() => {
+    if (!mapOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMapOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mapOpen]);
 
   const scoreableIds = useMemo(() => questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id), [questions]);
   const correctCount = scoreableIds.filter((id) => answers[id] === 'correct').length;
@@ -269,27 +287,97 @@ export default function QuestionBankBoard({
       })()}
 
       {questions.length > 1 && (
-        <nav
-          aria-label="Sorular arası hızlı geçiş"
-          className="fixed right-3 top-1/2 z-20 hidden max-h-[75vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-default bg-surface-elevated/95 p-2.5 shadow-lg backdrop-blur lg:block"
-        >
-          <div className="grid grid-cols-4 gap-1.5">
-            {questions.map((q, i) => (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => setActiveIndex(i)}
-                title={`Soru ${i + 1}`}
-                aria-label={`Soru ${i + 1}'e git`}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(answers[q.id])} ${
-                  i === activeIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
-                }`}
+        <>
+          {/* Masaüstü: sağda sabit duran optik panel */}
+          <nav
+            aria-label="Sorular arası hızlı geçiş"
+            className="fixed right-3 top-1/2 z-20 hidden max-h-[75vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-default bg-surface-elevated/95 p-2.5 shadow-lg backdrop-blur lg:block"
+          >
+            <div className="grid grid-cols-4 gap-1.5">
+              {questions.map((q, i) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setActiveIndex(i)}
+                  title={`Soru ${i + 1}`}
+                  aria-label={`Soru ${i + 1}'e git`}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(answers[q.id])} ${
+                    i === activeIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Mobil/tablet: sabit panel sığmadığı için yüzen bir buton + açılır alt sayfa */}
+          <button
+            type="button"
+            onClick={() => setMapOpen(true)}
+            aria-label="Soru haritasını aç"
+            title="Soru haritası"
+            className="fixed bottom-4 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 transition-transform hover:scale-105 active:scale-95 lg:hidden"
+          >
+            <LayoutGrid className="h-5 w-5" />
+          </button>
+
+          {mapOpen && (
+            <div
+              className="fixed inset-0 z-[60] flex items-end bg-black/70 backdrop-blur-sm lg:hidden"
+              onClick={() => setMapOpen(false)}
+            >
+              <div
+                className="max-h-[75vh] w-full overflow-y-auto rounded-t-2xl border-t border-default bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+                onClick={(event) => event.stopPropagation()}
               >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </nav>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-black text-default">Soru Haritası</h3>
+                  <button
+                    type="button"
+                    onClick={() => setMapOpen(false)}
+                    aria-label="Kapat"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated hover:text-default transition-colors"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Doğru
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Yanlış
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> Gösterildi
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full border border-default bg-surface" /> Boş
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-2.5 sm:grid-cols-6">
+                  {questions.map((q, i) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveIndex(i);
+                        setMapOpen(false);
+                      }}
+                      aria-label={`Soru ${i + 1}'e git`}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black transition-transform active:scale-90 ${dotColorClass(answers[q.id])} ${
+                        i === activeIndex ? 'ring-2 ring-offset-1 ring-offset-surface ring-indigo-500' : ''
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
