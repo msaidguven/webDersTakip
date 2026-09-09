@@ -126,54 +126,7 @@ GRANT EXECUTE ON FUNCTION get_week_view_web(bigint, bigint, integer) TO anon;
 
 
 -- 4. HAFTANIN KONU İÇERİKLERİNİ GETİR (VIDEO YERINE)
-DROP FUNCTION IF EXISTS web_get_topic_contents_for_week(bigint, bigint, integer);
-
-CREATE OR REPLACE FUNCTION web_get_topic_contents_for_week(
-    p_lesson_id bigint,
-    p_grade_id bigint,
-    p_week_number integer
-)
-RETURNS TABLE (
-    id bigint,
-    topic_id bigint,
-    title text,
-    content text,
-    order_no integer,
-    topic_title text,
-    unit_title text
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        tc.id,
-        tc.topic_id,
-        tc.title,
-        tc.content,
-        tc.order_no,
-        t.title AS topic_title,
-        u.title AS unit_title
-    FROM
-        public.topic_contents AS tc
-    JOIN
-        public.topic_content_weeks AS tcw ON tc.id = tcw.topic_content_id
-    JOIN
-        public.topics AS t ON tc.topic_id = t.id
-    JOIN
-        public.units AS u ON t.unit_id = u.id
-    JOIN
-        public.lesson_grades AS lg ON u.lesson_id = lg.lesson_id
-    WHERE
-        u.lesson_id = p_lesson_id
-        AND lg.grade_id = p_grade_id
-        AND tcw.curriculum_week = p_week_number
-        AND lg.is_active = true
-    ORDER BY
-        tc.order_no ASC;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION web_get_topic_contents_for_week(bigint, bigint, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION web_get_topic_contents_for_week(bigint, bigint, integer) TO anon;
+-- 2026-09-09'da kaldırıldı: hiçbir web kodu bu fonksiyonu çağırmıyordu (tek çağıran yer,
+-- app/src/viewmodels/useDersViewModel.ts, hiçbir yerden import edilmeyen ölü koddu) ve
+-- kullandığı public.topic_content_weeks tablosu artık yok (bkz. supabase/migrations/
+-- drop_dead_topic_content_weeks_triggers.sql) — çağrılsa zaten hata verirdi.

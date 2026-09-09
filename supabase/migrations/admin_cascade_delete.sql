@@ -30,7 +30,6 @@ BEGIN
       ('topic_content_section_outcomes', 'outcome_id', 'outcomes', 'id', 'CASCADE', 'topic_content_section_outcomes_outcome_id_fkey'),
       ('topic_content_highlights', 'topic_content_id', 'topic_contents', 'id', 'CASCADE', 'topic_content_highlights_topic_content_id_fkey'),
       ('topic_content_tips', 'topic_content_id', 'topic_contents', 'id', 'CASCADE', 'topic_content_tips_topic_content_id_fkey'),
-      ('topic_content_weeks', 'topic_content_id', 'topic_contents', 'id', 'CASCADE', 'topic_content_weeks_topic_content_id_fkey'),
       ('topic_content_outcomes', 'topic_content_id', 'topic_contents', 'id', 'CASCADE', 'topic_content_outcomes_topic_content_id_fkey'),
       ('topic_content_outcomes', 'outcome_id', 'outcomes', 'id', 'CASCADE', 'topic_content_outcomes_outcome_id_fkey'),
       ('unit_videos', 'unit_id', 'units', 'id', 'CASCADE', 'unit_videos_unit_id_fkey'),
