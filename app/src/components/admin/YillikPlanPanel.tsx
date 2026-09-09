@@ -92,6 +92,31 @@ type UnitContentResponse = {
 
 type InspectTarget = { unitId: number; tymmUrl: string; unitTitle: string };
 
+type CompareTopicDiff = {
+  status: 'same' | 'changed' | 'tymm-only' | 'db-only';
+  title: string;
+  dbTopicId: number | null;
+  learningOutcomeChanged: boolean;
+  outcomesAdded: string[];
+  outcomesRemoved: string[];
+};
+type CompareUnitDiff = {
+  status: 'same' | 'changed' | 'tymm-only' | 'db-only';
+  tymmUrl: string;
+  tymmTitle: string;
+  dbUnitId: number | null;
+  dbUnitTitle: string | null;
+  durationHoursChanged: boolean;
+  keyConceptsAdded: string[];
+  keyConceptsRemoved: string[];
+  topics: CompareTopicDiff[];
+};
+type CompareBulkResponse = {
+  unitsFound: number;
+  results: CompareUnitDiff[];
+  fetchErrors: { url: string; title: string; error: string }[];
+};
+
 const STEP_ENDPOINTS: Record<StepKey, string> = {
   units: '/api/admin/yillik-plan/import-units',
   topics: '/api/admin/yillik-plan/import-topics',
@@ -101,7 +126,7 @@ const STEP_ENDPOINTS: Record<StepKey, string> = {
 export default function YillikPlanPanel() {
   // Karışık görünmesin diye üç ayrı iş akışı sekmelere ayrıldı — DOCX yükleme ve Ders/Sınıf
   // seçimi ise her sekmede kullanıldığı için sekmelerin dışında, hep görünür kalıyor.
-  const [activeTab, setActiveTab] = useState<'docx' | 'tymm' | 'weeks'>('docx');
+  const [activeTab, setActiveTab] = useState<'docx' | 'tymm' | 'weeks' | 'compare'>('docx');
 
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
@@ -170,6 +195,47 @@ export default function YillikPlanPanel() {
   const [weekCommitting, setWeekCommitting] = useState(false);
   const [weekCommitResult, setWeekCommitResult] = useState<CommitWeeksResponse | null>(null);
   const [weekCommitErr, setWeekCommitErr] = useState<string | null>(null);
+
+  // Kontrol Et sekmesi (sadece okuma): seçili ders/sınıfın TYMM sayfasındaki tüm ünitelerini
+  // canlı çekip DB'deki mevcut içerikle toplu kıyaslar — hiçbir şey yazmaz.
+  const [comparePageUrl, setComparePageUrl] = useState('');
+  const [comparing, setComparing] = useState(false);
+  const [compareErr, setCompareErr] = useState<string | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareBulkResponse | null>(null);
+  const [compareExpanded, setCompareExpanded] = useState<Set<number>>(new Set());
+
+  async function runCompare() {
+    if (!comparePageUrl.trim() || !lessonId || !gradeId) return;
+    setComparing(true);
+    setCompareErr(null);
+    setCompareResult(null);
+    setCompareExpanded(new Set());
+    try {
+      const res = await fetch('/api/admin/tymm/compare-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageUrl: comparePageUrl.trim(), lessonId, gradeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCompareErr(data?.error || 'Karşılaştırma başarısız');
+        return;
+      }
+      setCompareResult(data as CompareBulkResponse);
+    } catch {
+      setCompareErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setComparing(false);
+    }
+  }
+
+  function toggleCompareExpanded(idx: number) {
+    setCompareExpanded((s) => {
+      const next = new Set(s);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -581,6 +647,7 @@ export default function YillikPlanPanel() {
           { key: 'docx', label: '📄 Klasik Aktarım' },
           { key: 'tymm', label: '🌐 TYMM’den Aktar' },
           { key: 'weeks', label: '📅 Hafta Ata' },
+          { key: 'compare', label: '🔍 Kontrol Et' },
         ]}
         active={activeTab}
         onSelect={(k) => setActiveTab(k as typeof activeTab)}
@@ -953,6 +1020,81 @@ export default function YillikPlanPanel() {
             <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-3">✅ {weekCommitResult.weeksWritten} hafta kaydı yazıldı</p>
           )}
         </>
+        )}
+      </Card>
+      )}
+
+      {activeTab === 'compare' && (
+      <Card title="DB'yi Güncel TYMM ile Kontrol Et">
+        <p className="text-xs text-muted-foreground mb-4">
+          Yukarıda seçili ders/sınıfın TYMM sayfasındaki TÜM üniteleri canlı çeker ve aynı ders/sınıfın DB&apos;deki
+          mevcut ünite/konu/kazanımlarıyla tek seferde kıyaslar. Hiçbir şey yazmaz — sadece hangi ünitelerin/konuların/
+          kazanımların TYMM&apos;deki güncel haliyle aynı olmadığını gösterir. Eşleştirme ünite/konu başlığının,
+          kazanım ise açıklama metninin birebir aynı olmasına dayanır.
+        </p>
+
+        {(!lessonId || !gradeId) && (
+          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+            ⚠️ Önce yukarıda Ders ve Sınıf seçin.
+          </p>
+        )}
+
+        <div className="mb-3">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">TYMM Ders/Sınıf Sayfası URL&apos;i</label>
+          <input
+            value={comparePageUrl}
+            onChange={(e) => setComparePageUrl(e.target.value)}
+            placeholder="https://tymm.meb.gov.tr/ogretim-programlari/din-kulturu-ve-ahlak-bilgisi-dersi/6"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
+          />
+        </div>
+
+        <button
+          onClick={runCompare}
+          disabled={comparing || !comparePageUrl.trim() || !lessonId || !gradeId}
+          className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {comparing ? 'Kıyaslanıyor…' : '🔍 Karşılaştır'}
+        </button>
+
+        {compareErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {compareErr}</p>}
+
+        {compareResult && (
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-4 gap-3">
+              <Stat label="TYMM Ünite" value={compareResult.unitsFound} />
+              <Stat label="Aynı" value={compareResult.results.filter((r) => r.status === 'same').length} />
+              <Stat label="Farklı" value={compareResult.results.filter((r) => r.status === 'changed').length} />
+              <Stat
+                label="Eşleşmedi"
+                value={compareResult.results.filter((r) => r.status === 'tymm-only' || r.status === 'db-only').length}
+              />
+            </div>
+
+            {compareResult.fetchErrors.length > 0 && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+                {compareResult.fetchErrors.map((e) => (
+                  <p key={e.url}>⚠️ &quot;{e.title}&quot; çekilemedi: {e.error}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {compareResult.results.map((r, idx) => (
+                <CompareUnitCard
+                  key={`${r.tymmUrl}-${r.dbUnitId ?? idx}`}
+                  diff={r}
+                  expanded={compareExpanded.has(idx)}
+                  onToggle={() => toggleCompareExpanded(idx)}
+                  onInspect={
+                    r.dbUnitId != null && r.tymmUrl
+                      ? () => setInspecting({ unitId: r.dbUnitId as number, tymmUrl: r.tymmUrl, unitTitle: r.dbUnitTitle || r.tymmTitle })
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          </div>
         )}
       </Card>
       )}
@@ -1496,6 +1638,98 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="bg-muted rounded-xl border border-border p-3 text-center">
       <div className="text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">{value}</div>
       <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+const COMPARE_STATUS_STYLE: Record<CompareUnitDiff['status'], { badge: string; label: string; border: string }> = {
+  same: { badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: '✅ Aynı', border: 'border-border' },
+  changed: { badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: '⚠️ Farklı', border: 'border-amber-500/20' },
+  'tymm-only': { badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20', label: '🆕 TYMM’de var, DB’de yok', border: 'border-indigo-500/20' },
+  'db-only': { badge: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: '❌ DB’de var, TYMM’de yok', border: 'border-red-500/20' },
+};
+
+// Toplu kontrol raporundaki tek bir ünitenin özet satırı — "Farklı" ise tıklanınca konu/kazanım
+// bazında hangi metnin eklendiğini/kaldırıldığını gösterir.
+function CompareUnitCard({
+  diff,
+  expanded,
+  onToggle,
+  onInspect,
+}: {
+  diff: CompareUnitDiff;
+  expanded: boolean;
+  onToggle: () => void;
+  onInspect?: () => void;
+}) {
+  const style = COMPARE_STATUS_STYLE[diff.status];
+  const title = diff.dbUnitTitle || diff.tymmTitle;
+  const changedTopics = diff.topics.filter((t) => t.status !== 'same');
+  const canExpand = diff.status === 'changed' || diff.status === 'db-only';
+
+  return (
+    <div className={`rounded-xl border ${style.border} bg-surface p-4`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex-shrink-0 ${style.badge}`}>{style.label}</span>
+          <p className="text-sm font-bold text-foreground truncate">{title}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onInspect && (
+            <button
+              onClick={onInspect}
+              className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
+            >
+              🔍 Yan Yana Gör
+            </button>
+          )}
+          {canExpand && (
+            <button onClick={onToggle} className="text-xs font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">
+              {expanded ? '▲' : '▼'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {diff.status === 'changed' && !expanded && (
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          {diff.durationHoursChanged && 'ders saati değişmiş · '}
+          {(diff.keyConceptsAdded.length > 0 || diff.keyConceptsRemoved.length > 0) && 'anahtar kavramlar değişmiş · '}
+          {changedTopics.length > 0 && `${changedTopics.length} konu/kazanım farklı`}
+        </p>
+      )}
+
+      {expanded && (
+        <div className="mt-3 space-y-2">
+          {diff.durationHoursChanged && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">⏱ Ders saati DB ile TYMM arasında farklı.</p>
+          )}
+          {diff.keyConceptsAdded.length > 0 && (
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">+ Yeni anahtar kavram: {diff.keyConceptsAdded.join(', ')}</p>
+          )}
+          {diff.keyConceptsRemoved.length > 0 && (
+            <p className="text-[11px] text-red-600 dark:text-red-400">− DB&apos;de olup TYMM&apos;de olmayan anahtar kavram: {diff.keyConceptsRemoved.join(', ')}</p>
+          )}
+          {changedTopics.map((t, i) => (
+            <div key={i} className="rounded-lg border border-border bg-muted/40 p-2.5">
+              <p className="text-xs font-bold text-foreground">
+                {t.status === 'tymm-only' && '🆕 '}
+                {t.status === 'db-only' && '❌ '}
+                {t.title}
+                {t.status === 'tymm-only' && <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-300">TYMM&apos;de var, DB&apos;de yok</span>}
+                {t.status === 'db-only' && <span className="ml-1.5 font-normal text-[10px] text-red-600 dark:text-red-400">DB&apos;de var, TYMM&apos;de yok</span>}
+              </p>
+              {t.learningOutcomeChanged && <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">✏️ Öğrenme çıktısı metni değişmiş.</p>}
+              {t.outcomesAdded.map((o, oi) => (
+                <p key={`a${oi}`} className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">+ {o}</p>
+              ))}
+              {t.outcomesRemoved.map((o, oi) => (
+                <p key={`r${oi}`} className="text-[11px] text-red-600 dark:text-red-400 mt-1">− {o}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
