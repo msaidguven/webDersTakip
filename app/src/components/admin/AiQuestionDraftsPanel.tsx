@@ -40,6 +40,14 @@ type Draft = {
   gradeName: string;
 };
 
+type WorkerRun = {
+  id: number;
+  generated: boolean;
+  reason: string | null;
+  draft_id: number | null;
+  created_at: string;
+};
+
 function choiceListKey(q: DraftQuestion): 'choices' | 'options' {
   return q.type === 'blank' ? 'options' : 'choices';
 }
@@ -56,6 +64,8 @@ export default function AiQuestionDraftsPanel() {
   // Her taslağın kendi düzenlenebilir soru listesi — server'dan gelenden bağımsız,
   // admin silme/düzenleme yaptıkça burada değişir.
   const [editableQuestions, setEditableQuestions] = useState<Record<number, DraftQuestion[]>>({});
+  const [workerRuns, setWorkerRuns] = useState<WorkerRun[]>([]);
+  const [runsOpen, setRunsOpen] = useState(false);
 
   function showNotice(kind: 'success' | 'error', text: string) {
     setNotice({ kind, text });
@@ -79,8 +89,19 @@ export default function AiQuestionDraftsPanel() {
     }
   }
 
+  async function loadRuns() {
+    try {
+      const res = await fetch('/api/admin/ai-question-drafts/worker-runs');
+      const data = await res.json().catch(() => null);
+      if (res.ok) setWorkerRuns((data?.runs as WorkerRun[] | null) || []);
+    } catch {
+      // sessizce geç — bu bilgilendirme amaçlı bir panel, ana akışı bozmasın
+    }
+  }
+
   useEffect(() => {
     load();
+    loadRuns();
   }, []);
 
   function updateQuestionText(draftId: number, idx: number, text: string) {
@@ -200,6 +221,33 @@ export default function AiQuestionDraftsPanel() {
       {notice && (
         <div className={`rounded-xl px-4 py-3 text-sm ${notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-red-500/10 text-red-300 border border-red-500/20'}`}>
           {notice.text}
+        </div>
+      )}
+
+      {workerRuns.length > 0 && (
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setRunsOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-3 p-3 text-left transition-colors hover:bg-surface"
+          >
+            <span className="text-xs font-bold text-muted-foreground">
+              Son Çalışmalar · son {workerRuns.length} çalıştırmadan {workerRuns.filter((r) => r.generated).length} tanesi taslak üretti
+            </span>
+            <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${runsOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {runsOpen && (
+            <div className="border-t border-border divide-y divide-border">
+              {workerRuns.map((run) => (
+                <div key={run.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{new Date(run.created_at).toLocaleString('tr-TR')}</span>
+                  <span className={`truncate text-right ${run.generated ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    {run.generated ? 'Taslak üretildi' : run.reason || 'Üretilmedi'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

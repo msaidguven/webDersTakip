@@ -18,5 +18,14 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
   const result = await generateNextAiQuestionDraft(supabase);
+
+  // net.http_post (pg_cron) bu yanıtı beklemiyor — sonucu admin panelinde görünür
+  // kılmak için burada logluyoruz (bkz. supabase/migrations/ai_question_draft_worker_runs.sql).
+  await supabase.from('ai_question_draft_worker_runs').insert({
+    generated: result.generated,
+    reason: result.reason ?? null,
+    draft_id: result.draftId ?? null,
+  });
+
   return NextResponse.json(result);
 }
