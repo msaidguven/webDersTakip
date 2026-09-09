@@ -79,17 +79,24 @@ async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sec
 // Ünitenin RAG'a yüklenmiş TÜM kitap içeriği — chunk'lar sadece document_id üzerinden
 // üniteye bağlı (bkz. rag_documents.unit_id), chunk'ların kendisinde unit_id yok
 // (kullanıcının 2026-09-08 sohbetinde doğrulanan gerçek şema).
+//
+// Sorgu hatalarını (izin/RLS, geçici bağlantı sorunu vb.) "içerik yok"tan AYRI tutmak
+// için burada FIRLATIYORUZ — eskiden ikisi de sessizce null'a düşüp aynı "RAG kitap
+// içeriği bulunamadı" mesajını üretiyordu, bu da 2026-09-09'da gerçek bir izin/RLS
+// sorununu "içerik hiç yüklenmemiş" sanıp yanlış teşhis etmemize yol açmıştı.
 async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
-  const { data: docs } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
+  const { data: docs, error: docsError } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
+  if (docsError) throw new Error(`rag_documents sorgusu başarısız: ${docsError.message}`);
   const documentIds = ((docs as { id: number }[] | null) || []).map((d) => d.id);
   if (!documentIds.length) return null;
 
-  const { data: chunks } = await supabase
+  const { data: chunks, error: chunksError } = await supabase
     .from('rag_document_chunks')
     .select('document_id, chunk_index, content')
     .in('document_id', documentIds)
     .order('document_id', { ascending: true })
     .order('chunk_index', { ascending: true });
+  if (chunksError) throw new Error(`rag_document_chunks sorgusu başarısız: ${chunksError.message}`);
   const chunkRows = (chunks as { document_id: number; chunk_index: number; content: string }[] | null) || [];
   if (!chunkRows.length) return null;
 
@@ -106,8 +113,13 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
   const eligible = (eligibleRows as EligibleSectionRow[] | null)?.[0];
   if (!eligible) return { generated: false, reason: 'Uygun alt başlık yok (kitabı yüklü, sorusuz, kazanımı olan bir alt başlık bulunamadı)' };
 
-  const bookContent = await fetchUnitBookContent(supabase, eligible.unit_id);
-  if (!bookContent) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG kitap içeriği bulunamadı` };
+  let bookContent: string | null;
+  try {
+    bookContent = await fetchUnitBookContent(supabase, eligible.unit_id);
+  } catch (e) {
+    return { generated: false, reason: `Ünite ${eligible.unit_id} kitap içeriği sorgusu hata verdi: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!bookContent) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG kitap içeriği bulunamadı (belge/chunk yok)` };
 
   const [sectionOutcomesText, otherHeadingsText] = await Promise.all([
     buildSectionOutcomesText(supabase, eligible.topic_id, eligible.section_id),
