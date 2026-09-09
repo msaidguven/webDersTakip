@@ -319,11 +319,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   // Başlık/açıklamaya "Yeni Müfredat" ifadesi HER sınıf/ders için eklendi (kullanıcının
   // 2026-09-06 isteği, SEO amaçlı — bkz. Mufredatoverviewclient.tsx'teki aynı H1 değişikliği).
+  // Açıklamaya ayrıca "Türkiye Yüzyılı Maarif Modeli (TYMM)" — müfredatın resmi adı —
+  // eklendi (kullanıcının 2026-09-09 isteği): title tag zaten dolu, oraya sığdırmak
+  // "yeni müfredat" + "TYMM" ile spam gibi dururdu; bu yüzden sadece description'a ve
+  // sayfa içeriğine (bkz. Mufredatoverviewclient.tsx alt başlığı) eklendi.
   const unitTitles = data.units.map((u) => u.title).join(', ');
   const title = `${data.gradeName} ${data.lessonName} Yeni Müfredat Konuları ve Üniteler`;
   const description = unitTitles
-    ? `${data.gradeName} ${data.lessonName} yeni müfredatına göre üniteler: ${unitTitles}. Konu anlatımları ve testlerle çalış.`
-    : `${data.gradeName} ${data.lessonName} yeni müfredatına göre konu anlatımları ve testleri.`;
+    ? `${data.gradeName} ${data.lessonName} Türkiye Yüzyılı Maarif Modeli'ne (TYMM) göre üniteler: ${unitTitles}. Konu anlatımları ve testlerle çalış.`
+    : `${data.gradeName} ${data.lessonName} Türkiye Yüzyılı Maarif Modeli'ne (TYMM) göre konu anlatımları ve testleri.`;
   const canonicalPath = `/${data.gradeSlug}/${data.lessonSlug}`;
 
   return {

@@ -327,7 +327,7 @@ export default function MufredatOverviewClient({
                     {gradeName} {lessonName} <span className="text-emerald-600">Yeni Müfredat</span>
                   </h1>
                   <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                    {lessonName} dersi yeni müfredata uygun konu anlatımları, testler ve sorularla burada.
+                    {lessonName} dersi Türkiye Yüzyılı Maarif Modeli'ne (TYMM) uygun konu anlatımları, testler ve sorularla burada.
                   </p>
                 </div>
               </div>
