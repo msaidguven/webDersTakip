@@ -12,7 +12,6 @@ import {
   ChevronDown,
   BookOpen,
   CheckCircle2,
-  ArrowRight,
   ArrowLeft,
   Menu,
   X,
@@ -730,7 +729,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (topic) void ensureTopicContentLoaded(topic, unit);
   };
 
-  const totalTopics = contents.length;
   const totalWeeks = initialData.totalWeeks || 38;
 
   // Bu ders+sınıf için geçerli özel haftalardan (tatil/özel içerik/sosyal etkinlik — ör.
@@ -1227,9 +1225,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     if (activeUnit) void ensureTopicContentLoaded(topic, activeUnit);
   };
 
-  // İleri/geri ile okuma akışı en sık kullanılan gezinme olduğu için, kullanıcı bir konuya
-  // gerçekten ulaşmadan ÖNCE komşu (bir önceki/sonraki) konunun içeriğini arkaplanda ısıtır —
-  // böylece goForward/goBackward sırasında içerik zaten hazır olur, boş an yaşanmaz.
+  // Komşu (bir önceki/sonraki) konunun içeriğini arkaplanda ısıtır — böylece konu
+  // listesinden sıradaki konuya geçildiğinde içerik zaten hazır olur, boş an yaşanmaz.
   useEffect(() => {
     if (!activeUnit) return;
     const neighbors = [contents[selectedTopicIndex + 1], contents[selectedTopicIndex - 1]].filter(
@@ -1240,56 +1237,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopicIndex, contents, activeUnit?.id]);
-
-  const runViewTransition = (direction: 'forward' | 'backward', update: () => void) => {
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
-    if (!doc.startViewTransition) {
-      update();
-      return;
-    }
-    document.documentElement.setAttribute('data-nav-direction', direction);
-    const transition = doc.startViewTransition(update);
-    transition.finished.finally(() => {
-      document.documentElement.removeAttribute('data-nav-direction');
-    });
-  };
-
-  // Alt başlıklar artık aynı sayfada birlikte göründüğü için "ileri/geri" önce
-  // içerik alanını kaydırır; sayfanın sonuna/başına ulaşınca bir sonraki/önceki
-  // konuya geçer.
-  const goForward = () => {
-    const container = contentRef.current;
-    if (container) {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 4;
-      if (!isAtBottom) {
-        container.scrollBy({ top: clientHeight * 0.9, behavior: 'smooth' });
-        return;
-      }
-    }
-    if (selectedTopicIndex >= totalTopics - 1) return;
-    runViewTransition('forward', () => {
-      goToTopic(selectedTopicIndex + 1);
-    });
-  };
-
-  const goBackward = () => {
-    const container = contentRef.current;
-    if (container) {
-      const isAtTop = container.scrollTop <= 4;
-      if (!isAtTop) {
-        container.scrollBy({ top: -container.clientHeight * 0.9, behavior: 'smooth' });
-        return;
-      }
-    }
-    if (selectedTopicIndex <= 0) return;
-    runViewTransition('backward', () => {
-      goToTopic(selectedTopicIndex - 1);
-    });
-  };
-
-  const isAtVeryStart = selectedTopicIndex <= 0;
-  const isAtVeryEnd = selectedTopicIndex >= totalTopics - 1;
 
   const renderTopicItem = (topic: Content, idx: number, unit: Unit, isActiveUnitList: boolean) => {
     const isActive = isActiveUnitList && idx === selectedTopicIndex;
@@ -1894,8 +1841,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     Sınıf/Ders/Ünite ile AYNI menüye, aynı renge taşındı ve statik "İçindekiler"
                     yazısı yerine artık aktif konunun adını gösteriyor (Ünite pill'iyle aynı
                     mantık). Ünitenin tek konusu olsa bile gösterilir — Sınıf/Ders/Ünite'yle
-                    aynı hizada, tutarlı dursun diye (kullanıcının 2026-09-05 tercihi; aşağıdaki
-                    önceki/sonraki konu navigasyonu hâlâ >1 konu şartı arıyor, o farklı bir amaç).
+                    aynı hizada, tutarlı dursun diye (kullanıcının 2026-09-05 tercihi).
                     Zincirde bir üst seviye (sınıf/ders/ünite) değiştiyse "Konu seçin" placeholder'ı
                     görünür — asıl sayfa/içerik yenilemesi ancak burada bir konu seçilince olur. */}
                 {contents.length > 0 && (
@@ -1946,7 +1892,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               </div>
 
                 {/* CONTENT CARD */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0" style={{ viewTransitionName: 'ders-content' }}>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
                   <div className="p-5 sm:p-8 lg:p-10">
                     {activeTopic && (
                       <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
@@ -2329,33 +2275,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               </div>
             </div>
           </div>
-
-          {/* FOOTER: Geri / İleri */}
-          <footer className="shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={goBackward}
-                disabled={isAtVeryStart}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed sm:px-6 sm:text-sm"
-              >
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" /> Geri
-              </button>
-
-              <span className="text-xs sm:text-sm font-black text-slate-400">
-                {totalTopics ? selectedTopicIndex + 1 : 0} / {totalTopics}
-              </span>
-
-              <button
-                type="button"
-                onClick={goForward}
-                disabled={isAtVeryEnd}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition-all hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 disabled:opacity-40 disabled:cursor-not-allowed sm:px-6 sm:text-sm"
-              >
-                İleri <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-            </div>
-          </footer>
         </div>
       </div>
 
