@@ -203,7 +203,7 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
             </div>
             <div className="overflow-auto p-6">
               <div
-                style={{ zoom }}
+                style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
                 role="img"
                 className="mx-auto w-fit [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: clean }}
