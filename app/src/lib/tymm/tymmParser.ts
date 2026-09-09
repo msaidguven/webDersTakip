@@ -222,9 +222,31 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
   const contentFramework = extractFieldLines(html, 'İçerik Çerçevesi', 'br');
   const keyConcepts = extractFieldLines(html, 'Anahtar Kavramlar', 'comma');
   const { outcomes: rawOutcomes, unmatched: unmatchedLines } = parseLearningOutcomes(html);
+
+  // İçerik Çerçevesi bazı derslerde (ör. Matematik) düz bir liste değil — "Kesirlerle
+  // İşlemler:" gibi sonu ":" ile biten bir GRUP BAŞLIĞI satırı, altındaki alt konuları
+  // (kendi öğrenme çıktısı olmayan, sadece kategori) topluyor; asıl öğrenme çıktısı sayısı
+  // sadece alt konularla eşleşiyor. Bu satırlar direkt sayıca eşleşmeyince eleniyor —
+  // eşleşme sağlarsa (başlıksız) liste kullanılıyor, sağlamazsa (ör. bir çerçeve satırı
+  // birden fazla öğrenme çıktısını kapsıyorsa — TYMM sayfasında bunu ayıran bir yapı yok)
+  // eski davranışa (öğrenme çıktısı cümlesini başlık say) düşülüp admin'e uyarı basılıyor.
+  const withoutGroupHeaders = contentFramework.filter((line) => !line.trim().endsWith(':'));
+  const effectiveFramework =
+    contentFramework.length === rawOutcomes.length
+      ? contentFramework
+      : withoutGroupHeaders.length === rawOutcomes.length
+        ? withoutGroupHeaders
+        : null;
+
+  if (!effectiveFramework && contentFramework.length > 0 && rawOutcomes.length > 0) {
+    unmatchedLines.push(
+      `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor — konu başlıkları TYMM'deki kısa başlık yerine öğrenme çıktısı cümlesinden alındı, elle düzeltin.`
+    );
+  }
+
   const learningOutcomes: TymmLearningOutcome[] = rawOutcomes.map((o, i) => ({
     ...o,
-    topicTitle: contentFramework.length === rawOutcomes.length ? contentFramework[i] : o.title,
+    topicTitle: effectiveFramework ? effectiveFramework[i] : o.title,
   }));
 
   return {
