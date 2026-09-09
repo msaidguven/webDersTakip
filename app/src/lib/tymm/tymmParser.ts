@@ -62,8 +62,8 @@ function extractFieldText(html: string, label: string): string | null {
   return raw != null ? plainText(raw) : null;
 }
 
-// Bir alanın içindeki birden fazla satırı (İçerik Çerçevesi, Anahtar Kavramlar gibi
-// virgül/satır ayraçlı listeler) düz metin dizisine çevirir.
+// Bir alanın içindeki birden fazla satırı (İçerik Çerçevesi gibi virgül/satır ayraçlı
+// listeler) düz metin dizisine çevirir.
 function extractFieldLines(html: string, label: string, splitOn: 'br' | 'comma'): string[] {
   const raw = extractFieldHtml(html, label);
   if (!raw) return [];
@@ -71,6 +71,36 @@ function extractFieldLines(html: string, label: string, splitOn: 'br' | 'comma')
   const parts = splitOn === 'br' ? normalized.split(/<br\s*\/?>/i) : [normalized];
   const lines = splitOn === 'comma' ? plainText(parts[0]).split(',') : parts.map(plainText);
   return lines.map((s) => s.trim()).filter(Boolean);
+}
+
+// "Anahtar Kavramlar" alanı bazı derslerde (Matematik gibi) düz bir virgüllü liste değil —
+// TYMM'in KENDİ satır başlığıyla (dışarıdaki "Anahtar Kavramlar" etiketiyle) aynı isimde
+// bir alt başlık dahil <strong>Genellemeler</strong> / <strong>Anahtar Kavramlar</strong> /
+// <strong>Sembol ve Gösterimler</strong> diye üçe bölünmüş oluyor. Bunu görmeden tüm alanı
+// tek liste sayıp virgülle bölmek, Genellemeler'in madde imli cümlelerini ve Sembol ve
+// Gösterimler'i de "anahtar kavram" diye yutup birbirine karıştırıyordu (2026-09-09 kullanıcı
+// bildirimi, Matematik 7 "Geometrik Şekiller"). Alt başlık yapısı varsa SADECE "Anahtar
+// Kavramlar" alt başlığının altını alıyoruz; yoksa (basit derslerde) eski düz-liste davranışı.
+function extractKeyConcepts(html: string): string[] {
+  const raw = extractFieldHtml(html, 'Anahtar Kavramlar');
+  if (!raw) return [];
+  const normalized = raw.replace(/<\/p>\s*<p>/gi, '<br>').replace(/<\/?p>/gi, '');
+
+  const headers = [...normalized.matchAll(/<strong>\s*([\s\S]*?)\s*<\/strong>/gi)].map((m) => ({
+    label: plainText(m[1]).toLowerCase(),
+    start: m.index!,
+    contentStart: m.index! + m[0].length,
+  }));
+  const kavramIdx = headers.findIndex((h) => h.label === 'anahtar kavramlar');
+  const section =
+    kavramIdx === -1
+      ? normalized
+      : normalized.slice(headers[kavramIdx].contentStart, kavramIdx + 1 < headers.length ? headers[kavramIdx + 1].start : normalized.length);
+
+  return plainText(section)
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s !== '-');
 }
 
 // Bir alanın HAM (ayrıştırılmamış) düz metnini, satır satır — admin'in bizim
@@ -220,7 +250,7 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
   const durationHours = durationText ? Number(durationText.match(/\d+/)?.[0] ?? '') : null;
 
   const contentFramework = extractFieldLines(html, 'İçerik Çerçevesi', 'br');
-  const keyConcepts = extractFieldLines(html, 'Anahtar Kavramlar', 'comma');
+  const keyConcepts = extractKeyConcepts(html);
   const { outcomes: rawOutcomes, unmatched: unmatchedLines } = parseLearningOutcomes(html);
 
   // İçerik Çerçevesi bazı derslerde (ör. Matematik) düz bir liste değil — "Kesirlerle
