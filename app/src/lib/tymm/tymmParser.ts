@@ -94,8 +94,13 @@ type RawLearningOutcome = Omit<TymmLearningOutcome, 'topicTitle'>;
 
 // Kod: "DKAB.5.1.1" gibi tek harf bloklu, ama "T.D.5.3" gibi (Türkçe'nin
 // Dinleme/Okuma/Konuşma/Yazma alt kodları) birden fazla nokta ayraçlı harf bloklu da
-// olabiliyor — sondaki rakam grubu her zaman en az bir tane.
-const OUTCOME_CODE_CORE = '[A-ZÇĞİÖŞÜa-z]+(?:\\.[A-ZÇĞİÖŞÜa-z]+)*\\.\\d+(?:\\.\\d+)*';
+// olabiliyor — sondaki rakam grubu her zaman en az bir tane. Harf bloğuyla ilk rakam
+// grubu arasındaki nokta bilerek OPSİYONEL (\.?) — TYMM'in kendi sayfasında bu nokta
+// bazen unutuluyor (ör. Bilişim Teknolojileri 7. sınıf, "6. Tema" ünitesinde "BTY6.6.3."
+// yazılmış, doğrusu "BTY.6.6.3." olmalıydı, 2026-09-09 kullanıcı bildirimi) — nokta
+// zorunlu tutulunca o kazanım hiç eşleşmiyor, kazanım sayısı İçerik Çerçevesi satır
+// sayısıyla uyuşmuyor ve konu başlıkları yanlış (uzun kazanım cümlesi) düşüyordu.
+const OUTCOME_CODE_CORE = '[A-ZÇĞİÖŞÜa-z]+(?:\\.[A-ZÇĞİÖŞÜa-z]+)*\\.?\\d+(?:\\.\\d+)*';
 // Türkçe temalarında (ve muhtemelen diğer "temaya yönelik" derslerde) süreç bileşeni
 // (a) b) c)) yok — birden fazla öğrenme çıktısı aynı satıra <br> olmadan, sadece boşlukla
 // ayrılmış şekilde art arda geliyor (ör. "T.D.5.3. ... T.D.5.4. ..."). Bu yüzden satır
