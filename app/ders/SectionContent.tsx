@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
+import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
 
 const DOT_COLORS = ['bg-indigo-400', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-sky-400'];
 
@@ -145,9 +146,11 @@ export default function SectionContent({
   const [diagramZoomed, setDiagramZoomed] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
 
+  const mathHtml = useMemo(() => (html ? renderLatexInHtml(html) : html), [html]);
+
   useEffect(() => {
-    setBlocks(html ? buildBlocks(html) : []);
-  }, [html]);
+    setBlocks(mathHtml ? buildBlocks(mathHtml) : []);
+  }, [mathHtml]);
 
   useEffect(() => {
     setCleanSvg(diagramSvg ? sanitizeMathSvg(diagramSvg) : null);
@@ -255,7 +258,7 @@ export default function SectionContent({
         </div>
         <div className="absolute inset-y-0 left-12 hidden w-px bg-rose-200 sm:block" />
         <div className="space-y-3 px-5 py-5 sm:py-6 sm:pl-16 sm:pr-6">
-          {blocks ?? (html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : null)}
+          {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
         </div>
       </div>
     </div>
