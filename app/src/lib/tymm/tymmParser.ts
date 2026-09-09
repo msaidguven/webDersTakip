@@ -122,6 +122,21 @@ function rawFieldText(html: string, label: string): string {
 
 type RawLearningOutcome = Omit<TymmLearningOutcome, 'topicTitle'>;
 
+// N öğeyi M kovaya, hiçbirini bölmeden ve SIRAYI bozmadan, mümkün olduğunca eşit dağıtır —
+// kalan öğeler ilk kovalardan başlanarak dağıtılır (ör. 4 öğe/3 kova → [2,1,1]).
+function distributeIntoBuckets<T>(items: T[], bucketCount: number): T[][] {
+  const base = Math.floor(items.length / bucketCount);
+  const remainder = items.length % bucketCount;
+  const buckets: T[][] = [];
+  let idx = 0;
+  for (let b = 0; b < bucketCount; b++) {
+    const size = base + (b < remainder ? 1 : 0);
+    buckets.push(items.slice(idx, idx + size));
+    idx += size;
+  }
+  return buckets;
+}
+
 // Kod: "DKAB.5.1.1" gibi tek harf bloklu, ama "T.D.5.3" gibi (Türkçe'nin
 // Dinleme/Okuma/Konuşma/Yazma alt kodları) birden fazla nokta ayraçlı harf bloklu da
 // olabiliyor — sondaki rakam grubu her zaman en az bir tane. Harf bloğuyla ilk rakam
@@ -268,16 +283,41 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
         ? withoutGroupHeaders
         : null;
 
-  if (!effectiveFramework && contentFramework.length > 0 && rawOutcomes.length > 0) {
-    unmatchedLines.push(
-      `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor — konu başlıkları TYMM'deki kısa başlık yerine öğrenme çıktısı cümlesinden alındı, elle düzeltin.`
-    );
+  // KONU sayısı DB'de her zaman İçerik Çerçevesi'ne eşit olmalı — orası TYMM'in kendi konu
+  // listesi (bkz. proje sohbeti: "içerik çerçevesi ile konular aynı olmalı", 2026-09-09).
+  // Yukarıdaki birebir eşleşme başarısız olduğunda, öğrenme çıktısı SAYISI çerçeve satır
+  // sayısından FAZLAYSA (Matematik'te çok görülüyor: bir çerçeve konusu birden fazla
+  // öğrenme çıktısını kapsıyor ama sayfa bunu ayırt eden bir yapı sunmuyor), art arda gelen
+  // öğrenme çıktısı gruplarını (hiçbirini bölmeden, koddan koda bütün halde) sırayla çerçeve
+  // konularına dağıtıp konu sayısını çerçeveyle eşitliyoruz — sınır tahmini olduğu için admin
+  // bilgilendiriliyor ama en azından konu sayısı/başlıkları artık TYMM'deki gibi doğru.
+  // Tersi (çerçeve satırı öğrenme çıktısından FAZLA) durumda güvenli bir bölüştürme yok —
+  // bir öğrenme çıktısı grubunu ikiye bölmek anlamsız olur — o yüzden eski (uzun cümle)
+  // davranışa düşülüp uyarı basılıyor.
+  let learningOutcomes: TymmLearningOutcome[];
+  if (effectiveFramework) {
+    learningOutcomes = rawOutcomes.map((o, i) => ({ ...o, topicTitle: effectiveFramework[i] }));
+  } else if (withoutGroupHeaders.length > 0 && withoutGroupHeaders.length < rawOutcomes.length) {
+    const buckets = distributeIntoBuckets(rawOutcomes, withoutGroupHeaders.length);
+    learningOutcomes = buckets.map((group, i) => ({
+      code: group.map((o) => o.code).filter(Boolean).join(' / '),
+      title: group.map((o) => o.title).join(' '),
+      topicTitle: withoutGroupHeaders[i],
+      components: group.flatMap((o) => o.components),
+    }));
+    if (rawOutcomes.length > withoutGroupHeaders.length) {
+      unmatchedLines.push(
+        `${withoutGroupHeaders.length} içerik çerçevesi konusuna ${rawOutcomes.length} öğrenme çıktısı sırayla gruplanarak dağıtıldı (TYMM sayfasında kesin sınır bilgisi yok) — grup sınırlarını kontrol edin.`
+      );
+    }
+  } else {
+    if (contentFramework.length > 0 && rawOutcomes.length > 0) {
+      unmatchedLines.push(
+        `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor — konu başlıkları TYMM'deki kısa başlık yerine öğrenme çıktısı cümlesinden alındı, elle düzeltin.`
+      );
+    }
+    learningOutcomes = rawOutcomes.map((o) => ({ ...o, topicTitle: o.title }));
   }
-
-  const learningOutcomes: TymmLearningOutcome[] = rawOutcomes.map((o, i) => ({
-    ...o,
-    topicTitle: effectiveFramework ? effectiveFramework[i] : o.title,
-  }));
 
   return {
     unit: {
