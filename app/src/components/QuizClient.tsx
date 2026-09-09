@@ -205,7 +205,16 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
               <div
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
                 role="img"
-                className="mx-auto w-fit [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-w-full"
+                // SVG'nin kendi width/height'ı yok (sadece viewBox) — width:auto/height:auto
+                // İKİSİ de tanımsız kalınca, dış kapsayıcı width:fit-content (w-fit) olduğunda
+                // boyut hesabı dairesel bir bağımlılığa düşüp Chromium'da 0x0'a çöküyordu (SVG
+                // tamamen boş görünüyordu — 2026-09-10 kullanıcı bildirimi, masaüstünde tam
+                // ekran/zoom görünümünde SVG'li sorular boş çıkıyordu; sadece max-height eklemek
+                // TEK BAŞINA yetmedi, çünkü w-fit'in "shrink-to-fit" hesabı hâlâ children'ın
+                // tanımsız preferred-width'ine bakıyordu). Çözüm: küçük önizlemedeki (148. satır)
+                // ÇALIŞAN deseni birebir kullan — w-fit yerine w-full + flex justify-center: artık
+                // SVG kesin bir containing-block genişliğine karşı ölçülüyor, dairesel bağımlılık yok.
+                className="mx-auto flex w-full justify-center [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-[65vh] [&_svg]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: clean }}
               />
             </div>
