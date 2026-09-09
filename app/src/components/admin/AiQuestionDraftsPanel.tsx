@@ -1,6 +1,6 @@
 'use client';
 
-// "RAG kuyruğu boşken 3 saatte bir otomatik üretilen soru taslakları" admin onay ekranı
+// "RAG kuyruğu boşken saatte bir otomatik üretilen soru taslakları" admin onay ekranı
 // (kullanıcının 2026-09-08 tasarladığı akış). Her taslak bir alt başlık için 3-7 soru
 // (çoktan seçmeli/boşluk doldurma karışık) içerir — admin istediğini düzenler/siler,
 // sonra:

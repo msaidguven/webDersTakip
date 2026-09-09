@@ -537,7 +537,7 @@ export default function UnitDiscussion({
   }, [loadComments, loadAiFeed]);
 
   // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue, 5 dakikada bir
-  // GitHub Actions'tan tetiklenen worker) — kendi kuyrukta/işlenmekte olan bir sorum
+  // Supabase pg_cron+pg_net'ten tetiklenen worker) — kendi kuyrukta/işlenmekte olan bir sorum
   // varken feed'i periyodik olarak yeniden çekip cevap gelince otomatik güncelliyoruz.
   const hasPendingAi = aiEntries.some((a) => a.status === 'queued' || a.status === 'processing');
   useEffect(() => {

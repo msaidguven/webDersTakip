@@ -8,8 +8,8 @@ import { getDailyLimitFor, countTodayQuestions } from '@/app/src/lib/rag/dailyLi
 // takılması yüzünden (kullanıcı geri bildirimi, 2026-09-03) cevap artık BURADA,
 // senkron üretilmiyor — soru rag_question_queue'ya yazılıp öğrenciye "kaydedildi,
 // birazdan cevaplanacak" dönülüyor. Asıl Gemini çağrısı ve rag_answers'a yazma
-// /api/rag/process-queue'da, GitHub Actions'ta 5 dakikada bir tetiklenen bir worker
-// tarafından sırayla yapılıyor (bkz. o route'un başındaki not).
+// /api/rag/process-queue'da, Supabase pg_cron+pg_net'ten 5 dakikada bir tetiklenen bir
+// worker tarafından sırayla yapılıyor (bkz. o route'un başındaki not).
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

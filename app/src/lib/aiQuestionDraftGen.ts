@@ -1,6 +1,6 @@
-// RAG kuyruğu boşken (3 saatte bir, ayrı bir GitHub Actions worker'ı — bkz.
-// .github/workflows/ai-question-draft-worker.yml) kitabı yüklü ünitelerdeki, hiç sorusu
-// olmayan alt başlıklar için AI ile taslak soru üretimi (kullanıcının 2026-09-08 isteği).
+// RAG kuyruğu boşken (saatte bir, Supabase pg_cron+pg_net üzerinden tetiklenen ayrı bir
+// worker — bkz. supabase/migrations/pg_cron_workers.sql) kitabı yüklü ünitelerdeki, hiç
+// sorusu olmayan alt başlıklar için AI ile taslak soru üretimi (kullanıcının 2026-09-08 isteği).
 // Kullanılan prompt, admin panelindeki "Soru Ekle (NotebookLM)" akışıyla (bkz.
 // app/prompt/10-section-questions-notebooklm.md) AYNI kurallar/JSON şeması — tek fark,
 // NotebookLM'in kendi yüklü kaynağına güvenmek yerine, o ünitenin RAG'a yüklenmiş kitap

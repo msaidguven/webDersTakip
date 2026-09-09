@@ -9,9 +9,12 @@ import { buildContextResolver } from '@/app/src/lib/myComments';
 // Bu route o kuyruğu işler: her tetiklenişte en eski ITEMS_PER_RUN kadar soruyu
 // SIRAYLA (paralel değil — Gemini'ye art arda değil, birbiri bitince) cevaplayıp
 // normal şekilde rag_answers'a yazar. Vercel Hobby planında Cron Jobs günde 1'le
-// sınırlı olduğu için (Pro'da dakikalık mümkün), bu route dışarıdan — GitHub
-// Actions'taki zamanlanmış bir workflow'dan, 5 dakikada bir — RAG_QUEUE_WORKER_SECRET
-// ile korunan bir POST isteğiyle tetikleniyor (bkz. .github/workflows/rag-queue-worker.yml).
+// sınırlı olduğu için (Pro'da dakikalık mümkün), bu route dışarıdan tetikleniyor —
+// önce GitHub Actions'taki bir workflow denendi ama scheduled tetikleyicileri
+// güvenilmez çıktı (5 dakikada bir yerine 2-6 saatte bir çalışıyordu, 2026-09-09'da
+// tespit edildi), bu yüzden Supabase pg_cron+pg_net'e taşındı: veritabanı her 5
+// dakikada bir RAG_QUEUE_WORKER_SECRET ile korunan bir POST isteği atıyor
+// (bkz. supabase/migrations/pg_cron_workers.sql).
 const ITEMS_PER_RUN = 3;
 const MAX_ATTEMPTS = 3;
 
