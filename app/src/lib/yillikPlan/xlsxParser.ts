@@ -126,6 +126,58 @@ function saatOku(metin: string): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
+function normalizeForCompare(s: string): string {
+  return s.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr');
+}
+
+// MEB'in taslak dosyasında bazen bir haftanın Süreç Bileşenleri hücresinin SON bir/iki grubu,
+// bir sonraki haftanın hücresinin BAŞINDA harfiyen (kopyala-yapıştır kalıntısı olarak) tekrar
+// ediyor — 6. sınıf BTY'de 10./11. hafta arasında görüldü (2026-09-10 kullanıcı bildirimi):
+// 10. haftanın son grubu, farklı bir konu başlığıyla 11. haftada da aynen duruyor. Aynı konu
+// başlığı iki haftaya yayılmışsa (ör. tek bir konu 2 haftada işleniyorsa) tekrar GERÇEK ve
+// istenen bir durum — bu yüzden sadece metin eşleşmesi yetmiyor, konu başlıkları da HEM
+// önceki haftanın o pozisyondaki konusuyla HEM de mevcut haftanın karşılık geleceği konusuyla
+// karşılaştırılıyor: başlıklar aynıysa (gerçek çok haftalı konu devamı) dokunulmuyor, farklıysa
+// (yanlışlıkla sızmış içerik) mevcut haftanın BAŞINDAN atılıyor.
+function dropLeadingDuplicateGroups(
+  currentGroups: string[],
+  currentIcerikler: string[],
+  prevGroups: string[],
+  prevIcerikler: string[]
+): string[] {
+  const surplus = currentGroups.length - currentIcerikler.length;
+  if (surplus <= 0 || prevGroups.length === 0) return currentGroups;
+
+  // Eşleşen metin uzunluğu (k) surplus'tan BÜYÜK olabilir (ör. önceki haftanın son 2 grubu
+  // aynen tekrar etmiş olabilir ama mevcut haftanın sadece 1 fazlası var) — arama uzunluğu
+  // surplus ile sınırlanmamalı, sadece SONUÇTA kaç grubun atılacağı surplus ile sınırlanır.
+  const maxOverlap = Math.min(prevGroups.length, currentGroups.length);
+  for (let k = maxOverlap; k >= 1; k--) {
+    const prevTail = prevGroups.slice(-k).map(normalizeForCompare);
+    const curHead = currentGroups.slice(0, k).map(normalizeForCompare);
+    if (!prevTail.every((t, idx) => t === curHead[idx])) continue;
+
+    // Metin eşleşti — şimdi konu başlıklarının GERÇEKTEN aynı çok-haftalı konunun devamı mı
+    // yoksa yanlışlıkla sızmış farklı bir konu mu olduğuna bakıyoruz. Hizalama GRUP indeksi
+    // üzerinden yapılıyor (prevIcerikler.length değil) çünkü önceki haftanın da kendi fazlası
+    // (orphan grubu) olabilir.
+    const prevGroupStart = prevGroups.length - k;
+    let looksLikeGenuineContinuation = true;
+    for (let m = 0; m < k; m++) {
+      const prevAbsIdx = prevGroupStart + m;
+      const prevKonu = prevAbsIdx < prevIcerikler.length ? prevIcerikler[prevAbsIdx] : '';
+      const curKonu = m < currentIcerikler.length ? currentIcerikler[m] : '';
+      if (!prevKonu || !curKonu || normalizeForCompare(prevKonu) !== normalizeForCompare(curKonu)) {
+        looksLikeGenuineContinuation = false;
+        break;
+      }
+    }
+    if (looksLikeGenuineContinuation) return currentGroups;
+    return currentGroups.slice(Math.min(k, surplus));
+  }
+  return currentGroups;
+}
+
 function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
   const raw = xlsxUtils.sheet_to_json<string[]>(sheet, { header: 1, defval: '', blankrows: true }) as unknown as string[][];
   const original = raw.map((r) => r.map((c) => (c == null ? '' : String(c))));
@@ -147,6 +199,8 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
   if (col.hafta == null || col.tema == null) return [];
 
   const sonuc: ParsedRow[] = [];
+  let prevSurecGruplari: string[] = [];
+  let prevIcerikler: string[] = [];
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
@@ -175,7 +229,8 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
     const temalar = splitBySlashLine(temaRaw).map((t) => t.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
     const icerikler = col.icerik != null ? splitBySlashLine(r[col.icerik] || '') : [];
     const ogrenmeGruplari = col.ogrenmeCiktilari != null ? splitByBlankLine(r[col.ogrenmeCiktilari] || '') : [];
-    const surecGruplari = col.surecBilesenleri != null ? splitByBlankLine(r[col.surecBilesenleri] || '') : [];
+    const surecGruplariRaw = col.surecBilesenleri != null ? splitByBlankLine(r[col.surecBilesenleri] || '') : [];
+    const surecGruplari = dropLeadingDuplicateGroups(surecGruplariRaw, icerikler, prevSurecGruplari, prevIcerikler);
 
     const adet = Math.max(temalar.length, icerikler.length, ogrenmeGruplari.length, surecGruplari.length, 1);
 
@@ -186,6 +241,9 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
       if (!unite && !konu && !kazan.length) continue;
       sonuc.push({ week_no: weekNo, Hafta: hafta, ünite: unite, konu, kazanım: kazan, saat });
     }
+
+    prevSurecGruplari = surecGruplariRaw;
+    prevIcerikler = icerikler;
   }
 
   return sonuc;
