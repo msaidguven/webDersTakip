@@ -1256,16 +1256,29 @@ export function NotebookPlanModal({
   onClose,
   onSaved,
   onManageMore,
+  promptType = 'full',
+  title = 'Google NotebookLM — Tek Prompt (Alt Başlık + İçerik)',
+  description = 'Bu promptu NotebookLM’e, kaynak olarak ders kitabının PDF’ini yüklediğiniz notebook’ta sorun. Alt başlıklar, her başlığın içeriği ve görsel promptları TEK seferde JSON olarak gelir; aşağıya yapıştırıp tek seferde kaydedin.',
+  defaultAiModel = 'NotebookLM',
 }: {
   topicId: number;
   onClose: () => void;
   onSaved: () => void;
   onManageMore?: () => void;
+  // 'full' → NotebookLM/kitap kaynaklı (varsayılan, eski davranış). 'full_from_synthesis'
+  // → kitabı olmayan dersler için, RAG'da zaten kullanılan çoklu-AI sentez metnini kaynak
+  // alır (bkz. topic-sections/prompt/route.ts, 20-rag-synthesis-full-topic.md) — aynı
+  // kaydetme mantığı (sections+cover JSON) paylaşıldığı için component'i çoğaltmak yerine
+  // sadece prompt kaynağı/başlık/açıklama parametrize edildi.
+  promptType?: 'full' | 'full_from_synthesis';
+  title?: string;
+  description?: string;
+  defaultAiModel?: string;
 }) {
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
-  const [aiModel, setAiModel] = useState('NotebookLM');
+  const [aiModel, setAiModel] = useState(defaultAiModel);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1274,7 +1287,7 @@ export function NotebookPlanModal({
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
     setError(null);
-    const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=full`);
+    const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=${promptType}`);
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setPrompt(data?.prompt || '');
@@ -1282,7 +1295,7 @@ export function NotebookPlanModal({
       setError(data?.error || 'Prompt oluşturulamadı.');
     }
     setLoadingPrompt(false);
-  }, [topicId]);
+  }, [topicId, promptType]);
 
   useEffect(() => {
     loadPrompt();
@@ -1365,7 +1378,7 @@ export function NotebookPlanModal({
   const missingCodes = !loadingPrompt && !!error && error.includes('kodu eksik');
 
   return (
-    <ModalShell title="Google NotebookLM — Tek Prompt (Alt Başlık + İçerik)" onClose={onClose}>
+    <ModalShell title={title} onClose={onClose}>
       <div className="space-y-4">
         {missingCodes ? (
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4">
@@ -1380,9 +1393,7 @@ export function NotebookPlanModal({
           </div>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">
-              Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun. Alt başlıklar, her başlığın içeriği ve görsel promptları TEK seferde JSON olarak gelir; aşağıya yapıştırıp tek seferde kaydedin.
-            </p>
+            <p className="text-xs text-muted-foreground">{description}</p>
             <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
             <div>

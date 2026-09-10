@@ -182,6 +182,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
+  const [synthesisFullTopicModalTopicId, setSynthesisFullTopicModalTopicId] = useState<number | null>(null);
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
@@ -1956,6 +1957,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               <Clipboard className="h-3 w-3" /> NotebookLM Prompt&apos;u
                             </button>
                           )}
+                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                            <button
+                              type="button"
+                              onClick={() => setSynthesisFullTopicModalTopicId(Number(activeTopic.id))}
+                              title="Kitapsız ders — RAG sentez metnini kaynak alan tek prompt'u kopyala"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <BookOpen className="h-3 w-3" /> Sentezden Alt Başlık
+                            </button>
+                          )}
                           {isAdmin && (
                             <button
                               type="button"
@@ -2532,6 +2543,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             const topicId = notebookPlanTopicId;
             setNotebookPlanTopicId(null);
             setManagingTopicId(topicId);
+          }}
+        />
+      )}
+
+      {synthesisFullTopicModalTopicId != null && (
+        <NotebookPlanModal
+          topicId={synthesisFullTopicModalTopicId}
+          promptType="full_from_synthesis"
+          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
+          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setSynthesisFullTopicModalTopicId(null)}
+          onSaved={() => {
+            setSynthesisFullTopicModalTopicId(null);
+            refreshWeekData();
           }}
         />
       )}

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
   const VALID_TYPES = new Set([
-    'plan', 'full', 'section', 'section_notebooklm', 'image', 'diagram',
+    'plan', 'full', 'full_from_synthesis', 'section', 'section_notebooklm', 'image', 'diagram',
   ]);
 
   if (!topicId || (!VALID_TYPES.has(type || '') && !isQuestionType && !isNotebookQuestionType && !isTopicLevelType)) {
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
   );
 
-  if (type === 'plan' || type === 'full') {
+  if (type === 'plan' || type === 'full' || type === 'full_from_synthesis') {
     const missingCodeCount = outcomes.filter((o) => !o.code?.trim()).length;
     if (missingCodeCount > 0) {
       return NextResponse.json(
@@ -116,7 +116,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const templateFile = type === 'full' ? '03-notebooklm-full-topic.md' : '01-topic-section-plan.md';
+    // Kitapsız derslerde: "Alt Başlıkları Sentezden Oluştur" — RAG için zaten hazırlanmış,
+    // çoklu AI ile doğrulanmış sentez metnini (bkz. 19-rag-topic-source-synthesis.md /
+    // topic-source-synthesis route'u) konu anlatımının da KAYNAĞI yapar. Amaç: öğrenciye
+    // gösterilen ders notu ile RAG'ın öğrenci sorularını cevaplarken kullandığı kaynağın
+    // birbirinden bağımsız üretilip çelişmesini önlemek (2026-09-10 kullanıcı talebi).
+    let sourceText = '';
+    if (type === 'full_from_synthesis') {
+      const { data: synthesisDoc } = await supabase
+        .from('rag_documents')
+        .select('raw_text')
+        .eq('topic_id', topicRow.id)
+        .eq('source', 'ai_generated')
+        .eq('is_synthesis', true)
+        .maybeSingle();
+      const raw = (synthesisDoc as { raw_text: string | null } | null)?.raw_text?.trim();
+      if (!raw) {
+        return NextResponse.json(
+          { error: 'Bu konu için henüz sentezlenmiş bir RAG kaynak metni yok — önce "RAG Kaynak Metni Sentezle" ile bir tane oluşturun.' },
+          { status: 409 }
+        );
+      }
+      sourceText = raw;
+    }
+
+    const templateFile =
+      type === 'full_from_synthesis' ? '20-rag-synthesis-full-topic.md' : type === 'full' ? '03-notebooklm-full-topic.md' : '01-topic-section-plan.md';
     const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
     const template = await readFile(templatePath, 'utf8');
 
@@ -129,7 +154,8 @@ export async function GET(request: NextRequest) {
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
-      .replaceAll('{outcomes listesi, kod + metin}', outcomesText);
+      .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
+      .replaceAll('{source_text}', sourceText);
 
     return NextResponse.json({ prompt });
   }
