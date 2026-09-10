@@ -55,6 +55,18 @@ function splitByBlankLine(raw: string): string[] {
     .filter(Boolean);
 }
 
+// İçerik Çerçevesi (konu) sütunu genelde "/" ile ayrılıyor ama MEB'in taslağında tutarlılık
+// yok — bazı hücrelerde (ör. BTY_6, 17. hafta: "Yapay Zekâ Araçları\n\nYapay Zekâ Araçları ile
+// Model Geliştirme") "/" hiç kullanılmamış, sadece boş satır var. "/" bulunamazsa boş satır
+// ayracına düşülüyor; aksi halde iki ayrı konu TEK bir konu başlığı gibi birleşip DB'deki konu
+// sayısından fazla/farklı bir "konu" olarak görünüyordu (2026-09-11 kullanıcı bildirimi).
+function splitIcerikColumn(raw: string): string[] {
+  const bySlash = splitBySlashLine(raw);
+  if (bySlash.length > 1) return bySlash;
+  const byBlank = splitByBlankLine(raw);
+  return (byBlank.length > 1 ? byBlank : bySlash).map((s) => s.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
 // Bir süreç bileşeni grubunu ("a) ...\nb) ...\nc) ...") satır satır bileşenlere ayırır.
 // Hücre içinde uzun bir cümle Alt+Enter ile kaydırılmışsa (ör. "b) ...yönleri ile ilgili
 // çözümleme\nyapar.") devam satırı harf+")" ile BAŞLAMAZ — bu durumda yeni bir bileşen
@@ -227,7 +239,7 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
     const saat = col.saat != null ? saatOku(r[col.saat] || '') : null;
 
     const temalar = splitBySlashLine(temaRaw).map((t) => t.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
-    const icerikler = col.icerik != null ? splitBySlashLine(r[col.icerik] || '') : [];
+    const icerikler = col.icerik != null ? splitIcerikColumn(r[col.icerik] || '') : [];
     const ogrenmeGruplari = col.ogrenmeCiktilari != null ? splitByBlankLine(r[col.ogrenmeCiktilari] || '') : [];
     const surecGruplariRaw = col.surecBilesenleri != null ? splitByBlankLine(r[col.surecBilesenleri] || '') : [];
     const surecGruplari = dropLeadingDuplicateGroups(surecGruplariRaw, icerikler, prevSurecGruplari, prevIcerikler);
