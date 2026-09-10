@@ -12,6 +12,9 @@ export const CHAT_MODEL = 'gemini-2.5-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
 
+// Bu key sadece öğrenci-yüzlü rag-queue-worker (@hocam/@kanka) içindir — soru taslağı
+// üretimi ayrı bir key kullanır (bkz. geminiQuestionGen.ts başındaki not), ikisi aynı
+// free-tier günlük kotayı paylaşmasın diye.
 function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY tanımlı değil');
