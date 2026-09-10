@@ -36,21 +36,25 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
   const topics = (topicRows as { id: number; unit_id: number }[] | null) || [];
   const topicIds = topics.map((t) => t.id);
 
-  const [{ data: publishedContentRows }, { data: questionRows }] = await Promise.all([
+  // Soru sayımı questions satırlarını çekip client'ta saymak yerine DB'de GROUP BY ile
+  // yapılıyor (count_questions_by_topic RPC'si) — PostgREST'in varsayılan 1000 satır limiti
+  // yüzünden gerçek soru sayısı 1000'i geçince anasayfa sessizce "1000"de takılı kalıyordu
+  // (2026-09-10 kullanıcı bildirimi, bkz. migration). RPC tek satır/konu döndürdüğü için bu
+  // limite hiç takılmıyor.
+  const [{ data: publishedContentRows }, { data: countRows }] = await Promise.all([
     topicIds.length
       ? supabase.from('topic_contents').select('id, topic_id').in('topic_id', topicIds).eq('is_published', true)
       : Promise.resolve({ data: [] as { id: number; topic_id: number }[] }),
     topicIds.length
-      ? supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true)
-      : Promise.resolve({ data: [] as { id: number; topic_id: number | null }[] }),
+      ? supabase.rpc('count_questions_by_topic', { p_topic_ids: topicIds })
+      : Promise.resolve({ data: [] as { topic_id: number; cnt: number }[] }),
   ]);
 
   const publishedTopicIds = new Set(((publishedContentRows as { id: number; topic_id: number }[] | null) || []).map((r) => r.topic_id));
 
   const questionCountByTopic = new Map<number, number>();
-  for (const q of (questionRows as { id: number; topic_id: number | null }[] | null) || []) {
-    if (q.topic_id == null) continue;
-    questionCountByTopic.set(q.topic_id, (questionCountByTopic.get(q.topic_id) ?? 0) + 1);
+  for (const r of (countRows as { topic_id: number; cnt: number }[] | null) || []) {
+    questionCountByTopic.set(r.topic_id, Number(r.cnt));
   }
 
   const publishedTopicCountByUnit = new Map<number, number>();
@@ -80,16 +84,25 @@ export interface SiteStats {
   studentCount: number;
 }
 
-// Gerçek kayıtlı kullanıcı sayısı henüz küçük olduğu için anasayfada geçici olarak sabit,
-// daha gerçekçi görünen bir sayı gösteriliyor (kullanıcı isteği, 2026-09-01). Sayı büyüdükçe
-// bu sabiti kaldırıp aşağıdaki gerçek `profiles` sayımını (bkz. git geçmişi) geri koy.
-const DISPLAYED_STUDENT_COUNT = 2388;
+// Gerçek kayıtlı öğrenci sayısı — profiles RLS ile sadece "kendi satırın" okunabildiğinden
+// (anasayfa anon client kullanıyor) get_public_student_count SECURITY DEFINER RPC'si
+// kullanılıyor; bu fonksiyon kasıtlı olarak SADECE bir sayı döner, hiçbir profil satırı/alanı
+// sızdırmaz (bkz. home_stats_real_numbers.sql). Eskiden burada 2026-09-01'de bilinçli olarak
+// eklenmiş sabit bir sayı (2388) vardı — kullanıcı artık gerçek sayıyı istiyor (2026-09-10).
+export async function getPublicStudentCount(supabase: AnySupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc('get_public_student_count');
+  if (error) {
+    console.error('[getPublicStudentCount] HATA:', error);
+    return 0;
+  }
+  return typeof data === 'number' ? data : 0;
+}
 
 // Anasayfadaki istatistik çubuğu için gerçek, YAYINDA olan içerik sayıları (yukarıdaki not).
 // publishedUnitsAll, getPublishedUnitContent'in ÇAĞIRAN tarafından (bkz. app/page.tsx) tek
 // seferde hesaplanmış sonucudur — getHomeGradeSections de aynı sonucu kullanır, aynı
 // üniteler/konular/sorular için iki kez sorgu atılmasın diye.
-export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[]): SiteStats {
+export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[], studentCount: number): SiteStats {
   const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
 
   const lessonKeys = new Set(publishedUnits.map((u) => `${u.grade_id}:${u.lesson_id}`));
@@ -102,7 +115,7 @@ export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentR
     unitCount: publishedUnits.length,
     topicCount,
     questionCount,
-    studentCount: DISPLAYED_STUDENT_COUNT,
+    studentCount,
   };
 }
 

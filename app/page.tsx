@@ -4,7 +4,7 @@ import { createAnonClient } from '@/utils/supabase/server-anon';
 import HomeClient from './HomeClient';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
-import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, getPublishedUnitContent, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
+import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, getPublishedUnitContent, getPublicStudentCount, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
 
 // ISR: taze veri gerektiren admin ayrımı yok (tamamen public), bu yüzden 1 saatlik
 // fallback yeterli — içerik yayınlandığında/soru eklendiğinde zaten admin endpoint'leri
@@ -50,12 +50,13 @@ export default async function HomePage() {
   // konuları da stats/gradeSections'a bağlı olmadığı için aynı Promise.all'a alındı.
   const publishedUnitsAll = await getPublishedUnitContent(supabase, gradeIds);
 
-  const [gradeSectionsMap, weeklyTopicsEntries] = await Promise.all([
+  const [gradeSectionsMap, weeklyTopicsEntries, studentCount] = await Promise.all([
     getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
     Promise.all(rows.map(async (r) => [r.id, await getWeeklyTopicsForGrade(supabase, r.id, r.slug)] as const)),
+    getPublicStudentCount(supabase),
   ]);
 
-  const stats = getSiteStats(gradeIds, publishedUnitsAll);
+  const stats = getSiteStats(gradeIds, publishedUnitsAll, studentCount);
 
   const gradeSections: Record<string, HomeGradeSection> = {};
   for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;
