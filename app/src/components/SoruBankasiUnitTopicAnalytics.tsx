@@ -1,15 +1,19 @@
 'use client';
 
 // Soru bankası ünite sayfasındaki "Konu Bazlı Analizler" bölümü — kullanıcının 2026-09-06
-// verdiği tasarım referansına göre: üstte ünite geneli için 4 büyük istatistik kartı
-// (Toplam Soru/Çözülen/Toplam Doğru/Toplam Yanlış), altında her konu için küçük bir
-// görsel + kendi soru/çözülen/doğru/yanlış rozetleriyle bir kart. Konu başlıkları/görselleri/
-// soru sayıları SSR'dan (public, ISR-cache'lenebilir) geliyor; çözülen/doğru/yanlış
-// SADECE giriş yapmış kullanıcı için anlamlı olduğundan client'ta ayrı bir istekle geliyor
-// (bkz. TestStatusCard.tsx'teki aynı desen — sayfanın geri kalanı statik kalsın diye).
+// verdiği tasarım referansına göre: her konu için küçük bir görsel + kendi soru/çözülen/
+// doğru/yanlış rozetleriyle bir kart. Konu başlıkları/görselleri/soru sayıları SSR'dan
+// (public, ISR-cache'lenebilir) geliyor; çözülen/doğru/yanlış SADECE giriş yapmış kullanıcı
+// için anlamlı olduğundan client'ta ayrı bir istekle geliyor (bkz. TestStatusCard.tsx'teki
+// aynı desen — sayfanın geri kalanı statik kalsın diye).
+//
+// ÖNEMLİ: üstte ünite geneli için 4 büyük istatistik kartı (Toplam Soru/Çözülen/Toplam
+// Doğru/Toplam Yanlış) ARTIK YOK — sayfada hemen üstte zaten TestStatusCard ("Ünite Testi")
+// AYNI toplamları gösteriyordu, ikisi yan yana birebir aynı 4 sayıyı iki kez basıyordu
+// (2026-09-10 kullanıcı bildirimi — ekran görüntüsüyle). Tek kaynak TestStatusCard kaldı.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, CheckCircle2, HelpCircle, ThumbsUp, XCircle } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 
 interface TopicForAnalytics {
   id: number;
@@ -25,24 +29,6 @@ interface TopicStatEntry {
   solved: number;
   correct: number;
   wrong: number;
-}
-
-const TONE_CLASSES = {
-  blue: 'bg-blue-500/10 text-blue-600',
-  emerald: 'bg-emerald-500/10 text-emerald-600',
-  rose: 'bg-rose-500/10 text-rose-600',
-} as const;
-
-function BigStatCard({ icon: Icon, tone, value, label }: { icon: typeof HelpCircle; tone: keyof typeof TONE_CLASSES; value: number; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-default bg-surface-elevated p-4 text-center">
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${TONE_CLASSES[tone]}`}>
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="text-xl font-black text-default sm:text-2xl">{value}</span>
-      <span className="text-[11px] font-bold text-muted-foreground">{label}</span>
-    </div>
-  );
 }
 
 function MiniStat({ value, label, tone }: { value: number; label: string; tone?: 'emerald' | 'rose' }) {
@@ -88,31 +74,12 @@ export default function SoruBankasiUnitTopicAnalytics({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitId]);
 
-  const totals = topics.reduce(
-    (acc, topic) => {
-      const stat = statsByTopic?.[topic.id];
-      acc.poolSize += stat?.poolSize ?? topic.questionCount;
-      acc.solved += stat?.solved ?? 0;
-      acc.correct += stat?.correct ?? 0;
-      acc.wrong += stat?.wrong ?? 0;
-      return acc;
-    },
-    { poolSize: 0, solved: 0, correct: 0, wrong: 0 }
-  );
-
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
-        <BigStatCard icon={HelpCircle} tone="blue" value={totals.poolSize} label="Toplam Soru" />
-        <BigStatCard icon={CheckCircle2} tone="emerald" value={totals.solved} label="Çözülen" />
-        <BigStatCard icon={ThumbsUp} tone="emerald" value={totals.correct} label="Toplam Doğru" />
-        <BigStatCard icon={XCircle} tone="rose" value={totals.wrong} label="Toplam Yanlış" />
-      </div>
-
       <div>
         <h2 className="mb-2.5 text-xs font-black uppercase tracking-widest text-muted-foreground">Konu Bazlı Analizler</h2>
         <div className="space-y-2.5">
-          {topics.map((topic) => {
+          {topics.map((topic, idx) => {
             const stat = statsByTopic?.[topic.id];
             return (
               <Link
@@ -129,6 +96,10 @@ export default function SoruBankasiUnitTopicAnalytics({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
+                  {/* Üniteler sayfasındaki "N. Ünite" ile aynı düzen (2026-09-10 kullanıcı
+                      isteği) — topics zaten order_no sırasıyla geldiği için index doğrudan
+                      müfredat sırasına denk düşüyor. */}
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">{idx + 1}. Konu</p>
                   <p className="truncate text-sm font-black text-default">{topic.title}</p>
                   <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                     <MiniStat value={stat?.poolSize ?? topic.questionCount} label="Soru" />
