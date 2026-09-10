@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     topic_questions_mixed: '12-topic-mixed-questions.md',
     topic_questions_classical: '14-topic-classical-questions.md',
     topic_questions_classical_notebooklm: '16-topic-classical-questions-notebooklm.md',
+    topic_questions_from_synthesis: '21-topic-questions-from-synthesis.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -168,7 +169,14 @@ export async function GET(request: NextRequest) {
     let topicContentText = '';
     let sectionHeadingsText = '';
     let sectionRows: { heading: string; body_markdown: string | null }[] = [];
-    if (type === 'highlights' || type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical' || type === 'topic_questions_classical_notebooklm') {
+    if (
+      type === 'highlights' ||
+      type === 'topic_questions' ||
+      type === 'topic_questions_mixed' ||
+      type === 'topic_questions_classical' ||
+      type === 'topic_questions_classical_notebooklm' ||
+      type === 'topic_questions_from_synthesis'
+    ) {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
         const { data: sectionsData } = await supabase
@@ -191,7 +199,7 @@ export async function GET(request: NextRequest) {
     // gömmüyoruz (uzunluk/karakter sınırı yüzünden) — sadece hangi alt başlıkları
     // kapsaması gerektiğini kısa bir liste olarak veriyoruz. Diğer AI'lar (topic_questions_mixed)
     // kitaba erişemediği için onlara alt başlıkların tam ders notunu gömüyoruz.
-    if (type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical_notebooklm') {
+    if (type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical_notebooklm' || type === 'topic_questions_from_synthesis') {
       sectionHeadingsText = sectionRows.map((s) => s.heading).join(', ');
       if (!sectionHeadingsText.trim()) {
         return NextResponse.json({ error: 'Önce alt başlık planı oluşturulmalı' }, { status: 409 });
@@ -208,6 +216,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Kitapsız derslerde: genel/sentez soruları, konu anlatımının (topic_content_sections)
+    // ÖZETİNDEN değil, RAG için zaten sentezlenmiş DAHA KAPSAMLI kaynak metinden sorulsun —
+    // bkz. full_from_synthesis'teki aynı mantık (2026-09-10 kullanıcı talebi).
+    let synthesisSourceText = '';
+    if (type === 'topic_questions_from_synthesis') {
+      const { data: synthesisDoc } = await supabase
+        .from('rag_documents')
+        .select('raw_text')
+        .eq('topic_id', topicRow.id)
+        .eq('source', 'ai_generated')
+        .eq('is_synthesis', true)
+        .maybeSingle();
+      const raw = (synthesisDoc as { raw_text: string | null } | null)?.raw_text?.trim();
+      if (!raw) {
+        return NextResponse.json(
+          { error: 'Bu konu için henüz sentezlenmiş bir RAG kaynak metni yok — önce "RAG Kaynak Metni Sentezle" ile bir tane oluşturun.' },
+          { status: 409 }
+        );
+      }
+      synthesisSourceText = raw;
+    }
+
     const templatePath = path.join(process.cwd(), 'app', 'prompt', TOPIC_LEVEL_TEMPLATES[type as string]);
     const template = await readFile(templatePath, 'utf8');
 
@@ -222,6 +252,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
       .replaceAll('{section_headings}', sectionHeadingsText)
+      .replaceAll('{source_text}', synthesisSourceText)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '6-10'))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 

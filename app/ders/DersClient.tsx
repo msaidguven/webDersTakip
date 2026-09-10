@@ -187,7 +187,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
-  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
+  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
@@ -1965,6 +1965,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
                             >
                               <BookOpen className="h-3 w-3" /> Sentezden Alt Başlık
+                            </button>
+                          )}
+                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                            <button
+                              type="button"
+                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'rag_synthesis' })}
+                              title="Kitapsız ders — RAG sentez metnine dayanan genel/sentez soruları üret"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <ListChecks className="h-3 w-3" /> Sentezden Genel Sorular
+                              {questionStatusByTopic[activeTopic.id]?.general && (
+                                <Check className="h-3 w-3 text-emerald-600" />
+                              )}
                             </button>
                           )}
                           {isAdmin && (
