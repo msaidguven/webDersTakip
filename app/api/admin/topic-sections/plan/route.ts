@@ -106,19 +106,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'İçerik kaydı oluşturulamadı' }, { status: 500 });
     }
     topicContentId = (created as { id: number }).id;
-  } else {
+  }
+
+  // Aynı konuyu ikinci kez kaydederken, başlığı bir öncekiyle BİREBİR aynı olan alt
+  // başlıkları silip yeniden yaratmak yerine güncelliyoruz — aksi halde o satıra bağlı
+  // görsel/diyagram (topic_content_sections.image_url/diagram_svg, storage'da yedeksiz)
+  // ve soru bağlantıları (bkz. 2026-09-11 kullanıcı sorusu) her yeniden üretimde kaybolurdu.
+  // Başlığı artık gelmeyen (konudan tamamen çıkarılmış) eski alt başlıklar hâlâ siliniyor.
+  const matchedOldIdForIndex: (number | null)[] = new Array(cleanSections.length).fill(null);
+
+  if (existingContent) {
     await supabase.from('topic_contents').update({ is_published: true }).eq('id', topicContentId);
 
-    const { data: oldSections } = await supabase
+    const { data: oldSectionsData } = await supabase
       .from('topic_content_sections')
-      .select('id')
+      .select('id, heading')
       .eq('topic_content_id', topicContentId);
 
-    const oldSectionIds = ((oldSections as { id: number }[] | null) || []).map((s) => s.id);
+    const oldSections = (oldSectionsData as { id: number; heading: string }[] | null) || [];
+    const oldSectionIds = oldSections.map((s) => s.id);
     if (oldSectionIds.length) {
       await supabase.from('topic_content_section_outcomes').delete().in('section_id', oldSectionIds);
     }
-    await supabase.from('topic_content_sections').delete().eq('topic_content_id', topicContentId);
+
+    const oldIdQueueByHeading = new Map<string, number[]>();
+    for (const s of oldSections) {
+      const list = oldIdQueueByHeading.get(s.heading) || [];
+      list.push(s.id);
+      oldIdQueueByHeading.set(s.heading, list);
+    }
+
+    cleanSections.forEach((s, idx) => {
+      const queue = oldIdQueueByHeading.get(s.heading);
+      if (queue && queue.length) {
+        matchedOldIdForIndex[idx] = queue.shift()!;
+      }
+    });
+
+    const matchedOldIds = new Set(matchedOldIdForIndex.filter((id): id is number => id !== null));
+    const idsToDelete = oldSectionIds.filter((id) => !matchedOldIds.has(id));
+    if (idsToDelete.length) {
+      await supabase.from('topic_content_sections').delete().in('id', idsToDelete);
+    }
+
+    const updateResults = await Promise.all(
+      cleanSections.map((s, idx) => {
+        const oldId = matchedOldIdForIndex[idx];
+        if (oldId === null) return null;
+        return supabase
+          .from('topic_content_sections')
+          .update({
+            order_no: s.order_no,
+            body_markdown: s.body_markdown,
+            notebook_markdown: s.notebook_markdown,
+            image_prompt: s.image_prompt,
+            status: s.body_markdown ? 'content_ready' : 'planned',
+            ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
+          })
+          .eq('id', oldId);
+      })
+    );
+    if (updateResults.some((r) => r?.error)) {
+      return NextResponse.json({ error: 'Alt başlıklar güncellenemedi' }, { status: 500 });
+    }
   }
 
   // cover artık sadece subtitle taşıyor (kapak görseli ve anahtar kavramlar ayrı, kendi
@@ -154,30 +204,52 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { data: insertedSections, error: insertError } = await supabase
-    .from('topic_content_sections')
-    .insert(
-      cleanSections.map((s) => ({
-        topic_content_id: topicContentId,
-        order_no: s.order_no,
-        heading: s.heading,
-        body_markdown: s.body_markdown,
-        notebook_markdown: s.notebook_markdown,
-        image_prompt: s.image_prompt,
-        status: s.body_markdown ? 'content_ready' : 'planned',
-        // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;
-        // sadece başlık planı yapan akışta (body_markdown yok) source varsayılanında kalır,
-        // içerik daha sonra ayrı bir promptla eklenirken kendi kaynağını işaretler.
-        ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
-      }))
-    )
-    .select('id, order_no, heading');
+  // Başlığı eşleşen alt başlıklar yukarıda zaten UPDATE edildi (görsel/diyagram/soru
+  // bağlantılarını korumak için); burada sadece eşleşmeyen (yeni) alt başlıkları ekliyoruz.
+  const toInsertIndices = cleanSections
+    .map((_, idx) => idx)
+    .filter((idx) => matchedOldIdForIndex[idx] === null);
 
-  if (insertError || !insertedSections) {
-    return NextResponse.json({ error: 'Alt başlıklar kaydedilemedi' }, { status: 500 });
+  let insertedSections: { id: number; order_no: number; heading: string }[] = [];
+  if (toInsertIndices.length) {
+    const { data, error: insertError } = await supabase
+      .from('topic_content_sections')
+      .insert(
+        toInsertIndices.map((idx) => {
+          const s = cleanSections[idx];
+          return {
+            topic_content_id: topicContentId,
+            order_no: s.order_no,
+            heading: s.heading,
+            body_markdown: s.body_markdown,
+            notebook_markdown: s.notebook_markdown,
+            image_prompt: s.image_prompt,
+            status: s.body_markdown ? 'content_ready' : 'planned',
+            // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;
+            // sadece başlık planı yapan akışta (body_markdown yok) source varsayılanında kalır,
+            // içerik daha sonra ayrı bir promptla eklenirken kendi kaynağını işaretler.
+            ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
+          };
+        })
+      )
+      .select('id, order_no, heading');
+
+    if (insertError || !data) {
+      return NextResponse.json({ error: 'Alt başlıklar kaydedilemedi' }, { status: 500 });
+    }
+    insertedSections = data as { id: number; order_no: number; heading: string }[];
   }
 
-  const newSections = insertedSections as { id: number; order_no: number; heading: string }[];
+  // cleanSections ile aynı sırada, her alt başlığın nihai (korunan ya da yeni) id'si —
+  // eşleşen için matchedOldIdForIndex, eşleşmeyen için toInsertIndices sırasıyla insert
+  // sonucundaki id (Postgres tek VALUES-listeli INSERT'te RETURNING sırasını korur).
+  const finalIds: number[] = new Array(cleanSections.length);
+  matchedOldIdForIndex.forEach((oldId, idx) => {
+    if (oldId !== null) finalIds[idx] = oldId;
+  });
+  toInsertIndices.forEach((idx, k) => {
+    finalIds[idx] = insertedSections[k].id;
+  });
 
   const { data: outcomesData } = await supabase
     .from('outcomes')
@@ -192,12 +264,11 @@ export async function POST(request: NextRequest) {
   const unresolvedCodes = new Set<string>();
   const links: { section_id: number; outcome_id: number }[] = [];
 
-  newSections.forEach((newSection, idx) => {
-    const codes = cleanSections[idx]?.matched_outcome_codes || [];
-    for (const code of codes) {
+  cleanSections.forEach((s, idx) => {
+    for (const code of s.matched_outcome_codes) {
       const outcomeId = codeToOutcomeId.get(code);
       if (outcomeId) {
-        links.push({ section_id: newSection.id, outcome_id: outcomeId });
+        links.push({ section_id: finalIds[idx], outcome_id: outcomeId });
       } else {
         unresolvedCodes.add(code);
       }
