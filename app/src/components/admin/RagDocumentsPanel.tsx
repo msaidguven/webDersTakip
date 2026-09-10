@@ -12,7 +12,7 @@ type UnitRow = { id: number; title: string; order_no: number };
 type DocumentRow = {
   id: number;
   title: string;
-  source: 'pdf_upload' | 'notebooklm_text';
+  source: 'pdf_upload' | 'notebooklm_text' | 'ai_generated';
   unit_id: number | null;
   page_count: number | null;
   chunk_count: number;
@@ -35,6 +35,7 @@ const STATUS_COLOR: Record<DocumentRow['status'], string> = {
 const SOURCE_LABEL: Record<DocumentRow['source'], string> = {
   pdf_upload: 'PDF',
   notebooklm_text: 'NotebookLM',
+  ai_generated: 'AI (kitapsız)',
 };
 
 function unitTitleOf(doc: DocumentRow): string | null {

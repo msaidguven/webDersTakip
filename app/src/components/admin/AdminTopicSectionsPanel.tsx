@@ -940,6 +940,110 @@ export function PlanModal({
   );
 }
 
+// MEB'in kitap yayınlamadığı dersler için: unit-prompt (RagDocumentsPanel'deki NotebookLM
+// akışı) "kitaptan çıkar" diyordu, bu modal ise kazanımlara dayanarak AI'a SIFIRDAN kaynak
+// metin yazdırıp aynı /api/admin/rag/documents/from-text ucundan (source='ai_generated')
+// kaydediyor — PlanModal'la aynı iskelet (prompt kopyala → AI'a sor → düz metni yapıştır →
+// kaydet), ama çıktı JSON değil düz metin (bkz. 18-rag-topic-source-notext.md).
+export function RagTopicSourceModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPrompt(true);
+    setError(null);
+    fetch(`/api/admin/rag/topic-source-prompt?topicId=${topicId}`)
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
+      .then(({ ok, data }) => {
+        if (cancelled) return;
+        if (!ok) { setError(data?.error || 'Prompt oluşturulamadı.'); return; }
+        setPrompt(data?.prompt || '');
+        setMeta({ topicTitle: data.topicTitle, unitId: data.unitId, gradeId: data.gradeId, lessonId: data.lessonId });
+      })
+      .finally(() => { if (!cancelled) setLoadingPrompt(false); });
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  async function handleSave() {
+    if (!meta) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/rag/documents/from-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gradeId: meta.gradeId,
+          lessonId: meta.lessonId,
+          unitId: meta.unitId,
+          title: meta.topicTitle,
+          source: 'ai_generated',
+          text: pasted,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="RAG Kaynak Metni (Kitapsız Ders)" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Bu ders için MEB kitabı yok — aşağıdaki prompt, konunun kazanımlarına dayanarak AI&apos;a kaynak metni SIFIRDAN yazdırıyor.
+          Dışarıda bir AI&apos;a (ChatGPT, Gemini vb.) sorup dönen düz metni aşağıya yapıştırın.
+        </p>
+        <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+
+        <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={8}
+            placeholder="AI'ın ürettiği kaynak metni buraya yapıştırın..."
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            İptal
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pasted.trim() || !meta}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export function NotebookPlanModal({
   topicId,
   onClose,

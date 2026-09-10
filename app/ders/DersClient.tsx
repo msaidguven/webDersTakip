@@ -40,6 +40,7 @@ import type {
 const AdminTopicSectionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsModal'), { ssr: false });
 const PlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.PlanModal), { ssr: false });
 const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.NotebookPlanModal), { ssr: false });
+const RagTopicSourceModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceModal), { ssr: false });
 const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
 const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
@@ -180,6 +181,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
+  const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
@@ -1409,6 +1411,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       >
                         <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setRagSourceModalTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni (Kitapsız Ders)
+                      </button>
                     </div>
                   </>
                 )}
@@ -2486,6 +2498,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             setNotebookPlanTopicId(null);
             setManagingTopicId(topicId);
           }}
+        />
+      )}
+
+      {ragSourceModalTopicId != null && (
+        <RagTopicSourceModal
+          topicId={ragSourceModalTopicId}
+          onClose={() => setRagSourceModalTopicId(null)}
+          onSaved={() => setRagSourceModalTopicId(null)}
         />
       )}
 
