@@ -25,6 +25,11 @@ type ParsedRow = {
 // _id ayıklanıyor (API sadece ParsedRow şeklini bekliyor).
 type EditableRow = ParsedRow & { _id: number };
 
+// XLSX çerçeve yıllık planları genelde her sınıf için ayrı bir sayfa içeriyor (ör. BTY_5,
+// BTY_6) — parse-xlsx sayfa başına bir sonuç döner, admin hangisinin hedeflediği sınıfa ait
+// olduğunu seçer (bkz. handleFile, sayfa seçici kartı).
+type XlsxSheetResult = { sheetName: string; rows: ParsedRow[]; total: number; clean: number; uniteler: string[]; konu_count: number; kazanim_count: number };
+
 type LogLevel = 'info' | 'success' | 'warning' | 'error';
 type LogEntry = { msg: string; level: LogLevel };
 type StepResult = { basarili: number; atlanmis: number; hata: number; hafta_atlanmis?: number };
@@ -140,6 +145,7 @@ export default function YillikPlanPanel() {
   const availableLessons = gradeId == null ? [] : lessons.filter((l) => lessonGrades.some((lg) => lg.lesson_id === l.id && lg.grade_id === gradeId));
 
   const [fileName, setFileName] = useState('');
+  const [xlsxSheets, setXlsxSheets] = useState<XlsxSheetResult[] | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [rows, setRows] = useState<EditableRow[] | null>(null);
@@ -258,37 +264,57 @@ export default function YillikPlanPanel() {
     setLessonId((current) => (current != null && lessonGrades.some((lg) => lg.lesson_id === current && lg.grade_id === id) ? current : null));
   }
 
+  const applyParsedRows = useCallback((rows: ParsedRow[], uniteler: string[], konuCount: number) => {
+    setRows(withIds(rows));
+    setUniteler(uniteler);
+    setKonuCount(konuCount);
+    setRawJson(JSON.stringify(rows, null, 2));
+  }, [withIds]);
+
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.docx')) {
-      setParseError('Sadece .docx dosyası kabul edilir.');
+    const nameLower = file.name.toLowerCase();
+    const isDocx = nameLower.endsWith('.docx');
+    const isXlsx = nameLower.endsWith('.xlsx');
+    if (!isDocx && !isXlsx) {
+      setParseError('Sadece .docx veya .xlsx dosyası kabul edilir.');
       return;
     }
     setFileName(file.name);
     setParsing(true);
     setParseError(null);
     setRows(null);
+    setXlsxSheets(null);
     setStepLogs({ units: [], topics: [], outcomes: [] });
     setStepResult({ units: null, topics: null, outcomes: null });
 
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/admin/yillik-plan/parse-docx', { method: 'POST', body: fd });
+      const res = await fetch(isDocx ? '/api/admin/yillik-plan/parse-docx' : '/api/admin/yillik-plan/parse-xlsx', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
         setParseError(data?.error || 'Ayrıştırma başarısız.');
         return;
       }
-      setRows(withIds(data.rows));
-      setUniteler(data.uniteler || []);
-      setKonuCount(data.konu_count || 0);
-      setRawJson(JSON.stringify(data.rows, null, 2));
+      if (isDocx) {
+        applyParsedRows(data.rows, data.uniteler || [], data.konu_count || 0);
+        return;
+      }
+      // XLSX genelde her sınıf için ayrı bir sayfa içeriyor (ör. BTY_5, BTY_6) — tek
+      // kullanılabilir sayfa bulunduysa DOCX'teki gibi otomatik uygulanır, birden fazlaysa
+      // admin hangisinin hedeflediği sınıfa ait olduğunu seçer (bkz. sayfa seçici kartı).
+      const sheets: XlsxSheetResult[] = data.sheets || [];
+      if (sheets.length === 1) {
+        applyParsedRows(sheets[0].rows, sheets[0].uniteler, sheets[0].konu_count);
+      } else {
+        setXlsxSheets(sheets);
+      }
     } catch {
       setParseError('Dosya işlenirken bir hata oluştu.');
     } finally {
       setParsing(false);
     }
-  }, [withIds]);
+  }, [applyParsedRows]);
 
   async function runStep(step: StepKey) {
     if (!rows || !lessonId || !gradeId) return;
@@ -551,7 +577,7 @@ export default function YillikPlanPanel() {
       <StepFlow rows={rows} results={stepResult} />
 
       {/* DOSYA YÜKLE — her iki sekmede de (klasik aktarım + hafta atama) kullanıldığı için sekmelerin dışında, hep görünür */}
-      <Card title="DOCX Yükle">
+      <Card title="DOCX / XLSX Yükle">
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -567,16 +593,32 @@ export default function YillikPlanPanel() {
         >
           <input
             type="file"
-            accept=".docx"
+            accept=".docx,.xlsx"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
             className="absolute inset-0 opacity-0 cursor-pointer"
           />
           <div className="text-3xl mb-2">📄</div>
-          <p className="text-sm font-bold text-foreground">DOCX sürükle veya tıkla</p>
-          <p className="text-xs text-muted-foreground mt-1">Yıllık plan tablosu içeren .docx dosyası</p>
+          <p className="text-sm font-bold text-foreground">DOCX veya XLSX sürükle veya tıkla</p>
+          <p className="text-xs text-muted-foreground mt-1">Yıllık plan tablosu içeren .docx dosyası ya da MEB çerçeve plan .xlsx&apos;i (kitapsız dersler için — bkz. proje sohbeti 2026-09-10)</p>
           {fileName && <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 mt-3">{parsing ? '⏳ ' : '✅ '}{fileName}</p>}
         </div>
         {parseError && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {parseError}</p>}
+
+        {xlsxSheets && !rows && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-bold text-muted-foreground">Bu Excel&apos;de birden fazla sayfa var — hedeflediğiniz sınıfa ait olanı seçin:</p>
+            {xlsxSheets.map((s) => (
+              <button
+                key={s.sheetName}
+                onClick={() => applyParsedRows(s.rows, s.uniteler, s.konu_count)}
+                className="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3 text-left hover:border-indigo-400 transition-colors"
+              >
+                <span className="text-sm font-bold text-foreground">{s.sheetName}</span>
+                <span className="text-[11px] text-muted-foreground">{s.uniteler.length} ünite · {s.konu_count} konu · {s.kazanim_count} kazanım</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {rows && (
           <div className="mt-4 space-y-3">
@@ -902,16 +944,16 @@ export default function YillikPlanPanel() {
       )}
 
       {activeTab === 'weeks' && (
-      <Card title="DOCX'ten Hafta Ata">
+      <Card title="Hafta Ata (DOCX/XLSX)">
         <p className="text-xs text-muted-foreground mb-4">
-          Yukarıda TYMM&apos;den aktarılmış bir ünitenin konu/kazanımlarına, DOCX&apos;ten çıkan hafta sırasını atar. Metin benzerliğine değil, konu/kazanım SAYISININ birebir
+          Yukarıda TYMM&apos;den aktarılmış bir ünitenin konu/kazanımlarına, yüklenen DOCX/XLSX&apos;ten çıkan hafta sırasını atar. Metin benzerliğine değil, konu/kazanım SAYISININ birebir
           eşleşmesine dayanır — sayılar uyuşmazsa hiçbir şey kaydedilmez.
         </p>
 
         {!rows || rows.length === 0 ? (
           <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">
-            ⚠️ Önce yukarıda bir DOCX yükleyin — bu araç, kazanımları DOCX&apos;ten çıkan hafta sırasıyla
-            eşleştirdiği için DOCX verisine ihtiyaç duyuyor.
+            ⚠️ Önce yukarıda bir DOCX/XLSX yükleyin — bu araç, kazanımları dosyadan çıkan hafta sırasıyla
+            eşleştirdiği için o veriye ihtiyaç duyuyor.
           </p>
         ) : (
         <>

@@ -21,9 +21,9 @@ export type ParsedRow = {
   saat: number | null;
 };
 
-const SEP = '§§';
+export const SEP = '§§';
 
-const KOD_RE = /^(SB|BTY|BT|FEN|FEB?|MAT|TDE?|İNG|MÜZ|GÖR|BED|DİN|AHL?|TAR|COĞ|FEL|PSİ|SOSYOLOJİ|REH)\.\d+\.\d*\.?\d*\.?\s*(\(.+\))?\s*$/i;
+export const KOD_RE = /^(SB|BTY|BT|FEN|FEB?|MAT|TDE?|İNG|MÜZ|GÖR|BED|DİN|AHL?|TAR|COĞ|FEL|PSİ|SOSYOLOJİ|REH)\.\d+\.\d*\.?\d*\.?\s*(\(.+\))?\s*$/i;
 const TATIL = ['Tatil', 'tatil', 'Bayram', 'bayram', 'Yıl Sonu', 'yıl sonu', 'Sınav'];
 const KUCUK: Record<string, string> = { İ: 'i', I: 'ı', Ş: 'ş', Ğ: 'ğ', Ü: 'ü', Ö: 'ö', Ç: 'ç' };
 const BUYUK: Record<string, string> = { i: 'İ', ı: 'I', ş: 'Ş', ğ: 'Ğ', ü: 'Ü', ö: 'Ö', ç: 'Ç' };
@@ -103,7 +103,13 @@ function hucreOku(tc: Element): string {
   return buf;
 }
 
-function surecBol(text: string): string[][] {
+// Bir hücrenin (DOCX'te w:br ile, XLSX'te satır grubuyla ayrılmış) SEP ile birleştirilmiş
+// düz metnini, her biri "kod satırı + a)/b)/c) bileşenleri" olan gruplara ayırır — kod
+// regex'i (KOD_RE) görülünce yeni grup başlar, a) harfi "a" değilken sıfırlanıp tekrar "a"
+// görülünce de yeni grup başlar (bir öğrenme çıktısının süreç bileşenleri bitip yenisi
+// başladığını, kod satırı olmasa bile a)'dan anlıyoruz). xlsxParser.ts da (Öğrenme Çıktıları
+// + Süreç Bileşenleri sütunlarını SEP'le birleştirip) aynı fonksiyonu kullanıyor.
+export function surecBol(text: string): string[][] {
   const gruplar: string[][] = [];
   let simdiki: string[] = [];
   let sonHarf: string | null = null;
