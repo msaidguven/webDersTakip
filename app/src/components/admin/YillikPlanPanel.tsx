@@ -193,8 +193,13 @@ export default function YillikPlanPanel() {
 
   // Hafta Ata sekmesi (ayrı, elle onaylanır): TYMM'den aktarılan ünitenin kazanımlarına DOCX'ten
   // hafta ata — sıra+sayı eşleşmesine dayanır, bkz. assignWeeksFromDocx.ts üstündeki not.
+  // weekUnitId eskiden admin'in elle yazması gereken çıplak bir sayıydı ("TYMM'den Aktar"
+  // sekmesinden az önce kaydettiyse otomatik doluyordu, ama TYMM aktarımı ÖNCEKİ bir
+  // oturumda yapıldıysa admin'in ID'yi bilmesinin hiçbir yolu yoktu — kullanıcının 2026-09-10
+  // bildirdiği sorun). Artık seçili sınıf/derse ait üniteler DB'den çekilip isimle seçiliyor.
   const [weekUnitId, setWeekUnitId] = useState('');
   const [weekUniteName, setWeekUniteName] = useState('');
+  const [weekUnits, setWeekUnits] = useState<{ id: number; title: string }[]>([]);
   const [weekPreviewing, setWeekPreviewing] = useState(false);
   const [weekPreview, setWeekPreview] = useState<MatchPreviewResponse | null>(null);
   const [weekPreviewErr, setWeekPreviewErr] = useState<string | null>(null);
@@ -258,6 +263,29 @@ export default function YillikPlanPanel() {
       setLessonGrades((lessonGradesData as { lesson_id: number; grade_id: number }[] | null) || []);
     })();
   }, []);
+
+  // Hafta Ata sekmesindeki ünite seçimi için — sınıf/ders değişince o ikilideki üniteleri
+  // DB'den çeker (bkz. weekUnitId üstündeki not).
+  useEffect(() => {
+    if (gradeId == null || lessonId == null) {
+      setWeekUnits([]);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from('units')
+      .select('id, title')
+      .eq('grade_id', gradeId)
+      .eq('lesson_id', lessonId)
+      .order('order_no', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setWeekUnits((data as { id: number; title: string }[] | null) || []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gradeId, lessonId]);
 
   function selectGrade(id: number) {
     setGradeId(id);
@@ -957,16 +985,15 @@ export default function YillikPlanPanel() {
           </p>
         ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ünite ID</label>
-              <input
-                value={weekUnitId}
-                onChange={(e) => setWeekUnitId(e.target.value)}
-                placeholder="TYMM’den Aktar sekmesinden otomatik dolar"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
-              />
-            </div>
+          <div className="mb-3">
+            <PickList
+              label="Hafta atanacak ünite (yukarıda seçili sınıf/derse ait)"
+              items={weekUnits.map((u) => ({ id: u.id, name: u.title }))}
+              selectedId={weekUnitId ? Number(weekUnitId) : null}
+              onSelect={(id) => setWeekUnitId(String(id))}
+              disabled={!lessonId || !gradeId}
+              emptyMessage={!lessonId || !gradeId ? 'Önce yukarıda Sınıf ve Ders seçin' : 'Bu sınıf/derste ünite bulunamadı — önce TYMM\'den Aktar ile içe aktarın'}
+            />
           </div>
 
           <div className="mb-4">
