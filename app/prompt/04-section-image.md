@@ -10,9 +10,10 @@ Alt başlığın ders notu:
 
 Kurallar (image_prompt için):
 - Prompt İngilizce yazılsın.
+- Görsel YATAY (landscape, geniş) formatta olsun — prompt içine bunu açıkça belirt (ör. "landscape orientation, wide composition").
 - {grade} öğrencisine uygun, sade, eğitici bir illüstrasyon stili iste (fotogerçekçi değil, temiz/çocuk dostu çizim tarzı).
 - Ders notunda geçen somut bir bilgiyi/nesneyi/sahneyi tarif et; jenerik, konuyla doğrudan ilgisi olmayan sahneler ("bir öğrenci ders çalışıyor" gibi) önerme.
-- Görselde mutlaka geçmesi gereken bir yazı/etiket varsa (ör. parça adı, tabela) ne yazması gerektiğini prompt içinde belirt.
+- Görselde mutlaka geçmesi gereken bir yazı/etiket varsa (ör. parça adı, tabela) ne yazması gerektiğini prompt içinde belirt ve o yazının Türkçe olması gerektiğini prompt içine ekle.
 
 Kurallar (alt_text için):
 - Türkçe yaz, 3-5 kelime.

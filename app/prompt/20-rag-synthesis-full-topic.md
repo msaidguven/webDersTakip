@@ -23,12 +23,12 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "matched_outcome_codes": [string],
       "body_markdown": string,      // madde madde (- madde) özet bilgi
       "needs_image": boolean,
-      "image_prompt": string   // needs_image true ise İngilizce görsel promptu; görseldeki yazılar Türkçe olsun
+      "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
     }
   ],
   "cover": {
     "subtitle": string,             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
-    "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu; yazı varsa Türkçe olsun
+    "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu (YATAY/landscape formatta olsun); yazı varsa Türkçe olsun
     "highlights": [
       { "icon": "tek emoji", "title": "kavram/terim, max 3 kelime", "description": "1 kısa cümle, somut ve doğrulanabilir bir tanım" }
     ]  // konunun en önemli 4-8 anahtar kavramı
