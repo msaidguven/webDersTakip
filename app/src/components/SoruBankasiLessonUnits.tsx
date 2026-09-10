@@ -64,7 +64,7 @@ export default function SoruBankasiLessonUnits({
 
   return (
     <div className="space-y-2.5">
-      {units.map((unit) => {
+      {units.map((unit, idx) => {
         const status = statusByUnit[unit.id];
         const percent = status && status.poolSize > 0 ? Math.min(100, Math.round((status.solved / status.poolSize) * 100)) : 0;
         return (
@@ -74,6 +74,11 @@ export default function SoruBankasiLessonUnits({
             className="flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
           >
             <div className="min-w-0 flex-1">
+              {/* Üniteler eskiden düz bir liste gibi görünüyordu, hangisinin kaçıncı ünite
+                  olduğu belli değildi — kullanıcının 2026-09-10 isteği: "üniteleri belirgin
+                  yapsak ve yazsak". units zaten order_no'ya göre sıralı geldiği için index
+                  doğrudan müfredat sırasına denk düşüyor. */}
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">{idx + 1}. Ünite</p>
               <p className="truncate text-sm font-black text-default">{unit.title}</p>
               {unit.questionCount === 0 ? (
                 <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-500">Taslak</span>
