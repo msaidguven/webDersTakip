@@ -1044,6 +1044,177 @@ export function RagTopicSourceModal({
   );
 }
 
+// RagTopicSourceModal'ın (18. prompt) çıktısını 2-3 farklı AI'a ayrı ayrı verip aldığın
+// bağımsız kaynak metinleri tek, tutarlı bir metne birleştirir (19. prompt, ensemble/
+// self-consistency mantığı — bkz. proje sohbeti 2026-09-10). Akış: kaynakları yapıştır →
+// otomatik dolan prompt'u 4. bir AI'a ver → sonucu yapıştır → kaydet. Prompt şablonundaki
+// "Tutarsızlık Notu" ("---" sonrası) sisteme KAYDEDİLMİYOR, sadece admin'e ayrı bir kutuda
+// gösteriliyor — kaynaklar birbirinden farklıysa admin bunu görüp elle kontrol edebilsin.
+export function RagTopicSourceSynthesisModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [promptTemplate, setPromptTemplate] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
+
+  const [source1, setSource1] = useState('');
+  const [source2, setSource2] = useState('');
+  const [source3, setSource3] = useState('');
+  const [pasted, setPasted] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPrompt(true);
+    setLoadError(null);
+    fetch(`/api/admin/rag/topic-source-synthesis-prompt?topicId=${topicId}`)
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
+      .then(({ ok, data }) => {
+        if (cancelled) return;
+        if (!ok) { setLoadError(data?.error || 'Prompt oluşturulamadı.'); return; }
+        setPromptTemplate(data?.promptTemplate || '');
+        setMeta({ topicTitle: data.topicTitle, unitId: data.unitId, gradeId: data.gradeId, lessonId: data.lessonId });
+      })
+      .finally(() => { if (!cancelled) setLoadingPrompt(false); });
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  // Yer tutucular admin yazdıkça anlık dolsun diye client'ta hesaplanıyor — her tuş
+  // vuruşunda sunucuya gitmeye gerek yok, düz metin değişimi.
+  const finalPrompt = useMemo(() => {
+    if (!promptTemplate) return '';
+    return promptTemplate
+      .replaceAll('{source_1}', source1.trim() || '(bu kaynak sağlanmadı)')
+      .replaceAll('{source_2}', source2.trim() || '(bu kaynak sağlanmadı)')
+      .replaceAll('{source_3}', source3.trim() || '(bu kaynak sağlanmadı)');
+  }, [promptTemplate, source1, source2, source3]);
+
+  // Prompt, nihai metinden sonra "---" ile ayrılmış bir "Tutarsızlık Notu" istiyor — bu
+  // not sisteme kaydedilmesin diye ayıklanıp admin'e ayrı gösteriliyor.
+  const { mainText, consistencyNote } = useMemo(() => {
+    const idx = pasted.indexOf('\n---');
+    if (idx === -1) return { mainText: pasted.trim(), consistencyNote: null as string | null };
+    return { mainText: pasted.slice(0, idx).trim(), consistencyNote: pasted.slice(idx + 4).trim() || null };
+  }, [pasted]);
+
+  async function handleSave() {
+    if (!meta) return;
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/rag/documents/from-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gradeId: meta.gradeId,
+          lessonId: meta.lessonId,
+          unitId: meta.unitId,
+          title: meta.topicTitle,
+          source: 'ai_generated',
+          text: mainText,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setSaveError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="RAG Kaynak Metni Sentezle (Çoklu AI)" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Önce &quot;RAG Kaynak Metni&quot; prompt&apos;unu 2-3 farklı AI&apos;a ayrı ayrı verip bağımsız kaynak metinler al, buraya yapıştır —
+          aşağıdaki sentez prompt&apos;u otomatik dolacak. Onu 4. bir AI&apos;a verip dönen sonucu en alta yapıştır.
+        </p>
+
+        {loadError && <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>}
+
+        <div className="space-y-2.5">
+          <div>
+            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 1</span>
+            <textarea
+              value={source1}
+              onChange={(e) => setSource1(e.target.value)}
+              rows={3}
+              placeholder="1. AI'ın ürettiği kaynak metni"
+              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 2</span>
+            <textarea
+              value={source2}
+              onChange={(e) => setSource2(e.target.value)}
+              rows={3}
+              placeholder="2. AI'ın ürettiği kaynak metni"
+              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 3 (opsiyonel)</span>
+            <textarea
+              value={source3}
+              onChange={(e) => setSource3(e.target.value)}
+              rows={3}
+              placeholder="3. AI'ın ürettiği kaynak metni (varsa)"
+              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+            />
+          </div>
+        </div>
+
+        <PromptCopyBox prompt={finalPrompt} loading={loadingPrompt} />
+
+        <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">Sentez sonucunu (4. AI&apos;dan gelen) buraya yapıştırın</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={8}
+            placeholder="AI'ın birleştirdiği nihai kaynak metni buraya yapıştırın..."
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        {consistencyNote && (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+            <p className="text-[11px] font-bold text-amber-300 mb-1">⚠️ Tutarsızlık Notu (kaydedilmeyecek, sadece bilgi için)</p>
+            <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{consistencyNote}</p>
+          </div>
+        )}
+
+        {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            İptal
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !mainText || !meta}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export function NotebookPlanModal({
   topicId,
   onClose,
