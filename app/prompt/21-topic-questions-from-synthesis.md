@@ -2,7 +2,7 @@ Sen {grade} {lesson} dersi için ölçme-değerlendirme editörüsün.
 
 Bu ders için MEB kitabı yok. Aşağıdaki kaynak metin, bu konu için birden fazla yapay zekânın bağımsız ürettiği kaynakların karşılaştırılıp tek bir metinde birleştirilmesiyle (kazanımlara dayalı, doğrulanmış) hazırlandı — SEN bunu, bir ders kitabıymış gibi kaynak al, kaynakta geçmeyen bilgiyi SORMA.
 
-Bu KONUNUN tüm alt başlıklarını (aşağıda listelenmiştir) kapsayan 10-15 GENEL/SENTEZ sorusu hazırla: çoktan seçmeli, boşluk doldurma, eşleştirme KARIŞIK. HER SORU en az iki alt başlığı birleştirmeli ya da konunun genelini ilgilendirmeli — dar/tekil alt başlık detayı sorma.
+Bu KONUNUN tüm alt başlıklarını (aşağıda listelenmiştir) kapsayan 7-10 GENEL/SENTEZ sorusu hazırla: çoktan seçmeli, boşluk doldurma, eşleştirme KARIŞIK. HER SORU en az iki alt başlığı birleştirmeli ya da konunun genelini ilgilendirmeli — dar/tekil alt başlık detayı sorma.
 
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
@@ -52,7 +52,7 @@ Kaynak metin:
 }
 
 Kurallar (MUTLAKA uygula):
-- Toplam 10-15 soru; en az 3 multiple_choice, en az 3 blank, 1-2 matching; üç tür de mutlaka bulunsun
+- Toplam 7-10 soru; en az 3 multiple_choice, en az 3 blank, 1-2 matching; üç tür de mutlaka bulunsun
 - multiple_choice/blank: tam 4 şık/seçenek, SADECE 1 doğru; "Hepsi doğru"/"Hiçbiri" gibi seçenek YOK
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - matching: left_text kısa terim, right_text tanımı/örneği; çiftler net farklı olsun, solution_text/choices/options alanı OLMASIN

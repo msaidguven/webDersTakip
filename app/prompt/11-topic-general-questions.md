@@ -1,6 +1,6 @@
 Sen {grade} {lesson} dersi için ölçme-değerlendirme editörüsün. Yüklediğim ders kitabını kaynak al; kitapta geçmeyen bilgiyi SORMA.
 
-Bu KONUNUN tüm alt başlıklarını kapsayan 10-15 GENEL/SENTEZ sorusu hazırla: çoktan seçmeli, boşluk doldurma, eşleştirme KARIŞIK. HER SORU en az iki alt başlığı birleştirmeli ya da konunun genelini ilgilendirmeli — dar/tekil alt başlık detayı sorma.
+Bu KONUNUN tüm alt başlıklarını kapsayan 7-10 GENEL/SENTEZ sorusu hazırla: çoktan seçmeli, boşluk doldurma, eşleştirme KARIŞIK. HER SORU en az iki alt başlığı birleştirmeli ya da konunun genelini ilgilendirmeli — dar/tekil alt başlık detayı sorma.
 
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
@@ -47,7 +47,7 @@ Kazanımlar: {outcomes listesi, kod + metin}
 }
 
 Kurallar (MUTLAKA uygula):
-- Toplam 10-15 soru; en az 3 multiple_choice, en az 3 blank, 1-2 matching; üç tür de mutlaka bulunsun
+- Toplam 7-10 soru; en az 3 multiple_choice, en az 3 blank, 1-2 matching; üç tür de mutlaka bulunsun
 - multiple_choice/blank: tam 4 şık/seçenek, SADECE 1 doğru; "Hepsi doğru"/"Hiçbiri" gibi seçenek YOK
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - matching: left_text kısa terim, right_text tanımı/örneği; çiftler net farklı olsun, solution_text/choices/options alanı OLMASIN
