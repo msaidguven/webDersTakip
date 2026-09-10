@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<Pa
 
   const { data, error } = await supabase
     .from('topic_content_sections')
-    .select('id, heading, body_markdown, image_url, image_prompt, diagram_svg, source, ai_model')
+    .select('id, heading, body_markdown, notebook_markdown, image_url, image_prompt, diagram_svg, source, ai_model')
     .eq('id', sectionId)
     .maybeSingle();
 
@@ -37,6 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { sectionId } = await params;
   const body = await request.json().catch(() => null) as {
     body_markdown?: unknown;
+    notebook_markdown?: unknown;
     source?: unknown;
     ai_model?: unknown;
   } | null;
@@ -55,6 +56,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('topic_content_sections')
     .update({
       body_markdown: body.body_markdown.trim(),
+      notebook_markdown: typeof body.notebook_markdown === 'string' && body.notebook_markdown.trim()
+        ? body.notebook_markdown.trim()
+        : null,
       status: 'content_ready',
       updated_at: new Date().toISOString(),
       ...(body.source !== undefined ? { source: body.source } : {}),

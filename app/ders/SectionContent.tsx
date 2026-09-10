@@ -128,29 +128,65 @@ function buildBlocks(html: string): React.ReactNode[] {
   return blocks;
 }
 
+// Delikli/spiralli, kırmızı çizgili "defter sayfası" görünümü — öğrencinin deftere
+// geçireceği kısa notlar için. notebookHtml verilmediğinde (henüz yeniden üretilmemiş
+// eski bölümler) bu kutuyu doğrudan konu anlatımı için kullanıyoruz — eski görünüm
+// böylece hiç bozulmuyor.
+function NotebookBox({ label, children }: { label?: string; children: React.ReactNode }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-[#fffdf6] shadow-sm">
+      <div className="absolute inset-y-0 left-0 hidden w-12 flex-col items-center justify-evenly py-5 sm:flex">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <span key={i} className="h-2 w-2 rounded-full bg-white shadow-inner ring-1 ring-amber-200" />
+        ))}
+      </div>
+      <div className="absolute inset-y-0 left-12 hidden w-px bg-rose-200 sm:block" />
+      <div className="space-y-3 px-5 py-5 sm:py-6 sm:pl-16 sm:pr-6">
+        {label && (
+          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-amber-700">
+            📝 {label}
+          </p>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function SectionContent({
   html,
+  notebookHtml,
   imageUrl,
   caption,
   imageAlt,
   diagramSvg,
 }: {
   html: string;
+  notebookHtml?: string | null;
   imageUrl?: string | null;
   caption?: string | null;
   imageAlt?: string | null;
   diagramSvg?: string | null;
 }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
+  const [notebookBlocks, setNotebookBlocks] = useState<React.ReactNode[] | null>(null);
   const [cleanSvg, setCleanSvg] = useState<string | null>(null);
   const [diagramZoomed, setDiagramZoomed] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
 
   const mathHtml = useMemo(() => (html ? renderLatexInHtml(html) : html), [html]);
+  const mathNotebookHtml = useMemo(
+    () => (notebookHtml ? renderLatexInHtml(notebookHtml) : notebookHtml || null),
+    [notebookHtml]
+  );
 
   useEffect(() => {
     setBlocks(mathHtml ? buildBlocks(mathHtml) : []);
   }, [mathHtml]);
+
+  useEffect(() => {
+    setNotebookBlocks(mathNotebookHtml ? buildBlocks(mathNotebookHtml) : null);
+  }, [mathNotebookHtml]);
 
   useEffect(() => {
     setCleanSvg(diagramSvg ? sanitizeMathSvg(diagramSvg) : null);
@@ -250,17 +286,18 @@ export default function SectionContent({
           )}
         </>
       )}
-      <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-[#fffdf6] shadow-sm">
-        <div className="absolute inset-y-0 left-0 hidden w-12 flex-col items-center justify-evenly py-5 sm:flex">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <span key={i} className="h-2 w-2 rounded-full bg-white shadow-inner ring-1 ring-amber-200" />
-          ))}
-        </div>
-        <div className="absolute inset-y-0 left-12 hidden w-px bg-rose-200 sm:block" />
-        <div className="space-y-3 px-5 py-5 sm:py-6 sm:pl-16 sm:pr-6">
+      {notebookHtml ? (
+        <>
+          <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-900">
+            {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
+          </div>
+          <NotebookBox label="Defterine Not Al">{notebookBlocks}</NotebookBox>
+        </>
+      ) : (
+        <NotebookBox>
           {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
-        </div>
-      </div>
+        </NotebookBox>
+      )}
     </div>
   );
 }

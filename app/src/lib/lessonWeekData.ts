@@ -16,6 +16,7 @@ type SectionRow = {
   order_no: number;
   heading: string;
   body_markdown: string | null;
+  notebook_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   image_alt: string | null;
@@ -30,7 +31,7 @@ type HighlightRow = {
 };
 
 export type LessonWeekOutcome = { id: number; description: string; topicId: number | null; topicTitle: string };
-export type LessonWeekSection = { id: number; heading: string; html: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null; diagramSvg: string | null };
+export type LessonWeekSection = { id: number; heading: string; html: string | null; notebookHtml: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null; diagramSvg: string | null };
 export type LessonWeekContent = {
   id: number;
   title: string;
@@ -178,7 +179,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, image_url, image_prompt, image_alt, diagram_svg')
+          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, image_url, image_prompt, image_alt, diagram_svg')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -203,6 +204,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           id: row.id,
           heading: row.heading,
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
+          notebookHtml: row.notebook_markdown ? markdownToHtml(row.notebook_markdown) : null,
           imageUrl: row.image_url,
           imagePrompt: row.image_prompt,
           imageAlt: row.image_alt,

@@ -2,7 +2,10 @@ Sen {grade} {lesson} dersi için ders notu hazırlayan bir öğretmensin.
 
 Bu ders için MEB kitabı yok. Aşağıdaki kaynak metin, bu konu için birden fazla yapay zekânın bağımsız ürettiği kaynakların karşılaştırılıp tek bir metinde birleştirilmesiyle (kazanımlara dayalı, doğrulanmış) hazırlandı — SEN bunu, bir ders kitabıymış gibi kaynak al. "{unit}" ünitesi, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı ders notları çıkar.
 
-Konuyu bu kaynak metindeki sıraya/mantığa göre alt başlıklara ayır, her başlık altında maddeler halinde önemli bilgileri yaz (tanımlar, sayılar, örnekler). Sade ve anlaşılır bir dil kullan, {grade} seviyesine uygun olsun.
+Konuyu bu kaynak metindeki sıraya/mantığa göre alt başlıklara ayır. Her alt başlık için İKİ FARKLI metin üreteceksin, çünkü ikisinin amacı farklı:
+
+1. **explanation_markdown — Konu Anlatımı.** Öğretmenin sınıfta anlatacağı veya öğrencinin ekrandan akıcı bir şekilde okuyacağı metin. Serbest akan paragraflar halinde yaz (madde işareti şart değil), günlük konuşma diline yakın, örnekli, "neden/nasıl" bağlamını kuran bir anlatım olsun. {grade} seviyesine uygun, sade ve anlaşılır bir dil kullan. Kısa ve öz tut — ders kitabı tanımı gibi resmi/uzun cümleler kurma.
+2. **notebook_markdown — Defterine Not Al.** Öğrencinin fiziksel defterine elle geçireceği, daha sonra ezberleyeceği kısa özet. Başlık başına 3-6 madde (`- ` ile), HER MADDE TAM CÜMLE DEĞİL, kısa bir ifade olsun: "Terim: kısa tanım" ya da "Terim → somut bilgi" kalıbında, madde başına en fazla 12-15 kelime. Sadece gerçekten ezberlenmesi/yazılıya çıkması gereken somut bilgiyi (tanım, sayı, formül, örnek adı) al; bağlam cümlelerini, "neden" açıklamalarını buraya koyma — onlar zaten explanation_markdown'da var.
 
 SADECE aşağıdaki kaynak metinde geçen bilgileri kullan; kaynakta olmayan bir bilgi uydurma.
 
@@ -21,7 +24,8 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "heading": string,
       "order_no": integer,
       "matched_outcome_codes": [string],
-      "body_markdown": string,      // madde madde (- madde) özet bilgi
+      "explanation_markdown": string,   // akıcı anlatım, serbest paragraf(lar)
+      "notebook_markdown": string,      // kısa madde madde defter notu (- madde), madde başına max 12-15 kelime
       "needs_image": boolean,
       "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
     }

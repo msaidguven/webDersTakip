@@ -8,6 +8,8 @@ type IncomingSection = {
   order_no?: unknown;
   matched_outcome_codes?: unknown;
   body_markdown?: unknown;
+  explanation_markdown?: unknown;
+  notebook_markdown?: unknown;
   needs_image?: unknown;
   image_prompt?: unknown;
 };
@@ -16,6 +18,7 @@ type CleanSection = {
   order_no: number;
   matched_outcome_codes: string[];
   body_markdown: string | null;
+  notebook_markdown: string | null;
   image_prompt: string | null;
 };
 type OutcomeRow = { id: number; code: string | null };
@@ -43,7 +46,13 @@ export async function POST(request: NextRequest) {
   const cleanSections: CleanSection[] = sections
     .filter((s): s is IncomingSection & { heading: string } => typeof s?.heading === 'string' && s.heading.trim().length > 0)
     .map((s, idx) => {
-      const bodyMarkdown = typeof s.body_markdown === 'string' ? s.body_markdown.trim() : '';
+      // "Konu Anlatımı" alanı, RAG sentez akışında (20-rag-synthesis-full-topic.md)
+      // explanation_markdown adıyla geliyor; kitap kaynaklı eski akış (03-notebooklm-full-topic.md)
+      // hâlâ body_markdown döndürüyor — ikisini de aynı DB kolonuna (body_markdown) yazıyoruz.
+      const bodyMarkdown = typeof s.explanation_markdown === 'string'
+        ? s.explanation_markdown.trim()
+        : typeof s.body_markdown === 'string' ? s.body_markdown.trim() : '';
+      const notebookMarkdown = typeof s.notebook_markdown === 'string' ? s.notebook_markdown.trim() : '';
       const needsImage = Boolean(s.needs_image);
       return {
         heading: s.heading.trim(),
@@ -52,6 +61,7 @@ export async function POST(request: NextRequest) {
           ? s.matched_outcome_codes.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim())
           : [],
         body_markdown: bodyMarkdown || null,
+        notebook_markdown: notebookMarkdown || null,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
       };
     });
@@ -152,6 +162,7 @@ export async function POST(request: NextRequest) {
         order_no: s.order_no,
         heading: s.heading,
         body_markdown: s.body_markdown,
+        notebook_markdown: s.notebook_markdown,
         image_prompt: s.image_prompt,
         status: s.body_markdown ? 'content_ready' : 'planned',
         // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;

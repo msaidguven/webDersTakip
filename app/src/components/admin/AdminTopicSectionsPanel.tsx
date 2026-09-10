@@ -37,6 +37,7 @@ type Section = {
   order_no: number;
   heading: string;
   body_markdown: string | null;
+  notebook_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   status: 'planned' | 'content_ready' | 'image_ready' | 'published';
@@ -337,6 +338,7 @@ export type EditableSection = {
   id: number;
   heading: string;
   body_markdown: string | null;
+  notebook_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   diagram_svg?: string | null;
@@ -357,10 +359,12 @@ export function SectionContentEditModal({
   onSaved: () => void;
 }) {
   const [text, setText] = useState(section.body_markdown || '');
+  const [notebookText, setNotebookText] = useState(section.notebook_markdown || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const previewHtml = useMemo(() => (text.trim() ? markdownToHtml(text) : ''), [text]);
+  const notebookPreviewHtml = useMemo(() => (notebookText.trim() ? markdownToHtml(notebookText) : ''), [notebookText]);
 
   async function handleSave() {
     setError(null);
@@ -371,6 +375,7 @@ export function SectionContentEditModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           body_markdown: text,
+          notebook_markdown: notebookText,
           needs_image: Boolean(section.image_prompt),
           image_prompt: section.image_prompt,
         }),
@@ -401,25 +406,47 @@ export function SectionContentEditModal({
           kalın terim için <code className="text-[#b5b0ff]">**terim**: açıklama</code>, madde için satır başında{' '}
           <code className="text-[#b5b0ff]">- </code>, alt madde için bir kademe içeri{' '}
           <code className="text-[#b5b0ff]">&nbsp;&nbsp;- </code>. Sağdaki önizleme gerçek sayfadaki görünümün birebir aynısıdır.
+          <br />
+          <strong className="text-foreground">Konu Anlatımı</strong> öğretmenin anlatacağı/öğrencinin okuyacağı akıcı metindir;{' '}
+          <strong className="text-foreground">Defterine Not Al</strong> ise öğrencinin defterine geçireceği kısa (madde başına
+          tek satır, tam cümle değil) özettir — boş bırakılırsa kutu gösterilmez, anlatım tek başına eski görünümde kalır.
         </p>
 
         {error && <p className="mb-3 text-xs font-bold text-[#ff6584]">{error}</p>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Markdown</span>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={18}
-              className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-            />
+          <div className="space-y-4">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Konu Anlatımı (Markdown)</span>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={10}
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Defterine Not Al (Markdown, opsiyonel)</span>
+              <textarea
+                value={notebookText}
+                onChange={(e) => setNotebookText(e.target.value)}
+                rows={8}
+                placeholder="- Terim: kısa tanım"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
           </div>
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
-            <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[420px] overflow-y-auto">
+            <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[560px] overflow-y-auto">
               {previewHtml ? (
-                <SectionContent html={previewHtml} imageUrl={section.image_url} caption={section.heading} diagramSvg={section.diagram_svg} />
+                <SectionContent
+                  html={previewHtml}
+                  notebookHtml={notebookPreviewHtml || null}
+                  imageUrl={section.image_url}
+                  caption={section.heading}
+                  diagramSvg={section.diagram_svg}
+                />
               ) : (
                 <p className="text-sm text-slate-400 italic">İçerik boş.</p>
               )}
