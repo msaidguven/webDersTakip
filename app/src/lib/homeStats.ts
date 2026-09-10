@@ -81,18 +81,19 @@ export interface SiteStats {
   unitCount: number;
   topicCount: number;
   questionCount: number;
-  studentCount: number;
+  memberCount: number;
 }
 
-// Gerçek kayıtlı öğrenci sayısı — profiles RLS ile sadece "kendi satırın" okunabildiğinden
-// (anasayfa anon client kullanıyor) get_public_student_count SECURITY DEFINER RPC'si
-// kullanılıyor; bu fonksiyon kasıtlı olarak SADECE bir sayı döner, hiçbir profil satırı/alanı
-// sızdırmaz (bkz. home_stats_real_numbers.sql). Eskiden burada 2026-09-01'de bilinçli olarak
-// eklenmiş sabit bir sayı (2388) vardı — kullanıcı artık gerçek sayıyı istiyor (2026-09-10).
-export async function getPublicStudentCount(supabase: AnySupabaseClient): Promise<number> {
-  const { data, error } = await supabase.rpc('get_public_student_count');
+// Gerçek kayıtlı üye sayısı (öğrenci+öğretmen+admin — sadece öğrenci değil, kullanıcı
+// isteği 2026-09-10) — profiles RLS ile sadece "kendi satırın" okunabildiğinden (anasayfa
+// anon client kullanıyor) get_public_member_count SECURITY DEFINER RPC'si kullanılıyor; bu
+// fonksiyon kasıtlı olarak SADECE bir sayı döner, hiçbir profil satırı/alanı sızdırmaz (bkz.
+// home_stats_all_members.sql). Eskiden burada 2026-09-01'de bilinçli olarak eklenmiş sabit
+// bir sayı (2388) vardı — kullanıcı artık gerçek sayıyı istiyor.
+export async function getPublicMemberCount(supabase: AnySupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc('get_public_member_count');
   if (error) {
-    console.error('[getPublicStudentCount] HATA:', error);
+    console.error('[getPublicMemberCount] HATA:', error);
     return 0;
   }
   return typeof data === 'number' ? data : 0;
@@ -102,7 +103,7 @@ export async function getPublicStudentCount(supabase: AnySupabaseClient): Promis
 // publishedUnitsAll, getPublishedUnitContent'in ÇAĞIRAN tarafından (bkz. app/page.tsx) tek
 // seferde hesaplanmış sonucudur — getHomeGradeSections de aynı sonucu kullanır, aynı
 // üniteler/konular/sorular için iki kez sorgu atılmasın diye.
-export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[], studentCount: number): SiteStats {
+export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[], memberCount: number): SiteStats {
   const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
 
   const lessonKeys = new Set(publishedUnits.map((u) => `${u.grade_id}:${u.lesson_id}`));
@@ -115,7 +116,7 @@ export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentR
     unitCount: publishedUnits.length,
     topicCount,
     questionCount,
-    studentCount,
+    memberCount,
   };
 }
 

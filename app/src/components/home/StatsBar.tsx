@@ -12,7 +12,7 @@ export function StatsBar({ stats }: { stats: SiteStats }) {
     { icon: Layers, value: stats.unitCount, label: 'Ünite' },
     { icon: FileText, value: stats.topicCount, label: 'Konu' },
     { icon: HelpCircle, value: stats.questionCount, label: 'Soru' },
-    { icon: Users, value: stats.studentCount, label: 'Öğrenci' },
+    { icon: Users, value: stats.memberCount, label: 'Üye' },
   ];
 
   return (
