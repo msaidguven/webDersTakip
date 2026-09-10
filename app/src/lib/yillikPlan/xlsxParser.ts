@@ -213,12 +213,13 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
   const sonuc: ParsedRow[] = [];
   let prevSurecGruplari: string[] = [];
   let prevIcerikler: string[] = [];
+  let lastWeekNo: number | null = null;
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
     const haftaRaw = (col.hafta != null ? r[col.hafta] : '') || '';
     const temaRaw = (col.tema != null ? r[col.tema] : '') || '';
-    if (!haftaRaw.trim() || !temaRaw.trim()) continue; // tatil/okul-temelli/dip not satırları vb.
+    if (!temaRaw.trim()) continue; // salt tatil/banner satırları — TEMA sütunu bile boş.
 
     // Bir HAFTA/TEMA, birden fazla FİZİKSEL satıra (kendi başına birer konu/kazanım grubu
     // taşıyan) dikey birleştirilmiş olabilir — fillMerges tüm bu satırlara AYNI hafta/tema
@@ -233,9 +234,26 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
       (col.surecBilesenleri != null && (origRow[col.surecBilesenleri] || '').trim());
     if (!hasOwnContent) continue;
 
+    // MEB'in taslağında "OKUL TEMELLİ PLANLAMA*" gibi bazı satırların HAFTA hücresi tamamen
+    // BOŞ bırakılmış ama SAAT/İÇERİK/KAZANIM sütunları dolu (BTY_6, 7. ile 9. hafta arasında
+    // görüldü — 2026-09-11 kullanıcı bildirimi: "burası atlanmış, 8. hafta olması lazım").
+    // Hafta numarası bulunamazsa, önceki gerçek haftanın hemen ardından geldiği varsayılıp
+    // bir sonraki sıradaki numara veriliyor; içerik tamamen kaybolmak yerine takvime dahil
+    // ediliyor.
     const weekMatch = /(\d+)/.exec(haftaRaw);
-    const weekNo = weekMatch ? parseInt(weekMatch[1], 10) : null;
-    const hafta = haftaRaw.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+    let weekNo: number | null;
+    let hafta: string;
+    if (weekMatch) {
+      weekNo = parseInt(weekMatch[1], 10);
+      hafta = haftaRaw.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+    } else if (lastWeekNo != null) {
+      weekNo = lastWeekNo + 1;
+      hafta = `${weekNo}. Hafta (Okul Temelli Planlama — MEB dosyasında hafta numarası boş bırakılmış)`;
+    } else {
+      weekNo = null;
+      hafta = '';
+    }
+    if (weekNo != null) lastWeekNo = weekNo;
     const saat = col.saat != null ? saatOku(r[col.saat] || '') : null;
 
     const temalar = splitBySlashLine(temaRaw).map((t) => t.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
