@@ -322,6 +322,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     };
   }, [isAdmin, allVisibleTopicIdsKey]);
 
+  // Kitapsız derslerde hangi konuların RAG kaynak metni zaten sentezlenmiş olduğunu
+  // gösteren yeşil tik için (admin çok sayıda konu arasında nerede kaldığını görsün,
+  // 2026-09-10 kullanıcı talebi) — questionStatusByTopic ile aynı desen.
+  const [synthesizedTopicIds, setSynthesizedTopicIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allVisibleTopicIdsKey) {
+      setSynthesizedTopicIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/topics-with-synthesis?topicIds=${allVisibleTopicIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { topicIds?: number[] } | null) => {
+        if (!cancelled) setSynthesizedTopicIds(new Set(data?.topicIds || []));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allVisibleTopicIdsKey]);
+
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
     (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
@@ -1432,6 +1452,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
                         <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
+                        {synthesizedTopicIds.has(Number(topic.id)) && (
+                          <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
+                        )}
                       </button>
                     </div>
                   </>
@@ -2525,7 +2548,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <RagTopicSourceSynthesisModal
           topicId={ragSourceSynthesisModalTopicId}
           onClose={() => setRagSourceSynthesisModalTopicId(null)}
-          onSaved={() => setRagSourceSynthesisModalTopicId(null)}
+          onSaved={() => {
+            setSynthesizedTopicIds((prev) => new Set(prev).add(ragSourceSynthesisModalTopicId));
+            setRagSourceSynthesisModalTopicId(null);
+          }}
         />
       )}
 
