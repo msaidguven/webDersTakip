@@ -7,15 +7,23 @@
 // generate_content_free_tier_requests, proje+model başına 20/gün) ortak havuzdan tükeniyordu;
 // rag-queue-worker 5 dakikada bir çalıştığı için soru taslağı worker'ı gün boyu hep 429
 // (RESOURCE_EXHAUSTED) alıyordu (2026-09-10 kullanıcı bildirimi, "son 20 çalıştırmadan 0'ı
-// taslak üretti"). GEMINI_API_KEY_QUESTIONS tanımlı değilse GEMINI_API_KEY'e düşer — sadece
-// yerel/geçiş güvenliği için, üretimde ayrı key tanımlanmalı.
+// taslak üretti").
+//
+// Normal koşulda SADECE GEMINI_API_KEY_QUESTIONS kullanılır (rag/gemini.ts'in GEMINI_API_KEY'i
+// ile paylaşılan bir kotayı boşuna tüketmesin diye). Ama bu key kendi 20/gün kotasını
+// tüketirse (429/RESOURCE_EXHAUSTED) — ki saatlik cron 24/gün çalıştığı için günün son
+// saatlerinde beklenen bir durum — aynı istek YEDEK olarak GEMINI_API_KEY ile bir kez daha
+// denenir; boş kalmaktansa öğrenci sohbetinin kotasından ödünç alır. Kota DIŞI bir hatada
+// (400/500/503 vb.) ikinci key'de de aynı şekilde başarısız olacağından, o key'in kotasını
+// boşuna harcamamak için hemen fırlatılır, denenmez.
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const MODEL = 'gemini-2.5-flash';
 
-function getApiKey(): string {
-  const key = process.env.GEMINI_API_KEY_QUESTIONS || process.env.GEMINI_API_KEY;
-  if (!key) throw new Error('GEMINI_API_KEY_QUESTIONS (veya GEMINI_API_KEY) tanımlı değil');
-  return key;
+function getApiKeys(): string[] {
+  const raw = [process.env.GEMINI_API_KEY_QUESTIONS, process.env.GEMINI_API_KEY].filter((k): k is string => !!k);
+  const keys = [...new Set(raw)];
+  if (!keys.length) throw new Error('GEMINI_API_KEY_QUESTIONS (veya GEMINI_API_KEY) tanımlı değil');
+  return keys;
 }
 
 // Admin panelindeki manuel akışla aynı prompt kullanıldığı için AI çıktısı yine
@@ -23,8 +31,8 @@ function getApiKey(): string {
 // ayrıştırmayı burada da uyguluyoruz (JSON modu bunu genelde önler ama garanti değil).
 import { extractJson } from '@/app/src/lib/extractJson';
 
-export async function generateQuestionsJson(prompt: string): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/models/${MODEL}:generateContent?key=${getApiKey()}`, {
+async function callGenerateContent(prompt: string, apiKey: string): Promise<Response> {
+  return fetch(`${API_BASE}/models/${MODEL}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -32,13 +40,23 @@ export async function generateQuestionsJson(prompt: string): Promise<unknown> {
       generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
     }),
   });
+}
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini generateContent hatası (${res.status}): ${errText}`);
+export async function generateQuestionsJson(prompt: string): Promise<unknown> {
+  const keys = getApiKeys();
+  let res: Response | null = null;
+  for (let i = 0; i < keys.length; i++) {
+    res = await callGenerateContent(prompt, keys[i]);
+    if (res.ok) break;
+    const isLastKey = i === keys.length - 1;
+    if (res.status !== 429 || isLastKey) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Gemini generateContent hatası (${res.status}): ${errText}`);
+    }
+    // 429 ve elde başka key var — yedek key ile devam et.
   }
 
-  const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const data = (await res!.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
   if (!text) throw new Error('Gemini boş cevap döndürdü');
   return extractJson(text);
