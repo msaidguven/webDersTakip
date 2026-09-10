@@ -6,12 +6,13 @@ import { processExtractedText } from '@/app/src/lib/rag/processDocument';
 // 50MB Storage limitini aşan PDF'ler için: admin, NotebookLM'den ünite bazında
 // aldığı düz metni buraya yapıştırır. Dosya/upload yok — doğrudan chunk+embed.
 //
-// title/source opsiyonel: MEB'in kitap yayınlamadığı dersler için admin bunun yerine
-// kazanımlara dayanarak AI'a SIFIRDAN yazdırdığı bir konu metnini de aynı uca kaydedebiliyor
-// (bkz. topic-source-prompt/route.ts) — o akış title'ı ünite değil KONU başlığı yapmak,
-// source'u da 'ai_generated' işaretlemek istiyor ki admin panelinde gerçek kitap
-// kaynaklarıyla karışmasın. İkisi gönderilmezse eski davranış (unit.title, notebooklm_text)
-// korunuyor.
+// title/source/topicId opsiyonel: MEB'in kitap yayınlamadığı dersler için admin bunun
+// yerine kazanımlara dayanarak AI'a SIFIRDAN yazdırdığı bir konu metnini de aynı uca
+// kaydedebiliyor (bkz. topic-source-prompt/route.ts) — o akış title'ı ünite değil KONU
+// başlığı yapmak, source'u da 'ai_generated' işaretlemek, topicId'yi de kaydetmek istiyor
+// ki daha sonra aynı konunun tüm taslakları (bkz. topic-ai-sources/route.ts) birlikte
+// bulunup tek bir sentez metnine birleştirilebilsin. İkisi/üçü gönderilmezse eski davranış
+// (unit.title, notebooklm_text, topic_id=null) korunuyor.
 const VALID_SOURCES = ['notebooklm_text', 'ai_generated'] as const;
 
 export async function POST(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = (await request.json().catch(() => null)) as
-    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; text?: unknown; title?: unknown; source?: unknown }
+    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; text?: unknown; title?: unknown; source?: unknown; topicId?: unknown }
     | null;
   const gradeId = Number(body?.gradeId);
   const lessonId = Number(body?.lessonId);
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   const titleOverride = typeof body?.title === 'string' ? body.title.trim() : '';
   const source = VALID_SOURCES.includes(body?.source as (typeof VALID_SOURCES)[number]) ? (body!.source as (typeof VALID_SOURCES)[number]) : 'notebooklm_text';
+  const topicId = Number.isFinite(Number(body?.topicId)) ? Number(body?.topicId) : null;
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId) || !Number.isFinite(unitId)) {
     return NextResponse.json({ error: 'gradeId, lessonId ve unitId gerekli' }, { status: 400 });
@@ -50,8 +52,10 @@ export async function POST(request: NextRequest) {
       grade_id: gradeId,
       lesson_id: lessonId,
       unit_id: unitId,
+      topic_id: topicId,
       title: titleOverride || unit.title,
       source,
+      raw_text: text,
       status: 'processing',
       uploaded_by: admin.user.id,
     })

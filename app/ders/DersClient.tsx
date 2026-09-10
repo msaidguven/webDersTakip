@@ -2517,7 +2517,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         <RagTopicSourceModal
           topicId={ragSourceModalTopicId}
           onClose={() => setRagSourceModalTopicId(null)}
-          onSaved={() => setRagSourceModalTopicId(null)}
+          onSaved={() => {}}
         />
       )}
 

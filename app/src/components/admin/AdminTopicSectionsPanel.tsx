@@ -940,11 +940,19 @@ export function PlanModal({
   );
 }
 
+type RagAiSource = { id: number; title: string; status: string; createdAt: string; preview: string };
+
 // MEB'in kitap yayınlamadığı dersler için: unit-prompt (RagDocumentsPanel'deki NotebookLM
 // akışı) "kitaptan çıkar" diyordu, bu modal ise kazanımlara dayanarak AI'a SIFIRDAN kaynak
-// metin yazdırıp aynı /api/admin/rag/documents/from-text ucundan (source='ai_generated')
-// kaydediyor — PlanModal'la aynı iskelet (prompt kopyala → AI'a sor → düz metni yapıştır →
-// kaydet), ama çıktı JSON değil düz metin (bkz. 18-rag-topic-source-notext.md).
+// metin yazdırıp aynı /api/admin/rag/documents/from-text ucundan (source='ai_generated',
+// topic_id ile) kaydediyor — PlanModal'la aynı iskelet (prompt kopyala → AI'a sor → düz
+// metni yapıştır → kaydet), ama çıktı JSON değil düz metin (bkz. 18-rag-topic-source-
+// notext.md).
+//
+// Kapatmadan ART ARDA birden fazla AI'ın çıktısını kaydedebilesin diye (kullanıcının
+// istediği akış: "hepsini DB'ye kaydedeceğim, sonra tek tıkla sentez promptuyla vereceğim"
+// — 2026-09-10) her kayıttan sonra modal KAPANMIYOR, aynı prompt kalıp textarea temizleniyor
+// ve o ana kadar kaydedilmiş taslaklar altta listeleniyor (tek tek silinebilir).
 export function RagTopicSourceModal({
   topicId,
   onClose,
@@ -960,6 +968,16 @@ export function RagTopicSourceModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
+  const [sources, setSources] = useState<RagAiSource[]>([]);
+  const [loadingSources, setLoadingSources] = useState(true);
+
+  const loadSources = useCallback(async () => {
+    setLoadingSources(true);
+    const res = await fetch(`/api/admin/rag/topic-ai-sources?topicId=${topicId}`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) setSources(data?.sources || []);
+    setLoadingSources(false);
+  }, [topicId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -974,8 +992,9 @@ export function RagTopicSourceModal({
         setMeta({ topicTitle: data.topicTitle, unitId: data.unitId, gradeId: data.gradeId, lessonId: data.lessonId });
       })
       .finally(() => { if (!cancelled) setLoadingPrompt(false); });
+    loadSources();
     return () => { cancelled = true; };
-  }, [topicId]);
+  }, [topicId, loadSources]);
 
   async function handleSave() {
     if (!meta) return;
@@ -989,6 +1008,7 @@ export function RagTopicSourceModal({
           gradeId: meta.gradeId,
           lessonId: meta.lessonId,
           unitId: meta.unitId,
+          topicId,
           title: meta.topicTitle,
           source: 'ai_generated',
           text: pasted,
@@ -999,10 +1019,17 @@ export function RagTopicSourceModal({
         setError(data?.error || 'Kaydedilemedi.');
         return;
       }
+      setPasted('');
+      await loadSources();
       onSaved();
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleRemove(id: number) {
+    await fetch(`/api/admin/rag/topic-ai-sources?id=${id}`, { method: 'DELETE' });
+    await loadSources();
   }
 
   return (
@@ -1010,7 +1037,8 @@ export function RagTopicSourceModal({
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
           Bu ders için MEB kitabı yok — aşağıdaki prompt, konunun kazanımlarına dayanarak AI&apos;a kaynak metni SIFIRDAN yazdırıyor.
-          Dışarıda bir AI&apos;a (ChatGPT, Gemini vb.) sorup dönen düz metni aşağıya yapıştırın.
+          Dışarıda bir AI&apos;a (ChatGPT, Gemini vb.) sorup dönen düz metni aşağıya yapıştırıp kaydedin — istediğiniz kadar farklı AI ile
+          tekrarlayabilirsiniz, modal kapanmaz. Hepsini kaydettikten sonra &quot;RAG Kaynak Metni Sentezle&quot; ile tek metne birleştirin.
         </p>
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
@@ -1029,27 +1057,52 @@ export function RagTopicSourceModal({
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
-            İptal
+            Kapat
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !pasted.trim() || !meta}
             className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
           </button>
+        </div>
+
+        <div className="border-t border-border pt-3">
+          <span className="text-xs font-bold text-muted-foreground block mb-2">
+            {loadingSources ? 'Kayıtlı taslaklar yükleniyor...' : `Bu konu için kayıtlı taslaklar (${sources.length})`}
+          </span>
+          {!loadingSources && sources.length === 0 && <p className="text-[11px] text-muted-foreground italic">Henüz taslak kaydedilmedi.</p>}
+          <div className="space-y-1.5">
+            {sources.map((s, i) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-foreground">Taslak {i + 1}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{s.preview}...</p>
+                </div>
+                <button
+                  onClick={() => handleRemove(s.id)}
+                  className="flex-shrink-0 text-[10px] font-bold text-[#ff6584] hover:underline"
+                >
+                  Kaldır
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </ModalShell>
   );
 }
 
-// RagTopicSourceModal'ın (18. prompt) çıktısını 2-3 farklı AI'a ayrı ayrı verip aldığın
-// bağımsız kaynak metinleri tek, tutarlı bir metne birleştirir (19. prompt, ensemble/
-// self-consistency mantığı — bkz. proje sohbeti 2026-09-10). Akış: kaynakları yapıştır →
-// otomatik dolan prompt'u 4. bir AI'a ver → sonucu yapıştır → kaydet. Prompt şablonundaki
-// "Tutarsızlık Notu" ("---" sonrası) sisteme KAYDEDİLMİYOR, sadece admin'e ayrı bir kutuda
-// gösteriliyor — kaynaklar birbirinden farklıysa admin bunu görüp elle kontrol edebilsin.
+// RagTopicSourceModal'ın (18. prompt) DB'ye kaydettiği taslakları (bkz. topic-ai-sources
+// route'u) 2-3 farklı AI'dan ayrı ayrı toplayıp tek bir sentez metnine birleştirir (19.
+// prompt, ensemble/self-consistency mantığı — bkz. proje sohbeti 2026-09-10). Kaynaklar
+// artık elle yapıştırılmıyor — hepsi zaten DB'de, tam prompt sunucuda hazırlanıp tek tıkla
+// kopyalanıyor. Sentez kaydedilince (topic-source-synthesis route'u) ham taslaklar otomatik
+// silinir — RAG arama havuzunda hem ham hem sentezlenmiş hali birden kalmasın diye. Prompt
+// şablonundaki "Tutarsızlık Notu" ("---" sonrası) sisteme KAYDEDİLMİYOR, admin'e ayrı bir
+// kutuda gösteriliyor.
 export function RagTopicSourceSynthesisModal({
   topicId,
   onClose,
@@ -1059,17 +1112,16 @@ export function RagTopicSourceSynthesisModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [promptTemplate, setPromptTemplate] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
+  const [draftCount, setDraftCount] = useState(0);
+  const [drafts, setDrafts] = useState<{ id: number; title: string; createdAt: string }[]>([]);
 
-  const [source1, setSource1] = useState('');
-  const [source2, setSource2] = useState('');
-  const [source3, setSource3] = useState('');
   const [pasted, setPasted] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<{ deletedDrafts: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1080,22 +1132,13 @@ export function RagTopicSourceSynthesisModal({
       .then(({ ok, data }) => {
         if (cancelled) return;
         if (!ok) { setLoadError(data?.error || 'Prompt oluşturulamadı.'); return; }
-        setPromptTemplate(data?.promptTemplate || '');
-        setMeta({ topicTitle: data.topicTitle, unitId: data.unitId, gradeId: data.gradeId, lessonId: data.lessonId });
+        setPrompt(data?.prompt || '');
+        setDraftCount(data?.draftCount || 0);
+        setDrafts(data?.drafts || []);
       })
       .finally(() => { if (!cancelled) setLoadingPrompt(false); });
     return () => { cancelled = true; };
   }, [topicId]);
-
-  // Yer tutucular admin yazdıkça anlık dolsun diye client'ta hesaplanıyor — her tuş
-  // vuruşunda sunucuya gitmeye gerek yok, düz metin değişimi.
-  const finalPrompt = useMemo(() => {
-    if (!promptTemplate) return '';
-    return promptTemplate
-      .replaceAll('{source_1}', source1.trim() || '(bu kaynak sağlanmadı)')
-      .replaceAll('{source_2}', source2.trim() || '(bu kaynak sağlanmadı)')
-      .replaceAll('{source_3}', source3.trim() || '(bu kaynak sağlanmadı)');
-  }, [promptTemplate, source1, source2, source3]);
 
   // Prompt, nihai metinden sonra "---" ile ayrılmış bir "Tutarsızlık Notu" istiyor — bu
   // not sisteme kaydedilmesin diye ayıklanıp admin'e ayrı gösteriliyor.
@@ -1106,109 +1149,102 @@ export function RagTopicSourceSynthesisModal({
   }, [pasted]);
 
   async function handleSave() {
-    if (!meta) return;
     setSaveError(null);
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/rag/documents/from-text', {
+      const res = await fetch('/api/admin/rag/topic-source-synthesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gradeId: meta.gradeId,
-          lessonId: meta.lessonId,
-          unitId: meta.unitId,
-          title: meta.topicTitle,
-          source: 'ai_generated',
-          text: mainText,
-        }),
+        body: JSON.stringify({ topicId, text: mainText }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setSaveError(data?.error || 'Kaydedilemedi.');
         return;
       }
-      onSaved();
+      setSaved({ deletedDrafts: data?.deletedDrafts || 0 });
     } finally {
       setSaving(false);
     }
+  }
+
+  if (saved) {
+    return (
+      <ModalShell title="RAG Kaynak Metni Sentezle (Çoklu AI)" onClose={() => { onSaved(); onClose(); }}>
+        <div className="space-y-3">
+          <p className="text-sm font-bold text-emerald-400">✓ Sentez kaydedildi.</p>
+          {saved.deletedDrafts > 0 && (
+            <p className="text-xs text-muted-foreground">{saved.deletedDrafts} ham taslak silindi — artık sadece bu sentez metni RAG&apos;de aranıyor.</p>
+          )}
+          <button
+            onClick={() => { onSaved(); onClose(); }}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] transition-colors"
+          >
+            Kapat
+          </button>
+        </div>
+      </ModalShell>
+    );
   }
 
   return (
     <ModalShell title="RAG Kaynak Metni Sentezle (Çoklu AI)" onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          Önce &quot;RAG Kaynak Metni&quot; prompt&apos;unu 2-3 farklı AI&apos;a ayrı ayrı verip bağımsız kaynak metinler al, buraya yapıştır —
-          aşağıdaki sentez prompt&apos;u otomatik dolacak. Onu 4. bir AI&apos;a verip dönen sonucu en alta yapıştır.
+          &quot;RAG Kaynak Metni&quot; ile kaydettiğin taslaklar aşağıdaki prompt&apos;a otomatik gömülü — kopyala, 4. bir AI&apos;a ver,
+          dönen sonucu en alta yapıştır. Kaydedince ham taslaklar silinir, sadece bu sentez metni kalır.
         </p>
 
         {loadError && <p className="text-xs font-bold text-[#ff6584]">{loadError}</p>}
 
-        <div className="space-y-2.5">
-          <div>
-            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 1</span>
-            <textarea
-              value={source1}
-              onChange={(e) => setSource1(e.target.value)}
-              rows={3}
-              placeholder="1. AI'ın ürettiği kaynak metni"
-              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-            />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 2</span>
-            <textarea
-              value={source2}
-              onChange={(e) => setSource2(e.target.value)}
-              rows={3}
-              placeholder="2. AI'ın ürettiği kaynak metni"
-              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-            />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-muted-foreground block mb-1">Kaynak Metin 3 (opsiyonel)</span>
-            <textarea
-              value={source3}
-              onChange={(e) => setSource3(e.target.value)}
-              rows={3}
-              placeholder="3. AI'ın ürettiği kaynak metni (varsa)"
-              className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-            />
-          </div>
-        </div>
+        {!loadError && (
+          <>
+            <div>
+              <span className="text-xs font-bold text-muted-foreground block mb-1.5">Birleştirilecek taslaklar ({draftCount})</span>
+              <div className="space-y-1">
+                {drafts.map((d, i) => (
+                  <p key={d.id} className="text-[11px] text-muted-foreground">Taslak {i + 1} — {new Date(d.createdAt).toLocaleString('tr-TR')}</p>
+                ))}
+              </div>
+            </div>
 
-        <PromptCopyBox prompt={finalPrompt} loading={loadingPrompt} />
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
-        <div>
-          <span className="text-xs font-bold text-muted-foreground block mb-2">Sentez sonucunu (4. AI&apos;dan gelen) buraya yapıştırın</span>
-          <textarea
-            value={pasted}
-            onChange={(e) => setPasted(e.target.value)}
-            rows={8}
-            placeholder="AI'ın birleştirdiği nihai kaynak metni buraya yapıştırın..."
-            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-          />
-        </div>
+            <div>
+              <span className="text-xs font-bold text-muted-foreground block mb-2">Sentez sonucunu (4. AI&apos;dan gelen) buraya yapıştırın</span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={8}
+                placeholder="AI'ın birleştirdiği nihai kaynak metni buraya yapıştırın..."
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+            </div>
 
-        {consistencyNote && (
-          <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
-            <p className="text-[11px] font-bold text-amber-300 mb-1">⚠️ Tutarsızlık Notu (kaydedilmeyecek, sadece bilgi için)</p>
-            <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{consistencyNote}</p>
-          </div>
+            {consistencyNote && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+                <p className="text-[11px] font-bold text-amber-300 mb-1">⚠️ Tutarsızlık Notu (kaydedilmeyecek, sadece bilgi için)</p>
+                <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{consistencyNote}</p>
+              </div>
+            )}
+
+            {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
+          </>
         )}
-
-        {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
             İptal
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !mainText || !meta}
-            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </button>
+          {!loadError && (
+            <button
+              onClick={handleSave}
+              disabled={saving || !mainText}
+              className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            </button>
+          )}
         </div>
       </div>
     </ModalShell>
