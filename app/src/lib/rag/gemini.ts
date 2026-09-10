@@ -7,7 +7,14 @@ const EMBEDDING_DIMENSIONS = 768; // supabase/migrations/add_rag_document_qa.sql
 // export: kuyruktaki (henüz cevaplanmamış) sorular için /api/rag/unit-feed'in
 // hangi model adını göstereceğini (hocam/kanka ayrımı) bilmesi gerekiyor —
 // gerçek değeri burada iki kez yazmak yerine tek kaynaktan alıyor.
-export const CHAT_MODEL = 'gemini-2.5-flash';
+//
+// gemini-2.5-flash Google tarafından "yeni kullanıcılar" için kaldırıldı (yeni proje/key
+// 404 "no longer available to new users" alıyor, bkz. geminiQuestionGen.ts başındaki not,
+// 2026-09-10). Bu dosyadaki GEMINI_API_KEY (eski/grandfathered proje) şu an hâlâ
+// çalışıyor ama Google'ın kendi tavsiyesi üzerine, ikisi de test edilip doğrulanan
+// gemini-3.6-flash'a önden geçildi — aynı sınırlamanın yarın bu key'e de gelmesini
+// beklemeden.
+export const CHAT_MODEL = 'gemini-3.6-flash';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta/files';

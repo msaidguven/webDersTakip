@@ -16,8 +16,14 @@
 // denenir; boş kalmaktansa öğrenci sohbetinin kotasından ödünç alır. Kota DIŞI bir hatada
 // (400/500/503 vb.) ikinci key'de de aynı şekilde başarısız olacağından, o key'in kotasını
 // boşuna harcamamak için hemen fırlatılır, denenmez.
+// gemini-2.5-flash "yeni kullanıcılar" (yeni proje/key) için Google tarafından
+// kaldırıldı — GEMINI_API_KEY_QUESTIONS bugün oluşturulmuş yeni bir projede olduğundan
+// 404 "no longer available to new users" alıyordu (2026-09-10, saatlik cron loglarında
+// 09:00-17:00 arası her çalıştırmada). Google'ın önerdiği gemini-3.6-flash hem eski hem
+// yeni key ile test edildi, ikisinde de çalışıyor — ayrıca kota da model başına ayrı
+// sayıldığından (bkz. yukarıdaki not) bu değişiklik quotaDimensions'ı da resetliyor.
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.6-flash';
 
 function getApiKeys(): string[] {
   const raw = [process.env.GEMINI_API_KEY_QUESTIONS, process.env.GEMINI_API_KEY].filter((k): k is string => !!k);
