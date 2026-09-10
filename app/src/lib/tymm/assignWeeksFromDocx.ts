@@ -64,8 +64,8 @@ export function assignWeeksFromDocx(dbTopics: DbTopic[], docxRows: ParsedRow[], 
     }
 
     for (let j = 0; j < dbTopic.outcomeIds.length; j++) {
-      const weekNo = docxTopic.outcomes[j].weekNo;
-      assignments.push({ outcomeId: dbTopic.outcomeIds[j], startWeek: weekNo, endWeek: weekNo });
+      const outcome = docxTopic.outcomes[j];
+      assignments.push({ outcomeId: dbTopic.outcomeIds[j], startWeek: outcome.weekNo, endWeek: outcome.weekNoEnd });
     }
   }
 
