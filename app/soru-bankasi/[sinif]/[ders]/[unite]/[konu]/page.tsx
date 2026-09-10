@@ -15,7 +15,7 @@ import { Suspense } from 'react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getAllTopicQuestions, getQuestionCommentCounts } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, buildTopicPath, buildQuestionBankPath, type TopicTestPageData } from '@/app/src/lib/quizPageData';
-import { getSoruBankasiUnitData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
+import { getSoruBankasiUnitData, getSoruBankasiGradeData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import QuestionBankHighlight from '@/app/src/components/QuestionBankHighlight';
 import QuestionBankBoard from '@/app/src/components/QuestionBankBoard';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
@@ -71,6 +71,8 @@ export default async function QuestionBankPage({ params }: PageProps) {
   const commentCounts = await getQuestionCommentCounts(questions.map((q) => q.id));
   const unitData = await getSoruBankasiUnitData(sinif, ders, unite);
   const unitPath = unitData ? buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, unitData.unitSlug) : null;
+  const gradeData = await getSoruBankasiGradeData(sinif);
+  const otherLessons = (gradeData?.lessons || []).filter((l) => l.slug !== ders);
 
   return (
     <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
@@ -173,36 +175,35 @@ export default async function QuestionBankPage({ params }: PageProps) {
       </SoruBankasiBrowseSection>
 
       {/* Alt/ders/sınıf soru bankası hub'larına link HER ZAMAN gösteriliyor (kullanıcının
-          2026-09-06 SEO denetimi isteği: iç linkleme) — eskiden bu ünitenin birden fazla
-          konusu yoksa tüm blok (hub linkleri dahil) gizleniyordu, tek konulu ünitelerde
-          sayfanın yukarı hiyerarşiye giden tek yolu üstteki geri linki kalıyordu. Konu
-          "pill"leri hâlâ sadece >1 konu varken anlamlı olduğu için o kısım koşullu kalıyor. */}
+          2026-09-06 SEO denetimi isteği: iç linkleme). "Bu Ünitedeki Diğer Konular" pilleri
+          (aynı ünite içi, düşük SEO değeri — bu sayfadan zaten geri linkiyle 1 tıkla ünite
+          sayfasına gidip TÜM konuları görebiliyorsun) yerine SINIFIN DİĞER DERSLERİNE
+          doğrudan link konuldu (kullanıcının 2026-09-10 isteği) — Tüm X Soru Bankaları
+          linkleri zaten dolaylı (2 tık) aynı yere gidiyordu, bu iç link mesafesini 1 tıka
+          indirip site genelinde ders sayfaları arası SEO linklemesini güçlendiriyor. */}
       {unitData && unitPath && (
         <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{unitData.unitTitle}</p>
-          {unitData.topics.length > 1 && (
+          <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{unitData.gradeName}</p>
+          {otherLessons.length > 0 && (
             <>
-              <h2 className="mt-1 text-sm font-black text-default">Bu Ünitedeki Diğer Konular</h2>
+              <h2 className="mt-1 text-sm font-black text-default">Bu Sınıftaki Diğer Dersler</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {unitData.topics.map((topic) =>
-                  topic.slug === data.topicSlug ? (
-                    <span key={topic.slug} className="rounded-full border border-indigo-400/60 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-500">
-                      {topic.title}
-                    </span>
-                  ) : (
-                    <Link
-                      key={topic.slug}
-                      href={`${unitPath}/${topic.slug}`}
-                      className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-                    >
-                      {topic.title}
-                    </Link>
-                  )
-                )}
+                {otherLessons.map((lesson) => (
+                  <Link
+                    key={lesson.slug}
+                    href={buildSoruBankasiLessonPath(unitData.gradeSlug, lesson.slug)}
+                    className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+                  >
+                    {lesson.icon} {lesson.name}
+                  </Link>
+                ))}
               </div>
             </>
           )}
-          <div className={`flex flex-col gap-1.5 text-xs font-bold ${unitData.topics.length > 1 ? 'mt-4 border-t border-default pt-3' : 'mt-3'}`}>
+          <div className={`flex flex-col gap-1.5 text-xs font-bold ${otherLessons.length > 0 ? 'mt-4 border-t border-default pt-3' : 'mt-3'}`}>
+            <Link href={unitPath} className="text-muted-foreground transition-colors hover:text-indigo-500">
+              → {unitData.unitTitle} — Tüm Konular
+            </Link>
             <Link href={buildSoruBankasiLessonPath(unitData.gradeSlug, unitData.lessonSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
               → Tüm {unitData.lessonName} Soru Bankaları
             </Link>
