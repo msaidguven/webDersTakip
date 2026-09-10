@@ -16,7 +16,10 @@
 // başlamayan devam satırlarını bir önceki bileşene birleştiriyor, aksi halde yarım cümleler
 // ayrı birer "kazanım" gibi sayılırdı).
 
-import XLSX from 'xlsx';
+// 'xlsx' paketinin default export'u yok (sadece named export'lar) — `import XLSX from 'xlsx'`
+// tsx/Node ile çalışıyor görünse de Next'in Turbopack production build'inde "Export default
+// doesn't exist in target module" hatasıyla patlıyordu (2026-09-10, Vercel deploy hatası).
+import { read as xlsxRead, utils as xlsxUtils, type WorkSheet, type Range } from 'xlsx';
 import { type ParsedRow } from './docxParser';
 
 export type SheetParseResult = { sheetName: string; rows: ParsedRow[] };
@@ -104,7 +107,7 @@ function columnIndex(headerRow: string[], candidates: string[]): number | null {
 // (anchor) hücrede değer döner, kapsadığı diğer hücreleri boş bırakır — python-docx'in
 // vMerge/gridSpan'ı otomatik doldurmasının aksine. buildCellGrid'deki (docxParser.ts)
 // vMerge doldurma mantığının XLSX karşılığı: her merge aralığını anchor değeriyle dolduruyoruz.
-function fillMerges(rows: string[][], merges: XLSX.Range[]): void {
+function fillMerges(rows: string[][], merges: Range[]): void {
   for (const m of merges) {
     const anchor = rows[m.s.r]?.[m.s.c] ?? '';
     if (!anchor) continue;
@@ -123,11 +126,11 @@ function saatOku(metin: string): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
-function parseSheet(sheetName: string, sheet: XLSX.WorkSheet): ParsedRow[] {
-  const raw = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '', blankrows: true }) as unknown as string[][];
+function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
+  const raw = xlsxUtils.sheet_to_json<string[]>(sheet, { header: 1, defval: '', blankrows: true }) as unknown as string[][];
   const original = raw.map((r) => r.map((c) => (c == null ? '' : String(c))));
   const rows = original.map((r) => [...r]);
-  fillMerges(rows, (sheet['!merges'] as XLSX.Range[] | undefined) || []);
+  fillMerges(rows, (sheet['!merges'] as Range[] | undefined) || []);
 
   const headerIdx = findHeaderRowIndex(rows);
   if (headerIdx === -1) return [];
@@ -189,7 +192,7 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet): ParsedRow[] {
 }
 
 export async function xlsxBufferToSheets(buffer: Buffer | ArrayBuffer): Promise<SheetParseResult[]> {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const wb = xlsxRead(buffer, { type: 'buffer' });
   const results: SheetParseResult[] = [];
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
