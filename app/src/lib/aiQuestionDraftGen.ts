@@ -16,6 +16,25 @@ import { parseQuestions } from '@/app/src/lib/parseMixedQuestions';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
 
+// Worker saatte bir çalıştığı için tek bir geçici ağ/gateway hatası (Vercel<->Supabase
+// arası "Gateway Timeout" gibi) bütün bir saati boşa harcıyordu — aynı alt başlık bir
+// sonraki saate kadar hiç denenmiyordu (kullanıcının 2026-09-10 "hep aynı ünite" şikayeti;
+// aslında ünite ilerliyordu ama kalan alt başlıklarda üst üste şansızlık yaşanıyordu).
+// Supabase sorgularını burada 2 kez, kısa bir bekleyişle tekrar deniyoruz ki geçici bir
+// blip yüzünden koca bir saat kaybedilmesin.
+async function withRetry<T extends { error: { message: string } | null }>(
+  fn: () => PromiseLike<T>,
+  attempts = 3
+): Promise<T> {
+  let last: T | null = null;
+  for (let i = 0; i < attempts; i++) {
+    last = await fn();
+    if (!last.error) return last;
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+  }
+  return last as T;
+}
+
 type EligibleSectionRow = {
   section_id: number;
   topic_id: number;
@@ -85,17 +104,19 @@ async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sec
 // içeriği bulunamadı" mesajını üretiyordu, bu da 2026-09-09'da gerçek bir izin/RLS
 // sorununu "içerik hiç yüklenmemiş" sanıp yanlış teşhis etmemize yol açmıştı.
 async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
-  const { data: docs, error: docsError } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
+  const { data: docs, error: docsError } = await withRetry(() => supabase.from('rag_documents').select('id').eq('unit_id', unitId));
   if (docsError) throw new Error(`rag_documents sorgusu başarısız: ${docsError.message}`);
   const documentIds = ((docs as { id: number }[] | null) || []).map((d) => d.id);
   if (!documentIds.length) return null;
 
-  const { data: chunks, error: chunksError } = await supabase
-    .from('rag_document_chunks')
-    .select('document_id, chunk_index, content')
-    .in('document_id', documentIds)
-    .order('document_id', { ascending: true })
-    .order('chunk_index', { ascending: true });
+  const { data: chunks, error: chunksError } = await withRetry(() =>
+    supabase
+      .from('rag_document_chunks')
+      .select('document_id, chunk_index, content')
+      .in('document_id', documentIds)
+      .order('document_id', { ascending: true })
+      .order('chunk_index', { ascending: true })
+  );
   if (chunksError) throw new Error(`rag_document_chunks sorgusu başarısız: ${chunksError.message}`);
   const chunkRows = (chunks as { document_id: number; chunk_index: number; content: string }[] | null) || [];
   if (!chunkRows.length) return null;
@@ -107,7 +128,7 @@ async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise
 // kaydeder. Uygun alt başlık yoksa veya üretim/doğrulama başarısız olursa generated:false
 // döner — çağıran (cron endpoint'i) bunu sessizce no-op olarak ele alır.
 export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<DraftGenerationResult> {
-  const { data: eligibleRows, error: eligibleError } = await supabase.rpc('find_next_ai_question_draft_section');
+  const { data: eligibleRows, error: eligibleError } = await withRetry(() => supabase.rpc('find_next_ai_question_draft_section'));
   if (eligibleError) return { generated: false, reason: `Uygun alt başlık sorgusu başarısız: ${eligibleError.message}` };
 
   const eligible = (eligibleRows as EligibleSectionRow[] | null)?.[0];
