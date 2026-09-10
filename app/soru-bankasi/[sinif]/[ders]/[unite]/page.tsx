@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { SITE_URL } from '@/app/src/lib/site';
 import {
   getSoruBankasiUnitData,
+  getSoruBankasiLessonData,
   buildSoruBankasiGradePath,
   buildSoruBankasiLessonPath,
   buildSoruBankasiUnitPath,
@@ -40,6 +41,10 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
   const gradePath = buildSoruBankasiGradePath(data.gradeSlug);
   const lessonPath = buildSoruBankasiLessonPath(data.gradeSlug, data.lessonSlug);
   const path = buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, data.unitSlug);
+  // Konu sayfasındaki ("Bu Sınıftaki Diğer Dersler") ile aynı iç linkleme deseni (2026-09-10
+  // kullanıcı talebi) — bu sayfada hiç alt/kardeş linkleri yoktu.
+  const lessonData = await getSoruBankasiLessonData(sinif, ders);
+  const otherUnits = (lessonData?.units || []).filter((u) => u.slug !== data.unitSlug);
 
   return (
     <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
@@ -111,6 +116,36 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
       ) : (
         <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu ünitede henüz konu eklenmemiş.</p>
       )}
+
+      {/* Konu sayfasındaki hub linkleriyle aynı desen (2026-09-10 kullanıcı talebi: "neden
+          en altta hızlı linkler yok") — iç linkleme için sınıf/ders/kardeş ünite linkleri. */}
+      <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
+        <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{data.lessonName}</p>
+        {otherUnits.length > 0 && (
+          <>
+            <h2 className="mt-1 text-sm font-black text-default">Bu Dersteki Diğer Üniteler</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {otherUnits.map((unit) => (
+                <Link
+                  key={unit.slug}
+                  href={buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, unit.slug)}
+                  className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+                >
+                  {unit.title}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+        <div className={`flex flex-col gap-1.5 text-xs font-bold ${otherUnits.length > 0 ? 'mt-4 border-t border-default pt-3' : 'mt-3'}`}>
+          <Link href={lessonPath} className="text-muted-foreground transition-colors hover:text-indigo-500">
+            → Tüm {data.lessonName} Soru Bankaları
+          </Link>
+          <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-indigo-500">
+            → Tüm {data.gradeName} Soru Bankaları
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
