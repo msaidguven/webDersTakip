@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
   const VALID_TYPES = new Set([
-    'plan', 'full', 'full_from_synthesis', 'section', 'section_notebooklm', 'section_from_synthesis', 'image', 'diagram',
+    'plan', 'full', 'full_from_synthesis', 'content_refresh_notebooklm', 'content_refresh_from_synthesis',
+    'section', 'section_notebooklm', 'section_from_synthesis', 'image', 'diagram',
   ]);
 
   if (!topicId || (!VALID_TYPES.has(type || '') && !isQuestionType && !isNotebookQuestionType && !isTopicLevelType)) {
@@ -112,7 +113,12 @@ export async function GET(request: NextRequest) {
     outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
   );
 
-  if (type === 'plan' || type === 'full' || type === 'full_from_synthesis') {
+  if (
+    type === 'plan' || type === 'full' || type === 'full_from_synthesis' ||
+    type === 'content_refresh_notebooklm' || type === 'content_refresh_from_synthesis'
+  ) {
+    const isContentRefresh = type === 'content_refresh_notebooklm' || type === 'content_refresh_from_synthesis';
+
     const missingCodeCount = outcomes.filter((o) => !o.code?.trim()).length;
     if (missingCodeCount > 0) {
       return NextResponse.json(
@@ -121,13 +127,46 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // "İçeriği Güncelle" akışları: alt başlıkları YENİDEN PLANLAMAZ, mevcut başlıkları
+    // sabit girdi olarak AI'a verir ve sadece içeriği yeniden yazdırır. Amaç: full/
+    // full_from_synthesis'te AI'nin başlığı yeniden üretirken ufak bir kelime farkı bile
+    // yaratması hâlinde o alt başlığın görsel/diyagram/sorusunun kaybolması riskini (bkz.
+    // plan/route.ts'teki heading-eşleştirmeli update mantığı) sıfıra indirmek — başlık
+    // AI'a hiç "üretilecek" bir şey olarak sunulmuyor, kopyalanacak sabit bir liste olarak
+    // veriliyor (2026-09-11 kullanıcı talebi).
+    let existingHeadingsText = '';
+    if (isContentRefresh) {
+      const { data: existingTopicContent } = await supabase
+        .from('topic_contents')
+        .select('id')
+        .eq('topic_id', topicRow.id)
+        .maybeSingle();
+      const existingTopicContentId = (existingTopicContent as { id: number } | null)?.id;
+      const existingSections = existingTopicContentId
+        ? (
+          await supabase
+            .from('topic_content_sections')
+            .select('heading, order_no')
+            .eq('topic_content_id', existingTopicContentId)
+            .order('order_no', { ascending: true })
+        ).data as { heading: string; order_no: number }[] | null
+        : null;
+      if (!existingSections || !existingSections.length) {
+        return NextResponse.json(
+          { error: 'Bu konu için henüz alt başlık yok — önce alt başlıkları oluşturun.' },
+          { status: 409 }
+        );
+      }
+      existingHeadingsText = existingSections.map((s, idx) => `${idx + 1}. ${s.heading}`).join('\n');
+    }
+
     // Kitapsız derslerde: "Alt Başlıkları Sentezden Oluştur" — RAG için zaten hazırlanmış,
     // çoklu AI ile doğrulanmış sentez metnini (bkz. 19-rag-topic-source-synthesis.md /
     // topic-source-synthesis route'u) konu anlatımının da KAYNAĞI yapar. Amaç: öğrenciye
     // gösterilen ders notu ile RAG'ın öğrenci sorularını cevaplarken kullandığı kaynağın
     // birbirinden bağımsız üretilip çelişmesini önlemek (2026-09-10 kullanıcı talebi).
     let sourceText = '';
-    if (type === 'full_from_synthesis') {
+    if (type === 'full_from_synthesis' || type === 'content_refresh_from_synthesis') {
       const { data: synthesisDoc } = await supabase
         .from('rag_documents')
         .select('raw_text')
@@ -146,7 +185,11 @@ export async function GET(request: NextRequest) {
     }
 
     const templateFile =
-      type === 'full_from_synthesis' ? '20-rag-synthesis-full-topic.md' : type === 'full' ? '03-notebooklm-full-topic.md' : '01-topic-section-plan.md';
+      type === 'full_from_synthesis' ? '20-rag-synthesis-full-topic.md'
+        : type === 'full' ? '03-notebooklm-full-topic.md'
+        : type === 'content_refresh_from_synthesis' ? '23-topic-content-refresh-from-synthesis.md'
+        : type === 'content_refresh_notebooklm' ? '24-topic-content-refresh-notebooklm.md'
+        : '01-topic-section-plan.md';
     const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
     const template = await readFile(templatePath, 'utf8');
 
@@ -161,6 +204,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
+      .replaceAll('{existing_headings}', existingHeadingsText)
       .replaceAll('{source_text}', sourceText);
 
     return NextResponse.json({ prompt });

@@ -1294,10 +1294,14 @@ export function NotebookPlanModal({
   onManageMore?: () => void;
   // 'full' → NotebookLM/kitap kaynaklı (varsayılan, eski davranış). 'full_from_synthesis'
   // → kitabı olmayan dersler için, RAG'da zaten kullanılan çoklu-AI sentez metnini kaynak
-  // alır (bkz. topic-sections/prompt/route.ts, 20-rag-synthesis-full-topic.md) — aynı
-  // kaydetme mantığı (sections+cover JSON) paylaşıldığı için component'i çoğaltmak yerine
-  // sadece prompt kaynağı/başlık/açıklama parametrize edildi.
-  promptType?: 'full' | 'full_from_synthesis';
+  // alır (bkz. topic-sections/prompt/route.ts, 20-rag-synthesis-full-topic.md). Bu ikisi
+  // alt başlıkları da AI'a yeniden ürettirir. 'content_refresh_notebooklm' /
+  // 'content_refresh_from_synthesis' ise mevcut alt başlıkları SABİT girdi olarak verir,
+  // sadece içeriği yeniden yazdırır — başlık hiç değişmediği için görsel/diyagram/soru
+  // kaybetme riski yok (bkz. 23/24-topic-content-refresh-*.md, 2026-09-11 kullanıcı talebi).
+  // Kaydetme mantığı (sections JSON, heading eşleştirmeli update) 4'ünde de aynı — component'i
+  // çoğaltmak yerine sadece prompt kaynağı/başlık/açıklama parametrize edildi.
+  promptType?: 'full' | 'full_from_synthesis' | 'content_refresh_notebooklm' | 'content_refresh_from_synthesis';
   title?: string;
   description?: string;
   defaultAiModel?: string;

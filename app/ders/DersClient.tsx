@@ -183,6 +183,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
   const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
   const [synthesisFullTopicModalTopicId, setSynthesisFullTopicModalTopicId] = useState<number | null>(null);
+  const [contentRefreshNotebookTopicId, setContentRefreshNotebookTopicId] = useState<number | null>(null);
+  const [contentRefreshSynthesisTopicId, setContentRefreshSynthesisTopicId] = useState<number | null>(null);
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
@@ -1957,6 +1959,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               <Clipboard className="h-3 w-3" /> NotebookLM Prompt&apos;u
                             </button>
                           )}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setContentRefreshNotebookTopicId(Number(activeTopic.id))}
+                              title="Alt başlıklar sabit kalır, sadece içerik NotebookLM ile yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <Clipboard className="h-3 w-3" /> İçeriği Güncelle (NotebookLM)
+                            </button>
+                          )}
                           {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
                             <button
                               type="button"
@@ -1965,6 +1977,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
                             >
                               <BookOpen className="h-3 w-3" /> Sentezden Alt Başlık
+                            </button>
+                          )}
+                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                            <button
+                              type="button"
+                              onClick={() => setContentRefreshSynthesisTopicId(Number(activeTopic.id))}
+                              title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
+                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            >
+                              <BookOpen className="h-3 w-3" /> Sentezden İçeriği Güncelle
                             </button>
                           )}
                           {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
@@ -2585,6 +2607,36 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onClose={() => setSynthesisFullTopicModalTopicId(null)}
           onSaved={() => {
             setSynthesisFullTopicModalTopicId(null);
+            refreshWeekData();
+          }}
+        />
+      )}
+
+      {contentRefreshNotebookTopicId != null && (
+        <NotebookPlanModal
+          topicId={contentRefreshNotebookTopicId}
+          promptType="content_refresh_notebooklm"
+          title="İçeriği Güncelle (NotebookLM) — Başlıklar Sabit"
+          description="Alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği NotebookLM ile yeniden yazılır. Bu promptu NotebookLM'e, kaynak olarak ders kitabının PDF'ini yüklediğiniz notebook'ta sorun. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="NotebookLM"
+          onClose={() => setContentRefreshNotebookTopicId(null)}
+          onSaved={() => {
+            setContentRefreshNotebookTopicId(null);
+            refreshWeekData();
+          }}
+        />
+      )}
+
+      {contentRefreshSynthesisTopicId != null && (
+        <NotebookPlanModal
+          topicId={contentRefreshSynthesisTopicId}
+          promptType="content_refresh_from_synthesis"
+          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
+          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setContentRefreshSynthesisTopicId(null)}
+          onSaved={() => {
+            setContentRefreshSynthesisTopicId(null);
             refreshWeekData();
           }}
         />
