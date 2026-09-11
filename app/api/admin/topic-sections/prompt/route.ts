@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
   const VALID_TYPES = new Set([
-    'plan', 'full', 'full_from_synthesis', 'section', 'section_notebooklm', 'image', 'diagram',
+    'plan', 'full', 'full_from_synthesis', 'section', 'section_notebooklm', 'section_from_synthesis', 'image', 'diagram',
   ]);
 
   if (!topicId || (!VALID_TYPES.has(type || '') && !isQuestionType && !isNotebookQuestionType && !isTopicLevelType)) {
@@ -351,12 +351,36 @@ export async function GET(request: NextRequest) {
     .map((s) => s.heading)
     .join(', ') || 'Yok';
 
-  const templatePath = path.join(
-    process.cwd(),
-    'app',
-    'prompt',
-    type === 'section_notebooklm' ? '09-section-content-notebooklm.md' : '02-section-content.md'
-  );
+  // Kitapsız derslerde tek bir alt başlığı, konunun tamamını değil, RAG için zaten
+  // sentezlenmiş kaynak metni temel alarak yeniden üretmek için — bkz. full_from_synthesis'teki
+  // aynı mantık. Bunu ayrı bir tip yapmamızın sebebi: full_from_synthesis TÜM alt başlıkları
+  // tek seferde kaydediyor (başlığı eşleşmeyen alt başlıkların görsel/diyagram/sorusu kaybolma
+  // riski taşıyor), bu akış ise PATCH ile SADECE bu satırı günceller — id hiç değişmediği için
+  // görsel/diyagram/soru bağlantısı sıfır risk (2026-09-11 kullanıcı talebi).
+  let sectionSourceText = '';
+  if (type === 'section_from_synthesis') {
+    const { data: synthesisDoc } = await supabase
+      .from('rag_documents')
+      .select('raw_text')
+      .eq('topic_id', topicRow.id)
+      .eq('source', 'ai_generated')
+      .eq('is_synthesis', true)
+      .maybeSingle();
+    const raw = (synthesisDoc as { raw_text: string | null } | null)?.raw_text?.trim();
+    if (!raw) {
+      return NextResponse.json(
+        { error: 'Bu konu için henüz sentezlenmiş bir RAG kaynak metni yok — önce "RAG Kaynak Metni Sentezle" ile bir tane oluşturun.' },
+        { status: 409 }
+      );
+    }
+    sectionSourceText = raw;
+  }
+
+  const templateFile =
+    type === 'section_notebooklm' ? '09-section-content-notebooklm.md'
+      : type === 'section_from_synthesis' ? '22-section-content-from-synthesis.md'
+      : '02-section-content.md';
+  const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
   const template = await readFile(templatePath, 'utf8');
 
   const prompt = template
@@ -367,7 +391,8 @@ export async function GET(request: NextRequest) {
     .replaceAll('{topic}', topicRow.title)
     .replaceAll('{heading}', currentSection.heading)
     .replaceAll('{section_outcomes}', sectionOutcomesText)
-    .replaceAll('{other_headings}', otherHeadings);
+    .replaceAll('{other_headings}', otherHeadings)
+    .replaceAll('{source_text}', sectionSourceText);
 
   return NextResponse.json({ prompt });
 }

@@ -190,7 +190,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
-  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' } | null>(null);
+  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' | 'synthesis' } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
@@ -2147,6 +2147,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
                                               >
                                                 <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle (NotebookLM)
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
+                                                  setSectionModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
+                                                    variant: 'synthesis',
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle (Sentezden)
                                               </button>
                                               <button
                                                 type="button"

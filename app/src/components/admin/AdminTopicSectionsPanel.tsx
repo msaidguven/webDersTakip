@@ -1684,11 +1684,12 @@ export function SectionModal({
 }: {
   topicId: number;
   section: SectionModalSection;
-  variant?: 'general' | 'notebooklm';
+  variant?: 'general' | 'notebooklm' | 'synthesis';
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isNotebook = variant === 'notebooklm';
+  const isSynthesis = variant === 'synthesis';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
@@ -1698,7 +1699,7 @@ export function SectionModal({
 
   useEffect(() => {
     let cancelled = false;
-    const promptType = isNotebook ? 'section_notebooklm' : 'section';
+    const promptType = isSynthesis ? 'section_from_synthesis' : isNotebook ? 'section_notebooklm' : 'section';
     (async () => {
       const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=${promptType}`);
       const data = await res.json().catch(() => null);
@@ -1712,7 +1713,7 @@ export function SectionModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [topicId, section.id, isNotebook]);
+  }, [topicId, section.id, isNotebook, isSynthesis]);
 
   useEffect(() => {
     if (isNotebook) return;
@@ -1788,11 +1789,18 @@ export function SectionModal({
   }
 
   return (
-    <ModalShell title={`İçerik Ekle${isNotebook ? ' (NotebookLM)' : ''} — ${section.heading}`} onClose={onClose}>
+    <ModalShell title={`İçerik Ekle${isNotebook ? ' (NotebookLM)' : isSynthesis ? ' (Sentezden)' : ''} — ${section.heading}`} onClose={onClose}>
       <div className="space-y-4">
         {isNotebook && (
           <p className="text-xs text-muted-foreground">
             Bu promptu NotebookLM&apos;e, kaynak olarak ders kitabının PDF&apos;ini yüklediğiniz notebook&apos;ta sorun; içerik kitaba dayanarak üretilir.
+          </p>
+        )}
+        {isSynthesis && (
+          <p className="text-xs text-muted-foreground">
+            Kitapsız ders — bu promptu ChatGPT, Claude, Gemini gibi kitap yüklemediğiniz bir AI&apos;a sorun. İçerik, RAG için zaten sentezlenmiş
+            çoklu-AI kaynak metnine dayanarak SADECE bu alt başlık için üretilir. Diğer alt başlıklara, görsel/diyagram/sorularına dokunmaz —
+            görsel/diyagram/soru kaybetme riski olmadan tek bir alt başlığı yeniden üretmek için en güvenli yoldur.
           </p>
         )}
 
