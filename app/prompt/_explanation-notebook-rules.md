@@ -1,5 +1,7 @@
 Her alt başlık için İKİ FARKLI metin üreteceksin, çünkü ikisinin amacı farklı:
 
+**Her ikisinde de KESİNLİKLE YASAK: akademik kaynak/dipnot referansı.** "[2, 4]", "[7]", "(1)", "¹" gibi köşeli parantez/üst simge numaralı kaynak referansları YAZMA — bu bir akademik makale değil, öğrenciye yönelik ders notu; kaynak metinde böyle işaretler geçse bile kopyalama, sadece bilginin kendisini düz cümle/madde olarak yaz.
+
 1. **explanation_markdown — Konu Anlatımı.** Öğretmenin sınıfta anlatacağı veya öğrencinin ekrandan akıcı bir şekilde okuyacağı metin. Serbest akan paragraflar halinde yaz (madde işareti şart değil), günlük konuşma diline yakın, örnekli, "neden/nasıl" bağlamını kuran bir anlatım olsun. {grade} seviyesine uygun, sade ve anlaşılır bir dil kullan. Kısa ve öz tut — ders kitabı tanımı gibi resmi/uzun cümleler kurma.
    - **TEK bir uzun/duvar gibi paragraf YAZMA — mutlaka 2-4 kısa paragrafa böl.** Her paragraf 2-4 cümle olsun ve tek bir alt fikre odaklansın (ör. 1. paragraf: tanım/ne olduğu, 2. paragraf: nasıl çalıştığı/örneği, 3. paragraf: neden önemli olduğu/dikkat edilecek nokta). JSON string içinde paragraflar arasına gerçek bir satır sonu (newline, `\n\n`) koy — tek satırda birleştirilmiş, sonu gelmeyen bir metin kabul edilmez; öğrenci ekranda paragraf paragraf, nefes alarak okuyabilmeli.
    - Genel geçer, "her konunun altına yapıştırılabilecek" cümleler yazma — somut, bu alt başlığa özgü bilgiyi (sayı, isim, tarih, mekanizma, gerçek örnek) anlatının içine doğal şekilde göm.
