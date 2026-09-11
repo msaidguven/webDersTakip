@@ -166,8 +166,17 @@ export async function POST(request: NextRequest) {
           .eq('id', oldId);
       })
     );
-    if (updateResults.some((r) => r?.error)) {
-      return NextResponse.json({ error: 'Alt başlıklar güncellenemedi' }, { status: 500 });
+    const updateErrors = updateResults
+      .map((r) => r?.error)
+      .filter((e): e is NonNullable<typeof e> => Boolean(e));
+    if (updateErrors.length) {
+      // Asıl Supabase hata mesajını (ör. RLS/tip/kolon hatası) client'a döndürüyoruz —
+      // aksi halde jenerik "güncellenemedi" mesajı kök nedeni teşhis etmeyi imkansız
+      // kılıyor (2026-09-11 kullanıcı raporu: "alt başlıklar güncellenemedi" uyarısı).
+      return NextResponse.json(
+        { error: `Alt başlıklar güncellenemedi: ${updateErrors[0].message}` },
+        { status: 500 }
+      );
     }
   }
 
