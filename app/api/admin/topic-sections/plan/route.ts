@@ -149,10 +149,40 @@ export async function POST(request: NextRequest) {
       await supabase.from('topic_content_sections').delete().in('id', idsToDelete);
     }
 
+    // (topic_content_id, order_no) üzerinde bir UNIQUE kısıt var (uq_tcs_order). Yeni
+    // order_no'lar mevcutlarla aynı SIRAYI korusa bile farklı sayısal değerlere denk
+    // gelebiliyor (ör. eski değerler 1,2,3.. iken AI 0'dan başlıyor) — bu durumda tek
+    // adımda UPDATE atarken bir satırın yeni order_no'su, henüz güncellenmemiş başka bir
+    // satırın O ANKİ order_no'suyla çakışıp constraint hatası veriyor (2026-09-11 kullanıcı
+    // raporu: "duplicate key value violates unique constraint uq_tcs_order"). Çözüm: önce
+    // TÜM eşleşen satırları çakışması imkansız negatif geçici değerlere taşı, sonra asıl
+    // değerlere (ve diğer alanlara) güncelle — iki adım arasında hiçbir çakışma olamaz.
+    const matchedIndices = cleanSections
+      .map((_, idx) => idx)
+      .filter((idx) => matchedOldIdForIndex[idx] !== null);
+
+    if (matchedIndices.length) {
+      const tempResults = await Promise.all(
+        matchedIndices.map((idx, tempOffset) =>
+          supabase
+            .from('topic_content_sections')
+            .update({ order_no: -(tempOffset + 1) })
+            .eq('id', matchedOldIdForIndex[idx]!)
+        )
+      );
+      const tempErrors = tempResults.map((r) => r.error).filter((e): e is NonNullable<typeof e> => Boolean(e));
+      if (tempErrors.length) {
+        return NextResponse.json(
+          { error: `Alt başlıklar güncellenemedi: ${tempErrors[0].message}` },
+          { status: 500 }
+        );
+      }
+    }
+
     const updateResults = await Promise.all(
-      cleanSections.map((s, idx) => {
-        const oldId = matchedOldIdForIndex[idx];
-        if (oldId === null) return null;
+      matchedIndices.map((idx) => {
+        const s = cleanSections[idx];
+        const oldId = matchedOldIdForIndex[idx]!;
         return supabase
           .from('topic_content_sections')
           .update({
