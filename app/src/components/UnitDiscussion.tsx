@@ -859,7 +859,12 @@ export default function UnitDiscussion({
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  const commentTotal = comments.length + aiEntries.length;
+  // Bir soru sorulduğunda hem soru (comment) hem de "cevap hazırlanıyor" yer tutucusu
+  // (aiEntries'e queued/processing durumunda eklenir) aynı anda oluşuyor — ikisini de
+  // saysaydık henüz tek bir cevapsız soru varken başlıkta "(2)" görünürdü (kullanıcı
+  // raporu, 2026-09-11). Sadece gerçekten yayınlanmış AI cevapları sayılıyor; soru
+  // sorulduğu anda sayaç 1 (soru), cevap gelince 2 (soru + cevap) olacak şekilde.
+  const commentTotal = comments.length + aiEntries.filter((a) => a.status === 'published').length;
 
   // ReplyRow/ReplyAiRow kendi yanıtlarını recursive render edebilsin diye tüm ortak
   // handler'lar burada tek pakette toplanıyor (bkz. DiscussionHandlers tanımı).
