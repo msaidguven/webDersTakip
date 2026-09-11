@@ -115,6 +115,79 @@ interface DersClientProps {
   week: number;
 }
 
+// Konu başlığının yanındaki admin butonları önceden 7 ayrı chip'ti (NotebookLM
+// Prompt'u, İçeriği Güncelle, Sentezden Alt Başlık, Sentezden İçeriği Güncelle,
+// Sentezden Genel Sorular, Genel Sorular, Açık Uçlu Sorular) — çok kalabalıklaştı.
+// Bunun yerine "Yeni İçerik Ekle" / "Güncelle" / "Soru Ekle" olmak üzere 3 gruba
+// toplayan açılır menü chip'i (2026-09-11 kullanıcı talebi).
+function TopicActionMenuGroup({
+  menuKey,
+  label,
+  icon,
+  open,
+  onToggle,
+  onCloseMenu,
+  children,
+}: {
+  menuKey: string;
+  label: string;
+  icon: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  onCloseMenu: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+      >
+        {icon} {label} <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={onCloseMenu} />
+          <div
+            key={menuKey}
+            className="absolute left-1/2 top-8 z-50 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-lg"
+          >
+            {children}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TopicActionMenuItem({
+  icon,
+  label,
+  title,
+  done,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
+  done?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+    >
+      {icon} {label}
+      {done && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
+    </button>
+  );
+}
+
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const { user, supabase } = useAuth();
   const router = useRouter();
@@ -195,6 +268,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' | 'synthesis' } | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
+  const [topicActionMenu, setTopicActionMenu] = useState<'new' | 'update' | 'questions' | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
@@ -1950,80 +2024,87 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                           <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
                           {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => setNotebookPlanTopicId(Number(activeTopic.id))}
-                              title="Google NotebookLM için tek prompt'u kopyala"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            <TopicActionMenuGroup
+                              menuKey="new"
+                              label="Yeni İçerik Ekle"
+                              icon={<Plus className="h-3 w-3" />}
+                              open={topicActionMenu === 'new'}
+                              onToggle={() => setTopicActionMenu((cur) => (cur === 'new' ? null : 'new'))}
+                              onCloseMenu={() => setTopicActionMenu(null)}
                             >
-                              <Clipboard className="h-3 w-3" /> NotebookLM Prompt&apos;u
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => setContentRefreshNotebookTopicId(Number(activeTopic.id))}
-                              title="Alt başlıklar sabit kalır, sadece içerik NotebookLM ile yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
-                            >
-                              <Clipboard className="h-3 w-3" /> İçeriği Güncelle (NotebookLM)
-                            </button>
-                          )}
-                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                            <button
-                              type="button"
-                              onClick={() => setSynthesisFullTopicModalTopicId(Number(activeTopic.id))}
-                              title="Kitapsız ders — RAG sentez metnini kaynak alan tek prompt'u kopyala"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
-                            >
-                              <BookOpen className="h-3 w-3" /> Sentezden Alt Başlık
-                            </button>
-                          )}
-                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                            <button
-                              type="button"
-                              onClick={() => setContentRefreshSynthesisTopicId(Number(activeTopic.id))}
-                              title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
-                            >
-                              <BookOpen className="h-3 w-3" /> Sentezden İçeriği Güncelle
-                            </button>
-                          )}
-                          {isAdmin && synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                            <button
-                              type="button"
-                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'rag_synthesis' })}
-                              title="Kitapsız ders — RAG sentez metnine dayanan genel/sentez soruları üret"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
-                            >
-                              <ListChecks className="h-3 w-3" /> Sentezden Genel Sorular
-                              {questionStatusByTopic[activeTopic.id]?.general && (
-                                <Check className="h-3 w-3 text-emerald-600" />
+                              <TopicActionMenuItem
+                                icon={<Clipboard className="h-3.5 w-3.5" />}
+                                label="NotebookLM Prompt'u"
+                                title="Google NotebookLM için tek prompt'u kopyala — alt başlık + içerik tek seferde"
+                                onClick={() => { setTopicActionMenu(null); setNotebookPlanTopicId(Number(activeTopic.id)); }}
+                              />
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<BookOpen className="h-3.5 w-3.5" />}
+                                  label="Sentezden Alt Başlık"
+                                  title="Kitapsız ders — RAG sentez metnini kaynak alan tek prompt'u kopyala"
+                                  onClick={() => { setTopicActionMenu(null); setSynthesisFullTopicModalTopicId(Number(activeTopic.id)); }}
+                                />
                               )}
-                            </button>
+                            </TopicActionMenuGroup>
                           )}
                           {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'notebooklm' })}
-                              title="Konunun geneline ait, ünite testinde kullanılacak sentez soruları üret"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            <TopicActionMenuGroup
+                              menuKey="update"
+                              label="Güncelle"
+                              icon={<Clipboard className="h-3 w-3" />}
+                              open={topicActionMenu === 'update'}
+                              onToggle={() => setTopicActionMenu((cur) => (cur === 'update' ? null : 'update'))}
+                              onCloseMenu={() => setTopicActionMenu(null)}
                             >
-                              <ListChecks className="h-3 w-3" /> Genel Sorular
-                              {questionStatusByTopic[activeTopic.id]?.general && (
-                                <Check className="h-3 w-3 text-emerald-600" />
+                              <TopicActionMenuItem
+                                icon={<Clipboard className="h-3.5 w-3.5" />}
+                                label="İçeriği Güncelle (NotebookLM)"
+                                title="Alt başlıklar sabit kalır, sadece içerik NotebookLM ile yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
+                                onClick={() => { setTopicActionMenu(null); setContentRefreshNotebookTopicId(Number(activeTopic.id)); }}
+                              />
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<BookOpen className="h-3.5 w-3.5" />}
+                                  label="Sentezden İçeriği Güncelle"
+                                  title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
+                                  onClick={() => { setTopicActionMenu(null); setContentRefreshSynthesisTopicId(Number(activeTopic.id)); }}
+                                />
                               )}
-                            </button>
+                            </TopicActionMenuGroup>
                           )}
                           {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'classical_notebooklm' })}
-                              title="Konunun geneline ait, kitaba dayanan açık uçlu sentez soruları üret"
-                              className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
+                            <TopicActionMenuGroup
+                              menuKey="questions"
+                              label="Soru Ekle"
+                              icon={<ListChecks className="h-3 w-3" />}
+                              open={topicActionMenu === 'questions'}
+                              onToggle={() => setTopicActionMenu((cur) => (cur === 'questions' ? null : 'questions'))}
+                              onCloseMenu={() => setTopicActionMenu(null)}
                             >
-                              <Sparkles className="h-3 w-3" /> Açık Uçlu Sorular
-                            </button>
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<ListChecks className="h-3.5 w-3.5" />}
+                                  label="Sentezden Genel Sorular"
+                                  title="Kitapsız ders — RAG sentez metnine dayanan genel/sentez soruları üret"
+                                  done={questionStatusByTopic[activeTopic.id]?.general}
+                                  onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'rag_synthesis' }); }}
+                                />
+                              )}
+                              <TopicActionMenuItem
+                                icon={<ListChecks className="h-3.5 w-3.5" />}
+                                label="Genel Sorular"
+                                title="Konunun geneline ait, ünite testinde kullanılacak sentez soruları üret"
+                                done={questionStatusByTopic[activeTopic.id]?.general}
+                                onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'notebooklm' }); }}
+                              />
+                              <TopicActionMenuItem
+                                icon={<Sparkles className="h-3.5 w-3.5" />}
+                                label="Açık Uçlu Sorular"
+                                title="Konunun geneline ait, kitaba dayanan açık uçlu sentez soruları üret"
+                                onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'classical_notebooklm' }); }}
+                              />
+                            </TopicActionMenuGroup>
                           )}
                         </div>
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
