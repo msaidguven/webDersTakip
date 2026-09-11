@@ -153,6 +153,22 @@ function NotebookBox({ label, children }: { label?: string; children: React.Reac
   );
 }
 
+// "Konu Anlatımı" için Defterine Not Al kutusuyla eşleşen ama farklı renk ailesinde
+// (defter = amber/kağıt, anlatım = gök mavisi/eflatun degrade) sevimli bir kart —
+// öğrenci iki bloğu ("oku" vs "ezberle") ilk bakışta ayırt edebilsin diye.
+function ExplanationBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-indigo-50 shadow-sm">
+      <div className="space-y-3 px-5 py-5 sm:py-6 sm:px-6">
+        <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-indigo-600">
+          📖 Konu Anlatımı
+        </p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function SectionContent({
   html,
   notebookHtml,
@@ -288,9 +304,11 @@ export default function SectionContent({
       )}
       {notebookHtml ? (
         <>
-          <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-900">
-            {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
-          </div>
+          <ExplanationBox>
+            <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-slate-900 [&_strong]:font-black [&_strong]:text-indigo-700">
+              {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
+            </div>
+          </ExplanationBox>
           <NotebookBox label="Defterine Not Al">{notebookBlocks}</NotebookBox>
         </>
       ) : (
