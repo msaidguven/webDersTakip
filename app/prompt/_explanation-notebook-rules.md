@@ -1,17 +1,11 @@
-Her alt başlık için İKİ FARKLI metin üreteceksin, çünkü ikisinin amacı farklı:
+Her alt başlık için İKİ metin üret (amaçları farklı):
 
-**Her ikisinde de KESİNLİKLE YASAK: akademik kaynak/dipnot referansı.** "[2, 4]", "[7]", "(1)", "¹" gibi köşeli parantez/üst simge numaralı kaynak referansları YAZMA — bu bir akademik makale değil, öğrenciye yönelik ders notu; kaynak metinde böyle işaretler geçse bile kopyalama, sadece bilginin kendisini düz cümle/madde olarak yaz.
+YASAK (ikisinde de): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kaynak metinde geçse bile kopyalama.
 
-1. **explanation_markdown — Konu Anlatımı.** Bu bir sohbet metni değil, öğrencinin çalışacağı GERÇEK ve TAM bir ders notu — biçimlendirmesiyle de bir ders kitabı sayfası gibi okunmalı, düz/biçimsiz bir metin bloğu değil. {grade} seviyesine uygun, sade ve anlaşılır bir dil kullan; günlük konuşma diline yakın ama "ders kitabı sayfası" ciddiyetinde ol.
-   - **Markdown biçimlendirmeyi aktif kullan, süslemeden ibaret sayma:**
-     - Bir terim/kavram metinde İLK geçtiği yerde **kalın** yaz (`**terim**`) — sonraki geçişlerinde kalın tekrarlama.
-     - Önemli bir nüans, uyarı veya dikkat edilmesi gereken bir ayrıntı için *italik* kullan (`*böyle*`) — az ve yerinde, her cümlede değil.
-     - Kod/sembol/formül niteliğindeki kısa ifadeler için `` `ters tırnak` `` kullanabilirsin.
-   - **Alt başlık birden fazla ayrı terim/kavram/aşama içeriyorsa, anlatıyı küçük yan alt başlıklarla (`### Terim Adı`) bölümlere ayır** — her mini başlığın hemen altına o terimi açıklayan 1-3 cümlelik kısa bir paragraf gelsin (ör. "### Doğal Gruplar" başlığı + altında tanım/örnek paragrafı, sonra "### Yapay Gruplar" başlığı + paragrafı). Alt başlık TEK bir kavramı/süreci anlatıyorsa (bölünecek ayrı terimler yoksa) mini başlık ZORUNLU değil — o zaman 2-4 kısa paragrafa böl, TEK bir uzun/duvar gibi paragraf YAZMA. Hangi yapıyı seçersen seç: JSON string içinde paragraflar/başlıklar arasına gerçek bir satır sonu (newline, `\n\n`) koy — tek satırda birleştirilmiş, sonu gelmeyen bir metin kabul edilmez.
-   - Genel geçer, "her konunun altına yapıştırılabilecek" cümleler yazma — somut, bu alt başlığa özgü bilgiyi (sayı, isim, tarih, mekanizma, gerçek örnek) anlatının içine doğal şekilde göm.
-   - Retorik soru sorma ("...değil mi?" gibi), öğrenciye doğrudan hitap etme ("sen", "senin", "sence" gibi), hikâye/sahne kurma; sonunda özet/kapanış cümlesi ("Yani...", "Kısacası...", "Bu sayede..." gibi) yazma.
-2. **notebook_markdown — Defterine Not Al.** Öğrencinin fiziksel defterine elle geçireceği, daha sonra ezberleyeceği kısa özet. 3-6 madde (`- ` ile), HER MADDE TAM CÜMLE DEĞİL, kısa bir ifade olsun: "**Terim**: kısa tanım" ya da "**Terim** → somut bilgi" kalıbında, madde başına en fazla 12-15 kelime. Sadece gerçekten ezberlenmesi/yazılıya çıkması gereken somut bilgiyi (tanım, sayı, formül, örnek adı) al; bağlam cümlelerini, "neden" açıklamalarını buraya koyma — onlar zaten explanation_markdown'da var.
-   - **Terim, kısa bir isim tamlaması olmalı (en fazla 2-4 kelime) — asla bir yan cümle/bağlaç ifadesi olmasın.** "... için", "... olduğunda", "eğer ...", "... ise" gibi bir koşul/zaman cümlesiyle başlayan terim YAZMA; bu, maddeyi ortadan kesilmiş yarım bir cümle gibi gösterir. Terim, tek başına bir kavram/kelime grubu olmalı.
-     - Kötü: "- **Yenilikçi olmak için**: sadece yeni olmak yetmez, bir ihtiyacı daha iyi karşılamalı" (terim bir koşul cümlesi gibi okunuyor, madde yarım cümle hissi veriyor)
-     - İyi: "- **Yenilikçilik şartı**: yeni olmak yetmez, bir ihtiyacı daha iyi karşılamalı" (terim kısa bir isim tamlaması, açıklama net)
-   - Her madde kendi başına, önceki/sonraki maddeye bakmadan anlaşılabilmeli — "bu", "bunlar", "yukarıdaki" gibi öncül gerektiren zamirler kullanma.
+1. **explanation_markdown — Konu Anlatımı.** Öğrencinin çalışacağı TAM bir ders notu, ders kitabı sayfası gibi biçimlendirilmiş — sohbet metni değil. {grade} seviyesine uygun, sade dil.
+   - Terimi İLK geçtiği yerde **kalın** yap (sonra tekrarlama); önemli nüans/uyarı için *italik* kullan (az, yerinde).
+   - Alt başlık birden fazla ayrı terim/aşama içeriyorsa `### Terim Adı` mini başlıklarıyla böl, altına 1-3 cümlelik paragraf; TEK kavramsa mini başlık şart değil, 2-4 kısa paragrafa böl. Her durumda: TEK uzun/duvar paragraf YAZMA; paragraflar/başlıklar arasına gerçek `\n\n` koy.
+   - Somut ol (sayı, isim, tarih, mekanizma) — genel-geçer cümle yazma. Retorik soru, "sen/senin" hitabı, hikâye, "Yani.../Kısacası..." kapanışı YASAK.
+2. **notebook_markdown — Defterine Not Al.** Kısa özet: 3-6 madde (`- `), TAM CÜMLE DEĞİL: "**Terim**: tanım" ya da "**Terim** → bilgi", madde başı max 12-15 kelime. Sadece ezberlenecek somut bilgi (tanım/sayı/formül) — "neden" açıklaması yazma, o explanation_markdown'da var.
+   - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle/bağlaç ("... için/olduğunda/ise" gibi) — örn. "**Yenilikçilik şartı**: yeni olmak yetmez..." İYİ, "**Yenilikçi olmak için**: ..." KÖTÜ (yarım cümle gibi).
+   - Madde kendi başına anlaşılsın — "bu/bunlar/yukarıdaki" gibi öncül gerektiren zamir kullanma.
