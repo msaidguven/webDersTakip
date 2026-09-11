@@ -13,12 +13,16 @@ import { CHAT_MODEL } from '@/app/src/lib/rag/gemini';
 export async function GET(request: NextRequest) {
   const questionIdParam = request.nextUrl.searchParams.get('questionId');
   const unitIdParam = request.nextUrl.searchParams.get('unitId');
+  const topicIdParam = request.nextUrl.searchParams.get('topicId');
 
   const questionId = questionIdParam != null ? Number(questionIdParam) : null;
   const unitId = unitIdParam != null ? Number(unitIdParam) : null;
+  // Ders sayfası artık ünite değil KONU bazlı yorum akışı gösteriyor — topicId
+  // verilmişse unitId (verilse bile) yok sayılıp topic_id'ye göre filtrelenir.
+  const topicId = topicIdParam != null ? Number(topicIdParam) : null;
 
-  if (questionId == null && unitId == null) {
-    return NextResponse.json({ error: 'questionId veya unitId gerekli' }, { status: 400 });
+  if (questionId == null && unitId == null && topicId == null) {
+    return NextResponse.json({ error: 'questionId, topicId veya unitId gerekli' }, { status: 400 });
   }
 
   const supabase = createServiceClient();
@@ -31,13 +35,16 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  // Bir satırda hem unit_id hem quiz_question_id dolu olabilir (test sayfasından
-  // sorulan sorular ikisini de taşır). Genel ünite akışı bu yüzden quiz_question_id
-  // boş olanlarla sınırlanıyor — yoksa soru-özel "neden A" cevapları da karışırdı.
+  // Bir satırda hem unit_id/topic_id hem quiz_question_id dolu olabilir (test
+  // sayfasından sorulan sorular ikisini de taşır). Genel akış bu yüzden
+  // quiz_question_id boş olanlarla sınırlanıyor — yoksa soru-özel "neden A"
+  // cevapları da karışırdı.
   query =
     questionId != null
       ? query.eq('quiz_question_id', questionId)
-      : query.eq('unit_id', unitId as number).is('quiz_question_id', null);
+      : topicId != null
+        ? query.eq('topic_id', topicId).is('quiz_question_id', null)
+        : query.eq('unit_id', unitId as number).is('quiz_question_id', null);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -64,7 +71,9 @@ export async function GET(request: NextRequest) {
     queueQuery =
       questionId != null
         ? queueQuery.eq('quiz_question_id', questionId)
-        : queueQuery.eq('unit_id', unitId as number).is('quiz_question_id', null);
+        : topicId != null
+          ? queueQuery.eq('topic_id', topicId).is('quiz_question_id', null)
+          : queueQuery.eq('unit_id', unitId as number).is('quiz_question_id', null);
     const { data: queueRows } = await queueQuery;
     queuedItems = (queueRows || []).map((row) => ({
       id: row.id,

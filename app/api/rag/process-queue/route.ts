@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
         grade_id: row.grade_id,
         lesson_id: row.lesson_id,
         unit_id: row.unit_id,
+        topic_id: row.topic_id,
         quiz_question_id: row.quiz_question_id,
         student_id: row.student_id,
         question: row.question,

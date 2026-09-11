@@ -404,8 +404,10 @@ export default function UnitDiscussion({
   gradeId,
   lessonId,
   unitId,
+  topicId,
   quizQuestionId,
   unitName,
+  topicName,
   questionContext,
   defaultExpanded,
   hideToggle,
@@ -414,10 +416,17 @@ export default function UnitDiscussion({
   gradeId: number;
   lessonId: number;
   unitId: number;
+  // Verilirse yorumlar/AI soru-cevapları ÜNİTE geneli değil bu KONUYA özel
+  // gruplanır (kullanıcı isteği, 2026-09-11) — unitId yine de gerekli (topic'in
+  // kendi ünitesi olarak /api/rag/ask'a gidiyor, question_comments.unit_id sütunu
+  // hâlâ dolu olmak zorunda).
+  topicId?: number | null;
   quizQuestionId?: number | null;
   // Sadece ders sayfasında (quizQuestionId boş) başlıkta kullanılır; test
   // sayfasında "Bu Soru Hakkında" gösterildiği için gerekmez.
   unitName?: string;
+  // topicId verilmişse başlıkta unitName yerine bu kullanılır ("... Konusu Hakkında").
+  topicName?: string;
   questionContext?: string | null;
   // Soru bankası gibi, component'in "yorumları göster" tıklanınca ilk kez monte
   // edildiği yerlerde açık başlasın diye (bkz. QuestionBankBoard.tsx) — orada zaten
@@ -442,15 +451,20 @@ export default function UnitDiscussion({
   // konu sayfayı aşırı uzatmasın diye önce sadece ilk 7 üst seviye yorum/AI cevabı
   // gösteriliyor, "Daha Fazla Göster" ile 7'şer artıyor (kullanıcı isteği, 2026-09-05).
   const [visibleFeedCount, setVisibleFeedCount] = useState(7);
-  // Yeni bir soruya geçilince panel tekrar kapalı başlar — açık kalsaydı bir önceki
-  // sorunun yorum listesi yeni soruda da (kısa an) görünür kalırdı. hideToggle modunda
-  // (soru bankası modali) bu geçerli değil: her modal açılışı zaten TAZE bir mount, "aynı
-  // instance'ta soru değişimi" hiç olmuyor — bu effect ilk mount'ta da çalıştığı için
-  // hideToggle kontrolü olmasaydı defaultExpanded'i hemen geri kapatıp bozardı.
+  // Yeni bir soruya/konuya geçilince panel çağıranın varsayılanına döner (açıksa
+  // açık, kapalıysa kapalı) — açık kalsaydı bir önceki soru/konunun yorum listesi
+  // yenisinde de (kısa an) görünür kalırdı. Önceden burada koşulsuz false'a
+  // dönülüyordu; bu, DersClient'ın verdiği defaultExpanded=true'yu İLK mount'ta
+  // bile hemen geri kapatıp "varsayılan açık" talebini bozan bir bug'dı (kullanıcı
+  // raporu, 2026-09-11) — artık defaultExpanded'e dönüyor, ilk mount'ta zaten aynı
+  // değer olduğu için etkisiz, sonraki soru/konu değişimlerinde ise doğru davranıyor.
+  // hideToggle modunda (soru bankası modali) bu geçerli değil: her modal açılışı
+  // zaten TAZE bir mount, "aynı instance'ta soru değişimi" hiç olmuyor.
   useEffect(() => {
     if (hideToggle) return;
-    setExpanded(false);
-  }, [quizQuestionId, hideToggle]);
+    setExpanded(defaultExpanded ?? false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizQuestionId, topicId, hideToggle]);
   const [availability, setAvailability] = useState<Availability>('loading');
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [userId, setUserId] = useState<string | null>(null);
@@ -491,17 +505,27 @@ export default function UnitDiscussion({
         'id, parent_comment_id, parent_ai_answer_id, body, status, created_at, student_id, profiles!question_comments_student_id_fkey(username, full_name, avatar_url)'
       )
       .order('created_at', { ascending: true });
-    query = quizQuestionId != null ? query.eq('question_id', quizQuestionId) : query.eq('unit_id', unitId);
+    query =
+      quizQuestionId != null
+        ? query.eq('question_id', quizQuestionId)
+        : topicId != null
+          ? query.eq('topic_id', topicId)
+          : query.eq('unit_id', unitId);
     const { data } = await query;
     setComments(
       ((data as CommentEntry[] | null) || [])
         .filter((c) => c.status !== 'deleted')
         .map((c) => ({ ...c, kind: 'comment' as const }))
     );
-  }, [unitId, quizQuestionId]);
+  }, [unitId, topicId, quizQuestionId]);
 
   const loadAiFeed = React.useCallback(async () => {
-    const url = quizQuestionId != null ? `/api/rag/unit-feed?questionId=${quizQuestionId}` : `/api/rag/unit-feed?unitId=${unitId}`;
+    const url =
+      quizQuestionId != null
+        ? `/api/rag/unit-feed?questionId=${quizQuestionId}`
+        : topicId != null
+          ? `/api/rag/unit-feed?topicId=${topicId}`
+          : `/api/rag/unit-feed?unitId=${unitId}`;
     const res = await fetch(url);
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
@@ -528,7 +552,7 @@ export default function UnitDiscussion({
         )
       );
     }
-  }, [unitId, quizQuestionId]);
+  }, [unitId, topicId, quizQuestionId]);
 
   useEffect(() => {
     loadComments();
@@ -583,8 +607,12 @@ export default function UnitDiscussion({
         parent_comment_id: parentCommentId,
         parent_ai_answer_id: parentAiAnswerId,
       };
-      if (quizQuestionId != null) insertRow.question_id = quizQuestionId;
-      else insertRow.unit_id = unitId;
+      if (quizQuestionId != null) {
+        insertRow.question_id = quizQuestionId;
+      } else {
+        insertRow.unit_id = unitId;
+        if (topicId != null) insertRow.topic_id = topicId;
+      }
 
       const { data, error: insertError } = await supabase
         .from('question_comments')
@@ -687,6 +715,7 @@ export default function UnitDiscussion({
           gradeId,
           lessonId,
           unitId,
+          topicId: topicId ?? undefined,
           quizQuestionId: quizQuestionId ?? undefined,
           question,
           questionContext: questionContext || undefined,
@@ -869,7 +898,13 @@ export default function UnitDiscussion({
         >
           <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
           <h2 className="flex-1 text-base font-black text-slate-900">
-            {quizQuestionId != null ? 'Bu Soru Hakkında' : unitName ? `${unitName} Ünitesi Hakkında` : 'Ünite Hakkında'}
+            {quizQuestionId != null
+              ? 'Bu Soru Hakkında'
+              : topicName
+                ? `${topicName} Konusu Hakkında`
+                : unitName
+                  ? `${unitName} Ünitesi Hakkında`
+                  : 'Konu Hakkında'}
             {commentTotal > 0 && <span className="ml-1.5 font-normal text-slate-400">({commentTotal})</span>}
           </h2>
           <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />

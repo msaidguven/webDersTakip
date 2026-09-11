@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
         gradeId?: unknown;
         lessonId?: unknown;
         unitId?: unknown;
+        topicId?: unknown;
         quizQuestionId?: unknown;
         question?: unknown;
         questionContext?: unknown;
@@ -31,7 +32,9 @@ export async function POST(request: NextRequest) {
   const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
   const lessonId = typeof body?.lessonId === 'number' ? body.lessonId : Number(body?.lessonId);
   const unitIdRaw = typeof body?.unitId === 'number' ? body.unitId : Number(body?.unitId);
-  const unitId = Number.isFinite(unitIdRaw) ? unitIdRaw : null;
+  let unitId = Number.isFinite(unitIdRaw) ? unitIdRaw : null;
+  const topicIdRaw = typeof body?.topicId === 'number' ? body.topicId : Number(body?.topicId);
+  const topicId = Number.isFinite(topicIdRaw) ? topicIdRaw : null;
   const quizQuestionIdRaw = typeof body?.quizQuestionId === 'number' ? body.quizQuestionId : Number(body?.quizQuestionId);
   const quizQuestionId = Number.isFinite(quizQuestionIdRaw) ? quizQuestionIdRaw : null;
   const question = typeof body?.question === 'string' ? body.question.trim() : '';
@@ -58,6 +61,16 @@ export async function POST(request: NextRequest) {
     .eq('lesson_id', lessonId)
     .maybeSingle();
   if (!lessonGrade) return NextResponse.json({ error: 'Sınıf/ders bulunamadı' }, { status: 404 });
+
+  // topicId verilmişse, kendi unit_id'sini yetkili kaynak sayıp client'tan gelen
+  // unitId'nin üzerine yazıyoruz — topic hangi üniteye aitse yorum/soru o üniteye
+  // kaydediliyor (question_comments.unit_id hâlâ dolu olmak zorunda, bkz. XOR check).
+  if (topicId != null) {
+    const { data: topicData } = await service.from('topics').select('id, unit_id').eq('id', topicId).maybeSingle();
+    const topic = topicData as { id: number; unit_id: number } | null;
+    if (!topic) return NextResponse.json({ error: 'Konu bulunamadı' }, { status: 400 });
+    unitId = topic.unit_id;
+  }
 
   if (unitId != null) {
     const { data: unit } = await service
@@ -130,6 +143,7 @@ export async function POST(request: NextRequest) {
       status: 'published',
       question_id: quizQuestionId,
       unit_id: quizQuestionId != null ? null : unitId,
+      topic_id: quizQuestionId != null ? null : topicId,
       parent_comment_id: parentCommentId,
       parent_ai_answer_id: parentRagAnswerId,
     })
@@ -149,6 +163,7 @@ export async function POST(request: NextRequest) {
       grade_id: gradeId,
       lesson_id: lessonId,
       unit_id: unitId,
+      topic_id: topicId,
       quiz_question_id: quizQuestionId,
       question,
       question_context: questionContext,
