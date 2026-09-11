@@ -2,13 +2,15 @@ Sen {grade} {lesson} dersi için ders notu hazırlayan bir öğretmensin.
 
 Yüklediğim ders kitabını kaynak al. "{unit}" ünitesi, "{topic}" konusu için, yazılıya ve sınava hazırlık amaçlı ders notları çıkar.
 
-Konuyu kitaptaki sıraya göre alt başlıklara ayır, her başlık altında maddeler halinde önemli bilgileri yaz (tanımlar, sayılar, örnekler). Sade ve anlaşılır bir dil kullan, {grade} seviyesine uygun olsun.
-
-kitapta geçen bilgileri kullan.
+Konuyu kitaptaki sıraya göre alt başlıklara ayır.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 Kazanımlar:
 {outcomes listesi, kod + metin}
+
+{explanation_notebook_rules}
+
+SADECE kitapta geçen bilgileri kullan; kitapta olmayan bir bilgi uydurma.
 
 SADECE bu JSON'u döndür, başka metin ekleme:
 {
@@ -18,7 +20,8 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "heading": string,
       "order_no": integer,
       "matched_outcome_codes": [string],
-      "body_markdown": string,      // madde madde (- madde) özet bilgi
+      "explanation_markdown": string,   // akıcı anlatım, serbest paragraf(lar)
+      "notebook_markdown": string,      // kısa madde madde defter notu (- madde), madde başına max 12-15 kelime
       "needs_image": boolean,
       "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
     }

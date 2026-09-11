@@ -61,6 +61,10 @@ export async function GET(request: NextRequest) {
   // çıktı şeması + kalite kurallarını (kısa cevap vb.) paylaşıyor — kaynak (ders notu mu
   // kitap mı) sadece kendi bağlam/giriş metinlerinde farklılaşıyor, kurallar tek yerden.
   const classicalQuestionRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_classical-question-rules.md'), 'utf8');
+  // Konu anlatımı üreten 4 şablonun (kitaplı/kitapsız × tek alt başlık/konu geneli) hepsi
+  // aynı explanation_markdown + notebook_markdown ikilisini ve "Defterine Not Al" kısa not
+  // kurallarını paylaşıyor — tek yerden değişsin diye ortak parçaya taşındı.
+  const explanationNotebookRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_explanation-notebook-rules.md'), 'utf8');
 
   const supabase = createServiceClient();
 
@@ -151,6 +155,7 @@ export async function GET(request: NextRequest) {
       : 'Bu konu için tanımlı kazanım bulunamadı.';
 
     const prompt = template
+      .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)
@@ -355,6 +360,7 @@ export async function GET(request: NextRequest) {
   const template = await readFile(templatePath, 'utf8');
 
   const prompt = template
+    .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
     .replaceAll('{grade}', gradeName)
     .replaceAll('{lesson}', lessonName)
     .replaceAll('{unit}', unitTitle)

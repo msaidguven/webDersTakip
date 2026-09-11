@@ -1752,11 +1752,17 @@ export function SectionModal({
       return;
     }
 
-    const obj = parsed as { body_markdown?: unknown };
-    if (typeof obj.body_markdown !== 'string' || !obj.body_markdown.trim()) {
-      setError('JSON içinde "body_markdown" alanı bulunamadı.');
+    // explanation_markdown yeni şema; body_markdown eski (tek alanlı) şablonlardan kalma
+    // önbelleklenmiş prompt'lar için geriye dönük uyumluluk.
+    const obj = parsed as { explanation_markdown?: unknown; body_markdown?: unknown; notebook_markdown?: unknown };
+    const explanationMarkdown = typeof obj.explanation_markdown === 'string' && obj.explanation_markdown.trim()
+      ? obj.explanation_markdown
+      : typeof obj.body_markdown === 'string' ? obj.body_markdown : '';
+    if (!explanationMarkdown.trim()) {
+      setError('JSON içinde "explanation_markdown" alanı bulunamadı.');
       return;
     }
+    const notebookMarkdown = typeof obj.notebook_markdown === 'string' ? obj.notebook_markdown : '';
 
     setSaving(true);
     try {
@@ -1764,7 +1770,8 @@ export function SectionModal({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          body_markdown: obj.body_markdown,
+          body_markdown: explanationMarkdown,
+          notebook_markdown: notebookMarkdown,
           source: aiModel.trim() ? 'ai_generated' : 'manual',
           ai_model: aiModel.trim() || null,
         }),
@@ -1797,7 +1804,7 @@ export function SectionModal({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={8}
-            placeholder='{"body_markdown": "...", "ai_model": "..."}'
+            placeholder='{"explanation_markdown": "...", "notebook_markdown": "...", "ai_model": "..."}'
             className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>
