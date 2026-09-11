@@ -59,6 +59,9 @@ type FeedEntry = CommentEntry | AiEntry;
 // handler'lar tek tek prop olarak değil, bu paket üzerinden geçiliyor.
 type DiscussionHandlers = {
   userId: string | null;
+  // Admin, kendisine ait olmayan yorumları/AI cevaplarını da silebilsin diye
+  // (kullanıcı isteği, 2026-09-11) — bkz. onDeleteComment/onDeleteAi.
+  isAdmin: boolean;
   editingId: number | null;
   editText: string;
   commentBusyId: number | null;
@@ -70,6 +73,7 @@ type DiscussionHandlers = {
   onSaveEdit: (c: CommentEntry) => void;
   onEditTextChange: (v: string) => void;
   onDeleteComment: (c: CommentEntry) => void;
+  onDeleteAi: (item: AiEntry) => void;
   onReportPatch: (id: number, patch: Partial<AiEntry>) => void;
   onReportSubmit: (item: AiEntry) => void;
   onSetReplyTarget: (target: ReplyTarget) => void;
@@ -88,6 +92,12 @@ function displayNameOf(profiles: Profile | Profile[]): string {
 // "-kanka" ekinden geri çıkarıyoruz (bkz. gemini.ts generateBuddyAnswer).
 function tagForModel(model: string): string {
   return model.includes('kanka') ? KANKA_TAG : HOCAM_TAG;
+}
+
+// Cevap balonunun üstünde gerçek bir kişininki gibi bir "isim" göstermek için —
+// önceden sadece karakter avatarı vardı, isim yoktu (kullanıcı isteği, 2026-09-11).
+function aiDisplayName(model: string): string {
+  return model.includes('kanka') ? 'Kanka' : 'Hocam';
 }
 
 function avatarUrlOf(profiles: Profile | Profile[]): string | null {
@@ -144,7 +154,7 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 // input'ları unmount/remount etmeye zorlardı — bu da reply kutusuna her harf
 // yazışta focus kaybına yol açardı.
 function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: DiscussionHandlers }) {
-  const { userId, editingId, editText, commentBusyId, onStartEdit, onCancelEdit, onSaveEdit, onDeleteComment, onEditTextChange, repliesOfComment } =
+  const { userId, isAdmin, editingId, editText, commentBusyId, onStartEdit, onCancelEdit, onSaveEdit, onDeleteComment, onEditTextChange, repliesOfComment } =
     handlers;
   const isOwn = comment.student_id === userId;
   const isEditing = editingId === comment.id;
@@ -196,22 +206,22 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
             Yanıtla
           </button>
           {isOwn && (
-            <>
-              <button
-                onClick={() => onStartEdit(comment)}
-                disabled={isBusy}
-                className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
-              >
-                Düzenle
-              </button>
-              <button
-                onClick={() => onDeleteComment(comment)}
-                disabled={isBusy}
-                className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-              >
-                Sil
-              </button>
-            </>
+            <button
+              onClick={() => onStartEdit(comment)}
+              disabled={isBusy}
+              className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+            >
+              Düzenle
+            </button>
+          )}
+          {(isOwn || isAdmin) && (
+            <button
+              onClick={() => onDeleteComment(comment)}
+              disabled={isBusy}
+              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+            >
+              Sil
+            </button>
           )}
         </div>
       )}
@@ -296,7 +306,7 @@ function ReplyAiRow({
   // eski/uç durumlar için varsayılan true kalıyor) bu üst bilgi burada gösterilir.
   showQuestion?: boolean;
 }) {
-  const { onReportPatch, onReportSubmit, repliesOfAi } = handlers;
+  const { isAdmin, onDeleteAi, onReportPatch, onReportSubmit, repliesOfAi } = handlers;
   const name = displayNameOf(item.profiles);
   const nested = repliesOfAi(item.id);
   return (
@@ -313,6 +323,7 @@ function ReplyAiRow({
       <div className="rounded-lg bg-gray-50/80 p-2.5 flex items-start gap-2">
         <AiAvatar model={item.model} sizeClass="h-6 w-6" />
         <div className="min-w-0 flex-1">
+          <span className="text-xs font-bold text-gray-800">{aiDisplayName(item.model)}</span>
           {item.status !== 'published' ? (
             <AiPendingOrFailed status={item.status} />
           ) : (
@@ -333,6 +344,14 @@ function ReplyAiRow({
                     >
                       <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => onDeleteAi(item)}
+                        className="text-[11px] font-bold text-red-400 hover:text-red-600"
+                      >
+                        Sil
+                      </button>
+                    )}
                   </div>
                 )}
                 {item.reportState === 'open' && (
@@ -412,6 +431,7 @@ export default function UnitDiscussion({
   defaultExpanded,
   hideToggle,
   highlightTarget,
+  isAdmin,
 }: {
   gradeId: number;
   lessonId: number;
@@ -442,6 +462,10 @@ export default function UnitDiscussion({
   // yüklenip bu id'ye sahip element DOM'a girince otomatik oraya kaydırılıp
   // kısa süreliğine vurgulanıyor.
   highlightTarget?: string | null;
+  // true ise yorum/AI cevabı silme butonu sahibi olmasa da herkes için görünür
+  // (kullanıcı isteği, 2026-09-11) — admin moderasyonu, /api/admin/all-comments
+  // üzerinden yapılır (öğrencinin kendi-yorumu sildiği /api/comments'ten farklı).
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   // Yorumlar artık soru cevaplanır cevaplanmaz otomatik açık gelmiyor — "Yorumlar"
@@ -642,11 +666,21 @@ export default function UnitDiscussion({
     if (!window.confirm('Bu yorumu silmek istediğine emin misin? Yanıtı varsa onlar da kaldırılır.')) return;
     setCommentBusyId(comment.id);
     try {
-      const res = await fetch(`/api/comments/${comment.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete' }),
-      });
+      // Sahibi kendi yorumunu /api/comments'ten siler (student_id kontrollü).
+      // Admin, kendisine ait olmayan bir yorumu da silebilsin diye (kullanıcı
+      // isteği, 2026-09-11) o durumda admin'e özel moderasyon ucu kullanılıyor.
+      const isOwnComment = comment.student_id === userId;
+      const res = isOwnComment
+        ? await fetch(`/api/comments/${comment.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete' }),
+          })
+        : await fetch(`/api/admin/all-comments/${comment.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: 'comment', action: 'delete' }),
+          });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setError(data?.error || 'Silinemedi');
@@ -659,6 +693,31 @@ export default function UnitDiscussion({
       } else {
         setComments((prev) => prev.filter((c) => c.id !== comment.id));
       }
+    } catch {
+      setError('Silinemedi, lütfen tekrar deneyin');
+    } finally {
+      setCommentBusyId(null);
+    }
+  }
+
+  // AI cevaplarını öğrenci silemiyor (kendi sorusunu silebilir, o zaten cevabı da
+  // kaskad kaldırır) — bu sadece admin moderasyonu için, tek başına bir AI cevabını
+  // silmek istediğinde (kullanıcı isteği, 2026-09-11).
+  async function handleDeleteAi(item: AiEntry) {
+    if (!window.confirm('Bu AI cevabını silmek istediğine emin misin? Yanıtı varsa onlar da kaldırılır.')) return;
+    setCommentBusyId(item.id);
+    try {
+      const res = await fetch(`/api/admin/all-comments/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'ai', action: 'delete' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Silinemedi');
+        return;
+      }
+      await Promise.all([loadComments(), loadAiFeed()]);
     } catch {
       setError('Silinemedi, lütfen tekrar deneyin');
     } finally {
@@ -870,6 +929,7 @@ export default function UnitDiscussion({
   // handler'lar burada tek pakette toplanıyor (bkz. DiscussionHandlers tanımı).
   const handlers: DiscussionHandlers = {
     userId,
+    isAdmin: !!isAdmin,
     editingId,
     editText,
     commentBusyId,
@@ -884,6 +944,7 @@ export default function UnitDiscussion({
     onSaveEdit: saveEdit,
     onEditTextChange: setEditText,
     onDeleteComment: handleDeleteComment,
+    onDeleteAi: handleDeleteAi,
     onReportPatch: (id, patch) => updateAiEntry(id, patch),
     onReportSubmit: submitReport,
     onSetReplyTarget: setReplyTarget,
@@ -1014,22 +1075,22 @@ export default function UnitDiscussion({
                             Yanıtla
                           </button>
                           {isOwn && (
-                            <>
-                              <button
-                                onClick={() => startEdit(item)}
-                                disabled={isBusy}
-                                className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                              >
-                                Düzenle
-                              </button>
-                              <button
-                                onClick={() => handleDeleteComment(item)}
-                                disabled={isBusy}
-                                className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
-                              >
-                                Sil
-                              </button>
-                            </>
+                            <button
+                              onClick={() => startEdit(item)}
+                              disabled={isBusy}
+                              className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                            >
+                              Düzenle
+                            </button>
+                          )}
+                          {(isOwn || isAdmin) && (
+                            <button
+                              onClick={() => handleDeleteComment(item)}
+                              disabled={isBusy}
+                              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                            >
+                              Sil
+                            </button>
                           )}
                         </div>
                       )}
@@ -1077,6 +1138,7 @@ export default function UnitDiscussion({
                 <div className="ml-[42px] flex items-start gap-2.5">
                   <AiAvatar model={item.model} sizeClass="h-8 w-8" />
                   <div className="min-w-0 flex-1 rounded-lg bg-gray-50/80 p-3">
+                    <span className="text-xs font-bold text-gray-800">{aiDisplayName(item.model)}</span>
                     {item.status !== 'published' ? (
                       <AiPendingOrFailed status={item.status} />
                     ) : (
@@ -1102,6 +1164,14 @@ export default function UnitDiscussion({
                               >
                                 <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
                               </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteAi(item)}
+                                  className="text-[11px] font-bold text-red-400 hover:text-red-600"
+                                >
+                                  Sil
+                                </button>
+                              )}
                             </div>
                           )}
                           {item.reportState === 'open' && (

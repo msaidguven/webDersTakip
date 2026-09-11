@@ -2412,6 +2412,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           topicId={Number(activeTopic.id)}
                           topicName={activeTopic.title}
                           defaultExpanded
+                          isAdmin={isAdmin}
                         />
                       </div>
                     )}

@@ -281,6 +281,7 @@ export default function QuestionBankBoard({
               defaultExpanded
               hideToggle
               highlightTarget={highlightTarget}
+              isAdmin={isAdmin}
             />
           </CommentsModal>
         );
