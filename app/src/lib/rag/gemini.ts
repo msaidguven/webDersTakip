@@ -304,7 +304,8 @@ export async function generateGroundedAnswer(
   question: string,
   contextChunks: string[],
   questionContext?: string | null,
-  replyContext?: string | null
+  replyContext?: string | null,
+  topicContext?: string | null
 ): Promise<AnswerResult> {
   const context = contextChunks
     .map((chunk, i) => `[Parça ${i + 1}]\n${chunk}`)
@@ -316,13 +317,23 @@ export async function generateGroundedAnswer(
     ? `\n\nÖğrenci şu anda bir test sorusuna bakıyor:\n${questionContext}\n\nÖğrencinin sorusu bu test sorusuyla ilgili olabilir (ör. "neden A" demek "bu test sorusunun cevabı neden A" demektir) — bu bağlamı kullanarak yorumla.\n\nBu bir test sorusu açıklaması olduğu için cevabın KISA olsun: 300-400 karakter civarı, kesinlikle 500 karakteri geçme. Uzun madde listeleri veya birden fazla paragraf yazma — sadece doğru cevabın neden doğru olduğunu 2-3 cümleyle açıkla.\n`
     : '';
 
+  // Ders sayfasından soruluyorsa (test sorusu YOK) öğrencinin hangi konuya
+  // baktığını bilmiyorduk — "bu konuda nasıl çalışmalıyım" gibi bağlamsız sorular
+  // arama için de anlamsız kalıyor, hiç eşleşme bulunamayınca da "Bu bilgi ders
+  // notlarında yok" gibi robotik bir ret geliyordu (kullanıcı raporu, 2026-09-11).
+  // Artık DersClient konu başlığı + alt başlıkları buraya taşıyor; ÇALIŞMA
+  // STRATEJİSİ sorularına bu bilgiyle GENEL bir tavsiye vermesine izin veriyoruz.
+  const topicContextBlock = topicContext
+    ? `\n\nÖğrenci şu an şu konunun sayfasında: ${topicContext}\n\n"Bu konuda", "burada" gibi ifadeler bu konuyu kasteder. Öğrenci ÇALIŞMA STRATEJİSİ/SINAV HAZIRLIĞI sorarsa (ör. "nasıl çalışmalıyım", "hangi sorular çıkar", "nelere dikkat etmeliyim") — parçalarda birebir yazmasa bile, yukarıdaki alt başlıkları/kazanımları kullanarak GENEL bir çalışma tavsiyesi ver (hangi alt başlıklara, tanımlara, örneklere odaklanması gerektiğini söyle). Bu durumda "Bu bilgi ders notlarında yok." deme — bu istisna SADECE çalışma stratejisi sorularında geçerli, somut bir bilgi/tanım sorulduğunda hâlâ SADECE parçalara dayan.\n`
+    : '';
+
   // Öğrenci bir yoruma/önceki cevaba "yanıt" olarak soru soruyorsa (ör. "neden
   // olmaz"), o mesajı görmeden soru anlamsız kalır — burada iletiyoruz.
   const replyContextBlock = replyContext
     ? `\n\nÖğrenci şu mesaja yanıt veriyor:\n"${replyContext}"\n\nÖğrencinin sorusu ("${question}") bu mesajla ilgili olabilir — bağlamı kullanarak yorumla, mesajda neden bahsedildiğini bilmiyormuş gibi davranma.\n`
     : '';
 
-  const prompt = `Aşağıda bir ders notundan alınmış metin parçaları var. Öğrencinin sorusunu SADECE bu parçalarda yer alan bilgiye dayanarak cevapla.
+  const prompt = `Aşağıda bir ders notundan alınmış metin parçaları var. Öğrencinin sorusunu SADECE bu parçalarda yer alan bilgiye dayanarak cevapla (aşağıdaki çalışma-stratejisi istisnası hariç).
 
 Kurallar:
 - Parçalarda cevap için yeterli bilgi yoksa, başka hiçbir şey söylemeden tam olarak şunu yaz: "Bu bilgi ders notlarında yok."
@@ -330,9 +341,9 @@ Kurallar:
 - Metin "biz/bizim" gibi genel bir dille yazılmış olabilir (ör. "ailede çocuk, okulda öğrenci rolüne sahip oluruz"). Öğrenci bunu "benim/kendim" diye kişiselleştirerek sorsa bile (ör. "rollerim nelerdir"), metindeki bu genel bilgiyi doğrudan cevap olarak kullan — bunu reddetme veya "bu senin kişisel bilgin değil" deme.
 - Sıcak ve samimi bir öğretmen gibi yaz; soğuk, sadece madde sıralayan bir liste bırakma. Cevaba kısa bir giriş cümlesiyle başla, madde listesi kullanacaksan her maddeyi tek kelimeyle bırakmak yerine mümkün olduğunca 2-3 kelimelik kısa bir açıklama/örnek ekle (metinde varsa), ve cevabın sonuna kısa, samimi bir kapanış cümlesi ekle (ör. "Umarım yardımcı olmuştur!" gibi, her seferinde birebir aynı olmasın).
 - Cevabın toplam uzunluğu KESİNLİKLE 800 karakteri geçmesin — hedefin 500-600 karakter civarı olsun ki payın olsun (bu zorunlu bir sınır, tahmini değil). Parçalarda çok sayıda örnek/madde olsa bile HEPSİNİ sıralama — en önemli 2-3 taneyi seç, "başka örnekler de var" gibi bir not ekleyebilirsin ama liste kısa kalsın. Öğrenciler uzun cevapları zaten okumuyor.
-${questionContextBlock}${replyContextBlock}
+${questionContextBlock}${topicContextBlock}${replyContextBlock}
 Ders notu parçaları:
-${context}
+${context || '(Bu soru için eşleşen bir ders notu parçası bulunamadı.)'}
 
 Öğrenci sorusu: ${question}`;
 

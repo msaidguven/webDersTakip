@@ -1,7 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { answerQuestionForBook, answerAsBuddy } from '@/app/src/lib/rag/answerQuestion';
 import { buildContextResolver } from '@/app/src/lib/myComments';
+
+// Ders sayfasından (test sorusu değil) sorulan @hocam sorularında öğrencinin
+// hangi konuya baktığını modele bildirmek için — konunun başlığı + alt
+// başlıklarını taze çekiyor (bkz. answerQuestionForBook'taki topicContext).
+async function buildTopicContext(supabase: SupabaseClient, topicId: number | null): Promise<string | null> {
+  if (topicId == null) return null;
+
+  const { data: topicData } = await supabase.from('topics').select('id, title').eq('id', topicId).maybeSingle();
+  const topic = topicData as { id: number; title: string } | null;
+  if (!topic) return null;
+
+  const { data: topicContentData } = await supabase
+    .from('topic_contents')
+    .select('id')
+    .eq('topic_id', topicId)
+    .maybeSingle();
+  const topicContent = topicContentData as { id: number } | null;
+
+  let headings: string[] = [];
+  if (topicContent) {
+    const { data: sectionsData } = await supabase
+      .from('topic_content_sections')
+      .select('heading, order_no')
+      .eq('topic_content_id', topicContent.id)
+      .order('order_no', { ascending: true });
+    headings = ((sectionsData as { heading: string }[] | null) || []).map((s) => s.heading);
+  }
+
+  return `"${topic.title}" konusu.${headings.length ? ` Alt başlıklar: ${headings.join(', ')}.` : ''}`;
+}
 
 // Gemini'nin ücretsiz katmanının dakikalık istek limitine (RPM) aynı anda birden
 // fazla öğrenci sorduğunda çok çabuk takılması yüzünden (2026-09-03), AI sorular
@@ -73,10 +104,19 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // Ders sayfasından (test sorusu değil) sorulan sorularda öğrencinin hangi
+      // konuya baktığını modele bildirmiyorduk — "bu konuda nasıl çalışmalıyım"
+      // gibi sorular hem aramada hem cevapta bağlamsız kalıp robotik bir "Bu bilgi
+      // ders notlarında yok" reddine yol açıyordu (kullanıcı raporu, 2026-09-11).
+      // topic_id zaten satırda duruyor (bkz. question_comments_topic_scope.sql) —
+      // konunun başlığını + alt başlıklarını burada, cevap üretilirken taze çekip
+      // answerQuestionForBook'a veriyoruz.
+      const topicContext = row.mode !== 'kanka' ? await buildTopicContext(supabase, row.topic_id) : null;
+
       const result =
         row.mode === 'kanka'
           ? await answerAsBuddy(supabase, row.grade_id, row.lesson_id, row.unit_id, row.question, row.question_context, row.reply_context)
-          : await answerQuestionForBook(supabase, row.grade_id, row.lesson_id, row.question, row.question_context, row.reply_context);
+          : await answerQuestionForBook(supabase, row.grade_id, row.lesson_id, row.question, row.question_context, row.reply_context, topicContext);
 
       // Cevap, soru sorulduğunda hemen yayınlanan yoruma (bkz. /api/rag/ask,
       // comment_id) bir YANIT olarak ekleniyor — başka bir kullanıcının yanıtı gibi.

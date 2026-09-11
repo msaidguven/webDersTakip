@@ -36,16 +36,22 @@ export async function answerQuestionForBook(
   lessonId: number,
   question: string,
   questionContext?: string | null,
-  replyContext?: string | null
+  replyContext?: string | null,
+  topicContext?: string | null
 ): Promise<AnswerQuestionResult> {
   // "neden A" / "neden olmaz" gibi bağlamsız kısa sorularda arama tek başına
-  // anlamsız kalır — varsa test sorusu ve/veya yanıt verilen mesajı da arama
-  // sorgusuna katıyoruz ki doğru parçalar bulunsun.
-  const searchQuery = [questionContext, replyContext, question].filter(Boolean).join('\n\n');
+  // anlamsız kalır — varsa test sorusu, konu bağlamı ve/veya yanıt verilen mesajı
+  // da arama sorgusuna katıyoruz ki doğru parçalar bulunsun.
+  const searchQuery = [questionContext, topicContext, replyContext, question].filter(Boolean).join('\n\n');
   const queryEmbedding = await embedQuestion(searchQuery);
   const matches = await searchChunks(supabase, gradeId, lessonId, queryEmbedding);
 
-  if (matches.length === 0) {
+  // Hiç parça yoksa VE elimizde bir konu bağlamı da yoksa (bu ders/sınıf için
+  // hiç ders notu işlenmemiş) Gemini'ye boşuna sormuyoruz. topicContext
+  // varsa (ders sayfasından soruluyorsa) yine de çağırıyoruz — çalışma
+  // stratejisi gibi sorular parça olmadan da bu bağlamla cevaplanabilir
+  // (bkz. generateGroundedAnswer'daki topicContextBlock, kullanıcı raporu 2026-09-11).
+  if (matches.length === 0 && !topicContext) {
     return { answer: 'Bu bilgi ders notlarında yok.', model: 'none', matchedChunkIds: [] };
   }
 
@@ -53,7 +59,8 @@ export async function answerQuestionForBook(
     question,
     matches.map((m) => m.content),
     questionContext,
-    replyContext
+    replyContext,
+    topicContext
   );
 
   return { answer, model, matchedChunkIds: matches.map((m) => m.id) };
