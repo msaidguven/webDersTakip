@@ -269,6 +269,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
   const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
   const [topicActionMenu, setTopicActionMenu] = useState<'new' | 'update' | 'questions' | null>(null);
+  // Profildeki "Yorumlarım" / bildirimlerden gelen ?yorum=c88 deep-link'leri
+  // (bkz. DersHighlight.tsx) — UnitDiscussion'a geçilip feed yüklenince ilgili
+  // kayda kaydırılıp kısa süreliğine vurgulanıyor (kullanıcı raporu, 2026-09-11:
+  // "sorularda link var, konularda yok").
+  const [discussionHighlightTarget, setDiscussionHighlightTarget] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent<{ target?: string }>).detail?.target;
+      if (target) setDiscussionHighlightTarget(target);
+    };
+    window.addEventListener('ders:highlight-comment', handler);
+    return () => window.removeEventListener('ders:highlight-comment', handler);
+  }, []);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
@@ -2413,6 +2426,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           topicName={activeTopic.title}
                           defaultExpanded
                           isAdmin={isAdmin}
+                          highlightTarget={discussionHighlightTarget}
                         />
                       </div>
                     )}

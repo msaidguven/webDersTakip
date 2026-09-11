@@ -30,6 +30,7 @@ type CommentRow = {
   created_at: string;
   question_id: number | null;
   unit_id: number | null;
+  topic_id: number | null;
   student_id: string;
   parent_comment_id: number | null;
   reviewed_at: string | null;
@@ -44,6 +45,7 @@ type AiRow = {
   created_at: string;
   quiz_question_id: number | null;
   unit_id: number | null;
+  topic_id: number | null;
   student_id: string | null;
   parent_comment_id: number | null;
   parent_rag_answer_id: number | null;
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
   if (kind !== 'ai') {
     let q = supabase
       .from('question_comments')
-      .select('id, body, status, created_at, question_id, unit_id, student_id, parent_comment_id, reviewed_at')
+      .select('id, body, status, created_at, question_id, unit_id, topic_id, student_id, parent_comment_id, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(PER_SOURCE_FETCH_LIMIT);
     if (status !== 'all') q = q.eq('status', status);
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
   if (kind !== 'comment') {
     let q = supabase
       .from('rag_answers')
-      .select('id, question, answer, model, status, created_at, quiz_question_id, unit_id, student_id, parent_comment_id, parent_rag_answer_id, reviewed_at')
+      .select('id, question, answer, model, status, created_at, quiz_question_id, unit_id, topic_id, student_id, parent_comment_id, parent_rag_answer_id, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(PER_SOURCE_FETCH_LIMIT);
     if (status !== 'all') q = q.eq('status', status);
@@ -118,8 +120,8 @@ export async function GET(request: NextRequest) {
   }
 
   const refs: Ref[] = [
-    ...commentRows.map((c) => ({ questionId: c.question_id, unitId: c.unit_id })),
-    ...aiRows.map((a) => ({ questionId: a.quiz_question_id, unitId: a.unit_id })),
+    ...commentRows.map((c) => ({ questionId: c.question_id, unitId: c.unit_id, topicId: c.topic_id })),
+    ...aiRows.map((a) => ({ questionId: a.quiz_question_id, unitId: a.unit_id, topicId: a.topic_id })),
   ];
   const resolve = await buildContextResolver(supabase, refs);
 
@@ -137,11 +139,12 @@ export async function GET(request: NextRequest) {
   // 2026-09-04 notu) — admin panelden tıklayınca doğrudan ilgili kayda gitsin diye &yorum=
   // parametresi ekleniyor, tıpkı profildeki "Yorumlarım"da olduğu gibi.
   function withHighlight(href: string | undefined, target: string): string | undefined {
-    return href ? `${href}&yorum=${target}` : href;
+    if (!href) return href;
+    return href.includes('?') ? `${href}&yorum=${target}` : `${href}?yorum=${target}`;
   }
 
   const commentItems: UnifiedItem[] = commentRows.map((c) => {
-    const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id });
+    const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id, topicId: c.topic_id });
     const profile = profileById.get(c.student_id);
     return {
       id: `comment-${c.id}`,
@@ -158,7 +161,7 @@ export async function GET(request: NextRequest) {
   });
 
   const aiItems: UnifiedItem[] = aiRows.map((a) => {
-    const { contextLabel, href } = resolve({ questionId: a.quiz_question_id, unitId: a.unit_id });
+    const { contextLabel, href } = resolve({ questionId: a.quiz_question_id, unitId: a.unit_id, topicId: a.topic_id });
     const profile = a.student_id ? profileById.get(a.student_id) : undefined;
     return {
       id: `ai-${a.id}`,

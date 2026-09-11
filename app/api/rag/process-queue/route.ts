@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
       // başarısız olsa bile ana akışı (cevap zaten kaydedildi) bozmasın diye ayrı
       // bir try/catch'te, sessizce loglanarak geçiliyor.
       try {
-        const resolve = await buildContextResolver(supabase, [{ questionId: row.quiz_question_id, unitId: row.unit_id }]);
-        const { href } = resolve({ questionId: row.quiz_question_id, unitId: row.unit_id });
+        const resolve = await buildContextResolver(supabase, [{ questionId: row.quiz_question_id, unitId: row.unit_id, topicId: row.topic_id }]);
+        const { href } = resolve({ questionId: row.quiz_question_id, unitId: row.unit_id, topicId: row.topic_id });
         const label = row.mode === 'kanka' ? '😄 Kanka' : '🎓 Hocam';
         const questionPreview = row.question.length > 80 ? `${row.question.slice(0, 80)}…` : row.question;
         await supabase.from('notifications').insert({

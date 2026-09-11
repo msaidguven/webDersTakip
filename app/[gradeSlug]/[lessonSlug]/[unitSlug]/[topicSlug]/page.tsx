@@ -1,7 +1,7 @@
 // app/[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/page.tsx
 // Konu okuma sayfası — ünite ve konu, haftaya göre değil doğrudan slug'a göre bulunur.
 
-import { cache } from 'react';
+import { cache, Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createAnonClient } from '@/utils/supabase/server-anon';
@@ -10,6 +10,7 @@ import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import DersClient from '../../../../ders/DersClient';
+import DersHighlight from '../../../../ders/DersHighlight';
 
 // Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
 // üzerinden yapılıyor) — yani her zaman herkese aynı, tamamen public içerik döner. Bu
@@ -337,6 +338,9 @@ export default async function TopicPage({ params }: PageProps) {
         lessonId={data.lessonId}
         week={data.week}
       />
+      <Suspense fallback={null}>
+        <DersHighlight />
+      </Suspense>
     </>
   );
 }

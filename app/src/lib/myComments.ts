@@ -32,6 +32,7 @@ type CommentRow = {
   created_at: string;
   question_id: number | null;
   unit_id: number | null;
+  topic_id: number | null;
 };
 
 type AiRow = {
@@ -42,9 +43,14 @@ type AiRow = {
   created_at: string;
   quiz_question_id: number | null;
   unit_id: number | null;
+  topic_id: number | null;
 };
 
-export type Ref = { questionId: number | null; unitId: number | null };
+// topicId: soru bankasında olmayan (ders sayfasından soru bankası dışı sorulan)
+// yorumlar/AI cevapları artık ünite değil KONU bazlı gruplanıyor (bkz.
+// question_comments_topic_scope.sql, 2026-09-11) — questionId yoksa bu alan
+// hangi konu sayfasına link verileceğini belirler.
+export type Ref = { questionId: number | null; unitId: number | null; topicId?: number | null };
 
 // question_comments (yorumlar) ve rag_answers (AI'ye @hocam/@kanka ile sorulan sorular) aynı
 // question_id/unit_id şemasını paylaşıyor — hangi ünite/konuya ait olduklarını çözen sorgu
@@ -65,7 +71,8 @@ export async function buildContextResolver(
     ((questionRows as { id: number; topic_id: number | null }[] | null) || []).map((q) => [q.id, q.topic_id])
   );
 
-  const topicIds = [...new Set([...topicIdByQuestionId.values()].filter((id): id is number => id != null))];
+  const directTopicIds = refs.map((r) => r.topicId).filter((id): id is number => id != null);
+  const topicIds = [...new Set([...topicIdByQuestionId.values(), ...directTopicIds].filter((id): id is number => id != null))];
   const { data: topicRows } = topicIds.length
     ? await supabase.from('topics').select('id, title, slug, unit_id').in('id', topicIds)
     : { data: [] };
@@ -95,7 +102,12 @@ export async function buildContextResolver(
   const gradeSlugById = new Map(((gradeRows as { id: number; slug: string | null }[] | null) || []).map((g) => [g.id, g.slug]));
 
   return function resolve(ref: Ref): { contextLabel: string | null; href: string | undefined } {
-    const topic = ref.questionId != null ? topicById.get(topicIdByQuestionId.get(ref.questionId) ?? -1) : undefined;
+    const topic =
+      ref.questionId != null
+        ? topicById.get(topicIdByQuestionId.get(ref.questionId) ?? -1)
+        : ref.topicId != null
+          ? topicById.get(ref.topicId)
+          : undefined;
     const unitId = ref.unitId ?? topic?.unit_id;
     const unit = unitId != null ? unitById.get(unitId) : undefined;
     const lesson = unit ? lessonById.get(unit.lesson_id) : undefined;
@@ -107,16 +119,19 @@ export async function buildContextResolver(
         ? `${lesson?.name ?? 'Ders'} › ${unit.title}`
         : null;
 
-    // Sadece soru-bazlı kayıtlar için bağlanabilir bir hedef var: soru bankası sayfası
-    // (cevap anahtarı), her zaman aynı, sabit soru listesini gösterir ve orada artık
-    // (bkz. QuestionBankBoard.tsx) yorum/AI sorusu yapma + kendi yorumunu düzenleme/silme
-    // UI'ı da var. kavrama-testi sayfası kasıtlı olarak hedef ALINMIYOR: SRS'e göre
-    // kişiselleşmiş bir soru havuzu gösteriyor, yakın zamanda cevaplanmış bir soru bir
-    // sonraki ziyarette hiç görünmeyebiliyor. Ünite geneline (question_id'siz) yazılanların
-    // bugün gerçek bir düzenle/sil arayüzü yok, bu yüzden onlara link verilmiyor.
+    // Soru-bazlı kayıtlar soru bankası sayfasına (cevap anahtarı, her zaman aynı sabit
+    // soru listesi) bağlanır — orada artık (bkz. QuestionBankBoard.tsx) yorum/AI sorusu
+    // yapma + kendi yorumunu düzenleme/silme UI'ı da var. kavrama-testi sayfası kasıtlı
+    // olarak hedef ALINMIYOR: SRS'e göre kişiselleşmiş bir soru havuzu gösteriyor, yakın
+    // zamanda cevaplanmış bir soru bir sonraki ziyarette hiç görünmeyebiliyor.
+    // topicId'si olan (question_id'siz, ders sayfasından yazılan) kayıtlar konunun kendi
+    // sayfasına bağlanır — önceden bu tür kayıtlara hiç link verilmiyordu (kullanıcı
+    // raporu, 2026-09-11: "sorularda link var, konularda yok").
     let href: string | undefined;
     if (ref.questionId != null && gradeSlug && lesson?.slug && unit?.slug && topic?.slug) {
       href = `/soru-bankasi/${gradeSlug}/${lesson.slug}/${unit.slug}/${topic.slug}?soru=${ref.questionId}`;
+    } else if (ref.questionId == null && ref.topicId != null && gradeSlug && lesson?.slug && unit?.slug && topic?.slug) {
+      href = `/${gradeSlug}/${lesson.slug}/${unit.slug}/${topic.slug}`;
     }
 
     return { contextLabel, href };
@@ -135,7 +150,7 @@ export async function getMyComments(
   const [{ data: commentRows }, { data: aiRows }] = await Promise.all([
     supabase
       .from('question_comments')
-      .select('id, body, status, created_at, question_id, unit_id')
+      .select('id, body, status, created_at, question_id, unit_id, topic_id')
       .eq('student_id', userId)
       .neq('status', 'deleted')
       .order('created_at', { ascending: false })
@@ -146,7 +161,7 @@ export async function getMyComments(
     // aynı statüyle uyumlu tutuluyor.
     supabase
       .from('rag_answers')
-      .select('id, question, answer, model, created_at, quiz_question_id, unit_id')
+      .select('id, question, answer, model, created_at, quiz_question_id, unit_id, topic_id')
       .eq('student_id', userId)
       .eq('status', 'published')
       .order('created_at', { ascending: false })
@@ -158,22 +173,25 @@ export async function getMyComments(
   if (comments.length === 0 && aiEntries.length === 0) return [];
 
   const refs: Ref[] = [
-    ...comments.map((c) => ({ questionId: c.question_id, unitId: c.unit_id })),
-    ...aiEntries.map((a) => ({ questionId: a.quiz_question_id, unitId: a.unit_id })),
+    ...comments.map((c) => ({ questionId: c.question_id, unitId: c.unit_id, topicId: c.topic_id })),
+    ...aiEntries.map((a) => ({ questionId: a.quiz_question_id, unitId: a.unit_id, topicId: a.topic_id })),
   ];
   const resolve = await buildContextResolver(supabase, refs);
 
   // Düz ?soru=ID linki (paylaş butonu vb.) yorumları otomatik açmıyor — sadece
   // soruyu vurguluyor. Buradan (profil) gelen linkler kendi kaydına (yoruma/AI
-  // cevabına) gitsin diye ayrı bir &yorum= parametresi taşıyor; QuestionBankHighlight
-  // bunu görünce yorum panelini açıp UnitDiscussion'daki #disc-c<id>/#disc-a<id>
-  // elemanına kaydırıyor (bkz. o component'lerdeki notlar).
+  // cevabına) gitsin diye ayrı bir yorum= parametresi taşıyor; QuestionBankHighlight
+  // (soru bazlı) / DersHighlight (konu bazlı) bunu görünce yorum panelini açıp
+  // UnitDiscussion'daki #disc-c<id>/#disc-a<id> elemanına kaydırıyor (bkz. o
+  // component'lerdeki notlar). Soru linkleri zaten ?soru=ID taşıdığı için &yorum=
+  // ekleniyor; konu linklerinin hiç query string'i yok, ilk parametre ?yorum= olmalı.
   function withHighlight(href: string | undefined, target: string): string | undefined {
-    return href ? `${href}&yorum=${target}` : href;
+    if (!href) return href;
+    return href.includes('?') ? `${href}&yorum=${target}` : `${href}?yorum=${target}`;
   }
 
   const commentItems: MyCommentItem[] = comments.map((c) => {
-    const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id });
+    const { contextLabel, href } = resolve({ questionId: c.question_id, unitId: c.unit_id, topicId: c.topic_id });
     return {
       kind: 'comment',
       id: `comment-${c.id}`,
@@ -186,7 +204,7 @@ export async function getMyComments(
   });
 
   const aiItems: MyAiItem[] = aiEntries.map((a) => {
-    const { contextLabel, href } = resolve({ questionId: a.quiz_question_id, unitId: a.unit_id });
+    const { contextLabel, href } = resolve({ questionId: a.quiz_question_id, unitId: a.unit_id, topicId: a.topic_id });
     return {
       kind: 'ai',
       id: `ai-${a.id}`,

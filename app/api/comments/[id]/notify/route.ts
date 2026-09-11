@@ -25,7 +25,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: comment } = await service
     .from('question_comments')
-    .select('id, body, student_id, parent_comment_id, parent_ai_answer_id, question_id, unit_id')
+    .select('id, body, student_id, parent_comment_id, parent_ai_answer_id, question_id, unit_id, topic_id')
     .eq('id', commentId)
     .maybeSingle();
   if (!comment) return NextResponse.json({ error: 'Yorum bulunamadı' }, { status: 404 });
@@ -61,9 +61,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
   const replierLabel = replierProfile?.full_name || replierProfile?.username || 'Bir kullanıcı';
 
-  const resolve = await buildContextResolver(service, [{ questionId: comment.question_id, unitId: comment.unit_id }]);
-  const { href } = resolve({ questionId: comment.question_id, unitId: comment.unit_id });
-  const link = href ? `${href}&yorum=c${comment.id}` : null;
+  const resolve = await buildContextResolver(service, [{ questionId: comment.question_id, unitId: comment.unit_id, topicId: comment.topic_id }]);
+  const { href } = resolve({ questionId: comment.question_id, unitId: comment.unit_id, topicId: comment.topic_id });
+  // Soru linkleri zaten ?soru=ID taşıyor (&yorum= eklenir); konu linklerinin hiç
+  // query string'i yok (ilk parametre ?yorum= olmalı) — bkz. myComments.ts'teki
+  // withHighlight aynı ayrım (kullanıcı raporu, 2026-09-11: "konularda link yok").
+  const link = href ? (href.includes('?') ? `${href}&yorum=c${comment.id}` : `${href}?yorum=c${comment.id}`) : null;
 
   const preview = comment.body.length > PREVIEW_LENGTH ? `${comment.body.slice(0, PREVIEW_LENGTH)}…` : comment.body;
 
