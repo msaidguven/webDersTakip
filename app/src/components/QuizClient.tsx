@@ -47,6 +47,28 @@ export const TYPE_LABELS: Record<QuizQuestion['type'], string> = {
   classical: 'Açık Uçlu',
 };
 
+// Şık harfi rozeti (A/B/C/D...) — öğrencinin "hangi şıkkı işaretledim" diye metne değil
+// harfe bakabilmesi için; hem canlı test akışında (OptionsView) hem soru bankası/cevap
+// anahtarında (QuestionAnswerKeyItem) AYNI görsel dil kullanılıyor (kullanıcının 2026-09-12
+// "modern, şıklara ABCD yaz" isteği).
+const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+function OptionLetterBadge({ index, state }: { index: number; state: 'idle' | 'correct' | 'wrong' | 'muted' }) {
+  const cls =
+    state === 'correct'
+      ? 'bg-emerald-500 text-white'
+      : state === 'wrong'
+        ? 'bg-rose-500 text-white'
+        : state === 'muted'
+          ? 'bg-default/10 text-muted-foreground'
+          : 'bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white';
+  return (
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black transition-colors ${cls}`}>
+      {OPTION_LETTERS[index] ?? index + 1}
+    </span>
+  );
+}
+
 function randomOf(arr: string[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -263,13 +285,21 @@ export function OptionsView({
       {question.svg_position === 'below' && svg}
 
       <div className="space-y-2.5">
-        {options.map((opt) => {
+        {options.map((opt, i) => {
           const isChosen = selectedId === opt.id;
-          let stateClasses = 'border-default bg-surface hover:border-indigo-400/50 hover:bg-indigo-500/5';
+          let stateClasses = 'border-default bg-surface hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5';
+          let badgeState: 'idle' | 'correct' | 'wrong' | 'muted' = 'idle';
           if (locked) {
-            if (opt.is_correct) stateClasses = 'border-emerald-400/60 bg-emerald-500/10';
-            else if (isChosen) stateClasses = 'border-rose-400/60 bg-rose-500/10';
-            else stateClasses = 'border-default bg-surface opacity-60';
+            if (opt.is_correct) {
+              stateClasses = 'border-emerald-400 bg-emerald-500/10 shadow-sm';
+              badgeState = 'correct';
+            } else if (isChosen) {
+              stateClasses = 'border-rose-400 bg-rose-500/10 shadow-sm';
+              badgeState = 'wrong';
+            } else {
+              stateClasses = 'border-default bg-surface opacity-50';
+              badgeState = 'muted';
+            }
           }
           return (
             <button
@@ -277,11 +307,12 @@ export function OptionsView({
               type="button"
               onClick={() => onSelect(opt.id)}
               disabled={locked}
-              className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-left text-sm font-bold text-default transition-colors disabled:cursor-default ${stateClasses}`}
+              className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left text-sm font-bold text-default shadow-sm transition-all disabled:cursor-default active:scale-[0.98] sm:px-4 ${stateClasses}`}
             >
-              <MathText as="span" text={opt.text} />
-              {locked && opt.is_correct && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />}
-              {locked && isChosen && !opt.is_correct && <XCircle className="h-4 w-4 shrink-0 text-rose-500" />}
+              <OptionLetterBadge index={i} state={badgeState} />
+              <MathText as="span" className="min-w-0 flex-1" text={opt.text} />
+              {locked && opt.is_correct && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />}
+              {locked && isChosen && !opt.is_correct && <XCircle className="h-5 w-5 shrink-0 text-rose-500" />}
             </button>
           );
         })}
@@ -580,14 +611,22 @@ export function QuestionAnswerKeyItem({
       {svgPosition === 'below' && svg}
 
       {optionList && (
-        <ul className="mt-2.5 space-y-1.5 text-sm">
-          {optionList.map((opt) => {
+        <ul className="mt-3 space-y-2 text-sm">
+          {optionList.map((opt, i) => {
             const isChosen = selectedId === opt.id;
-            let cls = 'border border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5';
+            let cls = 'border-default bg-surface text-default hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5';
+            let badgeState: 'idle' | 'correct' | 'wrong' | 'muted' = 'idle';
             if (answered) {
-              if (opt.is_correct) cls = 'border-2 border-emerald-500 bg-emerald-500/10 text-emerald-500 font-bold';
-              else if (isChosen) cls = 'border-2 border-rose-500 bg-rose-500/10 text-rose-500 font-bold';
-              else cls = 'border border-default bg-surface text-muted-foreground opacity-60';
+              if (opt.is_correct) {
+                cls = 'border-emerald-400 bg-emerald-500/10 text-emerald-600 shadow-sm';
+                badgeState = 'correct';
+              } else if (isChosen) {
+                cls = 'border-rose-400 bg-rose-500/10 text-rose-600 shadow-sm';
+                badgeState = 'wrong';
+              } else {
+                cls = 'border-default bg-surface text-muted-foreground opacity-50';
+                badgeState = 'muted';
+              }
             }
             return (
               <li key={opt.id}>
@@ -597,16 +636,21 @@ export function QuestionAnswerKeyItem({
                   disabled={selectedId != null}
                   aria-expanded={answered}
                   aria-controls={explanationId}
-                  className={`flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left font-medium transition-colors disabled:cursor-default ${cls}`}
+                  className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left font-bold shadow-sm transition-all disabled:cursor-default active:scale-[0.98] ${cls}`}
                 >
+                  <OptionLetterBadge index={i} state={badgeState} />
+                  <MathText as="span" className="min-w-0 flex-1" text={opt.text} />
                   <span
                     data-open={answered}
                     aria-hidden={!answered}
-                    className="cevap-marker inline-block max-w-0 shrink-0 overflow-hidden opacity-0 transition-all duration-200 data-[open=true]:max-w-[1.2em] data-[open=true]:opacity-100"
+                    className="cevap-marker inline-flex max-w-0 shrink-0 scale-75 items-center overflow-hidden opacity-0 transition-all duration-200 data-[open=true]:max-w-[1.5em] data-[open=true]:scale-100 data-[open=true]:opacity-100"
                   >
-                    {opt.is_correct ? '✓' : isChosen ? '✗' : ''}
+                    {opt.is_correct ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    ) : isChosen ? (
+                      <XCircle className="h-5 w-5 text-rose-500" />
+                    ) : null}
                   </span>
-                  <MathText as="span" text={opt.text} />
                 </button>
               </li>
             );

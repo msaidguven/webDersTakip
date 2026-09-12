@@ -6,10 +6,19 @@
 // buraya, tek seferde bir soru değil aynı anda 20-70 soru kartı render edildiği için (her
 // kartın kendi paylaş/silme durumu olması gerektiğinden) ayrı bir component olarak taşındı.
 import { useState } from 'react';
-import { Minus, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
+import { ListChecks, MessageSquare, Minus, PenLine, Pencil, Plus, Share2, Shuffle, Trash2 } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { TYPE_LABELS } from '@/app/src/components/QuizClient';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
+
+// Öğrencinin tip etiketini okumadan da ikondan tanıyabilmesi için — "modern, çocuklar
+// sevsin" isteği (kullanıcı, 2026-09-12).
+const TYPE_ICONS: Record<QuizQuestion['type'], typeof ListChecks> = {
+  multiple_choice: ListChecks,
+  blank: PenLine,
+  matching: Shuffle,
+  classical: MessageSquare,
+};
 
 function shareTextFor(q: QuizQuestion): string {
   if (q.type === 'matching') return 'Bu eşleştirme sorusuna bir bak!';
@@ -99,9 +108,14 @@ export default function QuestionCardHeader({
   return (
     <>
       <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
-        <span className="inline-block rounded-full bg-indigo-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">
-          {TYPE_LABELS[q.type]}
-        </span>
+        {(() => {
+          const TypeIcon = TYPE_ICONS[q.type];
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-indigo-500">
+              <TypeIcon className="h-3.5 w-3.5" /> {TYPE_LABELS[q.type]}
+            </span>
+          );
+        })()}
         <div className="flex shrink-0 items-center gap-1">
           <div className="flex items-center gap-0.5 rounded-lg border border-default pr-1">
             <button

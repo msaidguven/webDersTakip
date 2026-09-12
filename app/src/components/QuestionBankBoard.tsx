@@ -15,7 +15,7 @@
 // Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
 // takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, LayoutGrid, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, LayoutGrid, MessageCircle, X, XCircle } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
@@ -191,16 +191,20 @@ export default function QuestionBankBoard({
   return (
     <>
       {questions.length > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-default bg-surface-elevated px-3.5 py-2.5 sm:mb-6 sm:px-4">
-          <span className="shrink-0 rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-black text-indigo-500">
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-default bg-surface-elevated px-3.5 py-3 shadow-sm sm:mb-6 sm:px-4">
+          <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
             Soru {activeIndex + 1}/{questions.length}
           </span>
-          <span className="shrink-0 text-xs font-black text-emerald-500">{correctCount} doğru</span>
-          <span className="shrink-0 text-xs font-black text-rose-500">{incorrectCount} yanlış</span>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-black text-emerald-500">
+            <CheckCircle2 className="h-3.5 w-3.5" /> {correctCount}
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-black text-rose-500">
+            <XCircle className="h-3.5 w-3.5" /> {incorrectCount}
+          </span>
           <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:max-w-40">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-default/10">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-default/10">
               <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all"
                 style={{ width: `${(answeredCount / questions.length) * 100}%` }}
               />
             </div>
@@ -221,7 +225,7 @@ export default function QuestionBankBoard({
             // olabilir, noscript override'ının SADECE bu soru kartlarını hedeflemesi için
             // ayrı bir işaretleyici class (question-bank-item) gerekiyor, bkz.
             // [konu]/page.tsx'teki noscript stili.
-            className="question-bank-item rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6"
+            className="question-bank-item rounded-3xl border border-default bg-surface-elevated p-4 shadow-md sm:p-6"
             style={{ display: i === activeIndex ? undefined : 'none' }}
           >
             <QuestionCardHeader
