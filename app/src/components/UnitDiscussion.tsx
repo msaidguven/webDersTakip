@@ -559,26 +559,24 @@ export default function UnitDiscussion({
     });
   }, []);
 
+  // /api/comments/feed (service role ile server tarafında) kullanılıyor, doğrudan
+  // supabase.from('question_comments') değil — çünkü embed edilen profiles alanı
+  // (kullanıcı adı/PP) public.profiles'ta SELECT RLS policy'si olmadığı için
+  // tarayıcıdan hep null dönüyordu, giriş yapmış olsun olmasın kimse göremiyordu
+  // (kullanıcı raporu, 2026-09-12: "giriş yapmamış kullanıcılar da yorumcunun
+  // kullanıcı adını/PP'sini görsün"). loadAiFeed zaten aynı deseni kullanıyordu.
   const loadComments = React.useCallback(async () => {
-    const supabase = createClient();
-    let query = supabase
-      .from('question_comments')
-      .select(
-        'id, parent_comment_id, parent_ai_answer_id, body, status, created_at, student_id, profiles!question_comments_student_id_fkey(username, full_name, avatar_url)'
-      )
-      .order('created_at', { ascending: true });
-    query =
+    const url =
       quizQuestionId != null
-        ? query.eq('question_id', quizQuestionId)
+        ? `/api/comments/feed?questionId=${quizQuestionId}`
         : topicId != null
-          ? query.eq('topic_id', topicId)
-          : query.eq('unit_id', unitId);
-    const { data } = await query;
-    setComments(
-      ((data as CommentEntry[] | null) || [])
-        .filter((c) => c.status !== 'deleted')
-        .map((c) => ({ ...c, kind: 'comment' as const }))
-    );
+          ? `/api/comments/feed?topicId=${topicId}`
+          : `/api/comments/feed?unitId=${unitId}`;
+    const res = await fetch(url);
+    const data = await res.json().catch(() => null);
+    if (res.ok && Array.isArray(data?.items)) {
+      setComments((data.items as CommentEntry[]).map((c) => ({ ...c, kind: 'comment' as const })));
+    }
   }, [unitId, topicId, quizQuestionId]);
 
   const loadAiFeed = React.useCallback(async () => {
