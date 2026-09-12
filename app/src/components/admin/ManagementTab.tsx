@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
+import MathText from '@/app/src/components/MathText';
 
 // ==================== TYPES ====================
 
@@ -205,7 +206,7 @@ export const ENTITIES: EntityConfig[] = [
       },
     ],
     columns: [
-      { key: 'question_text', label: 'Soru', render: (r) => <span className="line-clamp-2">{r.question_text}</span> },
+      { key: 'question_text', label: 'Soru', render: (r) => <span className="line-clamp-2"><MathText text={r.question_text} /></span> },
       { key: 'type', label: 'Tip', render: (r) => r.question_types?.code || '—' },
       { key: 'difficulty', label: 'Zorluk' },
       { key: 'score', label: 'Puan' },

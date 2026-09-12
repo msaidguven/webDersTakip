@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
+import MathText from '@/app/src/components/MathText';
 
 type QuestionResult = {
   id: number;
@@ -216,7 +217,7 @@ export default function SearchTab() {
             {questions.items.map((q) => (
               <div key={q.id} className="bg-card rounded-xl border border-border p-4 flex items-start justify-between gap-3 hover:border-border transition-all">
                 <div className="min-w-0">
-                  <p className="text-foreground text-sm line-clamp-2">{q.question_text}</p>
+                  <p className="text-foreground text-sm line-clamp-2"><MathText text={q.question_text} /></p>
                   <p className="text-muted-foreground text-xs mt-1">{[q.topicTitle, q.typeCode].filter(Boolean).join(' • ')}</p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2">

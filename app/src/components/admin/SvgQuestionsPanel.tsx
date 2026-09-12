@@ -5,6 +5,7 @@ import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { SITE_URL } from '@/app/src/lib/site';
 import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
 import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
+import MathText from '@/app/src/components/MathText';
 
 type SvgQuestionItem = {
   id: number;
@@ -46,7 +47,7 @@ function CardHeader({ item, isDone }: { item: SvgQuestionItem; isDone: boolean }
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         {item.topicTitle && <p className="text-[11px] font-bold text-indigo-400 truncate">{item.topicTitle}</p>}
-        <p className="text-sm text-foreground line-clamp-2">{item.question_text}</p>
+        <p className="text-sm text-foreground line-clamp-2"><MathText text={item.question_text} /></p>
       </div>
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${isDone ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
         {isDone ? 'Tamamlandı' : 'Bekliyor'}

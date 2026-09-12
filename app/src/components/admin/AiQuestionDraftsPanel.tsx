@@ -15,6 +15,16 @@
 // burada paralel bir kaydetme mantığı icat edilmiyor.
 import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import MathText from '@/app/src/components/MathText';
+
+// Ham metin alanları (textarea/input) düzenlenebilir kalmalı — ama LaTeX içeren bir
+// soru/şık metni admin'e "\(3 \times (\text{adım sayısı}) + 1\)" gibi ham kaynak olarak
+// göründüğünde ne render edileceğini anlamak zor oluyordu (kullanıcının 2026-09-12
+// bulduğu sorun). Sadece LaTeX içeren alanlarda, ham metnin ALTINA KaTeX ile render
+// edilmiş bir önizleme ekliyoruz — plain metinlerde gereksiz gürültü olmasın diye.
+function hasLatex(text: string): boolean {
+  return /\\[(\[]/.test(text);
+}
 
 type Choice = { text: string; is_correct: boolean };
 type DraftQuestion = {
@@ -304,21 +314,33 @@ export default function AiQuestionDraftsPanel() {
                           rows={2}
                           className="w-full rounded-lg border border-border bg-surface p-2 text-xs text-foreground resize-none focus:border-indigo-500 outline-none"
                         />
+                        {hasLatex(q.question_text) && (
+                          <div className="rounded-lg bg-indigo-500/10 px-2 py-1.5 text-xs text-indigo-200">
+                            <MathText text={q.question_text} />
+                          </div>
+                        )}
                         <div className="space-y-1.5">
                           {list.map((c, cIdx) => (
-                            <div key={cIdx} className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name={`draft-${draft.id}-q-${qIdx}`}
-                                checked={c.is_correct}
-                                onChange={() => markCorrect(draft.id, qIdx, cIdx)}
-                                title="Doğru şık"
-                              />
-                              <input
-                                value={c.text}
-                                onChange={(e) => updateChoiceText(draft.id, qIdx, cIdx, e.target.value)}
-                                className={`flex-1 rounded-lg border p-1.5 text-xs outline-none ${c.is_correct ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200' : 'border-border bg-surface text-foreground focus:border-indigo-500'}`}
-                              />
+                            <div key={cIdx} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name={`draft-${draft.id}-q-${qIdx}`}
+                                  checked={c.is_correct}
+                                  onChange={() => markCorrect(draft.id, qIdx, cIdx)}
+                                  title="Doğru şık"
+                                />
+                                <input
+                                  value={c.text}
+                                  onChange={(e) => updateChoiceText(draft.id, qIdx, cIdx, e.target.value)}
+                                  className={`flex-1 rounded-lg border p-1.5 text-xs outline-none ${c.is_correct ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200' : 'border-border bg-surface text-foreground focus:border-indigo-500'}`}
+                                />
+                              </div>
+                              {hasLatex(c.text) && (
+                                <div className="ml-6 rounded-lg bg-indigo-500/10 px-2 py-1 text-xs text-indigo-200">
+                                  <MathText text={c.text} />
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

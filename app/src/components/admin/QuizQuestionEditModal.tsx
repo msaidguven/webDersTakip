@@ -9,11 +9,30 @@
 import { useEffect, useState } from 'react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
+import MathText from '@/app/src/components/MathText';
 
 type Choice = { id?: number; choice_text?: string; option_text?: string; is_correct: boolean };
 type MatchingPair = { id?: number; left_text: string; right_text: string; order_no?: number };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
+
+// Ham metin alanları (textarea/input) düzenlenebilir kalmalı — ama LaTeX içeren bir
+// soru/şık metni admin'e "\(3 \times x\)" gibi ham kaynak olarak göründüğünde ne render
+// edileceğini anlamak zor oluyordu (kullanıcının 2026-09-12 bulduğu sorun, bkz.
+// AiQuestionDraftsPanel.tsx'teki AYNI çözüm). Sadece LaTeX içeren alanlarda, ham metnin
+// ALTINA KaTeX ile render edilmiş bir önizleme ekliyoruz.
+function hasLatex(text: string): boolean {
+  return /\\[(\[]/.test(text);
+}
+
+function LatexPreview({ text }: { text: string }) {
+  if (!hasLatex(text)) return null;
+  return (
+    <div className="mt-1.5 rounded-lg bg-indigo-500/10 px-2.5 py-1.5 text-sm text-indigo-300">
+      <MathText text={text} />
+    </div>
+  );
+}
 
 function ChoiceListEditor({
   title,
@@ -31,24 +50,27 @@ function ChoiceListEditor({
       <span className="mb-2 block text-xs font-semibold text-muted-foreground">{title}</span>
       <div className="space-y-2">
         {items.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={title}
-              checked={item.is_correct}
-              onChange={() => onChange(items.map((it, i) => ({ ...it, is_correct: i === idx })))}
-              className="accent-emerald-500"
-              title="Doğru cevap"
-            />
-            <input
-              value={item[textKey] || ''}
-              onChange={(e) => {
-                const next = [...items];
-                next[idx] = { ...next[idx], [textKey]: e.target.value };
-                onChange(next);
-              }}
-              className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
-            />
+          <div key={idx}>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                name={title}
+                checked={item.is_correct}
+                onChange={() => onChange(items.map((it, i) => ({ ...it, is_correct: i === idx })))}
+                className="accent-emerald-500"
+                title="Doğru cevap"
+              />
+              <input
+                value={item[textKey] || ''}
+                onChange={(e) => {
+                  const next = [...items];
+                  next[idx] = { ...next[idx], [textKey]: e.target.value };
+                  onChange(next);
+                }}
+                className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div className="ml-6"><LatexPreview text={item[textKey] || ''} /></div>
           </div>
         ))}
       </div>
@@ -166,6 +188,7 @@ export function QuizQuestionEditModal({
                 rows={3}
                 className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
               />
+              <LatexPreview text={questionText} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -201,6 +224,7 @@ export function QuizQuestionEditModal({
                 rows={2}
                 className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
               />
+              <LatexPreview text={solutionText} />
             </div>
 
             <div>
@@ -270,25 +294,33 @@ export function QuizQuestionEditModal({
                 <span className="mb-2 block text-xs font-semibold text-muted-foreground">Eşleştirme Çiftleri</span>
                 <div className="space-y-2">
                   {matchingPairs.map((p, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input
-                        value={p.left_text}
-                        onChange={(e) => {
-                          const next = [...matchingPairs];
-                          next[idx] = { ...next[idx], left_text: e.target.value };
-                          setMatchingPairs(next);
-                        }}
-                        className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
-                      />
-                      <input
-                        value={p.right_text}
-                        onChange={(e) => {
-                          const next = [...matchingPairs];
-                          next[idx] = { ...next[idx], right_text: e.target.value };
-                          setMatchingPairs(next);
-                        }}
-                        className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
-                      />
+                    <div key={idx}>
+                      <div className="flex gap-2">
+                        <input
+                          value={p.left_text}
+                          onChange={(e) => {
+                            const next = [...matchingPairs];
+                            next[idx] = { ...next[idx], left_text: e.target.value };
+                            setMatchingPairs(next);
+                          }}
+                          className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
+                        />
+                        <input
+                          value={p.right_text}
+                          onChange={(e) => {
+                            const next = [...matchingPairs];
+                            next[idx] = { ...next[idx], right_text: e.target.value };
+                            setMatchingPairs(next);
+                          }}
+                          className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      {(hasLatex(p.left_text) || hasLatex(p.right_text)) && (
+                        <div className="mt-1.5 flex gap-2">
+                          <div className="flex-1 rounded-lg bg-indigo-500/10 px-2.5 py-1.5 text-sm text-indigo-300"><MathText text={p.left_text} /></div>
+                          <div className="flex-1 rounded-lg bg-indigo-500/10 px-2.5 py-1.5 text-sm text-indigo-300"><MathText text={p.right_text} /></div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -303,6 +335,7 @@ export function QuizQuestionEditModal({
                   rows={4}
                   className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
                 />
+                <LatexPreview text={classicalAnswer} />
               </div>
             )}
           </div>
