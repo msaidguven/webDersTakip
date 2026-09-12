@@ -827,6 +827,7 @@ export function PlanModal({
   const [saving, setSaving] = useState(false);
   const [assigningCodes, setAssigningCodes] = useState(false);
   const [existingSections, setExistingSections] = useState<ExistingSectionForDiff[]>([]);
+  const [checkingDiff, setCheckingDiff] = useState(false);
   // Ayrıştırılan JSON'daki "sections" — normalde direkt kaydedilir, ama en az bir başlık
   // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
   const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
@@ -894,7 +895,7 @@ export function PlanModal({
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     setError(null);
     setWarning(null);
     let parsed: unknown;
@@ -915,8 +916,20 @@ export function PlanModal({
 
     // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
     // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
+    // Bileşen açılışında arka planda çekilen `existingSections` yarış durumuna açık (admin
+    // yapıştırıp hemen kaydete basarsa o istek daha bitmemiş olabilir) — o yüzden HER
+    // kaydetmeden önce taze bir kopya çekilip kontrol ONUNLA yapılıyor.
+    setCheckingDiff(true);
+    let freshExisting: ExistingSectionForDiff[];
+    try {
+      freshExisting = await fetchExistingSectionsForDiff(topicId);
+    } finally {
+      setCheckingDiff(false);
+    }
+    setExistingSections(freshExisting);
+
     const headings = (parsedSections as Record<string, unknown>[]).map((s) => (typeof s.heading === 'string' ? s.heading : ''));
-    const diff = computePlanHeadingDiff(existingSections, headings);
+    const diff = computePlanHeadingDiff(freshExisting, headings);
     if (diff.removedSections.length > 0) {
       setReviewSections(parsedSections as Record<string, unknown>[]);
       setReviewCover(parsedCover);
@@ -999,10 +1012,10 @@ export function PlanModal({
             {!missingCodes && (
               <button
                 onClick={handleSave}
-                disabled={saving || !pasted.trim()}
+                disabled={saving || checkingDiff || !pasted.trim()}
                 className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                {saving ? 'Kaydediliyor...' : checkingDiff ? 'Kontrol ediliyor...' : 'Kaydet'}
               </button>
             )}
           </div>
@@ -1361,6 +1374,7 @@ export function NotebookPlanModal({
   const [saving, setSaving] = useState(false);
   const [assigningCodes, setAssigningCodes] = useState(false);
   const [existingSections, setExistingSections] = useState<ExistingSectionForDiff[]>([]);
+  const [checkingDiff, setCheckingDiff] = useState(false);
   // Ayrıştırılan JSON'daki "sections" — normalde direkt kaydedilir, ama en az bir başlık
   // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
   const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
@@ -1443,7 +1457,7 @@ export function NotebookPlanModal({
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     setError(null);
     setWarning(null);
     let parsed: unknown;
@@ -1464,8 +1478,20 @@ export function NotebookPlanModal({
 
     // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
     // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
+    // Bileşen açılışında arka planda çekilen `existingSections` yarış durumuna açık (admin
+    // yapıştırıp hemen kaydete basarsa o istek daha bitmemiş olabilir) — o yüzden HER
+    // kaydetmeden önce taze bir kopya çekilip kontrol ONUNLA yapılıyor.
+    setCheckingDiff(true);
+    let freshExisting: ExistingSectionForDiff[];
+    try {
+      freshExisting = await fetchExistingSectionsForDiff(topicId);
+    } finally {
+      setCheckingDiff(false);
+    }
+    setExistingSections(freshExisting);
+
     const headings = (parsedSections as Record<string, unknown>[]).map((s) => (typeof s.heading === 'string' ? s.heading : ''));
-    const diff = computePlanHeadingDiff(existingSections, headings);
+    const diff = computePlanHeadingDiff(freshExisting, headings);
     if (diff.removedSections.length > 0) {
       setReviewSections(parsedSections as Record<string, unknown>[]);
       setReviewCover(parsedCover);
@@ -1567,10 +1593,10 @@ export function NotebookPlanModal({
             {!missingCodes && (
               <button
                 onClick={handleSave}
-                disabled={saving || !pasted.trim()}
+                disabled={saving || checkingDiff || !pasted.trim()}
                 className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                {saving ? 'Kaydediliyor...' : checkingDiff ? 'Kontrol ediliyor...' : 'Kaydet'}
               </button>
             )}
           </div>
