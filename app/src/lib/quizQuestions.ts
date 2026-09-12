@@ -147,9 +147,13 @@ export interface PersonalizedQuestionSet {
 //   1. Hiç çözülmemiş sorular (user_question_stats'ta hiç kaydı olmayanlar)
 //   2. Daha önce çözülmüş ama SRS'e göre tekrar zamanı GELMİŞ sorular (next_review_at <= şimdi),
 //      en acil (en eski next_review_at) önce — bkz. mobil app'in aynı SRS motoru.
-// Tekrar zamanı henüz gelmemiş (yakın zamanda ustalaşılmış) sorular ASLA gösterilmez — mobil
-// uygulamanın aksine burada bir "geri kalan her şey" havuzuna düşülmüyor; havuz boşsa
-// allCaughtUp=true döner ve çağıran taraf "şu an çözülecek yeni/vakti gelmiş soru yok" der.
+// Tekrar zamanı henüz gelmemiş (yakın zamanda ustalaşılmış) sorular normalde gösterilmez.
+// AMA havuzdaki HER soru zaten çözülmüş ve hiçbiri henüz tekrar vaktine gelmemişse (1 ve 2
+// boşsa) — "hepsini bitirdim, neden testi tekrar açamıyorum" kafa karışıklığını önlemek için
+// (kullanıcının 2026-09-12 bildirdiği durum) katı kural gevşetiliyor: tekrar SIRASI EN YAKIN
+// olan sorular (henüz vakti gelmemiş olsa da) getiriliyor, SRS sıralaması yine korunuyor.
+// Havuzda gerçekten HİÇ soru yoksa (ya da hiç çözülmemişse bile unseen zaten dolu olurdu)
+// allCaughtUp=true kalır.
 async function selectPersonalizedQuestionIds(
   supabase: ReturnType<typeof createServiceClient>,
   questionIds: number[],
@@ -191,7 +195,16 @@ async function selectPersonalizedQuestionIds(
 
   due.sort((a, b) => a.nextReviewAt - b.nextReviewAt);
 
-  const ordered = [...shuffle(unseen), ...due.map((d) => d.id)];
+  let ordered = [...shuffle(unseen), ...due.map((d) => d.id)];
+
+  if (ordered.length === 0) {
+    const upcoming = Array.from(statsByQuestion.values())
+      .filter((s) => s.total_attempts && s.next_review_at)
+      .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime())
+      .map((s) => s.question_id);
+    ordered = upcoming;
+  }
+
   return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
 }
 

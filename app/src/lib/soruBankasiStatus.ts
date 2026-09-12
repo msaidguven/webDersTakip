@@ -68,6 +68,11 @@ export async function getSoruBankasiTestStatus(
     }
     if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) eligibleCount += 1;
   }
+  // selectPersonalizedQuestionIds'teki AYNI geri düşüş: havuzdaki her soru zaten
+  // çözülmüş ve hiçbiri henüz tekrar vaktine gelmemişse (eligibleCount=0), en yakın
+  // tekrar sırasındakiler getiriliyor — buton bu durumda "0 Soru Çöz" yerine gerçekte
+  // açılacak soru sayısını göstersin diye testSize de aynı mantıkla hesaplanıyor.
+  if (eligibleCount === 0 && attemptedRows.length > 0) eligibleCount = attemptedRows.length;
   const testSize = Math.min(eligibleCount, MAX_QUESTIONS_PER_TEST);
 
   // Bir oturum "yarım kalmış" görünse de, atanmış sorularının HEPSİ başka bir yoldan (ör.
