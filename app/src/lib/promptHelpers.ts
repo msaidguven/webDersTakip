@@ -43,7 +43,7 @@ export function buildMathNotationGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
   const isMathHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
   if (!isMathHeavy) return '';
-  return `- Matematiksel ifade geçen soru/şık/çözüm/model cevap metinlerinde LaTeX kullan: satır içi \\( ... \\), blok/ayrı satır \\[ ... \\] (ör. "\\(x^2 + 3x - 4 = 0\\)", "\\(\\frac{1}{2}\\)", "\\(\\sqrt{16}\\)") — sayfa bunu KaTeX ile düzgün formül olarak gösteriyor, düz metin ("1/2", "karekök(16)") YAZMA.`;
+  return `- Kesir/üs/kök/işlem/denklem gibi GERÇEK bir matematiksel YAPI içeren ifadelerde LaTeX kullan: satır içi \\( ... \\), blok/ayrı satır \\[ ... \\] (ör. "\\(x^2 + 3x - 4 = 0\\)", "\\(\\frac{1}{2}\\)", "\\(\\sqrt{16}\\)") — sayfa bunu KaTeX ile düzgün formül olarak gösteriyor, düz metin ("1/2", "karekök(16)") YAZMA. AMA sade bir tam sayı/sonuç şıkkını (ör. "50", "172") ASLA LaTeX'e sarma — "\\(50\\)" DEĞİL, sadece "50" yaz; LaTeX sadece yukarıdaki gibi gerçek bir matematiksel yapı olduğunda kullanılır, tek başına bir sayı bu kapsama GİRMEZ.`;
 }
 
 // Klasik soru şablonları hem manuel kopyala-yapıştır akışında (count parametresi yok,
