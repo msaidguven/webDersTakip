@@ -27,24 +27,48 @@ export async function getSoruBankasiTestStatus(
   { unitId, topicId, questionIds }: { unitId: number; topicId: number | null; questionIds: number[] }
 ): Promise<SoruBankasiTestStatus> {
   const poolSize = questionIds.length;
-  const testSize = Math.min(poolSize, MAX_QUESTIONS_PER_TEST);
 
   if (!userId || poolSize === 0) {
+    const testSize = Math.min(poolSize, MAX_QUESTIONS_PER_TEST);
     return { loggedIn: !!userId, poolSize, testSize, solved: 0, correct: 0, wrong: 0, resumable: null };
   }
 
+  // total_attempts>0 filtresi KALDIRILDI: solved/correct/wrong için hâlâ sadece
+  // denenmiş satırlar sayılıyor (aşağıda), ama testSize hesabı için hiç denenmemiş
+  // sorular da (total_attempts=0 ya da hiç satırı yok) gerekiyor — bkz. altındaki not.
   const [{ data: statsRows }, resumableSession] = await Promise.all([
     supabase
       .from('user_question_stats')
-      .select('question_id, last_answer_correct')
+      .select('question_id, total_attempts, last_answer_correct, next_review_at')
       .eq('user_id', userId)
-      .in('question_id', questionIds)
-      .gt('total_attempts', 0),
+      .in('question_id', questionIds),
     findResumableSession(supabase, userId, unitId, topicId),
   ]);
 
-  const rows = (statsRows as { question_id: number; last_answer_correct: boolean }[] | null) || [];
-  const correct = rows.filter((r) => r.last_answer_correct).length;
+  const rows =
+    (statsRows as { question_id: number; total_attempts: number; last_answer_correct: boolean; next_review_at: string | null }[] | null) || [];
+  const attemptedRows = rows.filter((r) => r.total_attempts > 0);
+  const correct = attemptedRows.filter((r) => r.last_answer_correct).length;
+
+  // "X Soru Çöz" butonu, selectPersonalizedQuestionIds'in GERÇEKTE seçeceği soru sayısını
+  // göstersin diye — önceden burada poolSize'ın MAX_QUESTIONS_PER_TEST'e kırpılmış hâli
+  // kullanılıyordu (ör. "8 Soru Çöz"), ama testi gerçekten oluşturan fonksiyon SADECE hiç
+  // çözülmemiş + SRS'e göre tekrar zamanı gelmiş soruları alıyor (ör. sadece 4) — kullanıcı
+  // butonda 8 görüp testte 4 soru bulunca tutarsızlık bildirdi (2026-09-12). Aynı uygunluk
+  // mantığını (bkz. quizQuestions.ts:selectPersonalizedQuestionIds) burada SADECE SAYMAK
+  // için tekrarlıyoruz.
+  const statsByQuestion = new Map(rows.map((r) => [r.question_id, r]));
+  const now = Date.now();
+  let eligibleCount = 0;
+  for (const id of questionIds) {
+    const stat = statsByQuestion.get(id);
+    if (!stat || !stat.total_attempts) {
+      eligibleCount += 1;
+      continue;
+    }
+    if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) eligibleCount += 1;
+  }
+  const testSize = Math.min(eligibleCount, MAX_QUESTIONS_PER_TEST);
 
   // Bir oturum "yarım kalmış" görünse de, atanmış sorularının HEPSİ başka bir yoldan (ör.
   // ünite testi — aynı unit_id'yi paylaşıp bu konunun sorularını da havuzuna alıyor, ya da
@@ -53,7 +77,7 @@ export async function getSoruBankasiTestStatus(
   // raporu). answeredQuestionIds sadece o an çektiğimiz pool'a ait — resumable'ın sorularından
   // biri pool DIŞINDaysa (nadir, havuz sonradan değiştiyse) temkinli davranıp oturumu
   // hayalet SAYMIYORUZ (yanlışlıkla gerçek bir ilerlemeyi kapatmamak için).
-  const answeredQuestionIds = new Set(rows.map((r) => r.question_id));
+  const answeredQuestionIds = new Set(attemptedRows.map((r) => r.question_id));
   let resumable = resumableSession;
   if (resumable && resumable.questions.every((q) => answeredQuestionIds.has(q.id))) {
     // Service-role client kullanıldığı için finish_test_session RPC'sindeki auth.uid()
@@ -69,9 +93,9 @@ export async function getSoruBankasiTestStatus(
     loggedIn: true,
     poolSize,
     testSize,
-    solved: rows.length,
+    solved: attemptedRows.length,
     correct,
-    wrong: rows.length - correct,
+    wrong: attemptedRows.length - correct,
     resumable: resumable
       ? {
           sessionId: resumable.sessionId,
