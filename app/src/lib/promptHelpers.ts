@@ -33,15 +33,17 @@ export function buildSvgLessonGuidance(lessonName: string): string {
 
 // Soru üretiminde de aynı VISUAL_HEAVY_LESSON_KEYWORDS listesini kullanıyoruz — matematiksel
 // ifade (denklem, kesir, üs, kök, formül) geçmesi olası dersler zaten görsel-ağırlıklı
-// listeyle örtüşüyor. Kural, 19-rag-topic-source-synthesis.md'deki (RAG kaynak metni
-// sentezi) AYNI düz-metin-notasyon kuralının soru üretimine taşınmış hali — soru render'ı
-// (QuestionCard vb.) LaTeX desteklemediği için bu ZORUNLU, sadece stil tercihi değil.
-// Görsel-ağırlıklı olmayan derslerde placeholder boş string'e döner (gereksiz kural eklenmez).
+// listeyle örtüşüyor. Soru ekranı artık ders notuyla (SectionContent.tsx) AYNI KaTeX
+// motorunu kullanıyor (bkz. MathText.tsx / topicContentV11.ts'teki renderPlainTextMath) —
+// bu yüzden AI'dan, ders notu promptlarında zaten doğal olarak kullandığı \( ... \) (satır
+// içi) / \[ ... \] (blok) LaTeX sözdizimini burada da istiyoruz; düz metin notasyonu artık
+// gerekmiyor. Görsel-ağırlıklı olmayan derslerde placeholder boş string'e döner (gereksiz
+// kural eklenmez).
 export function buildMathNotationGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
   const isMathHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
   if (!isMathHeavy) return '';
-  return `- Matematiksel ifade geçen soru/şık/çözüm/model cevap metinlerinde okunabilir düz metin notasyonu kullan (ör. "x^2 + 3x - 4 = 0", "1/2", "karekök(16)", "3/4 + 1/2") — LaTeX işareti ("\\frac", "^{}", "$...$" vb.) KESİNLİKLE KULLANMA, sayfada olduğu gibi düz metin olarak görünecek.`;
+  return `- Matematiksel ifade geçen soru/şık/çözüm/model cevap metinlerinde LaTeX kullan: satır içi \\( ... \\), blok/ayrı satır \\[ ... \\] (ör. "\\(x^2 + 3x - 4 = 0\\)", "\\(\\frac{1}{2}\\)", "\\(\\sqrt{16}\\)") — sayfa bunu KaTeX ile düzgün formül olarak gösteriyor, düz metin ("1/2", "karekök(16)") YAZMA.`;
 }
 
 // Klasik soru şablonları hem manuel kopyala-yapıştır akışında (count parametresi yok,

@@ -9,6 +9,7 @@ import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
+import MathText from '@/app/src/components/MathText';
 
 const CORRECT_MESSAGES = [
   'Harika! 🎉',
@@ -247,7 +248,7 @@ export function OptionsView({
         <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">
           {question.question_text.split('_____').map((part, i, arr) => (
             <Fragment key={i}>
-              {part}
+              <MathText text={part} />
               {i < arr.length - 1 && (
                 <span className="mx-1 inline-block min-w-[90px] rounded-lg border-2 border-dashed border-indigo-400/50 bg-indigo-500/10 px-2.5 py-0.5 text-center text-indigo-500">
                   {selectedId ? options.find((o) => o.id === selectedId)?.text : '…'}
@@ -257,7 +258,7 @@ export function OptionsView({
           ))}
         </p>
       ) : (
-        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">{question.question_text}</p>
+        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg"><MathText text={question.question_text} /></p>
       )}
       {question.svg_position === 'below' && svg}
 
@@ -278,7 +279,7 @@ export function OptionsView({
               disabled={locked}
               className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-left text-sm font-bold text-default transition-colors disabled:cursor-default ${stateClasses}`}
             >
-              <span>{opt.text}</span>
+              <MathText as="span" text={opt.text} />
               {locked && opt.is_correct && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />}
               {locked && isChosen && !opt.is_correct && <XCircle className="h-4 w-4 shrink-0 text-rose-500" />}
             </button>
@@ -313,7 +314,7 @@ export function MatchingView({
       {/* Soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla eşleştirin") — diğer üç görünümün
           (MultipleChoiceOrBlankView, ClassicalView) hepsi kendi question_text'ini gösteriyordu,
           bu bileşen hiç göstermiyordu (kullanıcının 2026-09-06 bildirdiği bug). */}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg">{question.question_text}</p>
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg"><MathText text={question.question_text} /></p>
       <p className="mb-4 text-xs font-bold text-muted-foreground">
         Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
       </p>
@@ -344,10 +345,10 @@ export function MatchingView({
                 onClick={() => setActiveLeft(pair.id)}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-bold text-default transition-colors disabled:cursor-default ${cls}`}
               >
-                <span className="block">{pair.left_text}</span>
+                <MathText as="span" className="block" text={pair.left_text} />
                 {isMatched && (
                   <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-indigo-500">
-                    <CheckCircle2 className="h-3 w-3 shrink-0" /> {rightTextById.get(assignedTo)}
+                    <CheckCircle2 className="h-3 w-3 shrink-0" /> <MathText text={rightTextById.get(assignedTo) || ''} />
                   </span>
                 )}
               </button>
@@ -367,7 +368,7 @@ export function MatchingView({
                   used ? 'border-indigo-300/50 bg-indigo-500/5 text-muted-foreground' : 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5'
                 } ${activeLeft == null && !locked ? 'opacity-60' : ''}`}
               >
-                {pair.right_text}
+                <MathText text={pair.right_text} />
               </button>
             );
           })}
@@ -407,7 +408,7 @@ export function ClassicalView({
   return (
     <div>
       {question.svg_position !== 'below' && <QuestionSvg svgContent={question.svg_content} />}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg">{question.question_text}</p>
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg"><MathText text={question.question_text} /></p>
       {question.svg_position === 'below' && <QuestionSvg svgContent={question.svg_content} />}
       <textarea
         value={value}
@@ -439,7 +440,9 @@ export function ClassicalView({
       {locked && explanationRevealed && (
         <div className="mt-3 rounded-xl border border-indigo-400/40 bg-indigo-500/10 p-3.5 sm:mt-4 sm:p-4">
           <p className="text-sm font-black text-indigo-500">Model Cevap</p>
-          <p className="mt-1.5 text-sm font-medium leading-relaxed text-default">{question.modelAnswer || 'Bu soru için model cevap eklenmemiş.'}</p>
+          <p className="mt-1.5 text-sm font-medium leading-relaxed text-default">
+            <MathText text={question.modelAnswer || 'Bu soru için model cevap eklenmemiş.'} />
+          </p>
         </div>
       )}
     </div>
@@ -479,7 +482,7 @@ export function QuestionAnswerKeyItem({
         {svgPosition !== 'below' && svg}
         <p className="text-sm font-bold text-default">
           {index != null ? `${index + 1}. ` : ''}
-          {q.question_text}
+          <MathText text={q.question_text} />
         </p>
         {svgPosition === 'below' && svg}
         {q.type === 'multiple_choice' && (
@@ -487,28 +490,32 @@ export function QuestionAnswerKeyItem({
             {q.choices.map((c) => (
               <li key={c.id} className={c.is_correct ? 'font-bold text-emerald-500' : undefined}>
                 {c.is_correct ? '✓ ' : ''}
-                {c.text}
+                <MathText text={c.text} />
               </li>
             ))}
           </ul>
         )}
         {q.type === 'blank' && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Doğru cevap: <span className="font-bold text-emerald-500">{q.options.find((o) => o.is_correct)?.text}</span>
+            Doğru cevap: <MathText as="span" className="font-bold text-emerald-500" text={q.options.find((o) => o.is_correct)?.text || ''} />
           </p>
         )}
         {q.type === 'matching' && (
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
             {q.pairs.map((p) => (
               <li key={p.id}>
-                <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+                <MathText as="span" className="font-bold text-default" text={p.left_text} /> → <MathText text={p.right_text} />
               </li>
             ))}
           </ul>
         )}
-        {q.type === 'classical' && q.modelAnswer && <p className="mt-2 text-sm text-muted-foreground">Model cevap: {q.modelAnswer}</p>}
+        {q.type === 'classical' && q.modelAnswer && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Model cevap: <MathText text={q.modelAnswer} />
+          </p>
+        )}
         {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-          <p className="mt-1 text-xs text-muted-foreground">{q.solution_text}</p>
+          <p className="mt-1 text-xs text-muted-foreground"><MathText text={q.solution_text} /></p>
         )}
       </>
     );
@@ -556,7 +563,7 @@ export function QuestionAnswerKeyItem({
       {svgPosition !== 'below' && svg}
       <p className="text-sm font-bold text-default">
         {index != null ? `${index + 1}. ` : ''}
-        {q.question_text}
+        <MathText text={q.question_text} />
       </p>
       {svgPosition === 'below' && svg}
 
@@ -587,7 +594,7 @@ export function QuestionAnswerKeyItem({
                   >
                     {opt.is_correct ? '✓' : isChosen ? '✗' : ''}
                   </span>
-                  <span>{opt.text}</span>
+                  <MathText as="span" text={opt.text} />
                 </button>
               </li>
             );
@@ -646,7 +653,7 @@ export function QuestionAnswerKeyItem({
                     <ul className="space-y-1 text-sm text-muted-foreground">
                       {q.pairs.map((p) => (
                         <li key={p.id}>
-                          <span className="font-bold text-default">{p.left_text}</span> → {p.right_text}
+                          <MathText as="span" className="font-bold text-default" text={p.left_text} /> → <MathText text={p.right_text} />
                         </li>
                       ))}
                     </ul>
@@ -654,11 +661,11 @@ export function QuestionAnswerKeyItem({
                   {q.type === 'classical' && q.modelAnswer && (
                     <p className="text-sm text-muted-foreground">
                       <span className="font-black text-indigo-500">Model Cevap: </span>
-                      {q.modelAnswer}
+                      <MathText text={q.modelAnswer} />
                     </p>
                   )}
                   {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-                    <p className="text-xs text-muted-foreground">{q.solution_text}</p>
+                    <p className="text-xs text-muted-foreground"><MathText text={q.solution_text} /></p>
                   )}
                 </div>
               )}
@@ -1487,7 +1494,7 @@ export default function QuizClient({
               </button>
             )}
             {revealedExplanation[current.id] && current.type !== 'matching' && current.solution_text && (
-              <p className="mt-1.5 text-sm font-medium leading-relaxed text-muted-foreground">{current.solution_text}</p>
+              <p className="mt-1.5 text-sm font-medium leading-relaxed text-muted-foreground"><MathText text={current.solution_text} /></p>
             )}
             {revealedExplanation[current.id] && current.type === 'matching' && !isCorrect && (
               <ul className="mt-1.5 space-y-1 text-sm font-medium leading-relaxed text-muted-foreground">
@@ -1495,7 +1502,7 @@ export default function QuizClient({
                   .filter((p) => matchAssign[current.id]?.[p.id] !== p.id)
                   .map((p) => (
                     <li key={p.id}>
-                      <span className="font-black text-default">{p.left_text}</span> → {p.right_text}
+                      <MathText as="span" className="font-black text-default" text={p.left_text} /> → <MathText text={p.right_text} />
                     </li>
                   ))}
               </ul>
