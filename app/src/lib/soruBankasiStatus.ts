@@ -51,27 +51,24 @@ export async function getSoruBankasiTestStatus(
   const correct = attemptedRows.filter((r) => r.last_answer_correct).length;
 
   // "X Soru Çöz" butonu, selectPersonalizedQuestionIds'in GERÇEKTE seçeceği soru sayısını
-  // göstersin diye — önceden burada poolSize'ın MAX_QUESTIONS_PER_TEST'e kırpılmış hâli
-  // kullanılıyordu (ör. "8 Soru Çöz"), ama testi gerçekten oluşturan fonksiyon SADECE hiç
-  // çözülmemiş + SRS'e göre tekrar zamanı gelmiş soruları alıyor (ör. sadece 4) — kullanıcı
-  // butonda 8 görüp testte 4 soru bulunca tutarsızlık bildirdi (2026-09-12). Aynı uygunluk
-  // mantığını (bkz. quizQuestions.ts:selectPersonalizedQuestionIds) burada SADECE SAYMAK
-  // için tekrarlıyoruz.
+  // göstersin diye — AYNI ÜÇ MOD burada da tekrarlanıyor (bkz. o fonksiyondaki güncel
+  // yorum, 2026-09-12): havuzda hiç çözülmemiş soru varsa SADECE onlar sayılır (SRS
+  // tekrar sorularıyla karıştırılmaz — kullanıcının "8 soru, 5 çözülmüş, 4 soru çöz ne
+  // alaka" tepkisi), yoksa tekrar zamanı gelmiş sorular, o da yoksa (her şey çözülmüş,
+  // hiçbiri vakti gelmemiş) en yakın tekrar sırasındakiler.
   const statsByQuestion = new Map(rows.map((r) => [r.question_id, r]));
   const now = Date.now();
-  let eligibleCount = 0;
+  let unseenCount = 0;
+  let dueCount = 0;
   for (const id of questionIds) {
     const stat = statsByQuestion.get(id);
     if (!stat || !stat.total_attempts) {
-      eligibleCount += 1;
+      unseenCount += 1;
       continue;
     }
-    if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) eligibleCount += 1;
+    if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) dueCount += 1;
   }
-  // selectPersonalizedQuestionIds'teki AYNI geri düşüş: havuzdaki her soru zaten
-  // çözülmüş ve hiçbiri henüz tekrar vaktine gelmemişse (eligibleCount=0), en yakın
-  // tekrar sırasındakiler getiriliyor — buton bu durumda "0 Soru Çöz" yerine gerçekte
-  // açılacak soru sayısını göstersin diye testSize de aynı mantıkla hesaplanıyor.
+  let eligibleCount = unseenCount > 0 ? unseenCount : dueCount;
   if (eligibleCount === 0 && attemptedRows.length > 0) eligibleCount = attemptedRows.length;
   const testSize = Math.min(eligibleCount, MAX_QUESTIONS_PER_TEST);
 

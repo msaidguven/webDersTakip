@@ -143,17 +143,18 @@ export interface PersonalizedQuestionSet {
   allCaughtUp: boolean;
 }
 
-// Giriş yapmış kullanıcı için soru seçim önceliği (kullanıcı kararı, 2026-09-02):
-//   1. Hiç çözülmemiş sorular (user_question_stats'ta hiç kaydı olmayanlar)
-//   2. Daha önce çözülmüş ama SRS'e göre tekrar zamanı GELMİŞ sorular (next_review_at <= şimdi),
-//      en acil (en eski next_review_at) önce — bkz. mobil app'in aynı SRS motoru.
-// Tekrar zamanı henüz gelmemiş (yakın zamanda ustalaşılmış) sorular normalde gösterilmez.
-// AMA havuzdaki HER soru zaten çözülmüş ve hiçbiri henüz tekrar vaktine gelmemişse (1 ve 2
-// boşsa) — "hepsini bitirdim, neden testi tekrar açamıyorum" kafa karışıklığını önlemek için
-// (kullanıcının 2026-09-12 bildirdiği durum) katı kural gevşetiliyor: tekrar SIRASI EN YAKIN
-// olan sorular (henüz vakti gelmemiş olsa da) getiriliyor, SRS sıralaması yine korunuyor.
-// Havuzda gerçekten HİÇ soru yoksa (ya da hiç çözülmemişse bile unseen zaten dolu olurdu)
-// allCaughtUp=true kalır.
+// Giriş yapmış kullanıcı için soru seçim önceliği (kullanıcı kararı, 2026-09-02, 2026-09-12
+// güncellendi): ÜÇ AYRI MOD, birbirine KARIŞTIRILMAZ — havuzda hiç çözülmemiş soru varken
+// SRS tekrar sorularının araya girmesi "8 soru, 5 çözülmüş, 4 soru çöz" gibi kafa karıştırıcı
+// bir sayıya yol açıyordu (kullanıcının 2026-09-12 "ne alaka" tepkisi). Artık:
+//   1. Havuzda hiç çözülmemiş (unseen) soru VARSA: SADECE onlar gösterilir — "testi bitir"
+//      modu, SRS'e göre tekrar edilecek sorular bu aşamada HİÇ karışmaz.
+//   2. Unseen kalmadıysa (test gerçekten bitmişse): SRS'e göre tekrar zamanı GELMİŞ sorular
+//      (next_review_at <= şimdi), en acil (en eski next_review_at) önce.
+//   3. Unseen de due de yoksa (her şey çözülmüş, hiçbiri henüz tekrar vaktine gelmemiş):
+//      "hepsini bitirdim, neden testi tekrar açamıyorum" kafa karışıklığını önlemek için
+//      tekrar SIRASI EN YAKIN olan sorular (henüz vakti gelmemiş olsa da) getirilir.
+// Havuzda gerçekten HİÇ soru yoksa allCaughtUp=true kalır.
 async function selectPersonalizedQuestionIds(
   supabase: ReturnType<typeof createServiceClient>,
   questionIds: number[],
@@ -195,14 +196,16 @@ async function selectPersonalizedQuestionIds(
 
   due.sort((a, b) => a.nextReviewAt - b.nextReviewAt);
 
-  let ordered = [...shuffle(unseen), ...due.map((d) => d.id)];
-
-  if (ordered.length === 0) {
-    const upcoming = Array.from(statsByQuestion.values())
+  let ordered: number[];
+  if (unseen.length > 0) {
+    ordered = shuffle(unseen);
+  } else if (due.length > 0) {
+    ordered = due.map((d) => d.id);
+  } else {
+    ordered = Array.from(statsByQuestion.values())
       .filter((s) => s.total_attempts && s.next_review_at)
       .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime())
       .map((s) => s.question_id);
-    ordered = upcoming;
   }
 
   return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
