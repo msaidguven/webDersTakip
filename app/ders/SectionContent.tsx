@@ -122,7 +122,15 @@ function buildBlocks(html: string): React.ReactNode[] {
       blocks.push(...renderList(node, `n${i}`, dotIdx));
       return;
     }
-    blocks.push(<div key={`b-${i}`} dangerouslySetInnerHTML={{ __html: node.outerHTML }} />);
+    // Mini başlıklar (### Terim Adı → h3, nadiren h1/h2) bir önceki bloktan görsel
+    // olarak net ayrışsın diye (kullanıcının 2026-09-12 "içerik hiyerarşisi görsel
+    // olarak görünsün" isteği) — space-y-3'ün verdiği standart aralığın ÜSTÜNE ekstra
+    // üst boşluk alıyor, böylece "yeni bilgi bloğu başlıyor" hissi kuruluyor. İlk blok
+    // zaten başlıksa (sayfanın en tepesi) ekstra boşluğa gerek yok.
+    const isHeading = /^H[1-3]$/.test(node.tagName);
+    blocks.push(
+      <div key={`b-${i}`} className={isHeading && i > 0 ? 'mt-3' : undefined} dangerouslySetInnerHTML={{ __html: node.outerHTML }} />
+    );
   });
 
   return blocks;
