@@ -480,10 +480,16 @@ export function QuestionAnswerKeyItem({
     return (
       <>
         {svgPosition !== 'below' && svg}
-        <p className="text-sm font-bold text-default">
-          {index != null ? `${index + 1}. ` : ''}
-          <MathText text={q.question_text} />
-        </p>
+        <div className="flex items-start gap-2">
+          {index != null && (
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
+              {index + 1}
+            </span>
+          )}
+          <p className="min-w-0 flex-1 text-sm font-bold text-default">
+            <MathText text={q.question_text} />
+          </p>
+        </div>
         {svgPosition === 'below' && svg}
         {q.type === 'multiple_choice' && (
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
@@ -561,10 +567,16 @@ export function QuestionAnswerKeyItem({
   return (
     <>
       {svgPosition !== 'below' && svg}
-      <p className="text-sm font-bold text-default">
-        {index != null ? `${index + 1}. ` : ''}
-        <MathText text={q.question_text} />
-      </p>
+      <div className="flex items-start gap-2">
+        {index != null && (
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
+            {index + 1}
+          </span>
+        )}
+        <p className="min-w-0 flex-1 text-sm font-bold text-default">
+          <MathText text={q.question_text} />
+        </p>
+      </div>
       {svgPosition === 'below' && svg}
 
       {optionList && (
