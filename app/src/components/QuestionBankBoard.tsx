@@ -170,6 +170,11 @@ export default function QuestionBankBoard({
 
   const scoreableIds = useMemo(() => questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id), [questions]);
   const correctCount = scoreableIds.filter((id) => answers[id] === 'correct').length;
+  const incorrectCount = scoreableIds.filter((id) => answers[id] === 'incorrect').length;
+  // İlerleme çubuğu hangi soruyu GÖRÜNTÜLEDİĞİNİ değil, kaç soruyu GERÇEKTEN tamamladığını
+  // (cevaplanan/gösterilen — answers'a giren her soru, açık uçlu dahil) göstersin diye
+  // activeIndex yerine answers'ın büyüklüğü kullanılıyor (kullanıcının 2026-09-12 isteği).
+  const answeredCount = Object.keys(answers).length;
 
   const handleAnswered = useCallback((questionId: number, status: AnswerStatus) => {
     setAnswers((prev) => (questionId in prev ? prev : { ...prev, [questionId]: status }));
@@ -191,15 +196,16 @@ export default function QuestionBankBoard({
             Soru {activeIndex + 1}/{questions.length}
           </span>
           <span className="shrink-0 text-xs font-black text-emerald-500">{correctCount} doğru</span>
+          <span className="shrink-0 text-xs font-black text-rose-500">{incorrectCount} yanlış</span>
           <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:max-w-40">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-default/10">
               <div
                 className="h-full rounded-full bg-indigo-500 transition-all"
-                style={{ width: `${((activeIndex + 1) / questions.length) * 100}%` }}
+                style={{ width: `${(answeredCount / questions.length) * 100}%` }}
               />
             </div>
             <span className="shrink-0 text-[10px] font-black text-muted-foreground">
-              %{Math.round(((activeIndex + 1) / questions.length) * 100)}
+              %{Math.round((answeredCount / questions.length) * 100)}
             </span>
           </div>
         </div>
