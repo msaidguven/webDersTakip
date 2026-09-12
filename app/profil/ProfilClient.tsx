@@ -202,9 +202,20 @@ export default function ProfilClient() {
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      // Dosya adı kullanıcının id'sine (nickname'e değil — boş olabilir, değişebilir,
+      // dosya adı için ekstra temizleme ister) SABİT olarak bağlı: "avatars/{id}.{ext}".
+      // auth.uid() zaten benzersiz ve hiç değişmiyor, üstelik re-upload'ta upsert ile
+      // AYNI yolun üzerine yazıldığı için storage'da eski dosya birikmiyor.
+      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const filePath = `avatars/${authUser.id}.${fileExt}`;
+
+      // Önceki yükleme FARKLI bir uzantıyla yapılmışsa (ör. önce .png, şimdi .jpg)
+      // sabit dosya adı bile eskisinin üzerine yazmaz — olası eski uzantılı dosyaları
+      // burada açıkça siliyoruz ki "yeni yükleyince eskisi silinsin" isteği (kullanıcı
+      // raporu, 2026-09-12) uzantı değişse de karşılansın. Var olmayan bir yolu
+      // remove() etmek hata vermiyor, o yüzden hepsini tek seferde deniyoruz.
+      const otherExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'].filter((ext) => ext !== fileExt);
+      await supabase.storage.from('profiles').remove(otherExts.map((ext) => `avatars/${authUser.id}.${ext}`));
 
       const { error: uploadError } = await supabase.storage
         .from('profiles')
@@ -212,9 +223,13 @@ export default function ProfilClient() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Dosya yolu sabit kaldığı için tarayıcı/CDN eski görseli cache'leyebilir —
+      // her yüklemede farklı bir "?v=" ekleyerek public URL'i tazeliyoruz, gerçek
+      // dosya yolu değişmiyor.
+      const { data: { publicUrl: baseUrl } } = supabase.storage
         .from('profiles')
         .getPublicUrl(filePath);
+      const publicUrl = `${baseUrl}?v=${Date.now()}`;
 
       await Promise.all([
         supabase.auth.updateUser({ data: { avatar_url: publicUrl } }),
