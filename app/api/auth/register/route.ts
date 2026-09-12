@@ -3,9 +3,13 @@ import { createAnonClient } from '@/utils/supabase/server-anon';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getClientIp, checkAuthRateLimit, recordAuthAttempt, verifyBotChallenge } from '@/app/src/lib/authSecurity';
 
-// Öğrenci kaydı öğretmen kaydıyla (app/api/ogretmen/register) aynı ilkeyi paylaşır: bot
-// koruması ve rate limit sadece sunucuda geçerliyse işe yarar, bu yüzden auth.signUp da
-// artık client'tan değil buradan (admin API ile) yapılıyor.
+// Öğrenci VE öğretmen kaydı — ayrı bir "Öğretmen Girişi" sayfası kaldırıldı (kullanıcı
+// isteği, 2026-09-12), tek form role'e göre dallanıyor. Bot koruması ve rate limit sadece
+// sunucuda geçerliyse işe yarar, bu yüzden auth.signUp de artık client'tan değil buradan
+// (admin API ile) yapılıyor — önceki öğretmen akışı client-side signUp() kullanıyordu ve
+// hiç bot korumasından geçmiyordu, bu birleştirmeyle o boşluk da kapanmış oldu.
+const MAX_TEACHER_LESSONS = 10;
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
 
@@ -21,7 +25,9 @@ export async function POST(request: NextRequest) {
     email?: unknown;
     password?: unknown;
     fullName?: unknown;
+    role?: unknown;
     gradeId?: unknown;
+    lessonIds?: unknown;
     honeypot?: unknown;
     formRenderedAt?: unknown;
     mathA?: unknown;
@@ -37,11 +43,23 @@ export async function POST(request: NextRequest) {
   const email = typeof body.email === 'string' ? body.email.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
+  const role = body.role === 'teacher' ? 'teacher' : 'student';
   const gradeId = typeof body.gradeId === 'number' && Number.isInteger(body.gradeId) ? body.gradeId : null;
+  const lessonIds = Array.isArray(body.lessonIds)
+    ? (body.lessonIds as unknown[]).filter((v): v is number => typeof v === 'number' && Number.isInteger(v))
+    : [];
 
   if (!email || password.length < 6 || !fullName) {
     await recordAuthAttempt(ip, 'register', false);
     return NextResponse.json({ error: 'E-posta, şifre (en az 6 karakter) ve ad soyad gerekli' }, { status: 400 });
+  }
+  if (role === 'student' && !gradeId) {
+    await recordAuthAttempt(ip, 'register', false);
+    return NextResponse.json({ error: 'Sınıfını seçmelisin' }, { status: 400 });
+  }
+  if (role === 'teacher' && (!lessonIds.length || lessonIds.length > MAX_TEACHER_LESSONS)) {
+    await recordAuthAttempt(ip, 'register', false);
+    return NextResponse.json({ error: `1-${MAX_TEACHER_LESSONS} arası branş (ders) seçmelisin` }, { status: 400 });
   }
 
   const service = createServiceClient();
@@ -55,14 +73,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const { error: profileError } = await service
-    .from('profiles')
-    .insert({ id: created.user.id, full_name: fullName, role: 'student', grade_id: gradeId });
+  // Öğretmen kaydı her zaman is_verified:false ile başlar (yönetici onayı gerekir) —
+  // "role alanı kendi başına yeterli değil, herkes bunu seçebilir" ilkesi (bkz.
+  // app/src/lib/teacherAuth.ts'teki aynı yorum). onboarding_completed:true — bu formu
+  // dolduran zaten öğrenci/öğretmen seçimini burada tamamlamış oluyor (bkz. OAuth akışında
+  // AYNI sütunun false başlayıp /profil'de tamamlanması, app/auth/callback/route.ts).
+  const { error: profileError } = await service.from('profiles').insert(
+    role === 'teacher'
+      ? { id: created.user.id, full_name: fullName, role: 'teacher', is_verified: false, onboarding_completed: true }
+      : { id: created.user.id, full_name: fullName, role: 'student', grade_id: gradeId, onboarding_completed: true }
+  );
 
   if (profileError) {
     await service.auth.admin.deleteUser(created.user.id);
     await recordAuthAttempt(ip, 'register', false);
     return NextResponse.json({ error: 'Kayıt yapılamadı' }, { status: 500 });
+  }
+
+  if (role === 'teacher') {
+    const { error: lessonsError } = await service
+      .from('teacher_lessons')
+      .insert(lessonIds.map((lessonId) => ({ teacher_id: created.user.id, lesson_id: lessonId })));
+    if (lessonsError) {
+      await service.auth.admin.deleteUser(created.user.id);
+      await recordAuthAttempt(ip, 'register', false);
+      return NextResponse.json({ error: 'Kayıt yapılamadı' }, { status: 500 });
+    }
   }
 
   await recordAuthAttempt(ip, 'register', true);
@@ -87,5 +123,5 @@ export async function POST(request: NextRequest) {
     // yoksay — hesap oluşturuldu, otomatik oturum açma zorunlu değil
   }
 
-  return NextResponse.json({ ok: true, session });
+  return NextResponse.json({ ok: true, session, role });
 }

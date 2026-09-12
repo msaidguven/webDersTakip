@@ -11,10 +11,17 @@ export interface RegisterGradeOption {
   orderNo: number;
 }
 
+export interface RegisterLessonOption {
+  id: number;
+  name: string;
+}
+
 interface UseRegisterViewModelReturn {
   state: AuthState;
   grades: RegisterGradeOption[];
   isLoadingGrades: boolean;
+  lessons: RegisterLessonOption[];
+  isLoadingLessons: boolean;
   register: (data: RegisterData) => Promise<void>;
   clearError: () => void;
 }
@@ -29,6 +36,8 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
   });
   const [grades, setGrades] = useState<RegisterGradeOption[]>([]);
   const [isLoadingGrades, setIsLoadingGrades] = useState(true);
+  const [lessons, setLessons] = useState<RegisterLessonOption[]>([]);
+  const [isLoadingLessons, setIsLoadingLessons] = useState(true);
 
   // Kayıt formundaki "Kaçıncı sınıftasın?" seçimi için aktif sınıflar — ana sayfadaki
   // (useHomeViewModel) sınıf seçimiyle aynı kaynak: web_get_active_grades RPC'si.
@@ -54,6 +63,22 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
     }
 
     fetchGrades();
+  }, []);
+
+  // Öğretmen seçilirse "hangi branş(lar)da ders veriyorsun" çoklu-seçimi için — eski
+  // /ogretmen/kayit sayfasıyla AYNI kaynak (lessons tablosu, aktif olanlar).
+  useEffect(() => {
+    async function fetchLessons() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.from('lessons').select('id, name').eq('is_active', true).order('name', { ascending: true });
+        setLessons((data as RegisterLessonOption[] | null) || []);
+      } finally {
+        setIsLoadingLessons(false);
+      }
+    }
+
+    fetchLessons();
   }, []);
 
   const register = useCallback(async (data: RegisterData) => {
@@ -91,7 +116,9 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
         isLoading: false,
       }));
 
-      router.push('/login?registered=true');
+      // Öğretmen kaydı onay bekler (is_verified:false) — öğrenciden farklı bir mesaj
+      // gösterilsin diye (eski /ogretmen/kayit sayfasındaki AYNI "registered=teacher" bilgisi).
+      router.push(result.role === 'teacher' ? '/login?registered=teacher' : '/login?registered=true');
     } catch (err) {
       setState(prev => ({
         ...prev,
@@ -109,6 +136,8 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
     state,
     grades,
     isLoadingGrades,
+    lessons,
+    isLoadingLessons,
     register,
     clearError,
   };

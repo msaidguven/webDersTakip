@@ -25,7 +25,11 @@ export interface LoginCredentials {
 export interface RegisterData extends LoginCredentials {
   fullName: string;
   confirmPassword: string;
+  // Öğrenci/öğretmen ayrımı artık AYNI formda (kullanıcı isteği, 2026-09-12) — role'e göre
+  // ya gradeId (öğrenci) ya lessonIds (öğretmen, "hangi branş(lar)da ders veriyorsun") gelir.
+  role: 'student' | 'teacher';
   gradeId?: number;
+  lessonIds?: number[];
   // Bot koruması — sunucuda (app/api/auth/register) yeniden doğrulanır, bkz. authSecurity.ts
   honeypot: string;
   formRenderedAt: number;

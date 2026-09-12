@@ -7,6 +7,15 @@ import { createClient } from '@/utils/supabase/server';
 // e-posta/şifre kayıt formunda elle oluşturuluyordu) — burada yoksa Google'ın
 // verdiği ad/avatar ile bir tane oluşturuyoruz ki geri kalan uygulama (rol
 // kontrolü, avatar gösterimi, RAG/yorum akışları vb.) sorunsuz çalışsın.
+//
+// Google sadece ad/avatar verir — öğrenci mi öğretmen mi, sınıfı/branşı ne, hiç
+// bilinmez. Bu yüzden yeni oluşturulan profil onboarding_completed:false ile
+// başlıyor (kullanıcı isteği, 2026-09-12: "gmail ile otomatik giriş yapıldıysa önce
+// profile gitsin, orada sınıf ya da ders seçsin öğrenci veya öğretmen") — normal
+// varış adresine gitmeden ÖNCE /profil'e yönlendirilip bu seçimi tamamlaması
+// isteniyor, tamamladıktan sonra asıl hedefe (next) devam ediyor. DEFAULT true ile
+// eklenen migration sayesinde bu SADECE bundan sonra oluşturulan yeni OAuth
+// profillerini etkiliyor — mevcut kullanıcılar hiç etkilenmiyor.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -22,9 +31,11 @@ export async function GET(request: NextRequest) {
     if (!error && data.user) {
       const { data: existingProfile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, onboarding_completed')
         .eq('id', data.user.id)
         .maybeSingle();
+
+      let needsOnboarding = false;
 
       if (!existingProfile) {
         const meta = data.user.user_metadata || {};
@@ -33,12 +44,20 @@ export async function GET(request: NextRequest) {
           full_name: meta.full_name || meta.name || null,
           avatar_url: meta.avatar_url || meta.picture || null,
           role: 'student',
+          onboarding_completed: false,
         });
 
         if (insertError) {
           console.error('OAuth profil oluşturma hatası:', insertError, { userId: data.user.id });
           return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`);
         }
+        needsOnboarding = true;
+      } else if ((existingProfile as { onboarding_completed: boolean }).onboarding_completed === false) {
+        needsOnboarding = true;
+      }
+
+      if (needsOnboarding) {
+        return NextResponse.redirect(`${origin}/profil?completeProfile=1&next=${encodeURIComponent(redirectTo)}`);
       }
 
       return NextResponse.redirect(`${origin}${redirectTo}`);

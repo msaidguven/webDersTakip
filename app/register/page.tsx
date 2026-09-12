@@ -14,7 +14,9 @@ function makeMathChallenge() {
 export default function RegisterPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { state, grades, isLoadingGrades, register, clearError } = useRegisterViewModel();
+  const { state, grades, isLoadingGrades, lessons, isLoadingLessons, register, clearError } = useRegisterViewModel();
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -22,6 +24,14 @@ export default function RegisterPage() {
     confirmPassword: '',
     gradeId: '',
   });
+
+  function toggleLesson(id: number) {
+    setSelectedLessonIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   // Bot koruması: honeypot (insan görmez/doldurmaz), form açılış zamanı (çok hızlı submit
   // = bot) ve basit bir toplama sorusu. Üçü de app/api/auth/register'da sunucu tarafında
@@ -64,13 +74,19 @@ export default function RegisterPage() {
       setMathAnswer('');
       return;
     }
+    if (role === 'teacher' && selectedLessonIds.size === 0) {
+      setBotError('En az bir branş (ders) seçmelisin');
+      return;
+    }
 
     await register({
       fullName: formData.fullName,
       email: formData.email,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
-      gradeId: formData.gradeId ? parseInt(formData.gradeId, 10) : undefined,
+      role,
+      gradeId: role === 'student' && formData.gradeId ? parseInt(formData.gradeId, 10) : undefined,
+      lessonIds: role === 'teacher' ? Array.from(selectedLessonIds) : undefined,
       honeypot,
       formRenderedAt,
       mathA: mathChallenge.a,
@@ -136,24 +152,63 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-muted-foreground mb-2">Kaçıncı sınıftasın?</label>
-              <select
-                value={formData.gradeId}
-                onChange={(e) => handleChange('gradeId', e.target.value)}
-                className={inputClass}
-                required
-                disabled={isLoadingGrades}
-              >
-                <option value="" disabled>
-                  {isLoadingGrades ? 'Sınıflar yükleniyor...' : 'Sınıfını seç'}
-                </option>
-                {grades.map((grade) => (
-                  <option key={grade.id} value={grade.id}>
-                    {grade.name}
-                  </option>
-                ))}
-              </select>
+              <label className="block text-sm text-muted-foreground mb-2">Öğrenci misin, öğretmen misin?</label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setRole('student')}
+                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'student' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
+                >
+                  🎒 Öğrenciyim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('teacher')}
+                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'teacher' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
+                >
+                  🎓 Öğretmenim
+                </button>
+              </div>
             </div>
+
+            {role === 'student' ? (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-2">Kaçıncı sınıftasın?</label>
+                <select
+                  value={formData.gradeId}
+                  onChange={(e) => handleChange('gradeId', e.target.value)}
+                  className={inputClass}
+                  required
+                  disabled={isLoadingGrades}
+                >
+                  <option value="" disabled>
+                    {isLoadingGrades ? 'Sınıflar yükleniyor...' : 'Sınıfını seç'}
+                  </option>
+                  {grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-2">Hangi branş(lar)da ders veriyorsun?</label>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-default divide-y divide-default">
+                  {isLoadingLessons ? (
+                    <p className="p-3 text-sm text-muted-foreground">Dersler yükleniyor...</p>
+                  ) : (
+                    lessons.map((l) => (
+                      <label key={l.id} className="flex items-center gap-2 p-3 text-sm text-default cursor-pointer">
+                        <input type="checkbox" checked={selectedLessonIds.has(l.id)} onChange={() => toggleLesson(l.id)} />
+                        {l.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Kayıt sonrası hesabın onay bekler durumda olur; yönetici onayladıktan sonra öğretmen paneline erişebilirsin.</p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm text-muted-foreground mb-2">Ad Soyad</label>
@@ -236,12 +291,6 @@ export default function RegisterPage() {
           <GoogleSignInButton redirectTo="/panel" />
 
           <div className="mt-6 text-center space-y-2">
-            <p className="text-muted-foreground text-sm">
-              Öğretmen misin?{' '}
-              <Link href="/ogretmen/kayit" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
-                Öğretmen kaydı
-              </Link>
-            </p>
             <p className="text-muted-foreground text-sm">
               Zaten hesabin var mi?{' '}
               <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">

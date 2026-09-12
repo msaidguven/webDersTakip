@@ -1,0 +1,11 @@
+-- Öğrenci/öğretmen ayrımı artık normal kayıt formunda (email/şifre) ve profil
+-- tamamlama akışında (Google/OAuth ile ilk giriş) yapılıyor — ayrı bir "Öğretmen
+-- Girişi" sayfası kaldırıldı (kullanıcı isteği, 2026-09-12). OAuth ile ilk kez giriş
+-- yapan bir kullanıcının profili otomatik oluşturulduğunda rol/sınıf/ders BİLİNMEZ
+-- (Google sadece ad/avatar verir) — bu sütun, "bu profil daha tamamlanmadı, kullanıcı
+-- öğrenci/öğretmen seçip sınıf/ders girmeden önce /profil'e yönlendirilmeli" bilgisini
+-- taşır. DEFAULT true ile ekleniyor ki bu migration çalıştığında hesabı zaten var olan
+-- HİÇBİR mevcut kullanıcı (email/şifre veya OAuth fark etmeksizin) aniden bu zorunlu
+-- akışa düşmesin — sadece BUNDAN SONRA oluşturulacak yeni OAuth profilleri (bkz.
+-- app/auth/callback/route.ts) bilerek false ile başlar.
+alter table public.profiles add column if not exists onboarding_completed boolean not null default true;

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
 const EDITABLE_FIELDS = ['full_name', 'username', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
+const MAX_TEACHER_LESSONS = 10;
 
 // profiles.username DB'de sadece UNIQUE, başka bir format kısıtı yok (bkz. db_schemas.sql).
 // Liderlik tablosu ve yorumlar bu alanı gösteriyor (full_name yerine, gizlilik için — bkz.
@@ -27,7 +28,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('full_name, username, avatar_url, grade_id, city_id, district_id, school_id, school_name')
+    .select('full_name, username, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -88,4 +89,61 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// OAuth (Google vb.) ile İLK kez giriş yapan kullanıcının profili role/sınıf/branş
+// bilinmeden oluşturulur (bkz. app/auth/callback/route.ts, onboarding_completed:false) —
+// bu kullanıcı /profil'e yönlendirilip burada öğrenci/öğretmen seçip sınıf/branşını
+// tamamlar. `role` normal PATCH'teki EDITABLE_FIELDS'a BİLEREK dahil değil (herkesin
+// kendi rolünü — ör. 'admin' — serbestçe değiştirebilmesini önlemek için) — bu ayrı,
+// tek-seferlik tamamlama eylemi SADECE onboarding_completed:false olan bir profili
+// student/teacher'a çevirebilir, başka bir role asla izin vermez.
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null) as { role?: unknown; gradeId?: unknown; lessonIds?: unknown } | null;
+  const role = body?.role === 'teacher' ? 'teacher' : body?.role === 'student' ? 'student' : null;
+  if (!role) {
+    return NextResponse.json({ error: 'Öğrenci veya öğretmen seçmelisin' }, { status: 400 });
+  }
+
+  const service = createServiceClient();
+
+  if (role === 'student') {
+    const gradeId = typeof body?.gradeId === 'number' && Number.isInteger(body.gradeId) ? body.gradeId : null;
+    if (!gradeId) {
+      return NextResponse.json({ error: 'Sınıfını seçmelisin' }, { status: 400 });
+    }
+    const { error } = await service
+      .from('profiles')
+      .update({ role: 'student', grade_id: gradeId, onboarding_completed: true })
+      .eq('id', user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  } else {
+    const lessonIds = Array.isArray(body?.lessonIds)
+      ? (body!.lessonIds as unknown[]).filter((v): v is number => typeof v === 'number' && Number.isInteger(v))
+      : [];
+    if (!lessonIds.length || lessonIds.length > MAX_TEACHER_LESSONS) {
+      return NextResponse.json({ error: `1-${MAX_TEACHER_LESSONS} arası branş (ders) seçmelisin` }, { status: 400 });
+    }
+    // Öğretmen her zaman is_verified:false ile başlar — yönetici onayı gerekir (bkz.
+    // app/src/lib/teacherAuth.ts, app/api/auth/register/route.ts'teki AYNI ilke).
+    const { error: profileError } = await service
+      .from('profiles')
+      .update({ role: 'teacher', is_verified: false, onboarding_completed: true })
+      .eq('id', user.id);
+    if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+
+    const { error: lessonsError } = await service
+      .from('teacher_lessons')
+      .insert(lessonIds.map((lessonId) => ({ teacher_id: user.id, lesson_id: lessonId })));
+    if (lessonsError) return NextResponse.json({ error: lessonsError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, role });
 }

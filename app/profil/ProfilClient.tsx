@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/app/src/context/AuthContext';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
@@ -21,6 +21,8 @@ interface ProfileRow {
   district_id: number | null;
   school_id: number | null;
   school_name: string | null;
+  role: 'student' | 'teacher' | 'admin' | null;
+  onboarding_completed: boolean;
 }
 
 interface UserStats {
@@ -111,7 +113,13 @@ function MiniStat({ icon, value, label, delay }: { icon: string; value: string |
 
 export default function ProfilClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: authUser, loading: authLoading, supabase } = useAuth();
+
+  // Google/OAuth ile İLK giriş yapan kullanıcı buraya, asıl gideceği yere gitmeden ÖNCE
+  // yönlendirilir (bkz. app/auth/callback/route.ts) — öğrenci/öğretmen + sınıf/branş
+  // seçimini tamamladıktan sonra bu adrese devam eder (yoksa panel'e).
+  const nextAfterOnboarding = searchParams?.get('next') || '/panel';
 
   const email = authUser?.email;
 
@@ -320,6 +328,10 @@ export default function ProfilClient() {
       </div>
 
       <div className="space-y-6">
+        {profile && profile.onboarding_completed === false && (
+          <OnboardingCard onCompleted={() => router.push(nextAfterOnboarding)} />
+        )}
+
         {/* Primary Stats */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Genel Performans</h3>
@@ -381,6 +393,151 @@ export default function ProfilClient() {
         </>
       )}
     </PanelShell>
+  );
+}
+
+// ==================== HESABI TAMAMLA (OAuth ile ilk giriş) ====================
+
+type OnboardingLesson = { id: number; name: string };
+
+// Google/OAuth ile ilk kez giriş yapan kullanıcı profili role/sınıf/branş bilinmeden
+// oluşturulur (bkz. app/auth/callback/route.ts) — kullanıcı buraya yönlendirilip normal
+// kayıt formundaki (/register) AYNI öğrenci/öğretmen seçimini burada tamamlar. Tamamlanana
+// kadar bu kart en üstte, kaçırılamayacak şekilde duruyor.
+function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [grades, setGrades] = useState<{ id: number; name: string }[]>([]);
+  const [gradeId, setGradeId] = useState('');
+  const [lessons, setLessons] = useState<OnboardingLesson[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const [{ data: gradesData }, { data: lessonsData }] = await Promise.all([
+        supabase.from('grades').select('id, name').order('order_no'),
+        supabase.from('lessons').select('id, name').eq('is_active', true).order('name', { ascending: true }),
+      ]);
+      setGrades((gradesData as { id: number; name: string }[] | null) || []);
+      setLessons((lessonsData as OnboardingLesson[] | null) || []);
+      setLoadingOptions(false);
+    })();
+  }, []);
+
+  function toggleLesson(id: number) {
+    setSelectedLessonIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    setError(null);
+    if (role === 'student' && !gradeId) {
+      setError('Sınıfını seçmelisin');
+      return;
+    }
+    if (role === 'teacher' && selectedLessonIds.size === 0) {
+      setError('En az bir branş (ders) seçmelisin');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role,
+          gradeId: role === 'student' ? Number(gradeId) : undefined,
+          lessonIds: role === 'teacher' ? Array.from(selectedLessonIds) : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Kaydedilemedi');
+      onCompleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kaydedilemedi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-indigo-500/40 bg-indigo-500/5 p-6 animate-fade-in-up">
+      <h3 className="text-lg font-bold text-default flex items-center gap-2 mb-1">
+        <span className="text-xl">👋</span> Hesabını tamamla
+      </h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        Google ile giriş yaptın — devam etmeden önce öğrenci mi öğretmen misin seç, sonra sınıfını ya da branşını belirt.
+      </p>
+
+      {error && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl text-sm bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
+        <button
+          type="button"
+          onClick={() => setRole('student')}
+          className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'student' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
+        >
+          🎒 Öğrenciyim
+        </button>
+        <button
+          type="button"
+          onClick={() => setRole('teacher')}
+          className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'teacher' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
+        >
+          🎓 Öğretmenim
+        </button>
+      </div>
+
+      {role === 'student' ? (
+        <div className="mb-4">
+          <label className="block text-muted-foreground text-xs font-medium mb-1.5">Kaçıncı sınıftasın?</label>
+          <select
+            value={gradeId}
+            onChange={(e) => setGradeId(e.target.value)}
+            disabled={loadingOptions}
+            className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+          >
+            <option value="" disabled>{loadingOptions ? 'Sınıflar yükleniyor...' : 'Sınıfını seç'}</option>
+            {grades.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="mb-4">
+          <label className="block text-muted-foreground text-xs font-medium mb-1.5">Hangi branş(lar)da ders veriyorsun?</label>
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-default divide-y divide-default bg-surface">
+            {loadingOptions ? (
+              <p className="p-3 text-sm text-muted-foreground">Dersler yükleniyor...</p>
+            ) : (
+              lessons.map((l) => (
+                <label key={l.id} className="flex items-center gap-2 p-3 text-sm text-default cursor-pointer">
+                  <input type="checkbox" checked={selectedLessonIds.has(l.id)} onChange={() => toggleLesson(l.id)} />
+                  {l.name}
+                </label>
+              ))
+            )}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Kayıt sonrası hesabın onay bekler durumda olur; yönetici onayladıktan sonra öğretmen paneline erişebilirsin.</p>
+        </div>
+      )}
+
+      <button
+        onClick={handleSave}
+        disabled={saving || loadingOptions}
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
+      >
+        {saving ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
+      </button>
+    </div>
   );
 }
 
