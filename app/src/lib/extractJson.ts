@@ -1,14 +1,21 @@
-// AI (Gemini/NotebookLM) çıktısı LaTeX komutları (\times, \frac, \rightarrow, \binom...)
-// içerdiğinde JSON string'i içine ters eğik çizgiyi kaçırmadan (çift \\ yapmadan)
-// yazıyor. JSON.parse bunu geçerli bir kaçış dizisi sanıyor — \t (tab), \f (form feed),
-// \b (backspace), \r (satır başı) — ve harfi yutuyor: "\times" → "imes", "\frac" →
-// "rac" (kullanıcının 2026-09-09 ekran görüntüsüyle bulduğu "2imes5", "rac59" bozukluğu).
-// Bu uygulamanın hiçbir içeriğinde gerçek bir tab/form feed/backspace/CR karakterinin
-// kasıtlı kullanımı yok, bu yüzden harfle devam eden böyle bir diziyi her zaman kaçırılmamış
-// bir LaTeX komutu sayıp ters eğik çizgiyi ikiye katlıyoruz (\n hariç — body_markdown'da
-// gerçek satır sonları için yoğun kullanılıyor, dokunmuyoruz).
+// AI (Gemini/NotebookLM) çıktısı LaTeX komutları/parantezleri (\times, \frac, \rightarrow,
+// \binom, \(, \), \[, \], \sqrt, \alpha ...) içerdiğinde JSON string'i içine ters eğik
+// çizgiyi kaçırmadan (çift \\ yapmadan) yazıyor. Geçerli JSON kaçış dizisi SADECE şunlardır:
+// \" \\ \/ \b \f \n \r \t \uXXXX — bunun dışında kalan her ters eğik çizgi JSON.parse'ı ya
+// direkt "Bad escaped character" ile patlatıyor (\(, \[ gibi hiç geçerli olmayanlar —
+// kullanıcının 2026-09-12 "generate-practice-question" worker loglarında \( \) formatı
+// eklendikten SONRA gördüğü hata) ya da harfi sessizce yutuyor (\times → "imes" gibi, kaçış
+// harfi tesadüfen t/b/r/f olduğunda — 2026-09-09 "2imes5"/"rac59" bozukluğu). \n bunun
+// dışında: bu alanlarda GERÇEK satır sonu olarak yoğun kullanılıyor (ardından her zaman
+// normal metin/harf gelir), bu yüzden \n hiçbir zaman dokunulmadan bırakılıyor — ama \t/\b/
+// \r/\f hemen ardından bir harf geldiğinde (LaTeX komutunun devamı, ör. "\frac"taki "rac")
+// GEÇERSİZ sayılıp ikiye katlanıyor; harf gelmiyorsa (gerçek tab/backspace/CR/form-feed
+// ihtimaline karşı) dokunulmuyor.
 function fixUnescapedLatexBackslashes(jsonText: string): string {
-  return jsonText.replace(/\\([tbrf])(?=[A-Za-z])/g, '\\\\$1');
+  return jsonText.replace(
+    /\\(u[0-9a-fA-F]{4}|n|["\\/]|[tbrf](?![A-Za-z]))?/g,
+    (match, valid) => (valid ? match : '\\\\')
+  );
 }
 
 // AI çıktısı çoğunlukla düz JSON'dur ama bazen ```json ... ``` bloğuna sarılı ya da
