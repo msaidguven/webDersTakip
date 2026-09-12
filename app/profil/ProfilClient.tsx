@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+import { createClient, createStorageClient } from '@/utils/supabase/client';
 import { useAuth } from '@/app/src/context/AuthContext';
 import SearchCombobox, { type ComboboxOption } from '@/app/src/components/SearchCombobox';
 import { getProfileStats } from '@/app/src/lib/profileStats';
@@ -244,9 +244,16 @@ export default function ProfilClient() {
       // için de olası eski uzantıları burada bir kereliğine temizliyoruz.
       const filePath = `avatars/${authUser.id}.webp`;
       const legacyExts = ['jpg', 'jpeg', 'png', 'gif'];
-      await supabase.storage.from('profiles').remove(legacyExts.map((ext) => `avatars/${authUser.id}.${ext}`));
+      // createClient() değil createStorageClient() kullanılıyor çünkü createClient()'ın
+      // zorladığı global "Content-Type: application/json" header'ı, storage.upload()'ın
+      // ürettiği multipart/form-data boundary header'ının üzerine yazıp yüklenen dosyanın
+      // sunucuda "application/json" olarak algılanıp reddedilmesine yol açıyordu (bkz.
+      // utils/supabase/client.ts'teki NOT, kullanıcının 2026-09-12 ekran görüntüsüyle
+      // bildirdiği "mime type application/json is not supported" hatası).
+      const storageClient = createStorageClient();
+      await storageClient.storage.from('profiles').remove(legacyExts.map((ext) => `avatars/${authUser.id}.${ext}`));
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await storageClient.storage
         .from('profiles')
         .upload(filePath, webpBlob, { upsert: true, contentType: 'image/webp' });
 
@@ -255,7 +262,7 @@ export default function ProfilClient() {
       // Dosya yolu sabit kaldığı için tarayıcı/CDN eski görseli cache'leyebilir —
       // her yüklemede farklı bir "?v=" ekleyerek public URL'i tazeliyoruz, gerçek
       // dosya yolu değişmiyor.
-      const { data: { publicUrl: baseUrl } } = supabase.storage
+      const { data: { publicUrl: baseUrl } } = storageClient.storage
         .from('profiles')
         .getPublicUrl(filePath);
       const publicUrl = `${baseUrl}?v=${Date.now()}`;
