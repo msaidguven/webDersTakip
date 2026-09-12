@@ -8,18 +8,12 @@
 -- günün ilk birkaç saatinden sonra 429 (kota doldu) hataları görülmesi beklenir; worker bu
 -- durumda o çalıştırmayı atlar, hata birikmez, sadece o gün için üretim erken durur.
 --
--- Bu dosyayı Supabase SQL Editor'de bir kez çalıştırın.
-select cron.schedule(
-  'ai-question-draft-worker',
-  '*/30 * * * *',
-  $$
-  select net.http_post(
-    url := 'https://www.derstakip.net/api/rag/generate-practice-question',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'rag_queue_worker_secret')
-    ),
-    body := '{}'::jsonb
-  );
-  $$
+-- Bu dosyayı Supabase SQL Editor'de bir kez çalıştırın. cron.schedule (aynı isimle
+-- command'ı yeniden dollar-quoted olarak vermek) yerine cron.alter_job kullanılıyor —
+-- sadece schedule'ı değiştirir, mevcut command'a dokunmaz; SQL editor'de $$ ... $$
+-- bloğunun kopyala-yapıştırda bozulma riskini de ortadan kaldırır (kullanıcının
+-- 2026-09-12 karşılaştığı "syntax error at or near )" sorunu).
+select cron.alter_job(
+  job_id := (select jobid from cron.job where jobname = 'ai-question-draft-worker'),
+  schedule := '*/30 * * * *'
 );
