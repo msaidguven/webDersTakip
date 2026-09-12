@@ -28,6 +28,8 @@ import {
   ImagePlus,
   Shapes,
   Plus,
+  Share2,
+  Download,
 } from 'lucide-react';
 import type {
   SectionModalSection,
@@ -1214,6 +1216,30 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     });
   }, [activeTopic?.id, gradeSlug, lessonSlug, activeUnit?.slug]);
 
+  // Konu başlığındaki "Sayfayı Paylaş" butonu — soru kartlarındaki ShareQuestionButton
+  // ile AYNI desen (bkz. QuestionCardHeader.tsx): destekleyen tarayıcıda native paylaşım
+  // penceresi, desteklemeyenlerde linki panoya kopyala (kullanıcı isteği, 2026-09-12).
+  const [topicShareState, setTopicShareState] = useState<'idle' | 'copied'>('idle');
+  async function handleShareTopic() {
+    if (!gradeSlug || !lessonSlug || !activeUnit?.slug || !activeTopic?.slug) return;
+    const url = `${window.location.origin}/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: activeTopic.title, url });
+      } catch {
+        // kullanıcı paylaşım penceresini iptal etti — sessizce geç
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setTopicShareState('copied');
+      setTimeout(() => setTopicShareState('idle'), 2000);
+    } catch {
+      // Clipboard API yoksa (çok eski tarayıcı) sessizce yok say
+    }
+  }
+
   // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
   // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
   useEffect(() => {
@@ -2129,6 +2155,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           )}
                         </div>
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
+                        <div className="mx-auto mt-4 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleShareTopic}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                          >
+                            <Share2 className="h-3.5 w-3.5" /> {topicShareState === 'copied' ? 'Bağlantı kopyalandı!' : 'Sayfayı Paylaş'}
+                          </button>
+                          <a
+                            href={`/api/topic-pdf/${activeTopic.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                          >
+                            <Download className="h-3.5 w-3.5" /> PDF Olarak İndir
+                          </a>
+                        </div>
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
                         )}
