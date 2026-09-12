@@ -111,6 +111,30 @@ function MiniStat({ icon, value, label, delay }: { icon: string; value: string |
   );
 }
 
+// Avatar'ı sunucuya göndermeden ÖNCE tarayıcıda WebP'ye çevirip 512px'e küçültüyoruz
+// (kullanıcı isteği, 2026-09-12) — hem yükleme boyutu ciddi düşüyor (telefon kamerası
+// fotoğrafı birkaç MB'tan genelde birkaç yüz KB'a iniyor) hem de storage'daki dosya adı
+// artık HER ZAMAN tek bir sabit uzantı (.webp) kullanıyor, "hangi uzantıyla yüklenmiş"
+// belirsizliği ortadan kalkıyor.
+async function fileToWebp(file: File, maxSize = 512, quality = 0.85): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Tarayıcın görsel dönüştürmeyi desteklemiyor');
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Görsel dönüştürülemedi'))), 'image/webp', quality);
+  });
+}
+
 export default function ProfilClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -194,32 +218,37 @@ export default function ProfilClient() {
     const file = e.target.files?.[0];
     if (!file || !authUser) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Dosya boyutu 2MB\'dan küçük olmalıdır.');
+    // WebP dönüşümü öncesi kaba bir üst sınır — asıl 2MB kontrolü artık dönüştürülmüş
+    // (küçültülmüş) dosya üzerinde yapılıyor, ama tarayıcının dev bir orijinali (ör.
+    // 50MB'lık bir RAW/HEIC) belleğe almaya çalışmasını burada engelliyoruz.
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Dosya boyutu 20MB\'dan küçük olmalıdır.');
       return;
     }
 
     setUploading(true);
 
     try {
-      // Dosya adı kullanıcının id'sine (nickname'e değil — boş olabilir, değişebilir,
-      // dosya adı için ekstra temizleme ister) SABİT olarak bağlı: "avatars/{id}.{ext}".
-      // auth.uid() zaten benzersiz ve hiç değişmiyor, üstelik re-upload'ta upsert ile
-      // AYNI yolun üzerine yazıldığı için storage'da eski dosya birikmiyor.
-      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const filePath = `avatars/${authUser.id}.${fileExt}`;
+      const webpBlob = await fileToWebp(file);
+      if (webpBlob.size > 2 * 1024 * 1024) {
+        alert('Dönüştürülmüş görsel hâlâ 2MB\'dan büyük, lütfen başka bir fotoğraf dene.');
+        return;
+      }
 
-      // Önceki yükleme FARKLI bir uzantıyla yapılmışsa (ör. önce .png, şimdi .jpg)
-      // sabit dosya adı bile eskisinin üzerine yazmaz — olası eski uzantılı dosyaları
-      // burada açıkça siliyoruz ki "yeni yükleyince eskisi silinsin" isteği (kullanıcı
-      // raporu, 2026-09-12) uzantı değişse de karşılansın. Var olmayan bir yolu
-      // remove() etmek hata vermiyor, o yüzden hepsini tek seferde deniyoruz.
-      const otherExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'].filter((ext) => ext !== fileExt);
-      await supabase.storage.from('profiles').remove(otherExts.map((ext) => `avatars/${authUser.id}.${ext}`));
+      // Dosya adı kullanıcının id'sine (nickname'e değil — boş olabilir, değişebilir,
+      // dosya adı için ekstra temizleme ister) SABİT olarak bağlı: "avatars/{id}.webp".
+      // auth.uid() zaten benzersiz ve hiç değişmiyor, üstelik re-upload'ta upsert ile
+      // AYNI yolun üzerine yazıldığı için storage'da eski dosya birikmiyor. Uzantı de
+      // her zaman .webp olduğu için (fileToWebp) farklı uzantılı eski dosya kalma
+      // ihtimali sadece BU değişiklikten ÖNCE yüklenmiş hesaplar için geçerli — onlar
+      // için de olası eski uzantıları burada bir kereliğine temizliyoruz.
+      const filePath = `avatars/${authUser.id}.webp`;
+      const legacyExts = ['jpg', 'jpeg', 'png', 'gif'];
+      await supabase.storage.from('profiles').remove(legacyExts.map((ext) => `avatars/${authUser.id}.${ext}`));
 
       const { error: uploadError } = await supabase.storage
         .from('profiles')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, webpBlob, { upsert: true, contentType: 'image/webp' });
 
       if (uploadError) throw uploadError;
 

@@ -12,12 +12,15 @@
 -- kullanıcı adı/nickname'den daha iyi çünkü nickname boş/değişken olabilir) hem
 -- de re-upload'ta upsert ile aynı yolun üzerine yazılıyor; farklı bir uzantıyla
 -- yeniden yüklenirse eski uzantılı dosya da kod tarafında explicit siliniyor.
+-- ProfilClient.tsx artık her avatarı yüklemeden ÖNCE tarayıcıda WebP'ye çevirip
+-- 512px'e küçültüyor (kullanıcı isteği, 2026-09-12) — bucket'ı da SADECE bu formatı
+-- kabul edecek şekilde kısıtlıyoruz, başka bir mime type sunucuya hiç ulaşmasın.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('profiles', 'profiles', true, 2097152, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+values ('profiles', 'profiles', true, 2097152, array['image/webp'])
 on conflict (id) do update set
   public = true,
   file_size_limit = 2097152,
-  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  allowed_mime_types = array['image/webp'];
 
 -- Her kullanıcı SADECE kendi id'siyle başlayan avatar dosyasını yükleyebilir/
 -- güncelleyebilir/silebilir — path'i "avatars/<kendi auth.uid()>.<uzantı>" olacak
