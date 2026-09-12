@@ -18,7 +18,12 @@ import { slugifyHeading, SITE_URL } from '@/app/src/lib/site';
 // outputFileTracingIncludes deseniyle Vercel fonksiyon paketine dahil ediliyor.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+// Soğuk başlangıçta Chromium binary'sinin /tmp'e açılması + tarayıcı başlatma + sayfa
+// render'ı tek başına birkaç saniye sürebiliyor — düşük bir maxDuration (kullanıcının
+// 2026-09-12 "HTTP ERROR 500" raporunda gördüğümüz gibi) bunu zamanaşımına uğratıp
+// GÖVDESİZ, jenerik bir 500 döndürüyordu (tarayıcı bunu kendi "sayfa çalışmıyor"
+// ekranıyla gösteriyor). Vercel Hobby'nin izin verdiği üst sınıra çıkarıldı.
+export const maxDuration = 60;
 
 const katexCss = (() => {
   try {
@@ -176,16 +181,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     generatedDate,
   });
 
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath(),
-    headless: chromium.headless,
-  });
-
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // 'networkidle0' (500ms boyunca sıfır ağ isteği) sayfadaki görsellerden biri yavaş/
+    // yanıt vermezse gereksiz yere bekleyip süreyi uzatabiliyordu — bu sayfada script yok,
+    // sadece resim/SVG var; tarayıcının kendi 'load' event'i (tüm <img>'ler yüklenene/
+    // hataya düşene kadar bekler) burada hem yeterli hem daha hızlı/öngörülebilir.
+    await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
 
     const siteUrlLabel = SITE_URL.replace(/^https?:\/\//, '');
     const headerTemplate = `
@@ -219,7 +229,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         'Content-Disposition': `attachment; filename="${asciiName}.pdf"`,
       },
     });
+  } catch (err) {
+    // Önceki sürüm hatayı yutup Next'in jenerik (gövdesiz) 500'üne düşüyordu — tarayıcı
+    // bunu "HTTP ERROR 500" diye gösteriyordu, asıl sebep (zaman aşımı mı, chromium
+    // binary mi, bellek mi) hiçbir yerde görünmüyordu. Artık hem sunucu loguna (Vercel
+    // fonksiyon logları) hem yanıt gövdesine gerçek hata mesajı yazılıyor.
+    console.error('[topic-pdf] PDF üretilemedi:', err);
+    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
+    return NextResponse.json({ error: `PDF üretilemedi: ${message}` }, { status: 500 });
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
 }
