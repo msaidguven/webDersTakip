@@ -53,10 +53,11 @@ type FeedEntry = CommentEntry | AiEntry;
 
 // Yorum-önce mimarisinde (2026-09-04) her @hocam/@kanka sorusu artık İKİ kayıt
 // üretiyor (soru yorumu + cevap), bu yüzden bir yanıta verilen yanıt (ör. "teşekkürler"
-// -> AI cevabı) her zaman İKİ seviye iç içe geçiyor — önceki tek-seviyelik sınır bunu
-// gösteremiyordu, ikinci alışveriş sessizce kayboluyordu (kullanıcı bildirimi). ReplyRow/
-// ReplyAiRow artık kendi yanıtlarını da (recursive) render ediyor; tüm ortak
-// handler'lar tek tek prop olarak değil, bu paket üzerinden geçiliyor.
+// -> AI cevabı) her zaman en az İKİ seviye derinlik oluşturabiliyor — bunların
+// GÖRÜNÜRDE kaybolmaması flattenReplies ile sağlanıyor (bkz. o fonksiyonun notu),
+// derinlik ne olursa olsun render TEK indent seviyesinde. ReplyRow/ReplyAiRow artık
+// kendi yanıtlarını recursive RENDER ETMİYOR (flattenReplies zaten hepsini tek listede
+// topluyor); tüm ortak handler'lar tek tek prop olarak değil, bu paket üzerinden geçiliyor.
 type DiscussionHandlers = {
   userId: string | null;
   // Admin, kendisine ait olmayan yorumları/AI cevaplarını da silebilsin diye
@@ -82,6 +83,24 @@ type DiscussionHandlers = {
   repliesOfComment: (id: number) => FeedEntry[];
   repliesOfAi: (id: number) => FeedEntry[];
 };
+
+// Tüm alt yanıtları (yanıtın yanıtı dahil, sınırsız derinlik) TEK SEVİYEDE düz bir
+// listeye topluyoruz. Önceden ReplyRow/ReplyAiRow kendi yanıtlarını RECURSIVE render
+// ediyordu — her "yanıtın yanıtı" bir öncekinin İÇİNE, kendi border-l-2/avatar/kutu
+// setiyle bir kat daha ekleniyordu; 2 seviyede bile (yorum → @hocam cevabı) bu iki kat
+// girinti + iki avatar mobilde metni daraltıp "kutu içinde kutu" görünümü veriyordu
+// (kullanıcının 2026-09-12 ekran görüntüsüyle bildirdiği sorun). Artık kaç round
+// sürerse sürsün TEK indent seviyesi var; veri ilişkisi (parent_comment_id/
+// parent_rag_answer_id) hâlâ tam derinlikte, sadece görünüm düz.
+function flattenReplies(
+  id: number,
+  from: 'comment' | 'ai',
+  repliesOfComment: (id: number) => FeedEntry[],
+  repliesOfAi: (id: number) => FeedEntry[]
+): FeedEntry[] {
+  const direct = from === 'comment' ? repliesOfComment(id) : repliesOfAi(id);
+  return direct.flatMap((r) => [r, ...flattenReplies(r.id, r.kind, repliesOfComment, repliesOfAi)]);
+}
 
 function displayNameOf(profiles: Profile | Profile[]): string {
   const p = Array.isArray(profiles) ? profiles[0] : profiles;
@@ -137,13 +156,17 @@ function AiPendingOrFailed({ status }: { status: 'queued' | 'processing' | 'fail
   );
 }
 
-function Avatar({ name, url }: { name: string; url: string | null }) {
+// size="sm" (h-6 w-6) yanıt satırlarında (ReplyRow) kullanılıyor — tek indent
+// seviyesinde bile tam boy avatar + girinti mobilde metni fazla daraltıyordu
+// (kullanıcının 2026-09-12 "iç içe cevaplar kötü görünüyor" bildirimi).
+function Avatar({ name, url, size = 'md' }: { name: string; url: string | null; size?: 'md' | 'sm' }) {
+  const cls = size === 'sm' ? 'h-6 w-6 text-[10px]' : 'h-8 w-8 text-xs';
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} className="h-8 w-8 rounded-full object-cover shrink-0" />;
+    return <img src={url} alt={name} className={`${cls} rounded-full object-cover shrink-0`} />;
   }
   return (
-    <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+    <div className={`${cls} rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold shrink-0`}>
       {name.charAt(0).toUpperCase()}
     </div>
   );
@@ -154,16 +177,14 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 // input'ları unmount/remount etmeye zorlardı — bu da reply kutusuna her harf
 // yazışta focus kaybına yol açardı.
 function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: DiscussionHandlers }) {
-  const { userId, isAdmin, editingId, editText, commentBusyId, onStartEdit, onCancelEdit, onSaveEdit, onDeleteComment, onEditTextChange, repliesOfComment } =
-    handlers;
+  const { userId, isAdmin, editingId, editText, commentBusyId, onStartEdit, onCancelEdit, onSaveEdit, onDeleteComment, onEditTextChange } = handlers;
   const isOwn = comment.student_id === userId;
   const isEditing = editingId === comment.id;
   const isBusy = commentBusyId === comment.id;
-  const nested = repliesOfComment(comment.id);
   const name = displayNameOf(comment.profiles);
   return (
-    <div id={`disc-c${comment.id}`} className="flex items-start gap-2.5">
-      <Avatar name={name} url={avatarUrlOf(comment.profiles)} />
+    <div id={`disc-c${comment.id}`} className="flex items-start gap-2">
+      <Avatar name={name} url={avatarUrlOf(comment.profiles)} size="sm" />
       <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-gray-900">{name}</span>
@@ -222,18 +243,6 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
             >
               Sil
             </button>
-          )}
-        </div>
-      )}
-
-      {nested.length > 0 && (
-        <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
-          {nested.map((r) =>
-            r.kind === 'comment' ? (
-              <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
-            ) : (
-              <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} showQuestion={false} />
-            )
           )}
         </div>
       )}
@@ -306,9 +315,8 @@ function ReplyAiRow({
   // eski/uç durumlar için varsayılan true kalıyor) bu üst bilgi burada gösterilir.
   showQuestion?: boolean;
 }) {
-  const { isAdmin, onDeleteAi, onReportPatch, onReportSubmit, repliesOfAi } = handlers;
+  const { isAdmin, onDeleteAi, onReportPatch, onReportSubmit } = handlers;
   const name = displayNameOf(item.profiles);
-  const nested = repliesOfAi(item.id);
   return (
     <div id={`disc-a${item.id}`} className="space-y-1.5">
       {showQuestion !== false && (
@@ -382,18 +390,6 @@ function ReplyAiRow({
                 {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
                 {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
               </div>
-
-              {nested.length > 0 && (
-                <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
-                  {nested.map((r) =>
-                    r.kind === 'comment' ? (
-                      <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
-                    ) : (
-                      <ReplyAiRow key={`a${r.id}`} item={r} handlers={handlers} />
-                    )
-                  )}
-                </div>
-              )}
 
               <ReplyBox
                 target={{ type: 'ai', id: item.id }}
@@ -925,8 +921,9 @@ export default function UnitDiscussion({
   // sorulduğu anda sayaç 1 (soru), cevap gelince 2 (soru + cevap) olacak şekilde.
   const commentTotal = comments.length + aiEntries.filter((a) => a.status === 'published').length;
 
-  // ReplyRow/ReplyAiRow kendi yanıtlarını recursive render edebilsin diye tüm ortak
-  // handler'lar burada tek pakette toplanıyor (bkz. DiscussionHandlers tanımı).
+  // ReplyRow/ReplyAiRow (ve flattenReplies çağıran üst seviye render) tüm ortak
+  // handler'ları tek tek prop olarak değil, burada tek pakette toplanmış hâliyle alır
+  // (bkz. DiscussionHandlers tanımı).
   const handlers: DiscussionHandlers = {
     userId,
     isAdmin: !!isAdmin,
@@ -1095,9 +1092,9 @@ export default function UnitDiscussion({
                         </div>
                       )}
 
-                      {repliesOfComment(item.id).length > 0 && (
-                        <div className="mt-2 ml-1 space-y-2 border-l-2 border-gray-100 pl-3">
-                          {repliesOfComment(item.id).map((r) =>
+                      {flattenReplies(item.id, 'comment', repliesOfComment, repliesOfAi).length > 0 && (
+                        <div className="mt-2 ml-1 space-y-2.5 border-l-2 border-gray-100 pl-3">
+                          {flattenReplies(item.id, 'comment', repliesOfComment, repliesOfAi).map((r) =>
                             r.kind === 'comment' ? (
                               <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
                             ) : (
@@ -1205,9 +1202,9 @@ export default function UnitDiscussion({
                       </>
                     )}
 
-                    {repliesOfAi(item.id).length > 0 && (
-                      <div className="mt-3 space-y-2 border-l-2 border-gray-200 pl-3">
-                        {repliesOfAi(item.id).map((r) =>
+                    {flattenReplies(item.id, 'ai', repliesOfComment, repliesOfAi).length > 0 && (
+                      <div className="mt-3 space-y-2.5 border-l-2 border-gray-200 pl-3">
+                        {flattenReplies(item.id, 'ai', repliesOfComment, repliesOfAi).map((r) =>
                           r.kind === 'comment' ? (
                             <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
                           ) : (
