@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
+import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 type IncomingSection = {
   heading?: unknown;
@@ -320,6 +321,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Kazanım eşlemeleri kaydedilemedi' }, { status: 500 });
     }
   }
+
+  // Bu endpoint (alt başlık planı + tek/çoklu-başlık içerik kaydı, hem ilk oluşturma
+  // hem "İçeriği Güncelle" akışları) public konu sayfasını (ISR, revalidate=3600)
+  // asla invalide etmiyordu — DB'ye kaydediliyor ama site en fazla bir saat, hatta
+  // sayfa daha önce hiç (veya yayınlanmadan önce) ziyaret edilip bir "bulunamadı"
+  // sonucu cache'lendiyse süresiz bayat/404 kalabiliyordu (kullanıcı raporu,
+  // 2026-09-12: "bu sayfaya neden ulaşamıyorum" — yayın durumu DB'de doğruydu).
+  await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
+  revalidateHomepage();
 
   return NextResponse.json({
     ok: true,
