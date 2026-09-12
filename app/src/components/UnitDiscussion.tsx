@@ -124,13 +124,55 @@ function avatarUrlOf(profiles: Profile | Profile[]): string | null {
   return p?.avatar_url || null;
 }
 
+// AI/öğrenci metinlerinde geçen "**terim**" gibi vurgulanmış kısımları (Gemini bunu
+// doğal olarak üretiyor, ör. "**Kavram Karşılaştırma:**") kalın+renkli göstermek için —
+// önceden düz metin olarak basılıyordu, yıldızlar OLDUĞU GİBİ ekrana çıkıyordu
+// (kullanıcının 2026-09-12 ekran görüntüsüyle bildirdiği sorun). "- " ile başlayan
+// satırlar da madde imi olarak render edilir (AI cevapları çoğunlukla bu formatta
+// geliyor). dangerouslySetInnerHTML KULLANILMIYOR — hem öğrenci yorumu hem AI cevabı
+// güvenilmeyen metin olabileceği için (XSS), sadece React eleman ağacı üretiliyor.
+function renderRichText(text: string): React.ReactNode {
+  const renderInline = (segment: string, keyPrefix: string): React.ReactNode[] =>
+    segment
+      .split(/(\*\*[^*\n]+\*\*)/g)
+      .filter((part) => part.length > 0)
+      .map((part, i) =>
+        part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+          <strong key={`${keyPrefix}-${i}`} className="font-extrabold text-indigo-700 dark:text-indigo-300">
+            {part.slice(2, -2)}
+          </strong>
+        ) : (
+          <React.Fragment key={`${keyPrefix}-${i}`}>{part}</React.Fragment>
+        )
+      );
+
+  const lines = text.split('\n');
+  return lines.map((line, i) => {
+    const bulletMatch = line.match(/^\s*[-•]\s+(.*)$/);
+    if (bulletMatch) {
+      return (
+        <span key={i} className="flex gap-1.5 items-start">
+          <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400 dark:bg-indigo-500" />
+          <span>{renderInline(bulletMatch[1], `${i}`)}</span>
+        </span>
+      );
+    }
+    return (
+      <React.Fragment key={i}>
+        {renderInline(line, `${i}`)}
+        {i < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+}
+
 // @hocam/@kanka'nın karakter görselleri (public/ai-hocam.webp, public/ai-kanka.webp) —
 // önceki jenerik "Bot" ikonu yerine, hangi modda cevap verildiğini görsel olarak da
 // ayırt etsin diye (kullanıcı isteği, 2026-09-03).
 function AiAvatar({ model, sizeClass }: { model: string; sizeClass: string }) {
   const isKanka = model.includes('kanka');
   return (
-    <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 bg-gray-100`}>
+    <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 bg-gray-100 dark:bg-white/10 ring-2 ring-indigo-200 dark:ring-indigo-500/30`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={isKanka ? '/ai-kanka.webp' : '/ai-hocam.webp'}
@@ -146,11 +188,11 @@ function AiAvatar({ model, sizeClass }: { model: string; sizeClass: string }) {
 // (hasPendingAi effect'i feed'i periyodik yeniden çekip cevap gelince günceller).
 function AiPendingOrFailed({ status }: { status: 'queued' | 'processing' | 'failed' }) {
   if (status === 'failed') {
-    return <p className="text-sm text-red-500">Bu soruya şu an cevap üretilemedi, tekrar sorabilirsin.</p>;
+    return <p className="text-sm text-red-500 dark:text-red-400">Bu soruya şu an cevap üretilemedi, tekrar sorabilirsin.</p>;
   }
   return (
-    <p className="flex items-center gap-2 text-sm text-gray-500">
-      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-indigo-400" />
+    <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-muted-foreground">
+      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-gray-300 dark:border-white/20 border-t-indigo-400" />
       Cevap hazırlanıyor, birkaç dakika sürebilir…
     </p>
   );
@@ -166,7 +208,7 @@ function Avatar({ name, url, size = 'md' }: { name: string; url: string | null; 
     return <img src={url} alt={name} className={`${cls} rounded-full object-cover shrink-0`} />;
   }
   return (
-    <div className={`${cls} rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold shrink-0`}>
+    <div className={`${cls} rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 flex items-center justify-center font-bold shrink-0`}>
       {name.charAt(0).toUpperCase()}
     </div>
   );
@@ -187,8 +229,8 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
       <Avatar name={name} url={avatarUrlOf(comment.profiles)} size="sm" />
       <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-gray-900">{name}</span>
-        <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString('tr-TR')}</span>
+        <span className="text-sm font-semibold text-gray-900 dark:text-foreground">{name}</span>
+        <span className="text-xs text-gray-400 dark:text-muted-foreground">{new Date(comment.created_at).toLocaleDateString('tr-TR')}</span>
       </div>
       {isEditing ? (
         <div className="space-y-1.5">
@@ -197,32 +239,32 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
             onChange={(e) => onEditTextChange(e.target.value.slice(0, MAX_LENGTH))}
             rows={2}
             disabled={isBusy}
-            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+            className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-2.5 py-1.5 text-sm text-gray-800 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
           />
           <div className="flex gap-2">
             <button
               onClick={() => onSaveEdit(comment)}
               disabled={isBusy || !editText.trim()}
-              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40"
             >
               Kaydet
             </button>
-            <button onClick={onCancelEdit} className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100">
+            <button onClick={onCancelEdit} className="px-3 py-1 rounded-md text-xs text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5">
               Vazgeç
             </button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.body}</p>
+        <div className="text-sm text-gray-800 dark:text-foreground">{renderRichText(comment.body)}</div>
       )}
       {comment.status !== 'published' && comment.status !== 'deleted' && isOwn && (
-        <p className="mt-0.5 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
+        <p className="mt-0.5 text-[11px] text-amber-500 dark:text-amber-400">Onay bekliyor, sadece sen görüyorsun.</p>
       )}
       {!isEditing && (
         <div className="mt-0.5 flex items-center gap-3">
           <button
             onClick={() => handlers.onSetReplyTarget(handlers.replyTarget?.type === 'comment' && handlers.replyTarget.id === comment.id ? null : { type: 'comment', id: comment.id })}
-            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+            className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 hover:text-indigo-400 dark:hover:text-indigo-300"
           >
             Yanıtla
           </button>
@@ -230,7 +272,7 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
             <button
               onClick={() => onStartEdit(comment)}
               disabled={isBusy}
-              className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+              className="text-[11px] font-bold text-gray-400 dark:text-muted-foreground hover:text-gray-600 dark:hover:text-foreground disabled:opacity-40"
             >
               Düzenle
             </button>
@@ -239,7 +281,7 @@ function ReplyRow({ comment, handlers }: { comment: CommentEntry; handlers: Disc
             <button
               onClick={() => onDeleteComment(comment)}
               disabled={isBusy}
-              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+              className="text-[11px] font-bold text-red-400 dark:text-red-400/80 hover:text-red-600 dark:hover:text-red-300 disabled:opacity-40"
             >
               Sil
             </button>
@@ -283,12 +325,12 @@ function ReplyBox({
         onChange={(e) => onReplyTextChange(e.target.value.slice(0, MAX_LENGTH))}
         placeholder={`Yanıtını yaz, ya da ${HOCAM_TAG} / ${KANKA_TAG} ile soru sor…`}
         disabled={submitting}
-        className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+        className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-2.5 py-1.5 text-xs text-gray-800 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       />
       <button
         onClick={onSubmit}
         disabled={submitting || !replyText.trim()}
-        className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+        className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40"
       >
         Gönder
       </button>
@@ -321,41 +363,41 @@ function ReplyAiRow({
     <div id={`disc-a${item.id}`} className="space-y-1.5">
       {showQuestion !== false && (
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-800">{name}</span>
-          <span className="text-[11px] text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
+          <span className="text-xs font-semibold text-gray-800 dark:text-foreground">{name}</span>
+          <span className="text-[11px] text-gray-400 dark:text-muted-foreground">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
         </div>
       )}
       {showQuestion !== false && (
-        <p className="text-sm text-gray-800 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
+        <p className="text-sm text-gray-800 dark:text-foreground whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
       )}
-      <div className="rounded-lg bg-gray-50/80 p-2.5 flex items-start gap-2">
+      <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-500/10 dark:to-purple-500/10 border border-indigo-100 dark:border-indigo-500/20 border-l-4 border-l-indigo-400 dark:border-l-indigo-500 p-2.5 flex items-start gap-2">
         <AiAvatar model={item.model} sizeClass="h-6 w-6" />
         <div className="min-w-0 flex-1">
-          <span className="text-xs font-bold text-gray-800">{aiDisplayName(item.model)}</span>
+          <span className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300">{aiDisplayName(item.model)}</span>
           {item.status !== 'published' ? (
             <AiPendingOrFailed status={item.status} />
           ) : (
             <>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
+              <div className="text-sm text-gray-700 dark:text-foreground/90">{renderRichText(item.answer || '')}</div>
               <div className="mt-2">
                 {item.reportState === 'idle' && (
                   <div className="flex items-center gap-3 flex-wrap">
                     <button
                       onClick={() => handlers.onSetReplyTarget(handlers.replyTarget?.type === 'ai' && handlers.replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
-                      className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                      className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 hover:text-indigo-400 dark:hover:text-indigo-300"
                     >
                       Yanıtla
                     </button>
                     <button
                       onClick={() => onReportPatch(item.id, { reportState: 'open' })}
-                      className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
+                      className="inline-flex items-center gap-1 text-[11px] text-gray-400 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
                     >
                       <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
                     </button>
                     {isAdmin && (
                       <button
                         onClick={() => onDeleteAi(item)}
-                        className="text-[11px] font-bold text-red-400 hover:text-red-600"
+                        className="text-[11px] font-bold text-red-400 dark:text-red-400/80 hover:text-red-600 dark:hover:text-red-300"
                       >
                         Sil
                       </button>
@@ -369,26 +411,26 @@ function ReplyAiRow({
                       onChange={(e) => onReportPatch(item.id, { reportReason: e.target.value.slice(0, 500) })}
                       placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
                       rows={2}
-                      className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                      className="w-full rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-2.5 py-1.5 text-xs text-gray-700 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={() => onReportSubmit(item)}
-                        className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                        className="px-3 py-1 rounded-md bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-500/20"
                       >
                         Bildir
                       </button>
                       <button
                         onClick={() => onReportPatch(item.id, { reportState: 'idle', reportReason: '' })}
-                        className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
+                        className="px-3 py-1 rounded-md text-gray-500 dark:text-muted-foreground text-xs hover:bg-gray-100 dark:hover:bg-white/5"
                       >
                         Vazgeç
                       </button>
                     </div>
                   </div>
                 )}
-                {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
-                {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
+                {item.reportState === 'sending' && <p className="text-xs text-gray-400 dark:text-muted-foreground">Gönderiliyor…</p>}
+                {item.reportState === 'sent' && <p className="text-xs text-emerald-600 dark:text-emerald-400">Bildirdiğin için teşekkürler, incelenecek.</p>}
               </div>
 
               <ReplyBox
@@ -952,7 +994,7 @@ export default function UnitDiscussion({
   };
 
   return (
-    <div className={hideToggle ? '' : 'bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
+    <div className={hideToggle ? '' : 'bg-white dark:bg-card rounded-2xl border border-slate-200/70 dark:border-white/10 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
       {!hideToggle && (
         <button
           type="button"
@@ -960,7 +1002,7 @@ export default function UnitDiscussion({
           className={`flex w-full items-center gap-2 text-left ${expanded ? 'mb-3' : ''}`}
         >
           <MessageCircle className="h-5 w-5 shrink-0 text-indigo-500" />
-          <h2 className="flex-1 text-base font-black text-slate-900">
+          <h2 className="flex-1 text-base font-black text-slate-900 dark:text-foreground">
             {quizQuestionId != null
               ? 'Bu Soru Hakkında'
               : topicName
@@ -968,16 +1010,16 @@ export default function UnitDiscussion({
                 : unitName
                   ? `${unitName} Ünitesi Hakkında`
                   : 'Konu Hakkında'}
-            {commentTotal > 0 && <span className="ml-1.5 font-normal text-slate-400">({commentTotal})</span>}
+            {commentTotal > 0 && <span className="ml-1.5 font-normal text-slate-400 dark:text-muted-foreground">({commentTotal})</span>}
           </h2>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 dark:text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
       )}
 
       {!expanded ? null : authState === 'loading' ? null : authState === 'out' ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-muted-foreground">
           Yorum yapmak veya AI&apos;ye soru sormak için{' '}
-          <a href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`} className="text-indigo-600 font-medium hover:underline">
+          <a href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`} className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
             giriş yapman
           </a>{' '}
           gerekiyor.
@@ -990,10 +1032,10 @@ export default function UnitDiscussion({
             placeholder={`Yorum yaz, ${HOCAM_TAG} ile ders notuna, ${KANKA_TAG} ile serbest bir şey sor…`}
             rows={3}
             disabled={submitting}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:opacity-60 resize-none"
+            className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-3 py-2 text-sm text-gray-800 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:opacity-60 resize-none"
           />
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 dark:text-muted-foreground">
               {text.length}/{MAX_LENGTH}
               {dailyRemaining != null && ` · AI için bugün kalan hakkın: ${dailyRemaining}`}
             </span>
@@ -1005,12 +1047,12 @@ export default function UnitDiscussion({
               {submitting ? 'Gönderiliyor…' : 'Gönder'}
             </button>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
 
       {expanded && feed.length > 0 && (
-        <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+        <div className="mt-5 space-y-3 border-t border-gray-100 dark:border-white/5 pt-5">
           {feed.slice(0, visibleFeedCount).map((item) => {
             if (item.kind === 'comment') {
               const name = displayNameOf(item.profiles);
@@ -1018,13 +1060,17 @@ export default function UnitDiscussion({
               const isEditing = editingId === item.id;
               const isBusy = commentBusyId === item.id;
               return (
-                <div key={`c${item.id}`} id={`disc-c${item.id}`} className="space-y-2">
+                <div
+                  key={`c${item.id}`}
+                  id={`disc-c${item.id}`}
+                  className="space-y-2 rounded-xl bg-gray-50/70 dark:bg-white/[0.03] border border-gray-100 dark:border-white/5 p-3"
+                >
                   <div className="flex items-start gap-2.5">
                     <Avatar name={name} url={avatarUrlOf(item.profiles)} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900">{name}</span>
-                        <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-foreground">{name}</span>
+                        <span className="text-xs text-gray-400 dark:text-muted-foreground">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
                       </div>
 
                       {isEditing ? (
@@ -1034,13 +1080,13 @@ export default function UnitDiscussion({
                             onChange={(e) => setEditText(e.target.value.slice(0, MAX_LENGTH))}
                             rows={2}
                             disabled={isBusy}
-                            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                            className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-2.5 py-1.5 text-sm text-gray-800 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={() => saveEdit(item)}
                               disabled={isBusy || !editText.trim()}
-                              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 hover:bg-indigo-500/25 disabled:opacity-40"
+                              className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-500/15 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40"
                             >
                               Kaydet
                             </button>
@@ -1049,25 +1095,25 @@ export default function UnitDiscussion({
                                 setEditingId(null);
                                 setEditText('');
                               }}
-                              className="px-3 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100"
+                              className="px-3 py-1 rounded-md text-xs text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5"
                             >
                               Vazgeç
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{item.body}</p>
+                        <div className="text-sm text-gray-800 dark:text-foreground mt-0.5">{renderRichText(item.body)}</div>
                       )}
 
                       {item.status !== 'published' && item.status !== 'deleted' && isOwn && (
-                        <p className="mt-1 text-[11px] text-amber-500">Onay bekliyor, sadece sen görüyorsun.</p>
+                        <p className="mt-1 text-[11px] text-amber-500 dark:text-amber-400">Onay bekliyor, sadece sen görüyorsun.</p>
                       )}
 
                       {!isEditing && (
                         <div className="mt-1 flex items-center gap-3">
                           <button
                             onClick={() => setReplyTarget(replyTarget?.type === 'comment' && replyTarget.id === item.id ? null : { type: 'comment', id: item.id })}
-                            className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                            className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 hover:text-indigo-400 dark:hover:text-indigo-300"
                           >
                             Yanıtla
                           </button>
@@ -1075,7 +1121,7 @@ export default function UnitDiscussion({
                             <button
                               onClick={() => startEdit(item)}
                               disabled={isBusy}
-                              className="text-[11px] font-bold text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                              className="text-[11px] font-bold text-gray-400 dark:text-muted-foreground hover:text-gray-600 dark:hover:text-foreground disabled:opacity-40"
                             >
                               Düzenle
                             </button>
@@ -1084,7 +1130,7 @@ export default function UnitDiscussion({
                             <button
                               onClick={() => handleDeleteComment(item)}
                               disabled={isBusy}
-                              className="text-[11px] font-bold text-red-400 hover:text-red-600 disabled:opacity-40"
+                              className="text-[11px] font-bold text-red-400 dark:text-red-400/80 hover:text-red-600 dark:hover:text-red-300 disabled:opacity-40"
                             >
                               Sil
                             </button>
@@ -1093,7 +1139,7 @@ export default function UnitDiscussion({
                       )}
 
                       {flattenReplies(item.id, 'comment', repliesOfComment, repliesOfAi).length > 0 && (
-                        <div className="mt-2 ml-1 space-y-2.5 border-l-2 border-gray-100 pl-3">
+                        <div className="mt-2 ml-1 space-y-2.5 border-l-2 border-gray-100 dark:border-white/5 pl-3">
                           {flattenReplies(item.id, 'comment', repliesOfComment, repliesOfAi).map((r) =>
                             r.kind === 'comment' ? (
                               <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
@@ -1125,23 +1171,23 @@ export default function UnitDiscussion({
                   <Avatar name={name} url={avatarUrlOf(item.profiles)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">{name}</span>
-                      <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-foreground">{name}</span>
+                      <span className="text-xs text-gray-400 dark:text-muted-foreground">{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>
                     </div>
-                    <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
+                    <p className="text-sm text-gray-800 dark:text-foreground mt-0.5 whitespace-pre-wrap">{tagForModel(item.model)} {item.question}</p>
                   </div>
                 </div>
 
                 <div className="ml-[42px] flex items-start gap-2.5">
                   <AiAvatar model={item.model} sizeClass="h-8 w-8" />
-                  <div className="min-w-0 flex-1 rounded-lg bg-gray-50/80 p-3">
-                    <span className="text-xs font-bold text-gray-800">{aiDisplayName(item.model)}</span>
+                  <div className="min-w-0 flex-1 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-500/10 dark:to-purple-500/10 border border-indigo-100 dark:border-indigo-500/20 border-l-4 border-l-indigo-400 dark:border-l-indigo-500 p-3">
+                    <span className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300">{aiDisplayName(item.model)}</span>
                     {item.status !== 'published' ? (
                       <AiPendingOrFailed status={item.status} />
                     ) : (
                       <>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
-                        <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-1.5">
+                        <div className="text-sm text-gray-700 dark:text-foreground/90">{renderRichText(item.answer || '')}</div>
+                        <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20 rounded-md px-2.5 py-1.5">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                           <span>Bu cevap yapay zeka tarafından üretildi, hata içerebilir.</span>
                         </div>
@@ -1151,20 +1197,20 @@ export default function UnitDiscussion({
                             <div className="flex items-center gap-3 flex-wrap">
                               <button
                                 onClick={() => setReplyTarget(replyTarget?.type === 'ai' && replyTarget.id === item.id ? null : { type: 'ai', id: item.id })}
-                                className="text-[11px] font-bold text-indigo-500 hover:text-indigo-400"
+                                className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 hover:text-indigo-400 dark:hover:text-indigo-300"
                               >
                                 Yanıtla
                               </button>
                               <button
                                 onClick={() => updateAiEntry(item.id, { reportState: 'open' })}
-                                className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
+                                className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
                               >
                                 <Flag className="h-3 w-3" /> Bu cevapta hata var, bildir
                               </button>
                               {isAdmin && (
                                 <button
                                   onClick={() => handleDeleteAi(item)}
-                                  className="text-[11px] font-bold text-red-400 hover:text-red-600"
+                                  className="text-[11px] font-bold text-red-400 dark:text-red-400/80 hover:text-red-600 dark:hover:text-red-300"
                                 >
                                   Sil
                                 </button>
@@ -1178,32 +1224,32 @@ export default function UnitDiscussion({
                                 onChange={(e) => updateAiEntry(item.id, { reportReason: e.target.value.slice(0, 500) })}
                                 placeholder="Neyin yanlış/eksik olduğunu kısaca yazabilirsin (opsiyonel)"
                                 rows={2}
-                                className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                                className="w-full rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-surface px-2.5 py-1.5 text-xs text-gray-700 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
                               />
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => submitReport(item)}
-                                  className="px-3 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100"
+                                  className="px-3 py-1 rounded-md bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-500/20"
                                 >
                                   Bildir
                                 </button>
                                 <button
                                   onClick={() => updateAiEntry(item.id, { reportState: 'idle', reportReason: '' })}
-                                  className="px-3 py-1 rounded-md text-gray-500 text-xs hover:bg-gray-100"
+                                  className="px-3 py-1 rounded-md text-gray-500 dark:text-muted-foreground text-xs hover:bg-gray-100 dark:hover:bg-white/5"
                                 >
                                   Vazgeç
                                 </button>
                               </div>
                             </div>
                           )}
-                          {item.reportState === 'sending' && <p className="text-xs text-gray-400">Gönderiliyor…</p>}
-                          {item.reportState === 'sent' && <p className="text-xs text-emerald-600">Bildirdiğin için teşekkürler, incelenecek.</p>}
+                          {item.reportState === 'sending' && <p className="text-xs text-gray-400 dark:text-muted-foreground">Gönderiliyor…</p>}
+                          {item.reportState === 'sent' && <p className="text-xs text-emerald-600 dark:text-emerald-400">Bildirdiğin için teşekkürler, incelenecek.</p>}
                         </div>
                       </>
                     )}
 
                     {flattenReplies(item.id, 'ai', repliesOfComment, repliesOfAi).length > 0 && (
-                      <div className="mt-3 space-y-2.5 border-l-2 border-gray-200 pl-3">
+                      <div className="mt-3 space-y-2.5 border-l-2 border-indigo-200/60 dark:border-indigo-500/20 pl-3">
                         {flattenReplies(item.id, 'ai', repliesOfComment, repliesOfAi).map((r) =>
                           r.kind === 'comment' ? (
                             <ReplyRow key={`c${r.id}`} comment={r} handlers={handlers} />
@@ -1231,7 +1277,7 @@ export default function UnitDiscussion({
             <button
               type="button"
               onClick={() => setVisibleFeedCount((n) => n + 7)}
-              className="w-full rounded-lg border border-gray-200 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+              className="w-full rounded-lg border border-gray-200 dark:border-white/10 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
             >
               Daha Fazla Göster ({feed.length - visibleFeedCount})
             </button>
@@ -1240,13 +1286,13 @@ export default function UnitDiscussion({
       )}
 
       {expanded && feed.length === 0 && authState !== 'loading' && (
-        <p className="mt-5 text-sm text-gray-400 border-t border-gray-100 pt-5">
+        <p className="mt-5 text-sm text-gray-400 dark:text-muted-foreground border-t border-gray-100 dark:border-white/5 pt-5">
           {quizQuestionId != null ? 'Bu soru için henüz yorum yok, ilk yorumu sen yaz.' : 'Henüz yorum yok, ilk yorumu sen yaz.'}
         </p>
       )}
 
       {expanded && questionContext && (
-        <p className="mt-3 text-xs text-gray-400">
+        <p className="mt-3 text-xs text-gray-400 dark:text-muted-foreground">
           <Sparkles className="inline h-3 w-3 mr-1" />
           Sadece bu soru hakkında AI&apos;ye sormak için <span className="font-mono">{HOCAM_TAG}</span> yaz — örn. &quot;{HOCAM_TAG} neden A doğru?&quot;
         </p>
