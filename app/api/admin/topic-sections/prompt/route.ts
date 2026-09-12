@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
     topic_questions_classical: '14-topic-classical-questions.md',
     topic_questions_classical_notebooklm: '16-topic-classical-questions-notebooklm.md',
     topic_questions_from_synthesis: '21-topic-questions-from-synthesis.md',
+    // Kitapsız derslerde: "Açık Uçlu Sorular" için de "Genel Sorular"daki gibi RAG sentez
+    // metnine dayanan bir kaynak seçeneği (kullanıcı isteği, 2026-09-12) — 14/16'daki AYNI
+    // klasik/açık uçlu soru şeması, sadece kaynağı ders notu/kitap değil sentez metni.
+    topic_questions_classical_from_synthesis: '25-topic-classical-questions-from-synthesis.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -224,7 +228,8 @@ export async function GET(request: NextRequest) {
       type === 'topic_questions_mixed' ||
       type === 'topic_questions_classical' ||
       type === 'topic_questions_classical_notebooklm' ||
-      type === 'topic_questions_from_synthesis'
+      type === 'topic_questions_from_synthesis' ||
+      type === 'topic_questions_classical_from_synthesis'
     ) {
       const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
       if (topicContent) {
@@ -248,7 +253,13 @@ export async function GET(request: NextRequest) {
     // gömmüyoruz (uzunluk/karakter sınırı yüzünden) — sadece hangi alt başlıkları
     // kapsaması gerektiğini kısa bir liste olarak veriyoruz. Diğer AI'lar (topic_questions_mixed)
     // kitaba erişemediği için onlara alt başlıkların tam ders notunu gömüyoruz.
-    if (type === 'topic_questions' || type === 'topic_questions_mixed' || type === 'topic_questions_classical_notebooklm' || type === 'topic_questions_from_synthesis') {
+    if (
+      type === 'topic_questions' ||
+      type === 'topic_questions_mixed' ||
+      type === 'topic_questions_classical_notebooklm' ||
+      type === 'topic_questions_from_synthesis' ||
+      type === 'topic_questions_classical_from_synthesis'
+    ) {
       sectionHeadingsText = sectionRows.map((s) => s.heading).join(', ');
       if (!sectionHeadingsText.trim()) {
         return NextResponse.json({ error: 'Önce alt başlık planı oluşturulmalı' }, { status: 409 });
@@ -269,7 +280,7 @@ export async function GET(request: NextRequest) {
     // ÖZETİNDEN değil, RAG için zaten sentezlenmiş DAHA KAPSAMLI kaynak metinden sorulsun —
     // bkz. full_from_synthesis'teki aynı mantık (2026-09-10 kullanıcı talebi).
     let synthesisSourceText = '';
-    if (type === 'topic_questions_from_synthesis') {
+    if (type === 'topic_questions_from_synthesis' || type === 'topic_questions_classical_from_synthesis') {
       const { data: synthesisDoc } = await supabase
         .from('rag_documents')
         .select('raw_text')

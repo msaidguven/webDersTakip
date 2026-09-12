@@ -2960,12 +2960,12 @@ export function TopicQuestionsModal({
 }: {
   topicId: number;
   topicTitle: string;
-  variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis';
+  variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis';
   onClose: () => void;
 }) {
   const isNotebook = variant === 'notebooklm' || variant === 'classical_notebooklm';
-  const isClassical = variant === 'classical' || variant === 'classical_notebooklm';
-  const isRagSynthesis = variant === 'rag_synthesis';
+  const isClassical = variant === 'classical' || variant === 'classical_notebooklm' || variant === 'classical_rag_synthesis';
+  const isRagSynthesis = variant === 'rag_synthesis' || variant === 'classical_rag_synthesis';
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -2979,7 +2979,9 @@ export function TopicQuestionsModal({
     let cancelled = false;
     setLoadingPrompt(true);
     setPromptError(null);
-    const promptType = isRagSynthesis
+    const promptType = isRagSynthesis && isClassical
+      ? 'topic_questions_classical_from_synthesis'
+      : isRagSynthesis
       ? 'topic_questions_from_synthesis'
       : isNotebook && isClassical
       ? 'topic_questions_classical_notebooklm'
@@ -3055,7 +3057,9 @@ export function TopicQuestionsModal({
     <ModalShell title={`${isClassical ? 'Açık Uçlu Sorular (Ünite Testi)' : 'Genel Sorular (Ünite Testi)'}${isNotebook ? '' : isRagSynthesis ? ' — RAG Sentezi' : ' — Diğer AI'} — ${topicTitle}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          {isRagSynthesis
+          {isRagSynthesis && isClassical
+            ? 'Kitapsız ders — konunun tüm alt başlıklarını kapsayan, RAG için zaten sentezlenmiş çoklu-AI kaynak metnine dayanan 6-10 klasik/açık uçlu sentez sorusu, cevap anahtarıyla birlikte üretilir. Dışarıda bir AI\'a (ör. Claude) sorup dönen JSON\'u aşağıya yapıştırıp tek seferde kaydedin.'
+            : isRagSynthesis
             ? 'Kitapsız ders — konunun tüm alt başlıklarını kapsayan, RAG için zaten sentezlenmiş çoklu-AI kaynak metnine dayanan 10-15 genel/sentez sorusu üretilir; bunlar ünite testinde alt başlık sorularıyla birlikte gösterilir. Dışarıda bir AI\'a (ör. Claude) sorup dönen JSON\'u aşağıya yapıştırıp tek seferde kaydedin.'
             : isNotebook && isClassical
             ? 'Bu promptu NotebookLM\'e, kaynak olarak ders kitabının PDF\'ini yüklediğiniz notebook\'ta sorun. Tek bir alt başlığa değil konunun bütününe bakan, en az iki alt başlığı birleştiren/karşılaştıran 6-10 klasik/açık uçlu sentez sorusu, kitaba dayanarak ve cevap anahtarıyla birlikte üretilir. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin.'

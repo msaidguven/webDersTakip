@@ -262,7 +262,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
-  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' } | null>(null);
+  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
   const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' | 'synthesis' } | null>(null);
@@ -2111,6 +2111,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                 done={questionStatusByTopic[activeTopic.id]?.general}
                                 onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'notebooklm' }); }}
                               />
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<Sparkles className="h-3.5 w-3.5" />}
+                                  label="Sentezden Açık Uçlu Sorular"
+                                  title="Kitapsız ders — RAG sentez metnine dayanan açık uçlu sentez soruları üret"
+                                  onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'classical_rag_synthesis' }); }}
+                                />
+                              )}
                               <TopicActionMenuItem
                                 icon={<Sparkles className="h-3.5 w-3.5" />}
                                 label="Açık Uçlu Sorular"
