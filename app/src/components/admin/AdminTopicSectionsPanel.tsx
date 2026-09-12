@@ -40,6 +40,7 @@ type Section = {
   notebook_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  diagram_svg: string | null;
   status: 'planned' | 'content_ready' | 'image_ready' | 'published';
   outcomes: SectionOutcome[];
 };
@@ -230,7 +231,22 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Alt Başlıklar</span>
         <button
-          onClick={() => setPlanModalOpen(true)}
+          onClick={() => {
+            // Planı yeniden oluşturmak, AI'nin ürettiği yeni başlıklardan mevcutlarla
+            // BİREBİR aynı olanları günceller, geri kalanını SİLER — ve o başlıklara bağlı
+            // görsel/diyagram/sorular (id'ye bağlı, storage'da yedeksiz) da onunla gider.
+            // Bunu farkında olmadan tıklayan admin diyagramların "sebepsiz yere kaybolduğunu"
+            // sanıyordu; artık burada açıkça uyarıyoruz.
+            if (
+              bundle.sections.length &&
+              !confirm(
+                'Planı yeniden oluşturmak, AI\'nin ürettiği yeni başlıklardan mevcutlarla birebir eşleşmeyenleri SİLER — o başlıklara bağlı görsel/diyagram/soruları da beraberinde. Devam etmek istiyor musunuz?'
+              )
+            ) {
+              return;
+            }
+            setPlanModalOpen(true);
+          }}
           disabled={!canCreatePlan}
           title={!canCreatePlan ? 'Önce tüm kazanımlara kod atanmalı' : undefined}
           className="inline-flex items-center gap-2 rounded-xl border border-[#6c63ff] bg-[#6c63ff]/20 px-4 py-2 text-xs font-extrabold text-foreground hover:bg-[#6c63ff]/30 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
