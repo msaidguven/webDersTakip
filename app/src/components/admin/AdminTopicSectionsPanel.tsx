@@ -7,6 +7,8 @@ import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
 import { extractJson } from '@/app/src/lib/extractJson';
 import SectionContent from '@/app/ders/SectionContent';
+import { computePlanHeadingDiff, fetchExistingSectionsForDiff, type ExistingSectionForDiff } from '@/app/src/lib/planHeadingDiff';
+import { PlanHeadingDiffReview } from '@/app/src/components/admin/PlanHeadingDiffReview';
 
 type Outcome = {
   id: number;
@@ -231,22 +233,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Alt Başlıklar</span>
         <button
-          onClick={() => {
-            // Planı yeniden oluşturmak, AI'nin ürettiği yeni başlıklardan mevcutlarla
-            // BİREBİR aynı olanları günceller, geri kalanını SİLER — ve o başlıklara bağlı
-            // görsel/diyagram/sorular (id'ye bağlı, storage'da yedeksiz) da onunla gider.
-            // Bunu farkında olmadan tıklayan admin diyagramların "sebepsiz yere kaybolduğunu"
-            // sanıyordu; artık burada açıkça uyarıyoruz.
-            if (
-              bundle.sections.length &&
-              !confirm(
-                'Planı yeniden oluşturmak, AI\'nin ürettiği yeni başlıklardan mevcutlarla birebir eşleşmeyenleri SİLER — o başlıklara bağlı görsel/diyagram/soruları da beraberinde. Devam etmek istiyor musunuz?'
-              )
-            ) {
-              return;
-            }
-            setPlanModalOpen(true);
-          }}
+          onClick={() => setPlanModalOpen(true)}
           disabled={!canCreatePlan}
           title={!canCreatePlan ? 'Önce tüm kazanımlara kod atanmalı' : undefined}
           className="inline-flex items-center gap-2 rounded-xl border border-[#6c63ff] bg-[#6c63ff]/20 px-4 py-2 text-xs font-extrabold text-foreground hover:bg-[#6c63ff]/30 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
@@ -839,6 +826,11 @@ export function PlanModal({
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [assigningCodes, setAssigningCodes] = useState(false);
+  const [existingSections, setExistingSections] = useState<ExistingSectionForDiff[]>([]);
+  // Ayrıştırılan JSON'daki "sections" — normalde direkt kaydedilir, ama en az bir başlık
+  // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
+  const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
+  const [reviewCover, setReviewCover] = useState<unknown>(undefined);
 
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
@@ -856,6 +848,10 @@ export function PlanModal({
   useEffect(() => {
     loadPrompt();
   }, [loadPrompt]);
+
+  useEffect(() => {
+    fetchExistingSectionsForDiff(topicId).then(setExistingSections);
+  }, [topicId]);
 
   async function handleAssignCodes() {
     setAssigningCodes(true);
@@ -876,7 +872,29 @@ export function PlanModal({
     }
   }
 
-  async function handleSave() {
+  async function doSave(sections: unknown, cover: unknown) {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, sections, cover }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      if (data?.unresolvedCodes?.length) {
+        setWarning(`Şu kazanım kodları eşleşmedi: ${data.unresolvedCodes.join(', ')}`);
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleSave() {
     setError(null);
     setWarning(null);
     let parsed: unknown;
@@ -895,31 +913,42 @@ export function PlanModal({
     }
     const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
 
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/topic-sections/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(data?.error || 'Kaydedilemedi.');
-        return;
-      }
-      if (data?.unresolvedCodes?.length) {
-        setWarning(`Şu kazanım kodları eşleşmedi: ${data.unresolvedCodes.join(', ')}`);
-      }
-      onSaved();
-    } finally {
-      setSaving(false);
+    // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
+    // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
+    const headings = (parsedSections as Record<string, unknown>[]).map((s) => (typeof s.heading === 'string' ? s.heading : ''));
+    const diff = computePlanHeadingDiff(existingSections, headings);
+    if (diff.removedSections.length > 0) {
+      setReviewSections(parsedSections as Record<string, unknown>[]);
+      setReviewCover(parsedCover);
+      return;
     }
+
+    doSave(parsedSections, parsedCover);
+  }
+
+  function handleReviewHeadingChange(idx: number, value: string) {
+    setReviewSections((cur) => {
+      if (!cur) return cur;
+      const next = [...cur];
+      next[idx] = { ...next[idx], heading: value };
+      return next;
+    });
   }
 
   const missingCodes = !loadingPrompt && !!error && error.includes('kodu eksik');
 
   return (
     <ModalShell title="1. Adım: Alt Başlık Planı" onClose={onClose}>
+      {reviewSections ? (
+        <PlanHeadingDiffReview
+          pastedHeadings={reviewSections.map((s) => (typeof s.heading === 'string' ? s.heading : ''))}
+          onHeadingChange={handleReviewHeadingChange}
+          existingSections={existingSections}
+          onBack={() => setReviewSections(null)}
+          onConfirm={() => doSave(reviewSections, reviewCover)}
+          saving={saving}
+        />
+      ) : (
       <div className="space-y-4">
         {missingCodes ? (
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4">
@@ -979,6 +1008,7 @@ export function PlanModal({
           </div>
         </div>
       </div>
+      )}
     </ModalShell>
   );
 }
@@ -1330,6 +1360,11 @@ export function NotebookPlanModal({
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [assigningCodes, setAssigningCodes] = useState(false);
+  const [existingSections, setExistingSections] = useState<ExistingSectionForDiff[]>([]);
+  // Ayrıştırılan JSON'daki "sections" — normalde direkt kaydedilir, ama en az bir başlık
+  // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
+  const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
+  const [reviewCover, setReviewCover] = useState<unknown>(undefined);
 
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
@@ -1347,6 +1382,10 @@ export function NotebookPlanModal({
   useEffect(() => {
     loadPrompt();
   }, [loadPrompt]);
+
+  useEffect(() => {
+    fetchExistingSectionsForDiff(topicId).then(setExistingSections);
+  }, [topicId]);
 
   // Yapıştırılan JSON'da AI kendi model adını "ai_model" alanında bildiriyor;
   // geçerli bir JSON olur olmaz bunu otomatik alıp alandaki değeri güncelliyoruz
@@ -1382,7 +1421,29 @@ export function NotebookPlanModal({
     }
   }
 
-  async function handleSave() {
+  async function doSave(sections: unknown, cover: unknown) {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, sections, cover, ai_model: aiModel.trim() || null }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      if (data?.unresolvedCodes?.length) {
+        setWarning(`Şu kazanım kodları eşleşmedi: ${data.unresolvedCodes.join(', ')}`);
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleSave() {
     setError(null);
     setWarning(null);
     let parsed: unknown;
@@ -1401,31 +1462,42 @@ export function NotebookPlanModal({
     }
     const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
 
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/topic-sections/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections: parsedSections, cover: parsedCover, ai_model: aiModel.trim() || null }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(data?.error || 'Kaydedilemedi.');
-        return;
-      }
-      if (data?.unresolvedCodes?.length) {
-        setWarning(`Şu kazanım kodları eşleşmedi: ${data.unresolvedCodes.join(', ')}`);
-      }
-      onSaved();
-    } finally {
-      setSaving(false);
+    // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
+    // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
+    const headings = (parsedSections as Record<string, unknown>[]).map((s) => (typeof s.heading === 'string' ? s.heading : ''));
+    const diff = computePlanHeadingDiff(existingSections, headings);
+    if (diff.removedSections.length > 0) {
+      setReviewSections(parsedSections as Record<string, unknown>[]);
+      setReviewCover(parsedCover);
+      return;
     }
+
+    doSave(parsedSections, parsedCover);
+  }
+
+  function handleReviewHeadingChange(idx: number, value: string) {
+    setReviewSections((cur) => {
+      if (!cur) return cur;
+      const next = [...cur];
+      next[idx] = { ...next[idx], heading: value };
+      return next;
+    });
   }
 
   const missingCodes = !loadingPrompt && !!error && error.includes('kodu eksik');
 
   return (
     <ModalShell title={title} onClose={onClose}>
+      {reviewSections ? (
+        <PlanHeadingDiffReview
+          pastedHeadings={reviewSections.map((s) => (typeof s.heading === 'string' ? s.heading : ''))}
+          onHeadingChange={handleReviewHeadingChange}
+          existingSections={existingSections}
+          onBack={() => setReviewSections(null)}
+          onConfirm={() => doSave(reviewSections, reviewCover)}
+          saving={saving}
+        />
+      ) : (
       <div className="space-y-4">
         {missingCodes ? (
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4">
@@ -1504,6 +1576,7 @@ export function NotebookPlanModal({
           </div>
         </div>
       </div>
+      )}
     </ModalShell>
   );
 }
