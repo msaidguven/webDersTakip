@@ -31,6 +31,19 @@ export function buildSvgLessonGuidance(lessonName: string): string {
     : `${lessonName} dersinde görsel genelde gerekmez — sadece görsel olmadan gerçekten anlaşılmayacak istisnai bir soru varsa doldur.`;
 }
 
+// Soru üretiminde de aynı VISUAL_HEAVY_LESSON_KEYWORDS listesini kullanıyoruz — matematiksel
+// ifade (denklem, kesir, üs, kök, formül) geçmesi olası dersler zaten görsel-ağırlıklı
+// listeyle örtüşüyor. Kural, 19-rag-topic-source-synthesis.md'deki (RAG kaynak metni
+// sentezi) AYNI düz-metin-notasyon kuralının soru üretimine taşınmış hali — soru render'ı
+// (QuestionCard vb.) LaTeX desteklemediği için bu ZORUNLU, sadece stil tercihi değil.
+// Görsel-ağırlıklı olmayan derslerde placeholder boş string'e döner (gereksiz kural eklenmez).
+export function buildMathNotationGuidance(lessonName: string): string {
+  const normalized = normalizeForMatch(lessonName);
+  const isMathHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
+  if (!isMathHeavy) return '';
+  return `- Matematiksel ifade geçen soru/şık/çözüm/model cevap metinlerinde okunabilir düz metin notasyonu kullan (ör. "x^2 + 3x - 4 = 0", "1/2", "karekök(16)", "3/4 + 1/2") — LaTeX işareti ("\\frac", "^{}", "$...$" vb.) KESİNLİKLE KULLANMA, sayfada olduğu gibi düz metin olarak görünecek.`;
+}
+
 // Klasik soru şablonları hem manuel kopyala-yapıştır akışında (count parametresi yok,
 // AI kendi karar versin diye bir aralık verilir) hem de tek-tık otomatik üretimde (admin
 // "adet" seçer, AI'dan TAM O SAYIYI istenir) aynı prompt metnini kullanır — tek fark bu

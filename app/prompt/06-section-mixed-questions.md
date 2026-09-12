@@ -62,5 +62,6 @@ KESİNLİKLE YASAK:
 - Öğrenciye doğrudan hitap etmek ("sence", "senin fikrin" gibi)
 - Şıkların/seçeneklerin hepsini doğru ya da hepsini yanlış yazmak
 - blank sorularında "_____" dışında bir boşluk işareti kullanmak (örn. "..." veya "(...)")
+{math_notation_guidance}
 
 {svg_question_instructions}

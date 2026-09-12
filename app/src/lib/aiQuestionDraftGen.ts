@@ -9,7 +9,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { buildSvgLessonGuidance } from '@/app/src/lib/promptHelpers';
+import { buildSvgLessonGuidance, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
 import { parseQuestions } from '@/app/src/lib/parseMixedQuestions';
 
@@ -160,6 +160,7 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
     .replaceAll('{section_outcomes}', sectionOutcomesText)
     .replaceAll('{other_headings}', otherHeadingsText)
     .replaceAll('{book_content}', bookContent)
+    .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(eligible.lesson_name))
     .replaceAll('{svg_question_instructions}', svgBlock);
 
   let raw: unknown;

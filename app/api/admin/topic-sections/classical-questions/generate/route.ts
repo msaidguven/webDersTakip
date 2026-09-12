@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { buildSvgLessonGuidance, buildQuestionCountInstruction } from '@/app/src/lib/promptHelpers';
+import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
 import { parseQuestions, INVALID_MESSAGE } from '@/app/src/lib/parseMixedQuestions';
 
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{section_content}', section.body_markdown)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(count, '3-6'))
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
       .replaceAll('{svg_question_instructions}', svgBlock);
   } else {
     const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicId).maybeSingle();
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(count, '6-10'))
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
       .replaceAll('{svg_question_instructions}', svgBlock);
   }
 

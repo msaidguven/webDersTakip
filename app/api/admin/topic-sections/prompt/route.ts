@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { buildSvgLessonGuidance, buildQuestionCountInstruction } from '@/app/src/lib/promptHelpers';
+import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -303,6 +303,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{section_headings}', sectionHeadingsText)
       .replaceAll('{source_text}', synthesisSourceText)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '6-10'))
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
@@ -360,6 +361,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{heading}', currentSection.heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{other_headings}', otherHeadingsForQuestions)
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
@@ -385,6 +387,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{section_content}', currentSection.body_markdown)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '3-6'))
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });

@@ -57,5 +57,6 @@ Kurallar (MUTLAKA uygula):
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - matching: left_text kısa terim, right_text tanımı/örneği; çiftler net farklı olsun, solution_text/choices/options alanı OLMASIN
 - SADECE yukarıdaki kaynak metinde geçen bilgiden sor, kaynakta olmayan bilgi UYDURMA; her soru farklı bir bilgiyi ölçsün, tekrar YOK; solution_text 1-2 cümle; {grade} seviyesine sade dil; öğrenciye doğrudan hitap etme ("sence" vb.)
+{math_notation_guidance}
 
 {svg_question_instructions}
