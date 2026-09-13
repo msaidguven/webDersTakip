@@ -69,9 +69,28 @@ interface TestStatusCardProps {
 }
 
 const COLOR_CLASSES = {
-  indigo: { ring: 'text-indigo-500', button: 'bg-indigo-600 hover:bg-indigo-700' },
-  emerald: { ring: 'text-emerald-500', button: 'bg-emerald-600 hover:bg-emerald-700' },
+  indigo: { ring: 'text-indigo-500', button: 'bg-indigo-600 hover:bg-indigo-700', bar: 'bg-indigo-500' },
+  emerald: { ring: 'text-emerald-500', button: 'bg-emerald-600 hover:bg-emerald-700', bar: 'bg-emerald-500' },
 } as const;
+
+// Ham "Çözülen" sayısı yerine ilerleme çubuğu + başarı yüzdesi (kullanıcı isteği,
+// 2026-09-13: "çözülen soru yerine ilerleme çubuğu ekle ve başarı yüzdesi ekle") —
+// bir sayı yerine ne kadarının bittiğini ve ne kadarının doğru olduğunu görsel/oranla
+// gösteriyor, ham "Çözülen: 17" tek başına bunu anlatmıyordu.
+function SolvedProgressBar({ solved, total, barClass }: { solved: number; total: number; barClass: string }) {
+  const pct = total > 0 ? Math.min(100, Math.round((solved / total) * 100)) : 0;
+  return (
+    <div className="w-full">
+      <div className="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+        <span>Çözülen</span>
+        <span className="text-default">{solved}/{total} Soru</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+        <div className={`h-full rounded-full ${barClass} transition-all duration-500`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 // r=40, çevre = 2*pi*40 ≈ 251.33 — yüzdeye göre strokeDashoffset hesaplanıyor,
 // -rotate-90 ile başlangıç 12 yönüne (saat başı) çekiliyor. Yarım kalan test bölümü
@@ -247,11 +266,13 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         // görünüyordu (denetim araçları öznitelik değil, gerçek metin düğümü arıyor) — bu
         // yüzden etiket artık bir metin DÜĞÜMÜ değil, aria-label ÖZNİTELİĞİ: ekran
         // okuyucular hâlâ duyuruyor ama sayfanın çıkarılan metninde hiç yer almıyor.
-        <div className="grid w-full animate-pulse grid-cols-4 gap-2" role="status" aria-label="Durum yükleniyor">
-          <div className="h-14 rounded-xl bg-surface" />
-          <div className="h-14 rounded-xl bg-surface" />
-          <div className="h-14 rounded-xl bg-surface" />
-          <div className="h-14 rounded-xl bg-surface" />
+        <div className="w-full animate-pulse space-y-2" role="status" aria-label="Durum yükleniyor">
+          <div className="h-8 rounded-xl bg-surface" />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="h-14 rounded-xl bg-surface" />
+            <div className="h-14 rounded-xl bg-surface" />
+            <div className="h-14 rounded-xl bg-surface" />
+          </div>
         </div>
       ) : (
         <>
@@ -259,11 +280,11 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
               bile bu konuda/ünitede bugüne kadarki toplam durum kaybolmasın (kullanıcının
               2026-09-06 isteği: "ünite sayfasındaki gibi tamamını da göstersin, genel
               bilgileri üstte, yarım kalan testle ilgili verileri altta göstersin"). */}
-          <div className="grid w-full grid-cols-4 gap-2">
-            <StatTile value={status.poolSize} label="Soru" />
-            <StatTile value={status.solved} label="Çözülen" />
+          <SolvedProgressBar solved={status.solved} total={status.poolSize} barClass={classes.bar} />
+          <div className="grid w-full grid-cols-3 gap-2">
             <StatTile value={status.correct} label="Doğru" tone="emerald" />
             <StatTile value={status.wrong} label="Yanlış" tone="rose" />
+            <StatTile value={status.solved > 0 ? Math.round((status.correct / status.solved) * 100) : 0} label="Başarı %" />
           </div>
 
           {!status.loggedIn && !resumable && (

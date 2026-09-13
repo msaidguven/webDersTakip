@@ -41,6 +41,23 @@ function MiniStat({ value, label, tone }: { value: number; label: string; tone?:
   );
 }
 
+// Ham "Çözülen" sayısı yerine ilerleme çubuğu + başarı yüzdesi — TestStatusCard.tsx'teki
+// SolvedProgressBar ile aynı gerekçe (kullanıcı isteği, 2026-09-13).
+function MiniProgressBar({ solved, total }: { solved: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, Math.round((solved / total) * 100)) : 0;
+  return (
+    <div className="w-full">
+      <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-muted-foreground">
+        <span>Çözülen</span>
+        <span className="text-default">{solved}/{total}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+        <div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function SoruBankasiUnitTopicAnalytics({
   unitId,
   topics,
@@ -101,11 +118,13 @@ export default function SoruBankasiUnitTopicAnalytics({
                       müfredat sırasına denk düşüyor. */}
                   <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">{idx + 1}. Konu</p>
                   <p className="truncate text-sm font-black text-default">{topic.title}</p>
-                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-                    <MiniStat value={stat?.poolSize ?? topic.questionCount} label="Soru" />
-                    <MiniStat value={stat?.solved ?? 0} label="Çözülen" />
-                    <MiniStat value={stat?.correct ?? 0} label="Doğru" tone="emerald" />
-                    <MiniStat value={stat?.wrong ?? 0} label="Yanlış" tone="rose" />
+                  <div className="mt-1.5 space-y-1.5">
+                    <MiniProgressBar solved={stat?.solved ?? 0} total={stat?.poolSize ?? topic.questionCount} />
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <MiniStat value={stat?.correct ?? 0} label="Doğru" tone="emerald" />
+                      <MiniStat value={stat?.wrong ?? 0} label="Yanlış" tone="rose" />
+                      <MiniStat value={stat?.solved ? Math.round(((stat.correct ?? 0) / stat.solved) * 100) : 0} label="Başarı %" />
+                    </div>
                   </div>
                 </div>
               </Link>
