@@ -48,6 +48,13 @@ async function buildTopicContext(supabase: SupabaseClient, topicId: number | nul
 // (bkz. supabase/migrations/pg_cron_workers.sql).
 const ITEMS_PER_RUN = 3;
 const MAX_ATTEMPTS = 3;
+// pg_net'in HTTP timeout'u (bkz. rag_queue_worker_timeout_fix.sql) 90sn — o süre
+// dolmadan Vercel fonksiyonu öldürülürse satır cevapsız 'processing'de kalabilir
+// (hata try/catch'e hiç ulaşamaz). Bu eşikten daha uzun süredir 'processing'de
+// bekleyen bir satır, önceki denemenin öldüğü anlamına gelir — güvenle yeniden
+// kuyruğa alınabilir (2026-09-14 kullanıcı raporu: bir soru bu yüzden sonsuza
+// kadar cevapsız kaldı).
+const STALE_PROCESSING_MINUTES = 4;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.RAG_QUEUE_WORKER_SECRET;
@@ -57,11 +64,14 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
+  const staleCutoffIso = new Date(Date.now() - STALE_PROCESSING_MINUTES * 60 * 1000).toISOString();
 
   const { data: candidates, error: fetchError } = await supabase
     .from('rag_question_queue')
     .select('*')
-    .or(`status.eq.queued,and(status.eq.failed,attempts.lt.${MAX_ATTEMPTS})`)
+    .or(
+      `status.eq.queued,and(status.eq.failed,attempts.lt.${MAX_ATTEMPTS}),and(status.eq.processing,attempts.lt.${MAX_ATTEMPTS},updated_at.lt.${staleCutoffIso})`
+    )
     .order('created_at', { ascending: true })
     .limit(ITEMS_PER_RUN);
 
@@ -74,13 +84,23 @@ export async function POST(request: NextRequest) {
   let failed = 0;
 
   for (const row of candidates) {
+    const isStaleReclaim = row.status === 'processing';
+    if (isStaleReclaim) {
+      console.warn('RAG kuyruk: önceki deneme yarıda kesilmiş, satır yeniden kuyruğa alınıyor', row.id);
+    }
+
     // Atomic claim: aynı satırı bu arada başka bir worker çalıştırması almışsa
-    // (üst üste binen tetiklemeler) update 0 satır döner, sessizce atlanır.
+    // (üst üste binen tetiklemeler) ya da satır hâlâ gerçekten işleniyorsa
+    // (stale eşiğinin altındaysa) update 0 satır döner, sessizce atlanır.
     const { data: claimed } = await supabase
       .from('rag_question_queue')
-      .update({ status: 'processing' })
+      .update({
+        status: 'processing',
+        updated_at: new Date().toISOString(),
+        ...(isStaleReclaim ? { attempts: (row.attempts ?? 0) + 1 } : {}),
+      })
       .eq('id', row.id)
-      .in('status', ['queued', 'failed'])
+      .or(`status.in.(queued,failed),and(status.eq.processing,updated_at.lt.${staleCutoffIso})`)
       .select('id')
       .maybeSingle();
     if (!claimed) continue;
