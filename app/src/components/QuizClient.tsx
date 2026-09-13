@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Trash2, Trophy, X, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
 import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
@@ -1358,6 +1358,16 @@ export default function QuizClient({
 
   if (showResult) {
     const percent = gradedQuestions.length ? Math.round((score / gradedQuestions.length) * 100) : 0;
+    const wrongCount = gradedQuestions.length - score;
+    // Puana göre değişen kısa bir teşvik mesajı — sonuç ekranı artık sadece "bitti" demiyor,
+    // ne yapması gerektiğine dair bir yön de veriyor (kullanıcı isteği, 2026-09-13: "öğrenciyi
+    // soru çözmeye teşvik etsin").
+    const encouragement =
+      percent >= 80
+        ? { emoji: '🎉', text: 'Harika! Bu konuyu gerçekten kavramışsın.' }
+        : percent >= 50
+        ? { emoji: '💪', text: 'İyi gidiyorsun, biraz daha pratikle daha da iyi olacaksın.' }
+        : { emoji: '📖', text: 'Bu konuyu bir daha gözden geçirip tekrar denemeye ne dersin?' };
     return (
       <>
       <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
@@ -1370,9 +1380,29 @@ export default function QuizClient({
             {score} / {gradedQuestions.length} doğru
           </h1>
           <p className="mt-1 text-sm font-bold text-muted-foreground">%{percent} başarı</p>
+          <p className="mt-2 text-sm font-bold text-default">
+            {encouragement.emoji} {encouragement.text}
+          </p>
           {classicalCount > 0 && (
             <p className="mt-1 text-xs font-medium text-muted-foreground">({classicalCount} açık uçlu soru puanlamaya dahil değil)</p>
           )}
+
+          <div className={`mt-5 grid gap-2 ${classicalCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3">
+              <p className="text-xl font-black text-emerald-500">{score}</p>
+              <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Doğru</p>
+            </div>
+            <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 py-3">
+              <p className="text-xl font-black text-rose-500">{wrongCount}</p>
+              <p className="text-[10px] font-black uppercase tracking-wide text-rose-600">Yanlış</p>
+            </div>
+            {classicalCount > 0 && (
+              <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/10 py-3">
+                <p className="text-xl font-black text-indigo-500">{classicalCount}</p>
+                <p className="text-[10px] font-black uppercase tracking-wide text-indigo-600">Açık Uçlu</p>
+              </div>
+            )}
+          </div>
 
           <div className="mt-6 max-h-72 space-y-1.5 overflow-y-auto text-left">
             {questions.map((q, i) => {
@@ -1415,6 +1445,24 @@ export default function QuizClient({
               className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
             />
           </div>
+
+          {!isAuthenticated && (
+            <div className="mt-5 rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-3.5 text-left">
+              <p className="flex items-center gap-1.5 text-xs font-black text-indigo-500">
+                <Sparkles className="h-3.5 w-3.5" /> İlerlemeni kaybetme
+              </p>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                Misafir olarak çözdüğün için bu sonuç kaydedilmiyor. Üye olursan doğru/yanlışların, günlük serin ve
+                tekrar zamanı gelen sorular senin için takip edilir.
+              </p>
+              <Link
+                href="/register"
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3.5 py-1.5 text-xs font-black text-white transition-opacity hover:opacity-90"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Ücretsiz Üye Ol
+              </Link>
+            </div>
+          )}
         </div>
       </div>
       {answerKey}
@@ -1581,7 +1629,13 @@ export default function QuizClient({
             disabled={!isAnswered}
             className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
           >
-            {index === questions.length - 1 ? 'Testi Bitir' : 'Sonraki Soru'}
+            {index === questions.length - 1 ? (
+              <>
+                <Trophy className="h-4 w-4" /> Sonuçları Gör
+              </>
+            ) : (
+              'Sonraki Soru'
+            )}
           </button>
         </div>
       </div>
