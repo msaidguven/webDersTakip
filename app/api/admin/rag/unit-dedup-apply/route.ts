@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { revalidateTopicPagesBySectionIds } from '@/app/src/lib/topicPageRevalidation';
 
 type IncomingEdit = { section_id?: unknown; explanation_markdown?: unknown; notebook_markdown?: unknown };
 type SectionOwnerRow = { id: number; topic_content_id: number };
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
   if (failed.length) {
     return NextResponse.json({ error: 'Bazı alt başlıklar güncellenemedi' }, { status: 500 });
   }
+
+  // plan/route.ts'in de aynı sebeple (2026-09-12, ee27d83) eklediği çağrı: bu endpoint
+  // topic_content_sections'ı güncelliyor ama public konu sayfası ISR (revalidate=3600)
+  // ile cache'leniyor — bu çağrı olmadan düzeltme en fazla 1 saat sonra görünürdü.
+  await revalidateTopicPagesBySectionIds(supabase, toApply.map((e) => e.sectionId));
 
   return NextResponse.json({ ok: true, updated: toApply.length, skipped });
 }
