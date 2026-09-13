@@ -1144,9 +1144,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const kazanimlarForSelectedWeek = useMemo(() => {
     if (!allKazanimlar) return null;
     if (kazanimlarTeachingWeek == null) return [];
-    return allKazanimlar.filter(
+    const filtered = allKazanimlar.filter(
       (o) => o.startWeek != null && o.endWeek != null && kazanimlarTeachingWeek >= o.startWeek && kazanimlarTeachingWeek <= o.endWeek
     );
+    // Bir hafta hem ÖNCEKİ haftadan devam eden hem de o hafta YENİ başlayan bir konuyu
+    // birlikte kapsayabiliyor (ör. hafta 8'de başlayan bir konu hafta 9'da bitip aynı hafta
+    // yeni bir konu başlıyor). allKazanimlar zaten müfredat sırasıyla (topics.order_no)
+    // geldiği için filter sırası her zaman "önce başlayan önce" olmuyordu — sıra .sort()
+    // olmadan tamamen order_no'ya bağlıydı ve YENİ konu, ORDER_NO'su küçükse DEVAM EDEN
+    // konudan önce görünebiliyordu. MEB'in resmi görünümüyle aynı sırayı (devam eden konu
+    // önce) sağlamak için startWeek'e göre STABİL sıralıyoruz — aynı konunun kazanımları aynı
+    // startWeek'i paylaştığı ve zaten ardışık geldiği için grup bütünlüğü bozulmuyor
+    // (2026-09-11 kullanıcı bildirimi).
+    return [...filtered].sort((a, b) => (a.startWeek ?? 0) - (b.startWeek ?? 0));
   }, [allKazanimlar, kazanimlarTeachingWeek]);
 
   // Kazanımlar modalinde gösterilen takvim haftasıyla (Pazartesi-Cuma) tarih aralığı çakışan
