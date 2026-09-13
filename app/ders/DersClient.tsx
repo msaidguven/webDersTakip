@@ -44,6 +44,7 @@ const PlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSec
 const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.NotebookPlanModal), { ssr: false });
 const RagTopicSourceModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceModal), { ssr: false });
 const RagTopicSourceSynthesisModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceSynthesisModal), { ssr: false });
+const RagUnitSourceDedupModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagUnitSourceDedupModal), { ssr: false });
 const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
 const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
@@ -262,6 +263,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [contentRefreshSynthesisTopicId, setContentRefreshSynthesisTopicId] = useState<number | null>(null);
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
+  const [ragUnitSourceDedupModalTopicId, setRagUnitSourceDedupModalTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
@@ -1582,6 +1584,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
                         )}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopicMenuOpenId(null);
+                          setRagUnitSourceDedupModalTopicId(Number(topic.id));
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" /> RAG Ünite Sentezi (Tekrar Kontrolü)
+                      </button>
                     </div>
                   </>
                 )}
@@ -2815,6 +2827,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             setSynthesizedTopicIds((prev) => new Set(prev).add(ragSourceSynthesisModalTopicId));
             setRagSourceSynthesisModalTopicId(null);
           }}
+        />
+      )}
+
+      {ragUnitSourceDedupModalTopicId != null && (
+        <RagUnitSourceDedupModal
+          topicId={ragUnitSourceDedupModalTopicId}
+          onClose={() => setRagUnitSourceDedupModalTopicId(null)}
+          onSaved={() => {}}
         />
       )}
 

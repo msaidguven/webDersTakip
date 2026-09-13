@@ -1337,6 +1337,253 @@ export function RagTopicSourceSynthesisModal({
   );
 }
 
+type RagUnitSourceEntry = { topicId: number; topicTitle: string; rawText: string };
+type RagUnitSourceEdit = { topicId: number; rawText: string };
+
+// "===KONU: <topic_id>===\n<metin>" bloklarını ayrıştırır (bkz. 26-rag-unit-source-dedup.md).
+// JSON değil düz metin biçimi bilinçli tercih — bu promptun kardeşleri (18/19) de aynı
+// sebeple (uzun serbest metinde LaTeX/tırnak kaçışlarıyla JSON'un bozulma riski) düz metin
+// döndürüyor.
+function parseUnitSourceDedupResponse(pasted: string): { edits: RagUnitSourceEdit[]; summary: string | null } {
+  const idx = pasted.indexOf('\n---');
+  const mainText = (idx === -1 ? pasted : pasted.slice(0, idx)).trim();
+  const summary = idx === -1 ? null : pasted.slice(idx + 4).trim() || null;
+
+  const edits: RagUnitSourceEdit[] = [];
+  const blockRegex = /===\s*KONU:\s*(\d+)\s*===\s*\n([\s\S]*?)(?=\n===\s*KONU:\s*\d+\s*===|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = blockRegex.exec(mainText)) !== null) {
+    const rawText = match[2].trim();
+    if (rawText) edits.push({ topicId: Number(match[1]), rawText });
+  }
+  return { edits, summary };
+}
+
+// unit-dedup (topic_content_sections) aracının RAG kaynak metni seviyesindeki karşılığı —
+// bkz. unit-source-dedup-prompt/route.ts. topicId, karşılaştırılacak üniteyi bulmak için
+// (o konunun unit_id'si) kullanılıyor; kaydetme topic-source-synthesis'le AYNI mekanizmayı
+// (insert-yeni + eskiyi sil + yeniden embed) her değişen konu için ayrı ayrı çalıştırıyor.
+export function RagUnitSourceDedupModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [unitId, setUnitId] = useState<number | null>(null);
+  const [includedTopics, setIncludedTopics] = useState<string[]>([]);
+  const [skippedTopics, setSkippedTopics] = useState<string[]>([]);
+  const [currentByTopicId, setCurrentByTopicId] = useState<Map<number, RagUnitSourceEntry>>(new Map());
+
+  const [pasted, setPasted] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [edits, setEdits] = useState<RagUnitSourceEdit[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
+
+  const loadPrompt = useCallback(async () => {
+    setLoadingPrompt(true);
+    setLoadError(null);
+    const res = await fetch(`/api/admin/rag/unit-source-dedup-prompt?topicId=${topicId}`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setPrompt(data?.prompt || '');
+      setUnitId(data?.unitId ?? null);
+      setIncludedTopics(data?.includedTopics || []);
+      setSkippedTopics(data?.skippedTopics || []);
+      const map = new Map<number, RagUnitSourceEntry>();
+      for (const s of (data?.currentByTopicId as { topicId: number; topicTitle: string; rawText: string }[] | undefined) || []) {
+        map.set(s.topicId, { topicId: s.topicId, topicTitle: s.topicTitle, rawText: s.rawText });
+      }
+      setCurrentByTopicId(map);
+    } else {
+      setLoadError(data?.error || 'Prompt oluşturulamadı.');
+    }
+    setLoadingPrompt(false);
+  }, [topicId]);
+
+  useEffect(() => {
+    loadPrompt();
+  }, [loadPrompt]);
+
+  function handleParse() {
+    setParseError(null);
+    setApplyError(null);
+    setApplyResult(null);
+    const { edits: parsed, summary: parsedSummary } = parseUnitSourceDedupResponse(pasted);
+    const clean = parsed.filter((e) => currentByTopicId.has(e.topicId));
+    setEdits(clean);
+    setSelectedIds(new Set(clean.map((e) => e.topicId)));
+    setSummary(parsedSummary);
+    if (!clean.length) {
+      setParseError(
+        pasted.includes('TEKRAR YOK')
+          ? 'AI tekrar bulmadı — uygulanacak bir düzenleme yok.'
+          : 'Metin ayrıştırılamadı ya da topic_id eşleşmedi. "===KONU: <id>===" biçimini kontrol edin.'
+      );
+    }
+  }
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedEdits = useMemo(() => edits.filter((e) => selectedIds.has(e.topicId)), [edits, selectedIds]);
+
+  async function handleApply() {
+    if (!selectedEdits.length || unitId == null) return;
+    setApplying(true);
+    setApplyError(null);
+    setApplyResult(null);
+    try {
+      const res = await fetch('/api/admin/rag/unit-source-dedup-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unitId,
+          edits: selectedEdits.map((e) => ({ topic_id: e.topicId, raw_text: e.rawText })),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setApplyError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setApplyResult(`${data.updated} konunun RAG kaynak metni güncellendi.`);
+      setEdits([]);
+      setSelectedIds(new Set());
+      setPasted('');
+      setSummary(null);
+      onSaved();
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <ModalShell title="RAG Ünite Sentezi (Tekrar Kontrolü)" onClose={onClose}>
+      <div className="space-y-4">
+        {loadError ? (
+          <p className="text-sm text-[#ff6584]">{loadError}</p>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Ünitedeki, RAG kaynak metni sentezi tamamlanmış TÜM konuları tek promptta karşılaştırıp aralarındaki tekrarı bulduruyor.
+              Dışarıda bir AI&apos;a sorun, dönen metni yapıştırıp önce &quot;Analiz Et&quot;e, gözden geçirdikten sonra &quot;Uygula&quot;ya basın.
+            </p>
+            {includedTopics.length > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Karşılaştırılan konular: <span className="text-foreground">{includedTopics.join(', ')}</span>
+                {skippedTopics.length > 0 && (
+                  <>
+                    {' '}
+                    — RAG sentezi tamamlanmadığı için atlanan: <span className="text-foreground">{skippedTopics.join(', ')}</span>
+                  </>
+                )}
+              </p>
+            )}
+
+            {applyResult && (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-400">
+                ✓ {applyResult}
+              </div>
+            )}
+            {applyError && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs font-bold text-red-400">{applyError}</div>
+            )}
+
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+
+            <div>
+              <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={6}
+                placeholder="===KONU: 565===..."
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+              {parseError && <p className="text-xs text-red-400 mt-1">{parseError}</p>}
+              <button
+                onClick={handleParse}
+                disabled={!pasted.trim()}
+                className="mt-2 rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                Analiz Et
+              </button>
+            </div>
+
+            {summary && (
+              <div className="rounded-xl border border-border bg-surface p-3 text-xs text-muted-foreground">
+                <span className="font-bold text-foreground">Özet: </span>
+                {summary}
+              </div>
+            )}
+
+            {edits.length > 0 && (
+              <div className="space-y-3">
+                {edits.map((edit) => {
+                  const current = currentByTopicId.get(edit.topicId);
+                  const checked = selectedIds.has(edit.topicId);
+                  return (
+                    <div key={edit.topicId} className="rounded-xl border border-border bg-surface p-3">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelected(edit.topicId)}
+                          className="mt-0.5 accent-indigo-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-foreground">{current?.topicTitle}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Eski Kaynak Metin</p>
+                              <p className="text-[11px] text-muted-foreground whitespace-pre-wrap line-clamp-6">{current?.rawText || '(boş)'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-emerald-400 uppercase mb-1">Yeni Kaynak Metin</p>
+                              <p className="text-[11px] text-foreground whitespace-pre-wrap line-clamp-6">{edit.rawText}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })}
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleApply}
+                    disabled={applying || !selectedEdits.length}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                  >
+                    {applying ? 'Uygulanıyor...' : `Seçilenleri Uygula (${selectedEdits.length})`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
 export function NotebookPlanModal({
   topicId,
   onClose,
