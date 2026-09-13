@@ -19,14 +19,10 @@ export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const topicId = Number(request.nextUrl.searchParams.get('topicId'));
-  if (!Number.isFinite(topicId)) return NextResponse.json({ error: 'topicId gerekli' }, { status: 400 });
+  const unitId = Number(request.nextUrl.searchParams.get('unitId'));
+  if (!Number.isFinite(unitId)) return NextResponse.json({ error: 'unitId gerekli' }, { status: 400 });
 
   const supabase = createServiceClient();
-
-  const { data: sourceTopic } = await supabase.from('topics').select('id, unit_id').eq('id', topicId).maybeSingle();
-  if (!sourceTopic) return NextResponse.json({ error: 'Konu bulunamadı' }, { status: 404 });
-  const unitId = (sourceTopic as { id: number; unit_id: number }).unit_id;
 
   const { data: unit } = await supabase
     .from('units')

@@ -263,7 +263,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [contentRefreshSynthesisTopicId, setContentRefreshSynthesisTopicId] = useState<number | null>(null);
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
-  const [ragUnitSourceDedupModalTopicId, setRagUnitSourceDedupModalTopicId] = useState<number | null>(null);
+  const [ragUnitSourceDedupModalUnitId, setRagUnitSourceDedupModalUnitId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
@@ -446,6 +446,27 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     () => [...units].sort((a, b) => a.order_no - b.order_no),
     [units]
   );
+
+  // Hangi ünitelerin "RAG Ünite Sentezi (Tekrar Kontrolü)" ile en az bir kez düzenlendiğini
+  // gösteren yeşil tik için — synthesizedTopicIds ile aynı desen, ama ünite bazlı.
+  const allUnitIdsKey = useMemo(() => sortedUnits.map((u) => u.id).join(','), [sortedUnits]);
+  const [ragDedupCheckedUnitIds, setRagDedupCheckedUnitIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allUnitIdsKey) {
+      setRagDedupCheckedUnitIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/units-with-dedup-check?unitIds=${allUnitIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { unitIds?: number[] } | null) => {
+        if (!cancelled) setRagDedupCheckedUnitIds(new Set(data?.unitIds || []));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allUnitIdsKey]);
+
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
   const activeUnitSlug = activeUnit?.slug || unitSlug || null;
 
@@ -1584,16 +1605,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
                         )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setRagUnitSourceDedupModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" /> RAG Ünite Sentezi (Tekrar Kontrolü)
-                      </button>
                     </div>
                   </>
                 )}
@@ -1815,24 +1826,43 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               const isLoadingUnit = loadingUnitIds.has(unitKey);
               return (
                 <div key={unit.id} className="mb-1">
-                  <button
-                    type="button"
-                    onClick={() => handleUnitHeaderClick(unit)}
-                    className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                      isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
-                    <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
-                      {unit.title}
-                    </span>
-                    {isDraftUnit && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
-                        Taslak
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => handleUnitHeaderClick(unit)}
+                      className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${isAdmin ? 'pr-8' : ''} ${
+                        isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                      <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
+                        {unit.title}
                       </span>
+                      {isDraftUnit && (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                          Taslak
+                        </span>
+                      )}
+                      <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRagUnitSourceDedupModalUnitId(Number(unit.id));
+                        }}
+                        title="RAG Ünite Sentezi (Tekrar Kontrolü)"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                        {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
+                          <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
+                        )}
+                      </button>
                     )}
-                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
-                  </button>
+                  </div>
 
                   {isUnitExpanded && (
                     <div className="ml-3 mt-1 mb-2 space-y-1 border-l border-slate-200 pl-3">
@@ -2830,11 +2860,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         />
       )}
 
-      {ragUnitSourceDedupModalTopicId != null && (
+      {ragUnitSourceDedupModalUnitId != null && (
         <RagUnitSourceDedupModal
-          topicId={ragUnitSourceDedupModalTopicId}
-          onClose={() => setRagUnitSourceDedupModalTopicId(null)}
-          onSaved={() => {}}
+          unitId={ragUnitSourceDedupModalUnitId}
+          onClose={() => setRagUnitSourceDedupModalUnitId(null)}
+          onSaved={() => {
+            setRagDedupCheckedUnitIds((prev) => new Set(prev).add(ragUnitSourceDedupModalUnitId));
+          }}
         />
       )}
 

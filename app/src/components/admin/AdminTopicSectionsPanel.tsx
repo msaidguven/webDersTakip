@@ -1364,18 +1364,17 @@ function parseUnitSourceDedupResponse(pasted: string): { edits: RagUnitSourceEdi
 // (o konunun unit_id'si) kullanılıyor; kaydetme topic-source-synthesis'le AYNI mekanizmayı
 // (insert-yeni + eskiyi sil + yeniden embed) her değişen konu için ayrı ayrı çalıştırıyor.
 export function RagUnitSourceDedupModal({
-  topicId,
+  unitId,
   onClose,
   onSaved,
 }: {
-  topicId: number;
+  unitId: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [unitId, setUnitId] = useState<number | null>(null);
   const [includedTopics, setIncludedTopics] = useState<string[]>([]);
   const [skippedTopics, setSkippedTopics] = useState<string[]>([]);
   const [currentByTopicId, setCurrentByTopicId] = useState<Map<number, RagUnitSourceEntry>>(new Map());
@@ -1393,11 +1392,10 @@ export function RagUnitSourceDedupModal({
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
     setLoadError(null);
-    const res = await fetch(`/api/admin/rag/unit-source-dedup-prompt?topicId=${topicId}`);
+    const res = await fetch(`/api/admin/rag/unit-source-dedup-prompt?unitId=${unitId}`);
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setPrompt(data?.prompt || '');
-      setUnitId(data?.unitId ?? null);
       setIncludedTopics(data?.includedTopics || []);
       setSkippedTopics(data?.skippedTopics || []);
       const map = new Map<number, RagUnitSourceEntry>();
@@ -1409,7 +1407,7 @@ export function RagUnitSourceDedupModal({
       setLoadError(data?.error || 'Prompt oluşturulamadı.');
     }
     setLoadingPrompt(false);
-  }, [topicId]);
+  }, [unitId]);
 
   useEffect(() => {
     loadPrompt();
@@ -1445,7 +1443,7 @@ export function RagUnitSourceDedupModal({
   const selectedEdits = useMemo(() => edits.filter((e) => selectedIds.has(e.topicId)), [edits, selectedIds]);
 
   async function handleApply() {
-    if (!selectedEdits.length || unitId == null) return;
+    if (!selectedEdits.length) return;
     setApplying(true);
     setApplyError(null);
     setApplyResult(null);

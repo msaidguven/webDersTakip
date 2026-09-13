@@ -110,5 +110,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Hiçbir konu güncellenemedi' }, { status: 500 });
   }
 
+  // Ünite başlığının yanındaki yeşil tik için (bkz. units_rag_dedup_checked_at.sql
+  // migration'ı — DB'ye manuel uygulanması gerekir) — bu ünite için en az bir kez
+  // başarıyla düzenleme uygulandığını işaretler.
+  await supabase.from('units').update({ rag_dedup_checked_at: new Date().toISOString() }).eq('id', unitId);
+
   return NextResponse.json({ ok: true, updated, skipped, failedTopics });
 }
