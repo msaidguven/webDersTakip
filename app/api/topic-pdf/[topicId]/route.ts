@@ -183,11 +183,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
+    // @sparticuz/chromium 137'de defaultViewport/headless static alanları kaldırıldı
+    // (bkz. build/index.d.ts) — sadece args/executablePath sağlıyor, headless artık
+    // puppeteer-core'un kendi varsayılanı (true).
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     });
 
     const page = await browser.newPage();
