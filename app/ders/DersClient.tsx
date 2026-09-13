@@ -2443,6 +2443,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     <SectionContent
                                       html={section.html || ''}
                                       notebookHtml={section.notebookHtml}
+                                      heading={section.heading}
                                       imageUrl={section.imageUrl}
                                       caption={section.heading}
                                       imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
