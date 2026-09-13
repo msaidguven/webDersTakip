@@ -152,6 +152,7 @@ export function UnitDedupModal({
     if (!selectedEdits.length) return;
     setApplying(true);
     setApplyError(null);
+    setApplyResult(null);
     try {
       const res = await fetch('/api/admin/rag/unit-dedup-apply', {
         method: 'POST',
@@ -170,8 +171,14 @@ export function UnitDedupModal({
         setApplyError(data?.error || 'Kaydedilemedi.');
         return;
       }
+      // Başarılı uygulamadan sonra formu temizliyoruz (yapıştırılan JSON, ayrıştırılan
+      // öneriler, özet) — aksi hâlde "edits.length > 0" bloğuyla birlikte başarı mesajı
+      // da anında kaybolup admin hiçbir şey olmamış gibi görürdü (2026-09-13 bulunan bug).
       setApplyResult(`${data.updated} alt başlık güncellendi.`);
       setEdits([]);
+      setSelectedIds(new Set());
+      setPasted('');
+      setSummary(null);
       onApplied();
     } finally {
       setApplying(false);
@@ -209,6 +216,17 @@ export function UnitDedupModal({
                   </>
                 )}
               </p>
+            )}
+
+            {applyResult && (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-400">
+                ✓ {applyResult}
+              </div>
+            )}
+            {applyError && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs font-bold text-red-400">
+                {applyError}
+              </div>
             )}
 
             <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
@@ -284,9 +302,6 @@ export function UnitDedupModal({
                     </div>
                   );
                 })}
-
-                {applyError && <p className="text-xs text-red-400">{applyError}</p>}
-                {applyResult && <p className="text-xs text-emerald-400">{applyResult}</p>}
 
                 <div className="flex justify-end">
                   <button
