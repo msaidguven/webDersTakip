@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { UnitDedupModal } from './UnitDedupModal';
 
 // ==================== TYPES ====================
 
@@ -205,6 +206,7 @@ export default function ContentAuditTab() {
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [dedupUnit, setDedupUnit] = useState<{ id: number; title: string } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -490,7 +492,13 @@ export default function ContentAuditTab() {
                       </thead>
                       <tbody className="divide-y divide-border">
                         {filteredUnits.map((u) => (
-                          <UnitRows key={u.id} unit={u} expandedTopics={expandedTopics} onToggleTopic={toggleTopic} />
+                          <UnitRows
+                            key={u.id}
+                            unit={u}
+                            expandedTopics={expandedTopics}
+                            onToggleTopic={toggleTopic}
+                            onOpenDedup={() => setDedupUnit({ id: u.id, title: u.title })}
+                          />
                         ))}
                       </tbody>
                     </table>
@@ -501,13 +509,36 @@ export default function ContentAuditTab() {
           )}
         </div>
       </div>
+
+      {dedupUnit && (
+        <UnitDedupModal
+          unitId={dedupUnit.id}
+          unitTitle={dedupUnit.title}
+          onClose={() => setDedupUnit(null)}
+          onApplied={handleRefresh}
+        />
+      )}
     </div>
   );
 }
 
 // ==================== TABLE ROWS ====================
 
-function UnitRows({ unit, expandedTopics, onToggleTopic }: { unit: UnitNode; expandedTopics: Set<number>; onToggleTopic: (id: number) => void }) {
+function UnitRows({
+  unit,
+  expandedTopics,
+  onToggleTopic,
+  onOpenDedup,
+}: {
+  unit: UnitNode;
+  expandedTopics: Set<number>;
+  onToggleTopic: (id: number) => void;
+  onOpenDedup: () => void;
+}) {
+  // Tekrar kontrolü karşılaştırma gerektirir — içeriği hazır (alt başlığı olan) en az
+  // 2 konu yoksa buton anlamsız (bkz. unit-dedup-prompt/route.ts aynı eşiği server'da da kontrol ediyor).
+  const readyTopicCount = unit.topics.filter((t) => t.content && t.content.sections.length > 0).length;
+
   return (
     <>
       <tr className="bg-surface-elevated">
@@ -516,7 +547,15 @@ function UnitRows({ unit, expandedTopics, onToggleTopic }: { unit: UnitNode; exp
             <span>📁</span>
             <span className="font-semibold text-foreground">{unit.title}</span>
             <InactiveTag active={unit.is_active} />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {readyTopicCount >= 2 && (
+                <button
+                  onClick={onOpenDedup}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 transition-colors whitespace-nowrap"
+                >
+                  🔁 Tekrar Kontrolü
+                </button>
+              )}
               <ExistPill ok={unit.topics.length > 0} okLabel={`${unit.topics.length} konu`} badLabel="Konu yok" />
             </div>
           </div>

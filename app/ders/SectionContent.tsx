@@ -140,7 +140,7 @@ function buildBlocks(html: string): React.ReactNode[] {
 // geçireceği kısa notlar için. notebookHtml verilmediğinde (henüz yeniden üretilmemiş
 // eski bölümler) bu kutuyu doğrudan konu anlatımı için kullanıyoruz — eski görünüm
 // böylece hiç bozulmuyor.
-function NotebookBox({ label, children }: { label?: string; children: React.ReactNode }) {
+function NotebookBox({ label, heading, children }: { label?: string; heading?: string | null; children: React.ReactNode }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-[#fffdf6] shadow-sm">
       <div className="absolute inset-y-0 left-0 hidden w-12 flex-col items-center justify-evenly py-5 sm:flex">
@@ -155,6 +155,9 @@ function NotebookBox({ label, children }: { label?: string; children: React.Reac
             📝 {label}
           </p>
         )}
+        {/* Kutu içinde yukarı/aşağı kaydırırken hangi alt başlığa ait olduğu görünsün diye
+            (öğrenci h2'ye geri kaydırmak zorunda kalmasın) — 2026-09-14 kullanıcı talebi. */}
+        {heading && <p className="text-sm sm:text-base font-black text-slate-900">{heading}</p>}
         {children}
       </div>
     </div>
@@ -180,6 +183,7 @@ function ExplanationBox({ children }: { children: React.ReactNode }) {
 export default function SectionContent({
   html,
   notebookHtml,
+  heading,
   imageUrl,
   caption,
   imageAlt,
@@ -187,6 +191,7 @@ export default function SectionContent({
 }: {
   html: string;
   notebookHtml?: string | null;
+  heading?: string | null;
   imageUrl?: string | null;
   caption?: string | null;
   imageAlt?: string | null;
@@ -317,7 +322,7 @@ export default function SectionContent({
               {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
             </div>
           </ExplanationBox>
-          <NotebookBox label="Defterine Not Al">{notebookBlocks}</NotebookBox>
+          <NotebookBox label="Defterine Not Al" heading={heading}>{notebookBlocks}</NotebookBox>
         </>
       ) : (
         <NotebookBox>
