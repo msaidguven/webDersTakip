@@ -93,13 +93,29 @@ body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #292524
    bu kural page.pdf()'in kendi margin seçeneğiyle çakışıp 2. sayfadan itibaren içeriğin
    üstbilgiyle (headerTemplate) çakışmasına yol açıyordu. Sayfa boyutu/marjlar SADECE
    page.pdf() çağrısındaki format/margin seçenekleriyle kontrol ediliyor. */
-.cover { min-height: 250mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20mm; page-break-after: always; }
-.cover .brand { font-size: 14px; font-weight: 800; color: #e11d48; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 48px; }
-.cover .breadcrumb { font-size: 13px; color: #78716c; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 16px; }
-.cover h1 { font-size: 34px; font-weight: 900; color: #e11d48; margin: 0 0 18px; line-height: 1.25; }
-.cover .subtitle { font-size: 15px; color: #78716c; max-width: 420px; margin: 0 auto; }
-.cover .hero { max-width: 320px; max-height: 220px; margin-top: 36px; border-radius: 14px; object-fit: cover; }
-.cover .footer-note { margin-top: 64px; font-size: 10px; color: #a8a29e; }
+/* Kapak: dergi/kitap kapağı gibi — varsa konu kapak görseli tam sayfa arka plan olarak
+   kullanılıyor (üstüne okunabilirlik için koyu bir gradyan), yoksa markanın kendi
+   indigo→mor→pembe gradyanı + dekoratif daireler. Marka rozeti ve sınıf/ders/ünite
+   etiketleri üstte, büyük başlık alt üçte birde, ince bir alt şerit en altta —
+   düz ortalanmış tek satır başlıktan (önceki hâl) çok daha "kapak" hissi veriyor.
+   page-break-after burada değil DIŞ kapsayıcıda (.cover-page) — arka plan görseli/
+   gradyanı tam sayfaya bleed etsin diye .cover'ın kendisi padding taşımıyor. */
+.cover-page { height: 250mm; page-break-after: always; }
+.cover { position: relative; height: 100%; overflow: hidden; color: #fff; }
+.cover .bg-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover .bg-fallback { position: absolute; inset: 0; background: linear-gradient(135deg, #4338ca 0%, #9333ea 55%, #e11d48 100%); }
+.cover .bg-fallback::before, .cover .bg-fallback::after { content: ''; position: absolute; border-radius: 50%; background: rgba(255,255,255,0.09); }
+.cover .bg-fallback::before { width: 220mm; height: 220mm; top: -110mm; right: -80mm; }
+.cover .bg-fallback::after { width: 150mm; height: 150mm; bottom: -70mm; left: -50mm; }
+.cover .overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,10,30,0.9) 0%, rgba(15,10,30,0.55) 40%, rgba(15,10,30,0.18) 70%); }
+.cover .inner { position: relative; height: 100%; display: flex; flex-direction: column; padding: 14mm 16mm; }
+.cover .brand-badge { align-self: flex-start; display: inline-block; background: rgba(255,255,255,0.95); color: #4338ca; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+.cover .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10mm; }
+.cover .pill { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.4); color: #fff; font-size: 10.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+.cover .title-block { margin-top: auto; }
+.cover h1 { font-size: 36px; font-weight: 900; line-height: 1.18; margin: 0 0 8px; text-shadow: 0 2px 14px rgba(0,0,0,0.4); }
+.cover .subtitle { font-size: 15px; color: rgba(255,255,255,0.9); max-width: 480px; text-shadow: 0 1px 6px rgba(0,0,0,0.35); }
+.cover .footer-row { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.75); border-top: 1px solid rgba(255,255,255,0.3); padding-top: 8px; margin-top: 12mm; }
 .content { padding: 2mm; }
 .section { margin-bottom: 22px; page-break-inside: avoid; }
 .section h2.heading { font-size: 17px; font-weight: 900; color: #e11d48; border-bottom: 2px solid #fecdd3; padding-bottom: 6px; margin: 0 0 12px; }
@@ -115,13 +131,27 @@ img.section-image { max-width: 100%; border-radius: 10px; margin: 10px 0; }
 </style>
 </head>
 <body>
-  <div class="cover">
-    <div class="brand">📚 Ders Takip.net</div>
-    <div class="breadcrumb">${escapeHtml(gradeName)} · ${escapeHtml(lessonName)} · ${escapeHtml(unitName)}</div>
-    <h1>${escapeHtml(topicTitle)}</h1>
-    ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
-    ${heroImageUrl ? `<img class="hero" src="${escapeHtml(heroImageUrl)}" />` : ''}
-    <div class="footer-note">${SITE_URL} adresinden hazırlandı — ${escapeHtml(generatedDate)}</div>
+  <div class="cover-page">
+    <div class="cover">
+      ${heroImageUrl ? `<img class="bg-image" src="${escapeHtml(heroImageUrl)}" />` : '<div class="bg-fallback"></div>'}
+      <div class="overlay"></div>
+      <div class="inner">
+        <span class="brand-badge">📚 Ders Takip.net</span>
+        <div class="pills">
+          ${gradeName ? `<span class="pill">${escapeHtml(gradeName)}</span>` : ''}
+          ${lessonName ? `<span class="pill">${escapeHtml(lessonName)}</span>` : ''}
+          ${unitName ? `<span class="pill">${escapeHtml(unitName)}</span>` : ''}
+        </div>
+        <div class="title-block">
+          <h1>${escapeHtml(topicTitle)}</h1>
+          ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
+        </div>
+        <div class="footer-row">
+          <span>${escapeHtml(SITE_URL.replace(/^https?:\/\//, ''))}</span>
+          <span>${escapeHtml(generatedDate)}</span>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="content">
     ${sectionsHtml}
