@@ -39,6 +39,7 @@ type TopicContentRow = { id: number; hero_image_url: string | null; subtitle: st
 type SectionRow = {
   heading: string;
   body_markdown: string | null;
+  notebook_markdown: string | null;
   image_url: string | null;
   diagram_svg: string | null;
   order_no: number;
@@ -70,12 +71,31 @@ function buildHtml(opts: {
   const sectionsHtml = sections
     .map((s) => {
       const cleanSvg = s.diagram_svg?.trim().startsWith('<svg') ? stripDangerousSvg(s.diagram_svg) : null;
+      // Site'deki SectionContent.tsx ile aynı ayrım: notebook_markdown VARSA body_markdown
+      // "Konu Anlatımı" (detaylı anlatım), notebook_markdown "Defterine Not Al" (kısa
+      // ezber notu) olarak İKİ AYRI kutuda gösteriliyor. notebook_markdown henüz
+      // üretilmemiş eski bölümlerde site sadece body_markdown'ı tek kutuda gösteriyor —
+      // PDF burada da aynı davranışı taklit ediyor.
+      const bodyHtml = s.body_markdown ? markdownToHtml(s.body_markdown) : '';
+      const notebookHtml = s.notebook_markdown ? markdownToHtml(s.notebook_markdown) : '';
+      const contentHtml = notebookHtml
+        ? `
+          <div class="explanation-box">
+            <p class="box-label explanation-label">📖 Konu Anlatımı</p>
+            ${bodyHtml}
+          </div>
+          <div class="notebook-box">
+            <p class="box-label notebook-label">📝 Defterine Not Al</p>
+            ${notebookHtml}
+          </div>
+        `
+        : `<div class="notebook-box">${bodyHtml}</div>`;
       return `
         <div class="section">
           <h2 class="heading">${escapeHtml(s.heading)}</h2>
           ${s.image_url ? `<img class="section-image" src="${escapeHtml(s.image_url)}" alt="" />` : ''}
           ${cleanSvg ? `<div class="diagram">${cleanSvg}</div>` : ''}
-          ${s.body_markdown ? markdownToHtml(s.body_markdown) : ''}
+          ${contentHtml}
         </div>
       `;
     })
@@ -129,6 +149,19 @@ strong { font-weight: 800; }
 img.section-image { max-width: 100%; border-radius: 10px; margin: 10px 0; }
 .diagram { margin: 10px 0; text-align: center; }
 .diagram svg { max-width: 100%; height: auto; }
+/* Site'deki ExplanationBox (sky/indigo, "Konu Anlatımı") ve NotebookBox (amber, "Defterine
+   Not Al") kutularıyla aynı renk ailesi — kullanıcı PDF'te bu iki bloğu, siteyle aynı
+   biçimde, birbirinden ayırt edebilsin diye. */
+.explanation-box, .notebook-box { border-radius: 12px; padding: 12px 14px; margin: 10px 0; page-break-inside: avoid; }
+.explanation-box { background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 55%, #eef2ff 100%); border: 1px solid #bae6fd; }
+.notebook-box { background: #fffdf6; border: 1px solid #fde68a; }
+.box-label { font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
+.explanation-label { color: #4338ca; }
+.notebook-label { color: #b45309; }
+.explanation-box p, .explanation-box li { color: #334155; }
+.explanation-box strong { color: #4338ca; }
+.notebook-box p, .notebook-box li { color: #44403c; }
+.notebook-box strong { color: #92400e; }
 </style>
 </head>
 <body>
@@ -193,7 +226,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: sectionsData } = await supabase
     .from('topic_content_sections')
-    .select('heading, body_markdown, image_url, diagram_svg, order_no')
+    .select('heading, body_markdown, notebook_markdown, image_url, diagram_svg, order_no')
     .eq('topic_content_id', topicContent.id)
     .order('order_no', { ascending: true });
   const sections = (sectionsData as SectionRow[] | null) || [];
