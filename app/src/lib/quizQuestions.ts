@@ -61,12 +61,11 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
   // override'ı sayfayı dinamik render etmeye zorluyordu, bkz. [konu]/page.tsx'teki not).
   const supabase = createAnonClient();
 
-  const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }, { data: classicalData }] = await Promise.all([
+  const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }] = await Promise.all([
     supabase.from('questions').select('id, question_text, solution_text, svg_content, svg_position').in('id', questionIds),
     supabase.from('question_choices').select('id, question_id, choice_text, is_correct').in('question_id', questionIds),
     supabase.from('question_blank_options').select('id, question_id, option_text, is_correct').in('question_id', questionIds),
     supabase.from('question_matching_pairs').select('id, question_id, left_text, right_text').in('question_id', questionIds),
-    supabase.from('question_classical').select('question_id, model_answer').in('question_id', questionIds),
   ]);
 
   const choicesByQuestion = new Map<number, Option[]>();
@@ -88,11 +87,6 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
     const list = pairsByQuestion.get(p.question_id) || [];
     list.push({ id: p.id, left_text: p.left_text, right_text: p.right_text });
     pairsByQuestion.set(p.question_id, list);
-  });
-
-  const classicalByQuestion = new Map<number, string | null>();
-  ((classicalData as { question_id: number; model_answer: string | null }[] | null) || []).forEach((c) => {
-    classicalByQuestion.set(c.question_id, c.model_answer);
   });
 
   const all: QuizQuestion[] = [];
@@ -117,9 +111,10 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
       all.push({ id: q.id, type: 'matching', question_text: q.question_text, pairs });
       return;
     }
-    if (classicalByQuestion.has(q.id)) {
-      all.push({ id: q.id, type: 'classical', question_text: q.question_text, svg_content: q.svg_content, svg_position: q.svg_position, modelAnswer: classicalByQuestion.get(q.id) ?? null });
-    }
+    // Klasik (açık uçlu, question_type_id=4) sorular BİLEREK burada oluşturulmuyor —
+    // öğrenciye hiçbir testte gösterilmemeli (bkz. pool fonksiyonlarındaki .neq filtresi).
+    // Bu, eski/resume edilmiş bir test oturumunun session_ids'inde kalmış olabilecek
+    // klasik id'lere karşı da son bir güvenlik katmanı.
   });
 
   if (opts.preserveOrder) {
@@ -211,8 +206,11 @@ async function selectPersonalizedQuestionIds(
   return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
 }
 
+// question_type_id=4 ("classical"/açık uçlu) HARİÇ — bu sorular öğretmenin Word'e
+// aktardığı, kendi kendine (otomatik) değerlendirilemeyen açık uçlu sorular; öğrenciye
+// hiçbir testte/soru bankasında gösterilmemeli (kullanıcı isteği, 2026-09-13).
 export async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true);
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true).neq('question_type_id', 4);
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
 
@@ -286,11 +284,13 @@ export async function getAllTopicQuestions(topicId: number | string): Promise<Qu
   // client kullanıyor — /soru-bankasi sayfasının ISR ile cache'lenebilmesi için (bkz. o
   // fonksiyondaki not).
   const supabase = createAnonClient();
+  // question_type_id=4 ("classical") HARİÇ — bkz. getTopicQuestionPoolIds'teki not.
   const { data: questionIdRows } = await supabase
     .from('questions')
     .select('id')
     .eq('topic_id', topicId)
     .eq('is_active', true)
+    .neq('question_type_id', 4)
     .order('id', { ascending: true });
   const questionIds = ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
   return getQuestionsByIds(questionIds);
@@ -309,7 +309,8 @@ export async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createS
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
   if (!topicIds.length) return [];
 
-  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds).eq('is_active', true);
+  // question_type_id=4 ("classical") HARİÇ — bkz. getTopicQuestionPoolIds'teki not.
+  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds).eq('is_active', true).neq('question_type_id', 4);
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
 
