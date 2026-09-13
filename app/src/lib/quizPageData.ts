@@ -71,8 +71,11 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   // ile birlikte — konu sayfası (DersClient) için zaten üretilmiş görsel, soru bankası
   // sayfasında da banner olarak kullanılıyor (bkz. kullanıcının 2026-09-06 isteği: "konu
   // kapak resmi db de vardı").
+  // question_type_id=4 ("classical"/açık uçlu) sayıma girmez — otomatik değerlendirilemeyen
+  // bu sorular teste hiç alınmıyor (bkz. quizQuestions.ts), o yüzden "kaç soru var" sayısı da
+  // onları içermemeli (kullanıcı isteği, 2026-09-13).
   const [{ count: topicQuestionCount }, { data: topicContentData }] = await Promise.all([
-    supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id).eq('is_active', true),
+    supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id).eq('is_active', true).neq('question_type_id', 4),
     supabase.from('topic_contents').select('hero_image_url').eq('topic_id', topic.id).maybeSingle(),
   ]);
   const questionCount = topicQuestionCount ?? 0;
@@ -217,6 +220,7 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
   // Ünite testi sayfası yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
   // units.question_count elle girilen bir alan olduğu için burada gerçek soru
   // sayısını doğrudan topics -> questions.topic_id ilişkisinden hesaplıyoruz.
+  // question_type_id=4 ("classical") HARİÇ — bkz. getTopicTestPageData'daki aynı not.
   const topicIds = topicRows.map((t) => t.id);
   let realQuestionCount = 0;
   if (topicIds.length) {
@@ -224,7 +228,8 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
       .from('questions')
       .select('id', { count: 'exact', head: true })
       .in('topic_id', topicIds)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .neq('question_type_id', 4);
     realQuestionCount = count ?? 0;
   }
 

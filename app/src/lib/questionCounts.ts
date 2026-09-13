@@ -25,15 +25,22 @@ export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topic
 // sayıma dahil etmez — öğrenciye gösterilen sayfalarda kullanılmalı. Admin yönetim
 // ekranları (ve silme akışları, ki taslakları da silmesi gerekir) activeOnly'yi vermeyip
 // gerçek toplamı görmeye devam eder.
+// excludeClassical=true, question_type_id=4 (klasik/açık uçlu, otomatik değerlendirilemeyen)
+// soruları da sayıma dahil etmez — öğrencinin etkileşime girdiği HER sayfada (ünite/konu
+// sayfası, testler, panel, soru bankası) kullanılmalı; sadece ana sayfadaki toplam sayı
+// (bkz. homeStats.ts:getPublishedUnitContent, RPC count_questions_by_topic) bilerek klasik
+// soruları da sayar — kullanıcı isteği, 2026-09-13: "ilerde klasik soruları göstermek
+// istediğim yerde göstersin" — o yüzden ayrı, açık bir opt-in/opt-out flag.
 export async function getQuestionCountsByTopicId(
   supabase: AnySupabaseClient,
   topicIds: number[],
-  opts?: { activeOnly?: boolean }
+  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
 ): Promise<Map<number, number>> {
   if (!topicIds.length) return new Map();
 
   let query = supabase.from('questions').select('id, topic_id').in('topic_id', topicIds);
   if (opts?.activeOnly) query = query.eq('is_active', true);
+  if (opts?.excludeClassical) query = query.neq('question_type_id', 4);
   const { data } = await query;
 
   const counts = new Map<number, number>();
@@ -47,7 +54,7 @@ export async function getQuestionCountsByTopicId(
 export async function getQuestionCountsByUnitId(
   supabase: AnySupabaseClient,
   unitIds: number[],
-  opts?: { activeOnly?: boolean }
+  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
 ): Promise<Map<number, number>> {
   if (!unitIds.length) return new Map();
 
@@ -68,7 +75,7 @@ export async function getQuestionCountsByUnitId(
 export async function getQuestionCountsByLessonGrade(
   supabase: AnySupabaseClient,
   pairs: { lessonId: number; gradeId: number }[],
-  opts?: { activeOnly?: boolean }
+  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
 ): Promise<Map<string, number>> {
   if (!pairs.length) return new Map();
 
@@ -83,6 +90,7 @@ export async function getQuestionCountsByLessonGrade(
     .in('lesson_id', lessonIds)
     .in('grade_id', gradeIds);
   if (opts?.activeOnly) unitsQuery = unitsQuery.eq('topics.questions.is_active', true);
+  if (opts?.excludeClassical) unitsQuery = unitsQuery.neq('topics.questions.question_type_id', 4);
   const { data: unitsData } = await unitsQuery;
   const units = (unitsData as { lesson_id: number; grade_id: number; topics: { questions: { id: number }[] }[] }[] | null) || [];
 

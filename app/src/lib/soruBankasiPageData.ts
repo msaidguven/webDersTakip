@@ -63,7 +63,7 @@ export const getSoruBankasiGradesIndexData = cache(async function getSoruBankasi
     lessonId: row.lesson_id,
     gradeId: row.grade_id,
   }));
-  const questionCountByLessonGrade = await getQuestionCountsByLessonGrade(supabase, pairs, { activeOnly: true });
+  const questionCountByLessonGrade = await getQuestionCountsByLessonGrade(supabase, pairs, { activeOnly: true, excludeClassical: true });
 
   const questionCountByGrade = new Map<number, number>();
   for (const pair of pairs) {
@@ -104,7 +104,7 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
 
   const [{ data: lessonRows }, questionCountByLesson] = await Promise.all([
     supabase.from('lessons').select('id, name, slug, order_no, icon').in('id', lessonIds).eq('is_active', true).order('order_no', { ascending: true }),
-    getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id })), { activeOnly: true }),
+    getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id })), { activeOnly: true, excludeClassical: true }),
   ]);
 
   // icon/order_no anasayfadaki ders kartlarıyla (bkz. homeStats.ts + LessonGrid.tsx) AYNI
@@ -165,7 +165,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
 
   const unitIds = units.map((u) => u.id);
   const [questionCountByUnit, { data: topicRows }] = await Promise.all([
-    getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true }),
+    getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true, excludeClassical: true }),
     supabase.from('topics').select('id, unit_id, order_no').in('unit_id', unitIds).eq('is_active', true).order('order_no', { ascending: true }),
   ]);
   const topicIdsByUnit = new Map<number, number[]>();
@@ -254,7 +254,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   // görseli) hem de "Konu Bazlı Analizler" listesindeki her konunun kendi küçük görseli
   // için (bkz. kullanıcının 2026-09-06 verdiği tasarım referansı).
   const [questionCountByTopic, { data: topicContentRows }] = await Promise.all([
-    getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true }),
+    getQuestionCountsByTopicId(supabase, topics.map((t) => t.id), { activeOnly: true, excludeClassical: true }),
     supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', topics.map((t) => t.id)),
   ]);
   const heroImageByTopic = new Map<number, string | null>();

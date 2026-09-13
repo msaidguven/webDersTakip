@@ -131,7 +131,9 @@ export async function getUnitTopicStats(
 ): Promise<TopicStatEntry[]> {
   if (!topicIds.length) return [];
 
-  const { data: questionRows } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true);
+  // question_type_id=4 ("classical") HARİÇ — ünite sayfasındaki "Konu Bazlı Analizler"
+  // öğrencinin çözebileceği sorulara göre olmalı (kullanıcı isteği, 2026-09-13).
+  const { data: questionRows } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true).neq('question_type_id', 4);
   const rows = (questionRows as { id: number; topic_id: number }[] | null) || [];
 
   const questionIdsByTopic = new Map<number, number[]>();

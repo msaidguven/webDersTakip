@@ -133,11 +133,14 @@ async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]):
   const topicIds = Array.from(unitIdByTopicId.keys());
   if (!topicIds.length) return questionCountByUnit;
 
+  // question_type_id=4 ("classical") HARİÇ — "Ünite Testi" linki/soru sayısı öğrencinin
+  // çözebileceği sorulara göre olmalı (kullanıcı isteği, 2026-09-13).
   const { data: questionsData } = await supabase
     .from('questions')
     .select('id, topic_id')
     .in('topic_id', topicIds)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .neq('question_type_id', 4);
   for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
     const unitId = unitIdByTopicId.get(q.topic_id);
     if (unitId == null) continue;

@@ -97,11 +97,14 @@ export async function getProfileStats(
 
       const totalQuestionsByUnit = new Map<number, number>();
       if (unitIdByTopicId.size > 0) {
+        // question_type_id=4 ("classical") HARİÇ — otomatik değerlendirilemeyen bu sorular
+        // testlere hiç girmiyor, o yüzden "üniteyi bitirdin mi" hesabına da dahil edilmemeli.
         const { data: questionRows } = await supabase
           .from('questions')
           .select('topic_id')
           .in('topic_id', [...unitIdByTopicId.keys()])
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .neq('question_type_id', 4);
         for (const q of (questionRows as { topic_id: number | null }[] | null) || []) {
           if (q.topic_id == null) continue;
           const unitId = unitIdByTopicId.get(q.topic_id);

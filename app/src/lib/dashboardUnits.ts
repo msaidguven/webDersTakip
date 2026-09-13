@@ -201,7 +201,9 @@ export async function getUnitsForLesson(
   // kuruluyor (eskiden aktif ünitenin konuları için bunlar ayrıca yeniden sorgulanıyordu).
   const [{ data: questionRows }, { data: contentRows }, { data: contentProgressRows }] = topicIds.length
     ? await Promise.all([
-        supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true),
+        // question_type_id=4 ("classical") HARİÇ — panelde gösterilen soru sayıları öğrencinin
+        // hiç göremeyeceği açık uçlu soruları içermemeli (kullanıcı isteği, 2026-09-13).
+        supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true).neq('question_type_id', 4),
         supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).eq('is_published', true),
         supabase.from('user_topic_content_progress').select('topic_id, is_completed').eq('user_id', userId).in('topic_id', topicIds),
       ])
