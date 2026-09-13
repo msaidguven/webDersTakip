@@ -93,29 +93,30 @@ body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #292524
    bu kural page.pdf()'in kendi margin seçeneğiyle çakışıp 2. sayfadan itibaren içeriğin
    üstbilgiyle (headerTemplate) çakışmasına yol açıyordu. Sayfa boyutu/marjlar SADECE
    page.pdf() çağrısındaki format/margin seçenekleriyle kontrol ediliyor. */
-/* Kapak: dergi/kitap kapağı gibi — varsa konu kapak görseli tam sayfa arka plan olarak
-   kullanılıyor (üstüne okunabilirlik için koyu bir gradyan), yoksa markanın kendi
-   indigo→mor→pembe gradyanı + dekoratif daireler. Marka rozeti ve sınıf/ders/ünite
-   etiketleri üstte, büyük başlık alt üçte birde, ince bir alt şerit en altta —
-   düz ortalanmış tek satır başlıktan (önceki hâl) çok daha "kapak" hissi veriyor.
-   page-break-after burada değil DIŞ kapsayıcıda (.cover-page) — arka plan görseli/
-   gradyanı tam sayfaya bleed etsin diye .cover'ın kendisi padding taşımıyor. */
+/* Kapak v2: konu kapak görseli (varsa) tam sayfa ARKA PLAN olarak kullanılan ilk
+   deneme, gerçek illüstrasyonlarla (yoğun renkli, tek bir koyu/açık bölgesi olmayan)
+   test edildiğinde okunmuyordu — koyu gradyan üstüne beyaz yazı, görselin kendi
+   renklerine göre çoğu yerde kontrastsız kalıyordu (kullanıcı raporu, 2026-09-13).
+   Yeni düzen: görsel KENDİ beyaz çerçeveli kartında, üstteki renkli banttan taşarak
+   "yüzen kapak fotoğrafı" gibi duruyor; başlık/alt başlık ise HER ZAMAN düz BEYAZ
+   zemin üzerinde koyu metin — görselin içeriği ne olursa olsun okunabilirlik garanti.
+   page-break-after DIŞ kapsayıcıda (.cover-page), renkli bant tam sayfa genişliğine
+   bleed etsin diye .cover'ın kendisi padding taşımıyor. */
 .cover-page { height: 250mm; page-break-after: always; }
-.cover { position: relative; height: 100%; overflow: hidden; color: #fff; }
-.cover .bg-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.cover .bg-fallback { position: absolute; inset: 0; background: linear-gradient(135deg, #4338ca 0%, #9333ea 55%, #e11d48 100%); }
-.cover .bg-fallback::before, .cover .bg-fallback::after { content: ''; position: absolute; border-radius: 50%; background: rgba(255,255,255,0.09); }
-.cover .bg-fallback::before { width: 220mm; height: 220mm; top: -110mm; right: -80mm; }
-.cover .bg-fallback::after { width: 150mm; height: 150mm; bottom: -70mm; left: -50mm; }
-.cover .overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,10,30,0.9) 0%, rgba(15,10,30,0.55) 40%, rgba(15,10,30,0.18) 70%); }
-.cover .inner { position: relative; height: 100%; display: flex; flex-direction: column; padding: 14mm 16mm; }
-.cover .brand-badge { align-self: flex-start; display: inline-block; background: rgba(255,255,255,0.95); color: #4338ca; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
-.cover .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10mm; }
-.cover .pill { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.4); color: #fff; font-size: 10.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
-.cover .title-block { margin-top: auto; }
-.cover h1 { font-size: 36px; font-weight: 900; line-height: 1.18; margin: 0 0 8px; text-shadow: 0 2px 14px rgba(0,0,0,0.4); }
-.cover .subtitle { font-size: 15px; color: rgba(255,255,255,0.9); max-width: 480px; text-shadow: 0 1px 6px rgba(0,0,0,0.35); }
-.cover .footer-row { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.75); border-top: 1px solid rgba(255,255,255,0.3); padding-top: 8px; margin-top: 12mm; }
+.cover { position: relative; height: 100%; background: #fff; display: flex; flex-direction: column; }
+.cover .top-band { position: relative; overflow: hidden; flex-shrink: 0; height: 58mm; background: linear-gradient(135deg, #4338ca 0%, #9333ea 55%, #e11d48 100%); padding: 12mm 16mm 0; }
+.cover .top-band::before { content: ''; position: absolute; width: 140mm; height: 140mm; border-radius: 50%; background: rgba(255,255,255,0.08); top: -70mm; right: -40mm; }
+.cover .brand-badge { position: relative; align-self: flex-start; display: inline-block; background: rgba(255,255,255,0.95); color: #4338ca; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+.cover .pills { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8mm; }
+.cover .pill { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.45); color: #fff; font-size: 10.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+.cover .image-frame { position: relative; margin: -20mm 16mm 0; height: 90mm; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 26px rgba(0,0,0,0.2); border: 4px solid #fff; background: #f3f4f6; }
+.cover .image-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover .body { flex: 1; display: flex; flex-direction: column; padding: 10mm 16mm 10mm; }
+.cover .body.no-image { padding-top: 14mm; }
+.cover h1 { font-size: 29px; font-weight: 900; color: #e11d48; margin: 8mm 0 6px; line-height: 1.2; }
+.cover .body.no-image h1 { margin-top: 0; }
+.cover .subtitle { font-size: 14px; color: #57534e; max-width: 480px; }
+.cover .footer-row { margin-top: auto; display: flex; justify-content: space-between; font-size: 10px; color: #a8a29e; border-top: 1px solid #e7e5e4; padding-top: 8px; }
 .content { padding: 2mm; }
 .section { margin-bottom: 22px; page-break-inside: avoid; }
 .section h2.heading { font-size: 17px; font-weight: 900; color: #e11d48; border-bottom: 2px solid #fecdd3; padding-bottom: 6px; margin: 0 0 12px; }
@@ -133,19 +134,18 @@ img.section-image { max-width: 100%; border-radius: 10px; margin: 10px 0; }
 <body>
   <div class="cover-page">
     <div class="cover">
-      ${heroImageUrl ? `<img class="bg-image" src="${escapeHtml(heroImageUrl)}" />` : '<div class="bg-fallback"></div>'}
-      <div class="overlay"></div>
-      <div class="inner">
+      <div class="top-band">
         <span class="brand-badge">📚 Ders Takip.net</span>
         <div class="pills">
           ${gradeName ? `<span class="pill">${escapeHtml(gradeName)}</span>` : ''}
           ${lessonName ? `<span class="pill">${escapeHtml(lessonName)}</span>` : ''}
           ${unitName ? `<span class="pill">${escapeHtml(unitName)}</span>` : ''}
         </div>
-        <div class="title-block">
-          <h1>${escapeHtml(topicTitle)}</h1>
-          ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
-        </div>
+      </div>
+      ${heroImageUrl ? `<div class="image-frame"><img src="${escapeHtml(heroImageUrl)}" /></div>` : ''}
+      <div class="body ${heroImageUrl ? '' : 'no-image'}">
+        <h1>${escapeHtml(topicTitle)}</h1>
+        ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
         <div class="footer-row">
           <span>${escapeHtml(SITE_URL.replace(/^https?:\/\//, ''))}</span>
           <span>${escapeHtml(generatedDate)}</span>
