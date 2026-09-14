@@ -103,6 +103,11 @@ const MAX_CONTENT_SCALE = 2.2;
 const CONTENT_SCALE_STEP = 0.2;
 const BOARD_MODE_DEFAULT_SCALE = 1.4;
 
+// "RAG Kaynak Metni Sentezle" için gereken minimum bağımsız taslak sayısı — tek bir AI'ın
+// kaynak metnine güvenmek yerine birden fazla AI'ın üzerinde bir ölçüde uzlaştığı bir
+// çoğunluk/tutarlılık kontrolü yapılabilsin diye (kullanıcının 2026-09-14 isteği).
+const MIN_RAG_SOURCE_DRAFTS = 5;
+
 interface DersClientProps {
   initialData: {
     gradeName: string;
@@ -495,6 +500,27 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     refreshFlaggedTopicIds();
   }, [refreshFlaggedTopicIds]);
 
+  // Kaç ham RAG kaynak taslağı (18. prompt) biriktiğini tutar — "RAG Kaynak Metni Sentezle"
+  // butonu en az MIN_RAG_SOURCE_DRAFTS taslak birikmeden pasif kalsın diye (kullanıcının
+  // 2026-09-14 isteği: tek bir AI'a değil, birden fazla bağımsız taslağın çoğunluk/tutarlılık
+  // kontrolüne dayansın).
+  const [draftCountByTopicId, setDraftCountByTopicId] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allVisibleTopicIdsKey) {
+      setDraftCountByTopicId({});
+      return;
+    }
+    fetch(`/api/admin/rag/topics-draft-counts?topicIds=${allVisibleTopicIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { counts?: Record<number, number> } | null) => {
+        if (!cancelled) setDraftCountByTopicId(data?.counts || {});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allVisibleTopicIdsKey]);
+
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
     (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
@@ -520,6 +546,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { unitIds?: number[] } | null) => {
         if (!cancelled) setRagDedupCheckedUnitIds(new Set(data?.unitIds || []));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allUnitIdsKey]);
+
+  // Ünite Sentezi (Tekrar Kontrolü) butonu, ünitede yayında içeriği OLAN en az 2 sentezlenmiş
+  // konu yoksa pasif kalır — aksi halde kaynak metni düzeltmek hiçbir yere yansımaz (kullanıcının
+  // 2026-09-14 isteği: "güncelle menüsünü çalıştırmadan ünite sentezini çalıştırmayalım").
+  const [dedupReadyUnitIds, setDedupReadyUnitIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allUnitIdsKey) {
+      setDedupReadyUnitIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/units-ready-for-dedup?unitIds=${allUnitIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { unitIds?: number[] } | null) => {
+        if (!cancelled) setDedupReadyUnitIds(new Set(data?.unitIds || []));
       });
     return () => {
       cancelled = true;
@@ -1651,19 +1697,32 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       >
                         <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni (Kitapsız Ders)
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setRagSourceSynthesisModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
-                        {synthesizedTopicIds.has(Number(topic.id)) && (
-                          <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                        )}
-                      </button>
+                      {(() => {
+                        const draftCount = draftCountByTopicId[Number(topic.id)] || 0;
+                        const ready = draftCount >= MIN_RAG_SOURCE_DRAFTS;
+                        return (
+                          <button
+                            type="button"
+                            disabled={!ready}
+                            onClick={() => {
+                              if (!ready) return;
+                              setTopicMenuOpenId(null);
+                              setRagSourceSynthesisModalTopicId(Number(topic.id));
+                            }}
+                            title={ready ? undefined : `Önce en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı ekleyin (şu an: ${draftCount})`}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
+                              ready ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-300 cursor-not-allowed'
+                            }`}
+                          >
+                            <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
+                            {synthesizedTopicIds.has(Number(topic.id)) ? (
+                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
+                            ) : (
+                              <span className="ml-auto text-[10px] font-black text-slate-400">{draftCount}/{MIN_RAG_SOURCE_DRAFTS}</span>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </>
                 )}
@@ -1907,22 +1966,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
                     </button>
 
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRagUnitSourceDedupModalUnitId(Number(unit.id));
-                        }}
-                        title="RAG Ünite Sentezi (Tekrar Kontrolü)"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
-                          <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
-                        )}
-                      </button>
-                    )}
+                    {isAdmin && (() => {
+                      const dedupReady = dedupReadyUnitIds.has(Number(unit.id));
+                      return (
+                        <button
+                          type="button"
+                          disabled={!dedupReady}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!dedupReady) return;
+                            setRagUnitSourceDedupModalUnitId(Number(unit.id));
+                          }}
+                          title={
+                            dedupReady
+                              ? 'RAG Ünite Sentezi (Tekrar Kontrolü)'
+                              : 'Bu ünitede yayında içeriği olan en az 2 sentezlenmiş konu yok — önce ilgili konularda "Sentezden Alt Başlık" / "Sentezden İçeriği Güncelle" çalıştırın'
+                          }
+                          className={`absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg transition-colors ${
+                            dedupReady ? 'text-slate-400 hover:text-slate-700 hover:bg-white' : 'text-slate-200 cursor-not-allowed'
+                          }`}
+                        >
+                          <BookOpen className="h-3.5 w-3.5" />
+                          {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
+                            <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {isUnitExpanded && (
