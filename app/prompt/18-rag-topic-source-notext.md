@@ -20,3 +20,5 @@ Doğruluk kuralları (ÖNEMLİ — bunlar ihlal edilirse metin öğrenciye yanl�
 - Yukarıdaki kazanım listesinde OLMAYAN bir alt konuya girme, kapsam dışına çıkma.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
+
+Kaynak metni tamamladıktan SONRA, ayrı bir satırda tek başına "---" yaz; onun altına SADECE kendi tam model adını yaz (ör. "GPT-5.1", "Gemini 3 Pro", "Claude Sonnet 5") — başka hiçbir kelime ekleme. Bu son satır kaynak metnin bir parçası DEĞİLDİR, hangi AI'ın yazdığını kaydetmek için ayrıca okunacak.

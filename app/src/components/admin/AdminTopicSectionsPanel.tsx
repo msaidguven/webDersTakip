@@ -1066,6 +1066,21 @@ export function RagTopicSourceModal({
     setLoadingSources(false);
   }, [topicId]);
 
+  // Prompt (18-rag-topic-source-notext.md), nihai metinden SONRA "---" ile ayrılmış bir
+  // satırda AI'ın kendi model adını yazmasını istiyor — RagTopicSourceSynthesisModal'daki
+  // "Tutarsızlık Notu" ayıklamasıyla aynı desen. mainText kaydedilir (marker RAG arama
+  // havuzuna karışmasın diye), detectedAiModel ise "hangi AI üretti" alanını otomatik
+  // doldurur — admin yine de elle düzeltebilir.
+  const { mainText, detectedAiModel } = useMemo(() => {
+    const idx = pasted.indexOf('\n---');
+    if (idx === -1) return { mainText: pasted.trim(), detectedAiModel: '' };
+    return { mainText: pasted.slice(0, idx).trim(), detectedAiModel: pasted.slice(idx + 4).trim() };
+  }, [pasted]);
+
+  useEffect(() => {
+    if (detectedAiModel) setAiModel(detectedAiModel);
+  }, [detectedAiModel]);
+
   useEffect(() => {
     let cancelled = false;
     setLoadingPrompt(true);
@@ -1098,7 +1113,7 @@ export function RagTopicSourceModal({
           topicId,
           title: meta.topicTitle,
           source: 'ai_generated',
-          text: pasted,
+          text: mainText,
           aiModel,
         }),
       });
@@ -1132,7 +1147,7 @@ export function RagTopicSourceModal({
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
         <div>
-          <span className="text-xs font-bold text-muted-foreground block mb-2">Bu metni hangi AI üretti?</span>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">Bu metni hangi AI üretti? (yapıştırınca prompt'un istediği "---" satırından otomatik alınır, gerekirse düzeltin)</span>
           <input
             list="ai-model-options-rag-source"
             value={aiModel}
@@ -1169,7 +1184,7 @@ export function RagTopicSourceModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !pasted.trim() || !aiModel.trim() || !meta}
+            disabled={saving || !mainText || !aiModel.trim() || !meta}
             title={!aiModel.trim() ? 'Önce hangi AI\'dan geldiğini yazın' : undefined}
             className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
           >
