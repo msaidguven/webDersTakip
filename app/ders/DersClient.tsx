@@ -28,6 +28,8 @@ import {
   ImagePlus,
   Shapes,
   Plus,
+  Minus,
+  Monitor,
   Share2,
   Download,
 } from 'lucide-react';
@@ -87,6 +89,17 @@ import {
   SPECIAL_WEEK_META,
   STUDY_TIPS,
 } from './dersHelpers';
+
+// Akıllı tahta modu: öğretmen sınıfta konu içeriğini büyük ekranda açtığında yan
+// panelleri gizleyip içeriği tam genişliğe yayar; yazı boyutu +/- ile ayrıca
+// büyütülüp küçültülebilir. Aynı cihaz (sınıf bilgisayarı/tahtası) her derste
+// tekrar kullanıldığı için ikisi de localStorage'da kalıcı.
+const BOARD_MODE_KEY = 'ders-board-mode';
+const CONTENT_SCALE_KEY = 'ders-content-font-scale';
+const MIN_CONTENT_SCALE = 1;
+const MAX_CONTENT_SCALE = 2.2;
+const CONTENT_SCALE_STEP = 0.2;
+const BOARD_MODE_DEFAULT_SCALE = 1.4;
 
 interface DersClientProps {
   initialData: {
@@ -215,6 +228,30 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
+  const [boardMode, setBoardMode] = useState(false);
+  const [contentScale, setContentScale] = useState(MIN_CONTENT_SCALE);
+
+  useEffect(() => {
+    setBoardMode(localStorage.getItem(BOARD_MODE_KEY) === '1');
+    const savedScale = Number(localStorage.getItem(CONTENT_SCALE_KEY));
+    if (savedScale >= MIN_CONTENT_SCALE && savedScale <= MAX_CONTENT_SCALE) setContentScale(savedScale);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(BOARD_MODE_KEY, boardMode ? '1' : '0');
+  }, [boardMode]);
+
+  useEffect(() => {
+    localStorage.setItem(CONTENT_SCALE_KEY, String(contentScale));
+  }, [contentScale]);
+
+  const toggleBoardMode = useCallback(() => {
+    setBoardMode((prev) => {
+      const next = !prev;
+      if (next) setContentScale((s) => (s === MIN_CONTENT_SCALE ? BOARD_MODE_DEFAULT_SCALE : s));
+      return next;
+    });
+  }, []);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   // kazanimlarWeek "takvim haftası"dır (week prop'u öğretim haftasıdır) — bkz. totalCalendarWeeks
   // yorumu. Modal ilk kez bugünün öğretim haftasını (week) gösterecek şekilde açılsın diye
@@ -1764,8 +1801,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
       <div className="flex min-h-0 flex-1 overflow-hidden relative">
 
-        {/* MOBILE OVERLAY */}
-        {sidebarOpen && (
+        {/* MOBILE OVERLAY + LEFT SIDEBAR: akıllı tahta modunda ikisi de tamamen
+            gizlenir — ders/ünite navigasyonu değil, içerik büyük ekranda odak olsun diye. */}
+        {!boardMode && sidebarOpen && (
           <div
             className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
             onClick={() => setSidebarOpen(false)}
@@ -1773,6 +1811,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         )}
 
         {/* LEFT SIDEBAR: İÇİNDEKİLER (o ünitedeki konular) */}
+        {!boardMode && (
         <aside className={`
           fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200
           transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-none shrink-0
@@ -1886,13 +1925,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <div className="hidden lg:block h-16 shrink-0 border-t border-slate-200/80 bg-white/95" />
 
         </aside>
+        )}
 
         {/* MAIN CONTENT */}
         <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-slate-50">
           <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-            <div className="max-w-5xl mx-auto p-3 sm:p-5 lg:p-8">
+            <div className={`mx-auto p-3 sm:p-5 lg:p-8 ${boardMode ? 'max-w-6xl' : 'max-w-5xl'}`}>
 
-              <div className="grid grid-cols-1 gap-5 items-start lg:grid-cols-[1fr_260px]">
+              <div className={`grid grid-cols-1 gap-5 items-start ${boardMode ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
               {/* SOL SÜTUN: hiyerarşi barı + mobil konu dropdown'u + içerik kartı — sağdaki
                   260px'lik özet sütunuyla AYNI grid satırında, aynı hizada kalsınlar diye
                   hepsi tek bir grid item (kullanıcının 2026-09-05 bildirdiği bug: hiyerarşi
@@ -1912,13 +1952,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   handleLessonDropdownSelect/handleUnitDropdownSelect). */}
               <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(true)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
-                  >
-                    <Menu className="h-4 w-4" />
-                  </button>
+                  {!boardMode && (
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(true)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </button>
+                  )}
                   <Link
                     href="/"
                     title="Anasayfa"
@@ -2108,7 +2150,47 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  <div className="p-5 sm:p-8 lg:p-10">
+                  {/* AKILLI TAHTA ARAÇ ÇUBUĞU — içerik zoom'undan bağımsız kalsın diye (kontrollerin
+                      kendisi büyümesin) zoom'lu iç div'in DIŞINDA. Öğretmen sınıfta akıllı tahtaya
+                      bağlayıp konuyu büyük ekranda açtığında yan panelleri gizlemek + yazıyı
+                      büyütmek için (kullanıcının 2026-09-14 isteği). */}
+                  <div className="not-prose flex items-center justify-end gap-2 border-b border-slate-100 px-5 py-2.5 sm:px-8">
+                    <button
+                      type="button"
+                      onClick={toggleBoardMode}
+                      title={boardMode ? 'Akıllı tahta modundan çık' : 'Akıllı tahta modu — yan panelleri gizle, içeriği büyüt'}
+                      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-colors ${
+                        boardMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                      }`}
+                    >
+                      <Monitor className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{boardMode ? 'Akıllı Tahta Modu' : 'Akıllı Tahta'}</span>
+                    </button>
+                    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 pr-1">
+                      <button
+                        type="button"
+                        onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale <= MIN_CONTENT_SCALE}
+                        aria-label="Yazıyı küçült"
+                        title="Yazıyı küçült"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale >= MAX_CONTENT_SCALE}
+                        aria-label="Yazıyı büyüt"
+                        title="Yazıyı büyüt (akıllı tahta için)"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-5 sm:p-8 lg:p-10" style={{ zoom: contentScale }}>
                     {activeTopic && (
                       <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
                         <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
@@ -2536,7 +2618,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu */}
+                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu — akıllı tahta
+                    modunda gizlenir, içerik tam genişlik kullanır. */}
+                {!boardMode && (
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
                   <button
                     type="button"
@@ -2580,6 +2664,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>
