@@ -2154,7 +2154,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       kendisi büyümesin) zoom'lu iç div'in DIŞINDA. Öğretmen sınıfta akıllı tahtaya
                       bağlayıp konuyu büyük ekranda açtığında yan panelleri gizlemek + yazıyı
                       büyütmek için (kullanıcının 2026-09-14 isteği). */}
-                  <div className="not-prose flex items-center justify-end gap-2 border-b border-slate-100 px-5 py-2.5 sm:px-8">
+                  <div className="not-prose sticky top-0 z-20 flex items-center justify-end gap-2 rounded-t-2xl border-b border-slate-100 bg-white/95 px-5 py-2.5 backdrop-blur-sm sm:px-8">
                     <button
                       type="button"
                       onClick={toggleBoardMode}
