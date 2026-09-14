@@ -1026,7 +1026,7 @@ export function PlanModal({
   );
 }
 
-type RagAiSource = { id: number; title: string; status: string; createdAt: string; preview: string };
+type RagAiSource = { id: number; title: string; status: string; createdAt: string; preview: string; aiModel: string | null };
 
 // MEB'in kitap yayınlamadığı dersler için: unit-prompt (RagDocumentsPanel'deki NotebookLM
 // akışı) "kitaptan çıkar" diyordu, bu modal ise kazanımlara dayanarak AI'a SIFIRDAN kaynak
@@ -1051,6 +1051,7 @@ export function RagTopicSourceModal({
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
@@ -1098,6 +1099,7 @@ export function RagTopicSourceModal({
           title: meta.topicTitle,
           source: 'ai_generated',
           text: pasted,
+          aiModel,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1106,6 +1108,7 @@ export function RagTopicSourceModal({
         return;
       }
       setPasted('');
+      setAiModel('');
       await loadSources();
       onSaved();
     } finally {
@@ -1129,6 +1132,25 @@ export function RagTopicSourceModal({
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
         <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">Bu metni hangi AI üretti?</span>
+          <input
+            list="ai-model-options-rag-source"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder="ör. ChatGPT, Gemini, Claude..."
+            className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
+          />
+          <datalist id="ai-model-options-rag-source">
+            <option value="ChatGPT" />
+            <option value="Gemini" />
+            <option value="Claude Sonnet 5" />
+            <option value="Claude Opus 5" />
+            <option value="Grok" />
+            <option value="DeepSeek" />
+          </datalist>
+        </div>
+
+        <div>
           <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
           <textarea
             value={pasted}
@@ -1147,7 +1169,8 @@ export function RagTopicSourceModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !pasted.trim() || !meta}
+            disabled={saving || !pasted.trim() || !aiModel.trim() || !meta}
+            title={!aiModel.trim() ? 'Önce hangi AI\'dan geldiğini yazın' : undefined}
             className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
@@ -1163,7 +1186,7 @@ export function RagTopicSourceModal({
             {sources.map((s, i) => (
               <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-foreground">Taslak {i + 1}</p>
+                  <p className="text-[11px] font-bold text-foreground">{s.aiModel || `Taslak ${i + 1}`}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{s.preview}...</p>
                 </div>
                 <button
@@ -1205,7 +1228,7 @@ export function RagTopicSourceSynthesisModal({
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draftCount, setDraftCount] = useState(0);
-  const [drafts, setDrafts] = useState<{ id: number; title: string; createdAt: string }[]>([]);
+  const [drafts, setDrafts] = useState<{ id: number; title: string; createdAt: string; aiModel: string | null }[]>([]);
 
   const [pasted, setPasted] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1292,7 +1315,7 @@ export function RagTopicSourceSynthesisModal({
               <span className="text-xs font-bold text-muted-foreground block mb-1.5">Birleştirilecek taslaklar ({draftCount})</span>
               <div className="space-y-1">
                 {drafts.map((d, i) => (
-                  <p key={d.id} className="text-[11px] text-muted-foreground">Taslak {i + 1} — {new Date(d.createdAt).toLocaleString('tr-TR')}</p>
+                  <p key={d.id} className="text-[11px] text-muted-foreground">{d.aiModel || `Taslak ${i + 1}`} — {new Date(d.createdAt).toLocaleString('tr-TR')}</p>
                 ))}
               </div>
             </div>
