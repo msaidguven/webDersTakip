@@ -30,6 +30,7 @@ import {
   Plus,
   Minus,
   Monitor,
+  AlertTriangle,
   Share2,
   Download,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/Admin
 const RagTopicSourceModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceModal), { ssr: false });
 const RagTopicSourceSynthesisModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceSynthesisModal), { ssr: false });
 const RagUnitSourceDedupModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagUnitSourceDedupModal), { ssr: false });
+const RagTopicAccuracyCheckModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicAccuracyCheckModal), { ssr: false });
 const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
 const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
@@ -183,12 +185,14 @@ function TopicActionMenuItem({
   label,
   title,
   done,
+  warning,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   title?: string;
   done?: boolean;
+  warning?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -199,7 +203,8 @@ function TopicActionMenuItem({
       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
     >
       {icon} {label}
-      {done && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
+      {warning && <AlertTriangle className="ml-auto h-3.5 w-3.5 text-amber-500" />}
+      {done && !warning && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
     </button>
   );
 }
@@ -301,6 +306,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [ragUnitSourceDedupModalUnitId, setRagUnitSourceDedupModalUnitId] = useState<number | null>(null);
+  const [ragAccuracyCheckTopicId, setRagAccuracyCheckTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
@@ -472,6 +478,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       cancelled = true;
     };
   }, [isAdmin, allVisibleTopicIdsKey]);
+
+  // Hangi konularda açık (çözülmemiş) bir "Tutarsızlık Notu" ya da "Doğruluk Kontrolü"
+  // bulgusu olduğunu gösteren uyarı ikonu için — synthesizedTopicIds ile aynı desen.
+  const [flaggedTopicIds, setFlaggedTopicIds] = useState<Set<number>>(new Set());
+  const refreshFlaggedTopicIds = useCallback(() => {
+    if (!isAdmin || !allVisibleTopicIdsKey) {
+      setFlaggedTopicIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/topics-review-status?topicIds=${allVisibleTopicIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { topicIds?: number[] } | null) => setFlaggedTopicIds(new Set(data?.topicIds || [])));
+  }, [isAdmin, allVisibleTopicIdsKey]);
+  useEffect(() => {
+    refreshFlaggedTopicIds();
+  }, [refreshFlaggedTopicIds]);
 
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
@@ -2196,6 +2218,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                           <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
+                          {isAdmin && flaggedTopicIds.has(Number(activeTopic.id)) && (
+                            <button
+                              type="button"
+                              title="Açık bir RAG doğruluk/tutarsızlık bulgusu var — Güncelle > Doğruluk Kontrolü'nden bakın"
+                              onClick={() => setRagAccuracyCheckTopicId(Number(activeTopic.id))}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-colors"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                            </button>
+                          )}
                           {isAdmin && (
                             <TopicActionMenuGroup
                               menuKey="new"
@@ -2242,6 +2274,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   label="Sentezden İçeriği Güncelle"
                                   title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
                                   onClick={() => { setTopicActionMenu(null); setContentRefreshSynthesisTopicId(Number(activeTopic.id)); }}
+                                />
+                              )}
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<AlertTriangle className="h-3.5 w-3.5" />}
+                                  label="Doğruluk Kontrolü"
+                                  title="Yayındaki içeriği RAG kaynak metniyle karşılaştırıp hata arattır"
+                                  warning={flaggedTopicIds.has(Number(activeTopic.id))}
+                                  onClick={() => { setTopicActionMenu(null); setRagAccuracyCheckTopicId(Number(activeTopic.id)); }}
                                 />
                               )}
                             </TopicActionMenuGroup>
@@ -2941,6 +2982,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onClose={() => setRagSourceSynthesisModalTopicId(null)}
           onSaved={() => {
             setSynthesizedTopicIds((prev) => new Set(prev).add(ragSourceSynthesisModalTopicId));
+            refreshFlaggedTopicIds();
             setRagSourceSynthesisModalTopicId(null);
           }}
         />
@@ -2953,6 +2995,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onSaved={() => {
             setRagDedupCheckedUnitIds((prev) => new Set(prev).add(ragUnitSourceDedupModalUnitId));
           }}
+        />
+      )}
+
+      {ragAccuracyCheckTopicId != null && (
+        <RagTopicAccuracyCheckModal
+          topicId={ragAccuracyCheckTopicId}
+          onClose={() => setRagAccuracyCheckTopicId(null)}
+          onSaved={refreshFlaggedTopicIds}
+          onEditSection={(sectionId) => openContentEditModal(sectionId)}
         />
       )}
 
