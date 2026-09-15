@@ -18,7 +18,18 @@ export async function findResumableSession(
   supabase: SupabaseClient<any, any, any>,
   userId: string,
   unitId: number | null,
-  topicId: number | null
+  topicId: number | null,
+  // SADECE SRS tekrarı (/tekrar) tarafından verilir: bu oturumun grade_id'si o anki profil
+  // sınıfıyla BİREBİR eşleşmeli. Eşleşmezse (ör. öğrenci profilinde sınıf seçmeden önce
+  // açılmış, grade_id=NULL kalmış eski bir yarım oturum) bu oturum resume EDİLMEZ — sebep:
+  // user_question_stats.grade_id (dolayısıyla next_review_at) test_sessions.grade_id'den
+  // türüyor (bkz. sync_user_question_stats_on_answer trigger'ı, grade_id NULL/uyuşmuyorsa
+  // sessizce hiçbir şey yapmıyor) — eski bir oturuma cevap yazmaya devam etmek, öğrencinin
+  // tekrar borcunu ASLA azaltmayan "kara delik" bir oturumda sıkışıp kalmasına yol açıyordu
+  // (kullanıcı raporu, 2026-09-15: "soruları çözüyorum ama hiç azalmıyor hala 17 diyor").
+  // topic/ünite testlerinde bu parametre verilmez (undefined) — içeriğin sınıfı zaten URL'den
+  // geliyor, profil sınıfıyla karışmaz.
+  expectedGradeId?: number | null
 ): Promise<ResumableSession | null> {
   let query = supabase
     .from('test_sessions')
@@ -30,6 +41,9 @@ export async function findResumableSession(
 
   query = unitId != null ? query.eq('unit_id', unitId) : query.is('unit_id', null);
   query = topicId != null ? query.eq('settings->>topic_id', String(topicId)) : query.is('settings->>topic_id', null);
+  if (expectedGradeId !== undefined) {
+    query = expectedGradeId != null ? query.eq('grade_id', expectedGradeId) : query.is('grade_id', null);
+  }
 
   const { data: sessionRow } = await query.maybeSingle();
   const session = sessionRow as { id: number; question_ids: number[] | null } | null;

@@ -29,7 +29,7 @@ export default async function SrsReviewPage() {
   // edilir — konu/ünite testlerindeki AYNI resume mekanizması (bkz. quizResume.ts). Öncesinde
   // her "/tekrar" ziyareti ayrı bir test_sessions satırı açıp hiçbirini bitirmiyordu
   // (kullanıcının 2026-09-06 bulduğu, DB'de sessizce biriken oturumlar).
-  const resumable = await findResumableSession(supabase, user.id, null, null);
+  const resumable = await findResumableSession(supabase, user.id, null, null, gradeId);
   const questionIds = resumable ? [] : await getDueSrsQuestionIds(supabase, user.id, gradeId, MAX_QUESTIONS_PER_TEST);
 
   if (!resumable && questionIds.length === 0) {
