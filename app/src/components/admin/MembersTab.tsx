@@ -10,6 +10,13 @@ type LookupRow = { id: number; label: string };
 
 const ROLE_LABELS: Record<string, string> = { student: 'Öğrenci', teacher: 'Öğretmen', admin: 'Admin' };
 
+function formatLastSignIn(value: unknown): string {
+  if (typeof value !== 'string' || !value) return 'Hiç giriş yapmadı';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Hiç giriş yapmadı';
+  return date.toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function MembersTab() {
   const [grades, setGrades] = useState<LookupRow[]>([]);
   const [items, setItems] = useState<Member[]>([]);
@@ -177,6 +184,7 @@ export default function MembersTab() {
                 <th className="p-3 text-left font-medium">E-posta</th>
                 <th className="p-3 text-left font-medium">Rol</th>
                 <th className="p-3 text-left font-medium">Sınıf</th>
+                <th className="p-3 text-left font-medium">Son Giriş</th>
                 <th className="p-3 text-left font-medium">Durum</th>
                 <th className="p-3 text-right w-40">İşlem</th>
               </tr>
@@ -193,6 +201,7 @@ export default function MembersTab() {
                     <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300">{ROLE_LABELS[m.role] || m.role}</span>
                   </td>
                   <td className="p-3 text-muted-foreground">{m.grades?.name || '—'}</td>
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">{formatLastSignIn(m.last_sign_in_at)}</td>
                   <td className="p-3">
                     <span
                       title={m.banned && m.banned_reason ? m.banned_reason : undefined}

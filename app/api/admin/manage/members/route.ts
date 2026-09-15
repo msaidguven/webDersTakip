@@ -5,16 +5,19 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 const EDITABLE_FIELDS = ['full_name', 'username', 'role', 'grade_id', 'school_name', 'branch', 'is_verified'] as const;
 const BAN_DURATION = '87600h'; // ~10 yıl — kalıcıya yakın ama tersine çevrilebilir "pasifleştirme"
 
-type AuthUserLite = { id: string; email?: string; banned_until?: string | null };
+type AuthUserLite = { id: string; email?: string; banned_until?: string | null; last_sign_in_at?: string | null };
 
 async function loadAuthUserMap(supabase: ReturnType<typeof createServiceClient>) {
-  const map = new Map<string, { email: string | null; banned: boolean }>();
+  const map = new Map<string, { email: string | null; banned: boolean; lastSignInAt: string | null }>();
   try {
     const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (error || !data) return map;
     for (const u of data.users as AuthUserLite[]) {
       const banned = !!u.banned_until && new Date(u.banned_until).getTime() > Date.now();
-      map.set(u.id, { email: u.email || null, banned });
+      // auth.users.last_sign_in_at — Supabase Auth'un kendi tuttuğu alan, ayrı bir
+      // tracking eklemeye gerek yok (kullanıcı isteği, 2026-09-15: "son giriş yapan
+      // üyeleri ve giriş tarihlerini görmek istiyorum").
+      map.set(u.id, { email: u.email || null, banned, lastSignInAt: u.last_sign_in_at || null });
     }
   } catch {
     // auth.admin erişilemezse (yanlış servis anahtarı vb.) e-posta/ban bilgisi olmadan devam et
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const items = ((profiles as Record<string, unknown>[] | null) || []).map((p) => {
     const auth = authMap.get(p.id as string);
-    return { ...p, email: auth?.email ?? null, banned: auth?.banned ?? false };
+    return { ...p, email: auth?.email ?? null, banned: auth?.banned ?? false, last_sign_in_at: auth?.lastSignInAt ?? null };
   });
 
   return NextResponse.json({ items });
