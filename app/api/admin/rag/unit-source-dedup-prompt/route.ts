@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Bu ünitede karşılaştırılacak yeterli konu yok (en az 2 aktif konu gerekli).' }, { status: 400 });
   }
 
-  const [{ data: docsData }, { data: outcomesData }] = await Promise.all([
+  const [{ data: docsData }, { data: outcomesData }, { data: contentsData }] = await Promise.all([
     supabase
       .from('rag_documents')
       .select('id, topic_id, raw_text, created_at')
@@ -57,7 +57,14 @@ export async function GET(request: NextRequest) {
       .eq('is_synthesis', true)
       .order('created_at', { ascending: false }),
     supabase.from('outcomes').select('topic_id, code, description').in('topic_id', topicIds),
+    supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds),
   ]);
+
+  // Bir konu sadece sentezlenmiş olmakla yetmez, YAYINDA içeriği de olmalı — aksi halde
+  // burada düzeltilen kaynak metin hiçbir yere yansımaz (kullanıcının 2026-09-14 isteği:
+  // "güncelle menüsünü çalıştırmadan ünite sentezini çalıştırmayalım", bkz.
+  // units-ready-for-dedup/route.ts — aynı kural, burada da savunma amaçlı tekrarlanıyor).
+  const publishedTopicIds = new Set(((contentsData as { topic_id: number | null }[] | null) || []).map((r) => r.topic_id));
 
   // Bir konu için birden fazla sentez satırı olmamalı (topic-source-synthesis eskisini
   // sildikten sonra yenisini bırakıyor) ama sıra garantisi için en yeniyi (created_at DESC)
@@ -74,12 +81,14 @@ export async function GET(request: NextRequest) {
     outcomesByTopicId.set(o.topic_id, list);
   }
 
-  // "2. ünite yarım" gibi henüz RAG sentezi tamamlanmamış konular sessizce atlanıyor.
+  // "2. ünite yarım" gibi henüz RAG sentezi tamamlanmamış konular ya da sentezlenmiş ama
+  // YAYINDA içeriği henüz olmayan (içerik hiç oluşturulmamış/güncellenmemiş) konular sessizce
+  // atlanıyor.
   const qualifyingTopics: { topic: TopicRow; doc: DocRow }[] = [];
   const skippedTopics: string[] = [];
   for (const topic of topics) {
     const doc = docByTopicId.get(topic.id);
-    if (doc) {
+    if (doc && publishedTopicIds.has(topic.id)) {
       qualifyingTopics.push({ topic, doc });
     } else {
       skippedTopics.push(topic.title);
@@ -88,7 +97,10 @@ export async function GET(request: NextRequest) {
 
   if (qualifyingTopics.length < 2) {
     return NextResponse.json(
-      { error: 'Bu ünitede RAG kaynak metni sentezi tamamlanmış en az 2 konu yok — karşılaştırılacak yeterli malzeme bulunmuyor.' },
+      {
+        error:
+          'Bu ünitede RAG kaynak metni sentezlenmiş VE yayında içeriği olan en az 2 konu yok — önce ilgili konularda "Sentezden Alt Başlık" / "Sentezden İçeriği Güncelle" çalıştırın.',
+      },
       { status: 400 }
     );
   }

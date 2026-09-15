@@ -9,7 +9,15 @@ type OutcomeRow = {
   order_index: number | null;
 };
 type TopicRow = { id: number; title: string; slug: string | null; order_no: number };
-type TopicContentRow = { id: number; topic_id: number; hero_image_url: string | null; subtitle: string | null; generation_meta: unknown };
+type TopicContentRow = {
+  id: number;
+  topic_id: number;
+  hero_image_url: string | null;
+  subtitle: string | null;
+  generation_meta: unknown;
+  summary_markdown: string | null;
+  discussion_prompt_markdown: string | null;
+};
 type SectionRow = {
   id: number;
   topic_content_id: number;
@@ -17,6 +25,8 @@ type SectionRow = {
   heading: string;
   body_markdown: string | null;
   notebook_markdown: string | null;
+  activity_prompt_markdown: string | null;
+  activity_example_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   image_alt: string | null;
@@ -31,7 +41,20 @@ type HighlightRow = {
 };
 
 export type LessonWeekOutcome = { id: number; description: string; topicId: number | null; topicTitle: string };
-export type LessonWeekSection = { id: number; heading: string; html: string | null; notebookHtml: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt: string | null; diagramSvg: string | null };
+export type LessonWeekSection = {
+  id: number;
+  heading: string;
+  html: string | null;
+  notebookHtml: string | null;
+  // Bundan sonra üretilen içerikte notebookHtml'in yerini alan "Düşün/Hayal Et/Dene"
+  // etkinlik kutusu — eski konularda ikisi de null kalır (bkz. topic_activity_and_summary.sql).
+  activityPromptHtml: string | null;
+  activityExampleHtml: string | null;
+  imageUrl: string | null;
+  imagePrompt: string | null;
+  imageAlt: string | null;
+  diagramSvg: string | null;
+};
 export type LessonWeekContent = {
   id: number;
   title: string;
@@ -42,6 +65,12 @@ export type LessonWeekContent = {
   heroImageUrl: string | null;
   heroImageAlt: string | null;
   subtitle: string | null;
+  // Konu sonunda gösterilen tek toplu "Konu Özeti" — eski konularda null (notebookHtml'ler
+  // üzerinden alt başlık bazlı gösterime düşülür, bkz. SectionContent.tsx).
+  summaryHtml: string | null;
+  // Konu sonundaki "Düşün ve Yorumla" kapanış sorusu — var olan tartışma bölümüne bağlanır
+  // (bkz. DersClient.tsx). Eski konularda null.
+  discussionPromptHtml: string | null;
   highlights: { icon: string | null; title: string; description: string }[];
   // false ise bu konunun section/highlight içeriği henüz çekilmedi (bkz. activeTopic parametresi) —
   // sidebar'da başlık/slug göstermek için yeterli ama tam içerik client tarafında ayrıca yüklenmeli.
@@ -96,13 +125,13 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
 
   let topicContentsQuery = supabase
     .from('topic_contents')
-    .select('id, topic_id, hero_image_url, subtitle, generation_meta')
+    .select('id, topic_id, hero_image_url, subtitle, generation_meta, summary_markdown, discussion_prompt_markdown')
     .in('topic_id', contentTopicIds);
   if (!isAdmin) topicContentsQuery = topicContentsQuery.eq('is_published', true);
 
   // outcomes ve topic_contents sorguları birbirinden bağımsız (ikisi de sadece yukarıda
   // hesaplanan id listelerine bağlı) — sıralı değil paralel çekiyoruz.
-  const [{ data: outcomesData }, { data: topicContentsData }] = await Promise.all([
+  const [{ data: outcomesData }, { data: topicContentsData, error: topicContentsError }] = await Promise.all([
     topicIds.length
       ? supabase
           .from('outcomes')
@@ -110,8 +139,16 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .in('topic_id', topicIds)
           .order('order_index', { ascending: true })
       : Promise.resolve({ data: [] as OutcomeRow[] }),
-    contentTopicIds.length ? topicContentsQuery : Promise.resolve({ data: [] as TopicContentRow[] }),
+    contentTopicIds.length ? topicContentsQuery : Promise.resolve({ data: [] as TopicContentRow[], error: null }),
   ]);
+
+  // Bu sorgu hata verirse (ör. eksik migration) topicContentRows/contentIds boş kalır ve
+  // AŞAĞIDAKİ sections/highlights sorguları hiç çalışmaz — sessizce "içerik yok" görünmesi
+  // yerine (2026-09-15'te fark edilen sessiz regresyon) logluyoruz, TÜM konuların içeriği
+  // aynı anda kaybolduğunda kök nedeni teşhis etmek için (bkz. sectionsError loglaması, aynı gerekçe).
+  if (topicContentsError) {
+    console.error('[getLessonWeekData] topic_contents sorgusu başarısız:', topicContentsError.message);
+  }
 
   let outcomes: LessonWeekOutcome[] = [];
 
@@ -154,6 +191,8 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     heroImageUrl: null,
     heroImageAlt: null,
     subtitle: null,
+    summaryHtml: null,
+    discussionPromptHtml: null,
     highlights: [],
     contentLoaded: false,
   }));
@@ -163,12 +202,14 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
     const contentIds = topicContentRows.map((tc) => tc.id);
 
-    const heroByTopic = new Map<number, { heroImageUrl: string | null; heroImageAlt: string | null; subtitle: string | null }>();
+    const heroByTopic = new Map<number, { heroImageUrl: string | null; heroImageAlt: string | null; subtitle: string | null; summaryHtml: string | null; discussionPromptHtml: string | null }>();
     for (const tc of topicContentRows) {
       heroByTopic.set(tc.topic_id, {
         heroImageUrl: tc.hero_image_url,
         heroImageAlt: extractHeroImageAlt(tc.generation_meta),
         subtitle: tc.subtitle,
+        summaryHtml: tc.summary_markdown ? markdownToHtml(tc.summary_markdown) : null,
+        discussionPromptHtml: tc.discussion_prompt_markdown ? markdownToHtml(tc.discussion_prompt_markdown) : null,
       });
     }
 
@@ -179,7 +220,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, image_url, image_prompt, image_alt, diagram_svg')
+          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -205,6 +246,8 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           heading: row.heading,
           html: row.body_markdown ? markdownToHtml(row.body_markdown) : null,
           notebookHtml: row.notebook_markdown ? markdownToHtml(row.notebook_markdown) : null,
+          activityPromptHtml: row.activity_prompt_markdown ? markdownToHtml(row.activity_prompt_markdown) : null,
+          activityExampleHtml: row.activity_example_markdown ? markdownToHtml(row.activity_example_markdown) : null,
           imageUrl: row.image_url,
           imagePrompt: row.image_prompt,
           imageAlt: row.image_alt,
@@ -228,6 +271,8 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       heroImageUrl: heroByTopic.get(c.id)?.heroImageUrl || null,
       heroImageAlt: heroByTopic.get(c.id)?.heroImageAlt || null,
       subtitle: heroByTopic.get(c.id)?.subtitle || null,
+      summaryHtml: heroByTopic.get(c.id)?.summaryHtml || null,
+      discussionPromptHtml: heroByTopic.get(c.id)?.discussionPromptHtml || null,
       highlights: highlightsByTopic.get(c.id) || [],
       contentLoaded: loadedTopicIds.has(c.id),
     }));

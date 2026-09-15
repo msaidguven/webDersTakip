@@ -4,11 +4,13 @@
 // hook'larını çağıran) sunum bileşenleri — dosyanın 2800+ satırını okunur tutmak için ayrıldı
 // (kullanıcının 2026-09-05 isteği: "bunu ayrı componentler haline getirsen daha kolay olmaz mı").
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CheckCircle2, ListChecks, Pencil, Trophy } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle2, ListChecks, MessageCircle, Pencil, Trophy } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
+import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
+import { buildBlocks } from './SectionContent';
 import type { TopicHighlight } from './dersHelpers';
 
 export function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel: string; dateRangeLabel: string }) {
@@ -188,6 +190,64 @@ export function QuizCtaCards({
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+// Konu sonunda gösterilen TEK toplu özet — bundan sonra üretilen içerikte, eskiden her alt
+// başlığın altında ayrı ayrı olan "Defterine Not Al" kutusunun yerine geçiyor (kullanıcının
+// 2026-09-15 isteği). NotebookBox'la (SectionContent.tsx) aynı madde/terim render
+// pipeline'ını (buildBlocks) paylaşıyor, sadece farklı bir renk ailesinde (yeşil/emerald —
+// "tamamlandı, işte çıkarımın" hissi) ve konu geneline ait olduğu için ayrı bir bileşen.
+export function TopicSummaryBox({ summaryHtml }: { summaryHtml: string }) {
+  const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
+  const mathHtml = useMemo(() => renderLatexInHtml(summaryHtml), [summaryHtml]);
+
+  useEffect(() => {
+    setBlocks(buildBlocks(mathHtml));
+  }, [mathHtml]);
+
+  return (
+    <div className="not-prose mt-10 border-t-2 border-rose-100 pt-8">
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 shadow-sm">
+        <div className="absolute inset-y-0 left-0 hidden w-12 flex-col items-center justify-evenly py-6 sm:flex">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <span key={i} className="h-2 w-2 rounded-full bg-white shadow-inner ring-1 ring-emerald-200" />
+          ))}
+        </div>
+        <div className="absolute inset-y-0 left-12 hidden w-px bg-emerald-200 sm:block" />
+        <div className="space-y-2.5 px-5 py-6 sm:py-7 sm:pl-16 sm:pr-7">
+          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-emerald-700">
+            📝 Konu Özeti — Defterine Al
+          </p>
+          {blocks ?? <div dangerouslySetInnerHTML={{ __html: mathHtml }} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Konu sonundaki "Düşün ve Yorumla" — tek doğrusu olmayan bir kapanış sorusu, var olan
+// tartışma bölümüne (UnitDiscussion, #konu-tartisma) bağlanıyor. Yeni bir yorum sistemi
+// kurmuyoruz, sadece o bölüme yönlendirip öğrenciyi bir görüş üretmeye teşvik ediyoruz
+// (kullanıcının 2026-09-15 isteği). Konu Özeti'nden bilinçli olarak daha hafif/ince —
+// sayfayı gereksiz uzatmamak için ayrı bir büyük kart değil, tek satırlık bir şerit.
+export function DiscussionPromptBox({ discussionPromptHtml }: { discussionPromptHtml: string }) {
+  const mathHtml = useMemo(() => renderLatexInHtml(discussionPromptHtml), [discussionPromptHtml]);
+
+  return (
+    <div className="not-prose mt-4 flex flex-col items-start gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex items-start gap-2.5 min-w-0">
+        <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+        <div className="min-w-0 text-sm text-slate-700 sm:text-base [&_p]:m-0 [&_strong]:font-black [&_strong]:text-violet-700" dangerouslySetInnerHTML={{ __html: mathHtml }} />
+      </div>
+      <button
+        type="button"
+        onClick={() => document.getElementById('konu-tartisma')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        className="flex shrink-0 items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-violet-700"
+      >
+        Görüşünü Paylaş <ArrowRight className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

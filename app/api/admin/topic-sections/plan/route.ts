@@ -11,6 +11,8 @@ type IncomingSection = {
   body_markdown?: unknown;
   explanation_markdown?: unknown;
   notebook_markdown?: unknown;
+  activity_prompt_markdown?: unknown;
+  activity_example_markdown?: unknown;
   needs_image?: unknown;
   image_prompt?: unknown;
 };
@@ -19,7 +21,12 @@ type CleanSection = {
   order_no: number;
   matched_outcome_codes: string[];
   body_markdown: string | null;
+  // notebook_markdown eski format — sadece geçmiş bir prompt çıktısı yapıştırılırsa diye
+  // (geriye uyumluluk) hâlâ okunuyor. Yeni içerikte bunun yerine activity_* alanları geliyor
+  // (bkz. _explanation-notebook-rules.md, kullanıcının 2026-09-15 isteği).
   notebook_markdown: string | null;
+  activity_prompt_markdown: string | null;
+  activity_example_markdown: string | null;
   image_prompt: string | null;
 };
 type OutcomeRow = { id: number; code: string | null };
@@ -34,11 +41,15 @@ export async function POST(request: NextRequest) {
     sections?: IncomingSection[];
     cover?: IncomingCover;
     ai_model?: unknown;
+    summary_markdown?: unknown;
+    discussion_prompt_markdown?: unknown;
   } | null;
   const topicId = body?.topicId;
   const sections = body?.sections;
   const cover = body?.cover;
   const aiModel = typeof body?.ai_model === 'string' && body.ai_model.trim() ? body.ai_model.trim() : null;
+  const summaryMarkdown = typeof body?.summary_markdown === 'string' ? body.summary_markdown.trim() : '';
+  const discussionPromptMarkdown = typeof body?.discussion_prompt_markdown === 'string' ? body.discussion_prompt_markdown.trim() : '';
 
   if (!topicId || !Array.isArray(sections) || sections.length === 0) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
@@ -54,6 +65,8 @@ export async function POST(request: NextRequest) {
         ? s.explanation_markdown.trim()
         : typeof s.body_markdown === 'string' ? s.body_markdown.trim() : '';
       const notebookMarkdown = typeof s.notebook_markdown === 'string' ? s.notebook_markdown.trim() : '';
+      const activityPrompt = typeof s.activity_prompt_markdown === 'string' ? s.activity_prompt_markdown.trim() : '';
+      const activityExample = typeof s.activity_example_markdown === 'string' ? s.activity_example_markdown.trim() : '';
       const needsImage = Boolean(s.needs_image);
       return {
         heading: s.heading.trim(),
@@ -63,6 +76,8 @@ export async function POST(request: NextRequest) {
           : [],
         body_markdown: bodyMarkdown || null,
         notebook_markdown: notebookMarkdown || null,
+        activity_prompt_markdown: activityPrompt || null,
+        activity_example_markdown: activityExample || null,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
       };
     });
@@ -190,6 +205,8 @@ export async function POST(request: NextRequest) {
             order_no: s.order_no,
             body_markdown: s.body_markdown,
             notebook_markdown: s.notebook_markdown,
+            activity_prompt_markdown: s.activity_prompt_markdown,
+            activity_example_markdown: s.activity_example_markdown,
             image_prompt: s.image_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',
             ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
@@ -244,6 +261,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Konu sonundaki tek toplu "Konu Özeti" ve "Düşün ve Yorumla" sorusu — cover'ın DIŞINDA,
+  // JSON'un en üst seviyesinde geliyor (bkz. 03/20/23/24. promptlar). Eski (henüz bu formata
+  // geçmemiş) konularda bu alanlar boş gelir, NULL kalır — eski görünüm bozulmaz.
+  const topicContentUpdate: Record<string, string> = {};
+  if (summaryMarkdown) topicContentUpdate.summary_markdown = summaryMarkdown;
+  if (discussionPromptMarkdown) topicContentUpdate.discussion_prompt_markdown = discussionPromptMarkdown;
+  if (Object.keys(topicContentUpdate).length) {
+    await supabase.from('topic_contents').update(topicContentUpdate).eq('id', topicContentId);
+  }
+
   // Başlığı eşleşen alt başlıklar yukarıda zaten UPDATE edildi (görsel/diyagram/soru
   // bağlantılarını korumak için); burada sadece eşleşmeyen (yeni) alt başlıkları ekliyoruz.
   const toInsertIndices = cleanSections
@@ -263,6 +290,8 @@ export async function POST(request: NextRequest) {
             heading: s.heading,
             body_markdown: s.body_markdown,
             notebook_markdown: s.notebook_markdown,
+            activity_prompt_markdown: s.activity_prompt_markdown,
+            activity_example_markdown: s.activity_example_markdown,
             image_prompt: s.image_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',
             // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;

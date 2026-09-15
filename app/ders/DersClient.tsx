@@ -28,6 +28,9 @@ import {
   ImagePlus,
   Shapes,
   Plus,
+  Minus,
+  Monitor,
+  AlertTriangle,
   Share2,
   Download,
 } from 'lucide-react';
@@ -45,6 +48,7 @@ const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/Admin
 const RagTopicSourceModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceModal), { ssr: false });
 const RagTopicSourceSynthesisModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceSynthesisModal), { ssr: false });
 const RagUnitSourceDedupModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagUnitSourceDedupModal), { ssr: false });
+const RagTopicAccuracyCheckModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicAccuracyCheckModal), { ssr: false });
 const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
 const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
@@ -61,7 +65,7 @@ import { getLessonColor } from '@/app/src/lib/homeMapping';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
-import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards } from './DersClientCards';
+import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
 import {
   type Outcome,
   type WeekedOutcome,
@@ -87,6 +91,22 @@ import {
   SPECIAL_WEEK_META,
   STUDY_TIPS,
 } from './dersHelpers';
+
+// Akıllı tahta modu: öğretmen sınıfta konu içeriğini büyük ekranda açtığında yan
+// panelleri gizleyip içeriği tam genişliğe yayar; yazı boyutu +/- ile ayrıca
+// büyütülüp küçültülebilir. Aynı cihaz (sınıf bilgisayarı/tahtası) her derste
+// tekrar kullanıldığı için ikisi de localStorage'da kalıcı.
+const BOARD_MODE_KEY = 'ders-board-mode';
+const CONTENT_SCALE_KEY = 'ders-content-font-scale';
+const MIN_CONTENT_SCALE = 1;
+const MAX_CONTENT_SCALE = 2.2;
+const CONTENT_SCALE_STEP = 0.2;
+const BOARD_MODE_DEFAULT_SCALE = 1.4;
+
+// "RAG Kaynak Metni Sentezle" için gereken minimum bağımsız taslak sayısı — tek bir AI'ın
+// kaynak metnine güvenmek yerine birden fazla AI'ın üzerinde bir ölçüde uzlaştığı bir
+// çoğunluk/tutarlılık kontrolü yapılabilsin diye (kullanıcının 2026-09-14 isteği).
+const MIN_RAG_SOURCE_DRAFTS = 5;
 
 interface DersClientProps {
   initialData: {
@@ -170,12 +190,14 @@ function TopicActionMenuItem({
   label,
   title,
   done,
+  warning,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   title?: string;
   done?: boolean;
+  warning?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -186,7 +208,8 @@ function TopicActionMenuItem({
       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
     >
       {icon} {label}
-      {done && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
+      {warning && <AlertTriangle className="ml-auto h-3.5 w-3.5 text-amber-500" />}
+      {done && !warning && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
     </button>
   );
 }
@@ -215,6 +238,30 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
+  const [boardMode, setBoardMode] = useState(false);
+  const [contentScale, setContentScale] = useState(MIN_CONTENT_SCALE);
+
+  useEffect(() => {
+    setBoardMode(localStorage.getItem(BOARD_MODE_KEY) === '1');
+    const savedScale = Number(localStorage.getItem(CONTENT_SCALE_KEY));
+    if (savedScale >= MIN_CONTENT_SCALE && savedScale <= MAX_CONTENT_SCALE) setContentScale(savedScale);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(BOARD_MODE_KEY, boardMode ? '1' : '0');
+  }, [boardMode]);
+
+  useEffect(() => {
+    localStorage.setItem(CONTENT_SCALE_KEY, String(contentScale));
+  }, [contentScale]);
+
+  const toggleBoardMode = useCallback(() => {
+    setBoardMode((prev) => {
+      const next = !prev;
+      if (next) setContentScale((s) => (s === MIN_CONTENT_SCALE ? BOARD_MODE_DEFAULT_SCALE : s));
+      return next;
+    });
+  }, []);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   // kazanimlarWeek "takvim haftası"dır (week prop'u öğretim haftasıdır) — bkz. totalCalendarWeeks
   // yorumu. Modal ilk kez bugünün öğretim haftasını (week) gösterecek şekilde açılsın diye
@@ -264,6 +311,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
   const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
   const [ragUnitSourceDedupModalUnitId, setRagUnitSourceDedupModalUnitId] = useState<number | null>(null);
+  const [ragAccuracyCheckTopicId, setRagAccuracyCheckTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
@@ -436,6 +484,43 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     };
   }, [isAdmin, allVisibleTopicIdsKey]);
 
+  // Hangi konularda açık (çözülmemiş) bir "Tutarsızlık Notu" ya da "Doğruluk Kontrolü"
+  // bulgusu olduğunu gösteren uyarı ikonu için — synthesizedTopicIds ile aynı desen.
+  const [flaggedTopicIds, setFlaggedTopicIds] = useState<Set<number>>(new Set());
+  const refreshFlaggedTopicIds = useCallback(() => {
+    if (!isAdmin || !allVisibleTopicIdsKey) {
+      setFlaggedTopicIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/topics-review-status?topicIds=${allVisibleTopicIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { topicIds?: number[] } | null) => setFlaggedTopicIds(new Set(data?.topicIds || [])));
+  }, [isAdmin, allVisibleTopicIdsKey]);
+  useEffect(() => {
+    refreshFlaggedTopicIds();
+  }, [refreshFlaggedTopicIds]);
+
+  // Kaç ham RAG kaynak taslağı (18. prompt) biriktiğini tutar — "RAG Kaynak Metni Sentezle"
+  // butonu en az MIN_RAG_SOURCE_DRAFTS taslak birikmeden pasif kalsın diye (kullanıcının
+  // 2026-09-14 isteği: tek bir AI'a değil, birden fazla bağımsız taslağın çoğunluk/tutarlılık
+  // kontrolüne dayansın).
+  const [draftCountByTopicId, setDraftCountByTopicId] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allVisibleTopicIdsKey) {
+      setDraftCountByTopicId({});
+      return;
+    }
+    fetch(`/api/admin/rag/topics-draft-counts?topicIds=${allVisibleTopicIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { counts?: Record<number, number> } | null) => {
+        if (!cancelled) setDraftCountByTopicId(data?.counts || {});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allVisibleTopicIdsKey]);
+
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
     (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
@@ -461,6 +546,26 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { unitIds?: number[] } | null) => {
         if (!cancelled) setRagDedupCheckedUnitIds(new Set(data?.unitIds || []));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, allUnitIdsKey]);
+
+  // Ünite Sentezi (Tekrar Kontrolü) butonu, ünitede yayında içeriği OLAN en az 2 sentezlenmiş
+  // konu yoksa pasif kalır — aksi halde kaynak metni düzeltmek hiçbir yere yansımaz (kullanıcının
+  // 2026-09-14 isteği: "güncelle menüsünü çalıştırmadan ünite sentezini çalıştırmayalım").
+  const [dedupReadyUnitIds, setDedupReadyUnitIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin || !allUnitIdsKey) {
+      setDedupReadyUnitIds(new Set());
+      return;
+    }
+    fetch(`/api/admin/rag/units-ready-for-dedup?unitIds=${allUnitIdsKey}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { unitIds?: number[] } | null) => {
+        if (!cancelled) setDedupReadyUnitIds(new Set(data?.unitIds || []));
       });
     return () => {
       cancelled = true;
@@ -1592,19 +1697,32 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       >
                         <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni (Kitapsız Ders)
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setRagSourceSynthesisModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
-                        {synthesizedTopicIds.has(Number(topic.id)) && (
-                          <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                        )}
-                      </button>
+                      {(() => {
+                        const draftCount = draftCountByTopicId[Number(topic.id)] || 0;
+                        const ready = draftCount >= MIN_RAG_SOURCE_DRAFTS;
+                        return (
+                          <button
+                            type="button"
+                            disabled={!ready}
+                            onClick={() => {
+                              if (!ready) return;
+                              setTopicMenuOpenId(null);
+                              setRagSourceSynthesisModalTopicId(Number(topic.id));
+                            }}
+                            title={ready ? undefined : `Önce en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı ekleyin (şu an: ${draftCount})`}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
+                              ready ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-300 cursor-not-allowed'
+                            }`}
+                          >
+                            <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
+                            {synthesizedTopicIds.has(Number(topic.id)) ? (
+                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
+                            ) : (
+                              <span className="ml-auto text-[10px] font-black text-slate-400">{draftCount}/{MIN_RAG_SOURCE_DRAFTS}</span>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </>
                 )}
@@ -1764,8 +1882,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
       <div className="flex min-h-0 flex-1 overflow-hidden relative">
 
-        {/* MOBILE OVERLAY */}
-        {sidebarOpen && (
+        {/* MOBILE OVERLAY + LEFT SIDEBAR: akıllı tahta modunda ikisi de tamamen
+            gizlenir — ders/ünite navigasyonu değil, içerik büyük ekranda odak olsun diye. */}
+        {!boardMode && sidebarOpen && (
           <div
             className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
             onClick={() => setSidebarOpen(false)}
@@ -1773,6 +1892,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         )}
 
         {/* LEFT SIDEBAR: İÇİNDEKİLER (o ünitedeki konular) */}
+        {!boardMode && (
         <aside className={`
           fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200
           transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-none shrink-0
@@ -1846,22 +1966,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
                     </button>
 
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRagUnitSourceDedupModalUnitId(Number(unit.id));
-                        }}
-                        title="RAG Ünite Sentezi (Tekrar Kontrolü)"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
-                          <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
-                        )}
-                      </button>
-                    )}
+                    {isAdmin && (() => {
+                      const dedupReady = dedupReadyUnitIds.has(Number(unit.id));
+                      return (
+                        <button
+                          type="button"
+                          disabled={!dedupReady}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!dedupReady) return;
+                            setRagUnitSourceDedupModalUnitId(Number(unit.id));
+                          }}
+                          title={
+                            dedupReady
+                              ? 'RAG Ünite Sentezi (Tekrar Kontrolü)'
+                              : 'Bu ünitede yayında içeriği olan en az 2 sentezlenmiş konu yok — önce ilgili konularda "Sentezden Alt Başlık" / "Sentezden İçeriği Güncelle" çalıştırın'
+                          }
+                          className={`absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg transition-colors ${
+                            dedupReady ? 'text-slate-400 hover:text-slate-700 hover:bg-white' : 'text-slate-200 cursor-not-allowed'
+                          }`}
+                        >
+                          <BookOpen className="h-3.5 w-3.5" />
+                          {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
+                            <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {isUnitExpanded && (
@@ -1886,13 +2017,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <div className="hidden lg:block h-16 shrink-0 border-t border-slate-200/80 bg-white/95" />
 
         </aside>
+        )}
 
         {/* MAIN CONTENT */}
         <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-slate-50">
           <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-            <div className="max-w-5xl mx-auto p-3 sm:p-5 lg:p-8">
+            <div className={`mx-auto p-3 sm:p-5 lg:p-8 ${boardMode ? 'max-w-6xl' : 'max-w-5xl'}`}>
 
-              <div className="grid grid-cols-1 gap-5 items-start lg:grid-cols-[1fr_260px]">
+              <div className={`grid grid-cols-1 gap-5 items-start ${boardMode ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
               {/* SOL SÜTUN: hiyerarşi barı + mobil konu dropdown'u + içerik kartı — sağdaki
                   260px'lik özet sütunuyla AYNI grid satırında, aynı hizada kalsınlar diye
                   hepsi tek bir grid item (kullanıcının 2026-09-05 bildirdiği bug: hiyerarşi
@@ -1912,13 +2044,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   handleLessonDropdownSelect/handleUnitDropdownSelect). */}
               <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(true)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
-                  >
-                    <Menu className="h-4 w-4" />
-                  </button>
+                  {!boardMode && (
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(true)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </button>
+                  )}
                   <Link
                     href="/"
                     title="Anasayfa"
@@ -2108,12 +2242,62 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  <div className="p-5 sm:p-8 lg:p-10">
+                  {/* AKILLI TAHTA ARAÇ ÇUBUĞU — içerik zoom'undan bağımsız kalsın diye (kontrollerin
+                      kendisi büyümesin) zoom'lu iç div'in DIŞINDA. Öğretmen sınıfta akıllı tahtaya
+                      bağlayıp konuyu büyük ekranda açtığında yan panelleri gizlemek + yazıyı
+                      büyütmek için (kullanıcının 2026-09-14 isteği). */}
+                  <div className="not-prose sticky top-0 z-20 flex items-center justify-end gap-2 rounded-t-2xl border-b border-slate-100 bg-white/95 px-5 py-2.5 backdrop-blur-sm sm:px-8">
+                    <button
+                      type="button"
+                      onClick={toggleBoardMode}
+                      title={boardMode ? 'Akıllı tahta modundan çık' : 'Akıllı tahta modu — yan panelleri gizle, içeriği büyüt'}
+                      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-colors ${
+                        boardMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                      }`}
+                    >
+                      <Monitor className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{boardMode ? 'Akıllı Tahta Modu' : 'Akıllı Tahta'}</span>
+                    </button>
+                    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 pr-1">
+                      <button
+                        type="button"
+                        onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale <= MIN_CONTENT_SCALE}
+                        aria-label="Yazıyı küçült"
+                        title="Yazıyı küçült"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale >= MAX_CONTENT_SCALE}
+                        aria-label="Yazıyı büyüt"
+                        title="Yazıyı büyüt (akıllı tahta için)"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-5 sm:p-8 lg:p-10" style={{ zoom: contentScale }}>
                     {activeTopic && (
                       <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
                         <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                           <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
+                          {isAdmin && flaggedTopicIds.has(Number(activeTopic.id)) && (
+                            <button
+                              type="button"
+                              title="Açık bir RAG doğruluk/tutarsızlık bulgusu var — Güncelle > Doğruluk Kontrolü'nden bakın"
+                              onClick={() => setRagAccuracyCheckTopicId(Number(activeTopic.id))}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-colors"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                            </button>
+                          )}
                           {isAdmin && (
                             <TopicActionMenuGroup
                               menuKey="new"
@@ -2160,6 +2344,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   label="Sentezden İçeriği Güncelle"
                                   title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
                                   onClick={() => { setTopicActionMenu(null); setContentRefreshSynthesisTopicId(Number(activeTopic.id)); }}
+                                />
+                              )}
+                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
+                                <TopicActionMenuItem
+                                  icon={<AlertTriangle className="h-3.5 w-3.5" />}
+                                  label="Doğruluk Kontrolü"
+                                  title="Yayındaki içeriği RAG kaynak metniyle karşılaştırıp hata arattır"
+                                  warning={flaggedTopicIds.has(Number(activeTopic.id))}
+                                  onClick={() => { setTopicActionMenu(null); setRagAccuracyCheckTopicId(Number(activeTopic.id)); }}
                                 />
                               )}
                             </TopicActionMenuGroup>
@@ -2317,6 +2510,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
+                          <>
                           <div>
                             {activeTopic.sections.map((section) => {
                               const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
@@ -2443,6 +2637,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     <SectionContent
                                       html={section.html || ''}
                                       notebookHtml={section.notebookHtml}
+                                      activityPromptHtml={section.activityPromptHtml}
+                                      activityExampleHtml={section.activityExampleHtml}
+                                      sectionId={section.id}
                                       heading={section.heading}
                                       imageUrl={section.imageUrl}
                                       caption={section.heading}
@@ -2467,6 +2664,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               );
                             })}
                           </div>
+                          {activeTopic.summaryHtml && (
+                            <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                          )}
+                          {activeTopic.discussionPromptHtml && (
+                            <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />
+                          )}
+                          </>
                         ) : activeTopic.content ? (
                           <SectionContent html={activeTopic.content} />
                         ) : isWeekDataLoading ? (
@@ -2518,7 +2722,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       />
                     )}
                     {activeTopic && activeUnit && (
-                      <div className="not-prose mt-8">
+                      <div id="konu-tartisma" className="not-prose mt-8 scroll-mt-4">
                         <UnitDiscussion
                           gradeId={Number(gradeId)}
                           lessonId={Number(lessonId)}
@@ -2536,7 +2740,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu */}
+                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu — akıllı tahta
+                    modunda gizlenir, içerik tam genişlik kullanır. */}
+                {!boardMode && (
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
                   <button
                     type="button"
@@ -2580,6 +2786,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -2856,6 +3063,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onClose={() => setRagSourceSynthesisModalTopicId(null)}
           onSaved={() => {
             setSynthesizedTopicIds((prev) => new Set(prev).add(ragSourceSynthesisModalTopicId));
+            refreshFlaggedTopicIds();
             setRagSourceSynthesisModalTopicId(null);
           }}
         />
@@ -2868,6 +3076,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           onSaved={() => {
             setRagDedupCheckedUnitIds((prev) => new Set(prev).add(ragUnitSourceDedupModalUnitId));
           }}
+        />
+      )}
+
+      {ragAccuracyCheckTopicId != null && (
+        <RagTopicAccuracyCheckModal
+          topicId={ragAccuracyCheckTopicId}
+          onClose={() => setRagAccuracyCheckTopicId(null)}
+          onSaved={refreshFlaggedTopicIds}
+          onEditSection={(sectionId) => openContentEditModal(sectionId)}
         />
       )}
 

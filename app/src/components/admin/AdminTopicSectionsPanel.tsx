@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
@@ -1026,7 +1026,7 @@ export function PlanModal({
   );
 }
 
-type RagAiSource = { id: number; title: string; status: string; createdAt: string; preview: string };
+type RagAiSource = { id: number; title: string; status: string; createdAt: string; preview: string; aiModel: string | null };
 
 // MEB'in kitap yayınlamadığı dersler için: unit-prompt (RagDocumentsPanel'deki NotebookLM
 // akışı) "kitaptan çıkar" diyordu, bu modal ise kazanımlara dayanarak AI'a SIFIRDAN kaynak
@@ -1051,6 +1051,7 @@ export function RagTopicSourceModal({
   const [prompt, setPrompt] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [pasted, setPasted] = useState('');
+  const [aiModel, setAiModel] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState<{ topicTitle: string; unitId: number; gradeId: number; lessonId: number } | null>(null);
@@ -1064,6 +1065,21 @@ export function RagTopicSourceModal({
     if (res.ok) setSources(data?.sources || []);
     setLoadingSources(false);
   }, [topicId]);
+
+  // Prompt (18-rag-topic-source-notext.md), nihai metinden SONRA "---" ile ayrılmış bir
+  // satırda AI'ın kendi model adını yazmasını istiyor — RagTopicSourceSynthesisModal'daki
+  // "Tutarsızlık Notu" ayıklamasıyla aynı desen. mainText kaydedilir (marker RAG arama
+  // havuzuna karışmasın diye), detectedAiModel ise "hangi AI üretti" alanını otomatik
+  // doldurur — admin yine de elle düzeltebilir.
+  const { mainText, detectedAiModel } = useMemo(() => {
+    const idx = pasted.indexOf('\n---');
+    if (idx === -1) return { mainText: pasted.trim(), detectedAiModel: '' };
+    return { mainText: pasted.slice(0, idx).trim(), detectedAiModel: pasted.slice(idx + 4).trim() };
+  }, [pasted]);
+
+  useEffect(() => {
+    if (detectedAiModel) setAiModel(detectedAiModel);
+  }, [detectedAiModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1097,7 +1113,8 @@ export function RagTopicSourceModal({
           topicId,
           title: meta.topicTitle,
           source: 'ai_generated',
-          text: pasted,
+          text: mainText,
+          aiModel,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1106,6 +1123,7 @@ export function RagTopicSourceModal({
         return;
       }
       setPasted('');
+      setAiModel('');
       await loadSources();
       onSaved();
     } finally {
@@ -1129,6 +1147,25 @@ export function RagTopicSourceModal({
         <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
 
         <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">Bu metni hangi AI üretti? (yapıştırınca prompt'un istediği "---" satırından otomatik alınır, gerekirse düzeltin)</span>
+          <input
+            list="ai-model-options-rag-source"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder="ör. ChatGPT, Gemini, Claude..."
+            className="w-full rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
+          />
+          <datalist id="ai-model-options-rag-source">
+            <option value="ChatGPT" />
+            <option value="Gemini" />
+            <option value="Claude Sonnet 5" />
+            <option value="Claude Opus 5" />
+            <option value="Grok" />
+            <option value="DeepSeek" />
+          </datalist>
+        </div>
+
+        <div>
           <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
           <textarea
             value={pasted}
@@ -1147,7 +1184,8 @@ export function RagTopicSourceModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !pasted.trim() || !meta}
+            disabled={saving || !mainText || !aiModel.trim() || !meta}
+            title={!aiModel.trim() ? 'Önce hangi AI\'dan geldiğini yazın' : undefined}
             className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
@@ -1163,7 +1201,7 @@ export function RagTopicSourceModal({
             {sources.map((s, i) => (
               <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-foreground">Taslak {i + 1}</p>
+                  <p className="text-[11px] font-bold text-foreground">{s.aiModel || `Taslak ${i + 1}`}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{s.preview}...</p>
                 </div>
                 <button
@@ -1187,8 +1225,11 @@ export function RagTopicSourceModal({
 // artık elle yapıştırılmıyor — hepsi zaten DB'de, tam prompt sunucuda hazırlanıp tek tıkla
 // kopyalanıyor. Sentez kaydedilince (topic-source-synthesis route'u) ham taslaklar otomatik
 // silinir — RAG arama havuzunda hem ham hem sentezlenmiş hali birden kalmasın diye. Prompt
-// şablonundaki "Tutarsızlık Notu" ("---" sonrası) sisteme KAYDEDİLMİYOR, admin'e ayrı bir
-// kutuda gösteriliyor.
+// şablonundaki "Tutarsızlık Notu" ("---" sonrası) ayıklanıp admin'e ayrı bir kutuda
+// gösteriliyor VE (kullanıcının 2026-09-14 isteği: "hataları düzeltmek için ne yapabiliriz")
+// artık kaydedilince rag_topic_review_flags'e de yazılıyor — konu başlığının yanında uyarı
+// ikonu olarak sürekli görünür kalsın diye, eskisi gibi modalde bir kerelik gösterilip
+// kaybolmasın.
 export function RagTopicSourceSynthesisModal({
   topicId,
   onClose,
@@ -1202,7 +1243,7 @@ export function RagTopicSourceSynthesisModal({
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draftCount, setDraftCount] = useState(0);
-  const [drafts, setDrafts] = useState<{ id: number; title: string; createdAt: string }[]>([]);
+  const [drafts, setDrafts] = useState<{ id: number; title: string; createdAt: string; aiModel: string | null }[]>([]);
 
   const [pasted, setPasted] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1241,7 +1282,7 @@ export function RagTopicSourceSynthesisModal({
       const res = await fetch('/api/admin/rag/topic-source-synthesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, text: mainText }),
+        body: JSON.stringify({ topicId, text: mainText, consistencyNote }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1289,7 +1330,7 @@ export function RagTopicSourceSynthesisModal({
               <span className="text-xs font-bold text-muted-foreground block mb-1.5">Birleştirilecek taslaklar ({draftCount})</span>
               <div className="space-y-1">
                 {drafts.map((d, i) => (
-                  <p key={d.id} className="text-[11px] text-muted-foreground">Taslak {i + 1} — {new Date(d.createdAt).toLocaleString('tr-TR')}</p>
+                  <p key={d.id} className="text-[11px] text-muted-foreground">{d.aiModel || `Taslak ${i + 1}`} — {new Date(d.createdAt).toLocaleString('tr-TR')}</p>
                 ))}
               </div>
             </div>
@@ -1309,7 +1350,7 @@ export function RagTopicSourceSynthesisModal({
 
             {consistencyNote && (
               <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
-                <p className="text-[11px] font-bold text-amber-300 mb-1">⚠️ Tutarsızlık Notu (kaydedilmeyecek, sadece bilgi için)</p>
+                <p className="text-[11px] font-bold text-amber-300 mb-1">⚠️ Tutarsızlık Notu — kaydedilince konu başlığının yanında uyarı olarak görünecek</p>
                 <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{consistencyNote}</p>
               </div>
             )}
@@ -1582,6 +1623,305 @@ export function RagUnitSourceDedupModal({
   );
 }
 
+type AccuracyFinding = { sectionId: number; sectionHeading: string | null; note: string };
+type AccuracyOpenFlag = { id: number; sectionId: number | null; sectionHeading: string | null; note: string; createdAt: string };
+
+// "===BÖLÜM: <id>===\n<not>" bloklarını ayrıştırır — unit-source-dedup ile aynı düz metin
+// biçimi (bkz. 27-rag-topic-accuracy-check.md), ama içerik "düzeltilmiş TAM metin" değil
+// "bulunan hatanın açıklaması" — admin bunu okuyup var olan "İçeriği Düzenle" akışıyla
+// kendisi uygular (bkz. RagTopicAccuracyCheckModal'ın üstündeki not).
+function parseAccuracyCheckResponse(pasted: string, sectionsById: Map<number, string>): { findings: AccuracyFinding[]; summary: string | null } {
+  const idx = pasted.indexOf('\n---');
+  const mainText = (idx === -1 ? pasted : pasted.slice(0, idx)).trim();
+  const summary = idx === -1 ? null : pasted.slice(idx + 4).trim() || null;
+
+  const findings: AccuracyFinding[] = [];
+  const blockRegex = /===\s*BÖLÜM:\s*(\d+)\s*===\s*\n([\s\S]*?)(?=\n===\s*BÖLÜM:\s*\d+\s*===|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = blockRegex.exec(mainText)) !== null) {
+    const sectionId = Number(match[1]);
+    const note = match[2].trim();
+    if (note && sectionsById.has(sectionId)) {
+      findings.push({ sectionId, sectionHeading: sectionsById.get(sectionId) || null, note });
+    }
+  }
+  return { findings, summary };
+}
+
+// "Doğruluk Kontrolü" (27. prompt) — RagUnitSourceDedupModal'ın tekil konu + doğruluk
+// karşılığı. Kaynak sentez metniyle yayındaki içeriği karşılaştırıp hata arattırır; bulunan
+// her hata rag_topic_review_flags'e kaydedilip konu başlığının yanında uyarı ikonu olarak
+// kalıcı görünür (kullanıcının 2026-09-14 isteği). AI'ın bulduğu "düzeltme" güvenilmez
+// olabileceği için (dedup'taki tam metin değişimlerinin aksine) burada İÇERİK OTOMATİK
+// DEĞİŞTİRİLMİYOR — admin her bulguyu okuyup "Bölümü Düzenle" ile var olan manuel düzenleme
+// modaline geçip kendisi uyguluyor.
+export function RagTopicAccuracyCheckModal({
+  topicId,
+  onClose,
+  onSaved,
+  onEditSection,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+  onEditSection: (sectionId: number) => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sectionsById, setSectionsById] = useState<Map<number, string>>(new Map());
+  const [openFlags, setOpenFlags] = useState<AccuracyOpenFlag[]>([]);
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
+
+  const [pasted, setPasted] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [noIssuesConfirmed, setNoIssuesConfirmed] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [findings, setFindings] = useState<AccuracyFinding[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveResult, setSaveResult] = useState<string | null>(null);
+
+  const loadPrompt = useCallback(async () => {
+    setLoadingPrompt(true);
+    setLoadError(null);
+    const res = await fetch(`/api/admin/rag/topic-accuracy-check-prompt?topicId=${topicId}`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setPrompt(data?.prompt || '');
+      const map = new Map<number, string>();
+      for (const s of (data?.sections as { id: number; heading: string }[] | undefined) || []) map.set(s.id, s.heading);
+      setSectionsById(map);
+      setOpenFlags((data?.openFlags as AccuracyOpenFlag[] | undefined) || []);
+      setLastCheckedAt(data?.lastCheckedAt || null);
+    } else {
+      setLoadError(data?.error || 'Prompt oluşturulamadı.');
+    }
+    setLoadingPrompt(false);
+  }, [topicId]);
+
+  useEffect(() => {
+    loadPrompt();
+  }, [loadPrompt]);
+
+  function handleParse() {
+    setParseError(null);
+    setNoIssuesConfirmed(false);
+    setSaveError(null);
+    setSaveResult(null);
+    const { findings: parsed, summary: parsedSummary } = parseAccuracyCheckResponse(pasted, sectionsById);
+    setFindings(parsed);
+    setSelectedIds(new Set(parsed.map((f) => f.sectionId)));
+    setSummary(parsedSummary);
+    if (!parsed.length) {
+      if (pasted.includes('HATA YOK')) {
+        setNoIssuesConfirmed(true);
+      } else {
+        setParseError('Metin ayrıştırılamadı ya da section_id eşleşmedi. "===BÖLÜM: <id>===" biçimini kontrol edin.');
+      }
+    }
+  }
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedFindings = useMemo(() => findings.filter((f) => selectedIds.has(f.sectionId)), [findings, selectedIds]);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    setSaveResult(null);
+    try {
+      const res = await fetch('/api/admin/rag/topic-accuracy-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topicId,
+          findings: selectedFindings.map((f) => ({ sectionId: f.sectionId, note: f.note })),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setSaveError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSaveResult(data?.inserted > 0 ? `${data.inserted} bulgu kaydedildi.` : 'Kontrol kaydedildi — hata bulunmadı.');
+      setPasted('');
+      setFindings([]);
+      setSelectedIds(new Set());
+      setSummary(null);
+      setNoIssuesConfirmed(false);
+      onSaved();
+      loadPrompt();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleResolve(flagId: number) {
+    setResolvingId(flagId);
+    try {
+      const res = await fetch('/api/admin/rag/topic-review-flags/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: flagId }),
+      });
+      if (res.ok) {
+        setOpenFlags((prev) => prev.filter((f) => f.id !== flagId));
+        onSaved();
+      }
+    } finally {
+      setResolvingId(null);
+    }
+  }
+
+  function handleEditSection(sectionId: number) {
+    onClose();
+    onEditSection(sectionId);
+  }
+
+  return (
+    <ModalShell title="RAG Doğruluk Kontrolü" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Yayındaki içeriği, bu konunun zaten çoklu-AI ile karşılaştırılmış RAG kaynak metniyle karşılaştırıp gerçek hata arattırır.
+          Dışarıda bir AI&apos;a sorun, dönen metni yapıştırıp &quot;Analiz Et&quot;e, gözden geçirdikten sonra &quot;Kaydet&quot;e basın —
+          içerik OTOMATİK değişmez, her bulguyu &quot;Bölümü Düzenle&quot; ile siz uygularsınız.
+        </p>
+
+        {lastCheckedAt && (
+          <p className="text-[11px] text-muted-foreground">
+            Son kontrol: <span className="text-foreground font-bold">{new Date(lastCheckedAt).toLocaleDateString('tr-TR')}</span>
+          </p>
+        )}
+
+        {openFlags.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" /> Açık bulgular ({openFlags.length})
+            </span>
+            {openFlags.map((f) => (
+              <div key={f.id} className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+                <p className="text-[11px] font-bold text-foreground mb-1">{f.sectionHeading || 'Genel'}</p>
+                <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mb-2">{f.note}</p>
+                <div className="flex items-center gap-2">
+                  {f.sectionId != null && (
+                    <button
+                      onClick={() => handleEditSection(f.sectionId!)}
+                      className="rounded-lg border border-border px-2.5 py-1 text-[10px] font-bold text-foreground hover:bg-surface transition-colors"
+                    >
+                      Bölümü Düzenle
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleResolve(f.id)}
+                    disabled={resolvingId === f.id}
+                    className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+                  >
+                    {resolvingId === f.id ? 'İşaretleniyor...' : 'Çözüldü İşaretle'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loadError ? (
+          <p className="text-sm text-[#ff6584]">{loadError}</p>
+        ) : (
+          <>
+            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+
+            <div>
+              <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={6}
+                placeholder="===BÖLÜM: 1234===..."
+                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+              />
+              {parseError && <p className="text-xs text-red-400 mt-1">{parseError}</p>}
+              <button
+                onClick={handleParse}
+                disabled={!pasted.trim()}
+                className="mt-2 rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+              >
+                Analiz Et
+              </button>
+            </div>
+
+            {summary && (
+              <div className="rounded-xl border border-border bg-surface p-3 text-xs text-muted-foreground">
+                <span className="font-bold text-foreground">Genel değerlendirme: </span>
+                {summary}
+              </div>
+            )}
+
+            {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
+            {saveResult && <p className="text-xs font-bold text-emerald-400">✓ {saveResult}</p>}
+
+            {findings.length > 0 && (
+              <div className="space-y-3">
+                {findings.map((f) => {
+                  const checked = selectedIds.has(f.sectionId);
+                  return (
+                    <div key={f.sectionId} className="rounded-xl border border-border bg-surface p-3">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelected(f.sectionId)}
+                          className="mt-0.5 accent-indigo-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-foreground">{f.sectionHeading}</p>
+                          <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mt-1">{f.note}</p>
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })}
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || !selectedFindings.length}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                  >
+                    {saving ? 'Kaydediliyor...' : `Seçilenleri Kaydet (${selectedFindings.length})`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {noIssuesConfirmed && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-extrabold text-foreground hover:bg-surface disabled:opacity-50 transition-colors"
+                >
+                  {saving ? 'Kaydediliyor...' : 'Kontrolü "hata yok" olarak kaydet'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
 export function NotebookPlanModal({
   topicId,
   onClose,
@@ -1624,6 +1964,8 @@ export function NotebookPlanModal({
   // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
   const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
   const [reviewCover, setReviewCover] = useState<unknown>(undefined);
+  const [reviewSummaryMarkdown, setReviewSummaryMarkdown] = useState<string | undefined>(undefined);
+  const [reviewDiscussionPromptMarkdown, setReviewDiscussionPromptMarkdown] = useState<string | undefined>(undefined);
 
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
@@ -1680,13 +2022,20 @@ export function NotebookPlanModal({
     }
   }
 
-  async function doSave(sections: unknown, cover: unknown) {
+  async function doSave(sections: unknown, cover: unknown, summaryMarkdown?: string, discussionPromptMarkdown?: string) {
     setSaving(true);
     try {
       const res = await fetch('/api/admin/topic-sections/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections, cover, ai_model: aiModel.trim() || null }),
+        body: JSON.stringify({
+          topicId,
+          sections,
+          cover,
+          ai_model: aiModel.trim() || null,
+          summary_markdown: summaryMarkdown,
+          discussion_prompt_markdown: discussionPromptMarkdown,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1713,13 +2062,15 @@ export function NotebookPlanModal({
       return;
     }
 
-    const parsedObj = parsed as { sections?: unknown; cover?: unknown };
+    const parsedObj = parsed as { sections?: unknown; cover?: unknown; summary_markdown?: unknown; discussion_prompt_markdown?: unknown };
     const parsedSections = parsedObj?.sections;
     if (!Array.isArray(parsedSections) || !parsedSections.length) {
       setError('JSON içinde "sections" listesi bulunamadı.');
       return;
     }
     const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
+    const parsedSummaryMarkdown = typeof parsedObj?.summary_markdown === 'string' ? parsedObj.summary_markdown : undefined;
+    const parsedDiscussionPromptMarkdown = typeof parsedObj?.discussion_prompt_markdown === 'string' ? parsedObj.discussion_prompt_markdown : undefined;
 
     // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
     // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
@@ -1740,10 +2091,12 @@ export function NotebookPlanModal({
     if (diff.removedSections.length > 0) {
       setReviewSections(parsedSections as Record<string, unknown>[]);
       setReviewCover(parsedCover);
+      setReviewSummaryMarkdown(parsedSummaryMarkdown);
+      setReviewDiscussionPromptMarkdown(parsedDiscussionPromptMarkdown);
       return;
     }
 
-    doSave(parsedSections, parsedCover);
+    doSave(parsedSections, parsedCover, parsedSummaryMarkdown, parsedDiscussionPromptMarkdown);
   }
 
   function handleReviewHeadingChange(idx: number, value: string) {
@@ -1765,7 +2118,7 @@ export function NotebookPlanModal({
           onHeadingChange={handleReviewHeadingChange}
           existingSections={existingSections}
           onBack={() => setReviewSections(null)}
-          onConfirm={() => doSave(reviewSections, reviewCover)}
+          onConfirm={() => doSave(reviewSections, reviewCover, reviewSummaryMarkdown, reviewDiscussionPromptMarkdown)}
           saving={saving}
         />
       ) : (

@@ -29,18 +29,22 @@ export async function GET(request: NextRequest) {
     supabase.from('lessons').select('name').eq('id', unit.lesson_id).maybeSingle(),
     supabase
       .from('rag_documents')
-      .select('id, title, raw_text, created_at')
+      .select('id, title, raw_text, created_at, ai_model')
       .eq('topic_id', topicId)
       .eq('source', 'ai_generated')
       .eq('is_synthesis', false)
       .order('created_at', { ascending: true }),
   ]);
 
-  const drafts = ((draftsData as { id: number; title: string; raw_text: string | null; created_at: string }[] | null) || []).filter((d) => !!d.raw_text?.trim());
+  const drafts = ((draftsData as { id: number; title: string; raw_text: string | null; created_at: string; ai_model: string | null }[] | null) || []).filter((d) => !!d.raw_text?.trim());
 
-  if (drafts.length < 2) {
+  // MIN_RAG_SOURCE_DRAFTS (DersClient.tsx'teki client-side buton gate'iyle aynı eşik) —
+  // tek bir AI'ın kaynak metnine güvenmek yerine birden fazla bağımsız taslağın çoğunluk/
+  // tutarlılık kontrolünden geçmesi için (kullanıcının 2026-09-14 isteği).
+  const MIN_RAG_SOURCE_DRAFTS = 5;
+  if (drafts.length < MIN_RAG_SOURCE_DRAFTS) {
     return NextResponse.json(
-      { error: `Bu konu için en az 2 kaynak taslağı gerekiyor, şu an ${drafts.length} var — önce "RAG Kaynak Metni" ile taslak ekleyin.` },
+      { error: `Bu konu için en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı gerekiyor, şu an ${drafts.length} var — önce "RAG Kaynak Metni" ile taslak ekleyin.` },
       { status: 400 }
     );
   }
@@ -66,6 +70,6 @@ export async function GET(request: NextRequest) {
     gradeId: unit.grade_id,
     lessonId: unit.lesson_id,
     draftCount: drafts.length,
-    drafts: drafts.map((d) => ({ id: d.id, title: d.title, createdAt: d.created_at })),
+    drafts: drafts.map((d) => ({ id: d.id, title: d.title, createdAt: d.created_at, aiModel: d.ai_model })),
   });
 }

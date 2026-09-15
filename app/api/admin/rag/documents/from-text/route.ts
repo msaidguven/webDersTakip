@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = (await request.json().catch(() => null)) as
-    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; text?: unknown; title?: unknown; source?: unknown; topicId?: unknown }
+    | { gradeId?: unknown; lessonId?: unknown; unitId?: unknown; text?: unknown; title?: unknown; source?: unknown; topicId?: unknown; aiModel?: unknown }
     | null;
   const gradeId = Number(body?.gradeId);
   const lessonId = Number(body?.lessonId);
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   const titleOverride = typeof body?.title === 'string' ? body.title.trim() : '';
   const source = VALID_SOURCES.includes(body?.source as (typeof VALID_SOURCES)[number]) ? (body!.source as (typeof VALID_SOURCES)[number]) : 'notebooklm_text';
   const topicId = Number.isFinite(Number(body?.topicId)) ? Number(body?.topicId) : null;
+  const aiModel = typeof body?.aiModel === 'string' ? body.aiModel.trim() : '';
 
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId) || !Number.isFinite(unitId)) {
     return NextResponse.json({ error: 'gradeId, lessonId ve unitId gerekli' }, { status: 400 });
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       topic_id: topicId,
       title: titleOverride || unit.title,
       source,
+      ai_model: aiModel || null,
       raw_text: text,
       status: 'processing',
       uploaded_by: admin.user.id,

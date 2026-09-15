@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('rag_documents')
-    .select('id, title, status, created_at, raw_text')
+    .select('id, title, status, created_at, raw_text, ai_model')
     .eq('topic_id', topicId)
     .eq('source', 'ai_generated')
     .eq('is_synthesis', false)
@@ -24,9 +24,16 @@ export async function GET(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = (data as { id: number; title: string; status: string; created_at: string; raw_text: string | null }[] | null) || [];
+  const rows = (data as { id: number; title: string; status: string; created_at: string; raw_text: string | null; ai_model: string | null }[] | null) || [];
   return NextResponse.json({
-    sources: rows.map((r) => ({ id: r.id, title: r.title, status: r.status, createdAt: r.created_at, preview: (r.raw_text || '').slice(0, 140) })),
+    sources: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      createdAt: r.created_at,
+      aiModel: r.ai_model,
+      preview: (r.raw_text || '').slice(0, 140),
+    })),
   });
 }
 

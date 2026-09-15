@@ -13,9 +13,10 @@ export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = (await request.json().catch(() => null)) as { topicId?: unknown; text?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { topicId?: unknown; text?: unknown; consistencyNote?: unknown } | null;
   const topicId = Number(body?.topicId);
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
+  const consistencyNote = typeof body?.consistencyNote === 'string' ? body.consistencyNote.trim() : '';
 
   if (!Number.isFinite(topicId)) return NextResponse.json({ error: 'topicId gerekli' }, { status: 400 });
   if (!text) return NextResponse.json({ error: 'Metin boş olamaz' }, { status: 400 });
@@ -68,6 +69,19 @@ export async function POST(request: NextRequest) {
     await supabase.from('rag_document_chunks').delete().in('document_id', draftIds);
     await supabase.from('rag_documents').delete().in('id', draftIds);
   }
+
+  // "Tutarsızlık Notu" (19. promptun ---'dan sonraki kısmı, bkz. RagTopicSourceSynthesisModal) —
+  // eskiden sadece modalda bir kerelik gösterilip kaydedilmeden kayboluyordu; artık admin
+  // panelde konu başlığının yanında uyarı olarak görünsün diye saklanıyor.
+  if (consistencyNote) {
+    await supabase.from('rag_topic_review_flags').insert({
+      topic_id: topicId,
+      kind: 'synthesis_inconsistency',
+      note: consistencyNote,
+      created_by: admin.user.id,
+    });
+  }
+  await supabase.from('topics').update({ rag_last_checked_at: new Date().toISOString() }).eq('id', topicId);
 
   return NextResponse.json({ id: document.id, deletedDrafts: draftIds.length });
 }

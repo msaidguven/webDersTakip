@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
 
   let updated = 0;
   const failedTopics: number[] = [];
+  const updatedTopicIds: number[] = [];
 
   for (const edit of toApply) {
     const topic = topicById.get(edit.topicId)!;
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     updated += 1;
+    updatedTopicIds.push(edit.topicId);
   }
 
   if (!updated) {
@@ -114,6 +116,10 @@ export async function POST(request: NextRequest) {
   // migration'ı — DB'ye manuel uygulanması gerekir) — bu ünite için en az bir kez
   // başarıyla düzenleme uygulandığını işaretler.
   await supabase.from('units').update({ rag_dedup_checked_at: new Date().toISOString() }).eq('id', unitId);
+  // Kaynağı değişen her konu da bu vesileyle bir kez daha gözden geçirilmiş sayılır
+  // (bkz. rag_topic_review_flags.sql migration'ı — Doğruluk Kontrolü'nün "son kontrol"
+  // göstergesiyle aynı alan).
+  await supabase.from('topics').update({ rag_last_checked_at: new Date().toISOString() }).in('id', updatedTopicIds);
 
   return NextResponse.json({ ok: true, updated, skipped, failedTopics });
 }
