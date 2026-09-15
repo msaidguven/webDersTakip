@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 // Sunucudan gelen üye satırları join'li alanlar içerdiği için gevşek tipliyoruz.
@@ -28,6 +29,26 @@ export default function MembersTab() {
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [editRow, setEditRow] = useState<Member | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ ids: string[] } | null>(null);
+  // "Son Giriş" başlığına tıklayınca sıralansın (kullanıcı isteği, 2026-09-15) — sunucudan
+  // gelen liste zaten updated_at'a göre sıralı olduğu için bu SADECE client'ta, o an ekranda
+  // olan satırlar üzerinde yapılıyor, ayrı bir API parametresi gerekmiyor. null = sunucudan
+  // geldiği sıra, 'desc' = en son giriş yapan üstte, 'asc' = en eski/hiç girmemiş üstte.
+  const [lastSignInSort, setLastSignInSort] = useState<'asc' | 'desc' | null>(null);
+
+  const sortedItems = useMemo(() => {
+    if (!lastSignInSort) return items;
+    const withTime = items.map((m) => ({ m, t: typeof m.last_sign_in_at === 'string' ? new Date(m.last_sign_in_at).getTime() : NaN }));
+    withTime.sort((a, b) => {
+      const aTime = Number.isNaN(a.t) ? -Infinity : a.t;
+      const bTime = Number.isNaN(b.t) ? -Infinity : b.t;
+      return lastSignInSort === 'desc' ? bTime - aTime : aTime - bTime;
+    });
+    return withTime.map((r) => r.m);
+  }, [items, lastSignInSort]);
+
+  function toggleLastSignInSort() {
+    setLastSignInSort((prev) => (prev === 'desc' ? 'asc' : prev === 'asc' ? null : 'desc'));
+  }
 
   const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
     setNotice({ kind, text });
@@ -184,13 +205,29 @@ export default function MembersTab() {
                 <th className="p-3 text-left font-medium">E-posta</th>
                 <th className="p-3 text-left font-medium">Rol</th>
                 <th className="p-3 text-left font-medium">Sınıf</th>
-                <th className="p-3 text-left font-medium">Son Giriş</th>
+                <th className="p-3 text-left font-medium">
+                  <button
+                    type="button"
+                    onClick={toggleLastSignInSort}
+                    className="flex items-center gap-1 uppercase tracking-wide hover:text-foreground"
+                    title="Sırala"
+                  >
+                    Son Giriş
+                    {lastSignInSort === 'desc' ? (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    ) : lastSignInSort === 'asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+                    )}
+                  </button>
+                </th>
                 <th className="p-3 text-left font-medium">Durum</th>
                 <th className="p-3 text-right w-40">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {items.map((m) => (
+              {sortedItems.map((m) => (
                 <tr key={m.id} className="hover:bg-accent">
                   <td className="p-3">
                     <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleSelect(m.id)} className="accent-indigo-500" />
