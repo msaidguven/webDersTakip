@@ -28,6 +28,7 @@ SADECE bu JSON'u döndür, başka metin ekleme:
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
+  "discussion_prompt_markdown": string,  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
   "cover": {
     "subtitle": string,             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
     "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu (YATAY/landscape formatta olsun); yazı varsa Türkçe olsun

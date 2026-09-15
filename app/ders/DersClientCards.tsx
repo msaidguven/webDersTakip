@@ -6,7 +6,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CheckCircle2, ListChecks, Pencil, Trophy } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle2, ListChecks, MessageCircle, Pencil, Trophy } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
 import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
@@ -223,6 +223,31 @@ export function TopicSummaryBox({ summaryHtml }: { summaryHtml: string }) {
           {blocks ?? <div dangerouslySetInnerHTML={{ __html: mathHtml }} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Konu sonundaki "Düşün ve Yorumla" — tek doğrusu olmayan bir kapanış sorusu, var olan
+// tartışma bölümüne (UnitDiscussion, #konu-tartisma) bağlanıyor. Yeni bir yorum sistemi
+// kurmuyoruz, sadece o bölüme yönlendirip öğrenciyi bir görüş üretmeye teşvik ediyoruz
+// (kullanıcının 2026-09-15 isteği). Konu Özeti'nden bilinçli olarak daha hafif/ince —
+// sayfayı gereksiz uzatmamak için ayrı bir büyük kart değil, tek satırlık bir şerit.
+export function DiscussionPromptBox({ discussionPromptHtml }: { discussionPromptHtml: string }) {
+  const mathHtml = useMemo(() => renderLatexInHtml(discussionPromptHtml), [discussionPromptHtml]);
+
+  return (
+    <div className="not-prose mt-4 flex flex-col items-start gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex items-start gap-2.5 min-w-0">
+        <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+        <div className="min-w-0 text-sm text-slate-700 sm:text-base [&_p]:m-0 [&_strong]:font-black [&_strong]:text-violet-700" dangerouslySetInnerHTML={{ __html: mathHtml }} />
+      </div>
+      <button
+        type="button"
+        onClick={() => document.getElementById('konu-tartisma')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        className="flex shrink-0 items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-violet-700"
+      >
+        Görüşünü Paylaş <ArrowRight className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

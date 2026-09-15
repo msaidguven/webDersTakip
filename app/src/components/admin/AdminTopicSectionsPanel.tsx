@@ -1965,6 +1965,7 @@ export function NotebookPlanModal({
   const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
   const [reviewCover, setReviewCover] = useState<unknown>(undefined);
   const [reviewSummaryMarkdown, setReviewSummaryMarkdown] = useState<string | undefined>(undefined);
+  const [reviewDiscussionPromptMarkdown, setReviewDiscussionPromptMarkdown] = useState<string | undefined>(undefined);
 
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
@@ -2021,13 +2022,20 @@ export function NotebookPlanModal({
     }
   }
 
-  async function doSave(sections: unknown, cover: unknown, summaryMarkdown?: string) {
+  async function doSave(sections: unknown, cover: unknown, summaryMarkdown?: string, discussionPromptMarkdown?: string) {
     setSaving(true);
     try {
       const res = await fetch('/api/admin/topic-sections/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections, cover, ai_model: aiModel.trim() || null, summary_markdown: summaryMarkdown }),
+        body: JSON.stringify({
+          topicId,
+          sections,
+          cover,
+          ai_model: aiModel.trim() || null,
+          summary_markdown: summaryMarkdown,
+          discussion_prompt_markdown: discussionPromptMarkdown,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -2054,7 +2062,7 @@ export function NotebookPlanModal({
       return;
     }
 
-    const parsedObj = parsed as { sections?: unknown; cover?: unknown; summary_markdown?: unknown };
+    const parsedObj = parsed as { sections?: unknown; cover?: unknown; summary_markdown?: unknown; discussion_prompt_markdown?: unknown };
     const parsedSections = parsedObj?.sections;
     if (!Array.isArray(parsedSections) || !parsedSections.length) {
       setError('JSON içinde "sections" listesi bulunamadı.');
@@ -2062,6 +2070,7 @@ export function NotebookPlanModal({
     }
     const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
     const parsedSummaryMarkdown = typeof parsedObj?.summary_markdown === 'string' ? parsedObj.summary_markdown : undefined;
+    const parsedDiscussionPromptMarkdown = typeof parsedObj?.discussion_prompt_markdown === 'string' ? parsedObj.discussion_prompt_markdown : undefined;
 
     // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
     // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
@@ -2083,10 +2092,11 @@ export function NotebookPlanModal({
       setReviewSections(parsedSections as Record<string, unknown>[]);
       setReviewCover(parsedCover);
       setReviewSummaryMarkdown(parsedSummaryMarkdown);
+      setReviewDiscussionPromptMarkdown(parsedDiscussionPromptMarkdown);
       return;
     }
 
-    doSave(parsedSections, parsedCover, parsedSummaryMarkdown);
+    doSave(parsedSections, parsedCover, parsedSummaryMarkdown, parsedDiscussionPromptMarkdown);
   }
 
   function handleReviewHeadingChange(idx: number, value: string) {
@@ -2108,7 +2118,7 @@ export function NotebookPlanModal({
           onHeadingChange={handleReviewHeadingChange}
           existingSections={existingSections}
           onBack={() => setReviewSections(null)}
-          onConfirm={() => doSave(reviewSections, reviewCover, reviewSummaryMarkdown)}
+          onConfirm={() => doSave(reviewSections, reviewCover, reviewSummaryMarkdown, reviewDiscussionPromptMarkdown)}
           saving={saving}
         />
       ) : (

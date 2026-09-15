@@ -26,7 +26,8 @@ SADECE bu JSON'u döndür:
       "image_prompt": string   // needs_image true ise İngilizce, YATAY format; yazılar Türkçe
     }
   ],
-  "summary_markdown": string  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
+  "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
+  "discussion_prompt_markdown": string  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
 }
 
 sections: başlık listesiyle AYNI sayı/sıra. Kapak/anahtar kavram istenmiyor.

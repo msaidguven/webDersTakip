@@ -49,6 +49,8 @@ export type Content = {
   subtitle?: string | null;
   // Konu sonunda gösterilen tek toplu "Konu Özeti" — bkz. DersClient.tsx render'ı.
   summaryHtml?: string | null;
+  // Konu sonundaki "Düşün ve Yorumla" kapanış sorusu — var olan tartışma bölümüne bağlanır.
+  discussionPromptHtml?: string | null;
   highlights?: TopicHighlight[];
   // false ise bu konunun sections/highlights alanları henüz sunucudan çekilmedi (sadece
   // başlık/slug var) — bkz. DersClient.tsx: ensureTopicContentLoaded.

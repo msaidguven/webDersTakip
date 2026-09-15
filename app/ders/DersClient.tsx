@@ -65,7 +65,7 @@ import { getLessonColor } from '@/app/src/lib/homeMapping';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
-import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox } from './DersClientCards';
+import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
 import {
   type Outcome,
   type WeekedOutcome,
@@ -2667,6 +2667,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           {activeTopic.summaryHtml && (
                             <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
                           )}
+                          {activeTopic.discussionPromptHtml && (
+                            <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />
+                          )}
                           </>
                         ) : activeTopic.content ? (
                           <SectionContent html={activeTopic.content} />
@@ -2719,7 +2722,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       />
                     )}
                     {activeTopic && activeUnit && (
-                      <div className="not-prose mt-8">
+                      <div id="konu-tartisma" className="not-prose mt-8 scroll-mt-4">
                         <UnitDiscussion
                           gradeId={Number(gradeId)}
                           lessonId={Number(lessonId)}

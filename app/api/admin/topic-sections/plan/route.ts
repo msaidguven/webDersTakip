@@ -42,12 +42,14 @@ export async function POST(request: NextRequest) {
     cover?: IncomingCover;
     ai_model?: unknown;
     summary_markdown?: unknown;
+    discussion_prompt_markdown?: unknown;
   } | null;
   const topicId = body?.topicId;
   const sections = body?.sections;
   const cover = body?.cover;
   const aiModel = typeof body?.ai_model === 'string' && body.ai_model.trim() ? body.ai_model.trim() : null;
   const summaryMarkdown = typeof body?.summary_markdown === 'string' ? body.summary_markdown.trim() : '';
+  const discussionPromptMarkdown = typeof body?.discussion_prompt_markdown === 'string' ? body.discussion_prompt_markdown.trim() : '';
 
   if (!topicId || !Array.isArray(sections) || sections.length === 0) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
@@ -259,11 +261,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Konu sonundaki tek toplu "Konu Özeti" — cover'ın DIŞINDA, JSON'un en üst seviyesinde
-  // geliyor (bkz. 03/20/23/24. promptlar). Eski (henüz bu formata geçmemiş) konularda bu
-  // alan boş gelir, summary_markdown NULL kalır — eski görünüm bozulmaz.
-  if (summaryMarkdown) {
-    await supabase.from('topic_contents').update({ summary_markdown: summaryMarkdown }).eq('id', topicContentId);
+  // Konu sonundaki tek toplu "Konu Özeti" ve "Düşün ve Yorumla" sorusu — cover'ın DIŞINDA,
+  // JSON'un en üst seviyesinde geliyor (bkz. 03/20/23/24. promptlar). Eski (henüz bu formata
+  // geçmemiş) konularda bu alanlar boş gelir, NULL kalır — eski görünüm bozulmaz.
+  const topicContentUpdate: Record<string, string> = {};
+  if (summaryMarkdown) topicContentUpdate.summary_markdown = summaryMarkdown;
+  if (discussionPromptMarkdown) topicContentUpdate.discussion_prompt_markdown = discussionPromptMarkdown;
+  if (Object.keys(topicContentUpdate).length) {
+    await supabase.from('topic_contents').update(topicContentUpdate).eq('id', topicContentId);
   }
 
   // Başlığı eşleşen alt başlıklar yukarıda zaten UPDATE edildi (görsel/diyagram/soru

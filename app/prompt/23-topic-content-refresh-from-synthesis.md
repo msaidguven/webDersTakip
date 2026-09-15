@@ -33,7 +33,8 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
     }
   ],
-  "summary_markdown": string  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
+  "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
+  "discussion_prompt_markdown": string  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
 }
 
 Not: "sections" listesinde yukarıdaki alt başlık listesiyle AYNI sayıda, AYNI sırada öğe olmalı — ne eksik ne fazla. Kapak altyazısı/anahtar kavramlar bu görevde istenmiyor, ayrı promptlarla yönetiliyor.
