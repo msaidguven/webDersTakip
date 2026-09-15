@@ -23,7 +23,20 @@ export type SpecialWeekEvent = {
   startDate: string | null;
   endDate: string | null;
 };
-export type TopicSection = { id: string | number; heading: string; html: string | null; notebookHtml?: string | null; imageUrl: string | null; imagePrompt: string | null; imageAlt?: string | null; diagramSvg?: string | null };
+export type TopicSection = {
+  id: string | number;
+  heading: string;
+  html: string | null;
+  notebookHtml?: string | null;
+  // Bundan sonra üretilen içerikte notebookHtml'in yerini alan "Düşün/Hayal Et/Dene"
+  // etkinlik kutusu — bkz. SectionContent.tsx.
+  activityPromptHtml?: string | null;
+  activityExampleHtml?: string | null;
+  imageUrl: string | null;
+  imagePrompt: string | null;
+  imageAlt?: string | null;
+  diagramSvg?: string | null;
+};
 export type TopicHighlight = { icon: string | null; title: string; description: string };
 export type Content = {
   id: string | number;
@@ -34,6 +47,8 @@ export type Content = {
   heroImageUrl?: string | null;
   heroImageAlt?: string | null;
   subtitle?: string | null;
+  // Konu sonunda gösterilen tek toplu "Konu Özeti" — bkz. DersClient.tsx render'ı.
+  summaryHtml?: string | null;
   highlights?: TopicHighlight[];
   // false ise bu konunun sections/highlights alanları henüz sunucudan çekilmedi (sadece
   // başlık/slug var) — bkz. DersClient.tsx: ensureTopicContentLoaded.

@@ -27,11 +27,13 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "order_no": integer,               // listedeki sırasına göre 0'dan başlat
       "matched_outcome_codes": [string],
       "explanation_markdown": string,    // akıcı anlatım, serbest paragraf(lar)
-      "notebook_markdown": string,       // kısa madde madde defter notu (- madde), madde başına max 12-15 kelime
+      "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
+      "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
       "needs_image": boolean,
       "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
     }
-  ]
+  ],
+  "summary_markdown": string  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
 }
 
 Not: "sections" listesinde yukarıdaki alt başlık listesiyle AYNI sayıda, AYNI sırada öğe olmalı — ne eksik ne fazla. Kapak altyazısı/anahtar kavramlar bu görevde istenmiyor, ayrı promptlarla yönetiliyor.

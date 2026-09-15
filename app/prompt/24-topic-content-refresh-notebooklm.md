@@ -20,11 +20,13 @@ SADECE bu JSON'u döndür:
       "order_no": integer,               // sıraya göre 0'dan başlat
       "matched_outcome_codes": [string],
       "explanation_markdown": string,
-      "notebook_markdown": string,
+      "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
+      "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
       "needs_image": boolean,
       "image_prompt": string   // needs_image true ise İngilizce, YATAY format; yazılar Türkçe
     }
-  ]
+  ],
+  "summary_markdown": string  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
 }
 
 sections: başlık listesiyle AYNI sayı/sıra. Kapak/anahtar kavram istenmiyor.

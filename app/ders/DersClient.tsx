@@ -65,7 +65,7 @@ import { getLessonColor } from '@/app/src/lib/homeMapping';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
-import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards } from './DersClientCards';
+import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox } from './DersClientCards';
 import {
   type Outcome,
   type WeekedOutcome,
@@ -2510,6 +2510,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic ? (
                       <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
                         {activeTopic.sections && activeTopic.sections.length > 0 ? (
+                          <>
                           <div>
                             {activeTopic.sections.map((section) => {
                               const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
@@ -2636,6 +2637,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     <SectionContent
                                       html={section.html || ''}
                                       notebookHtml={section.notebookHtml}
+                                      activityPromptHtml={section.activityPromptHtml}
+                                      activityExampleHtml={section.activityExampleHtml}
+                                      sectionId={section.id}
                                       heading={section.heading}
                                       imageUrl={section.imageUrl}
                                       caption={section.heading}
@@ -2660,6 +2664,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               );
                             })}
                           </div>
+                          {activeTopic.summaryHtml && (
+                            <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                          )}
+                          </>
                         ) : activeTopic.content ? (
                           <SectionContent html={activeTopic.content} />
                         ) : isWeekDataLoading ? (

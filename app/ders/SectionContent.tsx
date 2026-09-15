@@ -2,8 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ChevronDown } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
+import { useAuth } from '@/app/src/context/AuthContext';
 
 const DOT_COLORS = ['bg-indigo-400', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-sky-400'];
 
@@ -111,7 +113,9 @@ function renderList(node: Element, keyPrefix: string, dotIdx: { current: number 
   return blocks;
 }
 
-function buildBlocks(html: string): React.ReactNode[] {
+// Konu sonundaki "Konu Özeti" kutusu (bkz. DersClientCards.tsx: TopicSummaryBox) NotebookBox
+// ile aynı madde/terim biçimlendirmesini kullanıyor — dışa açık.
+export function buildBlocks(html: string): React.ReactNode[] {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
   const children = Array.from(doc.body.firstElementChild?.children || []);
   const blocks: React.ReactNode[] = [];
@@ -164,6 +168,118 @@ function NotebookBox({ label, heading, children }: { label?: string; heading?: s
   );
 }
 
+// Öğrencinin etkinliğe verdiği kısa (opsiyonel) kendi notu — SADECE kendisi görür (bkz.
+// topic_activity_and_summary.sql: RLS auth.uid() = student_id), öğretmene/admin'e hiç
+// açılmıyor. Giriş yapmamış ziyaretçiye hiç gösterilmiyor (kaydedecek yer yok).
+function StudentNoteField({ sectionId }: { sectionId: number }) {
+  const { user, supabase } = useAuth();
+  const [note, setNote] = useState('');
+  const [initialNote, setInitialNote] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    setLoaded(false);
+    supabase
+      .from('topic_content_section_notes')
+      .select('note_text')
+      .eq('section_id', sectionId)
+      .eq('student_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const text = (data as { note_text: string | null } | null)?.note_text || '';
+        setNote(text);
+        setInitialNote(text);
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, sectionId]);
+
+  if (!user || !loaded) return null;
+
+  async function handleBlur() {
+    const trimmed = note.trim();
+    if (trimmed === initialNote.trim()) return;
+    setSaving(true);
+    try {
+      if (!trimmed) {
+        await supabase.from('topic_content_section_notes').delete().eq('section_id', sectionId).eq('student_id', user!.id);
+      } else {
+        await supabase
+          .from('topic_content_section_notes')
+          .upsert(
+            { section_id: sectionId, student_id: user!.id, note_text: trimmed, updated_at: new Date().toISOString() },
+            { onConflict: 'section_id,student_id' }
+          );
+      }
+      setInitialNote(trimmed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-1">
+      <label className="mb-1 block text-[11px] font-bold text-violet-600">
+        Kendi cümlenle özetle <span className="font-medium text-violet-400">(istersen — sadece sen görürsün)</span>
+      </label>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={handleBlur}
+        maxLength={280}
+        rows={2}
+        placeholder="Birkaç kelimeyle kendi notunu yaz..."
+        className="w-full resize-none rounded-lg border border-violet-200 bg-white/70 px-3 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
+      />
+      {saving && <p className="mt-1 text-[10px] text-violet-400">Kaydediliyor...</p>}
+    </div>
+  );
+}
+
+// "Düşün / Hayal Et / Dene" — NotebookBox'ın (alt başlık başına defter notu) yerini alan,
+// klavye GEREKTİRMEYEN etkinlik kutusu: öğrenci önce kendi kafasında/kağıdında düşünür,
+// sonra isterse "Örneğe Bak"a basıp örnek yaklaşımı görür (kullanıcının 2026-09-15 isteği —
+// bkz. konuşmadaki "İçerik Formatı Önerisi" artifact'i). Renk ailesi bilinçli olarak
+// ExplanationBox (indigo) ve eski NotebookBox'tan (amber) ayrışsın diye mor/violet.
+function ActivityBox({ promptNode, exampleNode, sectionId }: { promptNode: React.ReactNode; exampleNode: React.ReactNode; sectionId: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 shadow-sm">
+      <div className="space-y-3 px-5 py-5 sm:px-6 sm:py-6">
+        <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-violet-700">
+          💭 Düşün / Hayal Et / Dene
+        </p>
+        <div className="text-sm leading-relaxed text-slate-700 sm:text-base [&_strong]:font-black [&_strong]:text-violet-700">
+          {promptNode}
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3.5 py-1.5 text-xs font-black text-violet-700 shadow-sm transition-colors hover:bg-violet-50"
+        >
+          {open ? 'Örneği Gizle' : 'Örneğe Bak'}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-sm leading-relaxed text-slate-700 [&_strong]:font-black [&_strong]:text-violet-700">
+            {exampleNode}
+          </div>
+        )}
+        <StudentNoteField sectionId={sectionId} />
+      </div>
+    </div>
+  );
+}
+
 // "Konu Anlatımı" için Defterine Not Al kutusuyla eşleşen ama farklı renk ailesinde
 // (defter = amber/kağıt, anlatım = gök mavisi/eflatun degrade) sevimli bir kart —
 // öğrenci iki bloğu ("oku" vs "ezberle") ilk bakışta ayırt edebilsin diye.
@@ -183,6 +299,9 @@ function ExplanationBox({ children }: { children: React.ReactNode }) {
 export default function SectionContent({
   html,
   notebookHtml,
+  activityPromptHtml,
+  activityExampleHtml,
+  sectionId,
   heading,
   imageUrl,
   caption,
@@ -191,6 +310,9 @@ export default function SectionContent({
 }: {
   html: string;
   notebookHtml?: string | null;
+  activityPromptHtml?: string | null;
+  activityExampleHtml?: string | null;
+  sectionId?: string | number | null;
   heading?: string | null;
   imageUrl?: string | null;
   caption?: string | null;
@@ -207,6 +329,14 @@ export default function SectionContent({
   const mathNotebookHtml = useMemo(
     () => (notebookHtml ? renderLatexInHtml(notebookHtml) : notebookHtml || null),
     [notebookHtml]
+  );
+  const mathActivityPromptHtml = useMemo(
+    () => (activityPromptHtml ? renderLatexInHtml(activityPromptHtml) : activityPromptHtml || null),
+    [activityPromptHtml]
+  );
+  const mathActivityExampleHtml = useMemo(
+    () => (activityExampleHtml ? renderLatexInHtml(activityExampleHtml) : activityExampleHtml || null),
+    [activityExampleHtml]
   );
 
   useEffect(() => {
@@ -315,14 +445,22 @@ export default function SectionContent({
           )}
         </>
       )}
-      {notebookHtml ? (
+      {notebookHtml || activityPromptHtml ? (
         <>
           <ExplanationBox>
             <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:text-sm [&_h3]:sm:text-base [&_h3]:font-black [&_h3]:text-indigo-700 [&_h3]:before:content-[''] [&_h3]:before:h-1.5 [&_h3]:before:w-1.5 [&_h3]:before:shrink-0 [&_h3]:before:rounded-full [&_h3]:before:bg-indigo-400 [&_strong]:font-black [&_strong]:text-indigo-700 [&_em]:italic [&_em]:text-sky-700">
               {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
             </div>
           </ExplanationBox>
-          <NotebookBox label="Defterine Not Al" heading={heading}>{notebookBlocks}</NotebookBox>
+          {notebookHtml ? (
+            <NotebookBox label="Defterine Not Al" heading={heading}>{notebookBlocks}</NotebookBox>
+          ) : (
+            <ActivityBox
+              sectionId={Number(sectionId)}
+              promptNode={mathActivityPromptHtml ? <div dangerouslySetInnerHTML={{ __html: mathActivityPromptHtml }} /> : null}
+              exampleNode={mathActivityExampleHtml ? <div dangerouslySetInnerHTML={{ __html: mathActivityExampleHtml }} /> : null}
+            />
+          )}
         </>
       ) : (
         <NotebookBox>
