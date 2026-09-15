@@ -1964,6 +1964,7 @@ export function NotebookPlanModal({
   // mevcutlarla eşleşmiyorsa (bkz. planHeadingDiff.ts) burada durup admin'e diff'i gösteririz.
   const [reviewSections, setReviewSections] = useState<Record<string, unknown>[] | null>(null);
   const [reviewCover, setReviewCover] = useState<unknown>(undefined);
+  const [reviewSummaryMarkdown, setReviewSummaryMarkdown] = useState<string | undefined>(undefined);
 
   const loadPrompt = useCallback(async () => {
     setLoadingPrompt(true);
@@ -2020,13 +2021,13 @@ export function NotebookPlanModal({
     }
   }
 
-  async function doSave(sections: unknown, cover: unknown) {
+  async function doSave(sections: unknown, cover: unknown, summaryMarkdown?: string) {
     setSaving(true);
     try {
       const res = await fetch('/api/admin/topic-sections/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, sections, cover, ai_model: aiModel.trim() || null }),
+        body: JSON.stringify({ topicId, sections, cover, ai_model: aiModel.trim() || null, summary_markdown: summaryMarkdown }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -2053,13 +2054,14 @@ export function NotebookPlanModal({
       return;
     }
 
-    const parsedObj = parsed as { sections?: unknown; cover?: unknown };
+    const parsedObj = parsed as { sections?: unknown; cover?: unknown; summary_markdown?: unknown };
     const parsedSections = parsedObj?.sections;
     if (!Array.isArray(parsedSections) || !parsedSections.length) {
       setError('JSON içinde "sections" listesi bulunamadı.');
       return;
     }
     const parsedCover = parsedObj?.cover && typeof parsedObj.cover === 'object' ? parsedObj.cover : undefined;
+    const parsedSummaryMarkdown = typeof parsedObj?.summary_markdown === 'string' ? parsedObj.summary_markdown : undefined;
 
     // Kaydetmeden ÖNCE mevcut başlıklarla karşılaştır — eşleşmeyen varsa (ki bu, o satırın
     // görsel/diyagramının silineceği anlamına gelir) direkt kaydetmek yerine admin'e göster.
@@ -2080,10 +2082,11 @@ export function NotebookPlanModal({
     if (diff.removedSections.length > 0) {
       setReviewSections(parsedSections as Record<string, unknown>[]);
       setReviewCover(parsedCover);
+      setReviewSummaryMarkdown(parsedSummaryMarkdown);
       return;
     }
 
-    doSave(parsedSections, parsedCover);
+    doSave(parsedSections, parsedCover, parsedSummaryMarkdown);
   }
 
   function handleReviewHeadingChange(idx: number, value: string) {
@@ -2105,7 +2108,7 @@ export function NotebookPlanModal({
           onHeadingChange={handleReviewHeadingChange}
           existingSections={existingSections}
           onBack={() => setReviewSections(null)}
-          onConfirm={() => doSave(reviewSections, reviewCover)}
+          onConfirm={() => doSave(reviewSections, reviewCover, reviewSummaryMarkdown)}
           saving={saving}
         />
       ) : (
