@@ -7,6 +7,7 @@ import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
 import { extractJson } from '@/app/src/lib/extractJson';
 import SectionContent from '@/app/ders/SectionContent';
+import { TopicSummaryBox } from '@/app/ders/DersClientCards';
 import { computePlanHeadingDiff, fetchExistingSectionsForDiff, type ExistingSectionForDiff } from '@/app/src/lib/planHeadingDiff';
 import { PlanHeadingDiffReview } from '@/app/src/components/admin/PlanHeadingDiffReview';
 
@@ -472,6 +473,141 @@ export function SectionContentEditModal({
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Konu sonundaki tek toplu "Konu Özeti" kutusunu (topic_contents.summary_markdown, bkz.
+// DersClientCards.tsx TopicSummaryBox) doğrudan düzenlemek için. Ders sayfası (DersClient)
+// topicContentId'yi hazır tutmadığından, TopicCoverImageModal/TopicHighlightsModal'daki gibi
+// kendi topicContentId'sini topicId üzerinden bundle endpoint'inden çözer.
+export function TopicSummaryEditModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingBundle, setLoadingBundle] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingBundle(true);
+    setBundleError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (cancelled) return;
+      if (!res.ok) {
+        setBundleError(data?.error || 'Konu bilgisi yüklenemedi.');
+        setLoadingBundle(false);
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+      setText(data?.topicContent?.summary_markdown || '');
+      setLoadingBundle(false);
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  const previewHtml = useMemo(() => (text.trim() ? markdownToHtml(text) : ''), [text]);
+
+  async function handleSave() {
+    if (!topicContentId) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/topic-content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId, summaryMarkdown: text }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-5xl rounded-2xl border border-border bg-surface-elevated p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-base font-black text-foreground">Konu Özetini Düzenle</h4>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loadingBundle ? (
+          <p className="text-sm text-muted-foreground">Yükleniyor...</p>
+        ) : bundleError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
+        ) : !topicContentId ? (
+          <p className="text-sm text-muted-foreground">Bu konu için henüz içerik oluşturulmamış.</p>
+        ) : (
+          <>
+            <p className="mb-4 text-xs text-muted-foreground leading-relaxed">
+              Madde başına tek satır, tam cümle değil — öğrencinin defterine geçireceği kısa özet
+              (<code className="text-[#b5b0ff]">**terim**: açıklama</code> veya düz madde). Boş bırakılırsa kutu sayfada
+              gösterilmez. Sağdaki önizleme gerçek sayfadaki görünümün birebir aynısıdır.
+            </p>
+
+            {error && <p className="mb-3 text-xs font-bold text-[#ff6584]">{error}</p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Konu Özeti (Markdown)</span>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={14}
+                  placeholder="- Terim: kısa tanım"
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
+                <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[560px] overflow-y-auto">
+                  {previewHtml ? (
+                    <TopicSummaryBox summaryHtml={previewHtml} />
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">Özet boş — kutu sayfada gösterilmeyecek.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

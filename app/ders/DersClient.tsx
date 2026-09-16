@@ -54,6 +54,7 @@ const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTop
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
 const DiagramModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.DiagramModal), { ssr: false });
 const SectionContentEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionContentEditModal), { ssr: false });
+const TopicSummaryEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicSummaryEditModal), { ssr: false });
 const TopicCoverImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicCoverImageModal), { ssr: false });
 const TopicHighlightsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightsModal), { ssr: false });
 const TopicQuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicQuestionsModal), { ssr: false });
@@ -314,6 +315,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragAccuracyCheckTopicId, setRagAccuracyCheckTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
+  const [topicSummaryModalTopicId, setTopicSummaryModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
@@ -2664,8 +2666,23 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               );
                             })}
                           </div>
-                          {activeTopic.summaryHtml && (
-                            <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                          {(activeTopic.summaryHtml || isAdmin) && (
+                            <div className="not-prose">
+                              {activeTopic.summaryHtml ? (
+                                <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                              ) : (
+                                <p className="mt-10 text-xs text-slate-400 italic">Henüz konu özeti eklenmemiş.</p>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTopicSummaryModalTopicId(Number(activeTopic.id))}
+                                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" /> İçeriği Düzenle
+                                </button>
+                              )}
+                            </div>
                           )}
                           {activeTopic.discussionPromptHtml && (
                             <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />
@@ -3156,6 +3173,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={topicHighlightsModalTopicId}
           onClose={() => setTopicHighlightsModalTopicId(null)}
           onSaved={refreshWeekData}
+        />
+      )}
+
+      {topicSummaryModalTopicId != null && (
+        <TopicSummaryEditModal
+          topicId={topicSummaryModalTopicId}
+          onClose={() => setTopicSummaryModalTopicId(null)}
+          onSaved={() => {
+            setTopicSummaryModalTopicId(null);
+            refreshWeekData();
+          }}
         />
       )}
 
