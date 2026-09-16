@@ -31,6 +31,9 @@ type SectionRow = {
   image_prompt: string | null;
   image_alt: string | null;
   diagram_svg: string | null;
+  video_url: string | null;
+  video_prompt: string | null;
+  video_type: string | null;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -54,6 +57,9 @@ export type LessonWeekSection = {
   imagePrompt: string | null;
   imageAlt: string | null;
   diagramSvg: string | null;
+  videoUrl: string | null;
+  videoPrompt: string | null;
+  videoType: 'ai_generated' | 'youtube' | null;
 };
 export type LessonWeekContent = {
   id: number;
@@ -220,7 +226,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg')
+          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -252,6 +258,9 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           imagePrompt: row.image_prompt,
           imageAlt: row.image_alt,
           diagramSvg: row.diagram_svg,
+          videoUrl: row.video_url,
+          videoPrompt: row.video_prompt,
+          videoType: row.video_type === 'ai_generated' || row.video_type === 'youtube' ? row.video_type : null,
         });
         sectionsByTopic.set(topicId, list);
       }

@@ -36,6 +36,12 @@ export type TopicSection = {
   imagePrompt: string | null;
   imageAlt?: string | null;
   diagramSvg?: string | null;
+  // Opsiyonel, alt başlık başına kısa video — görsel/diyagram ile aynı desende, AI karar
+  // verip video_prompt yazıyor, admin harici üretip/bulup video_url'i bağlıyor (bkz.
+  // AdminTopicSectionsPanel: VideoModal/VideoSuggestionsModal, kullanıcının 2026-09-16 isteği).
+  videoUrl?: string | null;
+  videoPrompt?: string | null;
+  videoType?: 'ai_generated' | 'youtube' | null;
 };
 export type TopicHighlight = { icon: string | null; title: string; description: string };
 export type Content = {

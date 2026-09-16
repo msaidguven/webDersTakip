@@ -15,6 +15,8 @@ type IncomingSection = {
   activity_example_markdown?: unknown;
   needs_image?: unknown;
   image_prompt?: unknown;
+  needs_video?: unknown;
+  video_prompt?: unknown;
 };
 type CleanSection = {
   heading: string;
@@ -28,6 +30,10 @@ type CleanSection = {
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
   image_prompt: string | null;
+  // needs_video true değilse (ya da AI konuyu video için uygun bulmadıysa) null kalır —
+  // video_url/video_type buradan ETKİLENMEZ, sadece admin'in gördüğü öneri promptu güncellenir
+  // (bkz. image_prompt ile aynı mantık, kullanıcının 2026-09-16 isteği).
+  video_prompt: string | null;
 };
 type OutcomeRow = { id: number; code: string | null };
 type IncomingCover = { subtitle?: unknown; image_prompt?: unknown; highlights?: IncomingHighlight[] };
@@ -68,6 +74,7 @@ export async function POST(request: NextRequest) {
       const activityPrompt = typeof s.activity_prompt_markdown === 'string' ? s.activity_prompt_markdown.trim() : '';
       const activityExample = typeof s.activity_example_markdown === 'string' ? s.activity_example_markdown.trim() : '';
       const needsImage = Boolean(s.needs_image);
+      const needsVideo = Boolean(s.needs_video);
       return {
         heading: s.heading.trim(),
         order_no: typeof s.order_no === 'number' ? s.order_no : idx,
@@ -79,6 +86,7 @@ export async function POST(request: NextRequest) {
         activity_prompt_markdown: activityPrompt || null,
         activity_example_markdown: activityExample || null,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
+        video_prompt: needsVideo && typeof s.video_prompt === 'string' && s.video_prompt.trim() ? s.video_prompt.trim() : null,
       };
     });
 
@@ -208,6 +216,7 @@ export async function POST(request: NextRequest) {
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
             image_prompt: s.image_prompt,
+            video_prompt: s.video_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',
             ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
           })
@@ -293,6 +302,7 @@ export async function POST(request: NextRequest) {
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
             image_prompt: s.image_prompt,
+            video_prompt: s.video_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',
             // Bu içerik AI'dan tek seferde geldiyse (NotebookLM akışı) burada da işaretle;
             // sadece başlık planı yapan akışta (body_markdown yok) source varsayılanında kalır,

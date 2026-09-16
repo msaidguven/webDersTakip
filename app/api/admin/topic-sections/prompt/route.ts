@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
   const VALID_TYPES = new Set([
     'plan', 'full', 'full_from_synthesis', 'content_refresh_notebooklm', 'content_refresh_from_synthesis',
-    'section', 'section_notebooklm', 'section_from_synthesis', 'image', 'diagram',
+    'section', 'section_notebooklm', 'section_from_synthesis', 'image', 'diagram', 'video', 'video_suggestion',
   ]);
 
   if (!topicId || (!VALID_TYPES.has(type || '') && !isQuestionType && !isNotebookQuestionType && !isTopicLevelType)) {
@@ -378,13 +378,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ prompt });
   }
 
-  if (isQuestionType || type === 'image' || type === 'diagram') {
+  if (isQuestionType || type === 'image' || type === 'diagram' || type === 'video' || type === 'video_suggestion') {
     if (!currentSection.body_markdown?.trim()) {
       return NextResponse.json({ error: 'Önce bu alt başlığın ders notu (içeriği) oluşturulmalı' }, { status: 409 });
     }
 
     const templateFile =
-      type === 'image' ? '04-section-image.md' : type === 'diagram' ? '08-section-diagram.md' : QUESTION_TEMPLATES[type as string];
+      type === 'image' ? '04-section-image.md'
+        : type === 'diagram' ? '08-section-diagram.md'
+        : type === 'video' ? '28-section-video.md'
+        : type === 'video_suggestion' ? '29-section-youtube-suggestion.md'
+        : QUESTION_TEMPLATES[type as string];
     const templatePath = path.join(process.cwd(), 'app', 'prompt', templateFile);
     const template = await readFile(templatePath, 'utf8');
 
