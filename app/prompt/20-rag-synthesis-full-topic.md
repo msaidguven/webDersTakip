@@ -17,6 +17,8 @@ Kazanımlar:
 Kaynak metin:
 {source_text}
 
+Görsel/video promptu VE kapak görseli/anahtar kavramlar bu görevde istenmiyor — ayrı, kendi promptlarıyla yönetiliyor.
+
 SADECE bu JSON'u döndür, başka metin ekleme:
 {
   "ai_model": string,           // Bu içeriği ürettiğin aracın adı
@@ -27,20 +29,12 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "matched_outcome_codes": [string],
       "explanation_markdown": string,   // akıcı anlatım, serbest paragraf(lar)
       "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
-      "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
-      "needs_image": boolean,
-      "image_prompt": string,  // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
-      "needs_video": boolean,  // NADİR kullan — SADECE alt başlık gerçek bir hareket/süreç/deney/animasyon içeriyorsa true
-      "video_prompt": string   // needs_video true ise, birkaç saniyelik bir AI video modeline (ör. Veo) yazılacak İngilizce, TEK sahne/hareket tarif eden kısa prompt (konuşma/anlatım isteme)
+      "activity_example_markdown": string  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
   "discussion_prompt_markdown": string,  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
   "cover": {
-    "subtitle": string,             // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
-    "image_prompt": string,         // İngilizce, çocuk dostu illüstrasyon promptu (YATAY/landscape formatta olsun); yazı varsa Türkçe olsun
-    "highlights": [
-      { "icon": "tek emoji", "title": "kavram/terim, max 3 kelime", "description": "1 kısa cümle, somut ve doğrulanabilir bir tanım" }
-    ]  // konunun en önemli 4-8 anahtar kavramı
+    "subtitle": string  // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
   }
 }

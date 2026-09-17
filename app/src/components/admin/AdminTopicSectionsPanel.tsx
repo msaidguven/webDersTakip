@@ -1176,13 +1176,13 @@ export function PlanModal({
 
             <div>
               <span className="text-xs font-bold text-muted-foreground block mb-2">
-                AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
+                AI&apos;dan gelen JSON sonucu buraya yapıştırın (alt başlıklar + kapak altyazısı tek seferde kaydedilir)
               </span>
               <textarea
                 value={pasted}
                 onChange={(e) => setPasted(e.target.value)}
                 rows={8}
-                placeholder='{"sections": [...], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
+                placeholder='{"sections": [...], "cover": {"subtitle": "..."}}'
                 className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
@@ -2125,7 +2125,12 @@ export function NotebookPlanModal({
   onManageMore,
   promptType = 'full',
   title = 'Google NotebookLM — Tek Prompt (Alt Başlık + İçerik)',
-  description = 'Bu promptu NotebookLM’e, kaynak olarak ders kitabının PDF’ini yüklediğiniz notebook’ta sorun. Alt başlıklar, her başlığın içeriği ve görsel promptları TEK seferde JSON olarak gelir; aşağıya yapıştırıp tek seferde kaydedin.',
+  // Görsel/video promptu ve kapak görseli/anahtar kavramlar artık BU promptta değil — kendi
+  // ayrı, küçük promptlarında üretiliyor (ImageModal/VideoModal/TopicCoverImageModal/
+  // TopicHighlightsModal), NotebookLM'in karakter sınırını aşmamak için (kullanıcı isteği,
+  // 2026-09-17: "resim diyagram prompları için metni video d aynı şekilde 2. bi prompt
+  // olarak ekleyebiliriz").
+  description = 'Bu promptu NotebookLM’e, kaynak olarak ders kitabının PDF’ini yüklediğiniz notebook’ta sorun. Alt başlıklar ve her başlığın içeriği TEK seferde JSON olarak gelir; aşağıya yapıştırıp kaydedin. Görsel/video promptu, kapak görseli ve anahtar kavramlar ayrı, kendi butonlarından üretilir.',
   defaultAiModel = 'NotebookLM',
 }: {
   topicId: number;
@@ -2337,13 +2342,13 @@ export function NotebookPlanModal({
 
             <div>
               <span className="text-xs font-bold text-muted-foreground block mb-2">
-                NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik + kapak görseli + anahtar kavramlar tek seferde kaydedilir)
+                NotebookLM&apos;den gelen JSON sonucu buraya yapıştırın (alt başlıklar + içerik tek seferde kaydedilir)
               </span>
               <textarea
                 value={pasted}
                 onChange={(e) => setPasted(e.target.value)}
                 rows={10}
-                placeholder='{"ai_model": "...", "sections": [{"heading": "...", "body_markdown": "...", ...}], "cover": {"subtitle": "...", "image_prompt": "...", "highlights": [...]}}'
+                placeholder='{"ai_model": "...", "sections": [{"heading": "...", "explanation_markdown": "...", ...}], "cover": {"subtitle": "..."}}'
                 className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>

@@ -23,15 +23,11 @@ SADECE bu JSON'u döndür:
       "matched_outcome_codes": [string],
       "explanation_markdown": string,
       "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
-      "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
-      "needs_image": boolean,
-      "image_prompt": string,  // needs_image true ise İngilizce, YATAY format; yazılar Türkçe
-      "needs_video": boolean,  // NADİR kullan — SADECE alt başlık gerçek bir hareket/süreç/deney/animasyon içeriyorsa true
-      "video_prompt": string   // needs_video true ise, birkaç saniyelik bir AI video modeline (ör. Veo) yazılacak İngilizce, TEK sahne/hareket tarif eden kısa prompt (konuşma/anlatım isteme)
+      "activity_example_markdown": string  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
   "discussion_prompt_markdown": string  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
 }
 
-sections: başlık listesiyle AYNI sayı/sıra. Kapak/anahtar kavram istenmiyor.
+sections: başlık listesiyle AYNI sayı/sıra. Kapak/anahtar kavram/görsel/video promptu istenmiyor.

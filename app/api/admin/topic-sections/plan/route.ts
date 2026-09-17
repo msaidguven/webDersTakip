@@ -34,6 +34,16 @@ type CleanSection = {
   // video_url/video_type buradan ETKİLENMEZ, sadece admin'in gördüğü öneri promptu güncellenir
   // (bkz. image_prompt ile aynı mantık, kullanıcının 2026-09-16 isteği).
   video_prompt: string | null;
+  // Görsel/video promptları artık BU akıştan (tek dev prompt) çıkarılıp kendi ayrı, küçük
+  // promptlarına taşındı (ImageModal/VideoModal, kullanıcının 2026-09-17 isteği: "resim
+  // diyagram prompları için metni video da aynı şekilde 2. bi prompt olarak ekleyebiliriz" —
+  // amaç NotebookLM'in karakter sınırını aşmamak). Yani gelen JSON'da needs_image/image_prompt
+  // artık HİÇ olmayacak — bunu "false/boş gönderildi" ile "hiç gönderilmedi" ayrımını
+  // KAYBETMEDEN ele almamız lazım: alan hiç gönderilmediyse mevcut (ayrı promptla zaten
+  // kaydedilmiş) değere DOKUNMUYORUZ, sadece admin GERÇEKTEN bu alanları içeren eski
+  // formatta bir JSON yapıştırırsa güncelliyoruz.
+  imageFieldProvided: boolean;
+  videoFieldProvided: boolean;
 };
 type OutcomeRow = { id: number; code: string | null };
 type IncomingCover = { subtitle?: unknown; image_prompt?: unknown; highlights?: IncomingHighlight[] };
@@ -87,6 +97,8 @@ export async function POST(request: NextRequest) {
         activity_example_markdown: activityExample || null,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
         video_prompt: needsVideo && typeof s.video_prompt === 'string' && s.video_prompt.trim() ? s.video_prompt.trim() : null,
+        imageFieldProvided: 'needs_image' in s || 'image_prompt' in s,
+        videoFieldProvided: 'needs_video' in s || 'video_prompt' in s,
       };
     });
 
@@ -215,8 +227,10 @@ export async function POST(request: NextRequest) {
             notebook_markdown: s.notebook_markdown,
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
-            image_prompt: s.image_prompt,
-            video_prompt: s.video_prompt,
+            // JSON'da hiç gönderilmediyse (artık normal — bkz. CleanSection notu) mevcut
+            // (ayrı ImageModal/VideoModal promptuyla kaydedilmiş) değere dokunma.
+            ...(s.imageFieldProvided ? { image_prompt: s.image_prompt } : {}),
+            ...(s.videoFieldProvided ? { video_prompt: s.video_prompt } : {}),
             status: s.body_markdown ? 'content_ready' : 'planned',
             ...(s.body_markdown && aiModel ? { source: 'ai_generated', ai_model: aiModel } : {}),
           })
