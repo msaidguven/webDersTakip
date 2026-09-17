@@ -7,7 +7,7 @@ Bu alt başlık: {heading}
 Kazanımlar: {section_outcomes}
 Diğer alt başlıklar (değinme, ayrı anlatılacak): {other_headings}
 
-{explanation_notebook_rules}
+(Bu notebook'un sohbet ayarlarındaki Özel Talimatlar'a kayıtlı kurallara göre üret — bu görevde SADECE aşağıdaki JSON alanlarını üret, summary_markdown/discussion_prompt_markdown bu görevde İSTENMİYOR.)
 
 Çıktı (sadece JSON):
 {

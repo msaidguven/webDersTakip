@@ -97,6 +97,50 @@ function SectionMenuItem({ icon: Icon, onClick, children }: { icon: ComponentTyp
   );
 }
 
+// NotebookLM'in normal sohbet kutusu, konu üretme promptlarımız için fazla dar (yayınlanmış
+// bir rakam yok ama topluluk raporları ~2000 karakter civarı gösteriyor) — özellikle çok
+// kazanımlı konularda kurallar+kazanımlar toplamı bunu aşıyordu (kullanıcı raporu, 2026-09-17).
+// Bu, kalite kurallarını HER mesajda tekrar göndermek yerine notebook'un "Özel Talimatlar"
+// alanına (10.000 karakter limitli, kalıcı) BİR KERE kaydetmeyi sağlıyor — bundan sonra
+// 03/09/24. promptlar sadece konuya özgü kısa bağlamı taşıyor, kurallar tekrar edilmiyor.
+function NotebookLmSetupModal({ onClose }: { onClose: () => void }) {
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch('/api/admin/notebooklm-custom-instructions');
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        setPrompt(data?.prompt || '');
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <ModalShell title="NotebookLM Özel Talimatları — Bir Kere Kur" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Bu metni, içerik ürettiğiniz NotebookLM notebook&apos;unda sohbet ayarlarından (dişli ikonu)
+          <strong className="text-foreground"> Özel Talimatlar </strong>
+          alanına BİR KERE yapıştırın. Bundan sonra o notebook&apos;taki tüm konu/alt başlık üretme
+          promptları çok daha kısa olur — kalite kuralları her mesajda tekrar gönderilmez, notebook
+          hatırlar. Aynı kitabı kullanan her notebook için ayrı ayrı bir kere yapmanız yeterli.
+        </p>
+        <PromptCopyBox prompt={prompt} loading={loading} />
+        <div className="flex justify-end">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Kapat
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 function ToolButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
@@ -133,6 +177,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ section: Section; variant: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ section: Section | null } | null>(null);
   const [notebookPlanVariant, setNotebookPlanVariant] = useState<'full' | 'full_from_synthesis' | 'content_refresh_notebooklm' | 'content_refresh_from_synthesis' | null>(null);
+  const [notebookLmSetupOpen, setNotebookLmSetupOpen] = useState(false);
   const [ragSourceModalOpen, setRagSourceModalOpen] = useState(false);
   const [ragSourceSynthesisModalOpen, setRagSourceSynthesisModalOpen] = useState(false);
   const [ragAccuracyCheckModalOpen, setRagAccuracyCheckModalOpen] = useState(false);
@@ -303,6 +348,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                 <ToolButton onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
               </>
             )}
+            <ToolButton onClick={() => setNotebookLmSetupOpen(true)}>NotebookLM Özel Talimatları (Kur — Bir Kere)</ToolButton>
           </div>
         </div>
 
@@ -517,6 +563,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           onClose={() => setNotebookPlanVariant(null)}
           onSaved={() => { setNotebookPlanVariant(null); load(); }}
         />
+      )}
+      {notebookLmSetupOpen && (
+        <NotebookLmSetupModal onClose={() => setNotebookLmSetupOpen(false)} />
       )}
 
       {ragSourceModalOpen && (
