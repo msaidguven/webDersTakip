@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { sectionId } = await params;
   const body = await request.json().catch(() => null) as {
+    heading?: unknown;
     body_markdown?: unknown;
     notebook_markdown?: unknown;
     activity_prompt_markdown?: unknown;
@@ -52,6 +53,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Geçersiz source' }, { status: 400 });
   }
 
+  // Başlık değişimi opsiyonel — gönderilirse (admin "İçeriği Düzenle"de başlığı da
+  // değiştirdiyse) güncellenir. Bu, tam-konu yeniden üretiminde AI'ın önerdiği yeni bir
+  // başlığı BEĞENİP görsel/diyagram/soru bağlantılarını kaybetmeden benimsemenin tek yolu —
+  // toplu kaydetme (plan/route.ts) başlığı SADECE eşleştirme anahtarı olarak kullanıyor,
+  // hiç güncellemiyor (kullanıcının 2026-09-17 sorusu: "yeni başlığı nasıl ekleyebilirim").
+  const headingTrimmed = typeof body.heading === 'string' ? body.heading.trim() : undefined;
+  if (headingTrimmed !== undefined && !headingTrimmed) {
+    return NextResponse.json({ error: 'Başlık boş olamaz' }, { status: 400 });
+  }
+
   const supabase = createServiceClient();
 
   // Eski format (notebook_markdown) sadece o alan gönderilince kullanılıyor — bu durumda
@@ -65,6 +76,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { error } = await supabase
     .from('topic_content_sections')
     .update({
+      ...(headingTrimmed !== undefined ? { heading: headingTrimmed } : {}),
       body_markdown: body.body_markdown.trim(),
       notebook_markdown: isNewFormatSave
         ? null

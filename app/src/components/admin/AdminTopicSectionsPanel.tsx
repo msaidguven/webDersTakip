@@ -715,6 +715,12 @@ export function SectionContentEditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // Toplu kaydetme (plan/route.ts) başlığı sadece eşleştirme anahtarı olarak kullanır, hiç
+  // güncellemez — bu yüzden "AI'ın önerdiği yeni başlığı beğendim ama görsel/diyagram/soruyu
+  // kaybetmeden almak istiyorum" (kullanıcının 2026-09-17 sorusu) senaryosunda TEK yol: önce
+  // toplu kaydı eski başlıkla eşleştirip kaybetmeden kaydet, sonra buradan başlığı elle
+  // yeni haline çevir — id/medya/soru bağlantıları hep aynı satırda kalır.
+  const [heading, setHeading] = useState(section.heading);
   const [text, setText] = useState(section.body_markdown || '');
   // Bu bölüm hâlâ eski formattaysa (notebook_markdown dolu, activity_prompt_markdown boş —
   // 600cd8a'dan önce üretilmiş) eski tek-kutu düzenlemeyi koru; aksi halde (yeni format ya
@@ -734,6 +740,10 @@ export function SectionContentEditModal({
 
   async function handleSave() {
     setError(null);
+    if (!heading.trim()) {
+      setError('Başlık boş olamaz.');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}`, {
@@ -742,12 +752,14 @@ export function SectionContentEditModal({
         body: JSON.stringify(
           isLegacyNotebook
             ? {
+                heading,
                 body_markdown: text,
                 notebook_markdown: notebookText,
                 needs_image: Boolean(section.image_prompt),
                 image_prompt: section.image_prompt,
               }
             : {
+                heading,
                 body_markdown: text,
                 activity_prompt_markdown: activityPromptText,
                 activity_example_markdown: activityExampleText,
@@ -771,10 +783,24 @@ export function SectionContentEditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="w-full max-w-5xl rounded-2xl border border-border bg-surface-elevated p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-base font-black text-foreground">İçeriği Düzenle — {section.heading}</h4>
+          <h4 className="text-base font-black text-foreground">İçeriği Düzenle</h4>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
+        </div>
+
+        <div className="mb-4">
+          <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Alt Başlık</span>
+          <input
+            value={heading}
+            onChange={(e) => setHeading(e.target.value)}
+            className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-[#6c63ff]"
+          />
+          {heading.trim() !== section.heading && (
+            <p className="mt-1.5 text-[11px] font-bold text-amber-500">
+              Başlığı değiştiriyorsunuz — görsel/diyagram/video/sorular bu satıra (id&apos;ye) bağlı olduğu için kaybolmaz, ama tam konu yeniden üretiminde AI&apos;a artık &quot;{section.heading}&quot; değil bu yeni başlığı vermeniz gerekir (İçeriği Güncelle promptları başlıkları AYNEN kopyalar).
+            </p>
+          )}
         </div>
 
         <p className="mb-4 text-xs text-muted-foreground leading-relaxed">
