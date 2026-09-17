@@ -165,9 +165,14 @@ export function RagPipelineStatus({ topicId, unitId }: { topicId: number; unitId
 
   return (
     <div className="flex flex-wrap gap-1.5">
+      {/* Sentezlenince ham taslaklar silinip yerine tek sentez metni geldiği için sayaç
+          0'a düşüyor — ama sentezlenmiş olmak zaten en az MIN_RAG_SOURCE_DRAFTS şartıyla
+          mümkün, o yüzden "synthesized" tek başına bu aşamayı da tamamlanmış sayar
+          (kullanıcının 2026-09-18 bulduğu tutarsızlık: "2. adımı tamamlayınca taslak 0
+          olduğu için 1. adım tamamlanmamış gibi duruyor"). */}
       <RagStageChip
-        stage={draftCount >= MIN_RAG_SOURCE_DRAFTS ? 'done' : 'pending'}
-        label={`1. Kaynak Taslakları (${draftCount}/${MIN_RAG_SOURCE_DRAFTS})`}
+        stage={draftCount >= MIN_RAG_SOURCE_DRAFTS || synthesized ? 'done' : 'pending'}
+        label={synthesized ? '1. Kaynak Taslakları (tamamlandı)' : `1. Kaynak Taslakları (${draftCount}/${MIN_RAG_SOURCE_DRAFTS})`}
       />
       <RagStageChip stage={synthesized ? 'done' : 'pending'} label="2. Sentezlendi" />
       {unitId && (
