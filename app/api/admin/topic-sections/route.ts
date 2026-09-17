@@ -17,6 +17,7 @@ type TopicContentRow = {
   hero_image_url: string | null;
   subtitle: string | null;
   generation_meta: unknown;
+  summary_markdown: string | null;
 };
 type HighlightRow = {
   id: number;
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
 
   const { data: topicContent } = await supabase
     .from('topic_contents')
-    .select('id, title, body_markdown, is_published, hero_image_url, subtitle, generation_meta')
+    .select('id, title, body_markdown, is_published, hero_image_url, subtitle, generation_meta, summary_markdown')
     .eq('topic_id', topicRow.id)
     .maybeSingle();
 

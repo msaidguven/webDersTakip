@@ -13,6 +13,7 @@ export async function PATCH(request: NextRequest) {
     heroImagePrompt?: string;
     heroImageAlt?: string;
     isPublished?: boolean;
+    summaryMarkdown?: string;
   } | null;
   const topicContentId = body?.topicContentId;
   if (!topicContentId) {
@@ -31,6 +32,10 @@ export async function PATCH(request: NextRequest) {
 
   if (Object.prototype.hasOwnProperty.call(body || {}, 'isPublished')) {
     update.is_published = Boolean(body?.isPublished);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'summaryMarkdown')) {
+    update.summary_markdown = typeof body?.summaryMarkdown === 'string' ? body.summaryMarkdown.trim() || null : null;
   }
 
   const hasHeroPrompt = Object.prototype.hasOwnProperty.call(body || {}, 'heroImagePrompt');

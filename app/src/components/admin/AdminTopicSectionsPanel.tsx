@@ -7,6 +7,7 @@ import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
 import { extractJson } from '@/app/src/lib/extractJson';
 import SectionContent from '@/app/ders/SectionContent';
+import { TopicSummaryBox } from '@/app/ders/DersClientCards';
 import { computePlanHeadingDiff, fetchExistingSectionsForDiff, type ExistingSectionForDiff } from '@/app/src/lib/planHeadingDiff';
 import { PlanHeadingDiffReview } from '@/app/src/components/admin/PlanHeadingDiffReview';
 
@@ -472,6 +473,141 @@ export function SectionContentEditModal({
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Konu sonundaki tek toplu "Konu Özeti" kutusunu (topic_contents.summary_markdown, bkz.
+// DersClientCards.tsx TopicSummaryBox) doğrudan düzenlemek için. Ders sayfası (DersClient)
+// topicContentId'yi hazır tutmadığından, TopicCoverImageModal/TopicHighlightsModal'daki gibi
+// kendi topicContentId'sini topicId üzerinden bundle endpoint'inden çözer.
+export function TopicSummaryEditModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingBundle, setLoadingBundle] = useState(true);
+  const [topicContentId, setTopicContentId] = useState<number | null>(null);
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingBundle(true);
+    setBundleError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
+      const data = await res.json().catch(() => null);
+      if (cancelled) return;
+      if (!res.ok) {
+        setBundleError(data?.error || 'Konu bilgisi yüklenemedi.');
+        setLoadingBundle(false);
+        return;
+      }
+      setTopicContentId(data?.topicContent?.id ?? null);
+      setText(data?.topicContent?.summary_markdown || '');
+      setLoadingBundle(false);
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  const previewHtml = useMemo(() => (text.trim() ? markdownToHtml(text) : ''), [text]);
+
+  async function handleSave() {
+    if (!topicContentId) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/topic-content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicContentId, summaryMarkdown: text }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-5xl rounded-2xl border border-border bg-surface-elevated p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-base font-black text-foreground">Konu Özetini Düzenle</h4>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loadingBundle ? (
+          <p className="text-sm text-muted-foreground">Yükleniyor...</p>
+        ) : bundleError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{bundleError}</p>
+        ) : !topicContentId ? (
+          <p className="text-sm text-muted-foreground">Bu konu için henüz içerik oluşturulmamış.</p>
+        ) : (
+          <>
+            <p className="mb-4 text-xs text-muted-foreground leading-relaxed">
+              Madde başına tek satır, tam cümle değil — öğrencinin defterine geçireceği kısa özet
+              (<code className="text-[#b5b0ff]">**terim**: açıklama</code> veya düz madde). Boş bırakılırsa kutu sayfada
+              gösterilmez. Sağdaki önizleme gerçek sayfadaki görünümün birebir aynısıdır.
+            </p>
+
+            {error && <p className="mb-3 text-xs font-bold text-[#ff6584]">{error}</p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Konu Özeti (Markdown)</span>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={14}
+                  placeholder="- Terim: kısa tanım"
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
+                <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[560px] overflow-y-auto">
+                  {previewHtml ? (
+                    <TopicSummaryBox summaryHtml={previewHtml} />
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">Özet boş — kutu sayfada gösterilmeyecek.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -2212,6 +2348,9 @@ export type SectionModalSection = {
   image_prompt: string | null;
   image_alt?: string | null;
   diagram_svg?: string | null;
+  video_url?: string | null;
+  video_prompt?: string | null;
+  video_type?: 'ai_generated' | 'youtube' | null;
 };
 
 const MIXED_QUESTIONS_PLACEHOLDER =
@@ -3077,6 +3216,476 @@ export function DiagramModal({
             </button>
           </div>
         )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Kapat
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Görsel/diyagram akışlarıyla AYNI iskelet: AI'a bir prompt verilir, dönen JSON yapıştırılıp
+// kaydedilir. Farkı: video dosyası burada YÜKLENMİYOR (Vercel Functions'ın ~4.5MB istek gövdesi
+// limiti kısa bir video için bile yetersiz, bkz. section/[sectionId]/video/route.ts) — admin,
+// AI video üretim modeline (ör. Veo) verip ürettiği videoyu harici bir yerde barındırıp sadece
+// URL'sini buraya yapıştırıyor (kullanıcının 2026-09-16 isteği).
+export function VideoModal({
+  topicId,
+  section,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  section: SectionModalSection;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [metaPrompt, setMetaPrompt] = useState('');
+  const [loadingMetaPrompt, setLoadingMetaPrompt] = useState(true);
+  const [metaPromptError, setMetaPromptError] = useState<string | null>(null);
+
+  const [rawPrompt, setRawPrompt] = useState('');
+  const [savedVideoPrompt, setSavedVideoPrompt] = useState<string | null>(section.video_prompt ?? null);
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [notWorthIt, setNotWorthIt] = useState(false);
+
+  const [videoUrl, setVideoUrl] = useState<string | null>(section.video_url ?? null);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMetaPrompt(true);
+    setMetaPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=video`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setMetaPrompt(data?.prompt || '');
+        } else {
+          setMetaPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingMetaPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, section.id]);
+
+  async function handleSavePrompt() {
+    setPromptError(null);
+    setNotWorthIt(false);
+    if (!rawPrompt.trim()) {
+      setPromptError('Önce AI\'dan gelen JSON çıktısını yapıştırın.');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawPrompt);
+    } catch {
+      setPromptError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+    const obj = parsed as { worth_it?: unknown; video_prompt?: unknown };
+    if (obj.worth_it === false) {
+      setNotWorthIt(true);
+      setRawPrompt('');
+      return;
+    }
+    if (typeof obj.video_prompt !== 'string' || !obj.video_prompt.trim()) {
+      setPromptError('JSON içinde "video_prompt" alanı bulunamadı.');
+      return;
+    }
+    setPromptSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_prompt: obj.video_prompt.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setPromptError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedVideoPrompt(obj.video_prompt.trim());
+      setRawPrompt('');
+      onSaved();
+    } finally {
+      setPromptSaving(false);
+    }
+  }
+
+  async function handleAttachVideo() {
+    if (!videoUrlInput.trim()) return;
+    setVideoBusy(true);
+    setVideoError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_url: videoUrlInput.trim(), video_type: 'ai_generated' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setVideoError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setVideoUrl(videoUrlInput.trim());
+      setVideoUrlInput('');
+      onSaved();
+    } finally {
+      setVideoBusy(false);
+    }
+  }
+
+  async function handleRemoveVideo() {
+    if (!confirm('Videoyu bu bölümden kaldırmak istediğinize emin misiniz?')) return;
+    setVideoBusy(true);
+    setVideoError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setVideoError(data?.error || 'Silinemedi.');
+        return;
+      }
+      setVideoUrl(null);
+      onSaved();
+    } finally {
+      setVideoBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Video Ekle — ${section.heading}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Önce bu promptu bir AI&apos;a sorun — bu alt başlık için kısa bir videonun gerçekten
+          anlamlı olup olmadığına AI karar verir (çoğu alt başlıkta OLMAZ). Anlamlıysa dönen
+          video_prompt&apos;u kopyalayıp bir video üretim aracına (ör. Google Veo) verin, üretilen
+          videoyu harici bir yerde barındırıp URL&apos;sini en altta yapıştırın.
+        </p>
+
+        {metaPromptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{metaPromptError}</p>
+        ) : (
+          <PromptCopyBox prompt={metaPrompt} loading={loadingMetaPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={rawPrompt}
+            onChange={(e) => setRawPrompt(e.target.value)}
+            rows={5}
+            placeholder='{"worth_it": true, "video_prompt": "A glass of water freezing...", "caption": "..."}'
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSavePrompt}
+            disabled={promptSaving || !rawPrompt.trim()}
+            className="mt-2 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {promptSaving ? 'Kaydediliyor...' : 'Promptu Kaydet'}
+          </button>
+          {notWorthIt && <p className="mt-2 text-xs font-bold text-amber-500">AI, bu alt başlık için videoyu anlamlı bulmadı — kaydedilecek bir şey yok.</p>}
+          {promptError && <p className="mt-2 text-xs font-bold text-[#ff6584]">{promptError}</p>}
+        </div>
+
+        {savedVideoPrompt && (
+          <div>
+            <span className="text-[10px] font-bold text-[#6c63ff] block mb-1.5">AI video üretim promptu (kopyalayıp bir video aracına verin)</span>
+            <PromptCopyBox prompt={savedVideoPrompt} loading={false} />
+          </div>
+        )}
+
+        <div className="border-t border-border pt-4 space-y-3">
+          <span className="text-xs font-bold text-muted-foreground block">Video URL&apos;si</span>
+
+          {videoUrl && (
+            <div className="flex items-center gap-3">
+              <video src={videoUrl} className="h-20 w-32 rounded-lg border border-border object-cover" muted />
+              <button
+                type="button"
+                onClick={handleRemoveVideo}
+                disabled={videoBusy}
+                className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 px-3 py-1.5 text-xs font-bold text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+              >
+                {videoBusy ? 'İşleniyor...' : 'Bu Bölümden Kaldır'}
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              value={videoUrlInput}
+              onChange={(e) => setVideoUrlInput(e.target.value)}
+              placeholder="https://..."
+              className="flex-1 rounded-xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-[#6c63ff] outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleAttachVideo}
+              disabled={!videoUrlInput.trim() || videoBusy}
+              className="shrink-0 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+            >
+              {videoBusy ? 'Kaydediliyor...' : 'Videoyu Bağla'}
+            </button>
+          </div>
+
+          {videoError && <p className="text-xs font-bold text-[#ff6584]">{videoError}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Kapat
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// YouTube video önerileri — RAG kaynak taslakları ile AYNI desen: farklı AI'lardan (web
+// arama/browsing yetenekli) gelen öneriler BİRİKİYOR, hiçbiri silinmiyor. Admin listeyi
+// inceleyip birini "Onayla"yınca o önerinin video_url'i bu bölümün asıl video_url'ine
+// kopyalanıyor (kullanıcının 2026-09-16 isteği: "ben youtube'dan aramak yerine bu önerileri
+// inceleyip onay vereceğim").
+type VideoSuggestion = { id: number; video_url: string; video_title: string | null; note: string | null; ai_model: string | null; created_at: string };
+
+export function VideoSuggestionsModal({
+  topicId,
+  section,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  section: SectionModalSection;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [metaPrompt, setMetaPrompt] = useState('');
+  const [loadingMetaPrompt, setLoadingMetaPrompt] = useState(true);
+  const [metaPromptError, setMetaPromptError] = useState<string | null>(null);
+
+  const [rawPrompt, setRawPrompt] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  const [suggestions, setSuggestions] = useState<VideoSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [approvedUrl, setApprovedUrl] = useState<string | null>(
+    section.video_type === 'youtube' ? section.video_url ?? null : null
+  );
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const loadSuggestions = useCallback(async () => {
+    setLoadingSuggestions(true);
+    const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video-suggestions`);
+    const data = await res.json().catch(() => null);
+    if (res.ok) setSuggestions(data?.suggestions || []);
+    setLoadingSuggestions(false);
+  }, [section.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMetaPrompt(true);
+    setMetaPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&sectionId=${section.id}&type=video_suggestion`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setMetaPrompt(data?.prompt || '');
+        } else {
+          setMetaPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingMetaPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, section.id]);
+
+  useEffect(() => {
+    loadSuggestions();
+  }, [loadSuggestions]);
+
+  async function handleAddSuggestion() {
+    setError(null);
+    setNotFound(false);
+    if (!rawPrompt.trim()) {
+      setError('Önce AI\'dan gelen JSON çıktısını yapıştırın.');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawPrompt);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+    const obj = parsed as { found?: unknown; video_url?: unknown; video_title?: unknown; reasoning?: unknown; ai_model?: unknown };
+    if (obj.found === false) {
+      setNotFound(true);
+      setRawPrompt('');
+      return;
+    }
+    if (typeof obj.video_url !== 'string' || !obj.video_url.trim()) {
+      setError('JSON içinde "video_url" alanı bulunamadı.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video-suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_url: obj.video_url.trim(),
+          video_title: typeof obj.video_title === 'string' ? obj.video_title.trim() : undefined,
+          note: typeof obj.reasoning === 'string' ? obj.reasoning.trim() : undefined,
+          ai_model: typeof obj.ai_model === 'string' ? obj.ai_model.trim() : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setRawPrompt('');
+      await loadSuggestions();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleApprove(suggestion: VideoSuggestion) {
+    setBusyId(suggestion.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/section/${section.id}/video`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_url: suggestion.video_url, video_type: 'youtube' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Onaylanamadı.');
+        return;
+      }
+      setApprovedUrl(suggestion.video_url);
+      onSaved();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRemoveSuggestion(id: number) {
+    if (!confirm('Bu öneriyi kalıcı olarak silmek istediğinize emin misiniz?')) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/topic-sections/video-suggestions/${id}`, { method: 'DELETE' });
+      if (res.ok) setSuggestions((prev) => prev.filter((s) => s.id !== id));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <ModalShell title={`YouTube Video Önerisi — ${section.heading}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Bu promptu web arama/browsing yeteneği olan farklı AI&apos;lara (ör. Gemini, ChatGPT,
+          Perplexity) sorup dönen sonuçları tek tek buraya yapıştırın — her ekleme öncekileri
+          SİLMEZ, listeye eklenir. Aşağıdaki listeyi inceleyip beğendiğiniz videoyu
+          &quot;Onayla&quot;yın.
+        </p>
+
+        {metaPromptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{metaPromptError}</p>
+        ) : (
+          <PromptCopyBox prompt={metaPrompt} loading={loadingMetaPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={rawPrompt}
+            onChange={(e) => setRawPrompt(e.target.value)}
+            rows={5}
+            placeholder='{"found": true, "video_url": "https://www.youtube.com/watch?v=...", "video_title": "...", "reasoning": "...", "ai_model": "Gemini 3 Pro"}'
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleAddSuggestion}
+            disabled={saving || !rawPrompt.trim()}
+            className="mt-2 rounded-lg bg-[#6c63ff] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Ekleniyor...' : 'Öneriyi Ekle'}
+          </button>
+          {notFound && <p className="mt-2 text-xs font-bold text-amber-500">AI, gerçek/doğrulanmış bir video bulamadı — eklenecek bir şey yok.</p>}
+          {error && <p className="mt-2 text-xs font-bold text-[#ff6584]">{error}</p>}
+        </div>
+
+        <div className="border-t border-border pt-4 space-y-2">
+          <span className="text-xs font-bold text-muted-foreground block">Biriken öneriler</span>
+          {loadingSuggestions ? (
+            <p className="text-xs text-muted-foreground">Yükleniyor...</p>
+          ) : !suggestions.length ? (
+            <p className="text-xs text-muted-foreground">Henüz öneri eklenmedi.</p>
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map((s) => {
+                const isApproved = approvedUrl === s.video_url;
+                return (
+                  <div key={s.id} className={`rounded-xl border p-3 ${isApproved ? 'border-emerald-400 bg-emerald-400/10' : 'border-border bg-surface'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <a href={s.video_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#6c63ff] hover:underline break-all">
+                          {s.video_title || s.video_url}
+                        </a>
+                        {s.note && <p className="mt-1 text-xs text-muted-foreground">{s.note}</p>}
+                        <p className="mt-1 text-[10px] font-bold text-muted-foreground">{s.ai_model || 'Bilinmiyor'}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1.5">
+                        {isApproved ? (
+                          <span className="rounded-lg bg-emerald-400/20 px-2.5 py-1.5 text-[10px] font-extrabold text-emerald-600">Onaylandı</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(s)}
+                            disabled={busyId === s.id}
+                            className="rounded-lg bg-[#6c63ff] px-2.5 py-1.5 text-[10px] font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+                          >
+                            Onayla
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSuggestion(s.id)}
+                          disabled={busyId === s.id}
+                          className="rounded-lg border border-[#ff6584]/30 bg-[#ff6584]/10 p-1.5 text-[#ff6584] hover:bg-[#ff6584]/20 disabled:opacity-50 transition-colors"
+                          title="Kaldır"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">

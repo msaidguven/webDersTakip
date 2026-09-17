@@ -296,6 +296,47 @@ function ExplanationBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+// YouTube URL'sinden (watch?v=, youtu.be/, embed/) embed'lenebilir video id'sini çıkarır.
+function extractYoutubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1) || null;
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const embedMatch = u.pathname.match(/^\/embed\/([^/]+)/);
+      if (embedMatch) return embedMatch[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Opsiyonel, alt başlık başına kısa video — görsel/diyagramla aynı yerde gösteriliyor.
+// AI-üretimi bir video dosyasıysa native <video>, onaylanmış bir YouTube önerisiyse iframe
+// embed (bkz. AdminTopicSectionsPanel: VideoModal/VideoSuggestionsModal, kullanıcının
+// 2026-09-16 isteği: "zorunlu değil, gerekli olan konular için eklensin").
+function VideoBox({ videoUrl, videoType, caption }: { videoUrl: string; videoType: 'ai_generated' | 'youtube' | null; caption?: string | null }) {
+  const youtubeId = videoType === 'youtube' ? extractYoutubeId(videoUrl) : null;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-black shadow-sm">
+      {youtubeId ? (
+        <div className="aspect-video w-full">
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
+            title={caption || 'Konu anlatım videosu'}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      ) : (
+        <video src={videoUrl} controls className="max-h-[420px] w-full" preload="metadata" />
+      )}
+    </div>
+  );
+}
+
 export default function SectionContent({
   html,
   notebookHtml,
@@ -307,6 +348,8 @@ export default function SectionContent({
   caption,
   imageAlt,
   diagramSvg,
+  videoUrl,
+  videoType,
 }: {
   html: string;
   notebookHtml?: string | null;
@@ -318,6 +361,8 @@ export default function SectionContent({
   caption?: string | null;
   imageAlt?: string | null;
   diagramSvg?: string | null;
+  videoUrl?: string | null;
+  videoType?: 'ai_generated' | 'youtube' | null;
 }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
   const [notebookBlocks, setNotebookBlocks] = useState<React.ReactNode[] | null>(null);
@@ -445,6 +490,7 @@ export default function SectionContent({
           )}
         </>
       )}
+      {videoUrl && <VideoBox videoUrl={videoUrl} videoType={videoType ?? null} caption={caption} />}
       {notebookHtml || activityPromptHtml ? (
         <>
           <ExplanationBox>

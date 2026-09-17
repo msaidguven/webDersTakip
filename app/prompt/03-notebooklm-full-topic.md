@@ -24,7 +24,9 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
       "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
       "needs_image": boolean,
-      "image_prompt": string   // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
+      "image_prompt": string,  // needs_image true ise İngilizce görsel promptu (YATAY/landscape formatta olsun); görseldeki yazılar Türkçe olsun
+      "needs_video": boolean,  // NADİR kullan — SADECE alt başlık gerçek bir hareket/süreç/deney/animasyon içeriyorsa true
+      "video_prompt": string   // needs_video true ise, birkaç saniyelik bir AI video modeline (ör. Veo) yazılacak İngilizce, TEK sahne/hareket tarif eden kısa prompt (konuşma/anlatım isteme)
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama

@@ -33,6 +33,8 @@ import {
   AlertTriangle,
   Share2,
   Download,
+  Video,
+  Youtube,
 } from 'lucide-react';
 import type {
   SectionModalSection,
@@ -53,7 +55,10 @@ const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopic
 const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
 const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
 const DiagramModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.DiagramModal), { ssr: false });
+const VideoModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.VideoModal), { ssr: false });
+const VideoSuggestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.VideoSuggestionsModal), { ssr: false });
 const SectionContentEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionContentEditModal), { ssr: false });
+const TopicSummaryEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicSummaryEditModal), { ssr: false });
 const TopicCoverImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicCoverImageModal), { ssr: false });
 const TopicHighlightsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightsModal), { ssr: false });
 const TopicQuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicQuestionsModal), { ssr: false });
@@ -314,6 +319,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [ragAccuracyCheckTopicId, setRagAccuracyCheckTopicId] = useState<number | null>(null);
   const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
   const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
+  const [topicSummaryModalTopicId, setTopicSummaryModalTopicId] = useState<number | null>(null);
   const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
   const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
   const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
@@ -338,6 +344,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
   const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [diagramModalTarget, setDiagramModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
+  const [videoModalTarget, setVideoModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
+  const [videoSuggestionsModalTarget, setVideoSuggestionsModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
   const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
   const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1821,6 +1829,34 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             onClick={(e) => {
                               e.stopPropagation();
                               setSectionMenuOpenId(null);
+                              setVideoModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Video className="h-3.5 w-3.5" /> Video Ekle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
+                              setVideoSuggestionsModalTarget({
+                                topicId: Number(topic.id),
+                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
+                              });
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Youtube className="h-3.5 w-3.5" /> YouTube Önerisi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSectionMenuOpenId(null);
                               setQuestionsModalTarget({
                                 topicId: Number(topic.id),
                                 section: { id: Number(section.id), heading: section.heading },
@@ -2603,6 +2639,32 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                                 type="button"
                                                 onClick={() => {
                                                   setContentSectionMenuOpenId(null);
+                                                  setVideoModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <Video className="h-3.5 w-3.5" /> Video Ekle
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
+                                                  setVideoSuggestionsModalTarget({
+                                                    topicId: Number(activeTopic.id),
+                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                              >
+                                                <Youtube className="h-3.5 w-3.5" /> YouTube Önerisi
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setContentSectionMenuOpenId(null);
                                                   setQuestionsModalTarget({
                                                     topicId: Number(activeTopic.id),
                                                     section: { id: Number(section.id), heading: section.heading },
@@ -2633,7 +2695,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                       </div>
                                     )}
                                   </div>
-                                  {section.html || section.imageUrl || section.diagramSvg ? (
+                                  {section.html || section.imageUrl || section.diagramSvg || section.videoUrl ? (
                                     <SectionContent
                                       html={section.html || ''}
                                       notebookHtml={section.notebookHtml}
@@ -2645,6 +2707,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                       caption={section.heading}
                                       imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
                                       diagramSvg={section.diagramSvg}
+                                      videoUrl={section.videoUrl}
+                                      videoType={section.videoType}
                                     />
                                   ) : (
                                     <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
@@ -2664,8 +2728,23 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               );
                             })}
                           </div>
-                          {activeTopic.summaryHtml && (
-                            <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                          {(activeTopic.summaryHtml || isAdmin) && (
+                            <div className="not-prose">
+                              {activeTopic.summaryHtml ? (
+                                <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                              ) : (
+                                <p className="mt-10 text-xs text-slate-400 italic">Henüz konu özeti eklenmemiş.</p>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTopicSummaryModalTopicId(Number(activeTopic.id))}
+                                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" /> İçeriği Düzenle
+                                </button>
+                              )}
+                            </div>
                           )}
                           {activeTopic.discussionPromptHtml && (
                             <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />
@@ -3120,6 +3199,24 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         />
       )}
 
+      {videoModalTarget && (
+        <VideoModal
+          topicId={videoModalTarget.topicId}
+          section={videoModalTarget.section}
+          onClose={() => setVideoModalTarget(null)}
+          onSaved={refreshWeekData}
+        />
+      )}
+
+      {videoSuggestionsModalTarget && (
+        <VideoSuggestionsModal
+          topicId={videoSuggestionsModalTarget.topicId}
+          section={videoSuggestionsModalTarget.section}
+          onClose={() => setVideoSuggestionsModalTarget(null)}
+          onSaved={refreshWeekData}
+        />
+      )}
+
       {questionsModalTarget && (
         <QuestionsModal
           topicId={questionsModalTarget.topicId}
@@ -3156,6 +3253,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           topicId={topicHighlightsModalTopicId}
           onClose={() => setTopicHighlightsModalTopicId(null)}
           onSaved={refreshWeekData}
+        />
+      )}
+
+      {topicSummaryModalTopicId != null && (
+        <TopicSummaryEditModal
+          topicId={topicSummaryModalTopicId}
+          onClose={() => setTopicSummaryModalTopicId(null)}
+          onSaved={() => {
+            setTopicSummaryModalTopicId(null);
+            refreshWeekData();
+          }}
         />
       )}
 
