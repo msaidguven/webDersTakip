@@ -1,31 +1,26 @@
-Her alt başlık için İKİ metin üret (amaçları farklı), ARTI konunun sonunda TEK bir özet ve TEK bir tartışma sorusu:
+Her alt başlık için İKİ metin (amaçları farklı) + konu sonunda TEK özet + TEK tartışma sorusu.
 
-YASAK (hepsinde): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kaynak metinde geçse bile kopyalama.
+YASAK (hepsinde): kaynak/dipnot referansı ("[2,4]", "¹" vb.), kitapta geçse bile.
 
-1. **explanation_markdown — Konu Anlatımı.** Öğrencinin çalışacağı TAM ve DETAYLI ders notu (kısa özet zaten konu sonundaki summary_markdown'da) — telefonda hızlıca TARANABİLECEK kısa bilgi bloklarına bölünmüş, ama içerik derinliği/kapsamı tam. Sohbet metni DEĞİL, uzun ders kitabı DUVAR paragrafı da DEĞİL. {grade} seviyesine uygun, doğal bir öğretmen anlatımı gibi sade dil.
-   - Yapı: KISA BAŞLIK (`### Terim/Alt konu`) → 1-3 kısa cümlelik paragraf(lar) → gerekirse örnek/madde listesi → sonraki kısa başlık. Alt başlık birden fazla ayrı terim/aşama içeriyorsa MUTLAKA `### Terim Adı` mini başlıklarıyla böl; TEK kavramsa mini başlık şart değil ama yine 2-4 kısa paragrafa böl.
-   - Paragraf uzunluğu: HER paragraf 1-3 cümle. 5-6 satırlık uzun/duvar paragraf KESİNLİKLE YAZMA. Bir paragrafta birden fazla farklı fikir varsa bunları AYRI paragraflara böl — her paragraf TEK bir fikir taşısın. Paragraflar ve başlıklar arasına gerçek `\n\n` koy.
-   - Terimi İLK geçtiği yerde **kalın** yap (sonra tekrarlama); önemli nüans/uyarı için *italik* kullan (az, yerinde).
-   - Madde listesini SADECE gerçekten daha anlaşılır olduğu yerde kullan (ör. örnek sıralaması, adım listesi) — her şeyi maddeye dönüştürme, bilginin çoğu kısa paragraf olarak kalmalı.
-   - Somut ol (sayı, isim, tarih, mekanizma) — genel-geçer cümle yazma; gerektiğinde günlük hayattan kısa bir örnek ver. Retorik soru, "sen/senin" hitabı, hikâye, "Yani.../Kısacası..." kapanışı YASAK.
-   - TOPLAM İÇERİĞİ KISALTMAYI HEDEFLEME: müfredatta olması gereken hiçbir bilgiyi "kısa olsun" diye çıkarma/özetleme — konu detaylı/çok yönlüyse gerektiği kadar mini başlık ve paragraf kullanarak TAM anlat. Kısıtlama PARAGRAF UZUNLUĞUdur (1-3 cümle), TOPLAM UZUNLUK değil — daha çok bilgi = daha çok kısa paragraf/başlık, daha az bilgi değil. Yeni bilgi uydurma; SEO amacıyla yapay kelime/paragraf EKLEME.
-2. **activity_prompt_markdown + activity_example_markdown — düşünme etkinliği.** Öğrenciyi konuyu deftere kopyalamak yerine ÜZERİNDE DÜŞÜNMEYE zorlayan, klavye/yazı GEREKTİRMEYEN kısa bir etkinlik — öğrenci önce kendi kafasında/kağıdında düşünür, sonra isterse "Örneğe Bak"a basıp örnek yaklaşımı görür.
-   - activity_prompt_markdown: TEK bir istem, aşağıdaki çerçevelerden o alt başlığa EN UYGUN olanıyla başla (hepsini her seferinde kullanmaya çalışma, alt başlığın içeriğine göre TEK birini seç):
-     - **"Düşün:"** — kapalı/kesin bir çıkarım/akıl yürütme isteniyorsa.
-     - **"Hayal Et:"** — somut bir sahneyi zihinde canlandırmayı istiyorsa.
-     - **"Dene:"** — öğrencinin fiziksel/pratik bir şey denemesini istiyorsa (kağıda çizmek, elindeki bir nesneyle denemek vb.).
-     - **"Sen Olsan?"** — alt başlıkta bir karar/seçim/değer boyutu varsa (özellikle sosyal, ahlaki veya kişisel karar içeren konularda); kısa bir günlük-hayat durumu kurup öğrenciyi o durumun içine koy.
-     - **"Karşılaştır:"** — alt başlıkta birbirine benzeyen/karıştırılması kolay İKİ (veya daha fazla) terim/kavram varsa; öğrenciden aralarındaki farkı KENDİ cümlesiyle söylemesini iste.
-     - **"Günlük Hayattan Bul:"** — alt başlık soyut/teorik bir kavramsa; öğrenciden kendi çevresinden/günlük hayatından BİR ÖRNEK bulmasını iste.
-     O alt başlığın konusuyla DOĞRUDAN ilgili, somut, mümkünse günlük hayattan bir bağlam kullan — soyut/genel bir soru sorma. 1-3 cümle, kısa.
-   - activity_example_markdown: öğrenci "Örneğe Bak"a bastığında görünecek, istemi yanıtlayan KISA (2-4 cümle) bir örnek yaklaşım/açıklama. Tek doğru cevap gibi sunma ("bir yaklaşım" havasında yaz — özellikle "Sen Olsan?" ve "Günlük Hayattan Bul" için, bunlarda genelde tek doğru yoktur), ama alt başlıktaki bilgiyle tutarlı ve doğru olsun; retorik soru veya "sen/senin" hitabı yerine doğrudan açıklayıcı dil kullan.
-   - Her alt başlıkta MUTLAKA bir etkinlik olsun — ikisini de boş bırakma. Konunun tamamında aynı çerçeveyi art arda kullanma, çeşitlilik olsun.
-3. **summary_markdown (JSON'un en üst seviyesinde, "cover" ile aynı hizada, konu için TEK SEFER) — Konu Özeti.** Bu konu için deftere geçirilecek TEK, toplu özet — eskiden her alt başlıkta ayrı ayrı olan defter notunun yerine geçti; tüm alt başlıkların en önemli, ezberlenecek somut bilgisini (tanım/sayı/formül) TEK bir listede topla.
-   - Format: madde madde (- madde), her madde "**Terim**: Tanım cümlesi." biçiminde. Tanım kısmı GERÇEK, TAM bir cümle olsun — çekimli fiil veya "-dır/-dir" ile bitsin, sonunda MUTLAKA nokta olsun. İsim tamlaması veya fiilimsiyle ("...karşılaması gerekir" gibi fiilimsi/yan cümle, nokta yok) ASILI bırakma — madde, sözlük fişi gibi yarım kalmasın, okununca kendi başına bitmiş bir cümle hissi versin. Kısalık önemli (tek cümle, madde başına ~10-16 kelime) ama kısalık uğruna cümleyi eksik bırakma.
-   - Hangi alt başlıktan geldiğine göre gruplama/alt başlık YAZMA — tek düz liste, konunun BÜTÜNÜNÜ tek bakışta özetlesin.
-   - Madde sayısı konunun kapsamına göre ölçeklenir (genelde 6-14 madde) — her alt başlıktan en az bir madde olsun ama gereksiz ayrıntı ekleme, sadece gerçekten ezberlenecek çekirdek bilgi.
-   - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle/bağlaç ("... için/olduğunda/ise" gibi). Madde kendi başına anlaşılsın — "bu/bunlar/yukarıdaki" gibi öncül gerektiren zamir kullanma. Terim "Fark", "Kullanım alanları", "Örnek", "Avantaj", "Dezavantaj" gibi TEK BAŞINA anlamsız/jenerik bir kelime OLMASIN (bu, öğrenci konu anlatımını hiç okumadan direkt özete atlayabildiği için kritik) — bu tip bilgiyi ilgili TEK terimin kendi tanımının içine kat, ayrı jenerik madde açma.
-4. **discussion_prompt_markdown (JSON'un en üst seviyesinde, summary_markdown ile aynı hizada, konu için TEK SEFER) — Düşün ve Yorumla.** Konuyu bitiren, TEK doğrusu olmayan, tartışmaya açık bir soru — öğrenci isterse konu altındaki yorum bölümünde görüşünü paylaşır.
-   - Konunun geneliyle ilgili ama açık uçlu olsun: kişisel görüş, değerlendirme, günlük hayatla ilişkilendirme veya "sence hangisi daha önemli/doğru" tarzı bir soru — sınavda sorulacak kapalı/kesin cevaplı bir soru DEĞİL.
-   - TEK cümle, kısa ve doğrudan soru biçiminde ("Sence ..." / "Sen olsan ..." gibi başlayabilir).
-   - Konu gerçekten tartışmaya uygun değilse (ör. tamamen mekanik bir işlem konusuysa: "kesirleri nasıl toplarız" gibi) zorlama yapmak yerine yine de konuyu günlük hayata/kişisel deneyime bağlayan bir soru bulmaya çalış — ama uydurma/yapay hissettirmesin.
+1. **explanation_markdown — Konu Anlatımı.** TAM/DETAYLI ders notu (kısa özet ayrı, summary_markdown'da). Telefonda taranabilecek kısa bloklar, ama derinlik tam. Sohbet metni DEĞİL, duvar paragraf da DEĞİL. {grade} seviyesine uygun sade dil.
+   - Yapı: `### Terim` → 1-3 cümlelik paragraf(lar) → gerekirse örnek/madde → sonraki başlık. Birden fazla terim/aşama varsa mini başlıklarla böl; tek kavramsa yine 2-4 kısa paragraf.
+   - HER paragraf 1-3 cümle, asla duvar paragraf. Birden fazla fikir → ayrı paragraflar. Gerçek `\n\n` ile ayır.
+   - Terimi ilk geçtiği yerde **kalın** (tekrar etme); nüans için *italik* (az).
+   - Madde listesi sadece gerçekten daha anlaşılırsa; çoğu bilgi paragraf kalsın.
+   - Somut ol (sayı/isim/tarih/mekanizma), genel-geçer cümle yazma; günlük hayattan kısa örnek olabilir. YASAK: retorik soru, "sen/senin" hitabı, hikâye, "Yani.../Kısacası..." kapanışı.
+   - TOPLAM UZUNLUĞU KISALTMA: müfredat bilgisini "kısa olsun" diye çıkarma — konu genişse gereken kadar başlık/paragraf kullan. Kısıtlama paragraf uzunluğu, toplam uzunluk DEĞİL. Bilgi uydurma; SEO dolgusu ekleme.
+2. **activity_prompt_markdown + activity_example_markdown — düşünme etkinliği.** Deftere kopyalamak değil, ÜZERİNDE DÜŞÜNMEK; yazı gerektirmez. Önce kendi kafasında düşünür, sonra "Örneğe Bak"la örneği görür.
+   - prompt: konuya EN UYGUN TEK çerçeve (hepsini denemeye çalışma):
+     "Düşün:" kapalı çıkarım · "Hayal Et:" sahne canlandırma · "Dene:" fiziksel/pratik deneme · "Sen Olsan?" karar/değer boyutu (sosyal/ahlaki/kişisel) · "Karşılaştır:" karıştırılan İKİ+ terim, farkı kendi cümlesiyle · "Günlük Hayattan Bul:" soyut kavrama kendi çevresinden örnek.
+     Konuyla DOĞRUDAN ilgili, somut bağlam — soyut/genel soru sorma. 1-3 cümle.
+   - example: istemi yanıtlayan KISA (2-4 cümle) örnek. Tek doğru gibi sunma (özellikle "Sen Olsan?"/"Günlük Hayattan Bul"da tek doğru yok), ama tutarlı/doğru olsun; retorik soru/"sen/senin" yerine doğrudan dil.
+   - Her alt başlıkta MUTLAKA etkinlik olsun; aynı çerçeveyi art arda kullanma, çeşitlendir.
+3. **summary_markdown (JSON üst seviye, konu için TEK SEFER) — Konu Özeti.** Tüm alt başlıkların en önemli/ezberlenecek somut bilgisi (tanım/sayı/formül), TEK listede.
+   - Format: `- **Terim**: Tanım cümlesi.` GERÇEK/TAM cümle (çekimli fiil veya -dır/-dir, MUTLAKA nokta) — yarım/asılı bırakma, kendi başına bitmiş cümle olsun. ~10-16 kelime ama eksik bırakma.
+   - Alt başlığa göre gruplama/başlık YAZMA — tek düz liste.
+   - Madde sayısı kapsama göre (genelde 6-14) — her alt başlıktan en az bir madde, gereksiz ayrıntı yok.
+   - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle. Öncül gerektiren zamir ("bu/bunlar/yukarıdaki") kullanma. Terim "Fark/Kullanım alanları/Örnek/Avantaj/Dezavantaj" gibi TEK BAŞINA jenerik OLMASIN — bu bilgiyi ilgili terimin kendi tanımına kat.
+4. **discussion_prompt_markdown (JSON üst seviye, konu için TEK SEFER) — Düşün ve Yorumla.** TEK doğrusu olmayan, tartışmaya açık soru.
+   - Açık uçlu: kişisel görüş/değerlendirme/günlük hayat bağlantısı, "sence hangisi daha önemli/doğru" tarzı — kapalı/kesin cevaplı sınav sorusu DEĞİL.
+   - TEK kısa soru cümlesi ("Sence.../Sen olsan..." gibi başlayabilir).
+   - Konu mekanik/tartışmaya elverişsizse bile günlük hayata/kişisel deneyime bağlayan bir soru bulmaya çalış — uydurma hissettirmesin.
