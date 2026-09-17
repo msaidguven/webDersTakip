@@ -147,7 +147,12 @@ function NotebookLmSetupModal({ onClose }: { onClose: () => void }) {
 const TOOL_BUTTON_TONES = {
   neutral: 'border-border bg-surface-elevated text-foreground hover:border-[#6c63ff]/50 hover:bg-[#6c63ff]/10',
   notebooklm: 'border-sky-400/30 bg-sky-400/10 text-sky-700 dark:text-sky-300 hover:bg-sky-400/20',
+  // rag = kaynak metnini oluşturup güncel/tekilleştirilmiş tutmak (öğrenci soru-cevap RAG
+  // sisteminin veri tabanı); synthesis = o kaynağı ders İÇERİĞİ (alt başlık/soru) üretmek
+  // için GİRDİ olarak kullanmak — kullanıcının 2026-09-17 isteği: "rag oluşturma ayrı,
+  // sentezden içerik oluşturma ayrı olmalı", ikisi birbirine karıştırılmasın diye ayrı ton.
   rag: 'border-amber-400/30 bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-400/20',
+  synthesis: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-400/20',
 } as const;
 
 function ToolButton({
@@ -351,7 +356,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {/* Konu geneline ait AI içerik üretim araçları — eskiden ders sayfasında (DersClient)
           dağınık duran tüm bu modaller artık burada, tek yerde. Fonksiyona göre değil KAYNAĞA
-          göre gruplandı (NotebookLM / RAG Sentez / Ortak) — kullanıcının 2026-09-17 isteği. */}
+          göre gruplandı (NotebookLM / RAG Kaynak / Sentezden İçerik / Ortak) — kullanıcının
+          2026-09-17 isteği: RAG kaynağını OLUŞTURMAK ile o kaynağı ders içeriğine DÖNÜŞTÜRMEK
+          ayrı gruplar (birbirine karıştırılmasın diye). */}
       <div className="mb-5 rounded-xl border border-border bg-card p-4 space-y-3">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground block">İçerik Üretim Araçları</span>
 
@@ -369,7 +376,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         </div>
 
         <div>
-          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🔍 RAG Sentez (Kitapsız Ders — ChatGPT/Claude/Gemini)</span>
+          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynak (Kitapsız Ders — Öğrenci Soru-Cevap Kaynağı)</span>
           <div className="flex flex-wrap gap-2">
             <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
             <ToolButton tone="rag" onClick={() => setRagSourceSynthesisModalOpen(true)}>Kaynak Metni Sentezle</ToolButton>
@@ -377,12 +384,18 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
             {bundle.unit && (
               <ToolButton tone="rag" onClick={() => setRagUnitDedupModalOpen(true)}>Ünite: Kaynak Tekilleştir</ToolButton>
             )}
-            <ToolButton tone="rag" onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1.5">🔍 Sentezden İçerik (RAG Kaynağını Ders İçeriğine Dönüştür)</span>
+          <div className="flex flex-wrap gap-2">
+            <ToolButton tone="synthesis" onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
             {bundle.sections.length > 0 && (
-              <ToolButton tone="rag" onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
+              <ToolButton tone="synthesis" onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
             )}
-            <ToolButton tone="rag" onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular</ToolButton>
-            <ToolButton tone="rag" onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular</ToolButton>
+            <ToolButton tone="synthesis" onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular</ToolButton>
+            <ToolButton tone="synthesis" onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular</ToolButton>
           </div>
         </div>
 
@@ -472,7 +485,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                           <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'notebooklm' }); }}>İçerik Ekle</SectionMenuItem>
                           <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'notebooklm' }); }}>Soru Ekle</SectionMenuItem>
                           <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical_notebooklm' }); }}>Açık Uçlu Soru Ekle</SectionMenuItem>
-                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-amber-600 dark:text-amber-400">🔍 RAG Sentez</span>
+                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">🔍 Sentezden İçerik</span>
                           <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'synthesis' }); }}>İçerik Ekle</SectionMenuItem>
                           <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">🧩 Ortak / Diğer AI</span>
                           <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'general' }); }}>İçerik Ekle</SectionMenuItem>
