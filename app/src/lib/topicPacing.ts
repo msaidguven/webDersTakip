@@ -5,20 +5,29 @@ export type TopicPacingInfo = {
   topicWeeks: number;
   unitWeeks: number;
   sharePct: number;
+  hoursEstimate: number | null; // MUTLAK tahmini ders saati — varsa esas sınıflandırma bu üzerinden yapılır
+  hoursSource: 'duration_hours' | 'weekly_hours' | null;
   label: 'ozet' | 'normal' | 'detayli';
-  hoursEstimate: number | null;
 };
 
 type TopicRow = { id: number };
 type OutcomeRow = { id: number; topic_id: number };
 type OutcomeWeekRow = { outcome_id: number; start_week: number; end_week: number };
 
-// Bir ünitenin konularının göreceli süre payını, o konuların kazanımlarına zaten atanmış
-// haftalardan (outcome_weeks) çıkarır — units.duration_hours ve lesson_grades.weekly_hours
-// nadiren dolu olduğu için (2026-09-18 kontrolünde 50 ünitenin 6'sı, 28 ders+sınıfın 2'si)
-// bunlara bağlı kalmıyoruz; outcome_weeks neredeyse tam dolu (664 kazanımın 717 hafta kaydı).
-// Kullanıcının fikri: MEB'in bir konuya ayırdığı süre, ünitedeki diğer konulara göre ne kadar
-// kısa/uzunsa, öğrenciye gösterilen içerik de o kadar özet/detaylı olsun.
+// Bir konunun MEB müfredatında ne kadar süreye sığdırıldığını hesaplar. ÖNCELİK: mutlak
+// ders saati — units.duration_hours varsa konunun (outcome_weeks'ten çıkan) ünite içi hafta
+// payına göre bölüştürülür (34 saatlik ünitede 3/18 hafta = ~5.7 saat gibi); o da yoksa
+// lesson_grades.weekly_hours × konunun kendi hafta sayısı kullanılır. İKİSİ de yoksa (en sık
+// durum — 2026-09-18 kontrolünde konuların çoğunda mutlak veri yok), göreceli paya (kardeş
+// konulara oranla) düşülür — ama bu SADECE mutlak veri hiç yoksa kullanılan zayıf bir yedek.
+//
+// Kullanıcının 2026-09-18 bulduğu kritik hata: SADECE göreceli paya bakmak, bir ünitenin TÜM
+// konuları kısaysa (ör. 4 saatlik ünitede 2 konu, ikisi de %50) hiçbirini "özet" olarak
+// işaretlemiyordu — oysa 2 saatlik bir konu payından bağımsız olarak zaten kısa. Mutlak saat
+// artık öncelikli sinyal.
+const ABSOLUTE_OZET_MAX_HOURS = 3;
+const ABSOLUTE_DETAYLI_MIN_HOURS = 8;
+
 export async function computeUnitTopicPacing(
   supabase: SupabaseClient,
   unitId: number,
@@ -63,12 +72,11 @@ export async function computeUnitTopicPacing(
   const unitWeeks = unitMax - unitMin + 1;
   if (unitWeeks <= 0) return result;
 
-  const { data: lessonGrade } = await supabase
-    .from('lesson_grades')
-    .select('weekly_hours')
-    .eq('lesson_id', lessonId)
-    .eq('grade_id', gradeId)
-    .maybeSingle();
+  const [{ data: unitRow }, { data: lessonGrade }] = await Promise.all([
+    supabase.from('units').select('duration_hours').eq('id', unitId).maybeSingle(),
+    supabase.from('lesson_grades').select('weekly_hours').eq('lesson_id', lessonId).eq('grade_id', gradeId).maybeSingle(),
+  ]);
+  const unitDurationHours = (unitRow as { duration_hours: number | null } | null)?.duration_hours || null;
   const weeklyHours = (lessonGrade as { weekly_hours: number | null } | null)?.weekly_hours || null;
 
   const avgShareFraction = 1 / spanByTopicId.size;
@@ -76,15 +84,33 @@ export async function computeUnitTopicPacing(
   for (const [topicId, span] of spanByTopicId) {
     const topicWeeks = span.max - span.min + 1;
     const shareFraction = topicWeeks / unitWeeks;
-    const ratio = shareFraction / avgShareFraction;
-    const label: TopicPacingInfo['label'] = ratio >= 1.3 ? 'detayli' : ratio <= 0.7 ? 'ozet' : 'normal';
+
+    let hoursRaw: number | null = null;
+    let hoursSource: TopicPacingInfo['hoursSource'] = null;
+    if (unitDurationHours) {
+      hoursRaw = unitDurationHours * shareFraction;
+      hoursSource = 'duration_hours';
+    } else if (weeklyHours) {
+      hoursRaw = weeklyHours * topicWeeks;
+      hoursSource = 'weekly_hours';
+    }
+
+    let label: TopicPacingInfo['label'];
+    if (hoursRaw != null) {
+      label = hoursRaw <= ABSOLUTE_OZET_MAX_HOURS ? 'ozet' : hoursRaw >= ABSOLUTE_DETAYLI_MIN_HOURS ? 'detayli' : 'normal';
+    } else {
+      const ratio = shareFraction / avgShareFraction;
+      label = ratio >= 1.3 ? 'detayli' : ratio <= 0.7 ? 'ozet' : 'normal';
+    }
+
     result.set(topicId, {
       topicId,
       topicWeeks,
       unitWeeks,
       sharePct: Math.round(shareFraction * 100),
+      hoursEstimate: hoursRaw != null ? Math.round(hoursRaw * 10) / 10 : null,
+      hoursSource,
       label,
-      hoursEstimate: weeklyHours ? Math.round(topicWeeks * weeklyHours) : null,
     });
   }
 
@@ -97,11 +123,14 @@ export async function computeUnitTopicPacing(
 export function buildPacingGuidance(info: TopicPacingInfo | undefined, mode: 'plan' | 'content'): string {
   if (!info || info.label === 'normal') return '';
 
-  const timeText = info.hoursEstimate ? `~${info.hoursEstimate} ders saati` : `~${info.topicWeeks} hafta`;
   const timeContext =
-    info.label === 'ozet'
-      ? `Bu konuya müfredatta ayrılan süre ünitenin diğer konularına göre kısıtlı (${timeText}, ünitenin yaklaşık %${info.sharePct}'i).`
-      : `Bu konuya müfredatta bolca süre ayrılmış (${timeText}, ünitenin yaklaşık %${info.sharePct}'i).`;
+    info.hoursEstimate != null
+      ? info.label === 'ozet'
+        ? `Bu konu MEB müfredatında toplam yaklaşık ${info.hoursEstimate} ders saatine sığdırılmış — çok kısa bir süre.`
+        : `Bu konuya MEB müfredatında toplam yaklaşık ${info.hoursEstimate} ders saati ayrılmış — bolca süre.`
+      : info.label === 'ozet'
+        ? `Bu konuya müfredatta ayrılan süre ünitenin diğer konularına göre kısıtlı (~${info.topicWeeks} hafta, ünitenin yaklaşık %${info.sharePct}'i).`
+        : `Bu konuya müfredatta bolca süre ayrılmış (~${info.topicWeeks} hafta, ünitenin yaklaşık %${info.sharePct}'i).`;
 
   if (mode === 'plan') {
     const instruction =
@@ -113,7 +142,7 @@ export function buildPacingGuidance(info: TopicPacingInfo | undefined, mode: 'pl
 
   const instruction =
     info.label === 'ozet'
-      ? 'İçeriği buna göre ÖZETLE — sadece en kritik kavram ve kazanımları vurgula, gereksiz detay/uzun örneklerden kaçın; öğrencinin bu süre içinde gerçekten işleyebileceği bir yoğunlukta tut.'
+      ? 'İçeriği buna göre ÖZETLE — sadece en kritik kavram ve kazanımları vurgula, öğrencinin gerçekten bu sürede öğrenebileceği kadarını yaz; uzun örnek/yan bilgi ekleme.'
       : 'İçeriği buna göre DETAYLANDIR — kavramları örneklerle derinleştir, önemli noktaları daha geniş açıkla.';
   return `Süre notu: ${timeContext} ${instruction}\n`;
 }
