@@ -13,6 +13,7 @@ import SectionContent from '@/app/ders/SectionContent';
 import { TopicSummaryBox } from '@/app/ders/DersClientCards';
 import { computePlanHeadingDiff, fetchExistingSectionsForDiff, type ExistingSectionForDiff } from '@/app/src/lib/planHeadingDiff';
 import { PlanHeadingDiffReview } from '@/app/src/components/admin/PlanHeadingDiffReview';
+import { formatDersSaatiDuration } from '@/app/src/lib/topicPacing';
 
 type Outcome = {
   id: number;
@@ -38,7 +39,7 @@ const PACING_COLORS: Record<'ozet' | 'detayli', string> = {
 };
 function pacingBadgeText(p: TopicPacing): string | null {
   if (!p || p.label === 'normal') return null;
-  const timeText = p.hoursEstimate ? `~${p.hoursEstimate} ders saati` : `~${p.topicWeeks} hafta`;
+  const timeText = p.hoursEstimate ? `~${formatDersSaatiDuration(p.hoursEstimate)}` : `~${p.topicWeeks} hafta`;
   return `⏱ ${timeText} · Ünitenin ~%${p.sharePct}'i · ${PACING_LABELS[p.label]}`;
 }
 type TopicContent = {

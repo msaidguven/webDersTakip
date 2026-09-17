@@ -28,6 +28,22 @@ type OutcomeWeekRow = { outcome_id: number; start_week: number; end_week: number
 const ABSOLUTE_OZET_MAX_HOURS = 3;
 const ABSOLUTE_DETAYLI_MIN_HOURS = 8;
 
+// "Ders saati" bir takvim saati değil, bir okul ders periyodu — kullanıcının belirttiği gibi
+// 30 dakika. Promptta/rozette "2 ders saati" gibi belirsiz bir ifade yerine somut dakika/saat
+// söylüyoruz (2026-09-18 kullanıcı isteği) — hem AI'nin süreyi gerçek bir saatle karıştırıp
+// gereğinden uzun içerik üretmesini önlüyor hem admin için daha okunaklı.
+const MINUTES_PER_DERS_SAATI = 30;
+
+export function formatDersSaatiDuration(hoursEstimate: number): string {
+  const totalMinutes = Math.round(hoursEstimate * MINUTES_PER_DERS_SAATI);
+  if (totalMinutes <= 0) return '0 dakika';
+  if (totalMinutes % 60 === 0) return `${totalMinutes / 60} saat`;
+  if (totalMinutes < 60) return `${totalMinutes} dakika`;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h} saat ${m} dakika`;
+}
+
 export async function computeUnitTopicPacing(
   supabase: SupabaseClient,
   unitId: number,
@@ -126,8 +142,8 @@ export function buildPacingGuidance(info: TopicPacingInfo | undefined, mode: 'pl
   const timeContext =
     info.hoursEstimate != null
       ? info.label === 'ozet'
-        ? `Bu konu MEB müfredatında toplam yaklaşık ${info.hoursEstimate} ders saatine sığdırılmış — çok kısa bir süre.`
-        : `Bu konuya MEB müfredatında toplam yaklaşık ${info.hoursEstimate} ders saati ayrılmış — bolca süre.`
+        ? `Bu konu MEB müfredatında toplam yaklaşık ${formatDersSaatiDuration(info.hoursEstimate)} sürede işlenecek şekilde planlanmış — çok kısa bir süre.`
+        : `Bu konuya MEB müfredatında toplam yaklaşık ${formatDersSaatiDuration(info.hoursEstimate)} ayrılmış — bolca süre.`
       : info.label === 'ozet'
         ? `Bu konuya müfredatta ayrılan süre ünitenin diğer konularına göre kısıtlı (~${info.topicWeeks} hafta, ünitenin yaklaşık %${info.sharePct}'i).`
         : `Bu konuya müfredatta bolca süre ayrılmış (~${info.topicWeeks} hafta, ünitenin yaklaşık %${info.sharePct}'i).`;
