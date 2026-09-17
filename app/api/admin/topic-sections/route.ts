@@ -39,6 +39,9 @@ type SectionRow = {
   image_prompt: string | null;
   image_alt: string | null;
   diagram_svg: string | null;
+  video_url: string | null;
+  video_prompt: string | null;
+  video_type: string | null;
   status: string;
 };
 type SectionOutcomeLinkRow = { section_id: number; outcome_id: number };
@@ -151,7 +154,7 @@ export async function GET(request: NextRequest) {
   if (topicContentRow) {
     const { data: sectionsData } = await supabase
       .from('topic_content_sections')
-      .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, status')
+      .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type, status')
       .eq('topic_content_id', topicContentRow.id)
       .order('order_no', { ascending: true });
     sections = (sectionsData as SectionRow[] | null) || [];

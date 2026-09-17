@@ -2,7 +2,6 @@
 
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/src/context/AuthContext';
@@ -15,9 +14,6 @@ import {
   ArrowLeft,
   Menu,
   X,
-  Clipboard,
-  Check,
-  MoreVertical,
   Lightbulb,
   PanelLeftClose,
   PanelLeftOpen,
@@ -25,46 +21,12 @@ import {
   Sparkles,
   ListChecks,
   Pencil,
-  ImagePlus,
-  Shapes,
   Plus,
   Minus,
   Monitor,
-  AlertTriangle,
   Share2,
   Download,
-  Video,
-  Youtube,
 } from 'lucide-react';
-import type {
-  SectionModalSection,
-  EditableSection,
-} from '@/app/src/components/admin/AdminTopicSectionsPanel';
-
-// Admin düzenleme paneli (~3000 satır) ve modalları sadece admin gerçekten bir
-// düzenleme aksiyonu tetiklediğinde indirilsin diye lazy-load ediliyor; aksi halde
-// bu kod her öğrencinin konu sayfası ziyaretinde ana bundle'a dahil oluyordu.
-const AdminTopicSectionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsModal'), { ssr: false });
-const PlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.PlanModal), { ssr: false });
-const NotebookPlanModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.NotebookPlanModal), { ssr: false });
-const RagTopicSourceModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceModal), { ssr: false });
-const RagTopicSourceSynthesisModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicSourceSynthesisModal), { ssr: false });
-const RagUnitSourceDedupModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagUnitSourceDedupModal), { ssr: false });
-const RagTopicAccuracyCheckModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.RagTopicAccuracyCheckModal), { ssr: false });
-const SectionModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionModal), { ssr: false });
-const QuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.QuestionsModal), { ssr: false });
-const ImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ImageModal), { ssr: false });
-const DiagramModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.DiagramModal), { ssr: false });
-const VideoModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.VideoModal), { ssr: false });
-const VideoSuggestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.VideoSuggestionsModal), { ssr: false });
-const SectionContentEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.SectionContentEditModal), { ssr: false });
-const TopicSummaryEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicSummaryEditModal), { ssr: false });
-const TopicCoverImageModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicCoverImageModal), { ssr: false });
-const TopicHighlightsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightsModal), { ssr: false });
-const TopicQuestionsModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicQuestionsModal), { ssr: false });
-const ClassicalGenerateModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.ClassicalGenerateModal), { ssr: false });
-const TopicHighlightQuickAddModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightQuickAddModal), { ssr: false });
-const TopicHighlightEditModal = dynamic(() => import('@/app/src/components/admin/AdminTopicSectionsPanel').then((m) => m.TopicHighlightEditModal), { ssr: false });
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
@@ -75,8 +37,6 @@ import {
   type Outcome,
   type WeekedOutcome,
   type SpecialWeekEvent,
-  type TopicSection,
-  type TopicHighlight,
   type Content,
   type Unit,
   type ProfileRoleRow,
@@ -91,8 +51,6 @@ import {
   buildTopicQuestionBankHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
-  KAZANIMLAR_CACHE_TTL_MS,
-  kazanimlarCacheKey,
   SPECIAL_WEEK_META,
   STUDY_TIPS,
 } from './dersHelpers';
@@ -107,11 +65,6 @@ const MIN_CONTENT_SCALE = 1;
 const MAX_CONTENT_SCALE = 2.2;
 const CONTENT_SCALE_STEP = 0.2;
 const BOARD_MODE_DEFAULT_SCALE = 1.4;
-
-// "RAG Kaynak Metni Sentezle" için gereken minimum bağımsız taslak sayısı — tek bir AI'ın
-// kaynak metnine güvenmek yerine birden fazla AI'ın üzerinde bir ölçüde uzlaştığı bir
-// çoğunluk/tutarlılık kontrolü yapılabilsin diye (kullanıcının 2026-09-14 isteği).
-const MIN_RAG_SOURCE_DRAFTS = 5;
 
 interface DersClientProps {
   initialData: {
@@ -141,82 +94,6 @@ interface DersClientProps {
   gradeId: string;
   lessonId: string;
   week: number;
-}
-
-// Konu başlığının yanındaki admin butonları önceden 7 ayrı chip'ti (NotebookLM
-// Prompt'u, İçeriği Güncelle, Sentezden Alt Başlık, Sentezden İçeriği Güncelle,
-// Sentezden Genel Sorular, Genel Sorular, Açık Uçlu Sorular) — çok kalabalıklaştı.
-// Bunun yerine "Yeni İçerik Ekle" / "Güncelle" / "Soru Ekle" olmak üzere 3 gruba
-// toplayan açılır menü chip'i (2026-09-11 kullanıcı talebi).
-function TopicActionMenuGroup({
-  menuKey,
-  label,
-  icon,
-  open,
-  onToggle,
-  onCloseMenu,
-  children,
-}: {
-  menuKey: string;
-  label: string;
-  icon: React.ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  onCloseMenu: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="inline-flex h-7 items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 text-[11px] font-black text-rose-500 shadow-sm hover:bg-rose-100 transition-colors"
-      >
-        {icon} {label} <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={onCloseMenu} />
-          <div
-            key={menuKey}
-            className="absolute left-1/2 top-8 z-50 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-lg"
-          >
-            {children}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function TopicActionMenuItem({
-  icon,
-  label,
-  title,
-  done,
-  warning,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  title?: string;
-  done?: boolean;
-  warning?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-    >
-      {icon} {label}
-      {warning && <AlertTriangle className="ml-auto h-3.5 w-3.5 text-amber-500" />}
-      {done && !warning && <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
-    </button>
-  );
 }
 
 export default function DersClient({ initialData, gradeId, lessonId, week }: DersClientProps) {
@@ -300,33 +177,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [pendingLessonName, setPendingLessonName] = useState(lessonName);
   const [pendingLessonSlug, setPendingLessonSlug] = useState(lessonSlug);
   const [pendingLoading, setPendingLoading] = useState(false);
-  const [questionStatusByTopic, setQuestionStatusByTopic] = useState<Record<string, { general: boolean; sectionIds: number[] }>>({});
-  const [topicMenuOpenId, setTopicMenuOpenId] = useState<string | number | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const [manualUnitId, setManualUnitId] = useState<number | null>(null);
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
   const [unitTopicsCache, setUnitTopicsCache] = useState<Record<string, Content[]>>({});
   const [loadingUnitIds, setLoadingUnitIds] = useState<Set<string>>(new Set());
-  const [managingTopicId, setManagingTopicId] = useState<number | null>(null);
-  const [planModalTopicId, setPlanModalTopicId] = useState<number | null>(null);
-  const [notebookPlanTopicId, setNotebookPlanTopicId] = useState<number | null>(null);
-  const [synthesisFullTopicModalTopicId, setSynthesisFullTopicModalTopicId] = useState<number | null>(null);
-  const [contentRefreshNotebookTopicId, setContentRefreshNotebookTopicId] = useState<number | null>(null);
-  const [contentRefreshSynthesisTopicId, setContentRefreshSynthesisTopicId] = useState<number | null>(null);
-  const [ragSourceModalTopicId, setRagSourceModalTopicId] = useState<number | null>(null);
-  const [ragSourceSynthesisModalTopicId, setRagSourceSynthesisModalTopicId] = useState<number | null>(null);
-  const [ragUnitSourceDedupModalUnitId, setRagUnitSourceDedupModalUnitId] = useState<number | null>(null);
-  const [ragAccuracyCheckTopicId, setRagAccuracyCheckTopicId] = useState<number | null>(null);
-  const [coverImageModalTopicId, setCoverImageModalTopicId] = useState<number | null>(null);
-  const [topicHighlightsModalTopicId, setTopicHighlightsModalTopicId] = useState<number | null>(null);
-  const [topicSummaryModalTopicId, setTopicSummaryModalTopicId] = useState<number | null>(null);
-  const [topicQuestionsModalTopic, setTopicQuestionsModalTopic] = useState<{ id: number; title: string; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' } | null>(null);
-  const [highlightQuickAddTopicId, setHighlightQuickAddTopicId] = useState<number | null>(null);
-  const [highlightEditTarget, setHighlightEditTarget] = useState<{ topicId: number; index: number } | null>(null);
-  const [sectionModalTarget, setSectionModalTarget] = useState<{ topicId: number; section: SectionModalSection; variant?: 'general' | 'notebooklm' | 'synthesis' } | null>(null);
-  const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | number | null>(null);
-  const [contentSectionMenuOpenId, setContentSectionMenuOpenId] = useState<string | number | null>(null);
-  const [topicActionMenu, setTopicActionMenu] = useState<'new' | 'update' | 'questions' | null>(null);
   // Profildeki "Yorumlarım" / bildirimlerden gelen ?yorum=c88 deep-link'leri
   // (bkz. DersHighlight.tsx) — UnitDiscussion'a geçilip feed yüklenince ilgili
   // kayda kaydırılıp kısa süreliğine vurgulanıyor (kullanıcı raporu, 2026-09-11:
@@ -340,14 +195,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     window.addEventListener('ders:highlight-comment', handler);
     return () => window.removeEventListener('ders:highlight-comment', handler);
   }, []);
-  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ topicId: number; section: { id: number; heading: string }; variant?: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
-  const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ topicId: number; topicTitle: string; section?: { id: number; heading: string } | null } | null>(null);
-  const [imageModalTarget, setImageModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
-  const [diagramModalTarget, setDiagramModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
-  const [videoModalTarget, setVideoModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
-  const [videoSuggestionsModalTarget, setVideoSuggestionsModalTarget] = useState<{ topicId: number; section: SectionModalSection } | null>(null);
-  const [editingContentSection, setEditingContentSection] = useState<EditableSection | null>(null);
-  const [loadingEditSectionId, setLoadingEditSectionId] = useState<string | number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Bir TOC tıklaması başka bir konuya geçiş gerektirdiğinde, o konunun içeriği
   // render edilene kadar hangi alt başlığa kaydırılacağını burada bekletiyoruz.
@@ -437,98 +284,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [heroImageZoomed]);
 
-  // Sadece aktif ünitenin değil, sidebar'da "İçindekiler" ağacında o an görünen
-  // (arkaplanda önceden ısıtılmış) tüm ünitelerin konularını kapsar — yoksa başka
-  // bir ünitedeki konuya daha önce eklenmiş soruların tiki hiç görünmez.
-  const allVisibleTopicIdsKey = useMemo(() => {
-    const ids = new Set<string>();
-    contents.forEach((c) => ids.add(String(c.id)));
-    Object.values(unitTopicsCache).forEach((topics) => topics.forEach((c) => ids.add(String(c.id))));
-    return Array.from(ids).join(',');
-  }, [contents, unitTopicsCache]);
-
-  const loadQuestionStatus = useCallback(async () => {
-    if (!isAdmin || !allVisibleTopicIdsKey) return;
-    const res = await fetch(`/api/admin/topic-sections/question-status?topicIds=${allVisibleTopicIdsKey}`);
-    if (res.ok) {
-      const data = await res.json();
-      setQuestionStatusByTopic(data?.byTopic || {});
-    }
-  }, [isAdmin, allVisibleTopicIdsKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!isAdmin || !allVisibleTopicIdsKey) {
-      setQuestionStatusByTopic({});
-      return;
-    }
-    fetch(`/api/admin/topic-sections/question-status?topicIds=${allVisibleTopicIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { byTopic?: Record<string, { general: boolean; sectionIds: number[] }> } | null) => {
-        if (!cancelled) setQuestionStatusByTopic(data?.byTopic || {});
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, allVisibleTopicIdsKey]);
-
-  // Kitapsız derslerde hangi konuların RAG kaynak metni zaten sentezlenmiş olduğunu
-  // gösteren yeşil tik için (admin çok sayıda konu arasında nerede kaldığını görsün,
-  // 2026-09-10 kullanıcı talebi) — questionStatusByTopic ile aynı desen.
-  const [synthesizedTopicIds, setSynthesizedTopicIds] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    let cancelled = false;
-    if (!isAdmin || !allVisibleTopicIdsKey) {
-      setSynthesizedTopicIds(new Set());
-      return;
-    }
-    fetch(`/api/admin/rag/topics-with-synthesis?topicIds=${allVisibleTopicIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { topicIds?: number[] } | null) => {
-        if (!cancelled) setSynthesizedTopicIds(new Set(data?.topicIds || []));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, allVisibleTopicIdsKey]);
-
-  // Hangi konularda açık (çözülmemiş) bir "Tutarsızlık Notu" ya da "Doğruluk Kontrolü"
-  // bulgusu olduğunu gösteren uyarı ikonu için — synthesizedTopicIds ile aynı desen.
-  const [flaggedTopicIds, setFlaggedTopicIds] = useState<Set<number>>(new Set());
-  const refreshFlaggedTopicIds = useCallback(() => {
-    if (!isAdmin || !allVisibleTopicIdsKey) {
-      setFlaggedTopicIds(new Set());
-      return;
-    }
-    fetch(`/api/admin/rag/topics-review-status?topicIds=${allVisibleTopicIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { topicIds?: number[] } | null) => setFlaggedTopicIds(new Set(data?.topicIds || [])));
-  }, [isAdmin, allVisibleTopicIdsKey]);
-  useEffect(() => {
-    refreshFlaggedTopicIds();
-  }, [refreshFlaggedTopicIds]);
-
-  // Kaç ham RAG kaynak taslağı (18. prompt) biriktiğini tutar — "RAG Kaynak Metni Sentezle"
-  // butonu en az MIN_RAG_SOURCE_DRAFTS taslak birikmeden pasif kalsın diye (kullanıcının
-  // 2026-09-14 isteği: tek bir AI'a değil, birden fazla bağımsız taslağın çoğunluk/tutarlılık
-  // kontrolüne dayansın).
-  const [draftCountByTopicId, setDraftCountByTopicId] = useState<Record<number, number>>({});
-  useEffect(() => {
-    let cancelled = false;
-    if (!isAdmin || !allVisibleTopicIdsKey) {
-      setDraftCountByTopicId({});
-      return;
-    }
-    fetch(`/api/admin/rag/topics-draft-counts?topicIds=${allVisibleTopicIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { counts?: Record<number, number> } | null) => {
-        if (!cancelled) setDraftCountByTopicId(data?.counts || {});
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, allVisibleTopicIdsKey]);
-
   const activeUnit =
     (manualUnitId != null ? units.find((u) => u.id === manualUnitId) : null) ||
     (initialData.unitSlug ? units.find((u) => u.slug === initialData.unitSlug) : null) ||
@@ -539,46 +294,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     () => [...units].sort((a, b) => a.order_no - b.order_no),
     [units]
   );
-
-  // Hangi ünitelerin "RAG Ünite Sentezi (Tekrar Kontrolü)" ile en az bir kez düzenlendiğini
-  // gösteren yeşil tik için — synthesizedTopicIds ile aynı desen, ama ünite bazlı.
-  const allUnitIdsKey = useMemo(() => sortedUnits.map((u) => u.id).join(','), [sortedUnits]);
-  const [ragDedupCheckedUnitIds, setRagDedupCheckedUnitIds] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    let cancelled = false;
-    if (!isAdmin || !allUnitIdsKey) {
-      setRagDedupCheckedUnitIds(new Set());
-      return;
-    }
-    fetch(`/api/admin/rag/units-with-dedup-check?unitIds=${allUnitIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { unitIds?: number[] } | null) => {
-        if (!cancelled) setRagDedupCheckedUnitIds(new Set(data?.unitIds || []));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, allUnitIdsKey]);
-
-  // Ünite Sentezi (Tekrar Kontrolü) butonu, ünitede yayında içeriği OLAN en az 2 sentezlenmiş
-  // konu yoksa pasif kalır — aksi halde kaynak metni düzeltmek hiçbir yere yansımaz (kullanıcının
-  // 2026-09-14 isteği: "güncelle menüsünü çalıştırmadan ünite sentezini çalıştırmayalım").
-  const [dedupReadyUnitIds, setDedupReadyUnitIds] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    let cancelled = false;
-    if (!isAdmin || !allUnitIdsKey) {
-      setDedupReadyUnitIds(new Set());
-      return;
-    }
-    fetch(`/api/admin/rag/units-ready-for-dedup?unitIds=${allUnitIdsKey}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { unitIds?: number[] } | null) => {
-        if (!cancelled) setDedupReadyUnitIds(new Set(data?.unitIds || []));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, allUnitIdsKey]);
 
   const unitTitle = activeUnit?.title || unitName || 'Ünite Bulunamadı';
   const activeUnitSlug = activeUnit?.slug || unitSlug || null;
@@ -1485,24 +1200,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => controller.abort();
   }, [activeUnit?.id, loadWeekData]);
 
-  const refreshWeekData = useCallback(() => {
-    if (activeUnit?.id) loadWeekData(activeUnit.id);
-  }, [activeUnit, loadWeekData]);
-
-  // Ders sayfasında, okuduğu alt başlığın hemen altındaki "İçeriği Düzenle" butonuna
-  // basınca ham markdown'ı çeker ve düzenleme penceresini açar.
-  const openContentEditModal = async (sectionId: string | number) => {
-    setLoadingEditSectionId(sectionId);
-    try {
-      const res = await fetch(`/api/admin/topic-sections/section/${sectionId}`);
-      const data = await res.json().catch(() => null);
-      if (res.ok && data) {
-        setEditingContentSection(data as EditableSection);
-      }
-    } finally {
-      setLoadingEditSectionId(null);
-    }
-  };
 
   const goToTopic = (index: number) => {
     const topic = contents[index];
@@ -1527,12 +1224,10 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const renderTopicItem = (topic: Content, idx: number, unit: Unit, isActiveUnitList: boolean) => {
     const isActive = isActiveUnitList && idx === selectedTopicIndex;
     const isCompleted = isActiveUnitList && idx < selectedTopicIndex;
-    const showAdminMenu = isAdmin && !tocCollapsed;
     const hasSections = !!topic.sections?.length;
     const isTopicExpanded = expandedTopicIds.has(String(topic.id));
     const showExpandToggle = hasSections && !tocCollapsed;
     const showSectionTree = showExpandToggle && isTopicExpanded;
-    const rightControlsCount = (showExpandToggle ? 1 : 0) + (showAdminMenu ? 1 : 0);
     const topicSectionSlugs = showSectionTree ? buildSectionSlugs(topic.sections!) : null;
 
     const handleTopicClick = () => {
@@ -1560,7 +1255,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           className={`
             w-full flex items-center gap-3 rounded-xl transition-colors duration-200 text-left
             ${tocCollapsed ? 'justify-center p-2.5' : 'p-2.5'}
-            ${rightControlsCount === 2 ? 'pr-14' : rightControlsCount === 1 ? 'pr-8' : ''}
+            ${showExpandToggle ? 'pr-8' : ''}
             ${isActive ? 'bg-violet-50/80' : 'hover:bg-slate-50'}
           `}
         >
@@ -1589,153 +1284,19 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           )}
         </button>
 
-        {(showExpandToggle || showAdminMenu) && (
+        {showExpandToggle && (
           <div className="absolute right-1 top-1 flex items-center gap-0.5">
-            {showExpandToggle && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleTopicExpanded(topic.id);
-                }}
-                title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
-                className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-              >
-                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
-              </button>
-            )}
-
-            {showAdminMenu && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTopicMenuOpenId((cur) => (String(cur) === String(topic.id) ? null : topic.id));
-                  }}
-                  className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                >
-                  <MoreVertical className="h-3.5 w-3.5" />
-                </button>
-
-                {String(topicMenuOpenId) === String(topic.id) && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setTopicMenuOpenId(null)} />
-                    <div className="absolute right-0 top-7 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setPlanModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <Clipboard className="h-3.5 w-3.5" /> Alt Başlık Planı Prompt&apos;u
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setManagingTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" /> Kazanım / Kapak / Anahtar Kavramlar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setCoverImageModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <ImagePlus className="h-3.5 w-3.5" /> Konu Kapak Görseli
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setTopicHighlightsModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" /> Anahtar Kavramları Güncelle
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setTopicQuestionsModalTopic({ id: Number(topic.id), title: topic.title, variant: 'general' });
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <ListChecks className="h-3.5 w-3.5" /> Genel Sorular (Diğer AI)
-                        {questionStatusByTopic[topic.id]?.general && (
-                          <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setTopicQuestionsModalTopic({ id: Number(topic.id), title: topic.title, variant: 'classical' });
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <ListChecks className="h-3.5 w-3.5" /> Açık Uçlu Sorular
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setClassicalGenerateTarget({ topicId: Number(topic.id), topicTitle: topic.title, section: null });
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTopicMenuOpenId(null);
-                          setRagSourceModalTopicId(Number(topic.id));
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni (Kitapsız Ders)
-                      </button>
-                      {(() => {
-                        const draftCount = draftCountByTopicId[Number(topic.id)] || 0;
-                        const ready = draftCount >= MIN_RAG_SOURCE_DRAFTS;
-                        return (
-                          <button
-                            type="button"
-                            disabled={!ready}
-                            onClick={() => {
-                              if (!ready) return;
-                              setTopicMenuOpenId(null);
-                              setRagSourceSynthesisModalTopicId(Number(topic.id));
-                            }}
-                            title={ready ? undefined : `Önce en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı ekleyin (şu an: ${draftCount})`}
-                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
-                              ready ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-300 cursor-not-allowed'
-                            }`}
-                          >
-                            <BookOpen className="h-3.5 w-3.5" /> RAG Kaynak Metni Sentezle (Çoklu AI)
-                            {synthesizedTopicIds.has(Number(topic.id)) ? (
-                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                            ) : (
-                              <span className="ml-auto text-[10px] font-black text-slate-400">{draftCount}/{MIN_RAG_SOURCE_DRAFTS}</span>
-                            )}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleTopicExpanded(topic.id);
+              }}
+              title={isTopicExpanded ? 'Alt başlıkları gizle' : 'Alt başlıkları göster'}
+              className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+            >
+              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isTopicExpanded ? 'rotate-90' : ''}`} />
+            </button>
           </div>
         )}
       </div>
@@ -1751,159 +1312,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   type="button"
                   onClick={() => handleSectionClick(slug)}
                   title={section.heading}
-                  className={`flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${isAdmin ? 'pr-7' : ''} ${
+                  className={`flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition-colors ${
                     isSectionActive
                       ? 'bg-indigo-100 text-indigo-700 font-black'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
                   }`}
                 >
                   <span className="truncate">{sIdx + 1}. {section.heading}</span>
-                  {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
-                    <span title="Bu alt başlığa soru eklenmiş" className="shrink-0">
-                      <Check className="h-3 w-3 text-emerald-500" />
-                    </span>
-                  )}
                 </button>
-
-                {isAdmin && (
-                  <div className="absolute right-0.5 top-0.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id));
-                      }}
-                      className="h-5 w-5 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
-                    >
-                      <MoreVertical className="h-3 w-3" />
-                    </button>
-
-                    {String(sectionMenuOpenId) === String(section.id) && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
-                        <div className="absolute right-0 top-6 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setSectionModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setImageModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ImagePlus className="h-3.5 w-3.5" /> Görsel Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setDiagramModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt, diagram_svg: section.diagramSvg },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Shapes className="h-3.5 w-3.5" /> Diyagram Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setVideoModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Video className="h-3.5 w-3.5" /> Video Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setVideoSuggestionsModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Youtube className="h-3.5 w-3.5" /> YouTube Önerisi
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setQuestionsModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ListChecks className="h-3.5 w-3.5" /> Soru Ekle
-                            {questionStatusByTopic[topic.id]?.sectionIds.includes(Number(section.id)) && (
-                              <Check className="h-3.5 w-3.5 ml-auto text-emerald-500" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setQuestionsModalTarget({
-                                topicId: Number(topic.id),
-                                section: { id: Number(section.id), heading: section.heading },
-                                variant: 'classical',
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <ListChecks className="h-3.5 w-3.5" /> Açık Uçlu Soru Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSectionMenuOpenId(null);
-                              setClassicalGenerateTarget({
-                                topicId: Number(topic.id),
-                                topicTitle: topic.title,
-                                section: { id: Number(section.id), heading: section.heading },
-                              });
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Üret (AI)
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -1986,7 +1402,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <button
                       type="button"
                       onClick={() => handleUnitHeaderClick(unit)}
-                      className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${isAdmin ? 'pr-8' : ''} ${
+                      className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
                         isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
                       }`}
                     >
@@ -2001,34 +1417,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       )}
                       <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isUnitExpanded ? 'rotate-90' : ''}`} />
                     </button>
-
-                    {isAdmin && (() => {
-                      const dedupReady = dedupReadyUnitIds.has(Number(unit.id));
-                      return (
-                        <button
-                          type="button"
-                          disabled={!dedupReady}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!dedupReady) return;
-                            setRagUnitSourceDedupModalUnitId(Number(unit.id));
-                          }}
-                          title={
-                            dedupReady
-                              ? 'RAG Ünite Sentezi (Tekrar Kontrolü)'
-                              : 'Bu ünitede yayında içeriği olan en az 2 sentezlenmiş konu yok — önce ilgili konularda "Sentezden Alt Başlık" / "Sentezden İçeriği Güncelle" çalıştırın'
-                          }
-                          className={`absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-lg transition-colors ${
-                            dedupReady ? 'text-slate-400 hover:text-slate-700 hover:bg-white' : 'text-slate-200 cursor-not-allowed'
-                          }`}
-                        >
-                          <BookOpen className="h-3.5 w-3.5" />
-                          {ragDedupCheckedUnitIds.has(Number(unit.id)) && (
-                            <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 rounded-full bg-white text-emerald-500" />
-                          )}
-                        </button>
-                      );
-                    })()}
                   </div>
 
                   {isUnitExpanded && (
@@ -2324,116 +1712,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                           <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
-                          {isAdmin && flaggedTopicIds.has(Number(activeTopic.id)) && (
-                            <button
-                              type="button"
-                              title="Açık bir RAG doğruluk/tutarsızlık bulgusu var — Güncelle > Doğruluk Kontrolü'nden bakın"
-                              onClick={() => setRagAccuracyCheckTopicId(Number(activeTopic.id))}
-                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-colors"
-                            >
-                              <AlertTriangle className="h-4 w-4" />
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <TopicActionMenuGroup
-                              menuKey="new"
-                              label="Yeni İçerik Ekle"
-                              icon={<Plus className="h-3 w-3" />}
-                              open={topicActionMenu === 'new'}
-                              onToggle={() => setTopicActionMenu((cur) => (cur === 'new' ? null : 'new'))}
-                              onCloseMenu={() => setTopicActionMenu(null)}
-                            >
-                              <TopicActionMenuItem
-                                icon={<Clipboard className="h-3.5 w-3.5" />}
-                                label="NotebookLM Prompt'u"
-                                title="Google NotebookLM için tek prompt'u kopyala — alt başlık + içerik tek seferde"
-                                onClick={() => { setTopicActionMenu(null); setNotebookPlanTopicId(Number(activeTopic.id)); }}
-                              />
-                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                                <TopicActionMenuItem
-                                  icon={<BookOpen className="h-3.5 w-3.5" />}
-                                  label="Sentezden Alt Başlık"
-                                  title="Kitapsız ders — RAG sentez metnini kaynak alan tek prompt'u kopyala"
-                                  onClick={() => { setTopicActionMenu(null); setSynthesisFullTopicModalTopicId(Number(activeTopic.id)); }}
-                                />
-                              )}
-                            </TopicActionMenuGroup>
-                          )}
-                          {isAdmin && (
-                            <TopicActionMenuGroup
-                              menuKey="update"
-                              label="Güncelle"
-                              icon={<Clipboard className="h-3 w-3" />}
-                              open={topicActionMenu === 'update'}
-                              onToggle={() => setTopicActionMenu((cur) => (cur === 'update' ? null : 'update'))}
-                              onCloseMenu={() => setTopicActionMenu(null)}
-                            >
-                              <TopicActionMenuItem
-                                icon={<Clipboard className="h-3.5 w-3.5" />}
-                                label="İçeriği Güncelle (NotebookLM)"
-                                title="Alt başlıklar sabit kalır, sadece içerik NotebookLM ile yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
-                                onClick={() => { setTopicActionMenu(null); setContentRefreshNotebookTopicId(Number(activeTopic.id)); }}
-                              />
-                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                                <TopicActionMenuItem
-                                  icon={<BookOpen className="h-3.5 w-3.5" />}
-                                  label="Sentezden İçeriği Güncelle"
-                                  title="Alt başlıklar sabit kalır, sadece içerik RAG sentez metniyle yeniden yazılır — görsel/diyagram/soru kaybı riski yok"
-                                  onClick={() => { setTopicActionMenu(null); setContentRefreshSynthesisTopicId(Number(activeTopic.id)); }}
-                                />
-                              )}
-                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                                <TopicActionMenuItem
-                                  icon={<AlertTriangle className="h-3.5 w-3.5" />}
-                                  label="Doğruluk Kontrolü"
-                                  title="Yayındaki içeriği RAG kaynak metniyle karşılaştırıp hata arattır"
-                                  warning={flaggedTopicIds.has(Number(activeTopic.id))}
-                                  onClick={() => { setTopicActionMenu(null); setRagAccuracyCheckTopicId(Number(activeTopic.id)); }}
-                                />
-                              )}
-                            </TopicActionMenuGroup>
-                          )}
-                          {isAdmin && (
-                            <TopicActionMenuGroup
-                              menuKey="questions"
-                              label="Soru Ekle"
-                              icon={<ListChecks className="h-3 w-3" />}
-                              open={topicActionMenu === 'questions'}
-                              onToggle={() => setTopicActionMenu((cur) => (cur === 'questions' ? null : 'questions'))}
-                              onCloseMenu={() => setTopicActionMenu(null)}
-                            >
-                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                                <TopicActionMenuItem
-                                  icon={<ListChecks className="h-3.5 w-3.5" />}
-                                  label="Sentezden Genel Sorular"
-                                  title="Kitapsız ders — RAG sentez metnine dayanan genel/sentez soruları üret"
-                                  done={questionStatusByTopic[activeTopic.id]?.general}
-                                  onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'rag_synthesis' }); }}
-                                />
-                              )}
-                              <TopicActionMenuItem
-                                icon={<ListChecks className="h-3.5 w-3.5" />}
-                                label="Genel Sorular"
-                                title="Konunun geneline ait, ünite testinde kullanılacak sentez soruları üret"
-                                done={questionStatusByTopic[activeTopic.id]?.general}
-                                onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'notebooklm' }); }}
-                              />
-                              {synthesizedTopicIds.has(Number(activeTopic.id)) && (
-                                <TopicActionMenuItem
-                                  icon={<Sparkles className="h-3.5 w-3.5" />}
-                                  label="Sentezden Açık Uçlu Sorular"
-                                  title="Kitapsız ders — RAG sentez metnine dayanan açık uçlu sentez soruları üret"
-                                  onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'classical_rag_synthesis' }); }}
-                                />
-                              )}
-                              <TopicActionMenuItem
-                                icon={<Sparkles className="h-3.5 w-3.5" />}
-                                label="Açık Uçlu Sorular"
-                                title="Konunun geneline ait, kitaba dayanan açık uçlu sentez soruları üret"
-                                onClick={() => { setTopicActionMenu(null); setTopicQuestionsModalTopic({ id: Number(activeTopic.id), title: activeTopic.title, variant: 'classical_notebooklm' }); }}
-                              />
-                            </TopicActionMenuGroup>
-                          )}
                         </div>
                         <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
                         <div className="mx-auto mt-4 flex items-center justify-center gap-2">
@@ -2450,6 +1728,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           >
                             <Download className="h-3.5 w-3.5" /> PDF Olarak İndir
                           </a>
+                          {isAdmin && (
+                            <Link
+                              href={`/admin/konu-icerik/${activeTopic.id}`}
+                              target="_blank"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#6c63ff]/30 bg-[#6c63ff]/10 px-3 py-1.5 text-xs font-bold text-[#6c63ff] hover:bg-[#6c63ff]/20 transition-colors"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" /> İçerik Yönetimi
+                            </Link>
+                          )}
                         </div>
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
@@ -2501,46 +1788,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         )}
                       </>
                     )}
-                    {activeTopic && (isAdmin || (activeTopic.highlights && activeTopic.highlights.length > 0)) && (
+                    {activeTopic && activeTopic.highlights && activeTopic.highlights.length > 0 && (
                       <div className="not-prose mb-8">
                         <div className="flex items-center justify-between gap-2 mb-3">
                           <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest">
                             <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
                           </div>
-                          {isAdmin && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setHighlightQuickAddTopicId(Number(activeTopic.id))}
-                                title="Yeni anahtar kavram ekle"
-                                className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setTopicHighlightsModalTopicId(Number(activeTopic.id))}
-                                title="Anahtar kavramları güncelle"
-                                className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )}
                         </div>
-                        {activeTopic.highlights && activeTopic.highlights.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {activeTopic.highlights.map((h, idx) => (
-                              <HighlightCard
-                                key={idx}
-                                highlight={h}
-                                onEdit={isAdmin ? () => setHighlightEditTarget({ topicId: Number(activeTopic.id), index: idx }) : undefined}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400 italic">Henüz anahtar kavram eklenmemiş.</p>
-                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {activeTopic.highlights.map((h, idx) => (
+                            <HighlightCard key={idx} highlight={h} />
+                          ))}
+                        </div>
                       </div>
                     )}
                     {activeTopic ? (
@@ -2560,140 +1819,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   <div className="flex items-start justify-between gap-2 mb-5">
                                     <h2 className="not-prose flex-1 min-w-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
                                       {section.heading}
-                                      {isAdmin && questionStatusByTopic[activeTopic.id]?.sectionIds.includes(Number(section.id)) && (
-                                        <span title="Bu alt başlığa soru eklenmiş" className="shrink-0">
-                                          <Check className="h-4 w-4 text-emerald-500" />
-                                        </span>
-                                      )}
                                     </h2>
-
-                                    {isAdmin && (
-                                      <div className="not-prose relative shrink-0">
-                                        <button
-                                          type="button"
-                                          onClick={() => setContentSectionMenuOpenId((cur) => (String(cur) === String(section.id) ? null : section.id))}
-                                          className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                                        >
-                                          <MoreVertical className="h-4 w-4" />
-                                        </button>
-
-                                        {String(contentSectionMenuOpenId) === String(section.id) && (
-                                          <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setContentSectionMenuOpenId(null)} />
-                                            <div className="absolute right-0 top-8 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-50">
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setSectionModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                                                    variant: 'notebooklm',
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle (NotebookLM)
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setSectionModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt },
-                                                    variant: 'synthesis',
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Clipboard className="h-3.5 w-3.5" /> İçerik Ekle (Sentezden)
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setImageModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt },
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <ImagePlus className="h-3.5 w-3.5" /> Görsel Ekle
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setDiagramModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, image_alt: section.imageAlt, diagram_svg: section.diagramSvg },
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Shapes className="h-3.5 w-3.5" /> Diyagram Ekle
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setVideoModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Video className="h-3.5 w-3.5" /> Video Ekle
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setVideoSuggestionsModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading, image_url: section.imageUrl, image_prompt: section.imagePrompt, video_url: section.videoUrl, video_prompt: section.videoPrompt, video_type: section.videoType },
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Youtube className="h-3.5 w-3.5" /> YouTube Önerisi
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setQuestionsModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading },
-                                                    variant: 'notebooklm',
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <ListChecks className="h-3.5 w-3.5" /> Soru Ekle (NotebookLM)
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setContentSectionMenuOpenId(null);
-                                                  setQuestionsModalTarget({
-                                                    topicId: Number(activeTopic.id),
-                                                    section: { id: Number(section.id), heading: section.heading },
-                                                    variant: 'classical_notebooklm',
-                                                  });
-                                                }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50"
-                                              >
-                                                <Sparkles className="h-3.5 w-3.5" /> Açık Uçlu Soru Ekle (NotebookLM)
-                                              </button>
-                                            </div>
-                                          </>
-                                        )}
-                                      </div>
-                                    )}
                                   </div>
                                   {section.html || section.imageUrl || section.diagramSvg || section.videoUrl ? (
                                     <SectionContent
@@ -2713,37 +1839,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                   ) : (
                                     <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
                                   )}
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openContentEditModal(section.id)}
-                                      disabled={loadingEditSectionId === section.id}
-                                      className="not-prose mt-5 flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 disabled:opacity-50 transition-colors"
-                                    >
-                                      <Pencil className="h-3.5 w-3.5" />
-                                      {loadingEditSectionId === section.id ? 'Yükleniyor...' : 'İçeriği Düzenle'}
-                                    </button>
-                                  )}
                                 </section>
                               );
                             })}
                           </div>
-                          {(activeTopic.summaryHtml || isAdmin) && (
+                          {activeTopic.summaryHtml && (
                             <div className="not-prose">
-                              {activeTopic.summaryHtml ? (
-                                <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
-                              ) : (
-                                <p className="mt-10 text-xs text-slate-400 italic">Henüz konu özeti eklenmemiş.</p>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => setTopicSummaryModalTopicId(Number(activeTopic.id))}
-                                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" /> İçeriği Düzenle
-                                </button>
-                              )}
+                              <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
                             </div>
                           )}
                           {activeTopic.discussionPromptHtml && (
@@ -3043,270 +2145,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </div>
       )}
 
-      {managingTopicId != null && (
-        <AdminTopicSectionsModal
-          topicId={managingTopicId}
-          topicTitle={contents.find((c) => Number(c.id) === managingTopicId)?.title}
-          onClose={() => setManagingTopicId(null)}
-        />
-      )}
-
-      {planModalTopicId != null && (
-        <PlanModal
-          topicId={planModalTopicId}
-          onClose={() => setPlanModalTopicId(null)}
-          onSaved={() => {
-            setPlanModalTopicId(null);
-            refreshWeekData();
-          }}
-          onManageMore={() => {
-            const topicId = planModalTopicId;
-            setPlanModalTopicId(null);
-            setManagingTopicId(topicId);
-          }}
-        />
-      )}
-
-      {notebookPlanTopicId != null && (
-        <NotebookPlanModal
-          topicId={notebookPlanTopicId}
-          onClose={() => setNotebookPlanTopicId(null)}
-          onSaved={() => {
-            setNotebookPlanTopicId(null);
-            refreshWeekData();
-          }}
-          onManageMore={() => {
-            const topicId = notebookPlanTopicId;
-            setNotebookPlanTopicId(null);
-            setManagingTopicId(topicId);
-          }}
-        />
-      )}
-
-      {synthesisFullTopicModalTopicId != null && (
-        <NotebookPlanModal
-          topicId={synthesisFullTopicModalTopicId}
-          promptType="full_from_synthesis"
-          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
-          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setSynthesisFullTopicModalTopicId(null)}
-          onSaved={() => {
-            setSynthesisFullTopicModalTopicId(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {contentRefreshNotebookTopicId != null && (
-        <NotebookPlanModal
-          topicId={contentRefreshNotebookTopicId}
-          promptType="content_refresh_notebooklm"
-          title="İçeriği Güncelle (NotebookLM) — Başlıklar Sabit"
-          description="Alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği NotebookLM ile yeniden yazılır. Bu promptu NotebookLM'e, kaynak olarak ders kitabının PDF'ini yüklediğiniz notebook'ta sorun. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="NotebookLM"
-          onClose={() => setContentRefreshNotebookTopicId(null)}
-          onSaved={() => {
-            setContentRefreshNotebookTopicId(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {contentRefreshSynthesisTopicId != null && (
-        <NotebookPlanModal
-          topicId={contentRefreshSynthesisTopicId}
-          promptType="content_refresh_from_synthesis"
-          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
-          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setContentRefreshSynthesisTopicId(null)}
-          onSaved={() => {
-            setContentRefreshSynthesisTopicId(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {ragSourceModalTopicId != null && (
-        <RagTopicSourceModal
-          topicId={ragSourceModalTopicId}
-          onClose={() => setRagSourceModalTopicId(null)}
-          onSaved={() => {}}
-        />
-      )}
-
-      {ragSourceSynthesisModalTopicId != null && (
-        <RagTopicSourceSynthesisModal
-          topicId={ragSourceSynthesisModalTopicId}
-          onClose={() => setRagSourceSynthesisModalTopicId(null)}
-          onSaved={() => {
-            setSynthesizedTopicIds((prev) => new Set(prev).add(ragSourceSynthesisModalTopicId));
-            refreshFlaggedTopicIds();
-            setRagSourceSynthesisModalTopicId(null);
-          }}
-        />
-      )}
-
-      {ragUnitSourceDedupModalUnitId != null && (
-        <RagUnitSourceDedupModal
-          unitId={ragUnitSourceDedupModalUnitId}
-          onClose={() => setRagUnitSourceDedupModalUnitId(null)}
-          onSaved={() => {
-            setRagDedupCheckedUnitIds((prev) => new Set(prev).add(ragUnitSourceDedupModalUnitId));
-          }}
-        />
-      )}
-
-      {ragAccuracyCheckTopicId != null && (
-        <RagTopicAccuracyCheckModal
-          topicId={ragAccuracyCheckTopicId}
-          onClose={() => setRagAccuracyCheckTopicId(null)}
-          onSaved={refreshFlaggedTopicIds}
-          onEditSection={(sectionId) => openContentEditModal(sectionId)}
-        />
-      )}
-
-      {sectionModalTarget && (
-        <SectionModal
-          topicId={sectionModalTarget.topicId}
-          section={sectionModalTarget.section}
-          variant={sectionModalTarget.variant}
-          onClose={() => setSectionModalTarget(null)}
-          onSaved={() => {
-            setSectionModalTarget(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {imageModalTarget && (
-        <ImageModal
-          topicId={imageModalTarget.topicId}
-          section={imageModalTarget.section}
-          onClose={() => setImageModalTarget(null)}
-          onSaved={refreshWeekData}
-          onImageChanged={refreshWeekData}
-        />
-      )}
-
-      {diagramModalTarget && (
-        <DiagramModal
-          topicId={diagramModalTarget.topicId}
-          section={diagramModalTarget.section}
-          onClose={() => setDiagramModalTarget(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {videoModalTarget && (
-        <VideoModal
-          topicId={videoModalTarget.topicId}
-          section={videoModalTarget.section}
-          onClose={() => setVideoModalTarget(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {videoSuggestionsModalTarget && (
-        <VideoSuggestionsModal
-          topicId={videoSuggestionsModalTarget.topicId}
-          section={videoSuggestionsModalTarget.section}
-          onClose={() => setVideoSuggestionsModalTarget(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {questionsModalTarget && (
-        <QuestionsModal
-          topicId={questionsModalTarget.topicId}
-          section={questionsModalTarget.section}
-          variant={questionsModalTarget.variant}
-          onClose={() => {
-            setQuestionsModalTarget(null);
-            loadQuestionStatus();
-          }}
-        />
-      )}
-
-      {editingContentSection && (
-        <SectionContentEditModal
-          section={editingContentSection}
-          onClose={() => setEditingContentSection(null)}
-          onSaved={() => {
-            setEditingContentSection(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {coverImageModalTopicId != null && (
-        <TopicCoverImageModal
-          topicId={coverImageModalTopicId}
-          onClose={() => setCoverImageModalTopicId(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {topicHighlightsModalTopicId != null && (
-        <TopicHighlightsModal
-          topicId={topicHighlightsModalTopicId}
-          onClose={() => setTopicHighlightsModalTopicId(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {topicSummaryModalTopicId != null && (
-        <TopicSummaryEditModal
-          topicId={topicSummaryModalTopicId}
-          onClose={() => setTopicSummaryModalTopicId(null)}
-          onSaved={() => {
-            setTopicSummaryModalTopicId(null);
-            refreshWeekData();
-          }}
-        />
-      )}
-
-      {topicQuestionsModalTopic && (
-        <TopicQuestionsModal
-          topicId={topicQuestionsModalTopic.id}
-          topicTitle={topicQuestionsModalTopic.title}
-          variant={topicQuestionsModalTopic.variant}
-          onClose={() => {
-            setTopicQuestionsModalTopic(null);
-            loadQuestionStatus();
-          }}
-        />
-      )}
-
-      {classicalGenerateTarget && (
-        <ClassicalGenerateModal
-          topicId={classicalGenerateTarget.topicId}
-          topicTitle={classicalGenerateTarget.topicTitle}
-          section={classicalGenerateTarget.section}
-          onClose={() => {
-            setClassicalGenerateTarget(null);
-            loadQuestionStatus();
-          }}
-        />
-      )}
-
-      {highlightQuickAddTopicId != null && (
-        <TopicHighlightQuickAddModal
-          topicId={highlightQuickAddTopicId}
-          onClose={() => setHighlightQuickAddTopicId(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
-
-      {highlightEditTarget && (
-        <TopicHighlightEditModal
-          topicId={highlightEditTarget.topicId}
-          index={highlightEditTarget.index}
-          onClose={() => setHighlightEditTarget(null)}
-          onSaved={refreshWeekData}
-        />
-      )}
     </div>
   );
 }

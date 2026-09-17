@@ -1,7 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Clipboard, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import {
+  AlertTriangle, Check, ChevronDown, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
+  RefreshCw, Shapes, Sparkles, Trash2, Video, Youtube, X,
+} from 'lucide-react';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { copyText } from '@/app/src/lib/clipboard';
@@ -45,7 +48,11 @@ type Section = {
   activity_example_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
+  image_alt: string | null;
   diagram_svg: string | null;
+  video_url: string | null;
+  video_prompt: string | null;
+  video_type: 'ai_generated' | 'youtube' | null;
   status: 'planned' | 'content_ready' | 'image_ready' | 'published';
   outcomes: SectionOutcome[];
 };
@@ -78,6 +85,30 @@ const STATUS_COLORS: Record<Section['status'], string> = {
   published: 'bg-[#6c63ff]/15 text-[#b5b0ff] border-[#6c63ff]/30',
 };
 
+function SectionMenuItem({ icon: Icon, onClick, children }: { icon: ComponentType<{ className?: string }>; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-bold text-foreground hover:bg-accent transition-colors"
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> {children}
+    </button>
+  );
+}
+
+function ToolButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-border bg-surface-elevated px-3 py-1.5 text-xs font-bold text-foreground hover:border-[#6c63ff]/50 hover:bg-[#6c63ff]/10 transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }) {
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +119,30 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [reloadCount, setReloadCount] = useState(0);
   const [deletingSectionId, setDeletingSectionId] = useState<number | null>(null);
   const [publishSaving, setPublishSaving] = useState(false);
+
+  // Aşağıdakiler, ders sayfasında (DersClient.tsx) dağınık duran tüm içerik üretme
+  // modallerinin bu sayfaya taşınmasıyla eklendi (kullanıcının 2026-09-17 isteği: "bu sentez
+  // sistemi ile içerik oluşturmayı admin panelde ayrı bi menü olarak yapsak" — hem daha ferah
+  // bir CMS hem de öğrencinin indirdiği bundle'dan onlarca admin-only state/buton çıkıyor).
+  const [sectionMenuOpenId, setSectionMenuOpenId] = useState<number | null>(null);
+  const [sectionModalTarget, setSectionModalTarget] = useState<{ section: Section; variant: 'general' | 'notebooklm' | 'synthesis' } | null>(null);
+  const [imageModalTarget, setImageModalTarget] = useState<Section | null>(null);
+  const [diagramModalTarget, setDiagramModalTarget] = useState<Section | null>(null);
+  const [videoModalTarget, setVideoModalTarget] = useState<Section | null>(null);
+  const [videoSuggestionsModalTarget, setVideoSuggestionsModalTarget] = useState<Section | null>(null);
+  const [questionsModalTarget, setQuestionsModalTarget] = useState<{ section: Section; variant: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
+  const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ section: Section | null } | null>(null);
+  const [notebookPlanVariant, setNotebookPlanVariant] = useState<'full' | 'full_from_synthesis' | 'content_refresh_notebooklm' | 'content_refresh_from_synthesis' | null>(null);
+  const [ragSourceModalOpen, setRagSourceModalOpen] = useState(false);
+  const [ragSourceSynthesisModalOpen, setRagSourceSynthesisModalOpen] = useState(false);
+  const [ragAccuracyCheckModalOpen, setRagAccuracyCheckModalOpen] = useState(false);
+  const [ragUnitDedupModalOpen, setRagUnitDedupModalOpen] = useState(false);
+  const [coverImageModalOpen, setCoverImageModalOpen] = useState(false);
+  const [highlightsModalOpen, setHighlightsModalOpen] = useState(false);
+  const [highlightQuickAddOpen, setHighlightQuickAddOpen] = useState(false);
+  const [highlightEditIndex, setHighlightEditIndex] = useState<number | null>(null);
+  const [topicSummaryModalOpen, setTopicSummaryModalOpen] = useState(false);
+  const [topicQuestionsVariant, setTopicQuestionsVariant] = useState<'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,6 +287,61 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         )}
       </div>
 
+      {/* Konu geneline ait AI içerik üretim araçları — eskiden ders sayfasında (DersClient)
+          dağınık duran tüm bu modaller artık burada, tek yerde. */}
+      <div className="mb-5 rounded-xl border border-border bg-card p-4 space-y-3">
+        <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground block">İçerik Üretim Araçları</span>
+
+        <div>
+          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Tam Konu (Alt Başlık + İçerik Tek Seferde)</span>
+          <div className="flex flex-wrap gap-2">
+            <ToolButton onClick={() => setNotebookPlanVariant('full')}>NotebookLM Tam Konu Promptu</ToolButton>
+            <ToolButton onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
+            {bundle.sections.length > 0 && (
+              <>
+                <ToolButton onClick={() => setNotebookPlanVariant('content_refresh_notebooklm')}>İçeriği Güncelle (NotebookLM)</ToolButton>
+                <ToolButton onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">RAG (Kitapsız Ders Kaynağı)</span>
+          <div className="flex flex-wrap gap-2">
+            <ToolButton onClick={() => setRagSourceModalOpen(true)}>RAG Kaynak Metni Ekle</ToolButton>
+            <ToolButton onClick={() => setRagSourceSynthesisModalOpen(true)}>RAG Kaynak Metni Sentezle</ToolButton>
+            <ToolButton onClick={() => setRagAccuracyCheckModalOpen(true)}>Doğruluk Kontrolü</ToolButton>
+            {bundle.unit && (
+              <ToolButton onClick={() => setRagUnitDedupModalOpen(true)}>Ünite: RAG Kaynak Tekilleştir</ToolButton>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Kapak &amp; Özet (AI Promptu)</span>
+          <div className="flex flex-wrap gap-2">
+            <ToolButton onClick={() => setCoverImageModalOpen(true)}>Konu Kapak Görseli</ToolButton>
+            <ToolButton onClick={() => setHighlightsModalOpen(true)}>Anahtar Kavramları Güncelle (AI)</ToolButton>
+            <ToolButton onClick={() => setHighlightQuickAddOpen(true)}>Anahtar Kavram Ekle</ToolButton>
+            <ToolButton onClick={() => setTopicSummaryModalOpen(true)}>Konu Özetini Düzenle</ToolButton>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Sorular (Konu Geneli)</span>
+          <div className="flex flex-wrap gap-2">
+            <ToolButton onClick={() => setTopicQuestionsVariant('general')}>Genel Sorular</ToolButton>
+            <ToolButton onClick={() => setTopicQuestionsVariant('notebooklm')}>Genel Sorular (NotebookLM)</ToolButton>
+            <ToolButton onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular (Sentezden)</ToolButton>
+            <ToolButton onClick={() => setTopicQuestionsVariant('classical')}>Açık Uçlu Sorular</ToolButton>
+            <ToolButton onClick={() => setTopicQuestionsVariant('classical_notebooklm')}>Açık Uçlu Sorular (NotebookLM)</ToolButton>
+            <ToolButton onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular (Sentezden)</ToolButton>
+            <ToolButton onClick={() => setClassicalGenerateTarget({ section: null })}>Açık Uçlu Soru Üret (AI)</ToolButton>
+          </div>
+        </div>
+      </div>
+
       {/* Plan oluştur */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Alt Başlıklar</span>
@@ -255,7 +365,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       ) : (
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="mb-3 text-xs text-muted-foreground">
-            AI ile içerik/görsel oluşturma soldaki içindekiler menüsünde ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
+            AI ile içerik/görsel/video/soru ekleme, aşağıda ilgili alt başlığın yanındaki ⋮ simgesinden yapılıyor.
             Küçük düzeltme veya eklemeler için aşağıda her alt başlığın yanındaki <Pencil className="inline h-3 w-3 align-[-1px]" /> simgesiyle içeriği doğrudan (AI&apos;a gitmeden) düzenleyebilirsiniz.
           </p>
           {/* Ağacın kökü: ana konu */}
@@ -288,6 +398,37 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                   <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${STATUS_COLORS[section.status]}`}>
                     {STATUS_LABELS[section.status]}
                   </span>
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setSectionMenuOpenId((cur) => (cur === section.id ? null : section.id))}
+                      className="rounded-lg border border-border bg-surface p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      title="İçerik/medya/soru ekle"
+                    >
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </button>
+                    {sectionMenuOpenId === section.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
+                        <div className="absolute right-0 top-8 z-50 w-64 rounded-xl border border-border bg-card p-1.5 shadow-lg">
+                          <span className="block px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">İçerik</span>
+                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'general' }); }}>İçerik Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'notebooklm' }); }}>İçerik Ekle (NotebookLM)</SectionMenuItem>
+                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'synthesis' }); }}>İçerik Ekle (Sentezden)</SectionMenuItem>
+                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Medya</span>
+                          <SectionMenuItem icon={ImagePlus} onClick={() => { setSectionMenuOpenId(null); setImageModalTarget(section); }}>Görsel Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={Shapes} onClick={() => { setSectionMenuOpenId(null); setDiagramModalTarget(section); }}>Diyagram Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={Video} onClick={() => { setSectionMenuOpenId(null); setVideoModalTarget(section); }}>Video Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={Youtube} onClick={() => { setSectionMenuOpenId(null); setVideoSuggestionsModalTarget(section); }}>YouTube Önerisi</SectionMenuItem>
+                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Sorular</span>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'general' }); }}>Soru Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'notebooklm' }); }}>Soru Ekle (NotebookLM)</SectionMenuItem>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical' }); }}>Açık Uçlu Soru Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical_notebooklm' }); }}>Açık Uçlu Soru Ekle (NotebookLM)</SectionMenuItem>
+                          <SectionMenuItem icon={Sparkles} onClick={() => { setSectionMenuOpenId(null); setClassicalGenerateTarget({ section }); }}>Açık Uçlu Soru Üret (AI)</SectionMenuItem>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <button
                     onClick={() => setEditingSection(section)}
                     className="shrink-0 rounded-lg border border-[#6c63ff]/30 bg-[#6c63ff]/10 p-1.5 text-[#b5b0ff] hover:bg-[#6c63ff]/20 transition-colors"
@@ -334,6 +475,138 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           section={editingSection}
           onClose={() => setEditingSection(null)}
           onSaved={() => { setEditingSection(null); load(); }}
+        />
+      )}
+
+      {notebookPlanVariant === 'full' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'full_from_synthesis' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="full_from_synthesis"
+          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
+          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'content_refresh_notebooklm' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="content_refresh_notebooklm"
+          title="İçeriği Güncelle (NotebookLM) — Başlıklar Sabit"
+          description="Alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği NotebookLM ile yeniden yazılır. Bu promptu NotebookLM'e, kaynak olarak ders kitabının PDF'ini yüklediğiniz notebook'ta sorun. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="NotebookLM"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'content_refresh_from_synthesis' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="content_refresh_from_synthesis"
+          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
+          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+
+      {ragSourceModalOpen && (
+        <RagTopicSourceModal topicId={topicId} onClose={() => setRagSourceModalOpen(false)} onSaved={() => { setRagSourceModalOpen(false); load(); }} />
+      )}
+      {ragSourceSynthesisModalOpen && (
+        <RagTopicSourceSynthesisModal topicId={topicId} onClose={() => setRagSourceSynthesisModalOpen(false)} onSaved={() => { setRagSourceSynthesisModalOpen(false); load(); }} />
+      )}
+      {ragAccuracyCheckModalOpen && (
+        <RagTopicAccuracyCheckModal
+          topicId={topicId}
+          onClose={() => setRagAccuracyCheckModalOpen(false)}
+          onSaved={() => { setRagAccuracyCheckModalOpen(false); load(); }}
+          onEditSection={(sectionId) => {
+            setRagAccuracyCheckModalOpen(false);
+            const target = bundle.sections.find((s) => s.id === sectionId);
+            if (target) setEditingSection(target);
+          }}
+        />
+      )}
+      {ragUnitDedupModalOpen && bundle.unit && (
+        <RagUnitSourceDedupModal unitId={bundle.unit.id} onClose={() => setRagUnitDedupModalOpen(false)} onSaved={() => { setRagUnitDedupModalOpen(false); load(); }} />
+      )}
+
+      {coverImageModalOpen && (
+        <TopicCoverImageModal topicId={topicId} onClose={() => setCoverImageModalOpen(false)} onSaved={() => { setCoverImageModalOpen(false); load(); }} />
+      )}
+      {highlightsModalOpen && (
+        <TopicHighlightsModal topicId={topicId} onClose={() => setHighlightsModalOpen(false)} onSaved={() => { setHighlightsModalOpen(false); load(); }} />
+      )}
+      {highlightQuickAddOpen && (
+        <TopicHighlightQuickAddModal topicId={topicId} onClose={() => setHighlightQuickAddOpen(false)} onSaved={() => { setHighlightQuickAddOpen(false); load(); }} />
+      )}
+      {highlightEditIndex != null && (
+        <TopicHighlightEditModal topicId={topicId} index={highlightEditIndex} onClose={() => setHighlightEditIndex(null)} onSaved={() => { setHighlightEditIndex(null); load(); }} />
+      )}
+      {topicSummaryModalOpen && (
+        <TopicSummaryEditModal topicId={topicId} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
+      )}
+
+      {topicQuestionsVariant && (
+        <TopicQuestionsModal
+          topicId={topicId}
+          topicTitle={bundle.topic.title}
+          variant={topicQuestionsVariant}
+          onClose={() => { setTopicQuestionsVariant(null); load(); }}
+        />
+      )}
+      {classicalGenerateTarget && (
+        <ClassicalGenerateModal
+          topicId={topicId}
+          topicTitle={bundle.topic.title}
+          section={classicalGenerateTarget.section}
+          onClose={() => { setClassicalGenerateTarget(null); load(); }}
+        />
+      )}
+
+      {sectionModalTarget && (
+        <SectionModal
+          topicId={topicId}
+          section={sectionModalTarget.section}
+          variant={sectionModalTarget.variant}
+          onClose={() => setSectionModalTarget(null)}
+          onSaved={() => { setSectionModalTarget(null); load(); }}
+        />
+      )}
+      {imageModalTarget && (
+        <ImageModal
+          topicId={topicId}
+          section={imageModalTarget}
+          onClose={() => setImageModalTarget(null)}
+          onSaved={load}
+          onImageChanged={load}
+        />
+      )}
+      {diagramModalTarget && (
+        <DiagramModal topicId={topicId} section={diagramModalTarget} onClose={() => setDiagramModalTarget(null)} onSaved={load} />
+      )}
+      {videoModalTarget && (
+        <VideoModal topicId={topicId} section={videoModalTarget} onClose={() => setVideoModalTarget(null)} onSaved={load} />
+      )}
+      {videoSuggestionsModalTarget && (
+        <VideoSuggestionsModal topicId={topicId} section={videoSuggestionsModalTarget} onClose={() => setVideoSuggestionsModalTarget(null)} onSaved={load} />
+      )}
+      {questionsModalTarget && (
+        <QuestionsModal
+          topicId={topicId}
+          section={questionsModalTarget.section}
+          variant={questionsModalTarget.variant}
+          onClose={() => { setQuestionsModalTarget(null); load(); }}
         />
       )}
     </div>
