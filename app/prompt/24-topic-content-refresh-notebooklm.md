@@ -9,6 +9,7 @@ Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 Kazanımlar:
 {outcomes listesi, kod + metin}
 
+{pacing_guidance}
 (Bu notebook'un sohbet ayarlarındaki Özel Talimatlar'a kayıtlı kurallara göre üret — explanation_markdown/activity_prompt_markdown/activity_example_markdown HER alt başlıkta, summary_markdown/discussion_prompt_markdown ise konu genelinde TEK SEFER.)
 
 SADECE bu JSON'u döndür:

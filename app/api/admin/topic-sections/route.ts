@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { withPreviewCodes } from '@/app/src/lib/outcomeCodes';
+import { computeUnitTopicPacing } from '@/app/src/lib/topicPacing';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -173,6 +174,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Admin panelde "bu konuya ne kadar süre ayrılmış" rozeti için (kullanıcının 2026-09-18
+  // isteği) — bkz. topicPacing.ts.
+  const pacingMap = unitRow ? await computeUnitTopicPacing(supabase, unitRow.id, unitRow.lesson_id, unitRow.grade_id) : new Map();
+  const pacing = pacingMap.get(topicRow.id) || null;
+
   const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
 
   const sectionsWithOutcomes = sections.map((s) => ({
@@ -190,6 +196,7 @@ export async function GET(request: NextRequest) {
     grade: gradeRow,
     outcomes,
     missingCodeCount,
+    pacing,
     topicContent: topicContentRow,
     heroImagePrompt,
     heroImageAlt,

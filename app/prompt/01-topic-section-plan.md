@@ -10,6 +10,7 @@ Konu: {topic}
 Kazanımlar:
 {outcomes listesi, kod + metin}
 
+{pacing_guidance}
 Çıktı (sadece JSON, başka metin ekleme):
 {
   "sections": [

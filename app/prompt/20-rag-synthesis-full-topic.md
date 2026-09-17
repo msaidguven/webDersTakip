@@ -14,6 +14,7 @@ Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 Kazanımlar:
 {outcomes listesi, kod + metin}
 
+{pacing_guidance}
 Kaynak metin:
 {source_text}
 

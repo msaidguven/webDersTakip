@@ -5,6 +5,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
+import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -208,6 +209,13 @@ export async function GET(request: NextRequest) {
       ? outcomes.map((o) => `${o.code}) ${o.description}`).join('\n')
       : 'Bu konu için tanımlı kazanım bulunamadı.';
 
+    // MEB'in bu konuya (ünitenin diğer konularına göre) ne kadar süre ayırdığını
+    // outcome_weeks'ten çıkarıp içerik derinliğini buna göre kalibre ediyoruz (kullanıcının
+    // 2026-09-18 isteği) — bkz. topicPacing.ts. 'plan' alt başlık sayısını, diğerleri anlatım
+    // derinliğini etkiler.
+    const pacingMap = unitRow ? await computeUnitTopicPacing(supabase, unitRow.id, unitRow.lesson_id, unitRow.grade_id) : new Map();
+    const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), type === 'plan' ? 'plan' : 'content');
+
     const prompt = template
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
       .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
@@ -216,6 +224,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{unit}', unitTitle)
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
+      .replaceAll('{pacing_guidance}', pacingGuidance)
       .replaceAll('{existing_headings}', existingHeadingsText)
       .replaceAll('{source_text}', sourceText);
 

@@ -11,6 +11,7 @@ Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 Kazanımlar:
 {outcomes listesi, kod + metin}
 
+{pacing_guidance}
 {explanation_notebook_rules}
 
 {topic_summary_discussion_rules}

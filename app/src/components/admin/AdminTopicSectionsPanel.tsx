@@ -28,6 +28,19 @@ function outcomeWeekLabel(o: Outcome): string {
   if (o.startWeek == null || o.endWeek == null) return 'Hafta atanmamış';
   return o.startWeek === o.endWeek ? `${o.startWeek}. Hafta` : `${o.startWeek}–${o.endWeek}. Hafta`;
 }
+
+// Konuya MEB müfredatında ayrılan süreyi, ünitenin diğer konularına göre gösteren rozet —
+// bkz. topicPacing.ts. "normal" pay için ayrıca bir vurgu yapmaya gerek yok, rozet basılmıyor.
+const PACING_LABELS: Record<'ozet' | 'detayli', string> = { ozet: 'Özet', detayli: 'Detaylı' };
+const PACING_COLORS: Record<'ozet' | 'detayli', string> = {
+  ozet: 'bg-amber-400/10 text-amber-300 border-amber-400/30',
+  detayli: 'bg-sky-400/10 text-sky-300 border-sky-400/30',
+};
+function pacingBadgeText(p: TopicPacing): string | null {
+  if (!p || p.label === 'normal') return null;
+  const timeText = p.hoursEstimate ? `~${p.hoursEstimate} ders saati` : `~${p.topicWeeks} hafta`;
+  return `⏱ ${timeText} · Ünitenin ~%${p.sharePct}'i · ${PACING_LABELS[p.label]}`;
+}
 type TopicContent = {
   id: number;
   title: string;
@@ -57,6 +70,13 @@ type Section = {
   outcomes: SectionOutcome[];
 };
 type Highlight = { id: number; icon: string | null; title: string; description: string; order_no: number };
+type TopicPacing = {
+  topicWeeks: number;
+  unitWeeks: number;
+  sharePct: number;
+  label: 'ozet' | 'normal' | 'detayli';
+  hoursEstimate: number | null;
+} | null;
 
 type Bundle = {
   topic: { id: number; title: string };
@@ -65,6 +85,7 @@ type Bundle = {
   grade: { id: number; name: string } | null;
   outcomes: Outcome[];
   missingCodeCount: number;
+  pacing: TopicPacing;
   topicContent: TopicContent;
   heroImagePrompt: string | null;
   highlights: Highlight[];
@@ -402,8 +423,18 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {/* Kazanımlar */}
       <div className="mb-5 rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Kazanımlar</span>
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground">Kazanımlar</span>
+            {pacingBadgeText(bundle.pacing) && (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${PACING_COLORS[bundle.pacing!.label as 'ozet' | 'detayli']}`}
+                title="Bu konuya MEB müfredatında, ünitenin diğer konularına göre ayrılan süre — içerik üretim promptlarına otomatik yansıtılıyor"
+              >
+                {pacingBadgeText(bundle.pacing)}
+              </span>
+            )}
+          </div>
           {bundle.missingCodeCount > 0 && (
             <button
               onClick={handleAssignCodes}
