@@ -103,6 +103,87 @@ function SectionMenuItem({ icon: Icon, onClick, children }: { icon: ComponentTyp
 // Bu, kalite kurallarını HER mesajda tekrar göndermek yerine notebook'un "Özel Talimatlar"
 // alanına (10.000 karakter limitli, kalıcı) BİR KERE kaydetmeyi sağlıyor — bundan sonra
 // 03/09/24. promptlar sadece konuya özgü kısa bağlamı taşıyor, kurallar tekrar edilmiyor.
+// RAG kaynak hattının bu konu (ve ünitesi) için hangi aşamada olduğunu tek bakışta gösterir —
+// kullanıcının 2026-09-17 isteği: "rag sisteminde nerede kaldığımı gösteren hangi aşamada
+// olduğumu gösteren bi yapı olsaydı iyi olur". Veriler DersClient.tsx'ten kaldırılan (artık
+// gereksiz olan çoklu-konu sidebar rozetleriyle aynı) route'lardan geliyor — o route'lar hâlâ
+// duruyor, sadece TEK bir topicId/unitId ile çağrılıyor.
+const MIN_RAG_SOURCE_DRAFTS = 5;
+
+type RagStage = 'done' | 'warning' | 'pending';
+
+function RagStageChip({ stage, label }: { stage: RagStage; label: string }) {
+  const styles: Record<RagStage, string> = {
+    done: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300',
+    warning: 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-300',
+    pending: 'border-border bg-surface text-muted-foreground',
+  };
+  const icon = stage === 'done' ? '✓' : stage === 'warning' ? '⚠' : '○';
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${styles[stage]}`}>
+      <span>{icon}</span> {label}
+    </span>
+  );
+}
+
+function RagPipelineStatus({ topicId, unitId }: { topicId: number; unitId: number | null }) {
+  const [loading, setLoading] = useState(true);
+  const [draftCount, setDraftCount] = useState(0);
+  const [synthesized, setSynthesized] = useState(false);
+  const [hasOpenFlag, setHasOpenFlag] = useState(false);
+  const [unitReady, setUnitReady] = useState(false);
+  const [unitChecked, setUnitChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const requests = [
+        fetch(`/api/admin/rag/topics-draft-counts?topicIds=${topicId}`).then((r) => (r.ok ? r.json() : null)),
+        fetch(`/api/admin/rag/topics-with-synthesis?topicIds=${topicId}`).then((r) => (r.ok ? r.json() : null)),
+        fetch(`/api/admin/rag/topics-review-status?topicIds=${topicId}`).then((r) => (r.ok ? r.json() : null)),
+        unitId
+          ? fetch(`/api/admin/rag/units-ready-for-dedup?unitIds=${unitId}`).then((r) => (r.ok ? r.json() : null))
+          : Promise.resolve(null),
+        unitId
+          ? fetch(`/api/admin/rag/units-with-dedup-check?unitIds=${unitId}`).then((r) => (r.ok ? r.json() : null))
+          : Promise.resolve(null),
+      ] as const;
+      const [drafts, synth, flags, ready, checked] = await Promise.all(requests);
+      if (cancelled) return;
+      setDraftCount(drafts?.counts?.[topicId] || 0);
+      setSynthesized(Boolean(synth?.topicIds?.includes(topicId)));
+      setHasOpenFlag(Boolean(flags?.topicIds?.includes(topicId)));
+      setUnitReady(Boolean(unitId && ready?.unitIds?.includes(unitId)));
+      setUnitChecked(Boolean(unitId && checked?.unitIds?.includes(unitId)));
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [topicId, unitId]);
+
+  if (loading) return <p className="text-xs text-muted-foreground">RAG durumu yükleniyor...</p>;
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <RagStageChip
+        stage={draftCount >= MIN_RAG_SOURCE_DRAFTS ? 'done' : 'pending'}
+        label={`1. Kaynak Taslakları (${draftCount}/${MIN_RAG_SOURCE_DRAFTS})`}
+      />
+      <RagStageChip stage={synthesized ? 'done' : 'pending'} label="2. Sentezlendi" />
+      <RagStageChip
+        stage={hasOpenFlag ? 'warning' : 'done'}
+        label={hasOpenFlag ? '3. Doğruluk Kontrolü — açık bulgu var' : '3. Doğruluk Kontrolü — temiz'}
+      />
+      {unitId && (
+        <RagStageChip
+          stage={unitChecked ? 'done' : unitReady ? 'warning' : 'pending'}
+          label={unitChecked ? '4. Ünite Sentezi — kontrol edildi' : unitReady ? '4. Ünite Sentezi — hazır, kontrol edilmedi' : '4. Ünite Sentezi — henüz hazır değil'}
+        />
+      )}
+    </div>
+  );
+}
+
 function NotebookLmSetupModal({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(true);
@@ -377,6 +458,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
         <div>
           <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynak (Kitapsız Ders — Öğrenci Soru-Cevap Kaynağı)</span>
+          <div className="mb-2">
+            <RagPipelineStatus topicId={topicId} unitId={bundle.unit?.id ?? null} />
+          </div>
           <div className="flex flex-wrap gap-2">
             <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
             <ToolButton tone="rag" onClick={() => setRagSourceSynthesisModalOpen(true)}>Kaynak Metni Sentezle</ToolButton>
