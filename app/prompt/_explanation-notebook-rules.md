@@ -1,4 +1,4 @@
-Her alt başlık için İKİ metin üret (amaçları farklı), ARTI konunun sonunda TEK bir özet ve TEK bir tartışma sorusu:
+Bu alt başlık için İKİ metin üret (amaçları farklı):
 
 YASAK (hepsinde): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kaynak metinde geçse bile kopyalama.
 
@@ -20,12 +20,3 @@ YASAK (hepsinde): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kayn
      O alt başlığın konusuyla DOĞRUDAN ilgili, somut, mümkünse günlük hayattan bir bağlam kullan — soyut/genel bir soru sorma. 1-3 cümle, kısa.
    - activity_example_markdown: öğrenci "Örneğe Bak"a bastığında görünecek, istemi yanıtlayan KISA (2-4 cümle) bir örnek yaklaşım/açıklama. Tek doğru cevap gibi sunma ("bir yaklaşım" havasında yaz — özellikle "Sen Olsan?" ve "Günlük Hayattan Bul" için, bunlarda genelde tek doğru yoktur), ama alt başlıktaki bilgiyle tutarlı ve doğru olsun; retorik soru veya "sen/senin" hitabı yerine doğrudan açıklayıcı dil kullan.
    - Her alt başlıkta MUTLAKA bir etkinlik olsun — ikisini de boş bırakma. Konunun tamamında aynı çerçeveyi art arda kullanma, çeşitlilik olsun.
-3. **summary_markdown (JSON'un en üst seviyesinde, "cover" ile aynı hizada, konu için TEK SEFER) — Konu Özeti.** Bu konu için deftere geçirilecek TEK, toplu özet — eskiden her alt başlıkta ayrı ayrı olan defter notunun yerine geçti; tüm alt başlıkların en önemli, ezberlenecek somut bilgisini (tanım/sayı/formül) TEK bir listede topla.
-   - Format: madde madde (- madde), her madde "**Terim**: Tanım cümlesi." biçiminde. Tanım kısmı GERÇEK, TAM bir cümle olsun — çekimli fiil veya "-dır/-dir" ile bitsin, sonunda MUTLAKA nokta olsun. İsim tamlaması veya fiilimsiyle ("...karşılaması gerekir" gibi fiilimsi/yan cümle, nokta yok) ASILI bırakma — madde, sözlük fişi gibi yarım kalmasın, okununca kendi başına bitmiş bir cümle hissi versin. Kısalık önemli (tek cümle, madde başına ~10-16 kelime) ama kısalık uğruna cümleyi eksik bırakma.
-   - Hangi alt başlıktan geldiğine göre gruplama/alt başlık YAZMA — tek düz liste, konunun BÜTÜNÜNÜ tek bakışta özetlesin.
-   - Madde sayısı konunun kapsamına göre ölçeklenir (genelde 6-14 madde) — her alt başlıktan en az bir madde olsun ama gereksiz ayrıntı ekleme, sadece gerçekten ezberlenecek çekirdek bilgi.
-   - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle/bağlaç ("... için/olduğunda/ise" gibi). Madde kendi başına anlaşılsın — "bu/bunlar/yukarıdaki" gibi öncül gerektiren zamir kullanma. Terim "Fark", "Kullanım alanları", "Örnek", "Avantaj", "Dezavantaj" gibi TEK BAŞINA anlamsız/jenerik bir kelime OLMASIN (bu, öğrenci konu anlatımını hiç okumadan direkt özete atlayabildiği için kritik) — bu tip bilgiyi ilgili TEK terimin kendi tanımının içine kat, ayrı jenerik madde açma.
-4. **discussion_prompt_markdown (JSON'un en üst seviyesinde, summary_markdown ile aynı hizada, konu için TEK SEFER) — Düşün ve Yorumla.** Konuyu bitiren, TEK doğrusu olmayan, tartışmaya açık bir soru — öğrenci isterse konu altındaki yorum bölümünde görüşünü paylaşır.
-   - Konunun geneliyle ilgili ama açık uçlu olsun: kişisel görüş, değerlendirme, günlük hayatla ilişkilendirme veya "sence hangisi daha önemli/doğru" tarzı bir soru — sınavda sorulacak kapalı/kesin cevaplı bir soru DEĞİL.
-   - TEK cümle, kısa ve doğrudan soru biçiminde ("Sence ..." / "Sen olsan ..." gibi başlayabilir).
-   - Konu gerçekten tartışmaya uygun değilse (ör. tamamen mekanik bir işlem konusuysa: "kesirleri nasıl toplarız" gibi) zorlama yapmak yerine yine de konuyu günlük hayata/kişisel deneyime bağlayan bir soru bulmaya çalış — ama uydurma/yapay hissettirmesin.

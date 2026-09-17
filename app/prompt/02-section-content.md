@@ -12,8 +12,9 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
 
 Çıktı (sadece JSON):
 {
-  "explanation_markdown": string,   // akıcı anlatım, serbest paragraf(lar)
-  "notebook_markdown": string,      // kısa madde madde defter notu (- madde), madde başına max 12-15 kelime
+  "explanation_markdown": string,       // akıcı anlatım, serbest paragraf(lar)
+  "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
+  "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
   "ai_model": string           // Bu içeriği üreten kendi model adını yaz (ör. "Claude Sonnet 4.5", "GPT-5.1", "Gemini 2.5 Pro") — hangi yapay zeka/model olduğunu biliyorsan tam adını, emin değilsen genel adını yaz
 }
 
@@ -32,4 +33,4 @@ Zayıf bir anlatım genelde şu belirtiyi taşır: tek bir yüzeysel bilgiyi far
 - Kazanım metninde yazmayan, spesifik bir sonuç/ilişki önermesi ("X arttıkça Y artar/azalır" tipi bir bulgu gibi) üretme. Bu tür spesifik sonuçlar genelde müfredatta BAŞKA bir konunun kendi kazanımıdır. Bu alt başlığın kazanımı genel bir süreç/beceri tanımlıyorsa (ör. "verilerin analizini yapar", "araştırır", "değerlendirir"), o süreci anlat (nasıl karşılaştırılır, nasıl kayıt tutulur, hata nasıl ayıklanır) — kazanımın kendisinin söylemediği somut bir sonucu uydurma.
 - Bu alt başlığa birden fazla kazanım bağlıysa (section_outcomes'ta birden fazla satır varsa), her kazanımı en az bir cümle/madde ile karşıla; içerik tek bir kazanıma yığılıp diğeri es geçilmesin.
 - Kazanımlardaki terimleri doğru ve tutarlı kullan.
-- explanation_markdown veya notebook_markdown içinde başlık/heading tekrarlama (zaten section.heading olarak ayrı tutuluyor).
+- explanation_markdown veya activity_prompt_markdown içinde başlık/heading tekrarlama (zaten section.heading olarak ayrı tutuluyor).

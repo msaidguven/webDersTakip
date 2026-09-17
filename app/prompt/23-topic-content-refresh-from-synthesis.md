@@ -13,6 +13,8 @@ Kazanımlar:
 
 {explanation_notebook_rules}
 
+{topic_summary_discussion_rules}
+
 SADECE aşağıdaki kaynak metinde geçen bilgileri kullan; kaynakta olmayan bir bilgi uydurma.
 
 Kaynak metin:

@@ -66,10 +66,17 @@ export async function GET(request: NextRequest) {
   // çıktı şeması + kalite kurallarını (kısa cevap vb.) paylaşıyor — kaynak (ders notu mu
   // kitap mı) sadece kendi bağlam/giriş metinlerinde farklılaşıyor, kurallar tek yerden.
   const classicalQuestionRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_classical-question-rules.md'), 'utf8');
-  // Konu anlatımı üreten 4 şablonun (kitaplı/kitapsız × tek alt başlık/konu geneli) hepsi
-  // aynı explanation_markdown + notebook_markdown ikilisini ve "Defterine Not Al" kısa not
-  // kurallarını paylaşıyor — tek yerden değişsin diye ortak parçaya taşındı.
+  // Konu anlatımı üreten 7 şablonun (kitaplı/kitapsız × tek alt başlık/konu geneli, artı tek
+  // alt başlık yeniden üretme akışları) hepsi aynı explanation_markdown + activity_prompt/
+  // example ikilisini paylaşıyor — tek yerden değişsin diye ortak parçaya taşındı.
   const explanationNotebookRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_explanation-notebook-rules.md'), 'utf8');
+  // Konu sonunda TEK SEFER üretilen summary_markdown/discussion_prompt_markdown kuralları —
+  // SADECE 4 tam-konu şablonunda (plan/full/full_from_synthesis/content_refresh_*) kullanılır;
+  // tek alt başlık üreten şablonlara (02/09/22) bilerek EKLENMEZ, aksi halde AI o şablonlarda
+  // da konu geneline ait alanlar üretmeye çalışıp şemayla çelişen bir JSON döndürebilir
+  // (kullanıcının 2026-09-17 bulduğu tutarsızlık: tek alt başlık akışları eski notebook_markdown
+  // şemasında kalmıştı, ayrıca aynı ortak parçadan summary/discussion kuralı da sızıyordu).
+  const topicSummaryDiscussionRules = await readFile(path.join(process.cwd(), 'app', 'prompt', '_topic-summary-discussion-rules.md'), 'utf8');
 
   const supabase = createServiceClient();
 
@@ -203,6 +210,7 @@ export async function GET(request: NextRequest) {
 
     const prompt = template
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
+      .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
       .replaceAll('{grade}', gradeName)
       .replaceAll('{lesson}', lessonName)
       .replaceAll('{unit}', unitTitle)

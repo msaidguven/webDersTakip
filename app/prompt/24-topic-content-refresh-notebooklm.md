@@ -11,6 +11,8 @@ Kazanımlar:
 
 {explanation_notebook_rules}
 
+{topic_summary_discussion_rules}
+
 SADECE bu JSON'u döndür:
 {
   "ai_model": string,   // aracın adı, genelde "NotebookLM"
