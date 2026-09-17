@@ -279,18 +279,14 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [videoSuggestionsModalTarget, setVideoSuggestionsModalTarget] = useState<Section | null>(null);
   const [questionsModalTarget, setQuestionsModalTarget] = useState<{ section: Section; variant: 'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' } | null>(null);
   const [classicalGenerateTarget, setClassicalGenerateTarget] = useState<{ section: Section | null } | null>(null);
-  const [notebookPlanVariant, setNotebookPlanVariant] = useState<'full' | 'full_from_synthesis' | 'content_refresh_notebooklm' | 'content_refresh_from_synthesis' | null>(null);
+  const [notebookPlanVariant, setNotebookPlanVariant] = useState<'full' | 'content_refresh_notebooklm' | null>(null);
   const [notebookLmSetupOpen, setNotebookLmSetupOpen] = useState(false);
-  const [ragSourceModalOpen, setRagSourceModalOpen] = useState(false);
-  const [ragSourceSynthesisModalOpen, setRagSourceSynthesisModalOpen] = useState(false);
-  const [ragAccuracyCheckModalOpen, setRagAccuracyCheckModalOpen] = useState(false);
-  const [ragUnitDedupModalOpen, setRagUnitDedupModalOpen] = useState(false);
   const [coverImageModalOpen, setCoverImageModalOpen] = useState(false);
   const [highlightsModalOpen, setHighlightsModalOpen] = useState(false);
   const [highlightQuickAddOpen, setHighlightQuickAddOpen] = useState(false);
   const [highlightEditIndex, setHighlightEditIndex] = useState<number | null>(null);
   const [topicSummaryModalOpen, setTopicSummaryModalOpen] = useState(false);
-  const [topicQuestionsVariant, setTopicQuestionsVariant] = useState<'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' | null>(null);
+  const [topicQuestionsVariant, setTopicQuestionsVariant] = useState<'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -437,9 +433,12 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
       {/* Konu geneline ait AI içerik üretim araçları — eskiden ders sayfasında (DersClient)
           dağınık duran tüm bu modaller artık burada, tek yerde. Fonksiyona göre değil KAYNAĞA
-          göre gruplandı (NotebookLM / RAG Kaynak / Sentezden İçerik / Ortak) — kullanıcının
-          2026-09-17 isteği: RAG kaynağını OLUŞTURMAK ile o kaynağı ders içeriğine DÖNÜŞTÜRMEK
-          ayrı gruplar (birbirine karıştırılmasın diye). */}
+          göre gruplandı (NotebookLM / Ortak) — kullanıcının 2026-09-17 isteği. RAG Kaynak +
+          Sentezden İçerik grupları buradan kaldırıldı, /admin/ders-notu-rag'daki "Sentezle RAG
+          Oluştur" sekmesine taşındı (kullanıcının 2026-09-18 isteği: "rag sistemini artık
+          buradan kaldırsak mı" — aynı araçlar iki yerde tekrarlanmasın, tek kanonik yer orası
+          olsun). Aşama durumu (RagPipelineStatus) burada bilerek bırakıldı — bir bakışta bu
+          konunun RAG'de nerede olduğunu görmek için ayrı sayfaya gitmeye gerek kalmasın. */}
       <div className="mb-5 rounded-xl border border-border bg-card p-4 space-y-3">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground block">İçerik Üretim Araçları</span>
 
@@ -457,30 +456,18 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         </div>
 
         <div>
-          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynak (Kitapsız Ders — Öğrenci Soru-Cevap Kaynağı)</span>
+          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynağı (Kitapsız Ders)</span>
           <div className="mb-2">
             <RagPipelineStatus topicId={topicId} unitId={bundle.unit?.id ?? null} />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
-            <ToolButton tone="rag" onClick={() => setRagSourceSynthesisModalOpen(true)}>Kaynak Metni Sentezle</ToolButton>
-            <ToolButton tone="rag" onClick={() => setRagAccuracyCheckModalOpen(true)}>Doğruluk Kontrolü</ToolButton>
-            {bundle.unit && (
-              <ToolButton tone="rag" onClick={() => setRagUnitDedupModalOpen(true)}>Ünite: Kaynak Tekilleştir</ToolButton>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1.5">🔍 Sentezden İçerik (RAG Kaynağını Ders İçeriğine Dönüştür)</span>
-          <div className="flex flex-wrap gap-2">
-            <ToolButton tone="synthesis" onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
-            {bundle.sections.length > 0 && (
-              <ToolButton tone="synthesis" onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
-            )}
-            <ToolButton tone="synthesis" onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular</ToolButton>
-            <ToolButton tone="synthesis" onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular</ToolButton>
-          </div>
+          <a
+            href={`/admin/ders-notu-rag?tab=build&topicId=${topicId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+          >
+            RAG Kaynağını Yönet →
+          </a>
         </div>
 
         <div>
@@ -640,17 +627,6 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           onSaved={() => { setNotebookPlanVariant(null); load(); }}
         />
       )}
-      {notebookPlanVariant === 'full_from_synthesis' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="full_from_synthesis"
-          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
-          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
       {notebookPlanVariant === 'content_refresh_notebooklm' && (
         <NotebookPlanModal
           topicId={topicId}
@@ -662,41 +638,8 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
           onSaved={() => { setNotebookPlanVariant(null); load(); }}
         />
       )}
-      {notebookPlanVariant === 'content_refresh_from_synthesis' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="content_refresh_from_synthesis"
-          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
-          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
       {notebookLmSetupOpen && (
         <NotebookLmSetupModal onClose={() => setNotebookLmSetupOpen(false)} />
-      )}
-
-      {ragSourceModalOpen && (
-        <RagTopicSourceModal topicId={topicId} onClose={() => setRagSourceModalOpen(false)} onSaved={() => { setRagSourceModalOpen(false); load(); }} />
-      )}
-      {ragSourceSynthesisModalOpen && (
-        <RagTopicSourceSynthesisModal topicId={topicId} onClose={() => setRagSourceSynthesisModalOpen(false)} onSaved={() => { setRagSourceSynthesisModalOpen(false); load(); }} />
-      )}
-      {ragAccuracyCheckModalOpen && (
-        <RagTopicAccuracyCheckModal
-          topicId={topicId}
-          onClose={() => setRagAccuracyCheckModalOpen(false)}
-          onSaved={() => { setRagAccuracyCheckModalOpen(false); load(); }}
-          onEditSection={(sectionId) => {
-            setRagAccuracyCheckModalOpen(false);
-            const target = bundle.sections.find((s) => s.id === sectionId);
-            if (target) setEditingSection(target);
-          }}
-        />
-      )}
-      {ragUnitDedupModalOpen && bundle.unit && (
-        <RagUnitSourceDedupModal unitId={bundle.unit.id} onClose={() => setRagUnitDedupModalOpen(false)} onSaved={() => { setRagUnitDedupModalOpen(false); load(); }} />
       )}
 
       {coverImageModalOpen && (

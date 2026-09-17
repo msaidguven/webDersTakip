@@ -26,7 +26,7 @@ type LessonGradeRow = { lesson_id: number; grade_id: number; is_active: boolean 
 type UnitRow = { id: number; lesson_id: number; grade_id: number; title: string; order_no: number };
 type TopicRow = { id: number; unit_id: number; title: string; order_no: number };
 
-export default function RagTopicBuilderPanel() {
+export default function RagTopicBuilderPanel({ initialTopicId = null }: { initialTopicId?: number | null }) {
   const [grades, setGrades] = useState<GradeRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [lessonGrades, setLessonGrades] = useState<LessonGradeRow[]>([]);
@@ -73,6 +73,20 @@ export default function RagTopicBuilderPanel() {
       setLoading(false);
     })();
   }, []);
+
+  // Konu sayfasındaki "RAG Kaynağını Yönet →" linkinden ?topicId= ile gelindiyse, veri
+  // yüklenir yüklenmez seçici zincirini (sınıf→ders→ünite→konu) otomatik doldur.
+  useEffect(() => {
+    if (!initialTopicId || loading) return;
+    const topic = topics.find((t) => t.id === initialTopicId);
+    if (!topic) return;
+    const unit = units.find((u) => u.id === topic.unit_id);
+    if (!unit) return;
+    setGradeId(unit.grade_id);
+    setLessonId(unit.lesson_id);
+    setUnitId(unit.id);
+    setTopicId(topic.id);
+  }, [initialTopicId, loading, topics, units]);
 
   const lessonOptions = useMemo(() => {
     if (gradeId == null) return [];

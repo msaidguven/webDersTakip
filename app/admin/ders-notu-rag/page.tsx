@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import RagDocumentsPanel from '@/app/src/components/admin/RagDocumentsPanel';
 import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
@@ -14,7 +15,21 @@ export const dynamic = 'force-dynamic';
 type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'build';
 
 export default function DersNotuRagPage() {
-  const [tab, setTab] = useState<Tab>('reports');
+  return (
+    <Suspense fallback={null}>
+      <DersNotuRagPageInner />
+    </Suspense>
+  );
+}
+
+// /admin/konu-icerik/[topicId]'deki "RAG Kaynağını Yönet →" linki buraya ?tab=build&topicId=
+// ile geliyor (kullanıcının 2026-09-18 isteği: RAG araçları iki yerde tekrarlanmasın, tek
+// kanonik yer burası olsun, konu sayfasından bir tık uzakta kalsın).
+function DersNotuRagPageInner() {
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab | null) || 'reports';
+  const initialTopicId = Number(searchParams.get('topicId'));
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,7 +52,7 @@ export default function DersNotuRagPage() {
         {tab === 'qa' && <RagQaApprovalPanel />}
         {tab === 'documents' && <RagDocumentsPanel />}
         {tab === 'drafts' && <AiQuestionDraftsPanel />}
-        {tab === 'build' && <RagTopicBuilderPanel />}
+        {tab === 'build' && <RagTopicBuilderPanel initialTopicId={Number.isFinite(initialTopicId) && initialTopicId > 0 ? initialTopicId : null} />}
       </main>
     </div>
   );
