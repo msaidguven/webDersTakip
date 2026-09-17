@@ -108,7 +108,7 @@ function SectionMenuItem({ icon: Icon, onClick, children }: { icon: ComponentTyp
 // olduğumu gösteren bi yapı olsaydı iyi olur". Veriler DersClient.tsx'ten kaldırılan (artık
 // gereksiz olan çoklu-konu sidebar rozetleriyle aynı) route'lardan geliyor — o route'lar hâlâ
 // duruyor, sadece TEK bir topicId/unitId ile çağrılıyor.
-const MIN_RAG_SOURCE_DRAFTS = 5;
+export const MIN_RAG_SOURCE_DRAFTS = 5;
 
 type RagStage = 'done' | 'warning' | 'pending';
 
@@ -170,16 +170,13 @@ export function RagPipelineStatus({ topicId, unitId }: { topicId: number; unitId
         label={`1. Kaynak Taslakları (${draftCount}/${MIN_RAG_SOURCE_DRAFTS})`}
       />
       <RagStageChip stage={synthesized ? 'done' : 'pending'} label="2. Sentezlendi" />
-      <RagStageChip
-        stage={hasOpenFlag ? 'warning' : 'done'}
-        label={hasOpenFlag ? '3. Doğruluk Kontrolü — açık bulgu var' : '3. Doğruluk Kontrolü — temiz'}
-      />
       {unitId && (
         <RagStageChip
           stage={unitChecked ? 'done' : unitReady ? 'warning' : 'pending'}
-          label={unitChecked ? '4. Ünite Sentezi — kontrol edildi' : unitReady ? '4. Ünite Sentezi — hazır, kontrol edilmedi' : '4. Ünite Sentezi — henüz hazır değil'}
+          label={unitChecked ? '3. Ünite Sentezi — kontrol edildi' : unitReady ? '3. Ünite Sentezi — hazır, kontrol edilmedi' : '3. Ünite Sentezi — henüz hazır değil'}
         />
       )}
+      {hasOpenFlag && <RagStageChip stage="warning" label="Açık not var" />}
     </div>
   );
 }
@@ -239,17 +236,23 @@ export const TOOL_BUTTON_TONES = {
 export function ToolButton({
   onClick,
   tone = 'neutral',
+  disabled = false,
+  title,
   children,
 }: {
   onClick: () => void;
   tone?: keyof typeof TOOL_BUTTON_TONES;
+  disabled?: boolean;
+  title?: string;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${TOOL_BUTTON_TONES[tone]}`}
+      disabled={disabled}
+      title={title}
+      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent ${TOOL_BUTTON_TONES[tone]}`}
     >
       {children}
     </button>
@@ -2219,305 +2222,61 @@ export function RagUnitSourceDedupModal({
   );
 }
 
-type AccuracyFinding = { sectionId: number; sectionHeading: string | null; note: string };
-type AccuracyOpenFlag = { id: number; sectionId: number | null; sectionHeading: string | null; note: string; createdAt: string };
-
-// "===BÖLÜM: <id>===\n<not>" bloklarını ayrıştırır — unit-source-dedup ile aynı düz metin
-// biçimi (bkz. 27-rag-topic-accuracy-check.md), ama içerik "düzeltilmiş TAM metin" değil
-// "bulunan hatanın açıklaması" — admin bunu okuyup var olan "İçeriği Düzenle" akışıyla
-// kendisi uygular (bkz. RagTopicAccuracyCheckModal'ın üstündeki not).
-function parseAccuracyCheckResponse(pasted: string, sectionsById: Map<number, string>): { findings: AccuracyFinding[]; summary: string | null } {
-  const idx = pasted.indexOf('\n---');
-  const mainText = (idx === -1 ? pasted : pasted.slice(0, idx)).trim();
-  const summary = idx === -1 ? null : pasted.slice(idx + 4).trim() || null;
-
-  const findings: AccuracyFinding[] = [];
-  const blockRegex = /===\s*BÖLÜM:\s*(\d+)\s*===\s*\n([\s\S]*?)(?=\n===\s*BÖLÜM:\s*\d+\s*===|$)/g;
-  let match: RegExpExecArray | null;
-  while ((match = blockRegex.exec(mainText)) !== null) {
-    const sectionId = Number(match[1]);
-    const note = match[2].trim();
-    if (note && sectionsById.has(sectionId)) {
-      findings.push({ sectionId, sectionHeading: sectionsById.get(sectionId) || null, note });
-    }
-  }
-  return { findings, summary };
-}
-
-// "Doğruluk Kontrolü" (27. prompt) — RagUnitSourceDedupModal'ın tekil konu + doğruluk
-// karşılığı. Kaynak sentez metniyle yayındaki içeriği karşılaştırıp hata arattırır; bulunan
-// her hata rag_topic_review_flags'e kaydedilip konu başlığının yanında uyarı ikonu olarak
-// kalıcı görünür (kullanıcının 2026-09-14 isteği). AI'ın bulduğu "düzeltme" güvenilmez
-// olabileceği için (dedup'taki tam metin değişimlerinin aksine) burada İÇERİK OTOMATİK
-// DEĞİŞTİRİLMİYOR — admin her bulguyu okuyup "Bölümü Düzenle" ile var olan manuel düzenleme
-// modaline geçip kendisi uyguluyor.
-export function RagTopicAccuracyCheckModal({
-  topicId,
-  onClose,
-  onSaved,
-  onEditSection,
-}: {
-  topicId: number;
-  onClose: () => void;
-  onSaved: () => void;
-  onEditSection: (sectionId: number) => void;
-}) {
-  const [prompt, setPrompt] = useState('');
-  const [loadingPrompt, setLoadingPrompt] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [sectionsById, setSectionsById] = useState<Map<number, string>>(new Map());
-  const [openFlags, setOpenFlags] = useState<AccuracyOpenFlag[]>([]);
-  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
+// "Doğruluk Kontrolü" adımı kaldırıldı (kullanıcının 2026-09-18 isteği: "bu kadar aşamadan
+// geçtikten sonra küçük bi kaynaktan bence doğru içerik üretir ai" — taslak+sentez+ünite
+// tekilleştirme zaten yeterince güvenilir, NotebookLM akışında da ayrı bir doğrulama yok).
+// Ama "Kaynak Metni Sentezle"/"Ünite: Kaynak Tekilleştir" adımlarının bıraktığı tutarsızlık
+// notlarını (rag_topic_review_flags) hâlâ görüp çözebilmek gerekiyor — bu hafif bileşen
+// sadece onu yapıyor, yeni bir "kontrol" başlatmıyor.
+export function RagOpenNotesList({ topicId }: { topicId: number }) {
+  const [flags, setFlags] = useState<{ id: number; note: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
 
-  const [pasted, setPasted] = useState('');
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [noIssuesConfirmed, setNoIssuesConfirmed] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [findings, setFindings] = useState<AccuracyFinding[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveResult, setSaveResult] = useState<string | null>(null);
-
-  const loadPrompt = useCallback(async () => {
-    setLoadingPrompt(true);
-    setLoadError(null);
-    const res = await fetch(`/api/admin/rag/topic-accuracy-check-prompt?topicId=${topicId}`);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/admin/rag/topic-review-flags?topicId=${topicId}`);
     const data = await res.json().catch(() => null);
-    // Yeni prompt oluşturulamasa bile (409 — kaynak/alt başlık yok), var olan açık bulguları
-    // YİNE DE göster — aksi halde admin bunları hiç göremez/çözemez (kullanıcının 2026-09-17
-    // bulduğu tutarsızlık: hata mesajı tüm modalin yerine geçip bulguları gizliyordu).
-    setOpenFlags((data?.openFlags as AccuracyOpenFlag[] | undefined) || []);
-    setLastCheckedAt(data?.lastCheckedAt || null);
-    if (res.ok) {
-      setPrompt(data?.prompt || '');
-      const map = new Map<number, string>();
-      for (const s of (data?.sections as { id: number; heading: string }[] | undefined) || []) map.set(s.id, s.heading);
-      setSectionsById(map);
-    } else {
-      setLoadError(data?.error || 'Prompt oluşturulamadı.');
-    }
-    setLoadingPrompt(false);
+    setFlags((data?.flags as { id: number; note: string; createdAt: string }[] | undefined) || []);
+    setLoading(false);
   }, [topicId]);
 
-  useEffect(() => {
-    loadPrompt();
-  }, [loadPrompt]);
+  useEffect(() => { load(); }, [load]);
 
-  function handleParse() {
-    setParseError(null);
-    setNoIssuesConfirmed(false);
-    setSaveError(null);
-    setSaveResult(null);
-    const { findings: parsed, summary: parsedSummary } = parseAccuracyCheckResponse(pasted, sectionsById);
-    setFindings(parsed);
-    setSelectedIds(new Set(parsed.map((f) => f.sectionId)));
-    setSummary(parsedSummary);
-    if (!parsed.length) {
-      if (pasted.includes('HATA YOK')) {
-        setNoIssuesConfirmed(true);
-      } else {
-        setParseError('Metin ayrıştırılamadı ya da section_id eşleşmedi. "===BÖLÜM: <id>===" biçimini kontrol edin.');
-      }
-    }
-  }
-
-  function toggleSelected(id: number) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  const selectedFindings = useMemo(() => findings.filter((f) => selectedIds.has(f.sectionId)), [findings, selectedIds]);
-
-  async function handleSave() {
-    setSaving(true);
-    setSaveError(null);
-    setSaveResult(null);
-    try {
-      const res = await fetch('/api/admin/rag/topic-accuracy-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topicId,
-          findings: selectedFindings.map((f) => ({ sectionId: f.sectionId, note: f.note })),
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setSaveError(data?.error || 'Kaydedilemedi.');
-        return;
-      }
-      setSaveResult(data?.inserted > 0 ? `${data.inserted} bulgu kaydedildi.` : 'Kontrol kaydedildi — hata bulunmadı.');
-      setPasted('');
-      setFindings([]);
-      setSelectedIds(new Set());
-      setSummary(null);
-      setNoIssuesConfirmed(false);
-      onSaved();
-      loadPrompt();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleResolve(flagId: number) {
-    setResolvingId(flagId);
+  async function handleResolve(id: number) {
+    setResolvingId(id);
     try {
       const res = await fetch('/api/admin/rag/topic-review-flags/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: flagId }),
+        body: JSON.stringify({ id }),
       });
-      if (res.ok) {
-        setOpenFlags((prev) => prev.filter((f) => f.id !== flagId));
-        onSaved();
-      }
+      if (res.ok) setFlags((prev) => prev.filter((f) => f.id !== id));
     } finally {
       setResolvingId(null);
     }
   }
 
-  function handleEditSection(sectionId: number) {
-    onClose();
-    onEditSection(sectionId);
-  }
+  if (loading || !flags.length) return null;
 
   return (
-    <ModalShell title="RAG Doğruluk Kontrolü" onClose={onClose}>
-      <div className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Yayındaki içeriği, bu konunun zaten çoklu-AI ile karşılaştırılmış RAG kaynak metniyle karşılaştırıp gerçek hata arattırır.
-          Dışarıda bir AI&apos;a sorun, dönen metni yapıştırıp &quot;Analiz Et&quot;e, gözden geçirdikten sonra &quot;Kaydet&quot;e basın —
-          içerik OTOMATİK değişmez, her bulguyu &quot;Bölümü Düzenle&quot; ile siz uygularsınız.
-        </p>
-
-        {lastCheckedAt && (
-          <p className="text-[11px] text-muted-foreground">
-            Son kontrol: <span className="text-foreground font-bold">{new Date(lastCheckedAt).toLocaleDateString('tr-TR')}</span>
-          </p>
-        )}
-
-        {openFlags.length > 0 && (
-          <div className="space-y-2">
-            <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" /> Açık bulgular ({openFlags.length})
-            </span>
-            {openFlags.map((f) => (
-              <div key={f.id} className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
-                <p className="text-[11px] font-bold text-foreground mb-1">{f.sectionHeading || 'Genel'}</p>
-                <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mb-2">{f.note}</p>
-                <div className="flex items-center gap-2">
-                  {f.sectionId != null && (
-                    <button
-                      onClick={() => handleEditSection(f.sectionId!)}
-                      className="rounded-lg border border-border px-2.5 py-1 text-[10px] font-bold text-foreground hover:bg-surface transition-colors"
-                    >
-                      Bölümü Düzenle
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleResolve(f.id)}
-                    disabled={resolvingId === f.id}
-                    className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
-                  >
-                    {resolvingId === f.id ? 'İşaretleniyor...' : 'Çözüldü İşaretle'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {loadError ? (
-          <p className="text-sm text-[#ff6584]">{loadError}</p>
-        ) : (
-          <>
-            <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
-
-            <div>
-              <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen düz metni buraya yapıştırın</span>
-              <textarea
-                value={pasted}
-                onChange={(e) => setPasted(e.target.value)}
-                rows={6}
-                placeholder="===BÖLÜM: 1234===..."
-                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-              />
-              {parseError && <p className="text-xs text-red-400 mt-1">{parseError}</p>}
-              <button
-                onClick={handleParse}
-                disabled={!pasted.trim()}
-                className="mt-2 rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
-              >
-                Analiz Et
-              </button>
-            </div>
-
-            {summary && (
-              <div className="rounded-xl border border-border bg-surface p-3 text-xs text-muted-foreground">
-                <span className="font-bold text-foreground">Genel değerlendirme: </span>
-                {summary}
-              </div>
-            )}
-
-            {saveError && <p className="text-xs font-bold text-[#ff6584]">{saveError}</p>}
-            {saveResult && <p className="text-xs font-bold text-emerald-400">✓ {saveResult}</p>}
-
-            {findings.length > 0 && (
-              <div className="space-y-3">
-                {findings.map((f) => {
-                  const checked = selectedIds.has(f.sectionId);
-                  return (
-                    <div key={f.sectionId} className="rounded-xl border border-border bg-surface p-3">
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSelected(f.sectionId)}
-                          className="mt-0.5 accent-indigo-500"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-foreground">{f.sectionHeading}</p>
-                          <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mt-1">{f.note}</p>
-                        </div>
-                      </label>
-                    </div>
-                  );
-                })}
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving || !selectedFindings.length}
-                    className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
-                  >
-                    {saving ? 'Kaydediliyor...' : `Seçilenleri Kaydet (${selectedFindings.length})`}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {noIssuesConfirmed && (
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="rounded-xl border border-border px-4 py-2 text-xs font-extrabold text-foreground hover:bg-surface disabled:opacity-50 transition-colors"
-                >
-                  {saving ? 'Kaydediliyor...' : 'Kontrolü "hata yok" olarak kaydet'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </ModalShell>
+    <div className="space-y-2">
+      <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5" /> Açık Notlar ({flags.length})
+      </span>
+      {flags.map((f) => (
+        <div key={f.id} className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+          <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mb-2">{f.note}</p>
+          <button
+            onClick={() => handleResolve(f.id)}
+            disabled={resolvingId === f.id}
+            className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+          >
+            {resolvingId === f.id ? 'İşaretleniyor...' : 'Çözüldü İşaretle'}
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 

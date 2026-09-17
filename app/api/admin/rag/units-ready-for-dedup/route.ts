@@ -5,11 +5,12 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 type TopicRow = { id: number; unit_id: number };
 
 // Verilen ünite id'lerinden hangilerinde "RAG Ünite Sentezi (Tekrar Kontrolü)" çalıştırmaya
-// değer en az 2 konu olduğunu döner — bir konu sadece RAG kaynak metni sentezlenmiş (19.
-// prompt) olmakla yetmez, YAYINDA içeriği de olmalı (topic_contents satırı var): aksi halde
-// dedup kaynak metnini düzeltir ama öğrencinin gördüğü içerik hâlâ eskisi/hatalısı kalır,
-// admin "Sentezden İçeriği Güncelle"yi unutursa düzeltme hiçbir yere yansımaz (kullanıcının
-// 2026-09-14 isteği: "güncelle menüsünü çalıştırmadan ünite sentezini çalıştırmayalım").
+// HAZIR olduğunu döner — kullanıcının 2026-09-18 isteği ("içerik üretimi, tüm konular RAG
+// aşamalarını bitirmeden açılmasın") sırasına göre, artık ünite tekilleştirme İÇERİK
+// üretiminden ÖNCE yapılıyor; bu yüzden "yayında içeriği olmalı" şartı KALDIRILDI (önceki
+// kural, dedup'ın içerik üretiminden SONRA bir temizlik adımı olduğu eski sıraya aitti —
+// bkz. [[project_admin...]]). Artık tek şart: ünitedeki TÜM aktif konuların RAG kaynak
+// metni sentezlenmiş olması (en az 2 konu, karşılaştıracak bir şey olsun diye).
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -31,23 +32,26 @@ export async function GET(request: NextRequest) {
   const topicIds = topics.map((t) => t.id);
   if (!topicIds.length) return NextResponse.json({ unitIds: [] });
 
-  const [{ data: synthesisData, error: synthesisError }, { data: contentsData, error: contentsError }] = await Promise.all([
-    supabase.from('rag_documents').select('topic_id').in('topic_id', topicIds).eq('source', 'ai_generated').eq('is_synthesis', true),
-    supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds),
-  ]);
+  const { data: synthesisData, error: synthesisError } = await supabase
+    .from('rag_documents')
+    .select('topic_id')
+    .in('topic_id', topicIds)
+    .eq('source', 'ai_generated')
+    .eq('is_synthesis', true);
   if (synthesisError) return NextResponse.json({ error: synthesisError.message }, { status: 500 });
-  if (contentsError) return NextResponse.json({ error: contentsError.message }, { status: 500 });
 
   const synthesizedTopicIds = new Set(((synthesisData as { topic_id: number | null }[] | null) || []).map((r) => r.topic_id));
-  const publishedTopicIds = new Set(((contentsData as { topic_id: number | null }[] | null) || []).map((r) => r.topic_id));
 
-  const readyTopicCountByUnitId = new Map<number, number>();
+  const topicsByUnit = new Map<number, TopicRow[]>();
   for (const topic of topics) {
-    if (synthesizedTopicIds.has(topic.id) && publishedTopicIds.has(topic.id)) {
-      readyTopicCountByUnitId.set(topic.unit_id, (readyTopicCountByUnitId.get(topic.unit_id) || 0) + 1);
-    }
+    const list = topicsByUnit.get(topic.unit_id) || [];
+    list.push(topic);
+    topicsByUnit.set(topic.unit_id, list);
   }
 
-  const readyUnitIds = unitIds.filter((id) => (readyTopicCountByUnitId.get(id) || 0) >= 2);
+  const readyUnitIds = unitIds.filter((id) => {
+    const unitTopics = topicsByUnit.get(id) || [];
+    return unitTopics.length >= 2 && unitTopics.every((t) => synthesizedTopicIds.has(t.id));
+  });
   return NextResponse.json({ unitIds: readyUnitIds });
 }
