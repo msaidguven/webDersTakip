@@ -47,9 +47,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const units = (unitsData as UnitRow[] | null) || [];
     const topics = (topicsData as TopicRow[] | null) || [];
 
-    // Ünite testi ve konu kavrama testi sayfaları (ve sitemap girdileri) yalnızca en az
-    // bir sorusu olan ünite/konularda gösterilmeli; boş bir testi listelemek 404'e/boş
-    // sayfaya götürür. Bağlantı doğrudan questions.topic_id üzerinden (bkz.
+    // Soru bankası sayfaları (ünite ve konu seviyesi) yalnızca en az bir sorusu olan
+    // ünite/konularda gösterilmeli; boş bir sayfayı listelemek noindex'e götürür (bkz.
+    // aşağıdaki robots notları). Bağlantı doğrudan questions.topic_id üzerinden (bkz.
     // add_question_scope_and_source.sql) — tek sorgu hem ünite hem konu kontrolünde
     // aşağıda tekrar kullanılıyor.
     const unitIdByTopicId = new Map(topics.map((t) => [t.id, t.unit_id]));
@@ -57,16 +57,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const unitIdsWithQuestions = new Set<number>();
     const topicIdsWithQuestions = new Set<number>();
     if (topicIds.length) {
+      // question_type_id=4 ("classical") HARİÇ — bir konunun tek sorusu klasikse
+      // getTopicTestPageData/soru-bankası sayfası bunu "sorusu yok" sayıp noindex döner
+      // (bkz. quizQuestions.ts'teki aynı filtre), sitemap de AYNI tanımı kullanmalı.
       const { data: questionsData } = await supabase
         .from('questions')
         .select('id, topic_id')
         .in('topic_id', topicIds)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .neq('question_type_id', 4);
       for (const q of (questionsData as QuestionRow[] | null) || []) {
         if (q.topic_id == null) continue;
         topicIdsWithQuestions.add(q.topic_id);
         const unitId = unitIdByTopicId.get(q.topic_id);
         if (unitId != null) unitIdsWithQuestions.add(unitId);
+      }
+    }
+
+    // Konu ANLATIM sayfası (aşağıdaki topicPathById döngüsü) yalnızca topic_contents.is_published=true
+    // olan konularda gerçekten var — aksi halde getTopicPageData null döner ve sayfa notFound() ile
+    // 404 verir (bkz. [topicSlug]/page.tsx). Sitemap bunu kontrol etmeden TÜM slug'lı konuları
+    // listeliyordu, Google Search Console'da "Bulunamadı (404)" olarak biriken 35 sayfanın kaynağı
+    // buydu (kullanıcının paylaştığı Coverage raporu, 2026-09-17). kavrama-testi/soru bankası
+    // sayfaları topic_contents'e değil questions'a bağlı olduğu için (bkz. quizPageData.ts) onlar
+    // bu filtreden ETKİLENMİYOR — topicPathById haritası hâlâ TÜM konular için kuruluyor.
+    const publishedTopicIds = new Set<number>();
+    if (topicIds.length) {
+      const { data: topicContentsData } = await supabase
+        .from('topic_contents')
+        .select('topic_id')
+        .in('topic_id', topicIds)
+        .eq('is_published', true);
+      for (const tc of (topicContentsData as { topic_id: number }[] | null) || []) {
+        publishedTopicIds.add(tc.topic_id);
       }
     }
 
@@ -101,14 +124,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const lessonSlug = lessonSlugById.get(u.lesson_id);
       if (gradeSlug && lessonSlug && u.slug) {
         unitPathById.set(u.id, { gradeSlug, lessonSlug, unitSlug: u.slug });
-        if (unitIdsWithQuestions.has(u.id)) {
-          entries.push({
-            url: `${SITE_URL}/${gradeSlug}/${lessonSlug}/${u.slug}/unite-testi`,
-            lastModified: now,
-            changeFrequency: 'weekly',
-            priority: 0.65,
-          });
-        }
+        // /unite-testi BİLİNÇLİ OLARAK sitemap'e girmiyor — sayfanın kendi generateMetadata'sı
+        // (bkz. unite-testi/page.tsx) her zaman robots: {index:false} dönüyor ("Sorular artık
+        // /soru-bankasi'nda indeksleniyor" kararı, 2026-09-03). noindex bir sayfayı sitemap'te
+        // listelemek Google Search Console'da "noindex" kapsam sorunu olarak birikiyordu
+        // (kullanıcının paylaştığı Coverage raporu, 2026-09-17).
       }
     }
 
@@ -154,6 +174,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const unitPath = unitPathById.get(t.unit_id);
       if (unitPath && t.slug) {
         topicPathById.set(t.id, `${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}/${t.slug}`);
+        if (!publishedTopicIds.has(t.id)) continue;
         entries.push({
           url: `${SITE_URL}/${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}/${t.slug}`,
           lastModified: now,
@@ -163,18 +184,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    // Konu kavrama testi ve soru bankası sayfaları (alt başlıklar + konu geneli,
-    // questions.topic_id tek kaynak) yalnızca gerçekten sorusu olan konularda gösterilmeli.
-    // Soru bankası URL'i her zaman parametresiz (taban) haliyle eklenir — ?soru=ID
-    // varyasyonları sitemap'e ASLA girmez, bunlar canonical ile taban sayfaya birleşir.
+    // Soru bankası sayfası (alt başlıklar + konu geneli, questions.topic_id tek kaynak)
+    // yalnızca gerçekten sorusu olan konularda gösterilmeli. URL her zaman parametresiz
+    // (taban) haliyle eklenir — ?soru=ID varyasyonları sitemap'e ASLA girmez, bunlar
+    // canonical ile taban sayfaya birleşir. /kavrama-testi BİLİNÇLİ OLARAK eklenmiyor —
+    // /unite-testi'yle AYNI sebep (bkz. yukarıdaki not): her zaman noindex.
     for (const [topicId, topicPath] of topicPathById) {
       if (!topicIdsWithQuestions.has(topicId)) continue;
-      entries.push({
-        url: `${SITE_URL}/${topicPath}/kavrama-testi`,
-        lastModified: now,
-        changeFrequency: 'monthly',
-        priority: 0.55,
-      });
       entries.push({
         url: `${SITE_URL}/soru-bankasi/${topicPath}`,
         lastModified: now,
