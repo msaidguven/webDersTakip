@@ -6,11 +6,12 @@ import RagDocumentsPanel from '@/app/src/components/admin/RagDocumentsPanel';
 import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
 import AiQuestionDraftsPanel from '@/app/src/components/admin/AiQuestionDraftsPanel';
+import RagTopicBuilderPanel from '@/app/src/components/admin/RagTopicBuilderPanel';
 import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'reports' | 'qa' | 'documents' | 'drafts';
+type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'build';
 
 export default function DersNotuRagPage() {
   const [tab, setTab] = useState<Tab>('reports');
@@ -30,11 +31,13 @@ export default function DersNotuRagPage() {
           <TabButton active={tab === 'qa'} onClick={() => setTab('qa')} label="Onay Bekleyenler" />
           <TabButton active={tab === 'documents'} onClick={() => setTab('documents')} label="Ders Notu PDF'leri" />
           <TabButton active={tab === 'drafts'} onClick={() => setTab('drafts')} label="AI Soru Taslakları" />
+          <TabButton active={tab === 'build'} onClick={() => setTab('build')} label="Sentezle RAG Oluştur" />
         </div>
         {tab === 'reports' && <RagReportsPanel />}
         {tab === 'qa' && <RagQaApprovalPanel />}
         {tab === 'documents' && <RagDocumentsPanel />}
         {tab === 'drafts' && <AiQuestionDraftsPanel />}
+        {tab === 'build' && <RagTopicBuilderPanel />}
       </main>
     </div>
   );

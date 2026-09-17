@@ -126,7 +126,7 @@ function RagStageChip({ stage, label }: { stage: RagStage; label: string }) {
   );
 }
 
-function RagPipelineStatus({ topicId, unitId }: { topicId: number; unitId: number | null }) {
+export function RagPipelineStatus({ topicId, unitId }: { topicId: number; unitId: number | null }) {
   const [loading, setLoading] = useState(true);
   const [draftCount, setDraftCount] = useState(0);
   const [synthesized, setSynthesized] = useState(false);
@@ -225,7 +225,7 @@ function NotebookLmSetupModal({ onClose }: { onClose: () => void }) {
 // tone, kaynağa göre (NotebookLM/RAG sentez/ortak) hangi araç grubunda olduğunu tek bakışta
 // ayırt ettirmek için — kullanıcının 2026-09-17 isteği: "notebook için olanlar bi tarafta,
 // sentez için olanlar bi tarafta, ortak olanlar bi tarafta olsa çok daha güzel olmaz mı".
-const TOOL_BUTTON_TONES = {
+export const TOOL_BUTTON_TONES = {
   neutral: 'border-border bg-surface-elevated text-foreground hover:border-[#6c63ff]/50 hover:bg-[#6c63ff]/10',
   notebooklm: 'border-sky-400/30 bg-sky-400/10 text-sky-700 dark:text-sky-300 hover:bg-sky-400/20',
   // rag = kaynak metnini oluşturup güncel/tekilleştirilmiş tutmak (öğrenci soru-cevap RAG
@@ -236,7 +236,7 @@ const TOOL_BUTTON_TONES = {
   synthesis: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-400/20',
 } as const;
 
-function ToolButton({
+export function ToolButton({
   onClick,
   tone = 'neutral',
   children,
