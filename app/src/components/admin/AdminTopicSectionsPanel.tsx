@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import {
-  AlertTriangle, Check, ChevronDown, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
+  AlertTriangle, Check, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
   RefreshCw, Shapes, Sparkles, Trash2, Video, Youtube, X,
 } from 'lucide-react';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
@@ -141,12 +141,29 @@ function NotebookLmSetupModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ToolButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+// tone, kaynağa göre (NotebookLM/RAG sentez/ortak) hangi araç grubunda olduğunu tek bakışta
+// ayırt ettirmek için — kullanıcının 2026-09-17 isteği: "notebook için olanlar bi tarafta,
+// sentez için olanlar bi tarafta, ortak olanlar bi tarafta olsa çok daha güzel olmaz mı".
+const TOOL_BUTTON_TONES = {
+  neutral: 'border-border bg-surface-elevated text-foreground hover:border-[#6c63ff]/50 hover:bg-[#6c63ff]/10',
+  notebooklm: 'border-sky-400/30 bg-sky-400/10 text-sky-700 dark:text-sky-300 hover:bg-sky-400/20',
+  rag: 'border-amber-400/30 bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-400/20',
+} as const;
+
+function ToolButton({
+  onClick,
+  tone = 'neutral',
+  children,
+}: {
+  onClick: () => void;
+  tone?: keyof typeof TOOL_BUTTON_TONES;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-lg border border-border bg-surface-elevated px-3 py-1.5 text-xs font-bold text-foreground hover:border-[#6c63ff]/50 hover:bg-[#6c63ff]/10 transition-colors"
+      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${TOOL_BUTTON_TONES[tone]}`}
     >
       {children}
     </button>
@@ -333,56 +350,51 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       </div>
 
       {/* Konu geneline ait AI içerik üretim araçları — eskiden ders sayfasında (DersClient)
-          dağınık duran tüm bu modaller artık burada, tek yerde. */}
+          dağınık duran tüm bu modaller artık burada, tek yerde. Fonksiyona göre değil KAYNAĞA
+          göre gruplandı (NotebookLM / RAG Sentez / Ortak) — kullanıcının 2026-09-17 isteği. */}
       <div className="mb-5 rounded-xl border border-border bg-card p-4 space-y-3">
         <span className="text-[11px] font-extrabold tracking-[0.14em] uppercase text-muted-foreground block">İçerik Üretim Araçları</span>
 
         <div>
-          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Tam Konu (Alt Başlık + İçerik Tek Seferde)</span>
+          <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 block mb-1.5">📘 NotebookLM (Kitap Yüklü Notebook)</span>
           <div className="flex flex-wrap gap-2">
-            <ToolButton onClick={() => setNotebookPlanVariant('full')}>NotebookLM Tam Konu Promptu</ToolButton>
-            <ToolButton onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
+            <ToolButton tone="notebooklm" onClick={() => setNotebookPlanVariant('full')}>Tam Konu Promptu</ToolButton>
             {bundle.sections.length > 0 && (
-              <>
-                <ToolButton onClick={() => setNotebookPlanVariant('content_refresh_notebooklm')}>İçeriği Güncelle (NotebookLM)</ToolButton>
-                <ToolButton onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
-              </>
+              <ToolButton tone="notebooklm" onClick={() => setNotebookPlanVariant('content_refresh_notebooklm')}>İçeriği Güncelle</ToolButton>
             )}
-            <ToolButton onClick={() => setNotebookLmSetupOpen(true)}>NotebookLM Özel Talimatları (Kur — Bir Kere)</ToolButton>
+            <ToolButton tone="notebooklm" onClick={() => setTopicQuestionsVariant('notebooklm')}>Genel Sorular</ToolButton>
+            <ToolButton tone="notebooklm" onClick={() => setTopicQuestionsVariant('classical_notebooklm')}>Açık Uçlu Sorular</ToolButton>
+            <ToolButton tone="notebooklm" onClick={() => setNotebookLmSetupOpen(true)}>Özel Talimatları Kur (Bir Kere)</ToolButton>
           </div>
         </div>
 
         <div>
-          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">RAG (Kitapsız Ders Kaynağı)</span>
+          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🔍 RAG Sentez (Kitapsız Ders — ChatGPT/Claude/Gemini)</span>
           <div className="flex flex-wrap gap-2">
-            <ToolButton onClick={() => setRagSourceModalOpen(true)}>RAG Kaynak Metni Ekle</ToolButton>
-            <ToolButton onClick={() => setRagSourceSynthesisModalOpen(true)}>RAG Kaynak Metni Sentezle</ToolButton>
-            <ToolButton onClick={() => setRagAccuracyCheckModalOpen(true)}>Doğruluk Kontrolü</ToolButton>
+            <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
+            <ToolButton tone="rag" onClick={() => setRagSourceSynthesisModalOpen(true)}>Kaynak Metni Sentezle</ToolButton>
+            <ToolButton tone="rag" onClick={() => setRagAccuracyCheckModalOpen(true)}>Doğruluk Kontrolü</ToolButton>
             {bundle.unit && (
-              <ToolButton onClick={() => setRagUnitDedupModalOpen(true)}>Ünite: RAG Kaynak Tekilleştir</ToolButton>
+              <ToolButton tone="rag" onClick={() => setRagUnitDedupModalOpen(true)}>Ünite: Kaynak Tekilleştir</ToolButton>
             )}
+            <ToolButton tone="rag" onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
+            {bundle.sections.length > 0 && (
+              <ToolButton tone="rag" onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
+            )}
+            <ToolButton tone="rag" onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular</ToolButton>
+            <ToolButton tone="rag" onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular</ToolButton>
           </div>
         </div>
 
         <div>
-          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Kapak &amp; Özet (AI Promptu)</span>
+          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">🧩 Ortak / Diğer AI</span>
           <div className="flex flex-wrap gap-2">
             <ToolButton onClick={() => setCoverImageModalOpen(true)}>Konu Kapak Görseli</ToolButton>
             <ToolButton onClick={() => setHighlightsModalOpen(true)}>Anahtar Kavramları Güncelle (AI)</ToolButton>
             <ToolButton onClick={() => setHighlightQuickAddOpen(true)}>Anahtar Kavram Ekle</ToolButton>
             <ToolButton onClick={() => setTopicSummaryModalOpen(true)}>Konu Özetini Düzenle</ToolButton>
-          </div>
-        </div>
-
-        <div>
-          <span className="text-[10px] font-bold text-muted-foreground block mb-1.5">Sorular (Konu Geneli)</span>
-          <div className="flex flex-wrap gap-2">
             <ToolButton onClick={() => setTopicQuestionsVariant('general')}>Genel Sorular</ToolButton>
-            <ToolButton onClick={() => setTopicQuestionsVariant('notebooklm')}>Genel Sorular (NotebookLM)</ToolButton>
-            <ToolButton onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular (Sentezden)</ToolButton>
             <ToolButton onClick={() => setTopicQuestionsVariant('classical')}>Açık Uçlu Sorular</ToolButton>
-            <ToolButton onClick={() => setTopicQuestionsVariant('classical_notebooklm')}>Açık Uçlu Sorular (NotebookLM)</ToolButton>
-            <ToolButton onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular (Sentezden)</ToolButton>
             <ToolButton onClick={() => setClassicalGenerateTarget({ section: null })}>Açık Uçlu Soru Üret (AI)</ToolButton>
           </div>
         </div>
@@ -455,21 +467,21 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
                     {sectionMenuOpenId === section.id && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setSectionMenuOpenId(null)} />
-                        <div className="absolute right-0 top-8 z-50 w-64 rounded-xl border border-border bg-card p-1.5 shadow-lg">
-                          <span className="block px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">İçerik</span>
+                        <div className="absolute right-0 top-8 z-50 w-64 rounded-xl border border-border bg-card p-1.5 shadow-lg max-h-[70vh] overflow-y-auto">
+                          <span className="block px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-sky-600 dark:text-sky-400">📘 NotebookLM</span>
+                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'notebooklm' }); }}>İçerik Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'notebooklm' }); }}>Soru Ekle</SectionMenuItem>
+                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical_notebooklm' }); }}>Açık Uçlu Soru Ekle</SectionMenuItem>
+                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-amber-600 dark:text-amber-400">🔍 RAG Sentez</span>
+                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'synthesis' }); }}>İçerik Ekle</SectionMenuItem>
+                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">🧩 Ortak / Diğer AI</span>
                           <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'general' }); }}>İçerik Ekle</SectionMenuItem>
-                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'notebooklm' }); }}>İçerik Ekle (NotebookLM)</SectionMenuItem>
-                          <SectionMenuItem icon={Clipboard} onClick={() => { setSectionMenuOpenId(null); setSectionModalTarget({ section, variant: 'synthesis' }); }}>İçerik Ekle (Sentezden)</SectionMenuItem>
-                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Medya</span>
                           <SectionMenuItem icon={ImagePlus} onClick={() => { setSectionMenuOpenId(null); setImageModalTarget(section); }}>Görsel Ekle</SectionMenuItem>
                           <SectionMenuItem icon={Shapes} onClick={() => { setSectionMenuOpenId(null); setDiagramModalTarget(section); }}>Diyagram Ekle</SectionMenuItem>
                           <SectionMenuItem icon={Video} onClick={() => { setSectionMenuOpenId(null); setVideoModalTarget(section); }}>Video Ekle</SectionMenuItem>
                           <SectionMenuItem icon={Youtube} onClick={() => { setSectionMenuOpenId(null); setVideoSuggestionsModalTarget(section); }}>YouTube Önerisi</SectionMenuItem>
-                          <span className="block px-2.5 py-1 mt-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Sorular</span>
                           <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'general' }); }}>Soru Ekle</SectionMenuItem>
-                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'notebooklm' }); }}>Soru Ekle (NotebookLM)</SectionMenuItem>
                           <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical' }); }}>Açık Uçlu Soru Ekle</SectionMenuItem>
-                          <SectionMenuItem icon={ListChecks} onClick={() => { setSectionMenuOpenId(null); setQuestionsModalTarget({ section, variant: 'classical_notebooklm' }); }}>Açık Uçlu Soru Ekle (NotebookLM)</SectionMenuItem>
                           <SectionMenuItem icon={Sparkles} onClick={() => { setSectionMenuOpenId(null); setClassicalGenerateTarget({ section }); }}>Açık Uçlu Soru Üret (AI)</SectionMenuItem>
                         </div>
                       </>
