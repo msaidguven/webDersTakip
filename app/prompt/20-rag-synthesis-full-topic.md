@@ -6,6 +6,8 @@ Konuyu bu kaynak metindeki sıraya/mantığa göre alt başlıklara ayır.
 
 {explanation_notebook_rules}
 
+{topic_summary_discussion_rules}
+
 SADECE aşağıdaki kaynak metinde geçen bilgileri kullan; kaynakta olmayan bir bilgi uydurma.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}

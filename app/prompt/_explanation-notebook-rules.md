@@ -1,4 +1,4 @@
-Her alt başlık için İKİ metin (amaçları farklı) + konu sonunda TEK özet + TEK tartışma sorusu.
+Bu alt başlık için İKİ metin üret (amaçları farklı):
 
 YASAK (hepsinde): kaynak/dipnot referansı ("[2,4]", "¹" vb.), kitapta geçse bile.
 
@@ -15,12 +15,3 @@ YASAK (hepsinde): kaynak/dipnot referansı ("[2,4]", "¹" vb.), kitapta geçse b
      Konuyla DOĞRUDAN ilgili, somut bağlam — soyut/genel soru sorma. 1-3 cümle.
    - example: istemi yanıtlayan KISA (2-4 cümle) örnek. Tek doğru gibi sunma (özellikle "Sen Olsan?"/"Günlük Hayattan Bul"da tek doğru yok), ama tutarlı/doğru olsun; retorik soru/"sen/senin" yerine doğrudan dil.
    - Her alt başlıkta MUTLAKA etkinlik olsun; aynı çerçeveyi art arda kullanma, çeşitlendir.
-3. **summary_markdown (JSON üst seviye, konu için TEK SEFER) — Konu Özeti.** Tüm alt başlıkların en önemli/ezberlenecek somut bilgisi (tanım/sayı/formül), TEK listede.
-   - Format: `- **Terim**: Tanım cümlesi.` GERÇEK/TAM cümle (çekimli fiil veya -dır/-dir, MUTLAKA nokta) — yarım/asılı bırakma, kendi başına bitmiş cümle olsun. ~10-16 kelime ama eksik bırakma.
-   - Alt başlığa göre gruplama/başlık YAZMA — tek düz liste.
-   - Madde sayısı kapsama göre (genelde 6-14) — her alt başlıktan en az bir madde, gereksiz ayrıntı yok.
-   - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle. Öncül gerektiren zamir ("bu/bunlar/yukarıdaki") kullanma. Terim "Fark/Kullanım alanları/Örnek/Avantaj/Dezavantaj" gibi TEK BAŞINA jenerik OLMASIN — bu bilgiyi ilgili terimin kendi tanımına kat.
-4. **discussion_prompt_markdown (JSON üst seviye, konu için TEK SEFER) — Düşün ve Yorumla.** TEK doğrusu olmayan, tartışmaya açık soru.
-   - Açık uçlu: kişisel görüş/değerlendirme/günlük hayat bağlantısı, "sence hangisi daha önemli/doğru" tarzı — kapalı/kesin cevaplı sınav sorusu DEĞİL.
-   - TEK kısa soru cümlesi ("Sence.../Sen olsan..." gibi başlayabilir).
-   - Konu mekanik/tartışmaya elverişsizse bile günlük hayata/kişisel deneyime bağlayan bir soru bulmaya çalış — uydurma hissettirmesin.

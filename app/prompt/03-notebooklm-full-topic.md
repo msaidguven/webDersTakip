@@ -10,6 +10,8 @@ Kazanımlar:
 
 {explanation_notebook_rules}
 
+{topic_summary_discussion_rules}
+
 SADECE kitapta geçen bilgileri kullan; kitapta olmayan bir bilgi uydurma.
 
 SADECE bu JSON'u döndür, başka metin ekleme:

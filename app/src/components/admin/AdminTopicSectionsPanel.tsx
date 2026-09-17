@@ -41,6 +41,8 @@ type Section = {
   heading: string;
   body_markdown: string | null;
   notebook_markdown: string | null;
+  activity_prompt_markdown: string | null;
+  activity_example_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   diagram_svg: string | null;
@@ -342,7 +344,11 @@ export type EditableSection = {
   id: number;
   heading: string;
   body_markdown: string | null;
+  // Eski format — sadece bunu zaten dolu olan (600cd8a'dan önce üretilmiş) konularda
+  // düzenleniyor; yeni/aktivite-formatlı konularda activity_* alanları kullanılıyor.
   notebook_markdown: string | null;
+  activity_prompt_markdown: string | null;
+  activity_example_markdown: string | null;
   image_url: string | null;
   image_prompt: string | null;
   diagram_svg?: string | null;
@@ -363,12 +369,21 @@ export function SectionContentEditModal({
   onSaved: () => void;
 }) {
   const [text, setText] = useState(section.body_markdown || '');
+  // Bu bölüm hâlâ eski formattaysa (notebook_markdown dolu, activity_prompt_markdown boş —
+  // 600cd8a'dan önce üretilmiş) eski tek-kutu düzenlemeyi koru; aksi halde (yeni format ya
+  // da hiç içeriği olmayan bölüm) yeni istem+örnek çiftini düzenlet (kullanıcının 2026-09-17
+  // bulduğu tutarsızlık: bu modal hâlâ SADECE eski alanı düzenliyordu).
+  const isLegacyNotebook = useMemo(() => !!section.notebook_markdown && !section.activity_prompt_markdown, [section]);
   const [notebookText, setNotebookText] = useState(section.notebook_markdown || '');
+  const [activityPromptText, setActivityPromptText] = useState(section.activity_prompt_markdown || '');
+  const [activityExampleText, setActivityExampleText] = useState(section.activity_example_markdown || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const previewHtml = useMemo(() => (text.trim() ? markdownToHtml(text) : ''), [text]);
   const notebookPreviewHtml = useMemo(() => (notebookText.trim() ? markdownToHtml(notebookText) : ''), [notebookText]);
+  const activityPromptPreviewHtml = useMemo(() => (activityPromptText.trim() ? markdownToHtml(activityPromptText) : ''), [activityPromptText]);
+  const activityExamplePreviewHtml = useMemo(() => (activityExampleText.trim() ? markdownToHtml(activityExampleText) : ''), [activityExampleText]);
 
   async function handleSave() {
     setError(null);
@@ -377,12 +392,22 @@ export function SectionContentEditModal({
       const res = await fetch(`/api/admin/topic-sections/section/${section.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body_markdown: text,
-          notebook_markdown: notebookText,
-          needs_image: Boolean(section.image_prompt),
-          image_prompt: section.image_prompt,
-        }),
+        body: JSON.stringify(
+          isLegacyNotebook
+            ? {
+                body_markdown: text,
+                notebook_markdown: notebookText,
+                needs_image: Boolean(section.image_prompt),
+                image_prompt: section.image_prompt,
+              }
+            : {
+                body_markdown: text,
+                activity_prompt_markdown: activityPromptText,
+                activity_example_markdown: activityExampleText,
+                needs_image: Boolean(section.image_prompt),
+                image_prompt: section.image_prompt,
+              }
+        ),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -411,9 +436,16 @@ export function SectionContentEditModal({
           <code className="text-[#b5b0ff]">- </code>, alt madde için bir kademe içeri{' '}
           <code className="text-[#b5b0ff]">&nbsp;&nbsp;- </code>. Sağdaki önizleme gerçek sayfadaki görünümün birebir aynısıdır.
           <br />
-          <strong className="text-foreground">Konu Anlatımı</strong> öğretmenin anlatacağı/öğrencinin okuyacağı akıcı metindir;{' '}
-          <strong className="text-foreground">Defterine Not Al</strong> ise öğrencinin defterine geçireceği kısa (madde başına
-          tek satır, tam cümle değil) özettir — boş bırakılırsa kutu gösterilmez, anlatım tek başına eski görünümde kalır.
+          <strong className="text-foreground">Konu Anlatımı</strong> öğretmenin anlatacağı/öğrencinin okuyacağı akıcı metindir.{' '}
+          {isLegacyNotebook ? (
+            <>Bu bölüm eski formatta — <strong className="text-foreground">Defterine Not Al</strong>, öğrencinin defterine geçireceği kısa özettir; boş bırakılırsa kutu gösterilmez.</>
+          ) : (
+            <>
+              <strong className="text-foreground">Etkinlik İstemi</strong>, öğrenciyi klavye gerektirmeden düşünmeye zorlayan kısa bir soru
+              (&quot;Düşün:/Hayal Et:/Dene:/Sen Olsan?/Karşılaştır:/Günlük Hayattan Bul:&quot; ile başlar); <strong className="text-foreground">Örnek Yaklaşım</strong> ise
+              öğrenci &quot;Örneğe Bak&quot;a basınca göreceği kısa cevap — ikisi de boş bırakılırsa kutu gösterilmez.
+            </>
+          )}
         </p>
 
         {error && <p className="mb-3 text-xs font-bold text-[#ff6584]">{error}</p>}
@@ -429,16 +461,41 @@ export function SectionContentEditModal({
                 className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
               />
             </div>
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Defterine Not Al (Markdown, opsiyonel)</span>
-              <textarea
-                value={notebookText}
-                onChange={(e) => setNotebookText(e.target.value)}
-                rows={8}
-                placeholder="- Terim: kısa tanım"
-                className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
-              />
-            </div>
+            {isLegacyNotebook ? (
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Defterine Not Al (Markdown, opsiyonel)</span>
+                <textarea
+                  value={notebookText}
+                  onChange={(e) => setNotebookText(e.target.value)}
+                  rows={8}
+                  placeholder="- Terim: kısa tanım"
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+                />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Etkinlik İstemi (Markdown, opsiyonel)</span>
+                  <textarea
+                    value={activityPromptText}
+                    onChange={(e) => setActivityPromptText(e.target.value)}
+                    rows={3}
+                    placeholder="Düşün: ..."
+                    className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Örnek Yaklaşım (Markdown, opsiyonel)</span>
+                  <textarea
+                    value={activityExampleText}
+                    onChange={(e) => setActivityExampleText(e.target.value)}
+                    rows={4}
+                    placeholder="Bir yaklaşım: ..."
+                    className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
@@ -446,7 +503,10 @@ export function SectionContentEditModal({
               {previewHtml ? (
                 <SectionContent
                   html={previewHtml}
-                  notebookHtml={notebookPreviewHtml || null}
+                  notebookHtml={isLegacyNotebook ? (notebookPreviewHtml || null) : null}
+                  activityPromptHtml={isLegacyNotebook ? null : (activityPromptPreviewHtml || null)}
+                  activityExampleHtml={isLegacyNotebook ? null : (activityExamplePreviewHtml || null)}
+                  sectionId={section.id}
                   imageUrl={section.image_url}
                   caption={section.heading}
                   diagramSvg={section.diagram_svg}
@@ -2610,8 +2670,13 @@ export function SectionModal({
     }
 
     // explanation_markdown yeni şema; body_markdown eski (tek alanlı) şablonlardan kalma
-    // önbelleklenmiş prompt'lar için geriye dönük uyumluluk.
-    const obj = parsed as { explanation_markdown?: unknown; body_markdown?: unknown; notebook_markdown?: unknown };
+    // önbelleklenmiş prompt'lar için geriye dönük uyumluluk. Aynı şekilde activity_prompt/
+    // example yeni şema, notebook_markdown eski önbelleklenmiş promptlar için (kullanıcının
+    // 2026-09-17 bulduğu tutarsızlık: bu akış hâlâ SADECE eski alanı kaydediyordu).
+    const obj = parsed as {
+      explanation_markdown?: unknown; body_markdown?: unknown;
+      activity_prompt_markdown?: unknown; activity_example_markdown?: unknown; notebook_markdown?: unknown;
+    };
     const explanationMarkdown = typeof obj.explanation_markdown === 'string' && obj.explanation_markdown.trim()
       ? obj.explanation_markdown
       : typeof obj.body_markdown === 'string' ? obj.body_markdown : '';
@@ -2619,7 +2684,7 @@ export function SectionModal({
       setError('JSON içinde "explanation_markdown" alanı bulunamadı.');
       return;
     }
-    const notebookMarkdown = typeof obj.notebook_markdown === 'string' ? obj.notebook_markdown : '';
+    const hasNewActivityFields = typeof obj.activity_prompt_markdown === 'string' || typeof obj.activity_example_markdown === 'string';
 
     setSaving(true);
     try {
@@ -2628,7 +2693,12 @@ export function SectionModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           body_markdown: explanationMarkdown,
-          notebook_markdown: notebookMarkdown,
+          ...(hasNewActivityFields
+            ? {
+                activity_prompt_markdown: typeof obj.activity_prompt_markdown === 'string' ? obj.activity_prompt_markdown : '',
+                activity_example_markdown: typeof obj.activity_example_markdown === 'string' ? obj.activity_example_markdown : '',
+              }
+            : { notebook_markdown: typeof obj.notebook_markdown === 'string' ? obj.notebook_markdown : '' }),
           source: aiModel.trim() ? 'ai_generated' : 'manual',
           ai_model: aiModel.trim() || null,
         }),
@@ -2668,7 +2738,7 @@ export function SectionModal({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={8}
-            placeholder='{"explanation_markdown": "...", "notebook_markdown": "...", "ai_model": "..."}'
+            placeholder='{"explanation_markdown": "...", "activity_prompt_markdown": "...", "activity_example_markdown": "...", "ai_model": "..."}'
             className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
           />
         </div>

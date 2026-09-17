@@ -11,8 +11,9 @@ Diğer alt başlıklar (değinme, ayrı anlatılacak): {other_headings}
 
 Çıktı (sadece JSON):
 {
-  "explanation_markdown": string,   // akıcı anlatım, serbest paragraf(lar)
-  "notebook_markdown": string,      // kısa madde madde defter notu (- madde), madde başına max 12-15 kelime
+  "explanation_markdown": string,       // akıcı anlatım, serbest paragraf(lar)
+  "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
+  "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
   "ai_model": string         // aracın adı, genelde "NotebookLM"
 }
 

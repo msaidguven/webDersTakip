@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<Pa
 
   const { data, error } = await supabase
     .from('topic_content_sections')
-    .select('id, heading, body_markdown, notebook_markdown, image_url, image_prompt, diagram_svg, source, ai_model')
+    .select('id, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, diagram_svg, source, ai_model')
     .eq('id', sectionId)
     .maybeSingle();
 
@@ -38,6 +38,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json().catch(() => null) as {
     body_markdown?: unknown;
     notebook_markdown?: unknown;
+    activity_prompt_markdown?: unknown;
+    activity_example_markdown?: unknown;
     source?: unknown;
     ai_model?: unknown;
   } | null;
@@ -52,13 +54,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const supabase = createServiceClient();
 
+  // Eski format (notebook_markdown) sadece o alan gönderilince kullanılıyor — bu durumda
+  // yeni activity_* alanlarına dokunmuyoruz (zaten boşlar). Yeni format gönderilince
+  // (activity_prompt_markdown alanı body'de VAR, undefined değil) notebook_markdown'ı
+  // null'a çekip bölümü tamamen yeni şemaya taşıyoruz — ikisi birden dolu kalıp
+  // SectionContent'in hangisini göstereceği belirsizleşmesin (kullanıcının 2026-09-17
+  // bulduğu tutarsızlık: SectionContentEditModal hâlâ SADECE eski alanı düzenliyordu).
+  const isNewFormatSave = body.activity_prompt_markdown !== undefined || body.activity_example_markdown !== undefined;
+
   const { error } = await supabase
     .from('topic_content_sections')
     .update({
       body_markdown: body.body_markdown.trim(),
-      notebook_markdown: typeof body.notebook_markdown === 'string' && body.notebook_markdown.trim()
-        ? body.notebook_markdown.trim()
-        : null,
+      notebook_markdown: isNewFormatSave
+        ? null
+        : (typeof body.notebook_markdown === 'string' && body.notebook_markdown.trim() ? body.notebook_markdown.trim() : null),
+      ...(isNewFormatSave ? {
+        activity_prompt_markdown: typeof body.activity_prompt_markdown === 'string' && body.activity_prompt_markdown.trim() ? body.activity_prompt_markdown.trim() : null,
+        activity_example_markdown: typeof body.activity_example_markdown === 'string' && body.activity_example_markdown.trim() ? body.activity_example_markdown.trim() : null,
+      } : {}),
       status: 'content_ready',
       updated_at: new Date().toISOString(),
       ...(body.source !== undefined ? { source: body.source } : {}),
