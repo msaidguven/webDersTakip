@@ -2343,13 +2343,16 @@ export function RagTopicAccuracyCheckModal({
     setLoadError(null);
     const res = await fetch(`/api/admin/rag/topic-accuracy-check-prompt?topicId=${topicId}`);
     const data = await res.json().catch(() => null);
+    // Yeni prompt oluşturulamasa bile (409 — kaynak/alt başlık yok), var olan açık bulguları
+    // YİNE DE göster — aksi halde admin bunları hiç göremez/çözemez (kullanıcının 2026-09-17
+    // bulduğu tutarsızlık: hata mesajı tüm modalin yerine geçip bulguları gizliyordu).
+    setOpenFlags((data?.openFlags as AccuracyOpenFlag[] | undefined) || []);
+    setLastCheckedAt(data?.lastCheckedAt || null);
     if (res.ok) {
       setPrompt(data?.prompt || '');
       const map = new Map<number, string>();
       for (const s of (data?.sections as { id: number; heading: string }[] | undefined) || []) map.set(s.id, s.heading);
       setSectionsById(map);
-      setOpenFlags((data?.openFlags as AccuracyOpenFlag[] | undefined) || []);
-      setLastCheckedAt(data?.lastCheckedAt || null);
     } else {
       setLoadError(data?.error || 'Prompt oluşturulamadı.');
     }
