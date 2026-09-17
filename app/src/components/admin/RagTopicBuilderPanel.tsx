@@ -42,6 +42,11 @@ export default function RagTopicBuilderPanel() {
   const [sectionCount, setSectionCount] = useState<number | null>(null);
   const [loadingBundle, setLoadingBundle] = useState(false);
 
+  // Hangi konuların RAG kaynak metni zaten sentezlenmiş olduğu — "Ders Notu PDF'leri"
+  // sekmesindeki ✅ ünite işaretlemesiyle AYNI desen (kullanıcının 2026-09-18 isteği).
+  // Ünite "tamamlanmış" sayılır: o ünitedeki TÜM konular sentezlenmiş ise.
+  const [synthesizedTopicIds, setSynthesizedTopicIds] = useState<Set<number>>(new Set());
+
   const [ragSourceModalOpen, setRagSourceModalOpen] = useState(false);
   const [ragSourceSynthesisModalOpen, setRagSourceSynthesisModalOpen] = useState(false);
   const [ragAccuracyCheckModalOpen, setRagAccuracyCheckModalOpen] = useState(false);
@@ -84,6 +89,39 @@ export default function RagTopicBuilderPanel() {
     if (unitId == null) return [];
     return topics.filter((t) => t.unit_id === unitId);
   }, [unitId, topics]);
+
+  // lessonId belirlenince (yani bir ünite listesi oluşunca) o üniteler altındaki TÜM
+  // konuların sentez durumunu tek seferde çekiyoruz — hem ünite seçimindeki ✅ hem de
+  // konu seçimindeki ✅ için aynı veri yeterli.
+  useEffect(() => {
+    if (!unitOptions.length) {
+      setSynthesizedTopicIds(new Set());
+      return;
+    }
+    const unitIdSet = new Set(unitOptions.map((u) => u.id));
+    const relevantTopicIds = topics.filter((t) => unitIdSet.has(t.unit_id)).map((t) => t.id);
+    if (!relevantTopicIds.length) {
+      setSynthesizedTopicIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/admin/rag/topics-with-synthesis?topicIds=${relevantTopicIds.join(',')}`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) setSynthesizedTopicIds(new Set((data?.topicIds as number[] | undefined) || []));
+    })();
+    return () => { cancelled = true; };
+  }, [unitOptions, topics, reloadKey]);
+
+  const unitCompletion = useMemo(() => {
+    const map = new Map<number, { done: number; total: number }>();
+    for (const unit of unitOptions) {
+      const unitTopics = topics.filter((t) => t.unit_id === unit.id);
+      const done = unitTopics.filter((t) => synthesizedTopicIds.has(t.id)).length;
+      map.set(unit.id, { done, total: unitTopics.length });
+    }
+    return map;
+  }, [unitOptions, topics, synthesizedTopicIds]);
 
   useEffect(() => {
     if (topicId == null) {
@@ -136,7 +174,11 @@ export default function RagTopicBuilderPanel() {
             className="rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-[#6c63ff] disabled:opacity-50"
           >
             <option value="">Ünite seç...</option>
-            {unitOptions.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
+            {unitOptions.map((u) => {
+              const c = unitCompletion.get(u.id);
+              const done = !!c && c.total > 0 && c.done === c.total;
+              return <option key={u.id} value={u.id}>{done ? `✅ ${u.title}` : u.title}</option>;
+            })}
           </select>
           <select
             value={topicId ?? ''}
@@ -145,9 +187,62 @@ export default function RagTopicBuilderPanel() {
             className="rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-[#6c63ff] disabled:opacity-50"
           >
             <option value="">Konu seç...</option>
-            {topicOptions.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+            {topicOptions.map((t) => (
+              <option key={t.id} value={t.id}>{synthesizedTopicIds.has(t.id) ? `✅ ${t.title}` : t.title}</option>
+            ))}
           </select>
         </div>
+
+        {unitOptions.length > 0 && (
+          <div className="pt-1">
+            <p className="text-[11px] text-muted-foreground mb-1.5">Ünite ilerlemesi — kaç konunun RAG kaynağı sentezlendiğini gösterir:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {unitOptions.map((u) => {
+                const c = unitCompletion.get(u.id);
+                const done = !!c && c.total > 0 && c.done === c.total;
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => { setUnitId(u.id); setTopicId(null); }}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                      done
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                        : 'bg-surface border-border text-muted-foreground hover:border-muted-foreground/30'
+                    } ${unitId === u.id ? 'ring-1 ring-[#6c63ff]' : ''}`}
+                  >
+                    {done ? '✅' : '⬜'} {u.title} {c && c.total > 0 ? `(${c.done}/${c.total})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {topicOptions.length > 0 && (
+          <div className="pt-1">
+            <p className="text-[11px] text-muted-foreground mb-1.5">Konu ilerlemesi — RAG kaynağı sentezlenmiş konular:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {topicOptions.map((t) => {
+                const done = synthesizedTopicIds.has(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTopicId(t.id)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                      done
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                        : 'bg-surface border-border text-muted-foreground hover:border-muted-foreground/30'
+                    } ${topicId === t.id ? 'ring-1 ring-[#6c63ff]' : ''}`}
+                  >
+                    {done ? '✅' : '⬜'} {t.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {topicId && unitId && selectedTopic && (
