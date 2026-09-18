@@ -162,7 +162,11 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
     setUploading(true);
     try {
       const supabase = createStorageClient();
-      const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
+      // Storage key'i Türkçe karakter/boşluk/parantez gibi geçersiz baytlar içermesin diye
+      // dosya adından bağımsız tutuyoruz — okunabilir ad zaten ayrıca "fileName" olarak
+      // gönderilip "title" alanına yazılıyor, storage key'in kendisi sadece uzantıyı taşıyor.
+      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+      const storagePath = `${gradeId}-${lessonId}/${Date.now()}${extMatch ? extMatch[0] : '.pdf'}`;
       const { error: uploadError } = await supabase.storage
         .from('teacher-guide-documents')
         .upload(storagePath, file, { contentType: 'application/pdf' });
@@ -255,11 +259,10 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
         </div>
       )}
 
-      {gradeId != null && lessonId != null && unitId != null && (
-        <NotebookLmUnitJsonUploader
+      {gradeId != null && lessonId != null && (
+        <NotebookLmLessonJsonUploader
           gradeId={gradeId}
           lessonId={lessonId}
-          unitId={unitId}
           onSaved={(count) => {
             showNotice('success', `${count} konu için kılavuz notu kaydedildi`);
             loadDocuments();
@@ -335,12 +338,11 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
   );
 }
 
-function NotebookLmUnitJsonUploader({
-  gradeId, lessonId, unitId, onSaved, onError,
+function NotebookLmLessonJsonUploader({
+  gradeId, lessonId, onSaved, onError,
 }: {
   gradeId: number;
   lessonId: number;
-  unitId: number;
   onSaved: (count: number) => void;
   onError: (message: string) => void;
 }) {
@@ -355,14 +357,14 @@ function NotebookLmUnitJsonUploader({
     setPrompt('');
     setPasted('');
     (async () => {
-      const res = await fetch(`/api/admin/teacher-guide/unit-prompt?unitId=${unitId}`);
+      const res = await fetch(`/api/admin/teacher-guide/lesson-prompt?gradeId=${gradeId}&lessonId=${lessonId}`);
       const data = await res.json();
       if (res.ok) setPrompt(data.prompt);
       else onError(data.error || 'Prompt oluşturulamadı');
       setLoadingPrompt(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitId]);
+  }, [gradeId, lessonId]);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(prompt);
@@ -378,7 +380,7 @@ function NotebookLmUnitJsonUploader({
       const res = await fetch('/api/admin/teacher-guide/documents/from-json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeId, lessonId, unitId, json: text }),
+        body: JSON.stringify({ gradeId, lessonId, json: text }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -396,9 +398,9 @@ function NotebookLmUnitJsonUploader({
 
   return (
     <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
-      <h3 className="text-foreground font-semibold mb-1">NotebookLM ile Ünite Ekle (50MB üstü kılavuz kitaplar için)</h3>
+      <h3 className="text-foreground font-semibold mb-1">NotebookLM ile Dersin Tamamını Ekle (50MB üstü kılavuz kitaplar için)</h3>
       <p className="text-xs text-muted-foreground mb-4">
-        Bu prompt&apos;u, kaynak olarak kılavuz kitabın PDF&apos;ini yüklediğin NotebookLM notebook&apos;unda sor; dönen JSON&apos;u aşağıya yapıştırıp kaydet.
+        Kılavuz kitaplar kısa olduğundan tüm üniteler tek promptta isteniyor. Bu prompt&apos;u, kaynak olarak kılavuz kitabın PDF&apos;ini yüklediğin NotebookLM notebook&apos;unda sor; dönen JSON&apos;u aşağıya yapıştırıp kaydet.
       </p>
 
       <div className="mb-4">

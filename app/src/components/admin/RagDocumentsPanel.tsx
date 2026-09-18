@@ -157,7 +157,11 @@ export default function RagDocumentsPanel() {
       // her isteğe zorla "Content-Type: application/json" ekliyor ve bu, multipart
       // dosya yüklemesini bozuyor.
       const supabase = createStorageClient();
-      const storagePath = `${gradeId}-${lessonId}/${Date.now()}-${file.name}`;
+      // Storage key'i Türkçe karakter/boşluk/parantez gibi geçersiz baytlar içermesin diye
+      // dosya adından bağımsız tutuyoruz — okunabilir ad zaten ayrıca "fileName" olarak
+      // gönderilip "title" alanına yazılıyor, storage key'in kendisi sadece uzantıyı taşıyor.
+      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+      const storagePath = `${gradeId}-${lessonId}/${Date.now()}${extMatch ? extMatch[0] : '.pdf'}`;
       const { error: uploadError } = await supabase.storage
         .from('rag-documents')
         .upload(storagePath, file, { contentType: 'application/pdf' });
