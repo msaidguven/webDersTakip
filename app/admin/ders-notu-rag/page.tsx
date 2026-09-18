@@ -8,11 +8,12 @@ import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
 import AiQuestionDraftsPanel from '@/app/src/components/admin/AiQuestionDraftsPanel';
 import RagTopicBuilderPanel from '@/app/src/components/admin/RagTopicBuilderPanel';
+import TeacherGuideDocumentsPanel from '@/app/src/components/admin/TeacherGuideDocumentsPanel';
 import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'build';
+type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'build' | 'teacher-guide';
 
 export default function DersNotuRagPage() {
   return (
@@ -47,12 +48,14 @@ function DersNotuRagPageInner() {
           <TabButton active={tab === 'documents'} onClick={() => setTab('documents')} label="Ders Notu PDF'leri" />
           <TabButton active={tab === 'drafts'} onClick={() => setTab('drafts')} label="AI Soru Taslakları" />
           <TabButton active={tab === 'build'} onClick={() => setTab('build')} label="Sentezle RAG Oluştur" />
+          <TabButton active={tab === 'teacher-guide'} onClick={() => setTab('teacher-guide')} label="Öğretmen Kılavuzu" />
         </div>
         {tab === 'reports' && <RagReportsPanel />}
         {tab === 'qa' && <RagQaApprovalPanel />}
         {tab === 'documents' && <RagDocumentsPanel />}
         {tab === 'drafts' && <AiQuestionDraftsPanel />}
         {tab === 'build' && <RagTopicBuilderPanel initialTopicId={Number.isFinite(initialTopicId) && initialTopicId > 0 ? initialTopicId : null} />}
+        {tab === 'teacher-guide' && <TeacherGuideDocumentsPanel />}
       </main>
     </div>
   );

@@ -405,3 +405,11 @@ ${context}${questionContextBlock}${replyContextBlock}
   const answer = await callGemini(prompt, 0.6);
   return { answer, model: `${CHAT_MODEL}-kanka` };
 }
+
+// Öğretmen kılavuz kitabından çıkarılan ham ünite metnini, konu bazlı yapılandırılmış
+// JSON'a çevirmek için (bkz. app/src/lib/teacherGuide/). Diğer callGemini kullanımlarının
+// aksine (soru cevaplama) burada serbest metin değil KESİN bir JSON şeması isteniyor —
+// temperature 0 ile tutarlılık artırılıyor.
+export async function generateJsonCompletion(prompt: string): Promise<string> {
+  return callGemini(prompt, 0);
+}

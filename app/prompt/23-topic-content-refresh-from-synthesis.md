@@ -12,6 +12,7 @@ Kazanımlar:
 {outcomes listesi, kod + metin}
 
 {pacing_guidance}
+{teacher_guide_guidance}
 {explanation_notebook_rules}
 
 {topic_summary_discussion_rules}

@@ -216,6 +216,19 @@ export async function GET(request: NextRequest) {
     const pacingMap = unitRow ? await computeUnitTopicPacing(supabase, unitRow.id, unitRow.lesson_id, unitRow.grade_id) : new Map();
     const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), type === 'plan' ? 'plan' : 'content');
 
+    // Öğretmen kılavuz kitabından (varsa) bu konu için çıkarılmış "vurgulanacak noktalar" —
+    // sadece nihai içerik promptlarına besleniyor, RAG kaynak/sentez sistemine dokunmuyor
+    // (kullanıcının 2026-09-18 kararı). Bkz. app/src/lib/teacherGuide/.
+    const { data: guideNote } = await supabase
+      .from('topic_teacher_guide_notes')
+      .select('emphasis_notes')
+      .eq('topic_id', topicRow.id)
+      .maybeSingle();
+    const emphasisNotes = (guideNote as { emphasis_notes: string | null } | null)?.emphasis_notes?.trim();
+    const teacherGuideGuidance = emphasisNotes
+      ? `Öğretmen kılavuz kitabına göre bu konuda vurgulanması/önemli olarak belirtilen noktalar (içeriği hazırlarken bunları özellikle öne çıkar):\n${emphasisNotes}\n`
+      : '';
+
     const prompt = template
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
       .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
@@ -225,6 +238,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{pacing_guidance}', pacingGuidance)
+      .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance)
       .replaceAll('{existing_headings}', existingHeadingsText)
       .replaceAll('{source_text}', sourceText);
 

@@ -11,6 +11,7 @@ Kazanımlar:
 {outcomes listesi, kod + metin}
 
 {pacing_guidance}
+{teacher_guide_guidance}
 Çıktı (sadece JSON, başka metin ekleme):
 {
   "sections": [

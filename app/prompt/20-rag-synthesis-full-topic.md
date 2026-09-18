@@ -15,6 +15,7 @@ Kazanımlar:
 {outcomes listesi, kod + metin}
 
 {pacing_guidance}
+{teacher_guide_guidance}
 Kaynak metin:
 {source_text}
 

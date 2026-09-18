@@ -6,13 +6,14 @@ export type TopicPacingInfo = {
   unitWeeks: number;
   sharePct: number;
   hoursEstimate: number | null; // MUTLAK tahmini ders saati — varsa esas sınıflandırma bu üzerinden yapılır
-  hoursSource: 'duration_hours' | 'weekly_hours' | null;
+  hoursSource: 'teacher_guide' | 'duration_hours' | 'weekly_hours' | null;
   label: 'ozet' | 'normal' | 'detayli';
 };
 
 type TopicRow = { id: number };
 type OutcomeRow = { id: number; topic_id: number };
 type OutcomeWeekRow = { outcome_id: number; start_week: number; end_week: number };
+type TeacherGuideNoteRow = { topic_id: number; recommended_hours: number | null };
 
 // Bir konunun MEB müfredatında ne kadar süreye sığdırıldığını hesaplar. ÖNCELİK: mutlak
 // ders saati — units.duration_hours varsa konunun (outcome_weeks'ten çıkan) ünite içi hafta
@@ -95,6 +96,19 @@ export async function computeUnitTopicPacing(
   const unitDurationHours = (unitRow as { duration_hours: number | null } | null)?.duration_hours || null;
   const weeklyHours = (lessonGrade as { weekly_hours: number | null } | null)?.weekly_hours || null;
 
+  // Öğretmen kılavuz kitabından çıkarılan konu bazlı önerilen saat (varsa) EN öncelikli
+  // sinyal — duration_hours ünite bazlı bölüştürme/tahmin, bu ise kılavuzun kendi söylediği
+  // sayı (kullanıcının 2026-09-18 kararı: "kılavuz saati en öncelikli olsun").
+  const { data: guideNotesData } = await supabase
+    .from('topic_teacher_guide_notes')
+    .select('topic_id, recommended_hours')
+    .in('topic_id', [...spanByTopicId.keys()]);
+  const guideHoursByTopicId = new Map(
+    ((guideNotesData as TeacherGuideNoteRow[] | null) || [])
+      .filter((n) => n.recommended_hours != null)
+      .map((n) => [n.topic_id, n.recommended_hours as number])
+  );
+
   const avgShareFraction = 1 / spanByTopicId.size;
 
   for (const [topicId, span] of spanByTopicId) {
@@ -103,7 +117,10 @@ export async function computeUnitTopicPacing(
 
     let hoursRaw: number | null = null;
     let hoursSource: TopicPacingInfo['hoursSource'] = null;
-    if (unitDurationHours) {
+    if (guideHoursByTopicId.has(topicId)) {
+      hoursRaw = guideHoursByTopicId.get(topicId)!;
+      hoursSource = 'teacher_guide';
+    } else if (unitDurationHours) {
       hoursRaw = unitDurationHours * shareFraction;
       hoursSource = 'duration_hours';
     } else if (weeklyHours) {
