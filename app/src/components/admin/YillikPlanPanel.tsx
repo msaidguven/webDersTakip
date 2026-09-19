@@ -189,6 +189,11 @@ export default function YillikPlanPanel() {
   const [bulkFetchErr, setBulkFetchErr] = useState<string | null>(null);
   const [bulkItems, setBulkItems] = useState<BulkPreviewItem[] | null>(null);
   const [bulkCompareIndex, setBulkCompareIndex] = useState<number | null>(null);
+  // "🤖 Tüm Üniteleri AI ile Ayrıştır" panelinin doldurduğu, her ünitenin KENDİ inline
+  // AiAssistPanel'ine verilecek başlangıç JSON metni — version, aynı üniteye ikinci kez
+  // doldurulduğunda AiAssistPanel'i yeni bir `key` ile yeniden monte edip pasteValue'yu
+  // sıfırlamak için (bkz. AiBulkAssistPanel onFillOne).
+  const [bulkAiPrefill, setBulkAiPrefill] = useState<Record<number, { text: string; version: number }>>({});
 
   // Aktarılan içeriği canlı TYMM sayfasıyla yan yana karşılaştırma modalı
   const [inspecting, setInspecting] = useState<InspectTarget | null>(null);
@@ -905,7 +910,9 @@ export default function YillikPlanPanel() {
                   return aiItems.length > 0 ? (
                     <AiBulkAssistPanel
                       items={aiItems}
-                      onApplyOne={(bulkIndex, learningOutcomes) => updateBulkItemUnit(bulkIndex, (u) => ({ ...u, learningOutcomes }))}
+                      onFillOne={(bulkIndex, jsonText) =>
+                        setBulkAiPrefill((prev) => ({ ...prev, [bulkIndex]: { text: jsonText, version: (prev[bulkIndex]?.version ?? 0) + 1 } }))
+                      }
                     />
                   ) : null;
                 })()}
@@ -969,9 +976,12 @@ export default function YillikPlanPanel() {
                     {item.unit && item.rawSections && !item.saveResult && (
                       <div className="mt-3 space-y-2">
                         <AiAssistPanel
+                          key={`ai-assist-${idx}-${bulkAiPrefill[idx]?.version ?? 0}`}
                           unitTitle={item.unit.unitTitle}
                           contentFramework={item.unit.contentFramework}
                           rawLearningOutcomes={item.rawSections.learningOutcomes}
+                          initialPasteValue={bulkAiPrefill[idx]?.text}
+                          initiallyOpen={bulkAiPrefill[idx] != null}
                           onApply={(learningOutcomes) => updateBulkItemUnit(idx, (u) => ({ ...u, learningOutcomes }))}
                         />
                         <AiVerifyPanel
@@ -1744,15 +1754,22 @@ function AiAssistPanel({
   contentFramework,
   rawLearningOutcomes,
   onApply,
+  initialPasteValue,
+  initiallyOpen,
 }: {
   unitTitle: string;
   contentFramework: string[];
   rawLearningOutcomes: string;
   onApply: (learningOutcomes: TymmLearningOutcome[]) => void;
+  // Toplu "Tüm Üniteleri AI ile Ayrıştır" panelinden bu ünitenin JSON payı doldurulduğunda
+  // kullanılır — çağıran taraf bu bileşeni yeni bir `key` ile yeniden monte ederek pasteValue'yu
+  // bu başlangıç değerine sıfırlar (bkz. AiBulkAssistPanel altındaki kullanım).
+  initialPasteValue?: string;
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen ?? false);
   const [copied, setCopied] = useState(false);
-  const [pasteValue, setPasteValue] = useState('');
+  const [pasteValue, setPasteValue] = useState(initialPasteValue ?? '');
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
 
@@ -2014,16 +2031,21 @@ function AiVerifyPanel({
 // kontrol ettikten sonra kaydeder.
 function AiBulkAssistPanel({
   items,
-  onApplyOne,
+  onFillOne,
 }: {
   items: { bulkIndex: number; unitTitle: string; contentFramework: string[]; rawLearningOutcomes: string }[];
-  onApplyOne: (bulkIndex: number, learningOutcomes: TymmLearningOutcome[]) => void;
+  // Bulk JSON'u doğrudan unit state'ine YAZMIYOR — her ünitenin KENDİ AiAssistPanel'indeki
+  // JSON kutusunu, o ünitenin payına düşen metinle dolduruyor (bkz. proje sohbeti 2026-09-20:
+  // "istediğim şey tek tek ünitelerin json alanının dolması"). Admin sonra her ünitenin
+  // kendi "✅ JSON'u Uygula" düğmesine basarak, tek tek elle yapıştırmış gibi onaylıyor —
+  // hiçbir şey görünmeden/gözden geçirilmeden değişmiyor.
+  onFillOne: (bulkIndex: number, jsonText: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pasteValue, setPasteValue] = useState('');
-  const [applyError, setApplyError] = useState<string | null>(null);
-  const [applySummary, setApplySummary] = useState<string | null>(null);
+  const [fillError, setFillError] = useState<string | null>(null);
+  const [fillSummary, setFillSummary] = useState<string | null>(null);
 
   const prompt = buildAiBulkTopicPrompt(
     items.map((it, i) => ({ unitIndex: i + 1, unitTitle: it.unitTitle, contentFramework: it.contentFramework, rawLearningOutcomes: it.rawLearningOutcomes }))
@@ -2035,26 +2057,26 @@ function AiBulkAssistPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      setApplyError('Panoya kopyalanamadı — tarayıcı izni engellemiş olabilir.');
+      setFillError('Panoya kopyalanamadı — tarayıcı izni engellemiş olabilir.');
     }
   }
 
-  function applyPaste() {
-    setApplyError(null);
-    setApplySummary(null);
+  function fillFields() {
+    setFillError(null);
+    setFillSummary(null);
     try {
       const results = parseAiBulkTopicJson(pasteValue);
-      let applied = 0;
+      let filled = 0;
       for (const r of results) {
         const item = items[r.unitIndex - 1];
         if (!item) continue;
-        onApplyOne(item.bulkIndex, r.learningOutcomes);
-        applied += 1;
+        onFillOne(item.bulkIndex, JSON.stringify(r.learningOutcomes, null, 2));
+        filled += 1;
       }
-      if (applied === 0) throw new Error('Hiçbir unitIndex eşleşmedi — prompt sırasını/numaralarını değiştirmediğinizden emin olun.');
-      setApplySummary(`${applied}/${items.length} ünite güncellendi — her birini açıp kontrol edin.`);
+      if (filled === 0) throw new Error('Hiçbir unitIndex eşleşmedi — prompt sırasını/numaralarını değiştirmediğinizden emin olun.');
+      setFillSummary(`${filled}/${items.length} ünitenin JSON kutusu dolduruldu — aşağıda her birini açıp "JSON'u Uygula"ya basarak onaylayın.`);
     } catch (e) {
-      setApplyError(e instanceof Error ? e.message : 'Geçersiz JSON');
+      setFillError(e instanceof Error ? e.message : 'Geçersiz JSON');
     }
   }
 
@@ -2068,8 +2090,9 @@ function AiBulkAssistPanel({
         <div className="px-3.5 pb-3.5 space-y-2.5">
           <p className="text-[11px] text-muted-foreground leading-relaxed">
             1) Promptu kopyala ({items.length} ünitenin TAMAMINI içerir) → 2) ChatGPT/Claude gibi bir AI&apos;ya yapıştır → 3) dönen
-            JSON&apos;u aşağıya yapıştırıp uygula. Her ünite kendi unitIndex&apos;i ile eşleştirilip GÜNCELLENİR (önceki hâli kaybolur) —
-            kaydetmeden önce her ünitenin önizlemesini (🔍 Karşılaştır ve Onayla) tek tek açıp kontrol edin.
+            JSON&apos;u aşağıya yapıştırıp doldur. Bu HİÇBİR ŞEYİ doğrudan kaydetmez — sadece aşağıdaki her ünite kartının kendi
+            &quot;AI ile Ayrıştır&quot; kutusuna, o ünitenin payını yazar; siz her birini tek tek açıp kontrol edip kendi
+            &quot;JSON&apos;u Uygula&quot; düğmesine basarsınız.
           </p>
           <button onClick={copyPrompt} className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors">
             {copied ? '✓ Kopyalandı' : `📋 Prompt'u Kopyala (${items.length} ünite)`}
@@ -2079,7 +2102,7 @@ function AiBulkAssistPanel({
             <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">AI&apos;ın döndürdüğü JSON&apos;u buraya yapıştır</label>
             <textarea
               value={pasteValue}
-              onChange={(e) => { setPasteValue(e.target.value); setApplySummary(null); setApplyError(null); }}
+              onChange={(e) => { setPasteValue(e.target.value); setFillSummary(null); setFillError(null); }}
               rows={6}
               spellCheck={false}
               placeholder='[ { "unitIndex": 1, "unitTitle": "...", "learningOutcomes": [...] } ]'
@@ -2088,14 +2111,14 @@ function AiBulkAssistPanel({
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={applyPaste}
+              onClick={fillFields}
               disabled={!pasteValue.trim()}
               className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              ✅ JSON&apos;u Uygula
+              ⬇️ Ünitelerin JSON Kutularını Doldur
             </button>
-            {applySummary && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{applySummary}</span>}
-            {applyError && <span className="text-xs text-red-600 dark:text-red-400">❌ {applyError}</span>}
+            {fillSummary && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{fillSummary}</span>}
+            {fillError && <span className="text-xs text-red-600 dark:text-red-400">❌ {fillError}</span>}
           </div>
         </div>
       )}
