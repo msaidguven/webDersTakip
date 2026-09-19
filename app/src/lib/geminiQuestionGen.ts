@@ -48,11 +48,27 @@ async function callGenerateContent(prompt: string, apiKey: string): Promise<Resp
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 503 (UNAVAILABLE) kota/kimlik doğrulama sorunu değil — Google'ın modeli o an geçici
+// olarak aşırı yüklü, mesajın kendisi de "genelde geçici, sonra tekrar dene" diyor
+// (kullanıcının 2026-09-19 canlı log raporu: bu worker 20 dakikalık her turda art arda
+// 503 alıyordu). Bu SADECE arkaplan işçisinde (bu dosyada) kullanılıyor — @hocam/@kanka
+// gibi anlık kullanıcı sohbetinde (rag/gemini.ts) bir kullanıcıyı 5 dakika bekletmek kabul
+// edilemez, o yüzden buraya taşınmadı.
+const RETRY_ON_503_DELAY_MS = 5 * 60 * 1000;
+
 export async function generateQuestionsJson(prompt: string): Promise<unknown> {
   const keys = getApiKeys();
   let res: Response | null = null;
   for (let i = 0; i < keys.length; i++) {
     res = await callGenerateContent(prompt, keys[i]);
+    if (res.status === 503) {
+      await sleep(RETRY_ON_503_DELAY_MS);
+      res = await callGenerateContent(prompt, keys[i]);
+    }
     if (res.ok) break;
     const isLastKey = i === keys.length - 1;
     if (res.status !== 429 || isLastKey) {
