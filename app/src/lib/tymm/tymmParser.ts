@@ -123,14 +123,22 @@ function rawFieldText(html: string, label: string): string {
 type RawLearningOutcome = Omit<TymmLearningOutcome, 'topicTitle'>;
 
 // N öğeyi M kovaya, hiçbirini bölmeden ve SIRAYI bozmadan, mümkün olduğunca eşit dağıtır —
-// kalan öğeler ilk kovalardan başlanarak dağıtılır (ör. 4 öğe/3 kova → [2,1,1]).
+// kalan öğeler SON kovalardan başlanarak dağıtılır (ör. 4 öğe/3 kova → [1,1,2]), İLK
+// kovalardan değil. Çağıran yer (İçerik Çerçevesi konularına öğrenme çıktısı dağıtımı)
+// sırayı koruyan bir liste eşleştirmesi yapıyor — TYMM sayfalarında ilk N konu genelde ilk N
+// öğrenme çıktısıyla birebir örtüşüyor, fazlalık (TYMM'in içerik çerçevesinde ayrı bir satırı
+// olmayan ekstra bir öğrenme çıktısı) sona ekleniyor. Kalanı ilk kovaya vermek bu 1:1
+// örtüşmeyi baştan bozup TÜM konu başlıklarını bir kayarak yanlış eşleştiriyordu (ör.
+// Matematik 6 "Doğal Sayıların Çarpanları ve Katları" ünitesi, 2026-09-20 kullanıcı
+// bildirimi: 4. öğrenme çıktısı [ortak kat/bölen] çerçevede hiç yok, ama kalan ilk kovaya
+// verilince 2./3. konular birer öğrenme çıktısı kayıp yanlış içerikle eşleşiyordu).
 function distributeIntoBuckets<T>(items: T[], bucketCount: number): T[][] {
   const base = Math.floor(items.length / bucketCount);
   const remainder = items.length % bucketCount;
   const buckets: T[][] = [];
   let idx = 0;
   for (let b = 0; b < bucketCount; b++) {
-    const size = base + (b < remainder ? 1 : 0);
+    const size = base + (b >= bucketCount - remainder ? 1 : 0);
     buckets.push(items.slice(idx, idx + size));
     idx += size;
   }
@@ -275,13 +283,24 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
   // eşleşme sağlarsa (başlıksız) liste kullanılıyor, sağlamazsa (ör. bir çerçeve satırı
   // birden fazla öğrenme çıktısını kapsıyorsa — TYMM sayfasında bunu ayıran bir yapı yok)
   // eski davranışa (öğrenme çıktısı cümlesini başlık say) düşülüp admin'e uyarı basılıyor.
+  // Grup başlığı satırları hiçbir zaman gerçek bir konu değildir — bu yüzden varsa ÖNCE
+  // onlar çıkarılıp eşleşme denenir. Sırayı tersine çevirirsek (önce ham liste denenirse)
+  // tesadüfen ham satır sayısı == öğrenme çıktısı sayısı olduğunda (ör. Matematik 6 "Doğal
+  // Sayıların Çarpanları ve Katları" ünitesi: 1 grup başlığı + 3 alt konu = 4 satır, 4
+  // öğrenme çıktısı) grup başlığı gerçek bir konuymuş gibi (sonundaki ":" ile birlikte)
+  // kullanılıyor ve konu sayısı yanlış (fazla) çıkıyordu (2026-09-20 kullanıcı bildirimi).
   const withoutGroupHeaders = contentFramework.filter((line) => !line.trim().endsWith(':'));
-  const effectiveFramework =
-    contentFramework.length === rawOutcomes.length
+  const hasGroupHeaders = withoutGroupHeaders.length !== contentFramework.length;
+  // Grup başlığı VARSA ham (başlıklı) listeye asla düşmüyoruz — sayıca tesadüfen eşleşse
+  // bile başlık satırı konu değildir; eşleşmezse aşağıdaki bölüştürme/uyarı dallarına
+  // bırakılır.
+  const effectiveFramework = hasGroupHeaders
+    ? withoutGroupHeaders.length === rawOutcomes.length
+      ? withoutGroupHeaders
+      : null
+    : contentFramework.length === rawOutcomes.length
       ? contentFramework
-      : withoutGroupHeaders.length === rawOutcomes.length
-        ? withoutGroupHeaders
-        : null;
+      : null;
 
   // KONU sayısı DB'de her zaman İçerik Çerçevesi'ne eşit olmalı — orası TYMM'in kendi konu
   // listesi (bkz. proje sohbeti: "içerik çerçevesi ile konular aynı olmalı", 2026-09-09).
