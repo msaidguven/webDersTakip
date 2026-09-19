@@ -10,11 +10,13 @@ import { generateNextAiQuestionDraft } from '@/app/src/lib/aiQuestionDraftGen';
 // supabase/migrations/pg_cron_workers.sql; GitHub Actions'taki eski workflow'lar
 // scheduled tetikleyicilerin güvenilmez çıkması üzerine 2026-09-09'da kaldırıldı).
 //
-// Gemini 503 (geçici aşırı yük) verirse geminiQuestionGen.ts 5 dakika bekleyip bir kez
-// daha deniyor (kullanıcının 2026-09-19 isteği) — bu yüzden varsayılan süre bütçesi
-// yetmez; hem burada hem pg_net'in bu job için ayarlı timeout'unda (bkz.
-// ai_question_draft_worker_503_retry_timeout.sql, 6 dakika) uzatıldı.
-export const maxDuration = 330;
+// Gemini 503 (geçici aşırı yük) verirse geminiQuestionGen.ts bekleyip bir kez daha
+// deniyor (kullanıcının 2026-09-19 isteği) — bu yüzden varsayılan süre bütçesi yetmez.
+// 330 denendi ama bu projenin Vercel planında fonksiyon süresi tavanı 300sn — 330 deploy'u
+// (build değil, Vercel'in fonksiyon doğrulama adımı) "Error" ile reddetti (canlıda
+// görüldü). 300 bu projedeki DİĞER TÜM maxDuration'larla da (rag/documents,
+// teacher-guide/documents) aynı, kanıtlanmış tavan.
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.RAG_QUEUE_WORKER_SECRET;

@@ -56,9 +56,11 @@ function sleep(ms: number): Promise<void> {
 // olarak aşırı yüklü, mesajın kendisi de "genelde geçici, sonra tekrar dene" diyor
 // (kullanıcının 2026-09-19 canlı log raporu: bu worker 20 dakikalık her turda art arda
 // 503 alıyordu). Bu SADECE arkaplan işçisinde (bu dosyada) kullanılıyor — @hocam/@kanka
-// gibi anlık kullanıcı sohbetinde (rag/gemini.ts) bir kullanıcıyı 5 dakika bekletmek kabul
-// edilemez, o yüzden buraya taşınmadı.
-const RETRY_ON_503_DELAY_MS = 5 * 60 * 1000;
+// gibi anlık kullanıcı sohbetinde (rag/gemini.ts) bir kullanıcıyı bekletmek kabul edilemez,
+// o yüzden buraya taşınmadı. 4 dakika (5 değil): route'un maxDuration'ı bu projenin Vercel
+// planında 300sn'yi geçemiyor (330 denendi, deploy reddedildi) — iki Gemini çağrısı +
+// DB yazımına pay bırakmak için tam tavana değil, altına oturtuldu.
+const RETRY_ON_503_DELAY_MS = 4 * 60 * 1000;
 
 export async function generateQuestionsJson(prompt: string): Promise<unknown> {
   const keys = getApiKeys();
