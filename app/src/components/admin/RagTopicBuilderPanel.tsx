@@ -9,8 +9,6 @@ import {
   RagTopicSourceModal,
   RagTopicSourceSynthesisModal,
   RagUnitSourceDedupModal,
-  NotebookPlanModal,
-  TopicQuestionsModal,
   ToolButton,
 } from './AdminTopicSectionsPanel';
 
@@ -25,10 +23,14 @@ import {
 // 1. Kaynak Taslakları (her konu, ayrı ayrı, en az 5)
 // 2. Sentezle (her konu, 1. bitmeden AÇILMAZ)
 // 3. Ünite: Kaynak Tekilleştir (TÜM konular 2'yi bitirmeden AÇILMAZ — ünite bazlı, tek sefer)
-// 4. İçerik/Soru üretimi (ÜNİTEDEKİ TÜM konular 1-2'yi VE ünite 3'ü bitirmeden AÇILMAZ)
 // "Doğruluk Kontrolü" kaldırıldı (kullanıcı kararı: bu kadar aşamadan geçmiş küçük bir
 // kaynaktan AI zaten doğru içerik üretir, NotebookLM akışında da ayrı bir doğrulama yok) —
 // yerine RagOpenNotesList, sentez/tekilleştirme adımlarının bıraktığı notları gösteriyor.
+// Eskiden burada 4. bir "İçerik/Soru üretimi" (Sentezden İçerik) grubu da vardı — kullanıcının
+// 2026-09-19 isteğiyle bu grup /admin/konu-icerik/[topicId]'e (AdminTopicSectionsPanel) TAŞINDI:
+// orada konu bazında "bu konu RAG'den mi kitaptan mı besleniyor" tespitiyle SADECE ilgili
+// araç grubu gösteriliyor. Burada (bu panelde) SADECE kaynak inşası (1-3) kalıyor — o, konu
+// bazlı değil ünite bazlı bir araç seçici gerektirdiği için buradan taşınmadı.
 
 type GradeRow = { id: number; name: string; order_no: number };
 type LessonRow = { id: number; name: string; order_no: number };
@@ -49,9 +51,6 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
   const [unitId, setUnitId] = useState<number | null>(null);
   const [topicId, setTopicId] = useState<number | null>(null);
 
-  const [sectionCount, setSectionCount] = useState<number | null>(null);
-  const [loadingBundle, setLoadingBundle] = useState(false);
-
   // Ünitedeki tüm konuların taslak sayısı + sentez durumu + ünitenin tekilleştirme durumu —
   // hem ✅ işaretlemesi hem de aşamalı buton kilitleme (kullanıcının 2026-09-18 isteği: "bir
   // aşamayı tamamlamadan diğer aşama aktif olmamalı") için tek yerden besleniyor.
@@ -62,8 +61,6 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
   const [ragSourceModalOpen, setRagSourceModalOpen] = useState(false);
   const [ragSourceSynthesisModalOpen, setRagSourceSynthesisModalOpen] = useState(false);
   const [ragUnitDedupModalOpen, setRagUnitDedupModalOpen] = useState(false);
-  const [notebookPlanVariant, setNotebookPlanVariant] = useState<'full_from_synthesis' | 'content_refresh_from_synthesis' | null>(null);
-  const [topicQuestionsVariant, setTopicQuestionsVariant] = useState<'rag_synthesis' | 'classical_rag_synthesis' | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -163,26 +160,7 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
 
   const selectedUnitCompletion = unitId != null ? unitCompletion.get(unitId) : undefined;
   const allUnitTopicsSynthesized = !!selectedUnitCompletion && selectedUnitCompletion.total > 0 && selectedUnitCompletion.synthDone === selectedUnitCompletion.total;
-  const unitFullyReady = !!selectedUnitCompletion?.fullyDone;
   const selectedTopicDraftCount = topicId != null ? (draftCountByTopicId.get(topicId) || 0) : 0;
-
-  useEffect(() => {
-    if (topicId == null) {
-      setSectionCount(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingBundle(true);
-    (async () => {
-      const res = await fetch(`/api/admin/topic-sections?topicId=${topicId}`);
-      const data = await res.json().catch(() => null);
-      if (!cancelled) {
-        setSectionCount(Array.isArray(data?.sections) ? data.sections.length : 0);
-        setLoadingBundle(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [topicId, reloadKey]);
 
   const selectedTopic = topics.find((t) => t.id === topicId) || null;
 
@@ -293,63 +271,40 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
         <div className="rounded-xl border border-border bg-card p-4 space-y-4">
           <h3 className="text-sm font-black text-foreground">{selectedTopic.title}</h3>
 
-          {loadingBundle ? (
-            <p className="text-xs text-muted-foreground">Yükleniyor...</p>
-          ) : (
-            <>
-              <RagPipelineStatus key={reloadKey} topicId={topicId} unitId={unitId} />
-              <RagOpenNotesList key={`notes-${reloadKey}-${topicId}`} topicId={topicId} />
+          <RagPipelineStatus key={reloadKey} topicId={topicId} unitId={unitId} />
+          <RagOpenNotesList key={`notes-${reloadKey}-${topicId}`} topicId={topicId} />
 
-              <div>
-                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynak (Kitapsız Ders — Öğrenci Soru-Cevap Kaynağı)</span>
-                <div className="flex flex-wrap gap-2">
-                  <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
-                  <ToolButton
-                    tone="rag"
-                    disabled={selectedTopicDraftCount < MIN_RAG_SOURCE_DRAFTS}
-                    title={selectedTopicDraftCount < MIN_RAG_SOURCE_DRAFTS ? `Önce en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı ekleyin (şu an: ${selectedTopicDraftCount}/${MIN_RAG_SOURCE_DRAFTS})` : undefined}
-                    onClick={() => setRagSourceSynthesisModalOpen(true)}
-                  >
-                    Kaynak Metni Sentezle
-                  </ToolButton>
-                  <ToolButton
-                    tone="rag"
-                    disabled={!allUnitTopicsSynthesized}
-                    title={!allUnitTopicsSynthesized ? `Önce bu ünitedeki TÜM konular sentezlenmeli (şu an: ${selectedUnitCompletion?.synthDone ?? 0}/${selectedUnitCompletion?.total ?? 0})` : undefined}
-                    onClick={() => setRagUnitDedupModalOpen(true)}
-                  >
-                    Ünite: Kaynak Tekilleştir
-                  </ToolButton>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1.5">🔍 Sentezden İçerik (RAG Kaynağını Ders İçeriğine Dönüştür)</span>
-                {!unitFullyReady && (
-                  <p className="mb-2 text-[11px] font-bold text-amber-500">
-                    Bu ünitedeki TÜM konular sentezlenip ünite tekilleştirilmeden içerik/soru üretilemez.
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <ToolButton tone="synthesis" disabled={!unitFullyReady} onClick={() => setNotebookPlanVariant('full_from_synthesis')}>Sentezden Alt Başlık</ToolButton>
-                  {(sectionCount ?? 0) > 0 && (
-                    <ToolButton tone="synthesis" disabled={!unitFullyReady} onClick={() => setNotebookPlanVariant('content_refresh_from_synthesis')}>Sentezden İçeriği Güncelle</ToolButton>
-                  )}
-                  <ToolButton tone="synthesis" disabled={!unitFullyReady} onClick={() => setTopicQuestionsVariant('rag_synthesis')}>Genel Sorular</ToolButton>
-                  <ToolButton tone="synthesis" disabled={!unitFullyReady} onClick={() => setTopicQuestionsVariant('classical_rag_synthesis')}>Açık Uçlu Sorular</ToolButton>
-                </div>
-              </div>
-
-              <a
-                href={`/admin/konu-icerik/${topicId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block text-[11px] font-bold text-[#6c63ff] hover:underline"
+          <div>
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1.5">🗂️ RAG Kaynak (Kitapsız Ders — Öğrenci Soru-Cevap Kaynağı)</span>
+            <div className="flex flex-wrap gap-2">
+              <ToolButton tone="rag" onClick={() => setRagSourceModalOpen(true)}>Kaynak Metni Ekle</ToolButton>
+              <ToolButton
+                tone="rag"
+                disabled={selectedTopicDraftCount < MIN_RAG_SOURCE_DRAFTS}
+                title={selectedTopicDraftCount < MIN_RAG_SOURCE_DRAFTS ? `Önce en az ${MIN_RAG_SOURCE_DRAFTS} kaynak taslağı ekleyin (şu an: ${selectedTopicDraftCount}/${MIN_RAG_SOURCE_DRAFTS})` : undefined}
+                onClick={() => setRagSourceSynthesisModalOpen(true)}
               >
-                Bu konunun tam içerik yönetimini aç →
-              </a>
-            </>
-          )}
+                Kaynak Metni Sentezle
+              </ToolButton>
+              <ToolButton
+                tone="rag"
+                disabled={!allUnitTopicsSynthesized}
+                title={!allUnitTopicsSynthesized ? `Önce bu ünitedeki TÜM konular sentezlenmeli (şu an: ${selectedUnitCompletion?.synthDone ?? 0}/${selectedUnitCompletion?.total ?? 0})` : undefined}
+                onClick={() => setRagUnitDedupModalOpen(true)}
+              >
+                Ünite: Kaynak Tekilleştir
+              </ToolButton>
+            </div>
+          </div>
+
+          <a
+            href={`/admin/konu-icerik/${topicId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block text-[11px] font-bold text-[#6c63ff] hover:underline"
+          >
+            Kaynak hazır — içerik/soru üretimi için tam içerik yönetimini aç →
+          </a>
         </div>
       )}
 
@@ -361,36 +316,6 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
       )}
       {ragUnitDedupModalOpen && unitId && (
         <RagUnitSourceDedupModal unitId={unitId} onClose={() => setRagUnitDedupModalOpen(false)} onSaved={() => { setRagUnitDedupModalOpen(false); setReloadKey((k) => k + 1); }} />
-      )}
-      {notebookPlanVariant === 'full_from_synthesis' && topicId && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="full_from_synthesis"
-          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
-          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); setReloadKey((k) => k + 1); }}
-        />
-      )}
-      {notebookPlanVariant === 'content_refresh_from_synthesis' && topicId && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="content_refresh_from_synthesis"
-          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
-          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); setReloadKey((k) => k + 1); }}
-        />
-      )}
-      {topicQuestionsVariant && topicId && selectedTopic && (
-        <TopicQuestionsModal
-          topicId={topicId}
-          topicTitle={selectedTopic.title}
-          variant={topicQuestionsVariant}
-          onClose={() => { setTopicQuestionsVariant(null); setReloadKey((k) => k + 1); }}
-        />
       )}
     </div>
   );
