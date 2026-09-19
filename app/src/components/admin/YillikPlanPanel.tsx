@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import type { TymmUnit, TymmRawSections } from '@/app/src/lib/tymm/tymmParser';
+import type { TymmUnit, TymmRawSections, TymmLearningOutcome } from '@/app/src/lib/tymm/tymmParser';
 
 type ParsedRow = {
   week_no: number | null;
@@ -1228,11 +1228,13 @@ function TymmUnitEditor({
   unit,
   unmatchedLines,
   boundaryWarnings,
+  rawSections,
   onChange,
 }: {
   unit: TymmUnit;
   unmatchedLines: string[];
   boundaryWarnings: string[];
+  rawSections: TymmRawSections | null;
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
 }) {
   // Varsayılan görünüm SALT OKUNUR ve derli toplu — bir konuyu düzeltmek gerekirse sadece
@@ -1272,9 +1274,19 @@ function TymmUnitEditor({
             ))}
           </div>
           <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70 mt-1.5">
-            Aşağıda bir kazanımı yanlış konuda görürseniz, sürükleyip doğru konunun üzerine bırakarak taşıyabilirsiniz.
+            Aşağıda bir kazanımı yanlış konuda görürseniz, sürükleyip doğru konunun üzerine bırakarak taşıyabilirsiniz —
+            ya da altındaki &quot;AI ile Ayrıştır&quot; ile tüm eşleştirmeyi tek seferde yeniden yaptırabilirsiniz.
           </p>
         </div>
+      )}
+
+      {rawSections && (
+        <AiAssistPanel
+          unitTitle={unit.unitTitle}
+          contentFramework={unit.contentFramework}
+          rawLearningOutcomes={rawSections.learningOutcomes}
+          onApply={(learningOutcomes) => onChange((u) => ({ ...u, learningOutcomes }))}
+        />
       )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
@@ -1553,6 +1565,154 @@ function TymmUnitEditor({
   );
 }
 
+function buildAiTopicPrompt(unitTitle: string, contentFramework: string[], rawLearningOutcomes: string): string {
+  return `Aşağıda bir MEB müfredat ünitesinin "İçerik Çerçevesi" (konu başlıkları) ile "Öğrenme Çıktıları ve Süreç Bileşenleri" (kazanımlar) metni var. Görevin: her öğrenme çıktısını (ve süreç bileşenlerini hiç bölmeden, bütün hâlde) İçerik Çerçevesi'ndeki DOĞRU konuya atamak ve SADECE aşağıdaki JSON formatında, öncesinde/sonrasında hiçbir açıklama veya markdown kod bloğu olmadan döndürmek.
+
+Ünite: ${unitTitle}
+
+İçerik Çerçevesi (konular, bu sırayla — sonu ":" ile biten satırlar bir grup başlığıdır, gerçek konu DEĞİLDİR, atlanmalı):
+${contentFramework.map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+Öğrenme Çıktıları ve Süreç Bileşenleri (ham metin — her paragraf bir öğrenme çıktısı, altındaki a) b) c)... satırları o çıktının süreç bileşenleridir):
+${rawLearningOutcomes}
+
+İstenen JSON formatı (düz bir dizi, her eleman BİR öğrenme çıktısı):
+[
+  {
+    "topicTitle": "İçerik Çerçevesi'ndeki birebir konu başlığı (yukarıdaki listeden aynen kopyala)",
+    "code": "orijinal kod, ör. MAT.6.1.2 (yoksa boş string)",
+    "title": "öğrenme çıktısının kendi cümlesi",
+    "components": [ { "letter": "a", "text": "süreç bileşeni metni" } ]
+  }
+]
+
+Kurallar:
+- Bir konuya birden fazla öğrenme çıktısı ait olabilir — aynı topicTitle ile birden fazla obje üret, hepsi o konu altında birleşir.
+- Her öğrenme çıktısının süreç bileşenlerini (a/b/c...) OLDUĞU GİBİ, bölmeden/birleştirmeden/metnini değiştirmeden components dizisine koy.
+- topicTitle mutlaka yukarıdaki İçerik Çerçevesi listesinden BİREBİR bir satır olmalı (grup başlıkları hariç).
+- Hiçbir öğrenme çıktısını atlama, hepsini bir konuya ata.
+- SADECE JSON döndür.`;
+}
+
+type AiTopicJsonItem = { topicTitle: string; code?: string; title?: string; components?: { letter: string; text: string }[] };
+
+function parseAiTopicJson(raw: string): TymmLearningOutcome[] {
+  // Bazen AI, isteğe rağmen ```json ... ``` kod bloğuna sarıp gönderiyor — kullanıcı ham
+  // yanıtı olduğu gibi yapıştırabilsin diye burada ayıklıyoruz.
+  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  const parsed: unknown = JSON.parse(stripped);
+  if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
+  return parsed.map((item, i) => {
+    const o = item as AiTopicJsonItem;
+    if (typeof o.topicTitle !== 'string' || !o.topicTitle.trim()) {
+      throw new Error(`${i + 1}. öğede geçerli bir "topicTitle" yok.`);
+    }
+    const components = Array.isArray(o.components)
+      ? o.components.map((c) => ({ letter: typeof c.letter === 'string' ? c.letter : '', text: typeof c.text === 'string' ? c.text : '' }))
+      : [];
+    return { topicTitle: o.topicTitle.trim(), code: typeof o.code === 'string' ? o.code : '', title: typeof o.title === 'string' ? o.title : '', components };
+  });
+}
+
+// Konu/kazanım eşleştirmesi belirsiz kaldığında (bkz. boundaryWarnings) admin İçerik
+// Çerçevesi + ham öğrenme çıktısı metnini bir prompt olarak kopyalayıp harici bir AI'ya
+// (ChatGPT/Claude) yapıştırabiliyor, AI'ın döndürdüğü JSON'u da buraya yapıştırınca
+// unit.learningOutcomes'un TAMAMI o JSON ile değiştiriliyor — API çağrısı YOK, kopyala/
+// yapıştır tabanlı, admin her adımı gözden geçirip elle onaylıyor (bkz. proje sohbeti
+// 2026-09-20: "ben manuel bunu yapsam ve ai bana ... json formatında verse").
+function AiAssistPanel({
+  unitTitle,
+  contentFramework,
+  rawLearningOutcomes,
+  onApply,
+}: {
+  unitTitle: string;
+  contentFramework: string[];
+  rawLearningOutcomes: string;
+  onApply: (learningOutcomes: TymmLearningOutcome[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
+
+  const prompt = buildAiTopicPrompt(unitTitle, contentFramework, rawLearningOutcomes);
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setApplyError('Panoya kopyalanamadı — tarayıcı izni engellemiş olabilir.');
+    }
+  }
+
+  function applyPaste() {
+    setApplyError(null);
+    setApplied(false);
+    try {
+      const learningOutcomes = parseAiTopicJson(pasteValue);
+      if (learningOutcomes.length === 0) throw new Error('Dizi boş.');
+      onApply(learningOutcomes);
+      setApplied(true);
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : 'Geçersiz JSON');
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/[0.03]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+      >
+        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">🤖 AI ile Ayrıştır (konu eşleştirmesini yeniden yaptır)</span>
+        <span className="text-muted-foreground text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5 space-y-2.5">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            1) Aşağıdaki promptu kopyala → 2) ChatGPT/Claude gibi bir AI&apos;ya yapıştır → 3) AI&apos;ın döndürdüğü JSON&apos;u aşağıya
+            yapıştırıp uygula. Bu, aşağıdaki tüm konuların/kazanımların yerini AI&apos;ın önerdiği eşleştirmeyle DEĞİŞTİRİR —
+            uygulamadan önceki hâl kaybolur, kaydetmeden önce sonucu mutlaka gözden geçir.
+          </p>
+          <button
+            onClick={copyPrompt}
+            className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors"
+          >
+            {copied ? '✓ Kopyalandı' : '📋 Prompt\'u Kopyala'}
+          </button>
+
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">AI&apos;ın döndürdüğü JSON&apos;u buraya yapıştır</label>
+            <textarea
+              value={pasteValue}
+              onChange={(e) => { setPasteValue(e.target.value); setApplied(false); setApplyError(null); }}
+              rows={6}
+              spellCheck={false}
+              placeholder='[ { "topicTitle": "...", "code": "...", "title": "...", "components": [...] } ]'
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={applyPaste}
+              disabled={!pasteValue.trim()}
+              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ✅ JSON&apos;u Uygula
+            </button>
+            {applied && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Uygulandı — aşağıdaki Konular listesini kontrol edin.</span>}
+            {applyError && <span className="text-xs text-red-600 dark:text-red-400">❌ {applyError}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Solda içerik (DB'deki kayıt ya da henüz kaydedilmemiş önizleme), sağda gerçek TYMM
 // sayfası — admin kafasından karşılaştırmak yerine ikisini yan yana görüp öyle
 // onaylayabilsin diye (bkz. proje sohbeti: "kafamdan kontrol edemem").
@@ -1662,7 +1822,7 @@ function TymmPreviewCompareModal({
       onClose={onClose}
       left={
         <>
-          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} boundaryWarnings={boundaryWarnings} onChange={onChange} />
+          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} boundaryWarnings={boundaryWarnings} rawSections={rawSections} onChange={onChange} />
           {!canSave && (
             <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-4">
               ⚠️ Kaydetmeden önce Sınıf ve Ders seçin.
