@@ -1626,10 +1626,36 @@ function parseLearningOutcomesArray(arr: unknown[], errorPrefix = ''): TymmLearn
   });
 }
 
+// AI'a "bir konuya birden fazla öğrenme çıktısı ait olabilir, aynı topicTitle ile birden
+// fazla obje üret" dedirtiyoruz (bkz. buildAiTopicPrompt) — kaydetme aşamasında (importUnit.ts)
+// bunlar zaten aynı topicTitle üzerinden tek konuya birleşiyor. Ama ÖNİZLEME her
+// learningOutcomes öğesini kendi "Konu" satırı gibi gösteriyor (parser'ın her yerinde 1
+// öğe = 1 konu değişmezi geçerli, ör. distributeIntoBuckets zaten hep TEK birleştirilmiş
+// öğe üretiyor) — birleştirmeden bırakılırsa aynı konu iki kez, farklı numaralarla
+// listeleniyor ve "Konu sayısı" yanlış/şişirilmiş görünüyor (2026-09-20 kullanıcı bildirimi:
+// 4 konu 6'ya çıktı). Bu yüzden AI JSON'unu her zaman burada, aynı topicTitle'a göre tek
+// öğeye indirip önizlemeyi DB'de gerçekte oluşacak hâliyle birebir eşliyoruz.
+function mergeLearningOutcomesByTopicTitle(items: TymmLearningOutcome[]): TymmLearningOutcome[] {
+  const order: string[] = [];
+  const byTitle = new Map<string, TymmLearningOutcome>();
+  for (const item of items) {
+    const existing = byTitle.get(item.topicTitle);
+    if (!existing) {
+      order.push(item.topicTitle);
+      byTitle.set(item.topicTitle, { ...item, components: [...item.components] });
+    } else {
+      existing.code = [existing.code, item.code].filter(Boolean).join(' / ');
+      existing.title = [existing.title, item.title].filter(Boolean).join(' ');
+      existing.components = [...existing.components, ...item.components];
+    }
+  }
+  return order.map((t) => byTitle.get(t)!);
+}
+
 function parseAiTopicJson(raw: string): TymmLearningOutcome[] {
   const parsed: unknown = JSON.parse(stripJsonFence(raw));
   if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
-  return parseLearningOutcomesArray(parsed);
+  return mergeLearningOutcomesByTopicTitle(parseLearningOutcomesArray(parsed));
 }
 
 function buildAiBulkTopicPrompt(
@@ -1677,7 +1703,7 @@ function parseAiBulkTopicJson(raw: string): { unitIndex: number; learningOutcome
     const o = item as { unitIndex?: number; learningOutcomes?: unknown };
     if (typeof o.unitIndex !== 'number') throw new Error(`${i + 1}. öğede geçerli bir "unitIndex" yok.`);
     if (!Array.isArray(o.learningOutcomes)) throw new Error(`Ünite ${o.unitIndex}: "learningOutcomes" dizisi yok.`);
-    return { unitIndex: o.unitIndex, learningOutcomes: parseLearningOutcomesArray(o.learningOutcomes, `Ünite ${o.unitIndex}, `) };
+    return { unitIndex: o.unitIndex, learningOutcomes: mergeLearningOutcomesByTopicTitle(parseLearningOutcomesArray(o.learningOutcomes, `Ünite ${o.unitIndex}, `)) };
   });
 }
 
