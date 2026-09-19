@@ -974,14 +974,14 @@ export default function YillikPlanPanel() {
                     )}
 
                     {item.unit && item.rawSections && !item.saveResult && (
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
                         <AiAssistPanel
                           key={`ai-assist-${idx}-${bulkAiPrefill[idx]?.version ?? 0}`}
                           unitTitle={item.unit.unitTitle}
                           contentFramework={item.unit.contentFramework}
                           rawLearningOutcomes={item.rawSections.learningOutcomes}
                           initialPasteValue={bulkAiPrefill[idx]?.text}
-                          initiallyOpen={bulkAiPrefill[idx] != null}
+                          initiallyOpen
                           onApply={(learningOutcomes) => updateBulkItemUnit(idx, (u) => ({ ...u, learningOutcomes }))}
                         />
                         <AiVerifyPanel
@@ -989,6 +989,7 @@ export default function YillikPlanPanel() {
                           contentFramework={item.unit.contentFramework}
                           rawLearningOutcomes={item.rawSections.learningOutcomes}
                           currentLearningOutcomes={item.unit.learningOutcomes}
+                          initiallyOpen
                         />
                       </div>
                     )}
@@ -1914,13 +1915,15 @@ function AiVerifyPanel({
   contentFramework,
   rawLearningOutcomes,
   currentLearningOutcomes,
+  initiallyOpen,
 }: {
   unitTitle: string;
   contentFramework: string[];
   rawLearningOutcomes: string;
   currentLearningOutcomes: TymmLearningOutcome[];
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen ?? false);
   const [copied, setCopied] = useState(false);
   const [pasteValue, setPasteValue] = useState('');
   const [checkError, setCheckError] = useState<string | null>(null);
