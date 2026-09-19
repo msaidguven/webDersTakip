@@ -40,7 +40,7 @@ type GradeRow = { id: number; name: string };
 
 // SADECE ÇEKME (yazma yok) sonucu — admin bunu düzenleyip onayladıktan sonra ayrı bir
 // istekle (save) kaydedilir, bkz. Card 4 üstündeki not.
-type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections };
+type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[]; boundaryWarnings: string[]; rawSections: TymmRawSections };
 
 // DB'YE YAZMA sonucu
 type TymmImportResult = {
@@ -53,7 +53,7 @@ type TymmImportResult = {
 };
 
 type BulkFetchItem =
-  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections }
+  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[]; boundaryWarnings: string[]; rawSections: TymmRawSections }
   | { url: string; title: string; ok: false; error: string };
 type BulkFetchResponse = { unitsFound: number; results: BulkFetchItem[] };
 
@@ -64,6 +64,7 @@ type BulkPreviewItem = {
   title: string;
   unit: TymmUnit | null;
   unmatchedLines: string[];
+  boundaryWarnings: string[];
   rawSections: TymmRawSections | null;
   fetchError: string | null;
   saving: boolean;
@@ -175,6 +176,7 @@ export default function YillikPlanPanel() {
   const [fetchErr, setFetchErr] = useState<string | null>(null);
   const [previewUnit, setPreviewUnit] = useState<TymmUnit | null>(null);
   const [previewUnmatched, setPreviewUnmatched] = useState<string[]>([]);
+  const [previewBoundaryWarnings, setPreviewBoundaryWarnings] = useState<string[]>([]);
   const [previewRawSections, setPreviewRawSections] = useState<TymmRawSections | null>(null);
   const [comparePreviewOpen, setComparePreviewOpen] = useState(false);
 
@@ -375,6 +377,7 @@ export default function YillikPlanPanel() {
     setFetchErr(null);
     setPreviewUnit(null);
     setPreviewUnmatched([]);
+    setPreviewBoundaryWarnings([]);
     setPreviewRawSections(null);
     setSaveResult(null);
     setSaveErr(null);
@@ -392,6 +395,7 @@ export default function YillikPlanPanel() {
       const result = data as TymmFetchResult;
       setPreviewUnit(result.unit);
       setPreviewUnmatched(result.unmatchedLines);
+      setPreviewBoundaryWarnings(result.boundaryWarnings);
       setPreviewRawSections(result.rawSections);
     } catch {
       setFetchErr('İstek başarısız (ağ hatası)');
@@ -451,6 +455,7 @@ export default function YillikPlanPanel() {
           title: r.title,
           unit: r.ok ? r.unit : null,
           unmatchedLines: r.ok ? r.unmatchedLines : [],
+          boundaryWarnings: r.ok ? r.boundaryWarnings : [],
           rawSections: r.ok ? r.rawSections : null,
           fetchError: r.ok ? null : r.error,
           saving: false,
@@ -1175,6 +1180,7 @@ export default function YillikPlanPanel() {
           tymmUrl={tymmUrl.trim()}
           unit={previewUnit}
           unmatchedLines={previewUnmatched}
+          boundaryWarnings={previewBoundaryWarnings}
           rawSections={previewRawSections}
           onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
           onClose={() => setComparePreviewOpen(false)}
@@ -1193,6 +1199,7 @@ export default function YillikPlanPanel() {
           tymmUrl={bulkItems[bulkCompareIndex].url}
           unit={bulkItems[bulkCompareIndex].unit as TymmUnit}
           unmatchedLines={bulkItems[bulkCompareIndex].unmatchedLines}
+          boundaryWarnings={bulkItems[bulkCompareIndex].boundaryWarnings}
           rawSections={bulkItems[bulkCompareIndex].rawSections}
           onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
           onClose={() => setBulkCompareIndex(null)}
@@ -1220,19 +1227,55 @@ export default function YillikPlanPanel() {
 function TymmUnitEditor({
   unit,
   unmatchedLines,
+  boundaryWarnings,
   onChange,
 }: {
   unit: TymmUnit;
   unmatchedLines: string[];
+  boundaryWarnings: string[];
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
 }) {
   // Varsayılan görünüm SALT OKUNUR ve derli toplu — bir konuyu düzeltmek gerekirse sadece
   // o konunun kalem ikonuna tıklanır, tüm ünite tek seferde düzenlenebilir hâle gelmiyor.
   const [editingTopic, setEditingTopic] = useState<number | null>(null);
   const [editingKeyConcepts, setEditingKeyConcepts] = useState(false);
+  // Sürükle-bırakla bir kazanımı başka bir konuya taşırken hangi konu satırının üzerinde
+  // olduğumuzu göstermek için (bkz. bileşen sürükleme handle'ı ve Konular listesi drop hedefi).
+  const [dragOverTopic, setDragOverTopic] = useState<number | null>(null);
+
+  function moveComponent(fromTopic: number, fromComp: number, toTopic: number) {
+    if (fromTopic === toTopic) return;
+    onChange((u) => {
+      const comp = u.learningOutcomes[fromTopic]?.components[fromComp];
+      if (!comp) return u;
+      return {
+        ...u,
+        learningOutcomes: u.learningOutcomes.map((o, i) => {
+          if (i === fromTopic) return { ...o, components: o.components.filter((_, j) => j !== fromComp) };
+          if (i === toTopic) return { ...o, components: [...o.components, comp] };
+          return o;
+        }),
+      };
+    });
+  }
 
   return (
     <div className="space-y-3">
+      {boundaryWarnings.length > 0 && (
+        <div className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 p-3.5">
+          <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1.5">
+            ⚠️ Konu/kazanım sınırı TAHMİN edildi — mutlaka kontrol edin
+          </p>
+          <div className="space-y-1">
+            {boundaryWarnings.map((w, i) => (
+              <p key={i} className="text-[11px] text-amber-700/90 dark:text-amber-300/90 leading-relaxed">{w}</p>
+            ))}
+          </div>
+          <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70 mt-1.5">
+            Aşağıda bir kazanımı yanlış konuda görürseniz, sürükleyip doğru konunun üzerine bırakarak taşıyabilirsiniz.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Ünite Başlığı</label>
@@ -1290,11 +1333,31 @@ function TymmUnitEditor({
         </div>
         <ol className="space-y-0.5 rounded-lg border border-border bg-surface p-2">
           {unit.learningOutcomes.map((outcome, oi) => (
-            <li key={oi}>
+            <li
+              key={oi}
+              onDragOver={(e) => { e.preventDefault(); setDragOverTopic(oi); }}
+              onDragLeave={() => setDragOverTopic((v) => (v === oi ? null : v))}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverTopic(null);
+                const raw = e.dataTransfer.getData('application/x-tymm-component');
+                if (!raw) return;
+                try {
+                  const { topicIndex, compIndex } = JSON.parse(raw) as { topicIndex: number; compIndex: number };
+                  moveComponent(topicIndex, compIndex, oi);
+                } catch {
+                  // sürüklenen veri bizim formatımızda değil — yoksay
+                }
+              }}
+            >
               <button
                 onClick={() => setEditingTopic(oi)}
                 className={`w-full text-left text-xs px-1.5 py-1 rounded-md flex items-center gap-1.5 transition-colors ${
-                  editingTopic === oi ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'text-foreground hover:bg-accent hover:text-indigo-600 dark:hover:text-indigo-300'
+                  dragOverTopic === oi
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400'
+                    : editingTopic === oi
+                      ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                      : 'text-foreground hover:bg-accent hover:text-indigo-600 dark:hover:text-indigo-300'
                 }`}
               >
                 <span className="text-muted-foreground font-mono flex-shrink-0">{oi + 1}.</span>
@@ -1310,6 +1373,7 @@ function TymmUnitEditor({
             </li>
           ))}
         </ol>
+        <p className="text-[10px] text-muted-foreground mt-1">Bir kazanımı taşımak için aşağıda açık konudaki ⠿ tutamacını sürükleyip buradaki hedef konunun üzerine bırakın.</p>
         <button
           onClick={() => {
             const newIndex = unit.learningOutcomes.length;
@@ -1371,6 +1435,17 @@ function TymmUnitEditor({
               <div className="space-y-1.5 pl-4 mt-2">
                 {outcome.components.map((comp, ci) => (
                   <div key={ci} className="flex items-start gap-1.5">
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/x-tymm-component', JSON.stringify({ topicIndex: oi, compIndex: ci }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      title="Başka bir konuya taşımak için yukarıdaki Konular listesine sürükle"
+                      className="flex-shrink-0 text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 cursor-grab active:cursor-grabbing select-none mt-1 text-xs"
+                    >
+                      ⠿
+                    </span>
                     <input
                       value={comp.letter}
                       onChange={(e) => {
@@ -1559,6 +1634,7 @@ function TymmPreviewCompareModal({
   tymmUrl,
   unit,
   unmatchedLines,
+  boundaryWarnings,
   rawSections,
   onChange,
   onClose,
@@ -1570,6 +1646,7 @@ function TymmPreviewCompareModal({
   tymmUrl: string;
   unit: TymmUnit;
   unmatchedLines: string[];
+  boundaryWarnings: string[];
   rawSections: TymmRawSections | null;
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
   onClose: () => void;
@@ -1585,7 +1662,7 @@ function TymmPreviewCompareModal({
       onClose={onClose}
       left={
         <>
-          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} onChange={onChange} />
+          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} boundaryWarnings={boundaryWarnings} onChange={onChange} />
           {!canSave && (
             <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-4">
               ⚠️ Kaydetmeden önce Sınıf ve Ders seçin.

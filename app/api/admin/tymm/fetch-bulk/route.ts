@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         ok: true as const,
         unit: fetched.result.unit,
         unmatchedLines: fetched.result.unmatchedLines,
+        boundaryWarnings: fetched.result.boundaryWarnings,
         rawSections: fetched.result.rawSections,
       };
     })

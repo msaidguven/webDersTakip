@@ -16,5 +16,10 @@ export async function POST(request: NextRequest) {
   const fetched = await fetchTymmUnit(tymmUrl);
   if (!fetched.ok) return NextResponse.json({ error: fetched.error }, { status: 400 });
 
-  return NextResponse.json({ unit: fetched.result.unit, unmatchedLines: fetched.result.unmatchedLines, rawSections: fetched.result.rawSections });
+  return NextResponse.json({
+    unit: fetched.result.unit,
+    unmatchedLines: fetched.result.unmatchedLines,
+    boundaryWarnings: fetched.result.boundaryWarnings,
+    rawSections: fetched.result.rawSections,
+  });
 }

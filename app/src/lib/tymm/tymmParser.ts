@@ -243,7 +243,7 @@ function parseLearningOutcomes(html: string): { outcomes: RawLearningOutcome[]; 
 // canlı sayfanın tamamı yerine sadece bunları göstermek için.
 export type TymmRawSections = { contentFramework: string; keyConcepts: string; learningOutcomes: string };
 
-export type ParseTymmResult = { unit: TymmUnit; unmatchedLines: string[]; rawSections: TymmRawSections };
+export type ParseTymmResult = { unit: TymmUnit; unmatchedLines: string[]; boundaryWarnings: string[]; rawSections: TymmRawSections };
 
 export function parseTymmUnitHtml(html: string): ParseTymmResult {
   // h1 artık `<h1 class="unite-detail__title">` gibi öznitelikli geliyor (TYMM sayfa
@@ -313,6 +313,13 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
   // Tersi (çerçeve satırı öğrenme çıktısından FAZLA) durumda güvenli bir bölüştürme yok —
   // bir öğrenme çıktısı grubunu ikiye bölmek anlamsız olur — o yüzden eski (uzun cümle)
   // davranışa düşülüp uyarı basılıyor.
+  // unmatchedLines (parseLearningOutcomes'tan gelen) GERÇEKTEN ayrıştırılamayan ham
+  // satırlardır. boundaryWarnings ise ayrıştırma başarılı oldu ama konu/kazanım SINIRI bir
+  // tahmine dayanıyor demektir — ikisi karıştırılırsa admin, "tahmine dayalı ama görünürde
+  // sorunsuz" bir üniteyi hiç kontrol etmeden atlayabilir (bkz. proje sohbeti 2026-09-20:
+  // "bu şekilde her zaman doğru olmayabilir" uyarısı fark edilmiyordu çünkü diğer ham
+  // satırlarla birlikte kapalı bir <details> içine gömülüydü).
+  const boundaryWarnings: string[] = [];
   let learningOutcomes: TymmLearningOutcome[];
   if (effectiveFramework) {
     learningOutcomes = rawOutcomes.map((o, i) => ({ ...o, topicTitle: effectiveFramework[i] }));
@@ -325,7 +332,7 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
       components: group.flatMap((o) => o.components),
     }));
     if (rawOutcomes.length > withoutGroupHeaders.length) {
-      unmatchedLines.push(
+      boundaryWarnings.push(
         `${withoutGroupHeaders.length} içerik çerçevesi konusuna ${rawOutcomes.length} öğrenme çıktısı sırayla gruplanarak dağıtıldı (TYMM sayfasında kesin sınır bilgisi yok) — grup sınırlarını kontrol edin.`
       );
     }
@@ -351,12 +358,12 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
         components: [c],
       }))
     );
-    unmatchedLines.push(
+    boundaryWarnings.push(
       `${rawOutcomes.length} öğrenme çıktısının süreç bileşenleri sayıca eşleştiği için ${withoutGroupHeaders.length} İçerik Çerçevesi konusuna ayrı ayrı dağıtıldı — sınırları kontrol edin.`
     );
   } else {
     if (contentFramework.length > 0 && rawOutcomes.length > 0) {
-      unmatchedLines.push(
+      boundaryWarnings.push(
         `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor — konu başlıkları TYMM'deki kısa başlık yerine öğrenme çıktısı cümlesinden alındı, elle düzeltin.`
       );
     }
@@ -375,6 +382,7 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
       learningOutcomes,
     },
     unmatchedLines,
+    boundaryWarnings,
     rawSections: {
       contentFramework: rawFieldText(html, 'İçerik Çerçevesi'),
       keyConcepts: rawFieldText(html, 'Anahtar Kavramlar'),
