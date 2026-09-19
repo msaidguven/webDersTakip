@@ -1299,6 +1299,15 @@ function TymmUnitEditor({
           onApply={(learningOutcomes) => onChange((u) => ({ ...u, learningOutcomes }))}
         />
       )}
+
+      {rawSections && (
+        <AiVerifyPanel
+          unitTitle={unit.unitTitle}
+          contentFramework={unit.contentFramework}
+          rawLearningOutcomes={rawSections.learningOutcomes}
+          currentLearningOutcomes={unit.learningOutcomes}
+        />
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Ünite Başlığı</label>
@@ -1800,6 +1809,179 @@ function AiAssistPanel({
             {applied && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Uygulandı — aşağıdaki Konular listesini kontrol edin.</span>}
             {applyError && <span className="text-xs text-red-600 dark:text-red-400">❌ {applyError}</span>}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildAiVerifyPrompt(unitTitle: string, contentFramework: string[], rawLearningOutcomes: string, currentJson: TymmLearningOutcome[]): string {
+  return `Aşağıda bir MEB müfredat ünitesinin İçerik Çerçevesi (konu başlıkları), ham Öğrenme Çıktıları ve Süreç Bileşenleri metni, ve BAŞKA BİR AI'nın bunları konulara dağıttığı JSON var. Görevin: bu JSON'daki İÇERİK/ANLAM doğruluğunu denetlemek. Noktalama, yazım, kelime sırası gibi küçük farkları YOK SAY — sadece her öğrenme çıktısının/süreç bileşeninin GERÇEKTEN doğru konu (topicTitle) altına yerleştirilip yerleştirilmediğine bak.
+
+Ünite: ${unitTitle}
+
+İçerik Çerçevesi (konular):
+${contentFramework.map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+Ham Öğrenme Çıktıları ve Süreç Bileşenleri (kaynak metin — doğruluk buna göre ölçülecek):
+${rawLearningOutcomes}
+
+Kontrol edilecek JSON (bir başka AI'nın ürettiği, konulara dağıtılmış hâli):
+${JSON.stringify(currentJson, null, 2)}
+
+Şunları kontrol et:
+1. JSON'daki her component/outcome metni, ham metindeki gerçek içerikle anlamca örtüşüyor mu (uydurulmuş/çarpıtılmış bir şey yok mu)?
+2. Her öğrenme çıktısı/süreç bileşeni, İÇERİK olarak GERÇEKTEN atandığı topicTitle'a mı ait, yoksa başka bir konuya mı ait olmalıydı?
+3. Ham metinde var olup JSON'da hiç yer almayan (atlanmış) bir öğrenme çıktısı/bileşen var mı?
+4. JSON'da olup ham metinde karşılığı bulunmayan (uydurma) bir satır var mı?
+
+SADECE aşağıdaki JSON formatında, başka hiçbir açıklama olmadan yanıt ver:
+{
+  "allCorrect": true veya false,
+  "issues": [
+    { "topicTitle": "JSON'daki mevcut (yanlış olduğunu düşündüğün) konu başlığı", "code": "ilgili öğrenme çıktısı/bileşen kodu (varsa, yoksa boş)", "text": "sorunlu metnin kendisi", "problem": "kısa açıklama, ör: bu aslında X konusuna ait, Y'ye değil", "suggestedTopicTitle": "doğru olması gereken konu başlığı (varsa)" }
+  ]
+}
+Sorun yoksa "issues" boş dizi ve "allCorrect": true olsun.`;
+}
+
+type AiVerifyIssue = { topicTitle: string; code?: string; text?: string; problem: string; suggestedTopicTitle?: string };
+type AiVerifyResult = { allCorrect: boolean; issues: AiVerifyIssue[] };
+
+function parseAiVerifyJson(raw: string): AiVerifyResult {
+  const parsed = JSON.parse(stripJsonFence(raw)) as { allCorrect?: unknown; issues?: unknown };
+  if (typeof parsed.allCorrect !== 'boolean') throw new Error('"allCorrect" (true/false) alanı yok.');
+  if (!Array.isArray(parsed.issues)) throw new Error('"issues" dizisi yok.');
+  const issues = parsed.issues.map((item, i) => {
+    const o = item as AiVerifyIssue;
+    if (typeof o.topicTitle !== 'string' || typeof o.problem !== 'string') {
+      throw new Error(`${i + 1}. sorunda "topicTitle" veya "problem" eksik.`);
+    }
+    return {
+      topicTitle: o.topicTitle,
+      code: typeof o.code === 'string' ? o.code : undefined,
+      text: typeof o.text === 'string' ? o.text : undefined,
+      problem: o.problem,
+      suggestedTopicTitle: typeof o.suggestedTopicTitle === 'string' ? o.suggestedTopicTitle : undefined,
+    };
+  });
+  return { allCorrect: parsed.allCorrect, issues };
+}
+
+// İlk AI'nın (veya elle) yaptığı konu/kazanım eşleştirmesinin İÇERİK olarak doğru olup
+// olmadığını, BAĞIMSIZ bir ikinci AI'ya kontrol ettiren panel — kopyala/yapıştır tabanlı,
+// aynı AiAssistPanel gibi API çağrısı yapmıyor. Sonuç OTOMATİK uygulanmıyor: "issues"
+// listesi sadece raporlanıyor, admin sürükle-bırakla (bkz. moveComponent) kendi elleriyle
+// düzeltiyor — bir metin eşleştirmesiyle otomatik taşımak (component metnini issue.text ile
+// eşleştirip bulmaya çalışmak) yanlış eşleşme riski taşır, bu yüzden bilerek insan onayına
+// bırakıldı (bkz. proje sohbeti 2026-09-20: "bu 2. ai bu verileri kontrol etsin").
+function AiVerifyPanel({
+  unitTitle,
+  contentFramework,
+  rawLearningOutcomes,
+  currentLearningOutcomes,
+}: {
+  unitTitle: string;
+  contentFramework: string[];
+  rawLearningOutcomes: string;
+  currentLearningOutcomes: TymmLearningOutcome[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [result, setResult] = useState<AiVerifyResult | null>(null);
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(buildAiVerifyPrompt(unitTitle, contentFramework, rawLearningOutcomes, currentLearningOutcomes));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCheckError('Panoya kopyalanamadı — tarayıcı izni engellemiş olabilir.');
+    }
+  }
+
+  function checkPaste() {
+    setCheckError(null);
+    setResult(null);
+    try {
+      setResult(parseAiVerifyJson(pasteValue));
+    } catch (e) {
+      setCheckError(e instanceof Error ? e.message : 'Geçersiz JSON');
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-purple-400/30 bg-purple-500/[0.03]">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left">
+        <span className="text-xs font-bold text-purple-600 dark:text-purple-300">🔎 Eşleştirmeyi Başka Bir AI&apos;ya Doğrulat</span>
+        <span className="text-muted-foreground text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5 space-y-2.5">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Aşağıdaki AN durumun (şu an bu ünitede görünen konu/kazanım eşleştirmesinin) tamamını, ham metinle birlikte bir
+            promptta paketler. Bunu FARKLI bir AI&apos;ya (ilk eşleştirmeyi yapandan tercihen farklı bir modele) yapıştırıp
+            yanıtı geri yapıştırın — sadece yazım/noktalama değil, İÇERİK olarak yanlış yere konmuş bir kazanım varsa bulur.
+            Sonuç otomatik uygulanmaz; sorun bulunursa aşağıda listelenir, siz sürükle-bırakla düzeltirsiniz.
+          </p>
+          <button onClick={copyPrompt} className="px-3 py-1.5 rounded-lg bg-purple-500 text-white text-xs font-bold hover:bg-purple-400 transition-colors">
+            {copied ? '✓ Kopyalandı' : '📋 Doğrulama Promptu\'nu Kopyala'}
+          </button>
+
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">AI&apos;ın döndürdüğü JSON&apos;u buraya yapıştır</label>
+            <textarea
+              value={pasteValue}
+              onChange={(e) => { setPasteValue(e.target.value); setResult(null); setCheckError(null); }}
+              rows={6}
+              spellCheck={false}
+              placeholder='{ "allCorrect": true, "issues": [] }'
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={checkPaste}
+              disabled={!pasteValue.trim()}
+              className="px-3 py-1.5 rounded-lg bg-purple-500 text-white text-xs font-bold hover:bg-purple-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              🔍 Sonucu Göster
+            </button>
+            {checkError && <span className="text-xs text-red-600 dark:text-red-400">❌ {checkError}</span>}
+          </div>
+
+          {result && (
+            result.allCorrect && result.issues.length === 0 ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">✅ İkinci AI eşleştirmede sorun bulmadı.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border-2 border-red-500/40 bg-red-500/5 p-3">
+                <p className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-wide mb-1.5">
+                  ⚠️ {result.issues.length} sorun bulundu — sürükle-bırakla düzeltin
+                </p>
+                <div className="space-y-2">
+                  {result.issues.map((issue, i) => (
+                    <div key={i} className="rounded-md bg-surface border border-border p-2 text-[11px]">
+                      <p className="text-foreground">
+                        {issue.code && <span className="font-mono text-muted-foreground">{issue.code}) </span>}
+                        {issue.text || <span className="italic text-muted-foreground">(metin belirtilmedi)</span>}
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">
+                        şu an: <span className="font-semibold text-foreground">{issue.topicTitle}</span>
+                        {issue.suggestedTopicTitle && (
+                          <> → olması gereken: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{issue.suggestedTopicTitle}</span></>
+                        )}
+                      </p>
+                      <p className="text-muted-foreground/80 mt-0.5 italic">{issue.problem}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          )}
         </div>
       )}
     </div>
