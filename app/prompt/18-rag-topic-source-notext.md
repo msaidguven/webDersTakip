@@ -21,4 +21,5 @@ Doğruluk kuralları (ÖNEMLİ — bunlar ihlal edilirse metin öğrenciye yanl�
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 
+{teacher_guide_guidance}
 Kaynak metni tamamladıktan SONRA, ayrı bir satırda tek başına "---" yaz; onun altına SADECE kendi tam model adını yaz (ör. "GPT-5.1", "Gemini 3 Pro", "Claude Sonnet 5") — başka hiçbir kelime ekleme. Bu son satır kaynak metnin bir parçası DEĞİLDİR, hangi AI'ın yazdığını kaydetmek için ayrıca okunacak.

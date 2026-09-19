@@ -17,4 +17,5 @@ Biçim kuralları (nihai metin aynı sisteme kaydedilecek, bu yüzden 18. prompt
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 
+{teacher_guide_guidance}
 {sources_block}

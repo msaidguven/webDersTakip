@@ -95,13 +95,29 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Öğretmen kılavuz kitabından (varsa) her konu için çıkarılmış vurgu notu — RAG kaynağının
+  // tüm aşamalarında (18/19'un yanı sıra bu tekilleştirme geçişinde de) aynı referans
+  // kullanılsın diye (kullanıcının 2026-09-19 kararı). Ünite bazlı toplu prompt olduğu için
+  // tek bir placeholder yerine her konunun kendi bloğuna gömülüyor.
+  const { data: guideNotesData } = await supabase
+    .from('topic_teacher_guide_notes')
+    .select('topic_id, emphasis_notes')
+    .in('topic_id', qualifyingTopics.map((q) => q.topic.id));
+  const guideNotesByTopicId = new Map(
+    ((guideNotesData as { topic_id: number; emphasis_notes: string | null }[] | null) || [])
+      .filter((n) => n.emphasis_notes?.trim())
+      .map((n) => [n.topic_id, n.emphasis_notes!.trim()])
+  );
+
   const topicsBlock = qualifyingTopics
     .map(({ topic, doc }) => {
       const outcomes = outcomesByTopicId.get(topic.id) || [];
       const outcomesText = outcomes.length
         ? outcomes.map((o) => (o.code ? `${o.code}. ${o.description}` : o.description)).join(' | ')
         : '(kazanım tanımlı değil)';
-      return `### Konu: ${topic.title} (topic_id=${topic.id})\nKazanımlar: ${outcomesText}\n\n${doc.raw_text}`;
+      const guideNote = guideNotesByTopicId.get(topic.id);
+      const guideNoteLine = guideNote ? `Öğretmen kılavuzu vurgusu: ${guideNote}\n` : '';
+      return `### Konu: ${topic.title} (topic_id=${topic.id})\nKazanımlar: ${outcomesText}\n${guideNoteLine}\n${doc.raw_text}`;
     })
     .join('\n\n---\n\n');
 

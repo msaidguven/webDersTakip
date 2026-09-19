@@ -3,6 +3,7 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 
 // MEB'in kitap yayınlamadığı dersler için: unit-prompt (13-rag-unit-text.md) "kitaptan
 // çıkar" diyordu, bu route ise "kitap yok, kazanımlara dayanarak SEN yaz" promptu üretir
@@ -48,6 +49,8 @@ export async function GET(request: NextRequest) {
     ? `Ünitenin anahtar kavramları (uygun yerlerde kullan): ${keyConcepts.join(', ')}`
     : '';
 
+  const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicId);
+
   const templatePath = path.join(process.cwd(), 'app', 'prompt', '18-rag-topic-source-notext.md');
   const template = await readFile(templatePath, 'utf8');
 
@@ -57,7 +60,8 @@ export async function GET(request: NextRequest) {
     .replaceAll('{unit}', unit.title)
     .replaceAll('{topic}', topic.title)
     .replaceAll('{outcomes}', outcomesText)
-    .replaceAll('{key_concepts_block}', keyConceptsBlock);
+    .replaceAll('{key_concepts_block}', keyConceptsBlock)
+    .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance);
 
   return NextResponse.json({
     prompt,

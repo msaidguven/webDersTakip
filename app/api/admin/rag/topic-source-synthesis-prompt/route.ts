@@ -3,6 +3,7 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 
 // 2-3 farklı AI'ın (topic-source-prompt/route.ts çıktısını ayrı ayrı verip DB'ye
 // kaydettiğimiz) bağımsız ürettiği kaynak taslaklarını (rag_documents.raw_text, source=
@@ -53,6 +54,8 @@ export async function GET(request: NextRequest) {
     .map((d, i) => `KAYNAK METİN ${i + 1}:\n${d.raw_text!.trim()}`)
     .join('\n\n');
 
+  const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicId);
+
   const templatePath = path.join(process.cwd(), 'app', 'prompt', '19-rag-topic-source-synthesis.md');
   const template = await readFile(templatePath, 'utf8');
 
@@ -61,7 +64,8 @@ export async function GET(request: NextRequest) {
     .replaceAll('{lesson}', lesson?.name || '')
     .replaceAll('{unit}', unit.title)
     .replaceAll('{topic}', topic.title)
-    .replaceAll('{sources_block}', sourcesBlock);
+    .replaceAll('{sources_block}', sourcesBlock)
+    .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance);
 
   return NextResponse.json({
     prompt,

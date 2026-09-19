@@ -6,6 +6,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
+import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -217,17 +218,9 @@ export async function GET(request: NextRequest) {
     const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), type === 'plan' ? 'plan' : 'content');
 
     // Öğretmen kılavuz kitabından (varsa) bu konu için çıkarılmış "vurgulanacak noktalar" —
-    // sadece nihai içerik promptlarına besleniyor, RAG kaynak/sentez sistemine dokunmuyor
-    // (kullanıcının 2026-09-18 kararı). Bkz. app/src/lib/teacherGuide/.
-    const { data: guideNote } = await supabase
-      .from('topic_teacher_guide_notes')
-      .select('emphasis_notes')
-      .eq('topic_id', topicRow.id)
-      .maybeSingle();
-    const emphasisNotes = (guideNote as { emphasis_notes: string | null } | null)?.emphasis_notes?.trim();
-    const teacherGuideGuidance = emphasisNotes
-      ? `Öğretmen kılavuz kitabına göre bu konuda vurgulanması/önemli olarak belirtilen noktalar (içeriği hazırlarken bunları özellikle öne çıkar):\n${emphasisNotes}\n`
-      : '';
+    // bkz. app/src/lib/teacherGuide/. Aynı fonksiyon RAG taslak/sentez/tekilleştirme
+    // promptlarında da kullanılıyor (kullanıcının 2026-09-19 kararı).
+    const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id);
 
     const prompt = template
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
