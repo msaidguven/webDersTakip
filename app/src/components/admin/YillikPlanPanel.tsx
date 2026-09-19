@@ -898,6 +898,17 @@ export default function YillikPlanPanel() {
 
             {bulkItems && (
               <div className="mt-4 space-y-3">
+                {(() => {
+                  const aiItems = bulkItems
+                    .map((it, bulkIndex) => (it.unit && it.rawSections ? { bulkIndex, unitTitle: it.title, contentFramework: it.unit.contentFramework, rawLearningOutcomes: it.rawSections.learningOutcomes } : null))
+                    .filter((it): it is { bulkIndex: number; unitTitle: string; contentFramework: string[]; rawLearningOutcomes: string } => it != null);
+                  return aiItems.length > 0 ? (
+                    <AiBulkAssistPanel
+                      items={aiItems}
+                      onApplyOne={(bulkIndex, learningOutcomes) => updateBulkItemUnit(bulkIndex, (u) => ({ ...u, learningOutcomes }))}
+                    />
+                  ) : null;
+                })()}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
@@ -1596,21 +1607,77 @@ Kurallar:
 
 type AiTopicJsonItem = { topicTitle: string; code?: string; title?: string; components?: { letter: string; text: string }[] };
 
-function parseAiTopicJson(raw: string): TymmLearningOutcome[] {
-  // Bazen AI, isteğe rağmen ```json ... ``` kod bloğuna sarıp gönderiyor — kullanıcı ham
-  // yanıtı olduğu gibi yapıştırabilsin diye burada ayıklıyoruz.
-  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-  const parsed: unknown = JSON.parse(stripped);
-  if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
-  return parsed.map((item, i) => {
+// Bazen AI, isteğe rağmen ```json ... ``` kod bloğuna sarıp gönderiyor — kullanıcı ham
+// yanıtı olduğu gibi yapıştırabilsin diye burada ayıklıyoruz.
+function stripJsonFence(raw: string): string {
+  return raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+}
+
+function parseLearningOutcomesArray(arr: unknown[], errorPrefix = ''): TymmLearningOutcome[] {
+  return arr.map((item, i) => {
     const o = item as AiTopicJsonItem;
     if (typeof o.topicTitle !== 'string' || !o.topicTitle.trim()) {
-      throw new Error(`${i + 1}. öğede geçerli bir "topicTitle" yok.`);
+      throw new Error(`${errorPrefix}${i + 1}. öğede geçerli bir "topicTitle" yok.`);
     }
     const components = Array.isArray(o.components)
       ? o.components.map((c) => ({ letter: typeof c.letter === 'string' ? c.letter : '', text: typeof c.text === 'string' ? c.text : '' }))
       : [];
     return { topicTitle: o.topicTitle.trim(), code: typeof o.code === 'string' ? o.code : '', title: typeof o.title === 'string' ? o.title : '', components };
+  });
+}
+
+function parseAiTopicJson(raw: string): TymmLearningOutcome[] {
+  const parsed: unknown = JSON.parse(stripJsonFence(raw));
+  if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
+  return parseLearningOutcomesArray(parsed);
+}
+
+function buildAiBulkTopicPrompt(
+  units: { unitIndex: number; unitTitle: string; contentFramework: string[]; rawLearningOutcomes: string }[]
+): string {
+  const unitBlocks = units
+    .map(
+      (u) => `--- ÜNİTE ${u.unitIndex}: ${u.unitTitle} ---
+İçerik Çerçevesi (konular, bu sırayla — sonu ":" ile biten satırlar grup başlığıdır, gerçek konu DEĞİLDİR):
+${u.contentFramework.map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+Öğrenme Çıktıları ve Süreç Bileşenleri (ham metin):
+${u.rawLearningOutcomes}`
+    )
+    .join('\n\n');
+
+  return `Aşağıda BİRDEN FAZLA MEB müfredat ünitesinin "İçerik Çerçevesi" ve "Öğrenme Çıktıları ve Süreç Bileşenleri" metni var. Her ünite için AYRI AYRI: her öğrenme çıktısını (ve süreç bileşenlerini hiç bölmeden, bütün hâlde) o ünitenin İçerik Çerçevesi'ndeki DOĞRU konuya ata. SADECE aşağıdaki JSON formatında, öncesinde/sonrasında hiçbir açıklama veya markdown kod bloğu olmadan döndür.
+
+${unitBlocks}
+
+İstenen JSON formatı (düz bir dizi, her eleman BİR ünite, sırası ve unitIndex değerleri yukarıdakiyle AYNI olmalı):
+[
+  {
+    "unitIndex": 1,
+    "unitTitle": "ünitenin adı (yukarıdan aynen kopyala)",
+    "learningOutcomes": [
+      { "topicTitle": "İçerik Çerçevesi'ndeki birebir konu başlığı", "code": "orijinal kod, ör. MAT.6.1.2 (yoksa boş string)", "title": "öğrenme çıktısının kendi cümlesi", "components": [ { "letter": "a", "text": "süreç bileşeni metni" } ] }
+    ]
+  }
+]
+
+Kurallar:
+- TÜM üniteler için sonuç üret, hiçbirini atlama.
+- Bir konuya birden fazla öğrenme çıktısı ait olabilir — aynı topicTitle ile birden fazla obje üret, hepsi o konu altında birleşir.
+- Her öğrenme çıktısının süreç bileşenlerini (a/b/c...) OLDUĞU GİBİ, bölmeden/birleştirmeden/metnini değiştirmeden components dizisine koy.
+- topicTitle mutlaka o ünitenin İçerik Çerçevesi listesinden BİREBİR bir satır olmalı (grup başlıkları hariç).
+- unitIndex değerlerini olduğu gibi koru, değiştirme.
+- SADECE JSON döndür.`;
+}
+
+function parseAiBulkTopicJson(raw: string): { unitIndex: number; learningOutcomes: TymmLearningOutcome[] }[] {
+  const parsed: unknown = JSON.parse(stripJsonFence(raw));
+  if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
+  return parsed.map((item, i) => {
+    const o = item as { unitIndex?: number; learningOutcomes?: unknown };
+    if (typeof o.unitIndex !== 'number') throw new Error(`${i + 1}. öğede geçerli bir "unitIndex" yok.`);
+    if (!Array.isArray(o.learningOutcomes)) throw new Error(`Ünite ${o.unitIndex}: "learningOutcomes" dizisi yok.`);
+    return { unitIndex: o.unitIndex, learningOutcomes: parseLearningOutcomesArray(o.learningOutcomes, `Ünite ${o.unitIndex}, `) };
   });
 }
 
@@ -1705,6 +1772,104 @@ function AiAssistPanel({
               ✅ JSON&apos;u Uygula
             </button>
             {applied && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Uygulandı — aşağıdaki Konular listesini kontrol edin.</span>}
+            {applyError && <span className="text-xs text-red-600 dark:text-red-400">❌ {applyError}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Toplu moddaki (Ders/Sınıf Sayfası) AiAssistPanel karşılığı — tek ünite yerine bulkItems'taki
+// TÜM üniteleri (İçerik Çerçevesi + ham öğrenme çıktısı) tek bir promptta birleştirip AI'ya
+// tek seferde verdiriyor, dönen JSON'daki her ünite kendi unitIndex'i üzerinden ilgili
+// bulkItem'a uygulanıyor (bkz. proje sohbeti 2026-09-20: "tek tek karşılaştır ve onayla
+// diyerek değil de ... tüm üniteleri ... tek seferde alıp ai ye versem"). Kaydetme burada
+// yapılmaz — admin her ünitenin sonucunu yine "🔍 Karşılaştır ve Onayla" ile tek tek açıp
+// kontrol ettikten sonra kaydeder.
+function AiBulkAssistPanel({
+  items,
+  onApplyOne,
+}: {
+  items: { bulkIndex: number; unitTitle: string; contentFramework: string[]; rawLearningOutcomes: string }[];
+  onApplyOne: (bulkIndex: number, learningOutcomes: TymmLearningOutcome[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applySummary, setApplySummary] = useState<string | null>(null);
+
+  const prompt = buildAiBulkTopicPrompt(
+    items.map((it, i) => ({ unitIndex: i + 1, unitTitle: it.unitTitle, contentFramework: it.contentFramework, rawLearningOutcomes: it.rawLearningOutcomes }))
+  );
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setApplyError('Panoya kopyalanamadı — tarayıcı izni engellemiş olabilir.');
+    }
+  }
+
+  function applyPaste() {
+    setApplyError(null);
+    setApplySummary(null);
+    try {
+      const results = parseAiBulkTopicJson(pasteValue);
+      let applied = 0;
+      for (const r of results) {
+        const item = items[r.unitIndex - 1];
+        if (!item) continue;
+        onApplyOne(item.bulkIndex, r.learningOutcomes);
+        applied += 1;
+      }
+      if (applied === 0) throw new Error('Hiçbir unitIndex eşleşmedi — prompt sırasını/numaralarını değiştirmediğinizden emin olun.');
+      setApplySummary(`${applied}/${items.length} ünite güncellendi — her birini açıp kontrol edin.`);
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : 'Geçersiz JSON');
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/[0.03]">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left">
+        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">🤖 Tüm Üniteleri AI ile Ayrıştır ({items.length} ünite)</span>
+        <span className="text-muted-foreground text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5 space-y-2.5">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            1) Promptu kopyala ({items.length} ünitenin TAMAMINI içerir) → 2) ChatGPT/Claude gibi bir AI&apos;ya yapıştır → 3) dönen
+            JSON&apos;u aşağıya yapıştırıp uygula. Her ünite kendi unitIndex&apos;i ile eşleştirilip GÜNCELLENİR (önceki hâli kaybolur) —
+            kaydetmeden önce her ünitenin önizlemesini (🔍 Karşılaştır ve Onayla) tek tek açıp kontrol edin.
+          </p>
+          <button onClick={copyPrompt} className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors">
+            {copied ? '✓ Kopyalandı' : `📋 Prompt'u Kopyala (${items.length} ünite)`}
+          </button>
+
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">AI&apos;ın döndürdüğü JSON&apos;u buraya yapıştır</label>
+            <textarea
+              value={pasteValue}
+              onChange={(e) => { setPasteValue(e.target.value); setApplySummary(null); setApplyError(null); }}
+              rows={6}
+              spellCheck={false}
+              placeholder='[ { "unitIndex": 1, "unitTitle": "...", "learningOutcomes": [...] } ]'
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono text-emerald-600 dark:text-emerald-300 resize-y outline-none focus:border-indigo-400"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={applyPaste}
+              disabled={!pasteValue.trim()}
+              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ✅ JSON&apos;u Uygula
+            </button>
+            {applySummary && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{applySummary}</span>}
             {applyError && <span className="text-xs text-red-600 dark:text-red-400">❌ {applyError}</span>}
           </div>
         </div>
