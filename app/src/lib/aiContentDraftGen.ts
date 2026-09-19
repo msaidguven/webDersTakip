@@ -9,7 +9,7 @@ import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
 
-type EligibleTopicRow = { topic_id: number; unit_id: number; lesson_id: number; grade_id: number };
+type EligibleTopicRow = { topic_id: number; unit_id: number; lesson_id: number; grade_id: number; source_kind: 'synthesis' | 'book' };
 
 export interface ContentDraftGenerationResult {
   generated: boolean;
@@ -72,12 +72,32 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
   };
 }
 
+// Soru üretme worker'ının (aiQuestionDraftGen.ts) kullandığı AYNI kaynak: kitap yüklenmiş
+// bir ünitenin TÜM chunk'ları — konu-bazlı değil ünite-bazlı, çünkü rag_document_chunks
+// konuya değil üniteye bağlı. Prompt, modele "sadece bu konuyla ilgili kısmı bul" diyor.
+async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
+  const { data: docs } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
+  const documentIds = ((docs as { id: number }[] | null) || []).map((d) => d.id);
+  if (!documentIds.length) return null;
+
+  const { data: chunks } = await supabase
+    .from('rag_document_chunks')
+    .select('content')
+    .in('document_id', documentIds)
+    .order('document_id', { ascending: true })
+    .order('chunk_index', { ascending: true });
+  const chunkRows = (chunks as { content: string }[] | null) || [];
+  if (!chunkRows.length) return null;
+
+  return chunkRows.map((c) => c.content).join('\n\n');
+}
+
 export async function generateNextAiContentDraft(supabase: Supabase): Promise<ContentDraftGenerationResult> {
   const { data: eligibleRows, error: eligibleError } = await supabase.rpc('find_next_ai_content_draft_topic');
   if (eligibleError) return { generated: false, reason: `Uygun konu sorgusu başarısız: ${eligibleError.message}` };
 
   const eligible = (eligibleRows as EligibleTopicRow[] | null)?.[0];
-  if (!eligible) return { generated: false, reason: 'Uygun konu yok (sentez metni hazır, alt başlığı hiç yok, kazanım kodları tam olan bir konu bulunamadı)' };
+  if (!eligible) return { generated: false, reason: 'Uygun konu yok (RAG sentezi veya kitabı hazır, alt başlığı hiç yok, kazanım kodları tam olan bir konu bulunamadı)' };
 
   const [{ data: topicRow }, { data: unitRow }, { data: lessonRow }, { data: gradeRow }] = await Promise.all([
     supabase.from('topics').select('id, title').eq('id', eligible.topic_id).maybeSingle(),
@@ -89,15 +109,21 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
     return { generated: false, reason: 'Konu/ünite/ders/sınıf kaydı okunamadı' };
   }
 
-  const { data: synthesisDoc } = await supabase
-    .from('rag_documents')
-    .select('raw_text')
-    .eq('topic_id', eligible.topic_id)
-    .eq('source', 'ai_generated')
-    .eq('is_synthesis', true)
-    .maybeSingle();
-  const sourceText = ((synthesisDoc as { raw_text: string | null } | null)?.raw_text || '').trim();
-  if (!sourceText) return { generated: false, reason: `Konu ${eligible.topic_id} için sentez metni bulunamadı` };
+  let sourceText = '';
+  if (eligible.source_kind === 'synthesis') {
+    const { data: synthesisDoc } = await supabase
+      .from('rag_documents')
+      .select('raw_text')
+      .eq('topic_id', eligible.topic_id)
+      .eq('source', 'ai_generated')
+      .eq('is_synthesis', true)
+      .maybeSingle();
+    sourceText = ((synthesisDoc as { raw_text: string | null } | null)?.raw_text || '').trim();
+    if (!sourceText) return { generated: false, reason: `Konu ${eligible.topic_id} için sentez metni bulunamadı` };
+  } else {
+    sourceText = (await fetchUnitBookContent(supabase, eligible.unit_id)) || '';
+    if (!sourceText) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG kitap içeriği bulunamadı (belge/chunk yok)` };
+  }
 
   const { data: outcomeRows } = await supabase
     .from('outcomes')
@@ -125,11 +151,14 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
   const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), 'content');
   const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id);
 
+  const templateFile = eligible.source_kind === 'synthesis' ? '20-rag-synthesis-full-topic.md' : '31-rag-book-full-topic.md';
+  const sourcePlaceholder = eligible.source_kind === 'synthesis' ? '{source_text}' : '{book_content}';
+
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
   const [explanationNotebookRules, topicSummaryDiscussionRules, template] = await Promise.all([
     readFile(path.join(promptDir, '_explanation-notebook-rules.md'), 'utf8').catch(() => ''),
     readFile(path.join(promptDir, '_topic-summary-discussion-rules.md'), 'utf8').catch(() => ''),
-    readFile(path.join(promptDir, '20-rag-synthesis-full-topic.md'), 'utf8'),
+    readFile(path.join(promptDir, templateFile), 'utf8'),
   ]);
 
   const prompt = template
@@ -143,7 +172,7 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
     .replaceAll('{pacing_guidance}', pacingGuidance)
     .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance)
     .replaceAll('{existing_headings}', '')
-    .replaceAll('{source_text}', sourceText);
+    .replaceAll(sourcePlaceholder, sourceText);
 
   let raw: unknown;
   try {

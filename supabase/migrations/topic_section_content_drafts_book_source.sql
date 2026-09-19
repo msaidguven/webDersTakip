@@ -1,0 +1,59 @@
+-- Otomatik içerik taslağı sadece RAG sentez metni (kitapsız derslerin AI-üretilmiş kaynağı)
+-- olan konuları kapsıyordu — kullanıcının 2026-09-19 isteği: gerçek kitabı (NotebookLM/PDF ile
+-- yüklenmiş rag_documents+rag_document_chunks, bkz. aiQuestionDraftGen.ts'in soru üretiminde
+-- zaten kullandığı aynı unit-scoped book_content) hazır olan konuları da kapsasın. Fonksiyonun
+-- dönüş şeması değiştiği için (yeni source_kind kolonu) önce drop edip yeniden yaratıyoruz.
+drop function if exists public.find_next_ai_content_draft_topic();
+
+create or replace function public.find_next_ai_content_draft_topic()
+returns table (
+  topic_id bigint,
+  unit_id bigint,
+  lesson_id bigint,
+  grade_id bigint,
+  source_kind text
+)
+language sql stable security definer set search_path = public
+as $$
+  with latest_draft as (
+    select distinct on (d.topic_id) d.topic_id, d.status
+    from public.topic_section_content_drafts d
+    order by d.topic_id, d.created_at desc
+  ),
+  rejected_counts as (
+    select d.topic_id, count(*) as cnt
+    from public.topic_section_content_drafts d
+    where d.status = 'rejected'
+    group by d.topic_id
+  )
+  select
+    t.id as topic_id, u.id as unit_id, u.lesson_id, u.grade_id,
+    case
+      when exists (
+        select 1 from public.rag_documents rd
+        where rd.topic_id = t.id and rd.source = 'ai_generated' and rd.is_synthesis = true
+      ) then 'synthesis'
+      else 'book'
+    end as source_kind
+  from public.topics t
+  join public.units u on u.id = t.unit_id and u.is_active = true
+  join public.lessons l on l.id = u.lesson_id and l.is_active = true
+  join public.grades g on g.id = u.grade_id and g.is_active = true
+  left join latest_draft ld on ld.topic_id = t.id
+  left join rejected_counts rc on rc.topic_id = t.id
+  where t.is_active = true
+    and (
+      exists (
+        select 1 from public.rag_documents rd
+        where rd.topic_id = t.id and rd.source = 'ai_generated' and rd.is_synthesis = true
+      )
+      or exists (select 1 from public.rag_documents rd where rd.unit_id = u.id)
+    )
+    and not exists (select 1 from public.topic_contents tc where tc.topic_id = t.id)
+    and not exists (select 1 from public.outcomes o where o.topic_id = t.id and (o.code is null or trim(o.code) = ''))
+    and exists (select 1 from public.outcomes o where o.topic_id = t.id)
+    and (ld.topic_id is null or ld.status <> 'pending')
+    and (ld.status is null or ld.status <> 'rejected' or coalesce(rc.cnt, 0) < 2)
+  order by g.order_no, l.order_no, u.order_no, t.order_no
+  limit 1;
+$$;
