@@ -310,6 +310,31 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
         `${withoutGroupHeaders.length} içerik çerçevesi konusuna ${rawOutcomes.length} öğrenme çıktısı sırayla gruplanarak dağıtıldı (TYMM sayfasında kesin sınır bilgisi yok) — grup sınırlarını kontrol edin.`
       );
     }
+  } else if (
+    withoutGroupHeaders.length > rawOutcomes.length &&
+    rawOutcomes.length > 0 &&
+    rawOutcomes.every((o) => o.components.length > 0) &&
+    rawOutcomes.reduce((sum, o) => sum + o.components.length, 0) === withoutGroupHeaders.length
+  ) {
+    // Ters durum: çerçeve satırı öğrenme çıktısından FAZLA ama her öğrenme çıktısının süreç
+    // bileşeni (a) b) c)) sayısı toplamı çerçeve satır sayısına tam eşit — bazı derslerde
+    // (ör. DKAB) tek bir öğrenme çıktısının süreç bileşenleri aslında ayrı İçerik Çerçevesi
+    // konularına karşılık geliyor (ör. "...dinin izlerini özetleyebilme" çıktısının a/b/c
+    // bileşenleri sırasıyla "Geleneğimizde/Edebiyatımızda/Musikimizde Dinin İzleri" konularına
+    // denk düşüyor, 2026-09-19 kullanıcı bildirimi, DKAB 6. sınıf ünite 90). Her bileşeni kendi
+    // konusuna, kendi kazanımı olarak ayırıyoruz.
+    let frameworkIdx = 0;
+    learningOutcomes = rawOutcomes.flatMap((o) =>
+      o.components.map((c) => ({
+        code: o.code ? `${o.code}${c.letter}` : c.letter,
+        title: c.text,
+        topicTitle: withoutGroupHeaders[frameworkIdx++],
+        components: [c],
+      }))
+    );
+    unmatchedLines.push(
+      `${rawOutcomes.length} öğrenme çıktısının süreç bileşenleri sayıca eşleştiği için ${withoutGroupHeaders.length} İçerik Çerçevesi konusuna ayrı ayrı dağıtıldı — sınırları kontrol edin.`
+    );
   } else {
     if (contentFramework.length > 0 && rawOutcomes.length > 0) {
       unmatchedLines.push(
