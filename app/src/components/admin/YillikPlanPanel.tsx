@@ -1310,6 +1310,19 @@ function TymmUnitEditor({
             </li>
           ))}
         </ol>
+        <button
+          onClick={() => {
+            const newIndex = unit.learningOutcomes.length;
+            onChange((u) => ({
+              ...u,
+              learningOutcomes: [...u.learningOutcomes, { code: '', title: '', topicTitle: '', components: [] }],
+            }));
+            setEditingTopic(newIndex);
+          }}
+          className="mt-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 hover:text-indigo-500 dark:hover:text-indigo-200 transition-colors"
+        >
+          ➕ Konu Ekle
+        </button>
       </div>
 
       <div className="space-y-2">
