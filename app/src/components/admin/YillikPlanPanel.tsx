@@ -966,6 +966,23 @@ export default function YillikPlanPanel() {
                       </p>
                     )}
 
+                    {item.unit && item.rawSections && !item.saveResult && (
+                      <div className="mt-3 space-y-2">
+                        <AiAssistPanel
+                          unitTitle={item.unit.unitTitle}
+                          contentFramework={item.unit.contentFramework}
+                          rawLearningOutcomes={item.rawSections.learningOutcomes}
+                          onApply={(learningOutcomes) => updateBulkItemUnit(idx, (u) => ({ ...u, learningOutcomes }))}
+                        />
+                        <AiVerifyPanel
+                          unitTitle={item.unit.unitTitle}
+                          contentFramework={item.unit.contentFramework}
+                          rawLearningOutcomes={item.rawSections.learningOutcomes}
+                          currentLearningOutcomes={item.unit.learningOutcomes}
+                        />
+                      </div>
+                    )}
+
                     {item.fetchError && <p className="text-xs text-red-600 dark:text-red-400 mt-2">❌ {item.fetchError}</p>}
 
                     {item.saveResult ? (
