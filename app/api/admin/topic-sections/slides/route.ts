@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { generateSlideDeck, SLIDE_DECK_AI_MODEL, type SlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { generateSlideDeck, type SlideDeck } from '@/app/src/lib/topicSlideDeck';
 
 type SlideRow = { slides: SlideDeck; generated_at: string };
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase
     .from('topic_content_slides')
     .upsert(
-      { topic_content_id: result.topicContentId, slides: result.deck, ai_model: SLIDE_DECK_AI_MODEL, generated_at: new Date().toISOString() },
+      { topic_content_id: result.topicContentId, slides: result.deck, ai_model: null, generated_at: new Date().toISOString() },
       { onConflict: 'topic_content_id' }
     );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

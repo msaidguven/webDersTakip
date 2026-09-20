@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
+import { generateSlideDeck } from '@/app/src/lib/topicSlideDeck';
 
 type IncomingSection = {
   heading?: unknown;
@@ -392,6 +393,25 @@ export async function POST(request: NextRequest) {
   // 2026-09-12: "bu sayfaya neden ulaşamıyorum" — yayın durumu DB'de doğruydu).
   await revalidateTopicPagesByContentIds(supabase, [topicContentId]);
   revalidateHomepage();
+
+  // Sunum (SlidePlayer) slaytları artık ayrı bir AI çağrısı gerektirmiyor (review_summary'den
+  // türetiliyor, bkz. topicSlideDeck.ts) — içerik her kaydedildiğinde (otomatik AI onayı,
+  // kitap kaynaklı ya da manuel NotebookLM, üçü de bu route'a düşüyor) burada otomatik
+  // yeniden üretilir, admin ayrıca "Sunum Oluştur"a basmayı unutsa bile slaytlar bayatlamaz.
+  // Best-effort: slayt üretimi başarısız olursa asıl içerik kaydını asla engellemesin.
+  try {
+    const slideResult = await generateSlideDeck(supabase, topicRow.id);
+    if (slideResult.ok) {
+      await supabase
+        .from('topic_content_slides')
+        .upsert(
+          { topic_content_id: slideResult.topicContentId, slides: slideResult.deck, ai_model: null, generated_at: new Date().toISOString() },
+          { onConflict: 'topic_content_id' }
+        );
+    }
+  } catch {
+    // yukarıdaki not: sessizce geç, içerik zaten kaydedildi.
+  }
 
   return NextResponse.json({
     ok: true,

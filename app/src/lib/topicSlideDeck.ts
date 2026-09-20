@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
 
 const MAX_BULLETS = 5;
-export const SLIDE_DECK_AI_MODEL = 'gemini-3.6-flash';
 
 export type SlideDeckSlide = {
   kind: 'cover' | 'section';
@@ -32,11 +30,11 @@ type SectionRow = {
   order_no: number;
   heading: string;
   body_markdown: string | null;
+  review_summary: string | null;
   image_url: string | null;
   diagram_svg: string | null;
 };
 type TipRow = { title: string; content: string };
-type SlideBullets = { heading: string; bullets: string[] };
 
 function stripMarkdown(text: string): string {
   return text
@@ -58,40 +56,38 @@ function fallbackBullets(bodyMarkdown: string | null): string[] {
     .slice(0, MAX_BULLETS);
 }
 
-// Gemini'yi kısa tutmak ve extractJson'ın (sadece { ... } eşleyen) beklediği tekil obje
-// biçimine uysun diye dizi yerine {"slides": [...]} dönmesini istiyoruz.
-async function summarizeToSlides(sections: SectionRow[]): Promise<Map<number, string[]>> {
-  const input = sections
-    .map((s, i) => `${i + 1}. Başlık: ${s.heading}\nİçerik: ${stripMarkdown(s.body_markdown || '').slice(0, 2000)}`)
-    .join('\n\n');
+// Slayt bullet'ları artık ayrı bir AI çağrısıyla değil, içerik üretimiyle AYNI adımda
+// üretilen review_summary'den ("Ev Tekrar Özeti" — 2-4 kısa, bağımsız cümle, madde başına
+// en fazla 12-15 kelime, bkz. _explanation-notebook-rules.md madde 3) türetiliyor. Bu alan
+// zaten her 3 üretim yolunda (otomatik RAG sentez/kitap worker'ı VE manuel NotebookLM
+// yapıştırma) aynı prompt şemasında geliyor, o yüzden slaytlar içerikle senkron kalıyor —
+// içerik her kaydedildiğinde /api/admin/topic-sections/plan slaytları da otomatik
+// yeniden üretiyor (bkz. o route'un sonu). AI review_summary'yi tek paragraf ya da satır
+// satır madde döndürebilir, ikisini de kabul ediyoruz.
+function splitReviewSummary(reviewSummary: string): string[] {
+  const lines = reviewSummary
+    .split(/\n+/)
+    .map((l) => stripMarkdown(l.replace(/^[\s*•-]+/, '')))
+    .filter(Boolean);
+  if (lines.length >= 2) return lines.slice(0, MAX_BULLETS);
 
-  const prompt = `Aşağıda bir ders konusunun alt başlıkları ve içerik metinleri var. Her alt başlık için, öğretmenin sınıfta anlatırken slaytta gösterebileceği ${MAX_BULLETS} maddeyi ASLA GEÇMEYECEK şekilde kısa madde listesi hazırla. Her madde en fazla 12 kelime, sade ve öğrenci seviyesine uygun Türkçe olsun; sadece en önemli kavram/bilgiyi seç, tam cümle kurma zorunluluğu yok.
+  const text = stripMarkdown(reviewSummary);
+  if (!text) return [];
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, MAX_BULLETS);
+}
 
-Sadece şu JSON formatında dön, başka hiçbir açıklama yazma:
-{"slides": [{"heading": "<alt başlığın birebir aynısı>", "bullets": ["...", "..."]}]}
-
-Alt başlıklar:
-${input}`;
-
-  try {
-    const raw = await generateTopicContentJson(prompt);
-    const slides = (raw as { slides?: unknown })?.slides;
-    const map = new Map<number, string[]>();
-    if (Array.isArray(slides)) {
-      slides.forEach((s) => {
-        const heading = (s as SlideBullets)?.heading;
-        const bullets = (s as SlideBullets)?.bullets;
-        const match = sections.find((sec) => sec.heading === heading);
-        if (match && Array.isArray(bullets)) {
-          map.set(match.id, bullets.filter((b): b is string => typeof b === 'string').slice(0, MAX_BULLETS));
-        }
-      });
-    }
-    return map;
-  } catch {
-    // AI özetleyemezse slayt boş kalmasın diye içerikten kaba bir madde listesine düş.
-    return new Map();
+function deriveBullets(section: SectionRow): string[] {
+  if (section.review_summary?.trim()) {
+    const bullets = splitReviewSummary(section.review_summary);
+    if (bullets.length) return bullets;
   }
+  // review_summary henüz üretilmemiş eski konular için (bu alan 2026-09-15'te eklendi) —
+  // içerik gövdesinden kaba bir madde listesine düş.
+  return fallbackBullets(section.body_markdown);
 }
 
 export type GenerateSlideDeckResult =
@@ -130,7 +126,7 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
   const [{ data: sectionsData }, { data: tipData }] = await Promise.all([
     supabase
       .from('topic_content_sections')
-      .select('id, order_no, heading, body_markdown, image_url, diagram_svg')
+      .select('id, order_no, heading, body_markdown, review_summary, image_url, diagram_svg')
       .eq('topic_content_id', topicContentRow.id)
       .order('order_no', { ascending: true }),
     supabase.from('topic_content_tips').select('title, content').eq('topic_content_id', topicContentRow.id).maybeSingle(),
@@ -139,8 +135,6 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
   const tipRow = tipData as TipRow | null;
 
   if (!sections.length) return { ok: false, status: 404, error: 'Bu konuda henüz alt başlık yok' };
-
-  const bulletsBySection = await summarizeToSlides(sections);
 
   const slides: SlideDeckSlide[] = [
     {
@@ -155,7 +149,7 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
       kind: 'section',
       heading: section.heading,
       subtitle: null,
-      bullets: bulletsBySection.get(section.id)?.length ? bulletsBySection.get(section.id)! : fallbackBullets(section.body_markdown),
+      bullets: deriveBullets(section),
       imageUrl: section.image_url,
       diagramSvg: section.diagram_svg,
     })),
