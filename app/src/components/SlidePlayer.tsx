@@ -105,6 +105,14 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   // bu map de sadece "D:/Y:" sayacı için — onAnswered zaten her soru en fazla bir kez tetikler.
   const [answeredMap, setAnsweredMap] = useState<Record<number, 'correct' | 'incorrect' | 'revealed'>>({});
   const [questionsAttempt, setQuestionsAttempt] = useState(0);
+  // Her soru KaTeX ile matematik render ediyor (bkz. topicContentV11.renderPlainTextMath) —
+  // hepsini "Soruları Çöz"de tek seferde mount edersek (eskiden öyleydi) konu 20-30 soruluksa
+  // ana thread'i bloke edip sunumu donmuş gibi hissettiriyordu (kullanıcının 2026-09-21
+  // bulduğu yavaşlık). Bunun yerine sadece o ana kadar GÖRÜLMÜŞ sorular mount ediliyor —
+  // "geri gidince tıklamalarım kaybolmasın" davranışı bozulmadan (görülen soru bir daha
+  // unmount edilmiyor), sadece henüz görülmemiş sorular ilk kez sıraya gelene kadar hiç
+  // render edilmiyor.
+  const [mountedQIndexes, setMountedQIndexes] = useState<Set<number>>(() => new Set());
 
   // Deck/konu değişince (embedded SlidePlayer sayfada sabit kalıp deck prop'u değiştiği için)
   // her şeyi baştan başlat — aksi halde önceki konunun ortasında/sorularında kalınırdı.
@@ -116,6 +124,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setQuestions(null);
     setQuestionsError(null);
     setAnsweredMap({});
+    setMountedQIndexes(new Set());
     setAnimKey((k) => k + 1);
   }, [topicId]);
 
@@ -144,6 +153,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setPhase('questions');
     setQIndex(0);
     setAnsweredMap({});
+    setMountedQIndexes(new Set([0]));
     setQuestionsAttempt((a) => a + 1);
     setAnimKey((k) => k + 1);
   }, []);
@@ -246,6 +256,11 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   }, [isOverlay, onClose, goPrev, goNext, lightbox]);
 
   useEffect(() => {
+    if (phase !== 'questions') return;
+    setMountedQIndexes((prev) => (prev.has(qIndex) ? prev : new Set(prev).add(qIndex)));
+  }, [phase, qIndex]);
+
+  useEffect(() => {
     if (!lightbox) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLightbox(null);
@@ -264,12 +279,12 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   const imageOnRight = index % 2 === 0;
   const visualSrc = slide.imageUrl;
 
-  // Overlay'de kart karanlık bir backdrop üstünde durduğu için yarı saydam beyaz butonlar
-  // okunuyor; embedded'da arka plan sayfanın kendi (açık) rengi olduğu için aynı butonlar
-  // görünmez olurdu — koyu, daha opak bir varyant kullanıyoruz.
-  const navBtnClass = isOverlay
-    ? 'bg-white/10 text-white hover:bg-white/20'
-    : 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
+  // Mobilde kart neredeyse tüm genişliği/yüksekliği kapladığı için yarı saydam beyaz butonlar
+  // beyaz kartın üstüne denk gelip kayboluyordu (kullanıcının 2026-09-21 bulduğu regresyon) —
+  // hem overlay hem embedded'da koyu, opak bir varyant kullanılıyor; bu hem koyu backdrop hem
+  // beyaz kart üstünde okunuyor.
+  const navBtnClass = 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
+  const iconBtnClass = 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
   const inactiveDotColor = isOverlay ? 'rgba(255,255,255,0.3)' : 'rgba(15,23,42,0.18)';
 
   return (
@@ -277,7 +292,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       ref={containerRef}
       className={
         isOverlay
-          ? 'fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-6 transition-colors duration-700'
+          ? 'fixed inset-0 z-[999] flex items-center justify-center p-0 sm:p-6 transition-colors duration-700'
           : 'relative flex items-center justify-center transition-colors duration-700'
       }
       style={
@@ -293,7 +308,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               type="button"
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran sunum modu'}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
@@ -301,7 +316,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               type="button"
               onClick={onClose}
               aria-label="Kapat"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
             >
               <X className="h-5 w-5" />
             </button>
@@ -345,7 +360,14 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       </button>
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
-        <div key={cardKey} className="animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div
+          key={cardKey}
+          className={
+            isOverlay
+              ? 'animate-slide-pop-in relative w-full h-[calc(100dvh-4.5rem)] sm:h-auto sm:aspect-video overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+              : 'animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl'
+          }
+        >
           {/* Dekoratif, dolaşan renkli blob'lar — kartın arka planına derinlik katıyor */}
           <div
             className="animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full blur-3xl"
@@ -446,18 +468,21 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                   sıfırlanırdı (kullanıcının 2026-09-21 isteği: "geri gittiğimde önceki
                   tıklamalarım kaybolmasın"). key={questionsAttempt} sadece "Soruları Çöz"e
                   yeniden basılınca hepsini sıfırdan başlatıyor. */}
-              {questions.map((q, i) => (
-                <div
-                  key={`${questionsAttempt}-${q.id}`}
-                  className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
-                >
-                  <QuestionAnswerKeyItem
-                    question={q}
-                    interactive
-                    onAnswered={(id, status) => setAnsweredMap((m) => ({ ...m, [id]: status }))}
-                  />
-                </div>
-              ))}
+              {questions.map((q, i) => {
+                if (!mountedQIndexes.has(i)) return null;
+                return (
+                  <div
+                    key={`${questionsAttempt}-${q.id}`}
+                    className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
+                  >
+                    <QuestionAnswerKeyItem
+                      question={q}
+                      interactive
+                      onAnswered={(id, status) => setAnsweredMap((m) => ({ ...m, [id]: status }))}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ) : slide.kind === 'cover' ? (
             <div
