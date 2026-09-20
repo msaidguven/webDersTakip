@@ -72,7 +72,10 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   // konuşma temposuna uysun, öğrenci kendi başına çalışırken de adım adım özümsesin diye.
   const [revealedCount, setRevealedCount] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  // Görsel (img) ile diyagram (ham SVG markup) farklı şekilde render edildiği için (biri
+  // <img src>, diğeri dangerouslySetInnerHTML) lightbox'ın ikisini de büyütebilmesi için tip
+  // ayrımı gerekiyor.
+  const [lightbox, setLightbox] = useState<{ kind: 'image'; src: string } | { kind: 'svg'; html: string } | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -202,7 +205,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     document.body.style.overflow = 'hidden';
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (lightboxSrc) return; // ayrı bir click-outside/X ile kapanıyor, aşağıda ele alınıyor
+        if (lightbox) return; // ayrı bir click-outside/X ile kapanıyor, aşağıda ele alınıyor
         // Tam ekrandaysak Escape'i tarayıcı zaten fullscreen'den çıkmak için kullanır —
         // sunumu da kapatırsak öğretmen tek Escape'te hem tam ekrandan hem sunumdan çıkar,
         // bu şaşırtıcı olur. Sadece tam ekran değilken sunumu kapat.
@@ -218,16 +221,16 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
     };
-  }, [isOverlay, onClose, goPrev, goNext, lightboxSrc]);
+  }, [isOverlay, onClose, goPrev, goNext, lightbox]);
 
   useEffect(() => {
-    if (!lightboxSrc) return;
+    if (!lightbox) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxSrc(null);
+      if (e.key === 'Escape') setLightbox(null);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [lightboxSrc]);
+  }, [lightbox]);
 
   const cleanSvg = useMemo(() => (slide.diagramSvg ? sanitizeMathSvg(slide.diagramSvg) : null), [slide.diagramSvg]);
   const imageOnRight = index % 2 === 0;
@@ -392,7 +395,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               {slide.imageUrl ? (
                 <button
                   type="button"
-                  onClick={() => setLightboxSrc(slide.imageUrl)}
+                  onClick={() => setLightbox({ kind: 'image', src: slide.imageUrl! })}
                   className="group relative z-[1] hidden sm:flex h-[72%] aspect-square shrink-0 items-center justify-center rounded-2xl p-1.5 shadow-lg cursor-zoom-in"
                   style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
                 >
@@ -456,14 +459,24 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                   {visualSrc ? (
                     <button
                       type="button"
-                      onClick={() => setLightboxSrc(visualSrc)}
+                      onClick={() => setLightbox({ kind: 'image', src: visualSrc })}
                       className="group relative h-full w-full flex items-center justify-center rounded-xl bg-white p-3 cursor-zoom-in overflow-hidden"
                     >
                       <img src={visualSrc} alt={slide.heading} className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105" />
                       <ZoomIn className="absolute bottom-2 right-2 h-5 w-5 rounded-md bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100" />
                     </button>
                   ) : cleanSvg ? (
-                    <div className="flex h-full w-full items-center justify-center rounded-xl bg-white p-3 [&_svg]:h-full [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: cleanSvg }} />
+                    <button
+                      type="button"
+                      onClick={() => setLightbox({ kind: 'svg', html: cleanSvg })}
+                      className="group relative h-full w-full flex items-center justify-center rounded-xl bg-white p-3 cursor-zoom-in overflow-hidden"
+                    >
+                      <div
+                        className="h-full w-full transition-transform duration-300 group-hover:scale-105 [&_svg]:h-full [&_svg]:w-full"
+                        dangerouslySetInnerHTML={{ __html: cleanSvg }}
+                      />
+                      <ZoomIn className="absolute bottom-2 right-2 h-5 w-5 rounded-md bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                    </button>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center p-4 opacity-80">
                       <DecorativePattern seed={index + 1} from={accent.from} to={accent.to} />
@@ -503,16 +516,23 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
         )}
       </div>
 
-      {lightboxSrc && (
+      {lightbox && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/85 p-6 cursor-zoom-out"
-          onClick={() => setLightboxSrc(null)}
+          onClick={() => setLightbox(null)}
         >
-          <img src={lightboxSrc} alt="" className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
+          {lightbox.kind === 'image' ? (
+            <img src={lightbox.src} alt="" className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
+          ) : (
+            <div
+              className="max-h-full max-w-full rounded-lg bg-white p-6 shadow-2xl [&_svg]:max-h-[80vh] [&_svg]:max-w-[80vw]"
+              dangerouslySetInnerHTML={{ __html: lightbox.html }}
+            />
+          )}
           <button
             type="button"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Görseli kapat"
+            onClick={() => setLightbox(null)}
+            aria-label="Kapat"
             className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
             <X className="h-5 w-5" />
