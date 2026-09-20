@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2, PartyPopper, Trophy, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Minus, PartyPopper, Plus, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
@@ -17,6 +17,12 @@ const ACCENTS = [
   { bar: '#E0862A', from: '#FBBB55', to: '#C86A0E', soft: '#FEF0DD', glow: 'rgba(224,134,42,0.5)' },
   { bar: '#2B7FD9', from: '#63B0F0', to: '#1B5FAE', soft: '#E4F0FD', glow: 'rgba(43,127,217,0.5)' },
 ] as const;
+
+// Akıllı tahtadan uzaktaki öğrenciler için metin boyutu ayarı — sadece bu oturumda geçerli,
+// kaydedilmiyor (kullanıcının 2026-09-21 isteği).
+const MIN_FONT_SCALE = 1;
+const MAX_FONT_SCALE = 1.5;
+const FONT_SCALE_STEP = 0.1;
 
 // Görsel/diyagram olmayan section slaytları için dekoratif, konu-nötr bir desen — her slayt
 // bomboş/yazı-yığını gibi hissetmesin diye. Rastgele değil (SSR/hydration'da tutarlı olsun
@@ -77,6 +83,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   // ayrımı gerekiyor.
   const [lightbox, setLightbox] = useState<{ kind: 'image'; src: string } | { kind: 'svg'; html: string } | null>(null);
   const [animKey, setAnimKey] = useState(0);
+  const [fontScale, setFontScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Slaytlar bitince ('outro') tebrik ekranı, sonra istenirse ('questions') konunun soru
@@ -86,6 +93,11 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
+  // Sadece bu ekranda geçerli, kayıt/istatistik YOK — geri gidince önceki tıklamalar
+  // kaybolmasın diye soru component'leri hiç unmount edilmiyor (bkz. questions.map aşağıda),
+  // bu map de sadece "D:/Y:" sayacı için — onAnswered zaten her soru en fazla bir kez tetikler.
+  const [answeredMap, setAnsweredMap] = useState<Record<number, 'correct' | 'incorrect' | 'revealed'>>({});
+  const [questionsAttempt, setQuestionsAttempt] = useState(0);
 
   // Deck/konu değişince (embedded SlidePlayer sayfada sabit kalıp deck prop'u değiştiği için)
   // her şeyi baştan başlat — aksi halde önceki konunun ortasında/sorularında kalınırdı.
@@ -96,6 +108,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setQIndex(0);
     setQuestions(null);
     setQuestionsError(null);
+    setAnsweredMap({});
     setAnimKey((k) => k + 1);
   }, [topicId]);
 
@@ -123,6 +136,8 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   const startQuestions = useCallback(() => {
     setPhase('questions');
     setQIndex(0);
+    setAnsweredMap({});
+    setQuestionsAttempt((a) => a + 1);
     setAnimKey((k) => k + 1);
   }, []);
 
@@ -232,6 +247,12 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [lightbox]);
 
+  // 'questions' fazında kart her qIndex değişiminde REMOUNT edilirse içindeki
+  // QuestionAnswerKeyItem'lar da sıfırlanır (seçim/reveal kaybolur) — bu yüzden o fazda
+  // animKey yerine questionsAttempt kullanılıyor (sadece "Soruları Çöz"e yeniden basılınca
+  // değişir), giriş animasyonu sadece o an bir kere oynar, qIndex gezinirken kart sabit kalır.
+  const cardKey = phase === 'questions' ? `questions-${questionsAttempt}` : animKey;
+
   const cleanSvg = useMemo(() => (slide.diagramSvg ? sanitizeMathSvg(slide.diagramSvg) : null), [slide.diagramSvg]);
   const imageOnRight = index % 2 === 0;
   const visualSrc = slide.imageUrl;
@@ -258,6 +279,32 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           : undefined
       }
     >
+      {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
+          oturumda geçerli, kaydedilmiyor. */}
+      <div className="absolute left-4 top-4 z-10 flex items-center gap-1 rounded-full bg-slate-900/60 p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
+          disabled={fontScale <= MIN_FONT_SCALE}
+          aria-label="Metni küçült"
+          title="Metni küçült"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="w-9 text-center text-[10px] font-black text-white">%{Math.round(fontScale * 100)}</span>
+        <button
+          type="button"
+          onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
+          disabled={fontScale >= MAX_FONT_SCALE}
+          aria-label="Metni büyüt"
+          title="Metni büyüt (akıllı tahta için)"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       <div className="absolute right-4 top-4 flex items-center gap-2 z-10">
         {isOverlay ? (
           <>
@@ -317,7 +364,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       </button>
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
-        <div key={animKey} className="animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div key={cardKey} className="animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl">
           {/* Dekoratif, dolaşan renkli blob'lar — kartın arka planına derinlik katıyor */}
           <div
             className="animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full blur-3xl"
@@ -339,13 +386,22 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
             </div>
           )}
           {phase !== 'outro' && (
-            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
-              {phase === 'questions' ? `Soru ${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
+            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 flex items-center gap-1.5">
+              {phase === 'questions' && (
+                <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm">
+                  <span className="text-emerald-600">D:{Object.values(answeredMap).filter((v) => v === 'correct').length}</span>
+                  {' '}
+                  <span className="text-rose-500">Y:{Object.values(answeredMap).filter((v) => v === 'incorrect').length}</span>
+                </div>
+              )}
+              <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
+                {phase === 'questions' ? `Soru ${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
+              </div>
             </div>
           )}
 
           {phase === 'outro' ? (
-            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}>
+            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}>
               <div
                 className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg"
                 style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
@@ -377,16 +433,30 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                 </button>
               )}
             </div>
-          ) : phase === 'questions' && questions && questions[qIndex] ? (
-            <div key={questions[qIndex].id} className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto">
-              <div className="relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6">
-                <QuestionAnswerKeyItem question={questions[qIndex]} interactive />
-              </div>
+          ) : phase === 'questions' && questions ? (
+            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: fontScale }}>
+              {/* Sorular hiç unmount edilmiyor — sadece görünürlük değişiyor. Aksi halde
+                  geri/ileri gidince QuestionAnswerKeyItem'ın kendi state'i (seçim/reveal)
+                  sıfırlanırdı (kullanıcının 2026-09-21 isteği: "geri gittiğimde önceki
+                  tıklamalarım kaybolmasın"). key={questionsAttempt} sadece "Soruları Çöz"e
+                  yeniden basılınca hepsini sıfırdan başlatıyor. */}
+              {questions.map((q, i) => (
+                <div
+                  key={`${questionsAttempt}-${q.id}`}
+                  className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
+                >
+                  <QuestionAnswerKeyItem
+                    question={q}
+                    interactive
+                    onAnswered={(id, status) => setAnsweredMap((m) => ({ ...m, [id]: status }))}
+                  />
+                </div>
+              ))}
             </div>
           ) : slide.kind === 'cover' ? (
             <div
               className="relative flex h-full items-center gap-6 overflow-hidden px-6 sm:px-12 pt-16"
-              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}
+              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}
             >
               <div className={slide.imageUrl ? 'relative z-[1] flex-1 min-w-0' : 'relative z-[1] w-full'}>
                 <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-800 leading-tight">{slide.heading}</h1>
@@ -411,7 +481,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : (
-            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-16 pb-4 sm:pb-8">
+            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-16 pb-4 sm:pb-8" style={{ zoom: fontScale }}>
               <h2 className="text-base sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0">{slide.heading}</h2>
               <div className={`relative z-[1] flex flex-1 min-h-0 gap-4 ${!imageOnRight ? 'flex-row-reverse' : ''}`}>
                 <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-center">
