@@ -281,27 +281,27 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     >
       {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
           oturumda geçerli, kaydedilmiyor. */}
-      <div className="absolute left-4 top-4 z-10 flex items-center gap-1 rounded-full bg-slate-900/60 p-1 shadow-sm">
+      <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/70 px-1.5 py-1.5 shadow-lg">
         <button
           type="button"
           onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
           disabled={fontScale <= MIN_FONT_SCALE}
           aria-label="Metni küçült"
           title="Metni küçült"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <Minus className="h-3.5 w-3.5" />
+          <Minus className="h-4 w-4" />
         </button>
-        <span className="w-9 text-center text-[10px] font-black text-white">%{Math.round(fontScale * 100)}</span>
+        <span className="w-10 text-center text-[11px] font-black text-white">%{Math.round(fontScale * 100)}</span>
         <button
           type="button"
           onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
           disabled={fontScale >= MAX_FONT_SCALE}
           aria-label="Metni büyüt"
           title="Metni büyüt (akıllı tahta için)"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
 
