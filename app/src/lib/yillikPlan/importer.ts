@@ -157,20 +157,18 @@ export async function importUnits(
         continue;
       }
 
-      // upsert: aynı (lesson_id, grade_id, slug) ile eşzamanlı/yeniden aktarımda
-      // unique-violation yerine mevcut kaydın üzerine yazar (bkz.
-      // units_lesson_grade_slug_unique, supabase/migrations/units_slug_unique_per_lesson_grade.sql).
-      const { error: insertError } = await sb.from('units').upsert(
-        {
-          lesson_id: lessonId,
-          grade_id: gradeId,
-          title: uniteAdi,
-          slug: slugUniq,
-          is_active: true,
-          description: `${uniteAdi} ünitesi`,
-        },
-        { onConflict: 'lesson_id,grade_id,slug' }
-      );
+      // slug üzerinde artık hiçbir unique constraint yok (bkz. supabase/migrations/
+      // units_slug_unique_per_lesson_grade.sql) — aynı isme/slug'a sahip başka bir ünite
+      // zaten yukarıdaki "ex" kontrolüyle (title eşleşmesi) güncelleniyor, buraya sadece
+      // gerçekten yeni bir kayıt geldiğinde düşülüyor, o yüzden düz insert yeterli.
+      const { error: insertError } = await sb.from('units').insert({
+        lesson_id: lessonId,
+        grade_id: gradeId,
+        title: uniteAdi,
+        slug: slugUniq,
+        is_active: true,
+        description: `${uniteAdi} ünitesi`,
+      });
       if (insertError) throw insertError;
       log(`  ✅ ${uniteAdi}`, 'success');
       basarili += 1;

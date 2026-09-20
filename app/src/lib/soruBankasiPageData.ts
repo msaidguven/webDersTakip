@@ -222,15 +222,20 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
+  // slug artık unique değil (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı ünite
+  // olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — order+limit
+  // ile ilk satırı deterministik olarak alıyoruz.
   const unitQuery = supabase
     .from('units')
     .select('id, title, slug')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug)
-    .eq('is_active', true);
-  const { data: unitData } = await unitQuery.maybeSingle();
-  const unit = unitData as { id: number; title: string; slug: string | null } | null;
+    .eq('is_active', true)
+    .order('id', { ascending: true })
+    .limit(1);
+  const { data: unitRows } = await unitQuery;
+  const unit = (unitRows as { id: number; title: string; slug: string | null }[] | null)?.[0] || null;
   if (!unit) return null;
 
   const topicQuery = supabase.from('topics').select('id, title, slug, order_no').eq('unit_id', unit.id).eq('is_active', true);

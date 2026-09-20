@@ -26,15 +26,19 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
-  const { data: unitData } = await supabase
+  // slug artık unique değil (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı ünite
+  // olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — order+limit
+  // ile ilk satırı deterministik olarak alıyoruz.
+  const { data: unitRows } = await supabase
     .from('units')
     .select('id, title, slug, description')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug)
     .eq('is_active', true)
-    .maybeSingle();
-  const unit = unitData as { id: number; title: string; slug: string | null; description: string | null } | null;
+    .order('id', { ascending: true })
+    .limit(1);
+  const unit = (unitRows as { id: number; title: string; slug: string | null; description: string | null }[] | null)?.[0] || null;
   if (!unit) return null;
 
   const { data: topicRows } = await supabase

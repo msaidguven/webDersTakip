@@ -45,15 +45,21 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   const lesson = lessonData as LessonRow | null;
   if (!grade || !lesson) return null;
 
+  // slug üzerinde unique constraint yok (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı
+  // ünite olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — birden
+  // fazla eşleşme mümkün, .maybeSingle() hata verirdi; order+limit ile ilk satırı deterministik
+  // olarak alıyoruz.
   const unitQuery = supabase
     .from('units')
     .select('id, title, slug')
     .eq('grade_id', grade.id)
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug)
-    .eq('is_active', true);
-  const { data: unitData } = await unitQuery.maybeSingle();
-  const unit = unitData as UnitRow | null;
+    .eq('is_active', true)
+    .order('id', { ascending: true })
+    .limit(1);
+  const { data: unitRows } = await unitQuery;
+  const unit = (unitRows as UnitRow[] | null)?.[0] || null;
   if (!unit) return null;
 
   const topicQuery = supabase
@@ -192,6 +198,7 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
     return null;
   }
 
+  // slug artık unique değil (bkz. yukarıdaki not) — order+limit ile ilk satırı alıyoruz.
   let unitQuery = supabase
     .from('units')
     .select('id, title, description, slug, lesson_id, grade_id')
@@ -199,9 +206,9 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
     .eq('lesson_id', lesson.id)
     .eq('slug', decodedUnitSlug);
   if (!isAdmin) unitQuery = unitQuery.eq('is_active', true);
-  const { data: unitData } = await unitQuery.maybeSingle();
+  const { data: unitRows } = await unitQuery.order('id', { ascending: true }).limit(1);
 
-  const unit = unitData as UnitRowFull | null;
+  const unit = (unitRows as UnitRowFull[] | null)?.[0] || null;
   if (!unit) return null;
 
   const { data: topicData, count: topicCount } = await supabase
