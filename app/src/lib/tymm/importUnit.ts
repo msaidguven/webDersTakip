@@ -69,18 +69,10 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       .maybeSingle();
     const nextOrder = ((maxOrderData as UnitRow | null)?.order_no ?? 0) + 1;
     // Ünite hiçbir yerde salt slug'la aranmıyor, her zaman lesson_id + grade_id + slug ile
-    // aranıyor — bu yüzden düz slug bu kapsamda benzersizse ekstra bir şey eklemeye gerek
-    // yok (kullanıcının 2026-09-21 bulduğu sorun: eskiden HER zaman "-{lessonId}-{gradeId}"
-    // ekleniyordu, bkz. yillikPlan/importer.ts'teki aynı düzeltme).
-    const baseSlug = slugify(unitTitle);
-    const { data: slugConflict } = await supabase
-      .from('units')
-      .select('id')
-      .eq('lesson_id', lessonId)
-      .eq('grade_id', gradeId)
-      .eq('slug', baseSlug)
-      .maybeSingle();
-    const slug = slugConflict ? `${baseSlug}-${nextOrder}` : baseSlug;
+    // aranıyor — düz slug dışında HİÇBİR EK/SIRA NUMARASI kullanılmıyor (kullanıcının
+    // 2026-09-21 kesin kararı, bkz. yillikPlan/importer.ts'teki aynı düzeltme). Gerçek bir
+    // çakışma olursa insert kendi unique-violation hatasıyla düşer, sessizce numaralandırılmaz.
+    const slug = slugify(unitTitle);
     const { data: created, error: insertError } = await supabase
       .from('units')
       .insert({

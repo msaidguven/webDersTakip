@@ -127,16 +127,14 @@ export async function importUnits(
   let hata = 0;
   let atlanmis = 0;
 
-  for (const [uniteAdi, order] of seen) {
-    const slug = slugify(uniteAdi);
+  for (const [uniteAdi] of seen) {
     // Ünite hiçbir yerde salt slug'la aranmıyor, her zaman lesson_id + grade_id + slug ile
-    // aranıyor (bkz. unitOverviewPageData.ts) — bu yüzden düz slug bu (lesson_id, grade_id)
-    // kapsamında zaten benzersizse (units_lesson_grade_slug_unique, bkz. supabase/migrations/
-    // units_slug_unique_per_lesson_grade.sql) ekstra bir şey eklemeye gerek yok. Eskiden
-    // HER zaman "-{lessonId}-{gradeId}" ekleniyordu, bu da tüm URL'leri gereksiz yere
-    // çirkinleştiriyordu (kullanıcının 2026-09-21 bulduğu sorun) — artık sadece gerçek bir
-    // çakışma varsa (aynı kapsamda aynı slug'a sahip BAŞKA bir ünite) ekleniyor.
-    let slugUniq = slug;
+    // aranıyor (bkz. unitOverviewPageData.ts) — düz slug dışında HİÇBİR EK/SIRA NUMARASI
+    // kullanılmıyor (kullanıcının 2026-09-21 kesin kararı). Aynı ders+sınıfta gerçekten
+    // aynı isme slugify olan iki farklı ünite varsa (pratikte olmamalı, başlıklar farklı
+    // olduğu sürece) upsert kendi hata mesajıyla (unique violation) düşer, sessizce
+    // numaralandırılmaz — kayıt admin'in görüp başlığı düzeltmesi gereken gerçek bir durum.
+    const slugUniq = slugify(uniteAdi);
 
     try {
       const { data: ex } = await sb
@@ -157,17 +155,6 @@ export async function importUnits(
         log(`  🔄 ${uniteAdi} (mevcut, güncellendi, id=${(ex as { id: number }).id})`, 'success');
         atlanmis += 1;
         continue;
-      }
-
-      const { data: ex2 } = await sb
-        .from('units')
-        .select('id')
-        .eq('lesson_id', lessonId)
-        .eq('grade_id', gradeId)
-        .eq('slug', slugUniq)
-        .maybeSingle();
-      if (ex2) {
-        slugUniq = `${slug}-${order}`;
       }
 
       // upsert: aynı (lesson_id, grade_id, slug) ile eşzamanlı/yeniden aktarımda
