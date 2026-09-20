@@ -252,7 +252,16 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
 
   const units = (unitsData as UnitRow[] | null) || [];
 
-  const activeUnit = units.find((u) => u.slug === decodedUnitSlug) ?? null;
+  // slug artık (lesson_id, grade_id) kapsamında unique değil (bkz. supabase/migrations/
+  // units_slug_unique_per_lesson_grade.sql) — birden fazla eşleşme olursa en düşük id'li
+  // kazanır, diğer public sorgularla (unitOverviewPageData.ts, quizPageData.ts,
+  // soruBankasiPageData.ts'nin .order('id').limit(1) mantığı) TUTARLI kalsın diye. Aksi
+  // halde sitemap'teki bir URL bu sayfada farklı bir unit'e, başka bir sayfada farklı bir
+  // unit'e çözülüp 404/yanlış içerik riski oluşturabilirdi.
+  const unitCandidates = units.filter((u) => u.slug === decodedUnitSlug);
+  const activeUnit = unitCandidates.length
+    ? unitCandidates.reduce((lowest, u) => (u.id < lowest.id ? u : lowest))
+    : null;
   if (!activeUnit) {
     return null;
   }

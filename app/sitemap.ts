@@ -118,12 +118,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     const unitPathById = new Map<number, { gradeSlug: string; lessonSlug: string; unitSlug: string }>();
+    // units.slug artık (lesson_id, grade_id) kapsamında unique DEĞİL (bkz. supabase/migrations/
+    // units_slug_unique_per_lesson_grade.sql, kullanıcının 2026-09-21 kararı: aynı isimli iki
+    // ünite olabilir) — gerçek sayfa render'ı aynı URL için hep EN DÜŞÜK id'li ünitede karar
+    // kılıyor (bkz. unitOverviewPageData.ts / [topicSlug]/page.tsx'teki aynı mantık). Sitemap de
+    // aynı "kazananı" seçmezse, "kaybeden" ünitenin konularını listeleyip gerçekte hiç
+    // ulaşılamayan (404 veren) URL'ler crawl ettirmiş oluruz — bu yüzden aynı yol (grade/lesson/
+    // unit slug) için sadece en düşük id'li ünite kazanıyor.
+    const winningUnitIdByPathKey = new Map<string, number>();
     for (const u of units) {
       if (!publishedLessonGradeKeys.has(`${u.lesson_id}:${u.grade_id}`)) continue;
       const gradeSlug = gradeSlugById.get(u.grade_id);
       const lessonSlug = lessonSlugById.get(u.lesson_id);
       if (gradeSlug && lessonSlug && u.slug) {
         unitPathById.set(u.id, { gradeSlug, lessonSlug, unitSlug: u.slug });
+        const pathKey = `${gradeSlug}/${lessonSlug}/${u.slug}`;
+        const currentWinner = winningUnitIdByPathKey.get(pathKey);
+        if (currentWinner === undefined || u.id < currentWinner) winningUnitIdByPathKey.set(pathKey, u.id);
         // /unite-testi BİLİNÇLİ OLARAK sitemap'e girmiyor — sayfanın kendi generateMetadata'sı
         // (bkz. unite-testi/page.tsx) her zaman robots: {index:false} dönüyor ("Sorular artık
         // /soru-bankasi'nda indeksleniyor" kararı, 2026-09-03). noindex bir sayfayı sitemap'te
@@ -131,6 +142,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // (kullanıcının paylaştığı Coverage raporu, 2026-09-17).
       }
     }
+    // Aynı yolu (grade/lesson/unit slug) paylaşan "kaybeden" ünite(ler) — o yoldaki hem
+    // /soru-bankasi/ünite girişini hem de o ünitenin konularını sitemap'ten dışlamak için.
+    const isWinningUnit = (unitId: number) => {
+      const path = unitPathById.get(unitId);
+      if (!path) return false;
+      return winningUnitIdByPathKey.get(`${path.gradeSlug}/${path.lessonSlug}/${path.unitSlug}`) === unitId;
+    };
 
     // /soru-bankasi hub sayfaları (sınıf/ders/ünite seviyesi listeleme sayfaları,
     // bkz. app/soru-bankasi/[sinif]/(...)page.tsx) — bir sınıf/ders/ünite en az bir soruya
@@ -160,7 +178,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     for (const [unitId, unitPath] of unitPathById) {
-      if (!unitIdsWithQuestions.has(unitId)) continue;
+      if (!unitIdsWithQuestions.has(unitId) || !isWinningUnit(unitId)) continue;
       entries.push({
         url: `${SITE_URL}/soru-bankasi/${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}`,
         lastModified: now,
@@ -172,7 +190,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const topicPathById = new Map<number, string>();
     for (const t of topics) {
       const unitPath = unitPathById.get(t.unit_id);
-      if (unitPath && t.slug) {
+      if (unitPath && t.slug && isWinningUnit(t.unit_id)) {
         topicPathById.set(t.id, `${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}/${t.slug}`);
         if (!publishedTopicIds.has(t.id)) continue;
         entries.push({
