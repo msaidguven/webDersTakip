@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle, Check, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
@@ -353,13 +353,21 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
 
   // Ders sayfasındaki admin araçları açılır menüsünden (DersClient.tsx) doğrudan bu panele,
   // ilgili modal zaten açık halde gelinebilsin diye — kullanıcının 2026-09-20/21 isteği:
-  // "her prompt için ayrı link verelim, sayfaya gelince o panel açık olsun". Sadece topic
-  // seviyesindeki (belirli bir alt başlık gerektirmeyen) araçlar kapsamda — section bazlı
-  // araçlar (görsel/video/diyagram/soru) buradan deep-link'lenmiyor, hangi alt başlık
-  // olduğunu URL'den taşımak gerekirdi, kapsam dışı bırakıldı.
+  // "her prompt için ayrı link verelim, sayfaya gelince o panel açık olsun". Section bazlı
+  // araçlar (görsel/diyagram/video/YouTube önerisi) da ?sectionId= ile destekleniyor —
+  // bundle (ve bundle.sections) yüklenmeden section'ı bulamayacağımız için bundle hazır
+  // olana kadar bekliyoruz. didAutoOpenPanel bir kere çalışsın diye: aksi halde admin
+  // modalı kapattıktan sonra herhangi bir kayıt (load() tetikleyen) bundle'ı değiştirip
+  // URL'de panel= hâlâ dururken modalı sessizce yeniden açardı.
   const searchParams = useSearchParams();
+  const didAutoOpenPanel = useRef(false);
   useEffect(() => {
-    switch (searchParams.get('panel')) {
+    if (!bundle || didAutoOpenPanel.current) return;
+    didAutoOpenPanel.current = true;
+    const panel = searchParams.get('panel');
+    const sectionIdParam = searchParams.get('sectionId');
+    const section = sectionIdParam ? bundle.sections.find((s) => String(s.id) === sectionIdParam) ?? null : null;
+    switch (panel) {
       case 'review-summary': setReviewSummaryModalOpen(true); break;
       case 'cover-image': setCoverImageModalOpen(true); break;
       case 'highlights': setHighlightsModalOpen(true); break;
@@ -370,10 +378,13 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       case 'topic-questions-general': setTopicQuestionsVariant('general'); break;
       case 'topic-questions-classical': setTopicQuestionsVariant('classical'); break;
       case 'classical-generate': setClassicalGenerateTarget({ section: null }); break;
+      case 'image': if (section) setImageModalTarget(section); break;
+      case 'diagram': if (section) setDiagramModalTarget(section); break;
+      case 'video': if (section) setVideoModalTarget(section); break;
+      case 'video-suggestion': if (section) setVideoSuggestionsModalTarget(section); break;
       default: break;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bundle, searchParams]);
 
   useEffect(() => {
     const unitId = bundle?.unit?.id ?? null;

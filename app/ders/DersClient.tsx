@@ -71,9 +71,8 @@ const BOARD_MODE_DEFAULT_SCALE = 1.4;
 // "İçerik Yönetimi" açılır menüsü — her satır /admin/konu-icerik/[topicId]?panel=X'e gidip
 // o panel/modalı otomatik açık şekilde açıyor (bkz. AdminTopicSectionsPanel.tsx'teki panel
 // query-param eşlemesi). Sadece TOPIC seviyesindeki (belirli bir alt başlık gerektirmeyen)
-// araçlar listelendi — görsel/video/diyagram/soru gibi alt başlık bazlı araçlar için hangi
-// alt başlığın kastedildiğini URL'den taşımak gerekirdi, kapsam dışı bırakıldı (kullanıcının
-// 2026-09-21 isteği).
+// araçlar burada — alt başlık bazlı araçlar (görsel/diyagram/video) için SECTION_ADMIN_TOOLS_MENU'ye
+// bkz., her alt başlığın kendi menüsünde ?sectionId= ile birlikte kullanılıyor.
 const ADMIN_TOOLS_MENU: { panel: string; label: string }[] = [
   { panel: 'plan', label: 'Alt Başlık Planı Prompt\'u' },
   { panel: 'cover-image', label: 'Konu Kapak Görseli' },
@@ -85,6 +84,18 @@ const ADMIN_TOOLS_MENU: { panel: string; label: string }[] = [
   { panel: 'topic-questions-classical', label: 'Açık Uçlu Sorular' },
   { panel: 'classical-generate', label: 'Açık Uçlu Soru Üret (AI)' },
   { panel: 'notebooklm-setup', label: 'NotebookLM Kurulum' },
+];
+
+// Alt başlık (section) bazlı araçlar — her alt başlığın kendi menüsünde ?panel=X&sectionId=Y
+// ile /admin/konu-icerik/[topicId]'ye gidip ilgili section modalını otomatik açık getiriyor
+// (kullanıcının 2026-09-21 isteği: "özellikle diyagram resim güncelleme için kullanabilirim").
+// İçerik/soru üretimi gibi kaynak varyantı (NotebookLM/sentez) gerektiren araçlar burada YOK —
+// o varyant admin panelinde contentSourceKind'e göre belirleniyor, deep-link'te belirsiz kalırdı.
+const SECTION_ADMIN_TOOLS_MENU: { panel: string; label: string }[] = [
+  { panel: 'image', label: 'Görsel Ekle/Güncelle' },
+  { panel: 'diagram', label: 'Diyagram Ekle/Güncelle' },
+  { panel: 'video', label: 'Video Ekle/Güncelle' },
+  { panel: 'video-suggestion', label: 'YouTube Önerisi' },
 ];
 
 interface DersClientProps {
@@ -184,6 +195,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [slideDeckError, setSlideDeckError] = useState<string | null>(null);
   const [slideDeckExpanded, setSlideDeckExpanded] = useState(false);
   const [adminToolsMenuOpen, setAdminToolsMenuOpen] = useState(false);
+  const [openSectionAdminMenuId, setOpenSectionAdminMenuId] = useState<string | number | null>(null);
   const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
@@ -1939,6 +1951,36 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                                     <h2 className="not-prose flex-1 min-w-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
                                       {section.heading}
                                     </h2>
+                                    {isAdmin && (
+                                      <div className="relative shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => setOpenSectionAdminMenuId((id) => (id === section.id ? null : section.id))}
+                                          className="inline-flex items-center gap-1 rounded-full border border-[#6c63ff]/30 bg-[#6c63ff]/10 px-2 py-1 text-[10px] font-bold text-[#6c63ff] hover:bg-[#6c63ff]/20 transition-colors"
+                                        >
+                                          <Sparkles className="h-3 w-3" />
+                                          <ChevronDown className={`h-3 w-3 transition-transform ${openSectionAdminMenuId === section.id ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        {openSectionAdminMenuId === section.id && (
+                                          <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setOpenSectionAdminMenuId(null)} />
+                                            <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
+                                              {SECTION_ADMIN_TOOLS_MENU.map((item) => (
+                                                <Link
+                                                  key={item.panel}
+                                                  href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}&sectionId=${section.id}`}
+                                                  target="_blank"
+                                                  onClick={() => setOpenSectionAdminMenuId(null)}
+                                                  className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                                >
+                                                  {item.label}
+                                                </Link>
+                                              ))}
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   {section.html || section.imageUrl || section.diagramSvg || section.videoUrl ? (
                                     <SectionContent
