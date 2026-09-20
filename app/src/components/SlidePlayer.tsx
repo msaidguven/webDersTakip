@@ -21,8 +21,8 @@ const ACCENTS = [
 // Akıllı tahtadan uzaktaki öğrenciler için metin boyutu ayarı — sadece bu oturumda geçerli,
 // kaydedilmiyor (kullanıcının 2026-09-21 isteği).
 const MIN_FONT_SCALE = 1;
-const MAX_FONT_SCALE = 1.5;
-const FONT_SCALE_STEP = 0.1;
+const MAX_FONT_SCALE = 2.5;
+const FONT_SCALE_STEP = 0.25;
 
 // Görsel/diyagram olmayan section slaytları için dekoratif, konu-nötr bir desen — her slayt
 // bomboş/yazı-yığını gibi hissetmesin diye. Rastgele değil (SSR/hydration'da tutarlı olsun
