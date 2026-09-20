@@ -47,6 +47,7 @@ CREATE TABLE public.units (
   curriculum_code text,
   duration_hours integer CHECK (duration_hours IS NULL OR duration_hours >= 1),
   key_concepts ARRAY,
+  rag_dedup_checked_at timestamp with time zone,
   CONSTRAINT units_pkey PRIMARY KEY (id),
   CONSTRAINT fk_units_lesson FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
   CONSTRAINT fk_units_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id)
@@ -65,6 +66,7 @@ CREATE TABLE public.topics (
   subtitle text,
   curriculum_code text,
   learning_outcome text,
+  rag_last_checked_at timestamp with time zone,
   CONSTRAINT topics_pkey PRIMARY KEY (id),
   CONSTRAINT topics_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id)
 );
@@ -91,6 +93,8 @@ CREATE TABLE public.topic_contents (
   version_no integer NOT NULL DEFAULT 1,
   source text NOT NULL DEFAULT 'manual'::text CHECK (source = ANY (ARRAY['manual'::text, 'ai_generated'::text])),
   generation_meta jsonb,
+  summary_markdown text,
+  discussion_prompt_markdown text,
   CONSTRAINT topic_contents_pkey PRIMARY KEY (id),
   CONSTRAINT topic_contents_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
@@ -127,6 +131,7 @@ CREATE TABLE public.profiles (
   banned_at timestamp with time zone,
   banned_reason text,
   banned_by uuid,
+  onboarding_completed boolean NOT NULL DEFAULT true,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES public.profiles(id),
@@ -280,6 +285,9 @@ CREATE TABLE public.user_question_stats (
   is_mastered boolean DEFAULT false,
   mastered_at timestamp with time zone,
   grade_id bigint,
+  ease_factor numeric NOT NULL DEFAULT 2.5,
+  interval_days integer NOT NULL DEFAULT 0,
+  ai_help_count integer NOT NULL DEFAULT 0,
   CONSTRAINT user_question_stats_pkey PRIMARY KEY (user_id, question_id),
   CONSTRAINT fk_user_question_stats_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id),
   CONSTRAINT user_question_stats_user_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
@@ -424,6 +432,12 @@ CREATE TABLE public.topic_content_sections (
   diagram_svg text,
   source text NOT NULL DEFAULT 'manual'::text CHECK (source = ANY (ARRAY['manual'::text, 'ai_generated'::text])),
   ai_model text,
+  notebook_markdown text,
+  activity_prompt_markdown text,
+  activity_example_markdown text,
+  video_prompt text,
+  video_url text,
+  video_type text CHECK (video_type = ANY (ARRAY['ai_generated'::text, 'youtube'::text])),
   CONSTRAINT topic_content_sections_pkey PRIMARY KEY (id),
   CONSTRAINT topic_content_sections_topic_content_id_fkey FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id)
 );
@@ -470,13 +484,18 @@ CREATE TABLE public.rag_documents (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   grade_id bigint NOT NULL,
   lesson_id bigint NOT NULL,
-  source text NOT NULL DEFAULT 'pdf_upload'::text CHECK (source = ANY (ARRAY['pdf_upload'::text, 'notebooklm_text'::text])),
+  source text NOT NULL DEFAULT 'pdf_upload'::text CHECK (source = ANY (ARRAY['pdf_upload'::text, 'notebooklm_text'::text, 'ai_generated'::text])),
   unit_id bigint,
+  topic_id bigint,
+  raw_text text,
+  is_synthesis boolean NOT NULL DEFAULT false,
+  ai_model text,
   CONSTRAINT rag_documents_pkey PRIMARY KEY (id),
   CONSTRAINT rag_documents_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
   CONSTRAINT rag_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id),
   CONSTRAINT rag_documents_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
-  CONSTRAINT rag_documents_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
+  CONSTRAINT rag_documents_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT rag_documents_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
 CREATE TABLE public.rag_document_chunks (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -511,6 +530,7 @@ CREATE TABLE public.rag_answers (
   quiz_question_id bigint,
   parent_comment_id bigint,
   parent_rag_answer_id bigint,
+  topic_id bigint,
   CONSTRAINT rag_answers_pkey PRIMARY KEY (id),
   CONSTRAINT rag_answers_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
   CONSTRAINT rag_answers_quiz_question_id_fkey FOREIGN KEY (quiz_question_id) REFERENCES public.questions(id),
@@ -519,7 +539,8 @@ CREATE TABLE public.rag_answers (
   CONSTRAINT rag_answers_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT rag_answers_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id),
   CONSTRAINT rag_answers_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
-  CONSTRAINT rag_answers_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
+  CONSTRAINT rag_answers_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT rag_answers_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
 CREATE TABLE public.rag_answer_reports (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -547,13 +568,15 @@ CREATE TABLE public.question_comments (
   reviewed_at timestamp with time zone,
   unit_id bigint,
   parent_ai_answer_id bigint,
+  topic_id bigint,
   CONSTRAINT question_comments_pkey PRIMARY KEY (id),
   CONSTRAINT question_comments_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id),
   CONSTRAINT question_comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.question_comments(id),
   CONSTRAINT question_comments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT question_comments_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id),
   CONSTRAINT question_comments_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
-  CONSTRAINT question_comments_parent_ai_answer_id_fkey FOREIGN KEY (parent_ai_answer_id) REFERENCES public.rag_answers(id)
+  CONSTRAINT question_comments_parent_ai_answer_id_fkey FOREIGN KEY (parent_ai_answer_id) REFERENCES public.rag_answers(id),
+  CONSTRAINT question_comments_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
 CREATE TABLE public.rag_question_queue (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -573,6 +596,8 @@ CREATE TABLE public.rag_question_queue (
   error text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   comment_id bigint,
+  topic_id bigint,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT rag_question_queue_pkey PRIMARY KEY (id),
   CONSTRAINT rag_question_queue_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT rag_question_queue_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
@@ -581,6 +606,7 @@ CREATE TABLE public.rag_question_queue (
   CONSTRAINT rag_question_queue_quiz_question_id_fkey FOREIGN KEY (quiz_question_id) REFERENCES public.questions(id),
   CONSTRAINT rag_question_queue_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.question_comments(id),
   CONSTRAINT rag_question_queue_parent_rag_answer_id_fkey FOREIGN KEY (parent_rag_answer_id) REFERENCES public.rag_answers(id),
+  CONSTRAINT rag_question_queue_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
   CONSTRAINT rag_question_queue_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.question_comments(id)
 );
 CREATE TABLE public.notifications (
@@ -610,4 +636,136 @@ CREATE TABLE public.auth_attempts (
   success boolean NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT auth_attempts_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.ai_question_drafts (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  section_id bigint NOT NULL,
+  topic_id bigint NOT NULL,
+  unit_id bigint NOT NULL,
+  lesson_id bigint NOT NULL,
+  grade_id bigint NOT NULL,
+  ai_model text,
+  questions jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'saved'::text, 'saved_want_more'::text, 'rejected'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  reviewed_at timestamp with time zone,
+  reviewed_by uuid,
+  CONSTRAINT ai_question_drafts_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_question_drafts_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id),
+  CONSTRAINT ai_question_drafts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
+  CONSTRAINT ai_question_drafts_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT ai_question_drafts_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT ai_question_drafts_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
+  CONSTRAINT ai_question_drafts_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.ai_question_draft_worker_runs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  generated boolean NOT NULL,
+  reason text,
+  draft_id bigint,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_question_draft_worker_runs_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_question_draft_worker_runs_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.ai_question_drafts(id)
+);
+CREATE TABLE public.rag_topic_review_flags (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  topic_id bigint NOT NULL,
+  section_id bigint,
+  kind text NOT NULL CHECK (kind = ANY (ARRAY['synthesis_inconsistency'::text, 'accuracy_check'::text])),
+  note text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid,
+  resolved_at timestamp with time zone,
+  resolved_by uuid,
+  CONSTRAINT rag_topic_review_flags_pkey PRIMARY KEY (id),
+  CONSTRAINT rag_topic_review_flags_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
+  CONSTRAINT rag_topic_review_flags_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id),
+  CONSTRAINT rag_topic_review_flags_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT rag_topic_review_flags_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.topic_content_section_notes (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  section_id bigint NOT NULL,
+  student_id uuid NOT NULL,
+  note_text text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT topic_content_section_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_content_section_notes_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id),
+  CONSTRAINT topic_content_section_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.topic_section_video_suggestions (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  section_id bigint NOT NULL,
+  video_url text NOT NULL,
+  video_title text,
+  note text,
+  ai_model text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT topic_section_video_suggestions_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_section_video_suggestions_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.topic_content_sections(id)
+);
+CREATE TABLE public.teacher_guide_documents (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  grade_id bigint NOT NULL,
+  lesson_id bigint NOT NULL,
+  unit_id bigint,
+  title text NOT NULL,
+  source text NOT NULL DEFAULT 'pdf_upload'::text CHECK (source = ANY (ARRAY['pdf_upload'::text, 'notebooklm_json'::text])),
+  file_path text,
+  page_count integer,
+  topic_count integer NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'processing'::text CHECK (status = ANY (ARRAY['processing'::text, 'ready'::text, 'failed'::text])),
+  error_message text,
+  uploaded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT teacher_guide_documents_pkey PRIMARY KEY (id),
+  CONSTRAINT teacher_guide_documents_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
+  CONSTRAINT teacher_guide_documents_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT teacher_guide_documents_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT teacher_guide_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.topic_teacher_guide_notes (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  topic_id bigint NOT NULL UNIQUE,
+  document_id bigint,
+  recommended_hours numeric,
+  emphasis_notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT topic_teacher_guide_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_teacher_guide_notes_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
+  CONSTRAINT topic_teacher_guide_notes_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.teacher_guide_documents(id)
+);
+CREATE TABLE public.topic_section_content_drafts (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  topic_id bigint NOT NULL,
+  unit_id bigint NOT NULL,
+  lesson_id bigint NOT NULL,
+  grade_id bigint NOT NULL,
+  ai_model text,
+  cover jsonb,
+  sections jsonb NOT NULL,
+  summary_markdown text,
+  discussion_prompt_markdown text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'saved'::text, 'rejected'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  reviewed_at timestamp with time zone,
+  reviewed_by uuid,
+  CONSTRAINT topic_section_content_drafts_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_section_content_drafts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
+  CONSTRAINT topic_section_content_drafts_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT topic_section_content_drafts_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id),
+  CONSTRAINT topic_section_content_drafts_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id),
+  CONSTRAINT topic_section_content_drafts_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.ai_content_draft_worker_runs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  generated boolean NOT NULL,
+  reason text,
+  draft_id bigint,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_content_draft_worker_runs_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_content_draft_worker_runs_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.topic_section_content_drafts(id)
 );

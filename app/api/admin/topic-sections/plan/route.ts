@@ -13,6 +13,7 @@ type IncomingSection = {
   notebook_markdown?: unknown;
   activity_prompt_markdown?: unknown;
   activity_example_markdown?: unknown;
+  review_summary?: unknown;
   needs_image?: unknown;
   image_prompt?: unknown;
   needs_video?: unknown;
@@ -29,6 +30,10 @@ type CleanSection = {
   notebook_markdown: string | null;
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
+  // Ev tekrar özeti — konu sunumunda (SlidePlayer) gösteriliyor, bkz.
+  // project_topic_presentation_export_plan (kullanıcının 2026-09-20 kararı: ayrı
+  // AI çağrısı yerine içerik üretimiyle AYNI adımda üretiliyor).
+  review_summary: string | null;
   image_prompt: string | null;
   // needs_video true değilse (ya da AI konuyu video için uygun bulmadıysa) null kalır —
   // video_url/video_type buradan ETKİLENMEZ, sadece admin'in gördüğü öneri promptu güncellenir
@@ -83,6 +88,7 @@ export async function POST(request: NextRequest) {
       const notebookMarkdown = typeof s.notebook_markdown === 'string' ? s.notebook_markdown.trim() : '';
       const activityPrompt = typeof s.activity_prompt_markdown === 'string' ? s.activity_prompt_markdown.trim() : '';
       const activityExample = typeof s.activity_example_markdown === 'string' ? s.activity_example_markdown.trim() : '';
+      const reviewSummary = typeof s.review_summary === 'string' ? s.review_summary.trim() : '';
       const needsImage = Boolean(s.needs_image);
       const needsVideo = Boolean(s.needs_video);
       return {
@@ -95,6 +101,7 @@ export async function POST(request: NextRequest) {
         notebook_markdown: notebookMarkdown || null,
         activity_prompt_markdown: activityPrompt || null,
         activity_example_markdown: activityExample || null,
+        review_summary: reviewSummary || null,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
         video_prompt: needsVideo && typeof s.video_prompt === 'string' && s.video_prompt.trim() ? s.video_prompt.trim() : null,
         imageFieldProvided: 'needs_image' in s || 'image_prompt' in s,
@@ -227,6 +234,7 @@ export async function POST(request: NextRequest) {
             notebook_markdown: s.notebook_markdown,
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
+            review_summary: s.review_summary,
             // JSON'da hiç gönderilmediyse (artık normal — bkz. CleanSection notu) mevcut
             // (ayrı ImageModal/VideoModal promptuyla kaydedilmiş) değere dokunma.
             ...(s.imageFieldProvided ? { image_prompt: s.image_prompt } : {}),
@@ -315,6 +323,7 @@ export async function POST(request: NextRequest) {
             notebook_markdown: s.notebook_markdown,
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
+            review_summary: s.review_summary,
             image_prompt: s.image_prompt,
             video_prompt: s.video_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',

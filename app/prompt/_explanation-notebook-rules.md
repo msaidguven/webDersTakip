@@ -15,3 +15,4 @@ YASAK (hepsinde): kaynak/dipnot referansı ("[2,4]", "¹" vb.), kitapta geçse b
      Konuyla DOĞRUDAN ilgili, somut bağlam — soyut/genel soru sorma. 1-3 cümle.
    - example: istemi yanıtlayan KISA (2-4 cümle) örnek. Tek doğru gibi sunma (özellikle "Sen Olsan?"/"Günlük Hayattan Bul"da tek doğru yok), ama tutarlı/doğru olsun; retorik soru/"sen/senin" yerine doğrudan dil.
    - Her alt başlıkta MUTLAKA etkinlik olsun; aynı çerçeveyi art arda kullanma, çeşitlendir.
+3. **review_summary — Ev Tekrar Özeti.** Öğrenci EVDE, kimse anlatmadan tek başına okuduğunda "öğretmen bunu anlatmıştı" diye hatırlaması için 2-4 KISA, BAĞIMSIZ cümle/madde. explanation_markdown'ın kısaltılmışı DEĞİL — biri diğerini tamamlayan bir ipucu/fragman da değil, her cümle TEK BAŞINA anlaşılır ve konunun özünü taşımalı (yanında hiçbir metin/anlatıcı olmasa da anlaşılsın). Madde başına en fazla 12-15 kelime. Aynı YASAK'lar (kaynak referansı, retorik soru, "sen/senin" hitabı) burada da geçerli.

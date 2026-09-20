@@ -37,6 +37,7 @@
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",
     "postcss": "^8.4.31",
+    "pptxgenjs": "^4.0.1",
     "puppeteer-core": "^24.22.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",

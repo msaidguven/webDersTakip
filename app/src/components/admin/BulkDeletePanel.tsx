@@ -81,14 +81,14 @@ export default function BulkDeletePanel() {
     setConfirm({ scope, unitId, title, count });
   }
 
-  async function handleConfirmDelete() {
+  async function handleConfirmDelete(force: boolean) {
     if (!confirm) return;
     setDeleting(true);
     try {
       const res = await fetch('/api/admin/manage/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: confirm.scope, gradeId, lessonId, unitId: confirm.unitId }),
+        body: JSON.stringify({ scope: confirm.scope, gradeId, lessonId, unitId: confirm.unitId, force }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -243,6 +243,7 @@ export default function BulkDeletePanel() {
         <ConfirmModal
           title={confirm.title}
           count={confirm.count}
+          allowForce={confirm.scope === 'unit-questions' || confirm.scope === 'unit-topics' || confirm.scope === 'grade-lesson-units'}
           deleting={deleting}
           onCancel={() => setConfirm(null)}
           onConfirm={handleConfirmDelete}
@@ -304,16 +305,19 @@ function DangerButton({ children, count, onClick }: { children: React.ReactNode;
 function ConfirmModal({
   title,
   count,
+  allowForce,
   deleting,
   onCancel,
   onConfirm,
 }: {
   title: string;
   count: number;
+  allowForce: boolean;
   deleting: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (force: boolean) => void;
 }) {
+  const [force, setForce] = useState(false);
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl sm:rounded-2xl border border-border w-full max-w-md p-4 sm:p-6">
@@ -321,16 +325,25 @@ function ConfirmModal({
         <p className="text-muted-foreground text-sm">
           <span className="text-red-300 font-semibold">{count} kayıt</span> kalıcı olarak silinecek. Bu işlem geri alınamaz. Emin misiniz?
         </p>
+        {allowForce && (
+          <label className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 cursor-pointer">
+            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} className="mt-0.5 accent-amber-500" />
+            <span>
+              <strong>Öğrenci geçmişini de sil.</strong> Normalde öğrenci tarafından cevaplanmış sorular/üniteler korunur ve silinemez. Bunu
+              işaretlerseniz o sorulara ait test geçmişi, istatistikler ve yorumlar da kalıcı olarak silinir/bağlantısı koparılır.
+            </span>
+          </label>
+        )}
         <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
           <button onClick={onCancel} className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-surface text-foreground hover:bg-accent transition-all text-sm">
             İptal
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(force)}
             disabled={deleting}
             className="flex-1 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all disabled:opacity-50 text-sm"
           >
-            {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+            {deleting ? 'Siliniyor...' : force ? 'Evet, Tamamen Sil' : 'Evet, Sil'}
           </button>
         </div>
       </div>

@@ -18,6 +18,7 @@ type DraftSection = {
   explanation_markdown: string;
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
+  review_summary: string | null;
 };
 
 type Draft = {
@@ -230,6 +231,11 @@ export default function AiContentDraftsPanel() {
                       {s.activity_prompt_markdown && (
                         <p className="rounded-lg bg-indigo-500/10 px-2 py-1.5 text-[11px] text-indigo-200">
                           <strong>Etkinlik:</strong> {s.activity_prompt_markdown}
+                        </p>
+                      )}
+                      {s.review_summary && (
+                        <p className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200">
+                          <strong>Tekrar özeti:</strong> {s.review_summary}
                         </p>
                       )}
                     </div>

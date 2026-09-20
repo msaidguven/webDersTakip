@@ -141,7 +141,13 @@ export async function importUnits(
         .maybeSingle();
 
       if (ex) {
-        log(`  ⊘ ${uniteAdi} (mevcut, id=${(ex as { id: number }).id})`);
+        // Yeniden aktarım: mevcut ünitenin üzerine yaz (skip yerine güncelle).
+        const { error: updateError } = await sb
+          .from('units')
+          .update({ description: `${uniteAdi} ünitesi`, is_active: true })
+          .eq('id', (ex as { id: number }).id);
+        if (updateError) throw updateError;
+        log(`  🔄 ${uniteAdi} (mevcut, güncellendi, id=${(ex as { id: number }).id})`, 'success');
         atlanmis += 1;
         continue;
       }
@@ -149,22 +155,25 @@ export async function importUnits(
       const { data: ex2 } = await sb.from('units').select('id, grade_id').eq('slug', slugUniq).maybeSingle();
       if (ex2) {
         const existingGrade = (ex2 as { id: number; grade_id: number }).grade_id;
-        if (existingGrade === gradeId) {
-          log(`  ⊘ ${uniteAdi} (slug mevcut, aynı sınıf)`);
-          atlanmis += 1;
-          continue;
+        if (existingGrade !== gradeId) {
+          slugUniq = `${slug}-${lessonId}-${gradeId}-${order}`;
         }
-        slugUniq = `${slug}-${lessonId}-${gradeId}-${order}`;
       }
 
-      const { error: insertError } = await sb.from('units').insert({
-        lesson_id: lessonId,
-        grade_id: gradeId,
-        title: uniteAdi,
-        slug: slugUniq,
-        is_active: true,
-        description: `${uniteAdi} ünitesi`,
-      });
+      // upsert: aynı slug'la eşzamanlı/yeniden aktarımda unique-violation yerine
+      // mevcut kaydın üzerine yazar (bkz. units_slug_unique, supabase/migrations/
+      // yillik_plan_upsert_constraints.sql).
+      const { error: insertError } = await sb.from('units').upsert(
+        {
+          lesson_id: lessonId,
+          grade_id: gradeId,
+          title: uniteAdi,
+          slug: slugUniq,
+          is_active: true,
+          description: `${uniteAdi} ünitesi`,
+        },
+        { onConflict: 'slug' }
+      );
       if (insertError) throw insertError;
       log(`  ✅ ${uniteAdi}`, 'success');
       basarili += 1;
@@ -227,23 +236,30 @@ export async function importTopics(
     const slug = slugify(konuAdi);
 
     try {
+      // upsert: yeniden aktarımda aynı (unit_id, slug) için unique-violation almak
+      // yerine mevcut konunun üzerine yazar (bkz. topics_unit_slug_unique,
+      // supabase/migrations/yillik_plan_upsert_constraints.sql).
       const { data: ex } = await sb.from('topics').select('id').eq('unit_id', unitId).eq('slug', slug).maybeSingle();
-      if (ex) {
-        log(`  ⊘ ${konuAdi.slice(0, 50)}`);
-        atlanmis += 1;
-        continue;
-      }
 
-      const { error: insertError } = await sb.from('topics').insert({
-        unit_id: unitId,
-        title: konuAdi,
-        slug,
-        order_no: konuOrder.get(unitId),
-        is_active: true,
-      });
-      if (insertError) throw insertError;
-      log(`  ✅ [${uniteAdi.slice(0, 18)}] ${konuAdi.slice(0, 40)}`, 'success');
-      basarili += 1;
+      const { error: upsertError } = await sb.from('topics').upsert(
+        {
+          unit_id: unitId,
+          title: konuAdi,
+          slug,
+          order_no: konuOrder.get(unitId),
+          is_active: true,
+        },
+        { onConflict: 'unit_id,slug' }
+      );
+      if (upsertError) throw upsertError;
+
+      if (ex) {
+        log(`  🔄 [${uniteAdi.slice(0, 18)}] ${konuAdi.slice(0, 40)} (güncellendi)`, 'success');
+        atlanmis += 1;
+      } else {
+        log(`  ✅ [${uniteAdi.slice(0, 18)}] ${konuAdi.slice(0, 40)}`, 'success');
+        basarili += 1;
+      }
     } catch (e) {
       log(`  ❌ ${konuAdi.slice(0, 40)}: ${e instanceof Error ? e.message : String(e)}`, 'error');
       hata += 1;
@@ -389,22 +405,20 @@ export async function importOutcomes(
       const endWeek = haftalar.length ? haftalar[haftalar.length - 1] : null;
 
       try {
+        // upsert: yeniden aktarımda aynı (topic_id, description) için unique-violation
+        // yerine mevcut kazanımın id'sini döndürür (bkz. outcomes_topic_description_unique,
+        // supabase/migrations/yillik_plan_upsert_constraints.sql).
         const { data: ex } = await sb.from('outcomes').select('id').eq('topic_id', topicId).eq('description', description).maybeSingle();
 
-        let outcomeId: number;
-        if (ex) {
-          outcomeId = (ex as { id: number }).id;
-          atlanmis += 1;
-        } else {
-          const { data: created, error: insertError } = await sb
-            .from('outcomes')
-            .insert({ topic_id: topicId, description })
-            .select('id')
-            .single();
-          if (insertError || !created) throw insertError || new Error('insert başarısız');
-          outcomeId = (created as { id: number }).id;
-          basarili += 1;
-        }
+        const { data: upserted, error: upsertError } = await sb
+          .from('outcomes')
+          .upsert({ topic_id: topicId, description }, { onConflict: 'topic_id,description' })
+          .select('id')
+          .single();
+        if (upsertError || !upserted) throw upsertError || new Error('upsert başarısız');
+        const outcomeId = (upserted as { id: number }).id;
+        if (ex) atlanmis += 1;
+        else basarili += 1;
         touchedTopicIds.add(topicId);
 
         if (startWeek && endWeek) {

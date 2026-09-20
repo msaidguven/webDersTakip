@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import type { TymmUnit, TymmRawSections, TymmLearningOutcome } from '@/app/src/lib/tymm/tymmParser';
+import { norm as tymmNorm } from '@/app/src/lib/tymm/compareUnits';
 
 type ParsedRow = {
   week_no: number | null;
@@ -93,18 +94,44 @@ type UnitContentResponse = {
     title: string;
     learningOutcome: string | null;
     outcomes: { id: number; code: string | null; description: string }[];
+    // Konu → öğrenme çıktısı grubu → kazanım hiyerarşisi (bkz. topic_learning_outcomes
+    // migration'ı) — sadece bundan sonra TYMM'den aktarılan üniteler dolduruyor, eski
+    // üniteler için boş gelir ve ungroupedOutcomes'a (aynı outcomes listesi) düşülür.
+    learningOutcomeGroups: { id: number; code: string | null; title: string; outcomes: { id: number; code: string | null; description: string }[] }[];
+    ungroupedOutcomes: { id: number; code: string | null; description: string }[];
   }[];
 };
 
-type InspectTarget = { unitId: number; tymmUrl: string; unitTitle: string };
+// topicDiffs verildiğinde (toplu karşılaştırma raporundan açılırsa) modal, DB'deki her
+// kazanımı TYMM'deki karşılığıyla eşleşiyor mu diye yeşil/kırmızı renklendirir ve
+// düzenleme/ekleme aksiyonlarını gösterir — verilmezse (kaydettikten hemen sonraki
+// "İncele" gibi) eski sade liste davranışına düşer.
+type InspectTarget = { unitId: number; tymmUrl: string; unitTitle: string; topicDiffs?: CompareTopicDiff[] };
 
+// Konu içindeki TEK bir öğrenme çıktısının kendi kıyası — konu birden fazla öğrenme çıktısı
+// içerebiliyor (bkz. topic_learning_outcomes), her biri kendi a/b/c kazanımlarıyla burada
+// hiyerarşik gösteriliyor. Eski/gruplanmamış konularda bu dizi boş gelir.
+type CompareLearningOutcomeDiff = {
+  code: string;
+  title: string;
+  status: 'same' | 'changed' | 'tymm-only' | 'db-only';
+  dbGroupId: number | null;
+  learningOutcomeChanged: boolean;
+  outcomesAdded: string[];
+  outcomesRemoved: { id: number; code: string | null; description: string }[];
+  outcomesOverridden: { id: number; code: string | null; description: string }[];
+  tymmOutcomeTexts: string[];
+};
 type CompareTopicDiff = {
   status: 'same' | 'changed' | 'tymm-only' | 'db-only';
   title: string;
   dbTopicId: number | null;
   learningOutcomeChanged: boolean;
+  learningOutcomeDiffs: CompareLearningOutcomeDiff[];
   outcomesAdded: string[];
-  outcomesRemoved: string[];
+  outcomesRemoved: { id: number; code: string | null; description: string }[];
+  outcomesOverridden: { id: number; code: string | null; description: string }[];
+  tymmOutcomeTexts: string[];
 };
 type CompareUnitDiff = {
   status: 'same' | 'changed' | 'tymm-only' | 'db-only';
@@ -136,7 +163,9 @@ export default function YillikPlanPanel() {
 
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
-  const [lessonGrades, setLessonGrades] = useState<{ lesson_id: number; grade_id: number }[]>([]);
+  const [lessonGrades, setLessonGrades] = useState<
+    { lesson_id: number; grade_id: number; tymm_page_url: string | null; tymm_verified: boolean }[]
+  >([]);
   const [lessonId, setLessonId] = useState<number | null>(null);
   const [gradeId, setGradeId] = useState<number | null>(null);
   // Önce sınıf seçilsin — dersler o sınıfta okutulanlarla (lesson_grades) sınırlı. Bir
@@ -144,6 +173,11 @@ export default function YillikPlanPanel() {
   // kombinasyonu seçilmesindense admin'in önce doğru eşleşmeyi (lesson_grades'e satır
   // ekleyerek) kurması daha güvenli.
   const availableLessons = gradeId == null ? [] : lessons.filter((l) => lessonGrades.some((lg) => lg.lesson_id === l.id && lg.grade_id === gradeId));
+  // Seçili sınıfta, TYMM ile doğrulanmış (tam eşleşme ya da elle işaretlenmiş) dersler —
+  // Ders PickList'inde yeşil tik olarak gösterilir.
+  const verifiedLessonIds = new Set(
+    gradeId == null ? [] : lessonGrades.filter((lg) => lg.grade_id === gradeId && lg.tymm_verified).map((lg) => lg.lesson_id)
+  );
 
   const [fileName, setFileName] = useState('');
   const [xlsxSheets, setXlsxSheets] = useState<XlsxSheetResult[] | null>(null);
@@ -239,11 +273,62 @@ export default function YillikPlanPanel() {
         setCompareErr(data?.error || 'Karşılaştırma başarısız');
         return;
       }
-      setCompareResult(data as CompareBulkResponse);
+      const result = data as CompareBulkResponse;
+      setCompareResult(result);
+      const url = comparePageUrl.trim();
+      const allMatched = result.unitsFound > 0 && result.results.every((r) => r.status === 'same');
+      void patchLessonGrade({ tymmPageUrl: url, ...(allMatched ? { tymmVerified: true } : {}) });
     } catch {
       setCompareErr('İstek başarısız (ağ hatası)');
     } finally {
       setComparing(false);
+    }
+  }
+
+  // Seçili ders/sınıf çiftine tymm_page_url ve/veya tymm_verified yazar — Kontrol Et tam
+  // eşleşme bulduğunda otomatik, admin "Doğru olarak işaretle" dediğinde elle çağrılır.
+  // Silme sonrası tymm_verified'ı false'a çekmek DB trigger'larıyla yapılıyor (bkz.
+  // supabase/migrations/add_lesson_grades_tymm_page_url.sql), burada sadece yazma var.
+  async function patchLessonGrade(fields: { tymmPageUrl?: string; tymmVerified?: boolean }) {
+    if (!lessonId || !gradeId) return;
+    const currentEntry = lessonGrades.find((lg) => lg.lesson_id === lessonId && lg.grade_id === gradeId);
+    const body: Record<string, unknown> = { lessonId, gradeId };
+    if (fields.tymmPageUrl !== undefined && currentEntry?.tymm_page_url !== fields.tymmPageUrl) {
+      body.tymmPageUrl = fields.tymmPageUrl;
+    }
+    if (fields.tymmVerified !== undefined && currentEntry?.tymm_verified !== fields.tymmVerified) {
+      body.tymmVerified = fields.tymmVerified;
+    }
+    if (Object.keys(body).length <= 2) return;
+    try {
+      const res = await fetch('/api/admin/manage/lesson-grades', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return;
+      setLessonGrades((prev) => {
+        const next = prev.map((lg) =>
+          lg.lesson_id === lessonId && lg.grade_id === gradeId
+            ? {
+                ...lg,
+                ...(body.tymmPageUrl !== undefined ? { tymm_page_url: body.tymmPageUrl as string } : {}),
+                ...(body.tymmVerified !== undefined ? { tymm_verified: body.tymmVerified as boolean } : {}),
+              }
+            : lg
+        );
+        if (!currentEntry) {
+          next.push({
+            lesson_id: lessonId,
+            grade_id: gradeId,
+            tymm_page_url: (body.tymmPageUrl as string) ?? null,
+            tymm_verified: (body.tymmVerified as boolean) ?? false,
+          });
+        }
+        return next;
+      });
+    } catch {
+      // sessizce yok say — bir dahaki denemede tekrar gönderilir
     }
   }
 
@@ -263,11 +348,13 @@ export default function YillikPlanPanel() {
         supabase.from('grades').select('id, name').order('order_no'),
         // is_active burada güvenilir değil (Matematik gibi kesin okutulan derslerde bile
         // false görülüyor) — bu yüzden filtrelemiyoruz, sadece eşleşme var mı bakıyoruz.
-        supabase.from('lesson_grades').select('lesson_id, grade_id'),
+        supabase.from('lesson_grades').select('lesson_id, grade_id, tymm_page_url, tymm_verified'),
       ]);
       setLessons((lessonsData as LessonRow[] | null) || []);
       setGrades((gradesData as GradeRow[] | null) || []);
-      setLessonGrades((lessonGradesData as { lesson_id: number; grade_id: number }[] | null) || []);
+      setLessonGrades(
+        (lessonGradesData as { lesson_id: number; grade_id: number; tymm_page_url: string | null; tymm_verified: boolean }[] | null) || []
+      );
     })();
   }, []);
 
@@ -293,6 +380,16 @@ export default function YillikPlanPanel() {
       cancelled = true;
     };
   }, [gradeId, lessonId]);
+
+  // Kontrol Et VE TYMM'den toplu aktarım sekmelerinde daha önce bu ders/sınıf için
+  // kaydedilmiş bir TYMM sayfa URL'i varsa otomatik doldur — admin her seferinde linki
+  // yeniden aramak zorunda kalmasın (ikisi de aynı "ders/sınıf sayfası" URL'ini kullanıyor).
+  useEffect(() => {
+    if (gradeId == null || lessonId == null) return;
+    const saved = lessonGrades.find((lg) => lg.lesson_id === lessonId && lg.grade_id === gradeId)?.tymm_page_url;
+    setComparePageUrl(saved || '');
+    setBulkPageUrl(saved || '');
+  }, [gradeId, lessonId, lessonGrades]);
 
   function selectGrade(id: number) {
     setGradeId(id);
@@ -454,6 +551,7 @@ export default function YillikPlanPanel() {
         return;
       }
       const result = data as BulkFetchResponse;
+      void patchLessonGrade({ tymmPageUrl: bulkPageUrl.trim() });
       setBulkItems(
         result.results.map((r) => ({
           url: r.url,
@@ -717,6 +815,7 @@ export default function YillikPlanPanel() {
             onSelect={setLessonId}
             disabled={gradeId == null}
             emptyMessage={gradeId == null ? 'Önce sınıf seçin' : 'Bu sınıfta ders bulunamadı'}
+            verifiedIds={verifiedLessonIds}
           />
         </div>
       </Card>
@@ -844,7 +943,7 @@ export default function YillikPlanPanel() {
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground truncate">{previewUnit.unitTitle}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {previewUnit.learningOutcomes.length} konu ·{' '}
+                      {new Set(previewUnit.learningOutcomes.map((o) => o.topicTitle)).size} konu ·{' '}
                       {previewUnit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
                     </p>
                   </div>
@@ -928,7 +1027,7 @@ export default function YillikPlanPanel() {
                   </p>
                 </div>
                 {bulkItems.map((item, idx) => {
-                  const topicCount = item.unit?.learningOutcomes.length ?? 0;
+                  const topicCount = item.unit ? new Set(item.unit.learningOutcomes.map((o) => o.topicTitle)).size : 0;
                   const outcomeCount = item.unit?.learningOutcomes.reduce((n, o) => n + o.components.length, 0) ?? 0;
                   return (
                   <div
@@ -1184,6 +1283,22 @@ export default function YillikPlanPanel() {
               />
             </div>
 
+            <div className="flex items-center gap-3">
+              {lessonGrades.find((lg) => lg.lesson_id === lessonId && lg.grade_id === gradeId)?.tymm_verified ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  ✅ Doğrulandı
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Henüz doğrulanmadı</span>
+              )}
+              <button
+                onClick={() => patchLessonGrade({ tymmVerified: true })}
+                className="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors"
+              >
+                ✅ Doğru olarak işaretle
+              </button>
+            </div>
+
             {compareResult.fetchErrors.length > 0 && (
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
                 {compareResult.fetchErrors.map((e) => (
@@ -1201,7 +1316,7 @@ export default function YillikPlanPanel() {
                   onToggle={() => toggleCompareExpanded(idx)}
                   onInspect={
                     r.dbUnitId != null && r.tymmUrl
-                      ? () => setInspecting({ unitId: r.dbUnitId as number, tymmUrl: r.tymmUrl, unitTitle: r.dbUnitTitle || r.tymmTitle })
+                      ? () => setInspecting({ unitId: r.dbUnitId as number, tymmUrl: r.tymmUrl, unitTitle: r.dbUnitTitle || r.tymmTitle, topicDiffs: r.topics })
                       : undefined
                   }
                 />
@@ -1386,52 +1501,81 @@ function TymmUnitEditor({
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Konular ({unit.learningOutcomes.length})</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Konular ({new Set(unit.learningOutcomes.map((o) => o.topicTitle)).size})
+          </label>
           <span className="text-[10px] text-muted-foreground">
             toplam {unit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım
           </span>
         </div>
         <ol className="space-y-0.5 rounded-lg border border-border bg-surface p-2">
-          {unit.learningOutcomes.map((outcome, oi) => (
-            <li
-              key={oi}
-              onDragOver={(e) => { e.preventDefault(); setDragOverTopic(oi); }}
-              onDragLeave={() => setDragOverTopic((v) => (v === oi ? null : v))}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOverTopic(null);
-                const raw = e.dataTransfer.getData('application/x-tymm-component');
-                if (!raw) return;
-                try {
-                  const { topicIndex, compIndex } = JSON.parse(raw) as { topicIndex: number; compIndex: number };
-                  moveComponent(topicIndex, compIndex, oi);
-                } catch {
-                  // sürüklenen veri bizim formatımızda değil — yoksay
-                }
-              }}
-            >
-              <button
-                onClick={() => setEditingTopic(oi)}
-                className={`w-full text-left text-xs px-1.5 py-1 rounded-md flex items-center gap-1.5 transition-colors ${
-                  dragOverTopic === oi
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400'
-                    : editingTopic === oi
-                      ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
-                      : 'text-foreground hover:bg-accent hover:text-indigo-600 dark:hover:text-indigo-300'
-                }`}
-              >
-                <span className="text-muted-foreground font-mono flex-shrink-0">{oi + 1}.</span>
-                <span className="flex-1 truncate">{outcome.topicTitle || <span className="italic text-muted-foreground">(başlıksız)</span>}</span>
-                <span
-                  className={`flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                    outcome.components.length === 0 ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10' : 'text-muted-foreground bg-muted'
-                  }`}
+          {(() => {
+            // Bir konuya birden fazla öğrenme çıktısı düşebiliyor (bkz. topic_learning_outcomes
+            // notu) — bu listede her benzersiz konu (topicTitle) TEK satır olarak görünmeli,
+            // aksi halde admin "4 öğrenme çıktısı" ile "4 konu"yu karıştırıyor (2026-09-20
+            // kullanıcı bildirimi: "hala 4 konu diyor" — aslında 3 konu, 4 öğrenme çıktısıydı).
+            const groups: { topicTitle: string; indices: number[] }[] = [];
+            const groupByTitle = new Map<string, number>();
+            unit.learningOutcomes.forEach((o, oi) => {
+              const gi = groupByTitle.get(o.topicTitle);
+              if (gi == null) {
+                groupByTitle.set(o.topicTitle, groups.length);
+                groups.push({ topicTitle: o.topicTitle, indices: [oi] });
+              } else {
+                groups[gi].indices.push(oi);
+              }
+            });
+            return groups.map((g, gi) => {
+              const totalComponents = g.indices.reduce((n, i) => n + unit.learningOutcomes[i].components.length, 0);
+              const isOpen = g.indices.includes(editingTopic ?? -1);
+              const isDragOver = g.indices.includes(dragOverTopic ?? -1);
+              return (
+                <li
+                  key={gi}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverTopic(g.indices[0]); }}
+                  onDragLeave={() => setDragOverTopic((v) => (g.indices.includes(v ?? -1) ? null : v))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverTopic(null);
+                    const raw = e.dataTransfer.getData('application/x-tymm-component');
+                    if (!raw) return;
+                    try {
+                      const { topicIndex, compIndex } = JSON.parse(raw) as { topicIndex: number; compIndex: number };
+                      moveComponent(topicIndex, compIndex, g.indices[0]);
+                    } catch {
+                      // sürüklenen veri bizim formatımızda değil — yoksay
+                    }
+                  }}
                 >
-                  {outcome.components.length}
-                </span>
-              </button>
-            </li>
-          ))}
+                  <button
+                    onClick={() => setEditingTopic(g.indices[0])}
+                    className={`w-full text-left text-xs px-1.5 py-1 rounded-md flex items-center gap-1.5 transition-colors ${
+                      isDragOver
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400'
+                        : isOpen
+                          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                          : 'text-foreground hover:bg-accent hover:text-indigo-600 dark:hover:text-indigo-300'
+                    }`}
+                  >
+                    <span className="text-muted-foreground font-mono flex-shrink-0">{gi + 1}.</span>
+                    <span className="flex-1 truncate">{g.topicTitle || <span className="italic text-muted-foreground">(başlıksız)</span>}</span>
+                    {g.indices.length > 1 && (
+                      <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+                        {g.indices.length} çıktı
+                      </span>
+                    )}
+                    <span
+                      className={`flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                        totalComponents === 0 ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10' : 'text-muted-foreground bg-muted'
+                      }`}
+                    >
+                      {totalComponents}
+                    </span>
+                  </button>
+                </li>
+              );
+            });
+          })()}
         </ol>
         <p className="text-[10px] text-muted-foreground mt-1">Bir kazanımı taşımak için aşağıda açık konudaki ⠿ tutamacını sürükleyip buradaki hedef konunun üzerine bırakın.</p>
         <button
@@ -1450,9 +1594,20 @@ function TymmUnitEditor({
       </div>
 
       <div className="space-y-2">
-        {unit.learningOutcomes.map((outcome, oi) =>
-          editingTopic === oi ? (
-            <div key={oi} className="rounded-lg border border-indigo-400/40 bg-indigo-500/[0.04] p-3">
+        {unit.learningOutcomes.map((outcome, oi) => {
+          // Bir öncekiyle aynı konuysa (bkz. yukarıdaki Konular listesi grubu), bunun ayrı bir
+          // konu değil aynı konunun İKİNCİ öğrenme çıktısı olduğunu belirt — yoksa aynı başlık
+          // iki kez üst üste görünüp "iki ayrı konu" izlenimi veriyor.
+          const isContinuation = oi > 0 && outcome.topicTitle !== '' && unit.learningOutcomes[oi - 1].topicTitle === outcome.topicTitle;
+          const continuationBadge = isContinuation && (
+            <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300 mb-1">
+              ↳ &quot;{outcome.topicTitle}&quot; konusunun 2. (veya sonraki) öğrenme çıktısı — ayrı bir konu DEĞİL
+            </p>
+          );
+          return editingTopic === oi ? (
+            <div key={oi}>
+            {continuationBadge}
+            <div className="rounded-lg border border-indigo-400/40 bg-indigo-500/[0.04] p-3">
               <div className="flex items-start gap-2 mb-1.5">
                 <div className="flex-1 space-y-1.5">
                   <div>
@@ -1569,8 +1724,11 @@ function TymmUnitEditor({
                 </div>
               </div>
             </div>
+            </div>
           ) : (
-            <div key={oi} className="group rounded-lg border border-border bg-surface hover:border-border transition-colors p-3">
+            <div key={oi}>
+            {continuationBadge}
+            <div className="group rounded-lg border border-border bg-surface hover:border-border transition-colors p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-foreground">{outcome.topicTitle || <span className="italic text-muted-foreground">(başlıksız)</span>}</p>
@@ -1597,8 +1755,9 @@ function TymmUnitEditor({
                 {outcome.components.length === 0 && <li className="text-[11px] text-amber-600 dark:text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
               </ul>
             </div>
-          )
-        )}
+            </div>
+          );
+        })}
       </div>
 
       {unmatchedLines.length > 0 && (
@@ -1636,6 +1795,7 @@ ${rawLearningOutcomes}
 
 Kurallar:
 - Bir konuya birden fazla öğrenme çıktısı ait olabilir — aynı topicTitle ile birden fazla obje üret, hepsi o konu altında birleşir.
+- ÇIKTI DİZİSİNİN SIRASI, öğrenme çıktılarının ham metindeki ORİJİNAL SIRASIYLA AYNI olmalı — asla yeniden sıralama. Bir konudan bir sonraki konuya geçtikten sonra bir önceki konuya ASLA geri dönme: ör. 5 öğrenme çıktısı 3 konuya dağılıyorsa "1,2 → konu A / 3 → konu B / 4,5 → konu C" gibi ardışık bloklar halinde olmalı — "1,2 → A / 4,5 → C / 3 → B" gibi sırayı bozan, bir konuyu ikiye bölen bir dağılım YANLIŞTIR.
 - Her öğrenme çıktısının süreç bileşenlerini (a/b/c...) OLDUĞU GİBİ, bölmeden/birleştirmeden/metnini değiştirmeden components dizisine koy.
 - topicTitle mutlaka yukarıdaki İçerik Çerçevesi listesinden BİREBİR bir satır olmalı (grup başlıkları hariç).
 - Hiçbir öğrenme çıktısını atlama, hepsini bir konuya ata.
@@ -1663,36 +1823,40 @@ function parseLearningOutcomesArray(arr: unknown[], errorPrefix = ''): TymmLearn
   });
 }
 
-// AI'a "bir konuya birden fazla öğrenme çıktısı ait olabilir, aynı topicTitle ile birden
-// fazla obje üret" dedirtiyoruz (bkz. buildAiTopicPrompt) — kaydetme aşamasında (importUnit.ts)
-// bunlar zaten aynı topicTitle üzerinden tek konuya birleşiyor. Ama ÖNİZLEME her
-// learningOutcomes öğesini kendi "Konu" satırı gibi gösteriyor (parser'ın her yerinde 1
-// öğe = 1 konu değişmezi geçerli, ör. distributeIntoBuckets zaten hep TEK birleştirilmiş
-// öğe üretiyor) — birleştirmeden bırakılırsa aynı konu iki kez, farklı numaralarla
-// listeleniyor ve "Konu sayısı" yanlış/şişirilmiş görünüyor (2026-09-20 kullanıcı bildirimi:
-// 4 konu 6'ya çıktı). Bu yüzden AI JSON'unu her zaman burada, aynı topicTitle'a göre tek
-// öğeye indirip önizlemeyi DB'de gerçekte oluşacak hâliyle birebir eşliyoruz.
-function mergeLearningOutcomesByTopicTitle(items: TymmLearningOutcome[]): TymmLearningOutcome[] {
-  const order: string[] = [];
-  const byTitle = new Map<string, TymmLearningOutcome>();
+// AI'dan istediğimiz "orijinal sırayı bozma" kuralına (bkz. buildAiTopicPrompt) gerçekten
+// uyulmuş mu kontrol eder: aynı topicTitle'a ait öğeler HER ZAMAN ardışık olmalı — bir
+// konudan ayrılıp başka konuya geçtikten sonra ilk konuya bir daha dönülmüşse (ör. 1,2→A /
+// 4,5→C / 3→B gibi) bu, öğrenme çıktısı sırasının bozulduğu ve/veya yanlış konuya
+// atandığı anlamına gelir (2026-09-20 kullanıcı isteği: "sıralamayı bozmasın").
+function assertLearningOutcomeOrderPreserved(items: TymmLearningOutcome[], errorPrefix = ''): void {
+  const seenAndClosed = new Set<string>();
+  let currentTitle: string | null = null;
   for (const item of items) {
-    const existing = byTitle.get(item.topicTitle);
-    if (!existing) {
-      order.push(item.topicTitle);
-      byTitle.set(item.topicTitle, { ...item, components: [...item.components] });
-    } else {
-      existing.code = [existing.code, item.code].filter(Boolean).join(' / ');
-      existing.title = [existing.title, item.title].filter(Boolean).join(' ');
-      existing.components = [...existing.components, ...item.components];
+    if (item.topicTitle === currentTitle) continue;
+    if (seenAndClosed.has(item.topicTitle)) {
+      throw new Error(
+        `${errorPrefix}Öğrenme çıktısı sırası bozulmuş: "${item.topicTitle}" konusuna ait bir öğrenme çıktısı, başka bir konuya geçildikten SONRA tekrar görünüyor. AI'dan orijinal sırayı bozmadan, konuları ardışık bloklar hâlinde döndürmesini iste.`
+      );
     }
+    if (currentTitle != null) seenAndClosed.add(currentTitle);
+    currentTitle = item.topicTitle;
   }
-  return order.map((t) => byTitle.get(t)!);
 }
 
+// AI'a "bir konuya birden fazla öğrenme çıktısı ait olabilir, aynı topicTitle ile birden
+// fazla obje üret" dedirtiyoruz (bkz. buildAiTopicPrompt) — bunlar ARTIK BİRLEŞTİRİLMİYOR:
+// her öğrenme çıktısı kendi kod+başlığıyla ayrı bir dizi öğesi olarak kalıyor (aynı topicTitle'ı
+// paylaşabilirler), tıpkı tymmParser.ts'nin ürettiği veri gibi — çünkü kaydetme aşamasında
+// (importUnit.ts) her öğrenme çıktısı artık kendi topic_learning_outcomes grubuna yazılıyor;
+// eskiden burada tek objede birleştirilip (code: "A / B") grup ayrımı kayboluyordu (2026-09-20
+// kullanıcı bildirimi). Konu kartlarının ("Konular (N)") sayısını unique topicTitle'a göre
+// göstermek gerekiyor, ham dizi uzunluğuna göre değil — bkz. aşağıdaki render.
 function parseAiTopicJson(raw: string): TymmLearningOutcome[] {
   const parsed: unknown = JSON.parse(stripJsonFence(raw));
   if (!Array.isArray(parsed)) throw new Error('Kök eleman bir dizi olmalı.');
-  return mergeLearningOutcomesByTopicTitle(parseLearningOutcomesArray(parsed));
+  const items = parseLearningOutcomesArray(parsed);
+  assertLearningOutcomeOrderPreserved(items);
+  return items;
 }
 
 function buildAiBulkTopicPrompt(
@@ -1727,6 +1891,7 @@ ${unitBlocks}
 Kurallar:
 - TÜM üniteler için sonuç üret, hiçbirini atlama.
 - Bir konuya birden fazla öğrenme çıktısı ait olabilir — aynı topicTitle ile birden fazla obje üret, hepsi o konu altında birleşir.
+- HER ÜNİTE İÇİNDE, learningOutcomes DİZİSİNİN SIRASI ham metindeki ORİJİNAL SIRAYLA AYNI olmalı — asla yeniden sıralama. Bir konudan sonraki konuya geçtikten sonra bir önceki konuya ASLA geri dönme: ör. 5 öğrenme çıktısı 3 konuya dağılıyorsa "1,2 → konu A / 3 → konu B / 4,5 → konu C" gibi ardışık bloklar halinde olmalı — "1,2 → A / 4,5 → C / 3 → B" gibi sırayı bozan, bir konuyu ikiye bölen bir dağılım YANLIŞTIR.
 - Her öğrenme çıktısının süreç bileşenlerini (a/b/c...) OLDUĞU GİBİ, bölmeden/birleştirmeden/metnini değiştirmeden components dizisine koy.
 - topicTitle mutlaka o ünitenin İçerik Çerçevesi listesinden BİREBİR bir satır olmalı (grup başlıkları hariç).
 - unitIndex değerlerini olduğu gibi koru, değiştirme.
@@ -1740,7 +1905,9 @@ function parseAiBulkTopicJson(raw: string): { unitIndex: number; learningOutcome
     const o = item as { unitIndex?: number; learningOutcomes?: unknown };
     if (typeof o.unitIndex !== 'number') throw new Error(`${i + 1}. öğede geçerli bir "unitIndex" yok.`);
     if (!Array.isArray(o.learningOutcomes)) throw new Error(`Ünite ${o.unitIndex}: "learningOutcomes" dizisi yok.`);
-    return { unitIndex: o.unitIndex, learningOutcomes: mergeLearningOutcomesByTopicTitle(parseLearningOutcomesArray(o.learningOutcomes, `Ünite ${o.unitIndex}, `)) };
+    const learningOutcomes = parseLearningOutcomesArray(o.learningOutcomes, `Ünite ${o.unitIndex}, `);
+    assertLearningOutcomeOrderPreserved(learningOutcomes, `Ünite ${o.unitIndex}: `);
+    return { unitIndex: o.unitIndex, learningOutcomes };
   });
 }
 
@@ -2307,22 +2474,79 @@ function TymmInspectModal({ target, onClose }: { target: InspectTarget; onClose:
                   ))}
                 </div>
               )}
-              {data.topics.map((t, ti) => (
+              {data.topics.map((t, ti) => {
+                const topicDiff = target.topicDiffs?.find((td) => td.dbTopicId === t.id) || null;
+                const mismatchedIds = new Set((topicDiff?.outcomesRemoved || []).map((o) => o.id));
+                const overriddenIds = new Set((topicDiff?.outcomesOverridden || []).map((o) => o.id));
+
+                const renderOutcome = (o: { id: number; code: string | null; description: string }) => {
+                  if (!topicDiff) {
+                    return (
+                      <li key={o.id} className="text-[11px] text-muted-foreground pl-2">
+                        {o.code && <span className="text-indigo-600 dark:text-indigo-300 font-mono">{o.code}) </span>}{o.description}
+                      </li>
+                    );
+                  }
+                  if (overriddenIds.has(o.id)) {
+                    return (
+                      <li key={o.id} className="pl-2">
+                        <OverriddenOutcomeRow outcome={o} />
+                      </li>
+                    );
+                  }
+                  if (!mismatchedIds.has(o.id)) {
+                    return (
+                      <li key={o.id} className="text-[11px] text-emerald-600 dark:text-emerald-400 pl-2">
+                        ✓ {o.code && <span className="font-mono">{o.code}) </span>}{o.description}
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={o.id} className="pl-2">
+                      <EditableOutcomeRow outcome={o} tymmTexts={topicDiff.tymmOutcomeTexts} />
+                    </li>
+                  );
+                };
+
+                return (
                 <div key={t.id} className="rounded-lg border border-border bg-surface p-3">
                   <p className="text-xs font-bold text-foreground">
                     <span className="text-muted-foreground font-mono">{ti + 1}.</span> {t.title}
                   </p>
-                  {t.learningOutcome && <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">{t.learningOutcome}</p>}
-                  <ul className="space-y-1 mt-1.5 border-l border-border">
-                    {t.outcomes.map((o) => (
-                      <li key={o.id} className="text-[11px] text-muted-foreground pl-2">
-                        {o.code && <span className="text-indigo-600 dark:text-indigo-300 font-mono">{o.code}) </span>}{o.description}
-                      </li>
-                    ))}
-                    {t.outcomes.length === 0 && <li className="text-[11px] text-amber-600 dark:text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
-                  </ul>
+                  {t.learningOutcomeGroups.length === 0 && t.learningOutcome && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">{t.learningOutcome}</p>
+                  )}
+                  {topicDiff?.learningOutcomeChanged && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-1.5">✏️ Öğrenme çıktısı metni TYMM&apos;de farklı.</p>
+                  )}
+                  {t.learningOutcomeGroups.length > 0 ? (
+                    <div className="space-y-2 mt-1.5">
+                      {t.learningOutcomeGroups.map((g) => (
+                        <div key={g.id} className="pl-2 border-l border-border">
+                          <p className="text-[11px] font-semibold text-foreground">
+                            {g.code && <span className="font-mono text-indigo-600 dark:text-indigo-300">{g.code}. </span>}
+                            {g.title}
+                          </p>
+                          <ul className="space-y-1 mt-1 pl-2 border-l border-border">{g.outcomes.map(renderOutcome)}</ul>
+                        </div>
+                      ))}
+                      {t.ungroupedOutcomes.length > 0 && (
+                        <ul className="space-y-1 pl-2 border-l border-border">{t.ungroupedOutcomes.map(renderOutcome)}</ul>
+                      )}
+                    </div>
+                  ) : (
+                    <ul className="space-y-1 mt-1.5 border-l border-border">
+                      {t.outcomes.map(renderOutcome)}
+                      {t.outcomes.length === 0 && <li className="text-[11px] text-amber-600 dark:text-amber-400/80 italic pl-2">⚠️ kazanım yok</li>}
+                    </ul>
+                  )}
+                  <MoveTopicOutcomesButton
+                    sourceTopicId={t.id}
+                    siblingTopics={data.topics.filter((x) => x.id !== t.id).map((x) => ({ id: x.id, title: x.title }))}
+                  />
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -2383,6 +2607,275 @@ const COMPARE_STATUS_STYLE: Record<CompareUnitDiff['status'], { badge: string; l
   'tymm-only': { badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20', label: '🆕 TYMM’de var, DB’de yok', border: 'border-indigo-500/20' },
   'db-only': { badge: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: '❌ DB’de var, TYMM’de yok', border: 'border-red-500/20' },
 };
+
+// DB'de olup TYMM'de karşılığı bulunamayan bir kazanım — admin burada DOĞRUDAN metni
+// düzenleyip kaydedebilir (kullanıcının 2026-09-20 isteği: "karşılaştırıp manuel düzenleme
+// yapabileceğim bi sayfa"). Kaydettikten SONRA yeni metni tymmTexts ile CANLI karşılaştırıp
+// gerçekten eşleşiyor mu diye kontrol ediyoruz — kör bir şekilde "✓ Güncellendi" gösterip
+// yanlış bir onay hissi vermek yerine (kullanıcının 2026-09-20 raporu: "kaydet dediğimde
+// otomatik yeşil oluyor halbuki saçma sapan bişey yazdım"). Metin gerçekten eşleşmiyorsa
+// (ör. TYMM'in ifadesi kasıtlı olarak farklı ama admin içerik olarak doğru buluyorsa) "✓
+// Doğru Kabul Et" ile kalıcı olarak override edilebilir.
+function EditableOutcomeRow({ outcome, tymmTexts }: { outcome: { id: number; code: string | null; description: string }; tymmTexts: string[] }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(outcome.description);
+  const [saving, setSaving] = useState(false);
+  const [overriding, setOverriding] = useState(false);
+  const [result, setResult] = useState<'matched' | 'mismatched' | 'overridden' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!value.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/manage/outcomes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [outcome.id], patch: { description: value.trim() } }),
+      });
+      if (!res.ok) { setError('Kaydedilemedi'); return; }
+      setEditing(false);
+      const matches = tymmTexts.some((t) => tymmNorm(t) === tymmNorm(value.trim()));
+      setResult(matches ? 'matched' : 'mismatched');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleOverride() {
+    setOverriding(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/tymm/outcome-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcomeId: outcome.id, tymmText: tymmTexts.join(' | ') }),
+      });
+      if (!res.ok) { setError('İşaretlenemedi'); return; }
+      setResult('overridden');
+    } finally {
+      setOverriding(false);
+    }
+  }
+
+  if (result === 'matched') {
+    return <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">✓ Güncellendi, TYMM ile eşleşiyor: {value}</p>;
+  }
+  if (result === 'overridden') {
+    return <p className="text-[11px] text-muted-foreground mt-1 italic">✓ Doğru kabul edildi (manuel onay): {value}</p>;
+  }
+
+  if (!editing) {
+    return (
+      <div className="mt-1">
+        {result === 'mismatched' && (
+          <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mb-1">⚠️ Kaydedildi ama TYMM metniyle hâlâ eşleşmiyor.</p>
+        )}
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] text-red-600 dark:text-red-400 min-w-0">− {value}</p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              className="text-[10px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+            >
+              Düzenle
+            </button>
+            <button
+              onClick={handleOverride}
+              disabled={overriding}
+              className="text-[10px] font-bold text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
+            >
+              {overriding ? '…' : '✓ Doğru Kabul Et'}
+            </button>
+          </div>
+        </div>
+        {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={2}
+        className="w-full text-[11px] rounded-md border border-border bg-surface px-2 py-1.5 outline-none focus:border-indigo-400"
+      />
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
+      <div className="flex gap-1.5">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-2 py-0.5 rounded-md bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-400 transition-colors disabled:opacity-40"
+        >
+          {saving ? 'Kaydediliyor…' : 'Kaydet'}
+        </button>
+        <button
+          onClick={() => { setEditing(false); setValue(outcome.description); setError(null); }}
+          className="px-2 py-0.5 rounded-md border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Daha önce "✓ Doğru Kabul Et" ile onaylanmış bir kazanım — tekrar açıldığında (yeni bir
+// karşılaştırmada) burada gösterilir; admin fikrini değiştirirse "Kaldır" ile override'ı
+// silip satırı tekrar normal "farklı" durumuna döndürebilir.
+function OverriddenOutcomeRow({ outcome }: { outcome: { id: number; code: string | null; description: string } }) {
+  const [removing, setRemoving] = useState(false);
+  const [removed, setRemoved] = useState(false);
+
+  async function handleRemove() {
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/admin/tymm/outcome-override?outcomeId=${outcome.id}`, { method: 'DELETE' });
+      if (res.ok) setRemoved(true);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  if (removed) {
+    return <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">− {outcome.description} (onay kaldırıldı, tekrar farklı sayılacak)</p>;
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-2 mt-1">
+      <p className="text-[11px] text-muted-foreground italic min-w-0">✓ Manuel onaylandı: {outcome.description}</p>
+      <button
+        onClick={handleRemove}
+        disabled={removing}
+        className="shrink-0 text-[10px] font-bold text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-40"
+      >
+        {removing ? '…' : 'Kaldır'}
+      </button>
+    </div>
+  );
+}
+
+// Bazı konuların öğrenme çıktısı (ve altındaki TÜM kazanımlar) yanlış konu satırına
+// bağlanmış olabiliyor — admin burada aynı ünitedeki doğru konuyu seçip taşıyabiliyor
+// (kullanıcının 2026-09-20 isteği: "öğrenme çıktısını taşısak tüm kazanımlar da taşınır
+// değil mi"). Kazanım id'leri değişmediği için soru/içerik bağlantıları bozulmaz.
+function MoveTopicOutcomesButton({ sourceTopicId, siblingTopics }: { sourceTopicId: number; siblingTopics: { id: number; title: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const [targetId, setTargetId] = useState<number | ''>('');
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleMove() {
+    if (!targetId) return;
+    const targetTitle = siblingTopics.find((t) => t.id === targetId)?.title || '';
+    if (!confirm(`Bu konunun öğrenme çıktısı ve TÜM kazanımları "${targetTitle}" konusuna taşınacak. Emin misiniz?`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/manage/outcomes/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceTopicId, targetTopicId: targetId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error || 'Taşınamadı'); return; }
+      setResult(`✓ "${targetTitle}" konusuna taşındı (${data.movedCount} kazanım)`);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (result) return <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">{result}</p>;
+  if (!siblingTopics.length) return null;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-2 text-[10px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+      >
+        ↔ Öğrenme Çıktısını Başka Konuya Taşı
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <select
+        value={targetId}
+        onChange={(e) => setTargetId(e.target.value ? Number(e.target.value) : '')}
+        className="text-[11px] rounded-md border border-border bg-surface px-2 py-1 outline-none focus:border-indigo-400"
+      >
+        <option value="">Hedef konu seçin…</option>
+        {siblingTopics.map((t) => (
+          <option key={t.id} value={t.id}>{t.title}</option>
+        ))}
+      </select>
+      <button
+        onClick={handleMove}
+        disabled={!targetId || saving}
+        className="px-2 py-0.5 rounded-md bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-400 transition-colors disabled:opacity-40"
+      >
+        {saving ? 'Taşınıyor…' : 'Taşı'}
+      </button>
+      <button
+        onClick={() => { setOpen(false); setTargetId(''); setError(null); }}
+        className="px-2 py-0.5 rounded-md border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Vazgeç
+      </button>
+      {error && <span className="text-[10px] text-red-500">{error}</span>}
+    </div>
+  );
+}
+
+// TYMM'de olup DB'de karşılığı bulunamayan bir kazanım adayı — admin bunu tek tıkla
+// ilgili konuya yeni bir kazanım satırı olarak ekleyebilir.
+function AddedOutcomeRow({ description, topicId }: { description: string; topicId: number | null }) {
+  const [saving, setSaving] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAdd() {
+    if (!topicId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/manage/outcomes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, description }),
+      });
+      if (!res.ok) { setError('Eklenemedi'); return; }
+      setAdded(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-2 mt-1">
+      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0">+ {description}</p>
+      {added ? (
+        <span className="shrink-0 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">✓ eklendi</span>
+      ) : topicId ? (
+        <button
+          onClick={handleAdd}
+          disabled={saving}
+          className="shrink-0 text-[10px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors disabled:opacity-40"
+        >
+          {saving ? 'Ekleniyor…' : 'Kazanım Olarak Ekle'}
+        </button>
+      ) : null}
+      {error && <span className="shrink-0 text-[10px] text-red-500">{error}</span>}
+    </div>
+  );
+}
 
 // Toplu kontrol raporundaki tek bir ünitenin özet satırı — "Farklı" ise tıklanınca konu/kazanım
 // bazında hangi metnin eklendiğini/kaldırıldığını gösterir.
@@ -2454,13 +2947,53 @@ function CompareUnitCard({
                 {t.status === 'tymm-only' && <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-300">TYMM&apos;de var, DB&apos;de yok</span>}
                 {t.status === 'db-only' && <span className="ml-1.5 font-normal text-[10px] text-red-600 dark:text-red-400">DB&apos;de var, TYMM&apos;de yok</span>}
               </p>
-              {t.learningOutcomeChanged && <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">✏️ Öğrenme çıktısı metni değişmiş.</p>}
-              {t.outcomesAdded.map((o, oi) => (
-                <p key={`a${oi}`} className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">+ {o}</p>
-              ))}
-              {t.outcomesRemoved.map((o, oi) => (
-                <p key={`r${oi}`} className="text-[11px] text-red-600 dark:text-red-400 mt-1">− {o}</p>
-              ))}
+              {t.learningOutcomeChanged && t.learningOutcomeDiffs.length === 0 && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">✏️ Öğrenme çıktısı metni değişmiş.</p>
+              )}
+              {t.learningOutcomeDiffs.length > 0 ? (
+                <div className="mt-1.5 space-y-2">
+                  {t.learningOutcomeDiffs.map((lo, li) => (
+                    <div key={li} className="pl-2 border-l border-border">
+                      <p className="text-[11px] font-semibold text-foreground">
+                        {lo.code && <span className="font-mono text-indigo-600 dark:text-indigo-300">{lo.code}. </span>}
+                        {lo.title}
+                        {lo.status === 'tymm-only' && <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-300">TYMM&apos;de var, DB&apos;de yok</span>}
+                        {lo.status === 'db-only' && <span className="ml-1.5 font-normal text-[10px] text-red-600 dark:text-red-400">DB&apos;de var, TYMM&apos;de yok</span>}
+                      </p>
+                      {lo.learningOutcomeChanged && <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">✏️ Öğrenme çıktısı metni değişmiş.</p>}
+                      {lo.outcomesAdded.map((o, oi) => (
+                        <AddedOutcomeRow key={`a${oi}`} description={o} topicId={t.dbTopicId} />
+                      ))}
+                      {lo.outcomesRemoved.map((o) => (
+                        <EditableOutcomeRow key={`r${o.id}`} outcome={o} tymmTexts={lo.tymmOutcomeTexts} />
+                      ))}
+                      {lo.outcomesOverridden.map((o) => (
+                        <OverriddenOutcomeRow key={`o${o.id}`} outcome={o} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {t.outcomesAdded.map((o, oi) => (
+                    <AddedOutcomeRow key={`a${oi}`} description={o} topicId={t.dbTopicId} />
+                  ))}
+                  {t.outcomesRemoved.map((o) => (
+                    <EditableOutcomeRow key={`r${o.id}`} outcome={o} tymmTexts={t.tymmOutcomeTexts} />
+                  ))}
+                  {t.outcomesOverridden.map((o) => (
+                    <OverriddenOutcomeRow key={`o${o.id}`} outcome={o} />
+                  ))}
+                </>
+              )}
+              {t.dbTopicId != null && (
+                <MoveTopicOutcomesButton
+                  sourceTopicId={t.dbTopicId}
+                  siblingTopics={diff.topics
+                    .filter((x): x is typeof x & { dbTopicId: number } => x.dbTopicId != null && x.dbTopicId !== t.dbTopicId)
+                    .map((x) => ({ id: x.dbTopicId, title: x.title }))}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -2506,6 +3039,7 @@ function PickList<T extends { id: number; name: string }>({
   onSelect,
   disabled = false,
   emptyMessage = 'Yükleniyor…',
+  verifiedIds,
 }: {
   label: string;
   items: T[];
@@ -2513,6 +3047,9 @@ function PickList<T extends { id: number; name: string }>({
   onSelect: (id: number) => void;
   disabled?: boolean;
   emptyMessage?: string;
+  // TYMM ile karşılaştırıldığında tam eşleşen (veya elle "doğru" işaretlenen) öğelerin
+  // yanında yeşil tik göstermek için — bkz. YillikPlanPanel'deki Ders PickList kullanımı.
+  verifiedIds?: Set<number>;
 }) {
   return (
     <div className={disabled ? 'opacity-50 pointer-events-none' : undefined}>
@@ -2531,6 +3068,9 @@ function PickList<T extends { id: number; name: string }>({
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedId === item.id ? 'bg-indigo-400' : 'bg-muted-foreground/40'}`} />
             <span className="flex-1 truncate">{item.name}</span>
+            {verifiedIds?.has(item.id) && (
+              <span className="text-emerald-500 flex-shrink-0" title="TYMM ile doğrulandı">✅</span>
+            )}
             <span className="text-[10px] font-mono text-muted-foreground">#{item.id}</span>
           </button>
         ))}

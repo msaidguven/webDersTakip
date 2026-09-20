@@ -100,6 +100,13 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
   let outcomesCreated = 0;
   let outcomesSkipped = 0;
 
+  // Bir konunun kaç ayrı öğrenme çıktısı grubu aldığını (nextTopicOrder gibi) topic_id
+  // bazında sayıyoruz — topic_learning_outcomes.order_no için, ve topics.learning_outcome
+  // metnini SADECE konu ilk oluşturulduğunda yazıyoruz (bir konuya ikinci bir öğrenme
+  // çıktısı grubu düştüğünde onun üstüne yazıp ilkini kaybetmemek için — asıl doğru kayıt
+  // artık topic_learning_outcomes'ta, bkz. supabase/migrations/topic_learning_outcomes.sql).
+  const learningOutcomeGroupCountByTopic = new Map<number, number>();
+
   for (const learningOutcome of unit.learningOutcomes) {
     const topicTitle = learningOutcome.topicTitle;
     const learningOutcomeText = learningOutcome.code ? `${learningOutcome.code}. ${learningOutcome.title}` : learningOutcome.title;
@@ -124,8 +131,34 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       existingTopicByTitle.set(topicTitle, topicId);
       nextTopicOrder += 1;
       topicsCreated += 1;
+    }
+
+    // Öğrenme çıktısı grubu: aynı konuya ikinci (üçüncü, ...) kez düşen bir öğrenme çıktısı
+    // varsa (ör. Matematik 6 "Bir Doğal Sayının Çarpanları ve Katları" hem MAT.6.1.1 hem
+    // MAT.6.1.4'ü içeriyor) kod bazında bul-veya-oluştur — koda göre eşleşince tekrar tekrar
+    // aynı grubun mükerrer oluşturulmasını önlüyoruz (üniteyi ikinci kez aktarınca).
+    let learningOutcomeId: number | null = null;
+    const { data: existingGroup } = await supabase
+      .from('topic_learning_outcomes')
+      .select('id')
+      .eq('topic_id', topicId)
+      .eq('code', learningOutcome.code || '')
+      .maybeSingle();
+
+    if (existingGroup) {
+      learningOutcomeId = (existingGroup as { id: number }).id;
     } else {
-      await supabase.from('topics').update({ learning_outcome: learningOutcomeText }).eq('id', topicId);
+      const order = (learningOutcomeGroupCountByTopic.get(topicId) ?? 0) + 1;
+      learningOutcomeGroupCountByTopic.set(topicId, order);
+      const { data: createdGroup, error: groupError } = await supabase
+        .from('topic_learning_outcomes')
+        .insert({ topic_id: topicId, code: learningOutcome.code || null, title: learningOutcome.title, order_no: order })
+        .select('id')
+        .single();
+      if (groupError || !createdGroup) {
+        return { ok: false, error: groupError?.message || `Öğrenme çıktısı grubu oluşturulamadı: ${learningOutcomeText}` };
+      }
+      learningOutcomeId = (createdGroup as { id: number }).id;
     }
 
     for (const comp of learningOutcome.components) {
@@ -140,7 +173,7 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
 
       const { error: outcomeError } = await supabase
         .from('outcomes')
-        .insert({ topic_id: topicId, description: comp.text, code: comp.letter, curriculum_year: curriculumYear });
+        .insert({ topic_id: topicId, description: comp.text, code: comp.letter, curriculum_year: curriculumYear, learning_outcome_id: learningOutcomeId });
       if (outcomeError) {
         return { ok: false, error: outcomeError.message };
       }

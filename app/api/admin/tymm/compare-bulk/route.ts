@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { discoverTymmUnitLinks } from '@/app/src/lib/tymm/discoverUnits';
 import { fetchTymmUnit } from '@/app/src/lib/tymm/fetchTymmUnit';
-import { diffUnit, dbOnlyUnitDiffs, findDbUnitMatch, type DbUnit, type UnitDiff } from '@/app/src/lib/tymm/compareUnits';
+import { diffUnit, dbOnlyUnitDiffs, findDbUnitMatch, type DbUnit, type UnitDiff, type OverrideMap } from '@/app/src/lib/tymm/compareUnits';
 
 // SADECE OKUMA: bir ders/sınıfın TYMM sayfasındaki TÜM ünitelerini canlı çekip, aynı
 // ders/sınıfın DB'deki mevcut ünite/konu/kazanımlarıyla tek seferde kıyaslar. Hiçbir şey
@@ -33,11 +33,38 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
   const { data: unitsData, error: unitsError } = await supabase
     .from('units')
-    .select('id, title, duration_hours, key_concepts, topics(id, title, learning_outcome, outcomes(id, code, description))')
+    .select(
+      'id, title, duration_hours, key_concepts, ' +
+        'topics(id, title, learning_outcome, outcomes(id, code, description), ' +
+        'topic_learning_outcomes(id, code, title, outcomes(id, code, description)))'
+    )
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId);
   if (unitsError) return NextResponse.json({ error: unitsError.message }, { status: 500 });
-  const dbUnits = (unitsData as unknown as DbUnit[] | null) || [];
+  // PostgREST embed'i tablo adıyla (topic_learning_outcomes) dönüyor — compareUnits.ts'nin
+  // DbTopic tipiyle eşleşsin diye learningOutcomeGroups'a çeviriyoruz. Grup içindeki
+  // kazanımları id'ye göre (=eklenme/orijinal sırası) sıralıyoruz — pozisyonel kıyas (bkz.
+  // diffOutcomesPositional) sıraya güveniyor, PostgREST embed sırası garanti değil.
+  type RawTopic = { topic_learning_outcomes?: DbUnit['topics'][number]['learningOutcomeGroups'] } & DbUnit['topics'][number];
+  const dbUnits = ((unitsData as unknown as (Omit<DbUnit, 'topics'> & { topics: RawTopic[] })[] | null) || []).map((u) => ({
+    ...u,
+    topics: u.topics.map((t) => ({
+      ...t,
+      learningOutcomeGroups: (t.topic_learning_outcomes || []).map((g) => ({ ...g, outcomes: [...g.outcomes].sort((a, b) => a.id - b.id) })),
+    })),
+  })) as DbUnit[];
+
+  const allOutcomeIds = dbUnits.flatMap((u) => u.topics.flatMap((t) => t.outcomes.map((o) => o.id)));
+  const overrides: OverrideMap = new Map();
+  if (allOutcomeIds.length) {
+    const { data: overrideRows } = await supabase
+      .from('outcome_tymm_overrides')
+      .select('outcome_id, tymm_text')
+      .in('outcome_id', allOutcomeIds);
+    for (const row of (overrideRows as { outcome_id: number; tymm_text: string }[] | null) || []) {
+      overrides.set(row.outcome_id, row.tymm_text);
+    }
+  }
 
   const results: UnitDiff[] = [];
   const fetchErrors: { url: string; title: string; error: string }[] = [];
@@ -51,10 +78,10 @@ export async function POST(request: NextRequest) {
     const tymmUnit = f.result.result.unit;
     const dbMatch = findDbUnitMatch(dbUnits, tymmUnit.unitTitle);
     if (dbMatch) matchedDbIds.add(dbMatch.id);
-    results.push(diffUnit(tymmUnit, f.url, dbMatch));
+    results.push(diffUnit(tymmUnit, f.url, dbMatch, overrides));
   }
 
-  results.push(...dbOnlyUnitDiffs(dbUnits, matchedDbIds));
+  results.push(...dbOnlyUnitDiffs(dbUnits, matchedDbIds, overrides));
 
   return NextResponse.json({
     unitsFound: discovered.units.length,

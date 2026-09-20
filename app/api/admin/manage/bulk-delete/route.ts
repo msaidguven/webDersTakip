@@ -7,6 +7,9 @@ import {
   deleteTopicsCascade,
   deleteOutcomesCascade,
   deleteUnitsCascade,
+  forceDeleteQuestionsCascade,
+  forceDeleteTopicsCascade,
+  forceDeleteUnitsCascade,
 } from '@/app/src/lib/adminCascade';
 
 type Scope = 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-units' | 'grade-lesson-outcomes';
@@ -83,12 +86,13 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = (await request.json().catch(() => null)) as
-    | { scope?: unknown; gradeId?: unknown; lessonId?: unknown; unitId?: unknown }
+    | { scope?: unknown; gradeId?: unknown; lessonId?: unknown; unitId?: unknown; force?: unknown }
     | null;
   const scope = body?.scope as Scope | undefined;
   const gradeId = body?.gradeId ? Number(body.gradeId) : null;
   const lessonId = body?.lessonId ? Number(body.lessonId) : null;
   const unitId = body?.unitId ? Number(body.unitId) : null;
+  const force = body?.force === true;
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
     return NextResponse.json({ error: 'Geçersiz scope' }, { status: 400 });
@@ -105,16 +109,27 @@ export async function POST(request: NextRequest) {
   // Konu/ünite silme artık DB tarafında tek transaction içinde tüm alt sorularıyla
   // birlikte atomik cascade oluyor (bkz. supabase/migrations/admin_cascade_delete.sql),
   // bu yüzden burada ayrıca soruları önden temizlemeye gerek kalmadı.
+  //
+  // force=true: admin panelde "öğrenci geçmişini de sil" onay kutusu işaretlenmiş —
+  // öğrenci geçmişi/AI içerik satırlarını da temizleyip asıl kaydı siliyoruz (bkz.
+  // admin_force_delete_cascade.sql). Sadece questions/topics/units için anlamlı;
+  // sections/contents/outcomes zaten öğrenci geçmişi tarafından korunmuyor.
   const result =
     resolved.table === 'questions'
-      ? await deleteQuestionsCascade(supabase, resolved.ids)
+      ? force
+        ? await forceDeleteQuestionsCascade(supabase, resolved.ids)
+        : await deleteQuestionsCascade(supabase, resolved.ids)
       : resolved.table === 'topic_contents'
         ? await deleteTopicContentsCascade(supabase, resolved.ids)
         : resolved.table === 'topics'
-          ? await deleteTopicsCascade(supabase, resolved.ids)
+          ? force
+            ? await forceDeleteTopicsCascade(supabase, resolved.ids)
+            : await deleteTopicsCascade(supabase, resolved.ids)
           : resolved.table === 'outcomes'
             ? await deleteOutcomesCascade(supabase, resolved.ids)
-            : await deleteUnitsCascade(supabase, resolved.ids);
+            : force
+              ? await forceDeleteUnitsCascade(supabase, resolved.ids)
+              : await deleteUnitsCascade(supabase, resolved.ids);
 
   return NextResponse.json({ deletedCount: result.deletedIds.length, failed: result.failed });
 }

@@ -3,7 +3,8 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
 type TopicRow = { id: number; title: string; order_no: number; learning_outcome: string | null };
-type OutcomeRow = { id: number; topic_id: number; description: string; code: string | null };
+type OutcomeRow = { id: number; topic_id: number; description: string; code: string | null; learning_outcome_id: number | null };
+type LearningOutcomeRow = { id: number; topic_id: number; code: string | null; title: string; order_no: number };
 
 // Admin'in TYMM'den az önce içe aktardığı bir üniteyi, canlı TYMM sayfasıyla yan yana
 // karşılaştırıp kontrol edebilmesi için DB'deki güncel konu/kazanım listesini döner.
@@ -30,10 +31,14 @@ export async function GET(request: NextRequest) {
   const topics = (topicsData as TopicRow[] | null) || [];
 
   const topicIds = topics.map((t) => t.id);
-  const { data: outcomesData } = topicIds.length
-    ? await supabase.from('outcomes').select('id, topic_id, description, code').in('topic_id', topicIds).order('id', { ascending: true })
-    : { data: [] as OutcomeRow[] };
+  const [{ data: outcomesData }, { data: groupsData }] = topicIds.length
+    ? await Promise.all([
+        supabase.from('outcomes').select('id, topic_id, description, code, learning_outcome_id').in('topic_id', topicIds).order('id', { ascending: true }),
+        supabase.from('topic_learning_outcomes').select('id, topic_id, code, title, order_no').in('topic_id', topicIds).order('order_no', { ascending: true }),
+      ])
+    : [{ data: [] as OutcomeRow[] }, { data: [] as LearningOutcomeRow[] }];
   const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];
+  const groupRows = (groupsData as LearningOutcomeRow[] | null) || [];
 
   const outcomesByTopic = new Map<number, OutcomeRow[]>();
   for (const o of outcomeRows) {
@@ -41,14 +46,40 @@ export async function GET(request: NextRequest) {
     list.push(o);
     outcomesByTopic.set(o.topic_id, list);
   }
+  const outcomesByGroup = new Map<number, OutcomeRow[]>();
+  for (const o of outcomeRows) {
+    if (o.learning_outcome_id == null) continue;
+    const list = outcomesByGroup.get(o.learning_outcome_id) || [];
+    list.push(o);
+    outcomesByGroup.set(o.learning_outcome_id, list);
+  }
+  const groupsByTopic = new Map<number, LearningOutcomeRow[]>();
+  for (const g of groupRows) {
+    const list = groupsByTopic.get(g.topic_id) || [];
+    list.push(g);
+    groupsByTopic.set(g.topic_id, list);
+  }
 
   return NextResponse.json({
     unit: unitData,
-    topics: topics.map((t) => ({
-      id: t.id,
-      title: t.title,
-      learningOutcome: t.learning_outcome,
-      outcomes: (outcomesByTopic.get(t.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description })),
-    })),
+    topics: topics.map((t) => {
+      const groups = groupsByTopic.get(t.id) || [];
+      // Bu konunun kendi grubuna atanmamış (henüz yeni yapıya taşınmamış eski) kazanımları —
+      // grup yoksa tamamı burada, gruplar varsa sadece hiçbirine düşmeyenler.
+      const ungroupedOutcomes = (outcomesByTopic.get(t.id) || []).filter((o) => o.learning_outcome_id == null);
+      return {
+        id: t.id,
+        title: t.title,
+        learningOutcome: t.learning_outcome,
+        outcomes: (outcomesByTopic.get(t.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description })),
+        learningOutcomeGroups: groups.map((g) => ({
+          id: g.id,
+          code: g.code,
+          title: g.title,
+          outcomes: (outcomesByGroup.get(g.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description })),
+        })),
+        ungroupedOutcomes: ungroupedOutcomes.map((o) => ({ id: o.id, code: o.code, description: o.description })),
+      };
+    }),
   });
 }

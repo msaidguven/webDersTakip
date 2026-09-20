@@ -329,6 +329,8 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   // (find_next_ai_content_draft_topic) kullandığı şartla birebir aynı.
   const [contentSourceKind, setContentSourceKind] = useState<'synthesis' | 'notebook' | 'unknown' | null>(null);
   const [unitDedupChecked, setUnitDedupChecked] = useState(false);
+  const [presentationExporting, setPresentationExporting] = useState(false);
+  const [presentationError, setPresentationError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -401,6 +403,58 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       if (res.ok) await load();
     } finally {
       setPublishSaving(false);
+    }
+  }
+
+  async function handleGenerateSlides() {
+    setPresentationExporting(true);
+    setPresentationError(null);
+    try {
+      const res = await fetch('/api/admin/topic-sections/slides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setPresentationError(data?.error || 'Sunum oluşturulamadı');
+        return;
+      }
+      window.open(`/admin/konu-icerik/${topicId}/sunum`, '_blank');
+    } catch {
+      setPresentationError('Ağ hatası oluştu');
+    } finally {
+      setPresentationExporting(false);
+    }
+  }
+
+  async function handleDownloadPresentationPptx() {
+    setPresentationExporting(true);
+    setPresentationError(null);
+    try {
+      const res = await fetch('/api/admin/topic-sections/presentation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setPresentationError(data?.error || 'PPTX indirilemedi');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'konu-sunumu.pptx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setPresentationError('Ağ hatası oluştu');
+    } finally {
+      setPresentationExporting(false);
     }
   }
 
@@ -580,7 +634,23 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
             <ToolButton onClick={() => setTopicQuestionsVariant('general')}>Genel Sorular</ToolButton>
             <ToolButton onClick={() => setTopicQuestionsVariant('classical')}>Açık Uçlu Sorular</ToolButton>
             <ToolButton onClick={() => setClassicalGenerateTarget({ section: null })}>Açık Uçlu Soru Üret (AI)</ToolButton>
+            <ToolButton
+              onClick={handleGenerateSlides}
+              disabled={presentationExporting || !bundle.sections.length}
+              title={!bundle.sections.length ? 'Önce alt başlık planı oluşturulmalı' : undefined}
+            >
+              {presentationExporting ? 'Sunum Hazırlanıyor...' : 'Sunum Oluştur / Güncelle'}
+            </ToolButton>
           </div>
+          {presentationError && <p className="mt-2 text-xs font-bold text-red-500">{presentationError}</p>}
+          <button
+            type="button"
+            onClick={handleDownloadPresentationPptx}
+            disabled={presentationExporting}
+            className="mt-1.5 text-[11px] font-bold text-muted-foreground underline decoration-dotted hover:text-foreground disabled:opacity-40"
+          >
+            (isteğe bağlı) son üretilen sunumu .pptx olarak indir
+          </button>
         </div>
       </div>
 

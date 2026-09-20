@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('lesson_grades')
-    .select('lesson_id, grade_id, weekly_hours, is_active')
+    .select('lesson_id, grade_id, weekly_hours, is_active, tymm_page_url, tymm_verified')
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId)
     .maybeSingle();
@@ -29,7 +29,14 @@ export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = (await request.json().catch(() => null)) as { lessonId?: unknown; gradeId?: unknown; weeklyHours?: unknown; isActive?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as {
+    lessonId?: unknown;
+    gradeId?: unknown;
+    weeklyHours?: unknown;
+    isActive?: unknown;
+    tymmPageUrl?: unknown;
+    tymmVerified?: unknown;
+  } | null;
   const lessonId = Number(body?.lessonId);
   const gradeId = Number(body?.gradeId);
 
@@ -50,6 +57,18 @@ export async function PATCH(request: NextRequest) {
 
   if (typeof body?.isActive === 'boolean') {
     update.is_active = body.isActive;
+  }
+
+  if (body && Object.prototype.hasOwnProperty.call(body, 'tymmPageUrl')) {
+    const tymmPageUrl = body.tymmPageUrl;
+    if (tymmPageUrl !== null && typeof tymmPageUrl !== 'string') {
+      return NextResponse.json({ error: 'Geçersiz TYMM URL' }, { status: 400 });
+    }
+    update.tymm_page_url = tymmPageUrl === null ? null : tymmPageUrl.trim() || null;
+  }
+
+  if (typeof body?.tymmVerified === 'boolean') {
+    update.tymm_verified = body.tymmVerified;
   }
 
   if (!Object.keys(update).length) {

@@ -13,7 +13,10 @@ async function runCascadeRpc(
   supabase: SupabaseClient,
   fn: string,
   ids: number[],
-  friendlyReason: string
+  friendlyReason: string,
+  // force-delete zaten beklenmedik bir engelle karşılaşmamalı; SQLERRM'i saklayıp
+  // genel mesajın yerine gösteriyoruz ki admin panelde gerçek sebep görünsün.
+  useRawReason = false
 ): Promise<CascadeResult> {
   if (!ids.length) return { deletedIds: [], failed: [] };
 
@@ -22,7 +25,9 @@ async function runCascadeRpc(
 
   const rows = (data ?? []) as RpcRow[];
   const deletedIds = rows.filter((r) => r.success).map((r) => r.item_id);
-  const failed = rows.filter((r) => !r.success).map((r) => ({ id: r.item_id, reason: friendlyReason }));
+  const failed = rows
+    .filter((r) => !r.success)
+    .map((r) => ({ id: r.item_id, reason: useRawReason ? r.reason || friendlyReason : friendlyReason }));
   return { deletedIds, failed };
 }
 
@@ -48,4 +53,20 @@ export async function deleteTopicsCascade(supabase: SupabaseClient, ids: number[
 
 export async function deleteUnitsCascade(supabase: SupabaseClient, ids: number[]): Promise<CascadeResult> {
   return runCascadeRpc(supabase, 'admin_delete_units_cascade', ids, 'Bu ünitede öğrenci geçmişinde kullanılmış sorular var, silinemiyor');
+}
+
+// Force-delete: admin toplu-sil sayfasında sadece "öğrenci geçmişini de sil" onay
+// kutusu işaretlenince kullanılıyor. Normal delete* fonksiyonlarının aksine önce
+// ilgili öğrenci geçmişi/AI içerik satırlarını temizleyip sonra asıl kaydı siliyor
+// (bkz. supabase/migrations/admin_force_delete_cascade.sql). Geri alınamaz.
+export async function forceDeleteQuestionsCascade(supabase: SupabaseClient, ids: number[]): Promise<CascadeResult> {
+  return runCascadeRpc(supabase, 'admin_force_delete_questions_cascade', ids, 'Zorla silme başarısız', true);
+}
+
+export async function forceDeleteTopicsCascade(supabase: SupabaseClient, ids: number[]): Promise<CascadeResult> {
+  return runCascadeRpc(supabase, 'admin_force_delete_topics_cascade', ids, 'Zorla silme başarısız', true);
+}
+
+export async function forceDeleteUnitsCascade(supabase: SupabaseClient, ids: number[]): Promise<CascadeResult> {
+  return runCascadeRpc(supabase, 'admin_force_delete_units_cascade', ids, 'Zorla silme başarısız', true);
 }

@@ -25,6 +25,7 @@ type DraftSection = {
   explanation_markdown: string;
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
+  review_summary: string | null;
 };
 
 type DraftPayload = {
@@ -59,6 +60,7 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
       explanation_markdown: explanation,
       activity_prompt_markdown: typeof row.activity_prompt_markdown === 'string' ? row.activity_prompt_markdown.trim() || null : null,
       activity_example_markdown: typeof row.activity_example_markdown === 'string' ? row.activity_example_markdown.trim() || null : null,
+      review_summary: typeof row.review_summary === 'string' ? row.review_summary.trim() || null : null,
     });
   }
 

@@ -37,6 +37,41 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ items: data || [] });
 }
 
+// TYMM karşılaştırma ekranından "bu kazanımı ekle" ile tetikleniyor (kullanıcının
+// 2026-09-20 isteği) — description zorunlu, code/order_index admin sonra elle girer.
+export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const body = await request.json().catch(() => null) as { topicId?: unknown; description?: unknown } | null;
+  const topicId = typeof body?.topicId === 'number' ? body.topicId : Number(body?.topicId);
+  const description = typeof body?.description === 'string' ? body.description.trim() : '';
+
+  if (!topicId || !Number.isInteger(topicId) || !description) {
+    return NextResponse.json({ error: 'topicId ve description zorunlu' }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+
+  const { data: maxRow } = await supabase
+    .from('outcomes')
+    .select('order_index')
+    .eq('topic_id', topicId)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrderIndex = ((maxRow as { order_index: number | null } | null)?.order_index ?? 0) + 1;
+
+  const { data, error } = await supabase
+    .from('outcomes')
+    .insert({ topic_id: topicId, description, order_index: nextOrderIndex })
+    .select('id, topic_id, description, order_index, code')
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ item: data });
+}
+
 export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;

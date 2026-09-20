@@ -26,11 +26,14 @@ import {
   Monitor,
   Share2,
   Download,
+  Presentation,
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
+import SlidePlayer from '@/app/src/components/SlidePlayer';
+import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
 import {
@@ -158,6 +161,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [heroImageZoomed, setHeroImageZoomed] = useState(false);
+  const [slideDeck, setSlideDeck] = useState<SlideDeck | null>(null);
+  const [slideDeckLoading, setSlideDeckLoading] = useState(false);
+  const [slideDeckError, setSlideDeckError] = useState<string | null>(null);
   const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
@@ -1101,6 +1107,31 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   }
 
+  // "Sunum olarak izle" — slaytlar admin panelde önceden üretilip topic_content_slides'a
+  // kaydedildiği için burada AI çağrısı yok, sadece hazır JSON'u çekip SlidePlayer'ı açıyoruz.
+  // Konu için henüz sunum üretilmemişse (404) kısa bir hata mesajı gösterip kapatıyoruz.
+  async function handleOpenSlidePlayer() {
+    if (!activeTopic) return;
+    setSlideDeckLoading(true);
+    setSlideDeckError(null);
+    try {
+      const res = await fetch(`/api/topics/${activeTopic.id}/slides`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setSlideDeckError(data?.error || 'Bu konu için sunum henüz hazırlanmadı');
+        setTimeout(() => setSlideDeckError(null), 3000);
+        return;
+      }
+      const data = await res.json();
+      setSlideDeck(data.deck as SlideDeck);
+    } catch {
+      setSlideDeckError('Ağ hatası oluştu');
+      setTimeout(() => setSlideDeckError(null), 3000);
+    } finally {
+      setSlideDeckLoading(false);
+    }
+  }
+
   // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
   // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
   useEffect(() => {
@@ -1728,6 +1759,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           >
                             <Download className="h-3.5 w-3.5" /> PDF Olarak İndir
                           </a>
+                          <button
+                            type="button"
+                            onClick={handleOpenSlidePlayer}
+                            disabled={slideDeckLoading}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors disabled:opacity-50"
+                          >
+                            <Presentation className="h-3.5 w-3.5" /> {slideDeckLoading ? 'Yükleniyor...' : 'Sunum Olarak İzle'}
+                          </button>
                           {isAdmin && (
                             <Link
                               href={`/admin/konu-icerik/${activeTopic.id}`}
@@ -1738,6 +1777,11 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             </Link>
                           )}
                         </div>
+                        {slideDeckError && <p className="mt-2 text-xs font-bold text-red-500">{slideDeckError}</p>}
+                        {slideDeck && typeof document !== 'undefined' && createPortal(
+                          <SlidePlayer deck={slideDeck} onClose={() => setSlideDeck(null)} />,
+                          document.body
+                        )}
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
                         )}

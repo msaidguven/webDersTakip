@@ -325,12 +325,12 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
     learningOutcomes = rawOutcomes.map((o, i) => ({ ...o, topicTitle: effectiveFramework[i] }));
   } else if (withoutGroupHeaders.length > 0 && withoutGroupHeaders.length < rawOutcomes.length) {
     const buckets = distributeIntoBuckets(rawOutcomes, withoutGroupHeaders.length);
-    learningOutcomes = buckets.map((group, i) => ({
-      code: group.map((o) => o.code).filter(Boolean).join(' / '),
-      title: group.map((o) => o.title).join(' '),
-      topicTitle: withoutGroupHeaders[i],
-      components: group.flatMap((o) => o.components),
-    }));
+    // Bir konuya birden fazla öğrenme çıktısı düşebiliyor (bkz. dosya başı topic_learning_outcomes
+    // notu) — bunları TEK bir kod/başlıkta birleştirmek yerine kendi kod+başlıklarıyla ayrı ayrı
+    // koruyoruz, sadece aynı topicTitle'ı paylaşıyorlar. importUnit.ts bu ayrımı topic_learning_outcomes
+    // tablosuna yazmak için kullanıyor (2026-09-20 kullanıcı bildirimi: "MAT.6.1.1 / MAT.6.1.4" diye
+    // birleştirilince hangi kazanımın hangi çıktıya ait olduğu bilgisi kayboluyordu).
+    learningOutcomes = buckets.flatMap((group, i) => group.map((o) => ({ ...o, topicTitle: withoutGroupHeaders[i] })));
     if (rawOutcomes.length > withoutGroupHeaders.length) {
       boundaryWarnings.push(
         `${withoutGroupHeaders.length} içerik çerçevesi konusuna ${rawOutcomes.length} öğrenme çıktısı sırayla gruplanarak dağıtıldı (TYMM sayfasında kesin sınır bilgisi yok) — grup sınırlarını kontrol edin.`
