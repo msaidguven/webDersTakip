@@ -19,10 +19,19 @@ const ACCENTS = [
 ] as const;
 
 // Akıllı tahtadan uzaktaki öğrenciler için metin boyutu ayarı — sadece bu oturumda geçerli,
-// kaydedilmiyor (kullanıcının 2026-09-21 isteği).
+// kaydedilmiyor (kullanıcının 2026-09-21 isteği). Bu, aşağıdaki OTOMATİK ekran-boyutu
+// ölçeklemesinin ÜZERİNE binen ek bir kullanıcı ayarı (ikisi çarpılıyor, bkz. effectiveScale).
 const MIN_FONT_SCALE = 1;
 const MAX_FONT_SCALE = 2.5;
 const FONT_SCALE_STEP = 0.25;
+
+// Kartın "normal" tasarım genişliği (eski max-w-5xl) — büyük ekranlarda (akıllı tahta, geniş
+// monitör) kart bunun ÜZERİNE büyüyünce içerik de aynı oranda büyüsün diye referans alınıyor.
+// Aksi halde kart büyür ama içindeki yazı/madde aynı piksel boyutunda kalır, kocaman boş
+// kenarlıklar oluşurdu (kullanıcının 2026-09-21 bulduğu sorun — tasarım ekran boyutuna göre
+// otomatik büyümüyordu).
+const AUTO_SCALE_BASE_WIDTH = 1280;
+const MAX_AUTO_SCALE = 2;
 
 // Görsel/diyagram olmayan section slaytları için dekoratif, konu-nötr bir desen — her slayt
 // bomboş/yazı-yığını gibi hissetmesin diye. Rastgele değil (SSR/hydration'da tutarlı olsun
@@ -84,7 +93,28 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   const [lightbox, setLightbox] = useState<{ kind: 'image'; src: string } | { kind: 'svg'; html: string } | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const [fontScale, setFontScale] = useState(1);
+  const [autoScale, setAutoScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Kart konteynerinin gerçek render genişliğini izleyip (ResizeObserver — tam ekran/embedded,
+  // pencere boyutu değişimi, akıllı tahta çözünürlüğü fark etmeksizin her zaman doğru) tasarım
+  // temel genişliğine (1280px) oranla otomatik bir ölçek hesaplıyoruz. Küçük ekranlarda 1'in
+  // altına düşmüyor (mevcut mobil tasarımı zaten kendi sm: breakpoint'leriyle küçültüyor).
+  useEffect(() => {
+    const el = cardWrapperRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (!width) return;
+      setAutoScale(Math.max(1, Math.min(MAX_AUTO_SCALE, width / AUTO_SCALE_BASE_WIDTH)));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Kullanıcının elle ayarladığı ek zoom, otomatik ekran-boyutu ölçeğinin üzerine biniyor.
+  const effectiveScale = fontScale * autoScale;
 
   // Slaytlar bitince ('outro') tebrik ekranı, sonra istenirse ('questions') konunun soru
   // bankası aynı tam ekran kabukta, slayt slayt (1 soru/slayt) gösteriliyor.
@@ -337,7 +367,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
         <ChevronRight className="h-6 w-6" />
       </button>
 
-      <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
+      <div ref={cardWrapperRef} className="flex flex-col items-center gap-3 w-full max-w-[min(96vw,1800px)]">
         <div key={cardKey} className="animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl">
           {/* Dekoratif, dolaşan renkli blob'lar — kartın arka planına derinlik katıyor */}
           <div
@@ -400,7 +430,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           )}
 
           {phase === 'outro' ? (
-            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}>
+            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: effectiveScale }}>
               <div
                 className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg"
                 style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
@@ -433,7 +463,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : phase === 'questions' && questions ? (
-            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: fontScale }}>
+            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: effectiveScale }}>
               {/* Sorular hiç unmount edilmiyor — sadece görünürlük değişiyor. Aksi halde
                   geri/ileri gidince QuestionAnswerKeyItem'ın kendi state'i (seçim/reveal)
                   sıfırlanırdı (kullanıcının 2026-09-21 isteği: "geri gittiğimde önceki
@@ -455,7 +485,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           ) : slide.kind === 'cover' ? (
             <div
               className="relative flex h-full items-center gap-6 overflow-hidden px-6 sm:px-12 pt-16"
-              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}
+              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: effectiveScale }}
             >
               <div className={slide.imageUrl ? 'relative z-[1] flex-1 min-w-0' : 'relative z-[1] w-full'}>
                 <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-800 leading-tight">{slide.heading}</h1>
@@ -480,7 +510,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : (
-            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-16 pb-4 sm:pb-8" style={{ zoom: fontScale }}>
+            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-16 pb-4 sm:pb-8" style={{ zoom: effectiveScale }}>
               <h2 className="text-base sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0">{slide.heading}</h2>
               <div className={`relative z-[1] flex flex-1 min-h-0 gap-4 ${!imageOnRight ? 'flex-row-reverse' : ''}`}>
                 <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-center">
