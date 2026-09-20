@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, PartyPopper, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 
 // Her "section" slaydına, sırayla değişen bir renk teması atanıyor — konu boyunca hep aynı
 // mor tonu görmek yerine slayttan slayta renk değişimi, aynı içeriğin tek düze/sıkıcı
@@ -51,6 +53,10 @@ function DecorativePattern({ seed, from, to }: { seed: number; from: string; to:
 
 type SlidePlayerProps = {
   deck: SlideDeck;
+  // Sunum bitince "Soruları Çöz" adımı için konunun soru bankasını çekmek amacıyla lazım
+  // (bkz. /api/topics/[topicId]/all-questions) — istatistik/oturum tutulmuyor, sadece
+  // öğretmenin akıllı tahtada sırayla gösterip çözdürmesi için (kullanıcının 2026-09-21 isteği).
+  topicId: number;
   // 'overlay' (varsayılan): tam ekranı kaplayan, karartılmış arka planlı sunum modu (Escape/X
   // ile kapanır). 'embedded': ders sayfasına gömülü, normal sayfa akışında bir kart — kapatma
   // yok, sağ üstte sadece "tam ekranda aç" (onExpand) butonu var.
@@ -59,7 +65,7 @@ type SlidePlayerProps = {
   onExpand?: () => void;
 };
 
-export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpand }: SlidePlayerProps) {
+export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClose, onExpand }: SlidePlayerProps) {
   const [index, setIndex] = useState(0);
   // Bir "section" slaydına ilk girildiğinde madde listesi tek seferde değil, ok tuşuna/
   // "İleri"ye her basışta bir madde daha açılarak (kademeli) gösterilir — öğretmenin sınıfta
@@ -70,34 +76,105 @@ export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpa
   const [animKey, setAnimKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Slaytlar bitince ('outro') tebrik ekranı, sonra istenirse ('questions') konunun soru
+  // bankası aynı tam ekran kabukta, slayt slayt (1 soru/slayt) gösteriliyor.
+  const [phase, setPhase] = useState<'slides' | 'outro' | 'questions'>('slides');
+  const [qIndex, setQIndex] = useState(0);
+  const [questions, setQuestions] = useState<QuizQuestion[] | null>(null);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
+
+  // Deck/konu değişince (embedded SlidePlayer sayfada sabit kalıp deck prop'u değiştiği için)
+  // her şeyi baştan başlat — aksi halde önceki konunun ortasında/sorularında kalınırdı.
+  useEffect(() => {
+    setIndex(0);
+    setRevealedCount(1);
+    setPhase('slides');
+    setQIndex(0);
+    setQuestions(null);
+    setQuestionsError(null);
+    setAnimKey((k) => k + 1);
+  }, [topicId]);
+
+  useEffect(() => {
+    if (phase !== 'outro' || questions !== null || questionsLoading) return;
+    setQuestionsLoading(true);
+    setQuestionsError(null);
+    fetch(`/api/topics/${topicId}/all-questions`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setQuestions((data.questions as QuizQuestion[]) || []);
+      })
+      .catch(() => setQuestionsError('Sorular yüklenemedi.'))
+      .finally(() => setQuestionsLoading(false));
+  }, [phase, topicId, questions, questionsLoading]);
+
   const total = deck.slides.length;
   const slide = deck.slides[index];
-  const isLast = index === total - 1;
-  const showTip = isLast && !!deck.tip?.content;
-  const accent = ACCENTS[index % ACCENTS.length];
-  const bulletsLeft = slide.kind === 'section' ? Math.max(0, slide.bullets.length - revealedCount) : 0;
+  const isLastSlide = index === total - 1;
+  const showTip = phase === 'slides' && isLastSlide && !!deck.tip?.content;
+  const accent = phase === 'questions' ? ACCENTS[qIndex % ACCENTS.length] : ACCENTS[index % ACCENTS.length];
+  const bulletsLeft = phase === 'slides' && slide.kind === 'section' ? Math.max(0, slide.bullets.length - revealedCount) : 0;
 
-  const goPrev = useCallback(() => {
-    setIndex((i) => Math.max(0, i - 1));
-    setRevealedCount(1);
+  const startQuestions = useCallback(() => {
+    setPhase('questions');
+    setQIndex(0);
     setAnimKey((k) => k + 1);
   }, []);
 
+  const goPrev = useCallback(() => {
+    if (phase === 'questions') {
+      if (qIndex > 0) setQIndex((q) => q - 1);
+      else setPhase('slides');
+      setAnimKey((k) => k + 1);
+      return;
+    }
+    if (phase === 'outro') {
+      setPhase('slides');
+      setAnimKey((k) => k + 1);
+      return;
+    }
+    setIndex((i) => Math.max(0, i - 1));
+    setRevealedCount(1);
+    setAnimKey((k) => k + 1);
+  }, [phase, qIndex]);
+
   const goNext = useCallback(() => {
+    if (phase === 'questions') {
+      if (questions && qIndex < questions.length - 1) {
+        setQIndex((q) => q + 1);
+        setAnimKey((k) => k + 1);
+      }
+      return;
+    }
+    if (phase === 'outro') {
+      startQuestions();
+      return;
+    }
     if (bulletsLeft > 0) {
       setRevealedCount((c) => c + 1);
       return;
     }
-    setIndex((i) => Math.min(total - 1, i + 1));
-    setRevealedCount(1);
+    if (index < total - 1) {
+      setIndex((i) => i + 1);
+      setRevealedCount(1);
+      setAnimKey((k) => k + 1);
+      return;
+    }
+    setPhase('outro');
     setAnimKey((k) => k + 1);
-  }, [bulletsLeft, total]);
+  }, [phase, qIndex, questions, bulletsLeft, index, total, startQuestions]);
 
   const jumpTo = useCallback((i: number) => {
-    setIndex(i);
-    setRevealedCount(1);
+    if (phase === 'questions') {
+      setQIndex(i);
+    } else {
+      setIndex(i);
+      setRevealedCount(1);
+    }
     setAnimKey((k) => k + 1);
-  }, []);
+  }, [phase]);
 
   // Kilitli (henüz açılmamış) bir maddeye tıklayınca o maddeye kadar hepsini aç — "İleri"ye
   // art arda basmak yerine öğretmen/öğrenci istediği maddeye doğrudan atlayabilsin.
@@ -214,8 +291,8 @@ export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpa
       <button
         type="button"
         onClick={goPrev}
-        disabled={index === 0}
-        aria-label="Önceki slayt"
+        disabled={phase === 'slides' && index === 0}
+        aria-label="Önceki"
         className={`absolute left-2 sm:left-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
       >
         <ChevronLeft className="h-6 w-6" />
@@ -223,7 +300,13 @@ export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpa
       <button
         type="button"
         onClick={goNext}
-        disabled={index === total - 1 && bulletsLeft === 0}
+        disabled={
+          // 'slides' fazında son slayttan sonra "İleri" tebrik ekranına geçtiği için hiç
+          // kilitlenmiyor; kilitlenme sadece soru fazlarında (soru yoksa/son sorudaysa) geçerli.
+          phase === 'outro' ? !questions || questions.length === 0
+            : phase === 'questions' ? !questions || qIndex === questions.length - 1
+              : false
+        }
         aria-label="Sonraki"
         className={`absolute right-2 sm:right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
       >
@@ -252,11 +335,52 @@ export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpa
               {deck.eyebrowText}
             </div>
           )}
-          <div className="absolute right-4 top-5 sm:right-6 sm:top-7 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
-            {index + 1}/{total}
-          </div>
+          {phase !== 'outro' && (
+            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
+              {phase === 'questions' ? `Soru ${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
+            </div>
+          )}
 
-          {slide.kind === 'cover' ? (
+          {phase === 'outro' ? (
+            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}>
+              <div
+                className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+              >
+                <Trophy className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+              </div>
+              <h2 className="relative z-[1] text-xl sm:text-3xl font-black text-slate-800">
+                <PartyPopper className="mr-2 inline h-5 w-5 sm:h-7 sm:w-7 text-amber-500" />
+                Tebrikler, konuyu tamamladın!
+              </h2>
+              <p className="relative z-[1] max-w-md text-xs sm:text-base font-medium text-slate-500">
+                {deck.topicTitle} konusunu baştan sona bitirdin. Şimdi öğrendiklerini sorularla pekiştirmeye ne dersin?
+              </p>
+              {questionsLoading ? (
+                <p className="relative z-[1] text-xs font-bold text-slate-400">Sorular yükleniyor...</p>
+              ) : questionsError ? (
+                <p className="relative z-[1] text-xs font-bold text-rose-500">{questionsError}</p>
+              ) : questions && questions.length === 0 ? (
+                <p className="relative z-[1] text-xs font-bold text-slate-400">Bu konu için henüz soru eklenmemiş.</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startQuestions}
+                  disabled={!questions}
+                  className="relative z-[1] mt-1 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-black text-white shadow-lg transition-transform hover:scale-105 disabled:opacity-50"
+                  style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+                >
+                  Soruları Çöz →
+                </button>
+              )}
+            </div>
+          ) : phase === 'questions' && questions && questions[qIndex] ? (
+            <div key={questions[qIndex].id} className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto">
+              <div className="relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6">
+                <QuestionAnswerKeyItem question={questions[qIndex]} interactive />
+              </div>
+            </div>
+          ) : slide.kind === 'cover' ? (
             <div
               className="relative flex h-full items-center gap-6 overflow-hidden px-6 sm:px-12 pt-16"
               style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}
@@ -357,21 +481,26 @@ export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpa
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {deck.slides.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => jumpTo(i)}
-              aria-label={`${i + 1}. slayta git`}
-              className="h-1.5 rounded-full transition-all duration-300"
-              style={{
-                width: i === index ? '1.75rem' : '0.5rem',
-                background: i === index ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
-              }}
-            />
-          ))}
-        </div>
+        {phase !== 'outro' && (
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {(phase === 'questions' ? questions || [] : deck.slides).map((_, i) => {
+              const current = phase === 'questions' ? qIndex : index;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => jumpTo(i)}
+                  aria-label={phase === 'questions' ? `${i + 1}. soruya git` : `${i + 1}. slayta git`}
+                  className="h-1.5 rounded-full transition-all duration-300"
+                  style={{
+                    width: i === current ? '1.75rem' : '0.5rem',
+                    background: i === current ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {lightboxSrc && (

@@ -40,5 +40,5 @@ export default function SunumOnizlemeClient({ topicId }: { topicId: number }) {
     return <div className="flex h-screen items-center justify-center bg-slate-900 text-sm text-slate-300">Yükleniyor...</div>;
   }
 
-  return <SlidePlayer deck={deck} onClose={() => router.push(`/admin/konu-icerik/${topicId}`)} />;
+  return <SlidePlayer deck={deck} topicId={topicId} onClose={() => router.push(`/admin/konu-icerik/${topicId}`)} />;
 }

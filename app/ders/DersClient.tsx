@@ -1842,7 +1842,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         içerik uyarısı sadece admin'e gösterilir, öğrenci için sessizce boş kalır. */}
                     {activeTopic && slideDeck && (
                       <div className="not-prose mb-8 sm:mb-10">
-                        <SlidePlayer deck={slideDeck} variant="embedded" onExpand={() => setSlideDeckExpanded(true)} />
+                        <SlidePlayer deck={slideDeck} topicId={Number(activeTopic.id)} variant="embedded" onExpand={() => setSlideDeckExpanded(true)} />
                         {isAdmin && slideDeck.hasStaleSections && activeTopic && (
                           <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
                             ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
@@ -1859,7 +1859,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </div>
                     )}
                     {activeTopic && slideDeckExpanded && slideDeck && typeof document !== 'undefined' && createPortal(
-                      <SlidePlayer deck={slideDeck} variant="overlay" onClose={() => setSlideDeckExpanded(false)} />,
+                      <SlidePlayer deck={slideDeck} topicId={Number(activeTopic.id)} variant="overlay" onClose={() => setSlideDeckExpanded(false)} />,
                       document.body
                     )}
                     {activeTopic?.heroImageUrl && (
