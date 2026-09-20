@@ -199,7 +199,11 @@ export function QuizCtaCards({
 // 2026-09-15 isteği). NotebookBox'la (SectionContent.tsx) aynı madde/terim render
 // pipeline'ını (buildBlocks) paylaşıyor, sadece farklı bir renk ailesinde (yeşil/emerald —
 // "tamamlandı, işte çıkarımın" hissi) ve konu geneline ait olduğu için ayrı bir bileşen.
-export function TopicSummaryBox({ summaryHtml }: { summaryHtml: string }) {
+// Kutu artık "defterine yazacağın tam not" — öğrenci deftere geçirdiğinde başlıksız
+// kalmasın diye konu başlığı da (kırmızı, tıpkı sayfanın en üstündeki başlık gibi) kutunun
+// içinde gösteriliyor; etiket de "Defterine Al" gibi bir eylem değil sade "Konu Özeti"
+// (kullanıcının 2026-09-21 isteği).
+export function TopicSummaryBox({ topicTitle, summaryHtml }: { topicTitle: string; summaryHtml: string }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
   const mathHtml = useMemo(() => renderLatexInHtml(summaryHtml), [summaryHtml]);
 
@@ -217,9 +221,8 @@ export function TopicSummaryBox({ summaryHtml }: { summaryHtml: string }) {
         </div>
         <div className="absolute inset-y-0 left-12 hidden w-px bg-emerald-200 sm:block" />
         <div className="space-y-2.5 px-5 py-6 sm:py-7 sm:pl-16 sm:pr-7">
-          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-emerald-700">
-            📝 Konu Özeti — Defterine Al
-          </p>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Konu Özeti</p>
+          <h3 className="font-serif text-lg sm:text-xl font-black text-rose-600 leading-snug">{topicTitle}</h3>
           {blocks ?? <div dangerouslySetInnerHTML={{ __html: mathHtml }} />}
         </div>
       </div>

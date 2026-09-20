@@ -2006,7 +2006,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           </div>
                           {activeTopic.summaryHtml && (
                             <div className="not-prose">
-                              <TopicSummaryBox summaryHtml={activeTopic.summaryHtml} />
+                              <TopicSummaryBox topicTitle={activeTopic.title} summaryHtml={activeTopic.summaryHtml} />
                             </div>
                           )}
                           {activeTopic.discussionPromptHtml && (

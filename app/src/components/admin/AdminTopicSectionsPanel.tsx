@@ -885,7 +885,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         <TopicHighlightEditModal topicId={topicId} index={highlightEditIndex} onClose={() => setHighlightEditIndex(null)} onSaved={() => { setHighlightEditIndex(null); load(); }} />
       )}
       {topicSummaryModalOpen && (
-        <TopicSummaryEditModal topicId={topicId} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
+        <TopicSummaryEditModal topicId={topicId} topicTitle={bundle.topic.title} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
       )}
       {reviewSummaryModalOpen && (
         <ReviewSummaryBackfillModal topicId={topicId} onClose={() => setReviewSummaryModalOpen(false)} onSaved={() => load()} />
@@ -1177,10 +1177,12 @@ export function SectionContentEditModal({
 // kendi topicContentId'sini topicId üzerinden bundle endpoint'inden çözer.
 export function TopicSummaryEditModal({
   topicId,
+  topicTitle,
   onClose,
   onSaved,
 }: {
   topicId: number;
+  topicTitle: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -1276,7 +1278,7 @@ export function TopicSummaryEditModal({
                 <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground block mb-1.5">Önizleme</span>
                 <div className="rounded-xl border border-border bg-[#f9fafb] p-4 max-h-[560px] overflow-y-auto">
                   {previewHtml ? (
-                    <TopicSummaryBox summaryHtml={previewHtml} />
+                    <TopicSummaryBox topicTitle={topicTitle} summaryHtml={previewHtml} />
                   ) : (
                     <p className="text-sm text-slate-400 italic">Özet boş — kutu sayfada gösterilmeyecek.</p>
                   )}
