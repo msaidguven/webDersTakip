@@ -525,7 +525,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
             <img src={lightbox.src} alt="" className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
           ) : (
             <div
-              className="max-h-full max-w-full rounded-lg bg-white p-6 shadow-2xl [&_svg]:max-h-[80vh] [&_svg]:max-w-[80vw]"
+              className="max-h-[85vh] w-[min(90vw,42rem)] overflow-auto rounded-lg bg-white p-6 shadow-2xl [&_svg]:h-auto [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: lightbox.html }}
             />
           )}
