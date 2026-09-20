@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { generateSlideDeck, type SlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { generateSlideDeck } from '@/app/src/lib/topicSlideDeck';
 
-type SlideRow = { slides: SlideDeck; generated_at: string };
-
+// POST hâlâ topic_content_slides'a yazıyor — sadece pptx export (presentation/route.ts)
+// için, o akış hâlâ kaydedilmiş bir satır bekliyor. Önizleme/görüntüleme (GET) artık buna
+// bağımlı değil, her istekte canlı üretiyor (bkz. aşağıdaki GET) — "önce Sunum Oluştur'a
+// bas, sonra izle" adımı sadece pptx indirmek isteyenler için gerekli, izlemek için değil.
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -40,16 +42,8 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicId).maybeSingle();
-  if (!topicContent) return NextResponse.json({ error: 'Bu konu için içerik hazırlanmamış' }, { status: 404 });
+  const result = await generateSlideDeck(supabase, topicId);
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  const { data: slideRow } = await supabase
-    .from('topic_content_slides')
-    .select('slides, generated_at')
-    .eq('topic_content_id', (topicContent as { id: number }).id)
-    .maybeSingle();
-  if (!slideRow) return NextResponse.json({ error: 'Bu konu için sunum henüz oluşturulmamış' }, { status: 404 });
-
-  const row = slideRow as SlideRow;
-  return NextResponse.json({ deck: row.slides, generatedAt: row.generated_at });
+  return NextResponse.json({ deck: result.deck });
 }
