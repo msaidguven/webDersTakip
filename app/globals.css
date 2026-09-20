@@ -255,6 +255,25 @@
   .animate-float-slow {
     animation: float-slow 6s ease-in-out infinite;
   }
+
+  /* SlidePlayer (konu sunumu) — slayt değişiminde kart hafif büyüyerek/belirerek girsin. */
+  @keyframes slide-pop-in {
+    from { opacity: 0; transform: scale(0.97) translateY(6px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .animate-slide-pop-in {
+    animation: slide-pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes blob-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(3%, -4%) scale(1.08); }
+  }
+
+  .animate-blob-drift {
+    animation: blob-drift 9s ease-in-out infinite;
+  }
 }
 
 /* Custom Scrollbar */
