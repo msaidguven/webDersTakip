@@ -1793,9 +1793,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     {activeTopic && slideDeck && (
                       <div className="not-prose mb-8 sm:mb-10">
                         <SlidePlayer deck={slideDeck} variant="embedded" onExpand={() => setSlideDeckExpanded(true)} />
-                        {isAdmin && slideDeck.hasStaleSections && (
+                        {isAdmin && slideDeck.hasStaleSections && activeTopic && (
                           <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
-                            ⚠️ Bu içeriğin bazı alt başlıklarında "ev tekrar özeti" yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı. İçeriği admin panelinden yeniden kaydedersen daha kaliteli slaytlar üretilir.
+                            ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
+                            <Link href={`/admin/konu-icerik/${activeTopic.id}?panel=review-summary`} target="_blank" className="underline hover:text-amber-800">
+                              Eksik özetleri AI ile tamamla →
+                            </Link>
                           </p>
                         )}
                       </div>

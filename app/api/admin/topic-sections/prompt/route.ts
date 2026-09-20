@@ -51,6 +51,11 @@ export async function GET(request: NextRequest) {
     // metnine dayanan bir kaynak seçeneği (kullanıcı isteği, 2026-09-12) — 14/16'daki AYNI
     // klasik/açık uçlu soru şeması, sadece kaynağı ders notu/kitap değil sentez metni.
     topic_questions_classical_from_synthesis: '25-topic-classical-questions-from-synthesis.md',
+    // Eski konularda (review_summary alanı 2026-09-15'ten önce üretilmiş içeriklerde yok)
+    // eksik "ev tekrar özeti"ni, mevcut ders notuna DOKUNMADAN sadece bu tek alanı üreterek
+    // tamamlar — SlidePlayer'ın kaba cümle-bölme yedeğine düşmesini önlemek için
+    // (kullanıcının 2026-09-20 isteği). bkz. app/src/lib/topicSlideDeck.ts hasStaleSections.
+    review_summary_backfill: '32-topic-review-summary-backfill.md',
   };
   const isTopicLevelType = !!type && type in TOPIC_LEVEL_TEMPLATES;
 
@@ -266,6 +271,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let staleSectionsText = '';
+    if (type === 'review_summary_backfill') {
+      const { data: topicContent } = await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle();
+      const staleRows = topicContent
+        ? (
+          await supabase
+            .from('topic_content_sections')
+            .select('heading, body_markdown, review_summary, order_no')
+            .eq('topic_content_id', (topicContent as { id: number }).id)
+            .order('order_no', { ascending: true })
+        ).data as { heading: string; body_markdown: string | null; review_summary: string | null }[] | null
+        : null;
+      const stale = (staleRows || []).filter((s) => s.body_markdown?.trim() && !s.review_summary?.trim());
+      if (!stale.length) {
+        return NextResponse.json({ error: 'Bu konuda eksik "ev tekrar özeti" yok — tüm alt başlıklar zaten güncel.' }, { status: 409 });
+      }
+      staleSectionsText = stale.map((s) => `### ${s.heading}\n${s.body_markdown}`).join('\n\n');
+    }
+
     if (type === 'highlights') {
       topicContentText = sectionRows
         .filter((s) => s.body_markdown?.trim())
@@ -336,6 +360,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{topic_content}', topicContentText || 'Bu konu için henüz ders notu (içerik) oluşturulmamış.')
       .replaceAll('{section_headings}', sectionHeadingsText)
+      .replaceAll('{sections}', staleSectionsText)
       .replaceAll('{source_text}', synthesisSourceText)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '6-10'))
       .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))

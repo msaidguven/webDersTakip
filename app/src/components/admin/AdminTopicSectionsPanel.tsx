@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle, Check, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
   RefreshCw, Shapes, Sparkles, Trash2, Video, Youtube, X,
@@ -316,6 +317,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   const [highlightQuickAddOpen, setHighlightQuickAddOpen] = useState(false);
   const [highlightEditIndex, setHighlightEditIndex] = useState<number | null>(null);
   const [topicSummaryModalOpen, setTopicSummaryModalOpen] = useState(false);
+  const [reviewSummaryModalOpen, setReviewSummaryModalOpen] = useState(false);
   const [topicQuestionsVariant, setTopicQuestionsVariant] = useState<'general' | 'notebooklm' | 'classical' | 'classical_notebooklm' | 'rag_synthesis' | 'classical_rag_synthesis' | null>(null);
 
   // Bu konu RAG sentezinden mi (kitapsız ders) yoksa yüklenmiş gerçek bir kitaptan
@@ -348,6 +350,16 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
   useEffect(() => {
     load();
   }, [load]);
+
+  // Ders sayfasındaki admin uyarısından (SlidePlayer/review_summary eksik) doğrudan bu
+  // panele, ilgili modal zaten açık halde gelinebilsin diye — kullanıcının 2026-09-20 isteği:
+  // "her alan için ayrı link verelim, sayfaya gelince o panel açık olsun". Genel bir mekanizma:
+  // ileride başka alanlar (görsel, video vb.) için de ?panel=X ile aynı desen genişletilebilir.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('panel') === 'review-summary') setReviewSummaryModalOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const unitId = bundle?.unit?.id ?? null;
@@ -631,6 +643,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
             <ToolButton onClick={() => setHighlightsModalOpen(true)}>Anahtar Kavramları Güncelle (AI)</ToolButton>
             <ToolButton onClick={() => setHighlightQuickAddOpen(true)}>Anahtar Kavram Ekle</ToolButton>
             <ToolButton onClick={() => setTopicSummaryModalOpen(true)}>Konu Özetini Düzenle</ToolButton>
+            <ToolButton onClick={() => setReviewSummaryModalOpen(true)}>Eksik Özetleri AI ile Tamamla</ToolButton>
             <ToolButton onClick={() => setTopicQuestionsVariant('general')}>Genel Sorular</ToolButton>
             <ToolButton onClick={() => setTopicQuestionsVariant('classical')}>Açık Uçlu Sorular</ToolButton>
             <ToolButton onClick={() => setClassicalGenerateTarget({ section: null })}>Açık Uçlu Soru Üret (AI)</ToolButton>
@@ -848,6 +861,9 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       )}
       {topicSummaryModalOpen && (
         <TopicSummaryEditModal topicId={topicId} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
+      )}
+      {reviewSummaryModalOpen && (
+        <ReviewSummaryBackfillModal topicId={topicId} onClose={() => setReviewSummaryModalOpen(false)} onSaved={() => load()} />
       )}
 
       {topicQuestionsVariant && (
@@ -4577,6 +4593,136 @@ export function TopicHighlightsModal({
           </div>
         </div>
       )}
+    </ModalShell>
+  );
+}
+
+// Eski konularda eksik olan "ev tekrar özeti"ni (review_summary — SlidePlayer'ın slayt
+// maddelerini bundan türettiği alan) mevcut ders notuna dokunmadan tamamlar. Ders sayfasındaki
+// admin uyarısından ?panel=review-summary ile doğrudan buraya (otomatik açık) gelinir
+// (kullanıcının 2026-09-20 isteği).
+export function ReviewSummaryBackfillModal({
+  topicId,
+  onClose,
+  onSaved,
+}: {
+  topicId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(true);
+  const [promptError, setPromptError] = useState<string | null>(null);
+
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [unmatched, setUnmatched] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPrompt(true);
+    setPromptError(null);
+    (async () => {
+      const res = await fetch(`/api/admin/topic-sections/prompt?topicId=${topicId}&type=review_summary_backfill`);
+      const data = await res.json().catch(() => null);
+      if (!cancelled) {
+        if (res.ok) {
+          setPrompt(data?.prompt || '');
+        } else {
+          setPromptError(data?.error || 'Prompt oluşturulamadı.');
+        }
+        setLoadingPrompt(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [topicId]);
+
+  async function handleSave() {
+    setError(null);
+    setSavedCount(null);
+    setUnmatched([]);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(pasted);
+    } catch {
+      setError('Yapıştırılan metin geçerli bir JSON değil.');
+      return;
+    }
+
+    const obj = parsed as { sections?: unknown };
+    if (!Array.isArray(obj.sections) || !obj.sections.length) {
+      setError('JSON içinde "sections" listesi bulunamadı.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/topic-sections/review-summary', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, sections: obj.sections }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Kaydedilemedi.');
+        return;
+      }
+      setSavedCount(data.updatedCount);
+      setUnmatched(data.unmatchedHeadings || []);
+      setPasted('');
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Eksik Özetleri AI ile Tamamla" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Bu prompt mevcut ders notuna DOKUNMAZ, sadece slaytlarda kullanılan kısa &quot;ev tekrar özeti&quot;ni eksik olan alt başlıklar için üretir. AI çıktısını aşağıya yapıştırıp kaydedin.
+        </p>
+
+        {promptError ? (
+          <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
+        ) : (
+          <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+        )}
+
+        <div>
+          <span className="text-xs font-bold text-muted-foreground block mb-2">AI&apos;dan gelen JSON sonucu buraya yapıştırın</span>
+          <textarea
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            rows={10}
+            placeholder='{"sections": [{"heading": "...", "review_summary": "..."}]}'
+            className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground font-mono resize-none focus:border-[#6c63ff] outline-none"
+          />
+        </div>
+
+        {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
+        {savedCount != null && (
+          <p className="text-xs font-bold text-emerald-400">
+            {savedCount} alt başlığın özeti kaydedildi.
+            {unmatched.length > 0 && ` (${unmatched.length} başlık eşleşmedi: ${unmatched.join(', ')})`}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Kapat
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pasted.trim()}
+            className="rounded-xl bg-[#6c63ff] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#5a52e0] disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
     </ModalShell>
   );
 }
