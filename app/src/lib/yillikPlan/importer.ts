@@ -129,7 +129,14 @@ export async function importUnits(
 
   for (const [uniteAdi, order] of seen) {
     const slug = slugify(uniteAdi);
-    let slugUniq = `${slug}-${lessonId}-${gradeId}`;
+    // Ünite hiçbir yerde salt slug'la aranmıyor, her zaman lesson_id + grade_id + slug ile
+    // aranıyor (bkz. unitOverviewPageData.ts) — bu yüzden düz slug bu (lesson_id, grade_id)
+    // kapsamında zaten benzersizse (units_lesson_grade_slug_unique, bkz. supabase/migrations/
+    // units_slug_unique_per_lesson_grade.sql) ekstra bir şey eklemeye gerek yok. Eskiden
+    // HER zaman "-{lessonId}-{gradeId}" ekleniyordu, bu da tüm URL'leri gereksiz yere
+    // çirkinleştiriyordu (kullanıcının 2026-09-21 bulduğu sorun) — artık sadece gerçek bir
+    // çakışma varsa (aynı kapsamda aynı slug'a sahip BAŞKA bir ünite) ekleniyor.
+    let slugUniq = slug;
 
     try {
       const { data: ex } = await sb
@@ -152,17 +159,20 @@ export async function importUnits(
         continue;
       }
 
-      const { data: ex2 } = await sb.from('units').select('id, grade_id').eq('slug', slugUniq).maybeSingle();
+      const { data: ex2 } = await sb
+        .from('units')
+        .select('id')
+        .eq('lesson_id', lessonId)
+        .eq('grade_id', gradeId)
+        .eq('slug', slugUniq)
+        .maybeSingle();
       if (ex2) {
-        const existingGrade = (ex2 as { id: number; grade_id: number }).grade_id;
-        if (existingGrade !== gradeId) {
-          slugUniq = `${slug}-${lessonId}-${gradeId}-${order}`;
-        }
+        slugUniq = `${slug}-${order}`;
       }
 
-      // upsert: aynı slug'la eşzamanlı/yeniden aktarımda unique-violation yerine
-      // mevcut kaydın üzerine yazar (bkz. units_slug_unique, supabase/migrations/
-      // yillik_plan_upsert_constraints.sql).
+      // upsert: aynı (lesson_id, grade_id, slug) ile eşzamanlı/yeniden aktarımda
+      // unique-violation yerine mevcut kaydın üzerine yazar (bkz.
+      // units_lesson_grade_slug_unique, supabase/migrations/units_slug_unique_per_lesson_grade.sql).
       const { error: insertError } = await sb.from('units').upsert(
         {
           lesson_id: lessonId,
@@ -172,7 +182,7 @@ export async function importUnits(
           is_active: true,
           description: `${uniteAdi} ünitesi`,
         },
-        { onConflict: 'slug' }
+        { onConflict: 'lesson_id,grade_id,slug' }
       );
       if (insertError) throw insertError;
       log(`  ✅ ${uniteAdi}`, 'success');
