@@ -351,13 +351,27 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
     load();
   }, [load]);
 
-  // Ders sayfasındaki admin uyarısından (SlidePlayer/review_summary eksik) doğrudan bu
-  // panele, ilgili modal zaten açık halde gelinebilsin diye — kullanıcının 2026-09-20 isteği:
-  // "her alan için ayrı link verelim, sayfaya gelince o panel açık olsun". Genel bir mekanizma:
-  // ileride başka alanlar (görsel, video vb.) için de ?panel=X ile aynı desen genişletilebilir.
+  // Ders sayfasındaki admin araçları açılır menüsünden (DersClient.tsx) doğrudan bu panele,
+  // ilgili modal zaten açık halde gelinebilsin diye — kullanıcının 2026-09-20/21 isteği:
+  // "her prompt için ayrı link verelim, sayfaya gelince o panel açık olsun". Sadece topic
+  // seviyesindeki (belirli bir alt başlık gerektirmeyen) araçlar kapsamda — section bazlı
+  // araçlar (görsel/video/diyagram/soru) buradan deep-link'lenmiyor, hangi alt başlık
+  // olduğunu URL'den taşımak gerekirdi, kapsam dışı bırakıldı.
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (searchParams.get('panel') === 'review-summary') setReviewSummaryModalOpen(true);
+    switch (searchParams.get('panel')) {
+      case 'review-summary': setReviewSummaryModalOpen(true); break;
+      case 'cover-image': setCoverImageModalOpen(true); break;
+      case 'highlights': setHighlightsModalOpen(true); break;
+      case 'highlight-quick-add': setHighlightQuickAddOpen(true); break;
+      case 'topic-summary': setTopicSummaryModalOpen(true); break;
+      case 'plan': setPlanModalOpen(true); break;
+      case 'notebooklm-setup': setNotebookLmSetupOpen(true); break;
+      case 'topic-questions-general': setTopicQuestionsVariant('general'); break;
+      case 'topic-questions-classical': setTopicQuestionsVariant('classical'); break;
+      case 'classical-generate': setClassicalGenerateTarget({ section: null }); break;
+      default: break;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
