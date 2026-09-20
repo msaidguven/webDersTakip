@@ -18,6 +18,9 @@ export type SlideDeck = {
   eyebrowText: string;
   slides: SlideDeckSlide[];
   tip: SlideDeckTip | null;
+  // En az bir alt başlıkta review_summary yok, kaba cümle-bölme yedeğine düşüldü (bkz.
+  // deriveBullets) — admin panelinde "bu içerik eski, yeniden kaydet" uyarısı için.
+  hasStaleSections: boolean;
 };
 
 type TopicRow = { id: number; title: string; unit_id: number };
@@ -80,14 +83,14 @@ function splitReviewSummary(reviewSummary: string): string[] {
     .slice(0, MAX_BULLETS);
 }
 
-function deriveBullets(section: SectionRow): string[] {
+function deriveBullets(section: SectionRow): { bullets: string[]; stale: boolean } {
   if (section.review_summary?.trim()) {
     const bullets = splitReviewSummary(section.review_summary);
-    if (bullets.length) return bullets;
+    if (bullets.length) return { bullets, stale: false };
   }
   // review_summary henüz üretilmemiş eski konular için (bu alan 2026-09-15'te eklendi) —
-  // içerik gövdesinden kaba bir madde listesine düş.
-  return fallbackBullets(section.body_markdown);
+  // içerik gövdesinden kaba bir madde listesine düş, ve bunu "stale" olarak işaretle.
+  return { bullets: fallbackBullets(section.body_markdown), stale: true };
 }
 
 export type GenerateSlideDeckResult =
@@ -136,6 +139,7 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
 
   if (!sections.length) return { ok: false, status: 404, error: 'Bu konuda henüz alt başlık yok' };
 
+  let hasStaleSections = false;
   const slides: SlideDeckSlide[] = [
     {
       kind: 'cover',
@@ -145,14 +149,18 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
       imageUrl: topicContentRow.hero_image_url,
       diagramSvg: null,
     },
-    ...sections.map((section): SlideDeckSlide => ({
-      kind: 'section',
-      heading: section.heading,
-      subtitle: null,
-      bullets: deriveBullets(section),
-      imageUrl: section.image_url,
-      diagramSvg: section.diagram_svg,
-    })),
+    ...sections.map((section): SlideDeckSlide => {
+      const { bullets, stale } = deriveBullets(section);
+      if (stale) hasStaleSections = true;
+      return {
+        kind: 'section',
+        heading: section.heading,
+        subtitle: null,
+        bullets,
+        imageUrl: section.image_url,
+        diagramSvg: section.diagram_svg,
+      };
+    }),
   ];
 
   return {
@@ -163,6 +171,7 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
       eyebrowText,
       slides,
       tip: tipRow?.content ? { title: tipRow.title, content: tipRow.content } : null,
+      hasStaleSections,
     },
   };
 }

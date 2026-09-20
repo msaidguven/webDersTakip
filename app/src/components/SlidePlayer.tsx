@@ -49,7 +49,17 @@ function DecorativePattern({ seed, from, to }: { seed: number; from: string; to:
   );
 }
 
-export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClose: () => void }) {
+type SlidePlayerProps = {
+  deck: SlideDeck;
+  // 'overlay' (varsayılan): tam ekranı kaplayan, karartılmış arka planlı sunum modu (Escape/X
+  // ile kapanır). 'embedded': ders sayfasına gömülü, normal sayfa akışında bir kart — kapatma
+  // yok, sağ üstte sadece "tam ekranda aç" (onExpand) butonu var.
+  variant?: 'overlay' | 'embedded';
+  onClose?: () => void;
+  onExpand?: () => void;
+};
+
+export default function SlidePlayer({ deck, variant = 'overlay', onClose, onExpand }: SlidePlayerProps) {
   const [index, setIndex] = useState(0);
   // Bir "section" slaydına ilk girildiğinde madde listesi tek seferde değil, ok tuşuna/
   // "İleri"ye her basışta bir madde daha açılarak (kademeli) gösterilir — öğretmenin sınıfta
@@ -103,7 +113,15 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
     }
   }, []);
 
+  const isOverlay = variant === 'overlay';
+
+  // Klavye kısayolları (ok tuşları/boşluk/Escape) sadece overlay (tam ekran modal) modunda
+  // global window listener'ı ile çalışır. Embedded (sayfaya gömülü) modda bunu global
+  // dinlersek, sayfadaki bir arama kutusuna yazarken ya da başka bir formda boşluk/ok tuşuna
+  // basıldığında slaytlar da kayardı — bu yüzden embedded'da klavye kısayolu yok, sadece
+  // buton/tıklama ile ilerleniyor.
   useEffect(() => {
+    if (!isOverlay) return;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -111,7 +129,7 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
         // Tam ekrandaysak Escape'i tarayıcı zaten fullscreen'den çıkmak için kullanır —
         // sunumu da kapatırsak öğretmen tek Escape'te hem tam ekrandan hem sunumdan çıkar,
         // bu şaşırtıcı olur. Sadece tam ekran değilken sunumu kapat.
-        if (!document.fullscreenElement) onClose();
+        if (!document.fullscreenElement) onClose?.();
       } else if (e.key === 'ArrowLeft') goPrev();
       else if (e.key === 'ArrowRight' || e.key === ' ') goNext();
     };
@@ -123,7 +141,7 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
     };
-  }, [onClose, goPrev, goNext, lightboxSrc]);
+  }, [isOverlay, onClose, goPrev, goNext, lightboxSrc]);
 
   useEffect(() => {
     if (!lightboxSrc) return;
@@ -138,29 +156,59 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
   const imageOnRight = index % 2 === 0;
   const visualSrc = slide.imageUrl;
 
+  // Overlay'de kart karanlık bir backdrop üstünde durduğu için yarı saydam beyaz butonlar
+  // okunuyor; embedded'da arka plan sayfanın kendi (açık) rengi olduğu için aynı butonlar
+  // görünmez olurdu — koyu, daha opak bir varyant kullanıyoruz.
+  const navBtnClass = isOverlay
+    ? 'bg-white/10 text-white hover:bg-white/20'
+    : 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
+  const inactiveDotColor = isOverlay ? 'rgba(255,255,255,0.3)' : 'rgba(15,23,42,0.18)';
+
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-6 transition-colors duration-700"
-      style={{ background: `radial-gradient(circle at 50% 20%, ${accent.glow}, transparent 55%), rgba(15, 23, 42, 0.94)` }}
+      className={
+        isOverlay
+          ? 'fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-6 transition-colors duration-700'
+          : 'relative flex items-center justify-center transition-colors duration-700'
+      }
+      style={
+        isOverlay
+          ? { background: `radial-gradient(circle at 50% 20%, ${accent.glow}, transparent 55%), rgba(15, 23, 42, 0.94)` }
+          : undefined
+      }
     >
       <div className="absolute right-4 top-4 flex items-center gap-2 z-10">
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran sunum modu'}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        >
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Kapat"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        {isOverlay ? (
+          <>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran sunum modu'}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Kapat"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onExpand}
+            aria-label="Tam ekranda aç"
+            title="Tam ekranda aç"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/60 text-white hover:bg-slate-900/80 transition-colors shadow-sm"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <button
@@ -168,7 +216,7 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
         onClick={goPrev}
         disabled={index === 0}
         aria-label="Önceki slayt"
-        className="absolute left-2 sm:left-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className={`absolute left-2 sm:left-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
       >
         <ChevronLeft className="h-6 w-6" />
       </button>
@@ -177,7 +225,7 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
         onClick={goNext}
         disabled={index === total - 1 && bulletsLeft === 0}
         aria-label="Sonraki"
-        className="absolute right-2 sm:right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className={`absolute right-2 sm:right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
       >
         <ChevronRight className="h-6 w-6" />
       </button>
@@ -319,7 +367,7 @@ export default function SlidePlayer({ deck, onClose }: { deck: SlideDeck; onClos
               className="h-1.5 rounded-full transition-all duration-300"
               style={{
                 width: i === index ? '1.75rem' : '0.5rem',
-                background: i === index ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : 'rgba(255,255,255,0.3)',
+                background: i === index ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
               }}
             />
           ))}

@@ -26,7 +26,6 @@ import {
   Monitor,
   Share2,
   Download,
-  Presentation,
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
@@ -164,6 +163,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [slideDeck, setSlideDeck] = useState<SlideDeck | null>(null);
   const [slideDeckLoading, setSlideDeckLoading] = useState(false);
   const [slideDeckError, setSlideDeckError] = useState<string | null>(null);
+  const [slideDeckExpanded, setSlideDeckExpanded] = useState(false);
   const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
@@ -1107,30 +1107,42 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     }
   }
 
-  // "Sunum olarak izle" — slaytlar admin panelde önceden üretilip topic_content_slides'a
-  // kaydedildiği için burada AI çağrısı yok, sadece hazır JSON'u çekip SlidePlayer'ı açıyoruz.
-  // Konu için henüz sunum üretilmemişse (404) kısa bir hata mesajı gösterip kapatıyoruz.
-  async function handleOpenSlidePlayer() {
-    if (!activeTopic) return;
-    setSlideDeckLoading(true);
-    setSlideDeckError(null);
-    try {
-      const res = await fetch(`/api/topics/${activeTopic.id}/slides`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setSlideDeckError(data?.error || 'Bu konu için sunum henüz hazırlanmadı');
-        setTimeout(() => setSlideDeckError(null), 3000);
-        return;
-      }
-      const data = await res.json();
-      setSlideDeck(data.deck as SlideDeck);
-    } catch {
-      setSlideDeckError('Ağ hatası oluştu');
-      setTimeout(() => setSlideDeckError(null), 3000);
-    } finally {
-      setSlideDeckLoading(false);
+  // Sunum artık ders sayfasında VARSAYILAN olarak gömülü gösteriliyor (kullanıcının
+  // 2026-09-20 isteği) — konu değiştikçe otomatik çekiliyor, ayrı bir "izle" butonuna
+  // basmak gerekmiyor. Slaytlar review_summary'den türetildiği (AI çağrısı yok) için bu
+  // ucuz bir istek. Konunun içeriği/alt başlıkları yoksa sessizce boş kalır (öğrenci için);
+  // hata mesajı sadece admin'e gösterilen uyarı kartında kullanılıyor (bkz. render).
+  useEffect(() => {
+    if (!activeTopic) {
+      setSlideDeck(null);
+      setSlideDeckError(null);
+      return;
     }
-  }
+    let cancelled = false;
+    setSlideDeck(null);
+    setSlideDeckError(null);
+    setSlideDeckLoading(true);
+    fetch(`/api/topics/${activeTopic.id}/slides`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setSlideDeckError(data?.error || 'Bu konu için sunum hazırlanamadı');
+          return;
+        }
+        const data = await res.json();
+        setSlideDeck(data.deck as SlideDeck);
+      })
+      .catch(() => {
+        if (!cancelled) setSlideDeckError('Ağ hatası oluştu');
+      })
+      .finally(() => {
+        if (!cancelled) setSlideDeckLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTopic?.id]);
 
   // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
   // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
@@ -1759,14 +1771,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           >
                             <Download className="h-3.5 w-3.5" /> PDF Olarak İndir
                           </a>
-                          <button
-                            type="button"
-                            onClick={handleOpenSlidePlayer}
-                            disabled={slideDeckLoading}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors disabled:opacity-50"
-                          >
-                            <Presentation className="h-3.5 w-3.5" /> {slideDeckLoading ? 'Yükleniyor...' : 'Sunum Olarak İzle'}
-                          </button>
                           {isAdmin && (
                             <Link
                               href={`/admin/konu-icerik/${activeTopic.id}`}
@@ -1777,15 +1781,33 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                             </Link>
                           )}
                         </div>
-                        {slideDeckError && <p className="mt-2 text-xs font-bold text-red-500">{slideDeckError}</p>}
-                        {slideDeck && typeof document !== 'undefined' && createPortal(
-                          <SlidePlayer deck={slideDeck} onClose={() => setSlideDeck(null)} />,
-                          document.body
-                        )}
                         {activeTopic.subtitle && (
                           <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
                         )}
                       </div>
+                    )}
+
+                    {/* Sunum — varsayılan olarak gömülü gösteriliyor, sağ üstteki büyüteç
+                        ikonuyla tam ekrana geçiliyor (kullanıcının 2026-09-20 isteği). Hata/eski
+                        içerik uyarısı sadece admin'e gösterilir, öğrenci için sessizce boş kalır. */}
+                    {activeTopic && slideDeck && (
+                      <div className="not-prose mb-8 sm:mb-10">
+                        <SlidePlayer deck={slideDeck} variant="embedded" onExpand={() => setSlideDeckExpanded(true)} />
+                        {isAdmin && slideDeck.hasStaleSections && (
+                          <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
+                            ⚠️ Bu içeriğin bazı alt başlıklarında "ev tekrar özeti" yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı. İçeriği admin panelinden yeniden kaydedersen daha kaliteli slaytlar üretilir.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {isAdmin && activeTopic && !slideDeck && !slideDeckLoading && slideDeckError && (
+                      <div className="not-prose mb-8 sm:mb-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-bold text-amber-700">
+                        ⚠️ Bu ders için sunum/slayt içeriği yok: {slideDeckError}
+                      </div>
+                    )}
+                    {activeTopic && slideDeckExpanded && slideDeck && typeof document !== 'undefined' && createPortal(
+                      <SlidePlayer deck={slideDeck} variant="overlay" onClose={() => setSlideDeckExpanded(false)} />,
+                      document.body
                     )}
                     {activeTopic?.heroImageUrl && (
                       <>
