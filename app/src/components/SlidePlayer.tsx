@@ -279,32 +279,6 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           : undefined
       }
     >
-      {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
-          oturumda geçerli, kaydedilmiyor. */}
-      <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/70 px-1.5 py-1.5 shadow-lg">
-        <button
-          type="button"
-          onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
-          disabled={fontScale <= MIN_FONT_SCALE}
-          aria-label="Metni küçült"
-          title="Metni küçült"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <Minus className="h-4 w-4" />
-        </button>
-        <span className="w-10 text-center text-[11px] font-black text-white">%{Math.round(fontScale * 100)}</span>
-        <button
-          type="button"
-          onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
-          disabled={fontScale >= MAX_FONT_SCALE}
-          aria-label="Metni büyüt"
-          title="Metni büyüt (akıllı tahta için)"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
-
       <div className="absolute right-4 top-4 flex items-center gap-2 z-10">
         {isOverlay ? (
           <>
@@ -387,6 +361,31 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           )}
           {phase !== 'outro' && (
             <div className="absolute right-4 top-5 sm:right-6 sm:top-7 flex items-center gap-1.5">
+              {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
+                  oturumda geçerli, kaydedilmiyor. Diğer rozetlerle aynı zarif stil. */}
+              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
+                  disabled={fontScale <= MIN_FONT_SCALE}
+                  aria-label="Metni küçült"
+                  title="Metni küçült"
+                  className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500">%{Math.round(fontScale * 100)}</span>
+                <button
+                  type="button"
+                  onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
+                  disabled={fontScale >= MAX_FONT_SCALE}
+                  aria-label="Metni büyüt"
+                  title="Metni büyüt (akıllı tahta için)"
+                  className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
               {phase === 'questions' && (
                 <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm">
                   <span className="text-emerald-600">D:{Object.values(answeredMap).filter((v) => v === 'correct').length}</span>
