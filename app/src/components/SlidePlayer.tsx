@@ -360,7 +360,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
             </div>
           )}
           {phase !== 'outro' && (
-            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 flex items-center gap-1.5">
+            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 z-10 flex items-center gap-1.5">
               {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
                   oturumda geçerli, kaydedilmiyor. Diğer rozetlerle aynı zarif stil. */}
               <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
