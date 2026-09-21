@@ -264,6 +264,26 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
 
   const isOverlay = variant === 'overlay';
 
+  // Üst çubuktaki küçük rozetler (%büyütme, D:/Y:, sayfa sayacı) +/- ile birlikte büyüsün diye
+  // — eskiden sabit [9-11px] kalıyorlardı, metin kocaman olunca orantısız kalıyordu
+  // (kullanıcının 2026-09-21 isteği).
+  const smallBadgeStyle = useCallback(
+    (basePx: number) => (fontScale !== 1 ? { fontSize: `${basePx * fontScale}px` } : undefined),
+    [fontScale]
+  );
+
+  // Slayt (özet/kapak/tebrik) metinleri de eskiden `zoom` ile büyütülüyordu — ama zoom kutunun
+  // TAMAMINI (görsel kutusu, boşluklar, sabit yükseklikli satır) büyüttüğü için, kart sabit
+  // 16:9 boyda kalınca içerik card'ın dışına taşıp kırpılıyor, satırlar/görsel üst üste
+  // biniyordu ("çok saçma bir şekil" — kullanıcının 2026-09-21 şikayeti). Artık questions
+  // fazındaki gibi SADECE metin font-size'ı (+ orantılı line-height) büyüyor, görsel kutusu ve
+  // dolgular sabit kalıyor; madde listesi de taştığında kırpılmak yerine kendi içinde kayabiliyor
+  // (bkz. aşağıdaki overflow-y-auto).
+  const slideTextStyle = useCallback(
+    (baseRem: number, lineHeight = 1.3) => (fontScale !== 1 ? { fontSize: `${baseRem * fontScale}rem`, lineHeight } : undefined),
+    [fontScale]
+  );
+
   // Klavye kısayolları (ok tuşları/boşluk/Escape) sadece overlay (tam ekran modal) modunda
   // global window listener'ı ile çalışır. Embedded (sayfaya gömülü) modda bunu global
   // dinlersek, sayfadaki bir arama kutusuna yazarken ya da başka bir formda boşluk/ok tuşuna
@@ -322,7 +342,10 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   // beyaz kart üstünde okunuyor.
   const navBtnClass = 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
   const iconBtnClass = 'bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
-  const inactiveDotColor = isOverlay ? 'rgba(255,255,255,0.3)' : 'rgba(15,23,42,0.18)';
+  // Nokta göstergesi artık her zaman beyaz kartın İÇİNDE (eskiden overlay'de kartın altında,
+  // koyu arka plan üstündeydi) — bu yüzden isOverlay'e göre değil, her zaman açık zeminde
+  // okunan tonda (kullanıcının 2026-09-21 isteğiyle oklar/noktalar slayda taşındı).
+  const inactiveDotColor = 'rgba(15,23,42,0.18)';
 
   return (
     <div
@@ -338,39 +361,22 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           : undefined
       }
     >
-      <button
-        type="button"
-        onClick={goPrev}
-        disabled={phase === 'slides' && index === 0}
-        aria-label="Önceki"
-        className={`absolute left-2 sm:left-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
-      >
-        <ChevronLeft className="h-6 w-6" />
-      </button>
-      <button
-        type="button"
-        onClick={goNext}
-        disabled={
-          // 'slides' fazında son slayttan sonra "İleri" tebrik ekranına geçtiği için hiç
-          // kilitlenmiyor; kilitlenme sadece soru fazlarında (soru yoksa/son sorudaysa) geçerli.
-          phase === 'outro' ? !questions || questions.length === 0
-            : phase === 'questions' ? !questions || qIndex === questions.length - 1
-              : false
-        }
-        aria-label="Sonraki"
-        className={`absolute right-2 sm:right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
-      >
-        <ChevronRight className="h-6 w-6" />
-      </button>
-
-      <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
+      {/* Embedded (ders sayfasına gömülü) varyant eskiden max-w-5xl'de sabitti — sayfadaki
+          diğer içerikle kıyaslandığında küçük/sıkışık duruyordu (kullanıcının 2026-09-22
+          "slaytı biraz daha büyütelim" isteği). */}
+      <div className={`flex flex-col items-center gap-3 w-full ${isOverlay ? '' : 'max-w-6xl'}`}>
         <div
           key={cardKey}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           className={
+            // Overlay'de kart artık max-w-5xl gibi sabit bir genişliğe değil, ekranın (akıllı
+            // tahta dahil) neredeyse tamamına (%94) 16:9 oranını koruyarak oturuyor — eskiden
+            // büyük ekranlarda kart küçük kalıp etrafı boş kalıyordu (kullanıcının 2026-09-21
+            // sert şikayeti). min(94vw, 94dvh*16/9) / min(94dvh, 94vw*9/16) çifti, hangi eksen
+            // dar ise ona göre kısıtlayıp oranı bozmadan mümkün olan en büyük kutuyu veriyor.
             isOverlay
-              ? 'animate-slide-pop-in relative flex w-full h-[calc(100dvh-4.5rem)] sm:h-auto sm:aspect-video flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+              ? 'animate-slide-pop-in relative flex w-full h-[calc(100dvh-4.5rem)] sm:h-[min(94dvh,calc(94vw*9/16))] sm:w-[min(94vw,calc(94dvh*16/9))] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
               : 'animate-slide-pop-in relative flex w-full aspect-video flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
           }
         >
@@ -418,7 +424,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                     >
                       <Minus className="h-3 w-3" />
                     </button>
-                    <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500">%{Math.round(fontScale * 100)}</span>
+                    <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500" style={smallBadgeStyle(10)}>%{Math.round(fontScale * 100)}</span>
                     <button
                       type="button"
                       onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
@@ -431,13 +437,13 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                     </button>
                   </div>
                   {phase === 'questions' && (
-                    <div className="hidden rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm sm:block">
+                    <div className="hidden rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm sm:block" style={smallBadgeStyle(11)}>
                       <span className="text-emerald-600">D:{Object.values(answeredMap).filter((v) => v === 'correct').length}</span>
                       {' '}
                       <span className="text-rose-500">Y:{Object.values(answeredMap).filter((v) => v === 'incorrect').length}</span>
                     </div>
                   )}
-                  <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
+                  <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm" style={smallBadgeStyle(11)}>
                     {phase === 'questions' ? `${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
                   </div>
                 </>
@@ -476,18 +482,18 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           </div>
 
           {phase === 'outro' ? (
-            <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}>
+            <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto px-6 py-4 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}>
               <div
-                className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg"
+                className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg shrink-0"
                 style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
               >
                 <Trophy className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
               </div>
-              <h2 className="relative z-[1] text-xl sm:text-3xl font-black text-slate-800">
+              <h2 className="relative z-[1] text-xl sm:text-3xl font-black text-slate-800" style={slideTextStyle(1.875, 1.2)}>
                 <PartyPopper className="mr-2 inline h-5 w-5 sm:h-7 sm:w-7 text-amber-500" />
                 Tebrikler, konuyu tamamladın!
               </h2>
-              <p className="relative z-[1] max-w-md text-xs sm:text-base font-medium text-slate-500">
+              <p className="relative z-[1] max-w-md text-xs sm:text-base font-medium text-slate-500" style={slideTextStyle(1, 1.4)}>
                 {deck.topicTitle} konusunu baştan sona bitirdin. Şimdi öğrendiklerini sorularla pekiştirmeye ne dersin?
               </p>
               {questionsLoading ? (
@@ -509,22 +515,31 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : phase === 'questions' && questions ? (
-            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-1 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: fontScale }}>
+            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-1 pb-4 sm:pb-8 overflow-y-auto">
               {/* Sorular hiç unmount edilmiyor — sadece görünürlük değişiyor. Aksi halde
                   geri/ileri gidince QuestionAnswerKeyItem'ın kendi state'i (seçim/reveal)
                   sıfırlanırdı (kullanıcının 2026-09-21 isteği: "geri gittiğimde önceki
                   tıklamalarım kaybolmasın"). key={questionsAttempt} sadece "Soruları Çöz"e
-                  yeniden basılınca hepsini sıfırdan başlatıyor. */}
+                  yeniden basılınca hepsini sıfırdan başlatıyor.
+                  NOT: burada artık `zoom` KULLANILMIYOR — zoom, metinle birlikte şık
+                  butonlarının padding/gap/genişliğini de büyütüp ekranı taşırıyordu
+                  (kullanıcının 2026-09-21 bulduğu regresyon). Bunun yerine fontScale doğrudan
+                  QuestionAnswerKeyItem'a veriliyor; o da SADECE metin font-size'ını
+                  büyütüyor, buton dolgusu/genişliği sabit kalıyor. */}
               {questions.map((q, i) => {
                 if (!mountedQIndexes.has(i)) return null;
                 return (
                   <div
                     key={`${questionsAttempt}-${q.id}`}
-                    className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
+                    className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
                   >
                     <QuestionAnswerKeyItem
                       question={q}
+                      index={i}
+                      numberBadge="label"
+                      accentColor={accent.bar}
                       interactive
+                      fontScale={fontScale}
                       onAnswered={(id, status) => setAnsweredMap((m) => ({ ...m, [id]: status }))}
                     />
                   </div>
@@ -533,12 +548,12 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
             </div>
           ) : slide.kind === 'cover' ? (
             <div
-              className="relative flex flex-1 min-h-0 items-center gap-6 overflow-hidden px-6 sm:px-12 pt-2"
-              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}
+              className="relative flex flex-1 min-h-0 items-center gap-6 overflow-y-auto px-6 sm:px-12 py-4 sm:py-2"
+              style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)` }}
             >
               <div className={slide.imageUrl ? 'relative z-[1] flex-1 min-w-0' : 'relative z-[1] w-full'}>
-                <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-800 leading-tight">{slide.heading}</h1>
-                {slide.subtitle && <p className="mt-3 text-xs sm:text-base text-slate-500 font-medium max-w-xl">{slide.subtitle}</p>}
+                <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-800 leading-tight" style={slideTextStyle(1.875, 1.15)}>{slide.heading}</h1>
+                {slide.subtitle && <p className="mt-3 text-xs sm:text-base text-slate-500 font-medium max-w-xl" style={slideTextStyle(1, 1.4)}>{slide.subtitle}</p>}
               </div>
               {slide.imageUrl ? (
                 <button
@@ -559,10 +574,18 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : (
-            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-2 pb-4 sm:pb-8" style={{ zoom: fontScale }}>
-              <h2 className="text-base sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0">{slide.heading}</h2>
+            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-2 pb-4 sm:pb-8">
+              <h2 className="text-base sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0" style={slideTextStyle(1.5, 1.25)}>{slide.heading}</h2>
               <div className={`relative z-[1] flex flex-1 min-h-0 gap-4 ${!imageOnRight ? 'flex-row-reverse' : ''}`}>
-                <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-center">
+                {/* Madde listesi büyük font'ta sığmayabilir — eskiden zoom kartın dışına taşırıp
+                    kırpıyordu, artık kendi içinde dikey kayabiliyor (kullanıcının 2026-09-21
+                    "scroll ekle" isteği). */}
+                {/* justify-center + overflow-y-auto birlikte kullanılınca taşan ilk madde(ler)
+                    scroll alanının ÜSTÜNE (görünmeyen tarafa) denk geliyordu — kullanıcı ilk
+                    maddenin "kaybolduğunu" düşünüyordu (2026-09-21). justify-start ile liste
+                    her zaman baştan görünür, kısa listelerde de üstte başlaması kabul edilebilir
+                    bir görünüm. */}
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-start overflow-y-auto py-1">
                   {slide.bullets.length ? (
                     slide.bullets.map((bullet, i) => {
                       const revealed = i < revealedCount;
@@ -591,7 +614,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                           >
                             {i + 1}
                           </span>
-                          <span className="text-[11px] sm:text-sm font-medium text-slate-700 leading-snug">{bullet}</span>
+                          <span className="text-[11px] sm:text-sm font-medium text-slate-700 leading-snug" style={slideTextStyle(0.875, 1.4)}>{bullet}</span>
                         </button>
                       );
                     })
@@ -633,35 +656,65 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                 </div>
               </div>
               {showTip && deck.tip && (
-                <div className="relative z-[1] mt-3 shrink-0 rounded-xl border border-[#F5C453] bg-gradient-to-r from-[#FFF7E6] to-[#FFEFC9] px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs shadow-sm">
+                <div className="relative z-[1] mt-3 shrink-0 rounded-xl border border-[#F5C453] bg-gradient-to-r from-[#FFF7E6] to-[#FFEFC9] px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs shadow-sm" style={slideTextStyle(0.75, 1.35)}>
                   <span className="font-black text-amber-800">💡 {deck.tip.title}: </span>
                   <span className="text-amber-900">{deck.tip.content}</span>
                 </div>
               )}
             </div>
           )}
-        </div>
 
-        {phase !== 'outro' && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {(phase === 'questions' ? questions || [] : deck.slides).map((_, i) => {
-              const current = phase === 'questions' ? qIndex : index;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => jumpTo(i)}
-                  aria-label={phase === 'questions' ? `${i + 1}. soruya git` : `${i + 1}. slayta git`}
-                  className="h-1.5 rounded-full transition-all duration-300"
-                  style={{
-                    width: i === current ? '1.75rem' : '0.5rem',
-                    background: i === current ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
-                  }}
-                />
-              );
-            })}
+          {/* İleri/geri okları artık ekranın kenarlarında havada değil, slaydın kendi alt
+              çubuğunda — nokta göstergesiyle aynı satırda (kullanıcının 2026-09-21 isteği). */}
+          <div className="relative z-10 flex shrink-0 items-center justify-center gap-3 sm:gap-4 px-3 pb-2.5 pt-1.5 sm:px-6 sm:pb-4 sm:pt-2">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={phase === 'slides' && index === 0}
+              aria-label="Önceki"
+              className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
+            >
+              <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+
+            {phase !== 'outro' && (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {(phase === 'questions' ? questions || [] : deck.slides).map((_, i) => {
+                  const current = phase === 'questions' ? qIndex : index;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => jumpTo(i)}
+                      aria-label={phase === 'questions' ? `${i + 1}. soruya git` : `${i + 1}. slayta git`}
+                      className="h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: i === current ? '1.75rem' : '0.5rem',
+                        background: i === current ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={
+                // 'slides' fazında son slayttan sonra "İleri" tebrik ekranına geçtiği için hiç
+                // kilitlenmiyor; kilitlenme sadece soru fazlarında (soru yoksa/son sorudaysa) geçerli.
+                phase === 'outro' ? !questions || questions.length === 0
+                  : phase === 'questions' ? !questions || qIndex === questions.length - 1
+                    : false
+              }
+              aria-label="Sonraki"
+              className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
+            >
+              <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {lightbox && (

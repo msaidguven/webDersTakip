@@ -26,15 +26,15 @@ import {
   Monitor,
   Share2,
   Download,
+  Settings2,
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
-import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
 import SectionContent from './SectionContent';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
-import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, QuizCtaCards, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
+import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, TopicTestCta, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
 import {
   type Outcome,
   type WeekedOutcome,
@@ -50,7 +50,6 @@ import {
   writePersistentCache,
   UNIT_TOPICS_CACHE_TTL_MS,
   unitTopicsCacheKey,
-  buildTopicQuestionBankHref,
   buildTopicImageAlt,
   buildSectionImageAlt,
   SPECIAL_WEEK_META,
@@ -63,6 +62,7 @@ import {
 // tekrar kullanıldığı için ikisi de localStorage'da kalıcı.
 const BOARD_MODE_KEY = 'ders-board-mode';
 const CONTENT_SCALE_KEY = 'ders-content-font-scale';
+const LOGIN_HINT_DISMISSED_KEY = 'ders-login-hint-dismissed';
 const MIN_CONTENT_SCALE = 1;
 const MAX_CONTENT_SCALE = 2.2;
 const CONTENT_SCALE_STEP = 0.2;
@@ -154,6 +154,22 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [boardMode, setBoardMode] = useState(false);
   const [contentScale, setContentScale] = useState(MIN_CONTENT_SCALE);
+  // Akıllı Tahta + yazı büyütme kontrolleri eskiden araç çubuğunda hep açık duruyordu — bir
+  // öğrenci için bu ikisi anlamsız/kafa karıştırıcıydı (kullanıcının 2026-09-22 isteği).
+  // Artık tek bir ayarlar ikonunun arkasında, sadece isteyen açtığında görünüyorlar.
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
+  // Giriş yapmanın faydası (ilerleme kaydı, yorum, AI'ye soru) eskiden sadece sayfanın en
+  // altındaki yorum kutusunda ortaya çıkıyordu — misafir bir kullanıcı sayfayı hiç
+  // sonuna kadar kaydırmazsa bunu hiç görmezdi (kullanıcının 2026-09-22 isteği). Kapatılabilir,
+  // localStorage'da tutuluyor ki her sayfa değişiminde yeniden çıkıp rahatsız etmesin.
+  const [loginHintDismissed, setLoginHintDismissed] = useState(true);
+  useEffect(() => {
+    setLoginHintDismissed(localStorage.getItem(LOGIN_HINT_DISMISSED_KEY) === '1');
+  }, []);
+  const dismissLoginHint = useCallback(() => {
+    localStorage.setItem(LOGIN_HINT_DISMISSED_KEY, '1');
+    setLoginHintDismissed(true);
+  }, []);
 
   useEffect(() => {
     setBoardMode(localStorage.getItem(BOARD_MODE_KEY) === '1');
@@ -1335,7 +1351,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           `}
         >
           {tocCollapsed ? (
-            <div className={`
+            <div
+              title={isCompleted ? 'Tamamlandı' : isActive ? 'Şu an buradasın' : 'Henüz başlanmadı'}
+              className={`
               h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-black transition-colors
               ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isActive ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-400'}
             `}>
@@ -1346,7 +1364,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               <h4 className={`flex-1 min-w-0 text-xs font-bold leading-snug line-clamp-2 ${isActive ? 'text-violet-900' : 'text-slate-700'}`}>
                 {topic.title}
               </h4>
-              <span className="shrink-0">
+              {/* Nokta/tik neyi ifade ediyor açık değildi (kullanıcının 2026-09-22 şikayeti) —
+                  title tooltip'i ekleyerek en azından üstüne gelince açıklık kazandırıyoruz. */}
+              <span className="shrink-0" title={isCompleted ? 'Tamamlandı' : isActive ? 'Şu an buradasın' : 'Henüz başlanmadı'}>
                 {isCompleted ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 ) : isActive ? (
@@ -1424,7 +1444,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200
           transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-none shrink-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          ${tocCollapsed ? 'lg:w-[76px]' : 'lg:w-[280px]'}
+          ${tocCollapsed ? 'lg:w-[76px]' : 'lg:w-[clamp(280px,16vw,380px)]'}
         `}>
           <div className="border-b border-slate-100 shrink-0">
             <div className="p-4 pb-2 flex items-center justify-between">
@@ -1455,6 +1475,16 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 <span className="inline-block rounded-lg bg-indigo-50 px-2.5 py-1 text-sm font-black text-indigo-700">
                   {gradeName} {lessonName}
                 </span>
+              </div>
+            )}
+            {/* İşaretlerin (tik/dolu nokta/boş halka) ne anlama geldiği tek başına belli
+                değildi (kullanıcının 2026-09-22 şikayeti) — tooltip'e ek olarak burada bir
+                kerelik açık bir gösterge (legend) veriyoruz. */}
+            {!tocCollapsed && (
+              <div className="flex items-center gap-3 px-4 pb-3 text-[10px] font-bold text-slate-400">
+                <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Bitti</span>
+                <span className="flex items-center gap-1"><span className="block h-2 w-2 rounded-full bg-violet-500" /> Buradasın</span>
+                <span className="flex items-center gap-1"><span className="block h-2 w-2 rounded-full border-2 border-slate-300" /> Sırada</span>
               </div>
             )}
           </div>
@@ -1521,9 +1551,20 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         {/* MAIN CONTENT */}
         <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-slate-50">
           <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-            <div className={`mx-auto p-3 sm:p-5 lg:p-8 ${boardMode ? 'max-w-6xl' : 'max-w-5xl'}`}>
+            {/* 2xl (akıllı tahta/geniş ekran) üstünde artık sabit bir max-width'e ÇARPMIYOR —
+                eskiden max-w-7xl gibi sabit bir tavan koyunca, kalan alan ondan çok daha
+                genişse (1920px+ ekranlarda mesela) sol/sağ boşluklar dev gibi kalıyordu
+                (kullanıcının 2026-09-21 "ortadaki içerik ile sol sidebar arasında büyük boşluk
+                var" şikayeti). max-w-none ile içerik, sidebarlardan arta kalan TÜM genişliği
+                (sadece p-8 dolgusu kadar kenar boşluğuyla) kullanıyor. */}
+            <div className={`mx-auto p-3 sm:p-5 lg:p-8 ${boardMode ? 'max-w-6xl 2xl:max-w-none' : 'max-w-5xl 2xl:max-w-none'}`}>
 
-              <div className={`grid grid-cols-1 gap-5 items-start ${boardMode ? '' : 'lg:grid-cols-[1fr_260px]'}`}>
+              {/* Sağ "Ünite Özeti" sütunu 260px sabitken büyük ekranlarda ortadaki içerikle
+                  orantısız kalıyordu — clamp() ile 1024px'te 260px'te başlayıp ekran
+                  genişledikçe 360px'e kadar sürekli büyüyor (kullanıcının 2026-09-21
+                  "sidebar'lar orantılı genişliyor mu" sorusu — eskiden sadece 2xl'de tek
+                  seferlik bir sıçrama vardı, şimdi gerçekten orantılı). */}
+              <div className={`grid grid-cols-1 gap-5 items-start ${boardMode ? '' : 'lg:grid-cols-[1fr_clamp(260px,15vw,360px)]'}`}>
               {/* SOL SÜTUN: hiyerarşi barı + mobil konu dropdown'u + içerik kartı — sağdaki
                   260px'lik özet sütunuyla AYNI grid satırında, aynı hizada kalsınlar diye
                   hepsi tek bir grid item (kullanıcının 2026-09-05 bildirdiği bug: hiyerarşi
@@ -1739,46 +1780,112 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 )}
               </div>
 
-                {/* CONTENT CARD */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  {/* AKILLI TAHTA ARAÇ ÇUBUĞU — içerik zoom'undan bağımsız kalsın diye (kontrollerin
-                      kendisi büyümesin) zoom'lu iç div'in DIŞINDA. Öğretmen sınıfta akıllı tahtaya
-                      bağlayıp konuyu büyük ekranda açtığında yan panelleri gizlemek + yazıyı
-                      büyütmek için (kullanıcının 2026-09-14 isteği). */}
-                  <div className="not-prose sticky top-0 z-20 flex items-center justify-end gap-2 rounded-t-2xl border-b border-slate-100 bg-white/95 px-5 py-2.5 backdrop-blur-sm sm:px-8">
+                {!user && !loginHintDismissed && (
+                  <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-2.5 text-xs sm:text-sm">
+                    <Sparkles className="h-4 w-4 shrink-0 text-indigo-500" />
+                    <p className="flex-1 min-w-0 font-bold text-indigo-800">
+                      Giriş yaparsan ilerlemen kaydedilir, yorum yazabilir ve konuyla ilgili yapay zekâya soru sorabilirsin.
+                    </p>
+                    <Link href="/login" className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-black text-white hover:bg-indigo-700 transition-colors">
+                      Giriş Yap
+                    </Link>
                     <button
                       type="button"
-                      onClick={toggleBoardMode}
-                      title={boardMode ? 'Akıllı tahta modundan çık' : 'Akıllı tahta modu — yan panelleri gizle, içeriği büyüt'}
-                      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-colors ${
-                        boardMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
-                      }`}
+                      onClick={dismissLoginHint}
+                      aria-label="Kapat"
+                      className="shrink-0 text-indigo-400 hover:text-indigo-600 transition-colors"
                     >
-                      <Monitor className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{boardMode ? 'Akıllı Tahta Modu' : 'Akıllı Tahta'}</span>
+                      <X className="h-4 w-4" />
                     </button>
-                    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 pr-1">
+                  </div>
+                )}
+
+                {/* CONTENT CARD */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
+                  {/* Üst araç çubuğu — solda bu konunun alt başlıklarına atlayan yatay bir mini
+                      içindekiler şeridi (sayfa çok uzun olduğu için "neredeyim, ne kaldı"
+                      sorusuna cevap versin diye — kullanıcının 2026-09-22 isteği), sağda tek bir
+                      ayarlar ikonu (Akıllı Tahta + yazı büyütme eskiden burada hep açık
+                      duruyordu, sıradan bir öğrenci için anlamsızdı — artık gerekmedikçe
+                      gizli). zoom'lu iç div'in DIŞINDA ki kontroller büyümesin. */}
+                  <div className="not-prose sticky top-0 z-20 flex items-center gap-2 rounded-t-2xl border-b border-slate-100 bg-white/95 px-3 py-2 backdrop-blur-sm sm:px-6">
+                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                        {activeTopic.sections.map((section) => {
+                          const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
+                          const isActiveSection = activeSectionSlug === slug;
+                          return (
+                            <button
+                              key={section.id}
+                              type="button"
+                              onClick={() => goToSectionAnchor(slug)}
+                              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                                isActiveSection ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:bg-slate-50 hover:text-rose-600'
+                              }`}
+                            >
+                              {section.heading}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex-1" />
+                    )}
+
+                    <div className="relative shrink-0">
                       <button
                         type="button"
-                        onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
-                        disabled={contentScale <= MIN_CONTENT_SCALE}
-                        aria-label="Yazıyı küçült"
-                        title="Yazıyı küçült"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        onClick={() => setViewSettingsOpen((v) => !v)}
+                        aria-label="Görünüm ayarları"
+                        title="Görünüm ayarları — Akıllı Tahta modu, yazı boyutu"
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                          boardMode || viewSettingsOpen ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                        }`}
                       >
-                        <Minus className="h-3.5 w-3.5" />
+                        <Settings2 className="h-4 w-4" />
                       </button>
-                      <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
-                      <button
-                        type="button"
-                        onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
-                        disabled={contentScale >= MAX_CONTENT_SCALE}
-                        aria-label="Yazıyı büyüt"
-                        title="Yazıyı büyüt (akıllı tahta için)"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
+                      {viewSettingsOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setViewSettingsOpen(false)} />
+                          <div className="absolute right-0 top-full z-50 mt-2 w-64 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                            <button
+                              type="button"
+                              onClick={toggleBoardMode}
+                              title={boardMode ? 'Akıllı tahta modundan çık' : 'Akıllı tahta modu — yan panelleri gizle, içeriği büyüt'}
+                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition-colors ${
+                                boardMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              <Monitor className="h-3.5 w-3.5 shrink-0" />
+                              {boardMode ? 'Akıllı Tahta Modu (açık)' : 'Akıllı Tahta Modu — yan panelleri gizle'}
+                            </button>
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5">
+                              <span className="text-xs font-bold text-slate-500">Yazı Boyutu</span>
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
+                                  disabled={contentScale <= MIN_CONTENT_SCALE}
+                                  aria-label="Yazıyı küçült"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </button>
+                                <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
+                                  disabled={contentScale >= MAX_CONTENT_SCALE}
+                                  aria-label="Yazıyı büyüt"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="p-5 sm:p-8 lg:p-10" style={{ zoom: contentScale }}>
@@ -2042,25 +2149,21 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </div>
                     )}
                     {activeTopic && <TopicCompleteButton topicId={activeTopic.id} />}
-                    {activeTopic && (
-                      <QuizCtaCards
-                        topicId={activeTopic.id}
-                        // Konu Testi ve Ünite Testi butonları artık ayrı /kavrama-testi ve
-                        // /unite-testi sayfalarına değil, doğrudan Soru Bankası'nın o konu/ünite
-                        // sayfasına gidiyor — orası zaten AYNI puanlı testi (TestStatusCard ile,
-                        // giriş yapmışsa öne çıkan kişiselleştirilmiş test) cevap anahtarlı soru
-                        // listesiyle birlikte gösteriyor (bkz. kullanıcının 2026-09-05 isteği).
-                        // Ayrı bir "Soru Bankası" kartı artık yok — aynı linke gittiği için
-                        // kullanıcının isteğiyle tek karta indirildi.
-                        topicHref={buildTopicQuestionBankHref(gradeSlug, lessonSlug, activeUnitSlug, activeTopic.slug || null)}
-                        unitTitle={unitTitle}
-                        unitHref={
-                          gradeSlug && lessonSlug && activeUnitSlug
-                            ? buildSoruBankasiUnitPath(gradeSlug, lessonSlug, activeUnitSlug)
-                            : `/karisik-test?lesson_id=${lessonId}&week=${week}`
-                        }
-                        showUnitCard={activeUnit?.has_questions !== false || isAdmin}
-                        unitQuestionCount={activeUnit?.test_question_count}
+                    {/* Ünite Testi kaldırıldı, tek kart olarak Konu Testi kaldı — sayfadan hiç
+                        ayrılmadan (QuizModal overlay) açılıyor, misafir de çözebiliyor
+                        (kullanıcının 2026-09-22 isteği). Slug tabanlı route (gradeSlug/
+                        lessonSlug/activeUnitSlug/activeTopic.slug) yoksa (eski /ders?sinif=
+                        query-param erişimi) bu kart hiç render edilmiyor — o durumda sadece
+                        Soru Bankası linki üzerinden test çözülebilir, ayrı bir dallanma
+                        eklemeye değmez. */}
+                    {activeTopic && gradeSlug && lessonSlug && activeUnitSlug && activeTopic.slug && (
+                      <TopicTestCta
+                        gradeSlug={gradeSlug}
+                        lessonSlug={lessonSlug}
+                        unitSlug={activeUnitSlug}
+                        topicSlug={activeTopic.slug}
+                        topicId={Number(activeTopic.id)}
+                        unitId={Number(activeUnit?.id)}
                       />
                     )}
                     {activeTopic && activeUnit && (

@@ -4,14 +4,18 @@
 // hook'larını çağıran) sunum bileşenleri — dosyanın 2800+ satırını okunur tutmak için ayrıldı
 // (kullanıcının 2026-09-05 isteği: "bunu ayrı componentler haline getirsen daha kolay olmaz mı").
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CheckCircle2, ListChecks, MessageCircle, Pencil, Trophy } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle2, ListChecks, Loader2, MessageCircle, Pencil, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
 import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
 import { buildBlocks } from './SectionContent';
 import type { TopicHighlight } from './dersHelpers';
+import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import QuizModal from '@/app/src/components/QuizModal';
+import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 export function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel: string; dateRangeLabel: string }) {
   return (
@@ -106,89 +110,175 @@ export function TopicCompleteButton({ topicId }: { topicId: string | number }) {
   );
 }
 
-// Sayfanın en altında, konu kavrama testi ve ünite testi için yan yana iki kart —
-// eskiden tek başına küçük bir "Konu Kavrama Testi" pill'i vardı, "Ünite Testi" ise
-// üst app bar'da ayrı bir yerdeydi (bkz. kullanıcının referans görseliyle 2026-09-05
-// isteği: ikisi burada, birlikte, daha belirgin olsun). Konu testinin soru sayısı
-// client'ta ayrıca çekiliyor (server'da topic bazlı soru sayısı önceden hesaplanmıyor);
-// ünite testinin sayısı zaten initialData.units üzerinden (test_question_count) geliyor.
-export function QuizCtaCards({
+// Ünite Testi kaldırıldı, tek ve öne çıkan "Konu Testi" kartı kaldı (kullanıcının
+// 2026-09-22 isteği). Eskiden bu buton Soru Bankası'nın konu sayfasına GİDİYORDU — o
+// sayfadaki TestStatusCard da testi kendi client-side modalıyla (QuizModal+QuizWithAsk)
+// açıyordu, yani kullanıcı önce bir sayfa değişikliği yaşayıp sonra aynı overlay'i
+// görüyordu. Bu kart o ara durağı atlayıp AYNI motoru (aynı /api/soru-bankasi/topic-test
+// endpoint'i, aynı QuizModal/QuizWithAsk) doğrudan ders sayfasında açıyor.
+//
+// TestStatusCard'dan BİLEREK farklı: TestStatusCard misafir kullanıcıda "Teste Başla"yı
+// kilitleyip "Giriş yapmanız gerekiyor" gösteriyor (2026-09-06 kararı, Soru Bankası
+// bağlamında hâlâ geçerli). Kullanıcı bu ders sayfası için tam tersini istedi: misafir de
+// butona basıp teste girebilsin, sadece istatistik/oturum kaydedilmez (QuizClient zaten
+// böyle davranıyor — bkz. recordAnswer'daki !user erken dönüşü).
+interface TopicTestData {
+  gradeId: number;
+  lessonId: number;
+  unitId: number;
+  topicId?: number;
+  scopeLabel: string;
+  initialQuestions: QuizQuestion[];
+  remainingQuestionIds: number[];
+  allCaughtUp: boolean;
+  conflict: { sessionId: number; scopeLabel: string; href: string; total: number; answeredCount: number } | null;
+  resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
+  reloadEndpoint: string;
+  questionBankPathBase?: string;
+  secondsPerQuestion?: number | null;
+}
+
+export function TopicTestCta({
+  gradeSlug,
+  lessonSlug,
+  unitSlug,
+  topicSlug,
   topicId,
-  topicHref,
-  unitTitle,
-  unitHref,
-  showUnitCard,
-  unitQuestionCount,
+  unitId,
 }: {
-  topicId: string | number;
-  topicHref: string | null;
-  unitTitle: string;
-  unitHref: string | null;
-  showUnitCard: boolean;
-  unitQuestionCount?: number;
+  gradeSlug: string;
+  lessonSlug: string;
+  unitSlug: string;
+  topicSlug: string;
+  topicId: number;
+  unitId: number;
 }) {
-  const [topicCount, setTopicCount] = useState<number | null>(null);
+  const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
+  const [testData, setTestData] = useState<TopicTestData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatus = useCallback(() => {
+    fetch(`/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: SoruBankasiTestStatus | null) => setStatus(data))
+      .catch(() => setStatus(null));
+  }, [topicId, unitId]);
 
   useEffect(() => {
-    let cancelled = false;
-    setTopicCount(null);
-    fetch(`/api/topic-test-questions?topicId=${topicId}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { questions?: unknown[] } | null) => {
-        if (!cancelled) setTopicCount(data?.questions?.length ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) setTopicCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [topicId]);
+    setStatus(null);
+    fetchStatus();
+  }, [fetchStatus]);
 
-  const showTopicCard = topicCount !== 0 && !!topicHref;
-  const showEmeraldCard = showUnitCard && !!unitHref;
+  const testHref = `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}/kavrama-testi`;
 
-  if (!showTopicCard && !showEmeraldCard) return null;
+  const startTest = useCallback(async (forceNew: boolean) => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const base = `/api/soru-bankasi/topic-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}&topicSlug=${topicSlug}`;
+      const res = await fetch(forceNew ? `${base}&forceNew=1` : base);
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as TopicTestData;
+      setTestData(data);
+    } catch {
+      setError('Test yüklenemedi, tekrar dener misin?');
+    } finally {
+      setLoading(false);
+    }
+  }, [gradeSlug, lessonSlug, unitSlug, topicSlug, loading]);
+
+  const closeTest = useCallback(() => {
+    setTestData(null);
+    fetchStatus();
+  }, [fetchStatus]);
+
+  if (status?.poolSize === 0) return null;
+
+  const resumable = status?.resumable ?? null;
+  const conflict = testData?.conflict ?? null;
 
   return (
-    <div className="not-prose mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {showTopicCard && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:p-5">
-          <div className="flex items-center gap-2.5 text-sm font-black text-indigo-700">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-sm">
-              <ListChecks className="h-4.5 w-4.5" />
-            </span>
-            Konu Testi
-          </div>
-          <p className="flex-1 text-xs font-medium leading-relaxed text-indigo-900/70">
-            Bu konudaki bilgilerini pekiştirmek için {topicCount ?? ''} soruluk kavrama testi çöz, dilersen soru bankasında tek tek de inceleyebilirsin.
+    <div className="not-prose mt-10 overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-5 shadow-sm sm:p-7">
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg">
+          <Trophy className="h-8 w-8" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-black text-slate-800">Konu Testi</p>
+          {!status ? (
+            <div className="mt-1.5 h-4 w-40 animate-pulse rounded bg-indigo-100" />
+          ) : (
+            <>
+              <p className="text-sm font-medium text-slate-500">
+                {resumable
+                  ? `Yarım kalan testin var — ${resumable.answeredCount}/${resumable.total} soru çözüldü`
+                  : `${status.testSize} soruluk kavrama testi${status.solved > 0 ? ` — ${status.solved}/${status.poolSize} çözüldü` : ''}`}
+              </p>
+              {!status.loggedIn && (
+                <p className="mt-0.5 text-xs font-bold text-indigo-400">Misafir olarak çözebilirsin, istatistiklerin için giriş yapman gerekir.</p>
+              )}
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => startTest(false)}
+          disabled={loading || !status}
+          className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-md transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{resumable ? 'Teste Devam Et' : 'Teste Başla'} <ArrowRight className="h-4 w-4" /></>}
+        </button>
+      </div>
+
+      {error && <p className="mt-3 text-xs font-bold text-rose-500">{error}</p>}
+
+      {conflict && (
+        <div className="mt-4 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-left">
+          <p className="text-xs font-bold text-amber-800">
+            Bu ünitede yarım kalmış bir testin var: {conflict.scopeLabel} ({conflict.answeredCount}/{conflict.total})
           </p>
-          <Link
-            href={topicHref!}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-indigo-700"
-          >
-            Teste Başla <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="mt-2.5 flex gap-2">
+            <Link
+              href={conflict.href}
+              className="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-center text-xs font-black text-amber-800 transition-colors hover:bg-amber-100"
+            >
+              Yarım Kalan Teste Git
+            </Link>
+            <button
+              type="button"
+              onClick={() => startTest(true)}
+              disabled={loading}
+              className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-center text-xs font-black text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+            >
+              {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'Yeni Test Başlat'}
+            </button>
+          </div>
         </div>
       )}
-      {showEmeraldCard && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
-          <div className="flex items-center gap-2.5 text-sm font-black text-emerald-700">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
-              <Trophy className="h-4.5 w-4.5" />
-            </span>
-            Ünite Testi
-          </div>
-          <p className="flex-1 text-xs font-medium leading-relaxed text-emerald-900/70">
-            {unitTitle} ünitesini{unitQuestionCount ? ` ${unitQuestionCount} soruluk` : ''} test etmek için ünite testini çöz.
-          </p>
-          <Link
-            href={unitHref!}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-700"
-          >
-            Teste Başla <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+
+      {testData && !testData.conflict && (
+        <QuizModal onClose={closeTest}>
+          <QuizWithAsk
+            key={testData.resume?.sessionId ?? 'new'}
+            gradeId={testData.gradeId}
+            lessonId={testData.lessonId}
+            unitId={testData.unitId}
+            topicId={testData.topicId}
+            scopeLabel={testData.scopeLabel}
+            exitHref={testHref}
+            exitLabel="Kapat"
+            onExit={closeTest}
+            initialQuestions={testData.initialQuestions}
+            remainingQuestionIds={testData.remainingQuestionIds}
+            allCaughtUp={testData.allCaughtUp}
+            reloadEndpoint={testData.reloadEndpoint}
+            secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
+            resume={testData.resume}
+            questionBankPathBase={testData.questionBankPathBase}
+          />
+        </QuizModal>
       )}
     </div>
   );

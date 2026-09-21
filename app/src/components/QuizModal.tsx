@@ -51,7 +51,12 @@ export default function QuizModal({ children, onClose }: { children: React.React
       onClick={close}
     >
       <div
-        className="relative h-full w-full bg-surface sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-default"
+        // Eskiden sm:max-w-3xl (768px) ile sabitti — büyük ekranlarda (özellikle akıllı
+        // tahta) modalın etrafında dev boşluklar bırakıp "acemice" görünüyordu
+        // (kullanıcının 2026-09-22 sert şikayeti). Artık ekranın (94vw × 94vh) neredeyse
+        // tamamını kullanıyor — sabit bir üst sınır YOK, çok büyük ekranlarda da oranı
+        // koruyor (SlidePlayer'daki aynı yaklaşım).
+        className="relative h-full w-full bg-surface sm:h-[94vh] sm:w-[94vw] sm:rounded-2xl sm:border sm:border-default"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -61,12 +66,16 @@ export default function QuizModal({ children, onClose }: { children: React.React
         >
           <X className="h-5 w-5" />
         </button>
-        {/* İçerideki QuizClient zaten kendi yatay padding'ini (px-3 sm:px-4) veriyor — burada
-            AYRICA px-4 vermek mobilde ikisini üst üste bindirip soruyu gereksiz yere
-            daraltıyordu (kullanıcının "kenarlarda çok boşluk var" bildirimi, 2026-09-02).
-            Mobilde yatay padding tamamen QuizClient'a bırakıldı, masaüstünde (daha geniş
-            modal, sorun yok) eskisi gibi ekstra pay korunuyor. */}
-        <div className="h-full overflow-y-auto pt-14 pb-8 sm:max-h-[90vh] sm:px-8">{children}</div>
+        {/* İçerideki QuizClient zaten kendi yatay padding'ini veriyor — burada AYRICA büyük
+            padding vermek gereksiz boşluk yaratıyordu (kullanıcının "boşluklar çok fazla"
+            şikayeti) — üst/yan dolgu azaltıldı. */}
+        {/* İçerik modalın tam yüksekliğinden kısaysa (çoğu soru ekranı öyle) ortalanıyor —
+            aksi halde dev boyuttaki modalın altında koca bir boşluk kalıyordu (kullanıcının
+            2026-09-22 "acemice görünüyor" şikayeti). Uzun içerik (sonuç ekranı, cevap
+            anahtarı vb.) yine normal şekilde yukarıdan başlayıp kayıyor. */}
+        <div className="flex h-full flex-col overflow-y-auto pt-12 pb-4 sm:h-[94vh] sm:px-5">
+          <div className="m-auto w-full">{children}</div>
+        </div>
       </div>
     </div>
   );

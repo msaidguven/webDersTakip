@@ -254,20 +254,28 @@ export function OptionsView({
   selectedId,
   locked,
   onSelect,
+  fontScale = 1,
 }: {
   question: MultipleChoiceQuestion | BlankQuestion;
   selectedId: number | undefined;
   locked: boolean;
   onSelect: (optionId: number) => void;
+  // Akıllı tahta yazı büyütme (+/-) — SADECE metnin font-size'ını büyütür, buton
+  // dolgusu/genişliği rem cinsinden sabit kaldığı için layout taşmaz/devleşmez
+  // (kullanıcının 2026-09-22 "şıklar boşuna büyüyor" şikayeti — eskiden `zoom`
+  // kullanılıyordu, o da tüm kutuyu büyütüyordu).
+  fontScale?: number;
 }) {
   const options = question.type === 'multiple_choice' ? question.choices : question.options;
   const svg = <QuestionSvg svgContent={question.svg_content} />;
+  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
+  const optionStyle = fontScale !== 1 ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.5 } : undefined;
 
   return (
     <>
       {question.svg_position !== 'below' && svg}
       {question.type === 'blank' ? (
-        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg">
+        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg" style={stemStyle}>
           {question.question_text.split('_____').map((part, i, arr) => (
             <Fragment key={i}>
               <MathText text={part} />
@@ -280,7 +288,7 @@ export function OptionsView({
           ))}
         </p>
       ) : (
-        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg"><MathText text={question.question_text} /></p>
+        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
       )}
       {question.svg_position === 'below' && svg}
 
@@ -307,6 +315,7 @@ export function OptionsView({
               type="button"
               onClick={() => onSelect(opt.id)}
               disabled={locked}
+              style={optionStyle}
               className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left text-sm font-bold text-default shadow-sm transition-all disabled:cursor-default active:scale-[0.98] sm:px-4 ${stateClasses}`}
             >
               <OptionLetterBadge index={i} state={badgeState} />
@@ -327,25 +336,29 @@ export function MatchingView({
   locked,
   onAssign,
   onCheck,
+  fontScale = 1,
 }: {
   question: MatchingQuestion;
   assignment: Record<number, number>;
   locked: boolean;
   onAssign: (leftId: number, rightId: number) => void;
   onCheck: () => void;
+  fontScale?: number;
 }) {
   const [activeLeft, setActiveLeft] = useState<number | null>(null);
   const rightItems = useMemo(() => seededShuffle<Pair>(question.pairs, question.id), [question]);
   const rightTextById = useMemo(() => new Map(question.pairs.map((p) => [p.id, p.right_text])), [question]);
   const allAssigned = Object.keys(assignment).length === question.pairs.length;
   const assignedRightIds = new Set(Object.values(assignment));
+  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
+  const pairStyle = fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.5 } : undefined;
 
   return (
     <div>
       {/* Soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla eşleştirin") — diğer üç görünümün
           (MultipleChoiceOrBlankView, ClassicalView) hepsi kendi question_text'ini gösteriyordu,
           bu bileşen hiç göstermiyordu (kullanıcının 2026-09-06 bildirdiği bug). */}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg"><MathText text={question.question_text} /></p>
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
       <p className="mb-4 text-xs font-bold text-muted-foreground">
         Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
       </p>
@@ -374,6 +387,7 @@ export function MatchingView({
                 type="button"
                 disabled={locked}
                 onClick={() => setActiveLeft(pair.id)}
+                style={pairStyle}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-bold text-default transition-colors disabled:cursor-default ${cls}`}
               >
                 <MathText as="span" className="block" text={pair.left_text} />
@@ -395,6 +409,7 @@ export function MatchingView({
                 type="button"
                 disabled={locked || activeLeft == null}
                 onClick={() => activeLeft != null && onAssign(activeLeft, pair.id)}
+                style={pairStyle}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:cursor-default ${
                   used ? 'border-indigo-300/50 bg-indigo-500/5 text-muted-foreground' : 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5'
                 } ${activeLeft == null && !locked ? 'opacity-60' : ''}`}
@@ -427,6 +442,7 @@ export function ClassicalView({
   onChange,
   onCheck,
   onRevealExplanation,
+  fontScale = 1,
 }: {
   question: ClassicalQuestion;
   value: string;
@@ -435,11 +451,13 @@ export function ClassicalView({
   onChange: (value: string) => void;
   onCheck: () => void;
   onRevealExplanation: () => void;
+  fontScale?: number;
 }) {
+  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
   return (
     <div>
       {question.svg_position !== 'below' && <QuestionSvg svgContent={question.svg_content} />}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg"><MathText text={question.question_text} /></p>
+      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
       {question.svg_position === 'below' && <QuestionSvg svgContent={question.svg_content} />}
       <textarea
         value={value}
@@ -490,6 +508,9 @@ export function QuestionAnswerKeyItem({
   index,
   interactive = false,
   onAnswered,
+  fontScale = 1,
+  numberBadge = 'dot',
+  accentColor = '#6366F1',
 }: {
   question: QuizQuestion;
   index?: number;
@@ -500,7 +521,30 @@ export function QuestionAnswerKeyItem({
   // <noscript> override, app/soru-bankasi/.../page.tsx).
   interactive?: boolean;
   onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed') => void;
+  // Akıllı tahta metin büyütme (bkz. SlidePlayer +/- kontrolü) — SADECE yazı boyutunu
+  // büyütür, buton dolgusu/genişliği rem cinsinden sabit kaldığı için layout taşmaz.
+  // rem yerine inline stil kullanılıyor çünkü Tailwind'in text-sm/text-xs'i rem tabanlı
+  // ve rem, ata öğenin font-size'ından ETKİLENMEZ (her zaman kök <html>'e göre) — bu
+  // yüzden ata'ya zoom/font-size vermek metni büyütmezdi, tek tek override etmek gerekiyor
+  // (kullanıcının 2026-09-21 "sadece harf/kelime büyüsün, ekranı taşırmasın" isteği).
+  fontScale?: number;
+  // 'dot' (varsayılan, mevcut davranış): küçük, sade numara dairesi — yoğun listelerde
+  // (AnswerKeySection akordeonu gibi) yer kaplamasın diye. 'label': "3. Soru" yazan renkli
+  // bir kapsül — akıllı tahtada soru kökündeki matematik rakamlarıyla karışmayan, "Soru"
+  // kelimesiyle net ayrışan bir başlık (kullanıcının 2026-09-21 isteği, SlidePlayer'da
+  // kullanılıyor).
+  numberBadge?: 'dot' | 'label';
+  // 'label' varyantında kapsülün rengi — SlidePlayer'daki slayt temasıyla eşleşsin diye
+  // dışarıdan veriliyor.
+  accentColor?: string;
 }) {
+  // line-height'ı da vermek şart — Tailwind'in text-sm/text-xs'i font-size+line-height'ı
+  // BİRLİKTE (sabit rem) tanımlıyor; sadece fontSize'ı büyütüp line-height'ı eski sabit
+  // rem'de bırakırsak satırlar birbirinin/alt bloğun üstüne biner (kullanıcının 2026-09-21
+  // "yazı boyutunu çok büyüttüğümde sorular iç içe giriyor" şikayeti). Unitless line-height
+  // kendi font-size'ına göre orantılı kalıyor, ekstra scale hesabı gerekmiyor.
+  const textSmStyle = fontScale !== 1 ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.43 } : undefined;
+  const textXsStyle = fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 } : undefined;
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [assignment, setAssignment] = useState<Record<number, number>>({});
@@ -598,20 +642,28 @@ export function QuestionAnswerKeyItem({
   return (
     <>
       {svgPosition !== 'below' && svg}
+      {index != null && numberBadge === 'label' && (
+        <div
+          className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-sm"
+          style={{ background: accentColor, ...(fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 } : undefined) }}
+        >
+          {index + 1}. Soru
+        </div>
+      )}
       <div className="flex items-start gap-2">
-        {index != null && (
+        {index != null && numberBadge === 'dot' && (
           <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
             {index + 1}
           </span>
         )}
-        <p className="min-w-0 flex-1 text-sm font-bold text-default">
+        <p className="min-w-0 flex-1 text-sm font-bold text-default" style={textSmStyle}>
           <MathText text={q.question_text} />
         </p>
       </div>
       {svgPosition === 'below' && svg}
 
       {optionList && (
-        <ul className="mt-3 space-y-2 text-sm">
+        <ul className="mt-3 space-y-2 text-sm" style={textSmStyle}>
           {optionList.map((opt, i) => {
             const isChosen = selectedId === opt.id;
             let cls = 'border-default bg-surface text-default hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5';
@@ -674,6 +726,7 @@ export function QuestionAnswerKeyItem({
           aria-expanded={revealed}
           aria-controls={explanationId}
           className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
+          style={textXsStyle}
         >
           <Eye className="h-3.5 w-3.5" /> Model Cevabı Göster
         </button>
@@ -706,7 +759,7 @@ export function QuestionAnswerKeyItem({
               {hasExplanation && (
                 <div className={`rounded-r-lg border-l-4 p-3 ${accentCls}`}>
                   {q.type === 'matching' && (
-                    <ul className="space-y-1 text-sm text-muted-foreground">
+                    <ul className="space-y-1 text-sm text-muted-foreground" style={textSmStyle}>
                       {q.pairs.map((p) => (
                         <li key={p.id}>
                           <MathText as="span" className="font-bold text-default" text={p.left_text} /> → <MathText text={p.right_text} />
@@ -715,13 +768,13 @@ export function QuestionAnswerKeyItem({
                     </ul>
                   )}
                   {q.type === 'classical' && q.modelAnswer && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground" style={textSmStyle}>
                       <span className="font-black text-indigo-500">Model Cevap: </span>
                       <MathText text={q.modelAnswer} />
                     </p>
                   )}
                   {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-                    <p className="text-xs text-muted-foreground"><MathText text={q.solution_text} /></p>
+                    <p className="text-xs text-muted-foreground" style={textXsStyle}><MathText text={q.solution_text} /></p>
                   )}
                 </div>
               )}
@@ -857,6 +910,10 @@ export default function QuizClient({
   // bekleniyor — ama devam eden (en az bir cevabı olan) bir oturum resume ediliyorsa bu
   // ekranı ATLA, kullanıcıyı zaten kaldığı yere döndürüyoruz.
   const [started, setStarted] = useState(() => !intro || resumedAnsweredIds.size > 0);
+  // Akıllı tahtadan uzaktaki öğrenciler için metin büyütme — sadece bu oturumda geçerli,
+  // kaydedilmiyor (SlidePlayer'daki aynı kontrolün QuizClient karşılığı, kullanıcının
+  // 2026-09-22 isteği).
+  const [fontScale, setFontScale] = useState(1);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   // remainingQuestionIds boş değilse arka plan yüklemesi tamamlanana kadar false kalır — session
@@ -1474,13 +1531,44 @@ export default function QuizClient({
   const isCorrect = !!correct[current.id];
 
   return (
-    <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
-      <ExitLink
-        href={exitHref}
-        label={exitLabel}
-        onExit={onExit}
-        className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500 sm:mb-4"
-      />
+    // Eskiden max-w-lg (512px) ile sabitti — artık çok daha geniş bir modal içinde
+    // (bkz. QuizModal) bu dar sütun etrafında dev boş alan bırakıyordu (kullanıcının
+    // 2026-09-22 "boşluklar çok fazla, bu nedir acemice" şikayeti). max-w-2xl'e
+    // çıkarıldı, dikey dolgu da (sm:py-12 → sm:py-6) sadeleştirildi.
+    <div className="mx-auto max-w-5xl px-3 py-3 sm:px-4 sm:py-6">
+      <div className="mb-2 flex items-center justify-between gap-2 sm:mb-4">
+        <ExitLink
+          href={exitHref}
+          label={exitLabel}
+          onExit={onExit}
+          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+        />
+        {/* Yazı boyutu +/- — akıllı tahtadan uzaktaki öğrenciler için (kullanıcının
+            2026-09-22 isteği), SlidePlayer'daki aynı kontrol. */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-default px-1 py-0.5">
+          <button
+            type="button"
+            onClick={() => setFontScale((s) => Math.max(1, Math.round((s - 0.15) * 100) / 100))}
+            disabled={fontScale <= 1}
+            aria-label="Yazıyı küçült"
+            title="Yazıyı küçült"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <span className="w-8 text-center text-[10px] font-black text-muted-foreground">%{Math.round(fontScale * 100)}</span>
+          <button
+            type="button"
+            onClick={() => setFontScale((s) => Math.min(1.9, Math.round((s + 0.15) * 100) / 100))}
+            disabled={fontScale >= 1.9}
+            aria-label="Yazıyı büyüt"
+            title="Yazıyı büyüt (akıllı tahta için)"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
 
       <div className="mb-3 sm:mb-5">
         <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">
@@ -1525,7 +1613,13 @@ export default function QuizClient({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-sm sm:p-6">
+      {/* NOT: `zoom` KULLANILMIYOR — zoom, metinle birlikte şık butonlarının padding/genişliğini
+          de büyütüp gereksiz yere devasa yapıyordu (kullanıcının 2026-09-22 şikayeti). Bunun
+          yerine fontScale, OptionsView/MatchingView/ClassicalView'a prop olarak geçiliyor; o
+          bileşenler SADECE metin font-size'ını (+ orantılı line-height) büyütüyor, buton
+          dolgusu/genişliği sabit kalıyor (SlidePlayer'daki QuestionAnswerKeyItem ile aynı desen). */}
+      <div className="relative overflow-hidden rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-md sm:p-6">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500" />
         <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
           <span className="inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
             {TYPE_LABELS[current.type]}
@@ -1568,7 +1662,7 @@ export default function QuizClient({
         {editSaved && <p className="mb-2 text-xs font-bold text-emerald-500">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
 
         {current.type === 'matching' && (
-          <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} onCheck={checkMatching} />
+          <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} onCheck={checkMatching} fontScale={fontScale} />
         )}
         {current.type === 'classical' && (
           <ClassicalView
@@ -1579,10 +1673,11 @@ export default function QuizClient({
             onChange={setClassicalText}
             onCheck={checkClassical}
             onRevealExplanation={() => revealExplanation(current.id)}
+            fontScale={fontScale}
           />
         )}
         {(current.type === 'multiple_choice' || current.type === 'blank') && (
-          <OptionsView question={current} selectedId={selection[current.id]} locked={isAnswered} onSelect={selectAnswer} />
+          <OptionsView question={current} selectedId={selection[current.id]} locked={isAnswered} onSelect={selectAnswer} fontScale={fontScale} />
         )}
 
         {isAnswered && current.type !== 'classical' && (
