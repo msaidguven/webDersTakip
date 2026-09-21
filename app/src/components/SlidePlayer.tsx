@@ -92,6 +92,13 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   const [animKey, setAnimKey] = useState(0);
   const [fontScale, setFontScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Mobilde parmakla kaydırarak slayt/soru değiştirme — dokunuşun başlangıç noktasını tutuyor,
+  // touchend'de yatay mesafe dikeyden belirgin şekilde büyükse (aksi halde soru ekranındaki
+  // dikey scroll ile karışır) goNext/goPrev tetikleniyor. Bir maddeye tıklamak (neredeyse sıfır
+  // hareket) swipe eşiğinin altında kaldığı için karışmıyor — "önce tıkla aç, sonra kaydırarak
+  // geç" davranışı goNext/goPrev'in kendi mantığı sayesinde otomatik korunuyor (kullanıcının
+  // 2026-09-21 isteği).
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Slaytlar bitince ('outro') tebrik ekranı, sonra istenirse ('questions') konunun soru
   // bankası aynı tam ekran kabukta, slayt slayt (1 soru/slayt) gösteriliyor.
@@ -225,6 +232,36 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     }
   }, []);
 
+  // Kaydırma (swipe) ile tıklamanın davranışı kasten farklı: tıklama maddeleri tek tek açar
+  // (bkz. revealUpTo/goNext), ama swipe'ta öğretmen/öğrenci genelde "bu slaytla işim bitti,
+  // sıradakine geç" demek istiyor — bu yüzden bir kaydırmada önce kalan tüm maddeler birden
+  // açılıyor, henüz açılmamış madde kalmıyorsa (ya da slayt bölüm değilse) bir sonraki
+  // kaydırmada slayt/soru değişiyor (kullanıcının 2026-09-21 isteği).
+  const swipeNext = useCallback(() => {
+    if (phase === 'slides' && slide.kind === 'section' && bulletsLeft > 0) {
+      setRevealedCount(slide.bullets.length);
+      return;
+    }
+    goNext();
+  }, [phase, slide, bulletsLeft, goNext]);
+
+  const SWIPE_MIN_DISTANCE = 48;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || lightbox) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) swipeNext();
+    else goPrev();
+  }, [lightbox, swipeNext, goPrev]);
+
   const isOverlay = variant === 'overlay';
 
   // Klavye kısayolları (ok tuşları/boşluk/Escape) sadece overlay (tam ekran modal) modunda
@@ -301,39 +338,6 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           : undefined
       }
     >
-      <div className="absolute right-4 top-4 flex items-center gap-2 z-10">
-        {isOverlay ? (
-          <>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran sunum modu'}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
-            >
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Kapat"
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onExpand}
-            aria-label="Tam ekranda aç"
-            title="Tam ekranda aç"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/60 text-white hover:bg-slate-900/80 transition-colors shadow-sm"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
       <button
         type="button"
         onClick={goPrev}
@@ -362,10 +366,12 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
         <div
           key={cardKey}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           className={
             isOverlay
-              ? 'animate-slide-pop-in relative w-full h-[calc(100dvh-4.5rem)] sm:h-auto sm:aspect-video overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
-              : 'animate-slide-pop-in relative w-full aspect-video overflow-hidden rounded-2xl bg-white shadow-2xl'
+              ? 'animate-slide-pop-in relative flex w-full h-[calc(100dvh-4.5rem)] sm:h-auto sm:aspect-video flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+              : 'animate-slide-pop-in relative flex w-full aspect-video flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
           }
         >
           {/* Dekoratif, dolaşan renkli blob'lar — kartın arka planına derinlik katıyor */}
@@ -380,56 +386,97 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
 
           <div className="absolute inset-x-0 top-0 h-2 transition-colors duration-500" style={{ background: `linear-gradient(90deg, ${accent.from}, ${accent.to})` }} />
 
-          {deck.eyebrowText && (
-            <div
-              className="absolute left-4 top-5 sm:left-6 sm:top-7 rounded-lg px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black uppercase tracking-wide text-white shadow-sm"
-              style={{ background: `linear-gradient(90deg, ${accent.from}, ${accent.to})` }}
-            >
-              {deck.eyebrowText}
-            </div>
-          )}
-          {phase !== 'outro' && (
-            <div className="absolute right-4 top-5 sm:right-6 sm:top-7 z-10 flex items-center gap-1.5">
-              {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
-                  oturumda geçerli, kaydedilmiyor. Diğer rozetlerle aynı zarif stil. */}
-              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
-                  disabled={fontScale <= MIN_FONT_SCALE}
-                  aria-label="Metni küçült"
-                  title="Metni küçült"
-                  className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          {/* Tek, akışta (absolute değil) üst kontrol çubuğu — küçültme/büyütme, sayfa sayacı ve
+              tam ekran/kapat butonları burada birleşiyor. Eskiden bu kontroller kartın üstüne
+              absolute konumlanıyordu ve dar ekranlarda alt satıra sarınca başlığın üstüne
+              biniyordu (kullanıcının 2026-09-21 bulduğu regresyon) — artık normal akışta kendi
+              satırını kaplıyor, başlık her zaman bunun altından başlıyor. */}
+          <div className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pt-3 sm:px-6 sm:pt-5">
+            <div className="min-w-0">
+              {deck.eyebrowText && (
+                <div
+                  className="inline-block rounded-lg px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black uppercase tracking-wide text-white shadow-sm"
+                  style={{ background: `linear-gradient(90deg, ${accent.from}, ${accent.to})` }}
                 >
-                  <Minus className="h-3 w-3" />
-                </button>
-                <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500">%{Math.round(fontScale * 100)}</span>
-                <button
-                  type="button"
-                  onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
-                  disabled={fontScale >= MAX_FONT_SCALE}
-                  aria-label="Metni büyüt"
-                  title="Metni büyüt (akıllı tahta için)"
-                  className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-              </div>
-              {phase === 'questions' && (
-                <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm">
-                  <span className="text-emerald-600">D:{Object.values(answeredMap).filter((v) => v === 'correct').length}</span>
-                  {' '}
-                  <span className="text-rose-500">Y:{Object.values(answeredMap).filter((v) => v === 'incorrect').length}</span>
+                  {deck.eyebrowText}
                 </div>
               )}
-              <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
-                {phase === 'questions' ? `Soru ${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
-              </div>
             </div>
-          )}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {phase !== 'outro' && (
+                <>
+                  {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
+                      oturumda geçerli, kaydedilmiyor. */}
+                  <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setFontScale((s) => Math.max(MIN_FONT_SCALE, Math.round((s - FONT_SCALE_STEP) * 100) / 100))}
+                      disabled={fontScale <= MIN_FONT_SCALE}
+                      aria-label="Metni küçült"
+                      title="Metni küçült"
+                      className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500">%{Math.round(fontScale * 100)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
+                      disabled={fontScale >= MAX_FONT_SCALE}
+                      aria-label="Metni büyüt"
+                      title="Metni büyüt (akıllı tahta için)"
+                      className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {phase === 'questions' && (
+                    <div className="hidden rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black shadow-sm sm:block">
+                      <span className="text-emerald-600">D:{Object.values(answeredMap).filter((v) => v === 'correct').length}</span>
+                      {' '}
+                      <span className="text-rose-500">Y:{Object.values(answeredMap).filter((v) => v === 'incorrect').length}</span>
+                    </div>
+                  )}
+                  <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
+                    {phase === 'questions' ? `${qIndex + 1}/${questions?.length ?? '…'}` : `${index + 1}/${total}`}
+                  </div>
+                </>
+              )}
+              {isOverlay ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran sunum modu'}
+                    className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
+                  >
+                    {isFullscreen ? <Minimize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Maximize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Kapat"
+                    className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-colors ${iconBtnClass}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onExpand}
+                  aria-label="Tam ekranda aç"
+                  title="Tam ekranda aç"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-slate-900/60 text-white hover:bg-slate-900/80 transition-colors shadow-sm"
+                >
+                  <Maximize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+              )}
+            </div>
+          </div>
 
           {phase === 'outro' ? (
-            <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}>
+            <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}>
               <div
                 className="relative z-[1] flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full shadow-lg"
                 style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
@@ -462,7 +509,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : phase === 'questions' && questions ? (
-            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-14 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: fontScale }}>
+            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-1 pb-4 sm:pb-8 overflow-y-auto" style={{ zoom: fontScale }}>
               {/* Sorular hiç unmount edilmiyor — sadece görünürlük değişiyor. Aksi halde
                   geri/ileri gidince QuestionAnswerKeyItem'ın kendi state'i (seçim/reveal)
                   sıfırlanırdı (kullanıcının 2026-09-21 isteği: "geri gittiğimde önceki
@@ -486,7 +533,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
             </div>
           ) : slide.kind === 'cover' ? (
             <div
-              className="relative flex h-full items-center gap-6 overflow-hidden px-6 sm:px-12 pt-16"
+              className="relative flex flex-1 min-h-0 items-center gap-6 overflow-hidden px-6 sm:px-12 pt-2"
               style={{ background: `linear-gradient(135deg, ${accent.from}22, white 55%)`, zoom: fontScale }}
             >
               <div className={slide.imageUrl ? 'relative z-[1] flex-1 min-w-0' : 'relative z-[1] w-full'}>
@@ -512,7 +559,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
           ) : (
-            <div className="relative flex h-full flex-col px-4 sm:px-8 pt-16 pb-4 sm:pb-8" style={{ zoom: fontScale }}>
+            <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-2 pb-4 sm:pb-8" style={{ zoom: fontScale }}>
               <h2 className="text-base sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0">{slide.heading}</h2>
               <div className={`relative z-[1] flex flex-1 min-h-0 gap-4 ${!imageOnRight ? 'flex-row-reverse' : ''}`}>
                 <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-center">
