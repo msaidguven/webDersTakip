@@ -1,0 +1,17 @@
+-- Yıllık plan yeniden aktarımında (TYMM/DOCX import), bir kazanımın metni yıldan yıla
+-- az da olsa değişirse eski satır (topic_id, description) eşleşmediği için upsert'e
+-- YAKALANMIYOR ve yeni satırla birlikte DB'de yan yana kalıyor — hafta planlaması, soru
+-- havuzu, içerik üretimi gibi tüm okuma noktalarında eski yılın kazanımı güncelmiş gibi
+-- görünüyordu. Kazanımları SİLMİYORUZ (question_outcomes junction tablosu outcomes.id'ye
+-- referans veriyor, silmek FK sorunu ve geçmiş veri kaybı yaratır) — bunun yerine bu
+-- bayrakla yerinde arşivliyoruz.
+--
+-- is_current=true: kazanım hâlâ bu dersin/sınıfın GÜNCEL (en son aktarılan) yıllık
+-- planının parçası. Yeni yıl importunda: (a) yeni/eşleşen kazanımlar upsert edilirken
+-- is_current=true ve curriculum_year=yeni yıl olarak yazılır, (b) aynı importun
+-- dokunmadığı (metni değiştiği için eşleşmeyen) o konunun eski kazanımları
+-- is_current=false yapılır. question_outcomes (soru-kazanım eşleşmeleri) ve
+-- outcome_weeks gibi geçmiş veriler dokunulmadan kalır — sadece güncel plan okuyan
+-- noktalar (hafta/pacing hesapları, soru havuzu, içerik üretimi, admin "Hafta Ata"/
+-- "Kontrol Et" akışları) is_current=true filtresi uygular.
+ALTER TABLE public.outcomes ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT true;

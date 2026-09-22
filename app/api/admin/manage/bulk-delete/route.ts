@@ -12,7 +12,7 @@ import {
   forceDeleteUnitsCascade,
 } from '@/app/src/lib/adminCascade';
 
-type Scope = 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-units' | 'grade-lesson-outcomes';
+type Scope = 'unit' | 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-units' | 'grade-lesson-outcomes';
 
 type ResolveResult = { table: 'questions' | 'topic_contents' | 'topics' | 'units' | 'outcomes'; ids: number[] };
 
@@ -30,6 +30,11 @@ async function resolveIds(
   lessonId: number | null,
   unitId: number | null
 ): Promise<ResolveResult | { error: string }> {
+  if (scope === 'unit') {
+    if (!unitId) return { error: 'unitId zorunlu' };
+    return { table: 'units', ids: [unitId] };
+  }
+
   if (scope === 'unit-questions' || scope === 'unit-topics' || scope === 'unit-contents') {
     if (!unitId) return { error: 'unitId zorunlu' };
     const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId);
@@ -59,7 +64,7 @@ async function resolveIds(
   return { table: 'outcomes', ids: ((outcomeRows as { id: number }[] | null) || []).map((r) => r.id) };
 }
 
-const VALID_SCOPES: Scope[] = ['unit-questions', 'unit-topics', 'unit-contents', 'grade-lesson-units', 'grade-lesson-outcomes'];
+const VALID_SCOPES: Scope[] = ['unit', 'unit-questions', 'unit-topics', 'unit-contents', 'grade-lesson-units', 'grade-lesson-outcomes'];
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();

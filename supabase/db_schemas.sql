@@ -59,6 +59,7 @@ CREATE TABLE public.topics (
   slug text NOT NULL,
   order_no integer NOT NULL DEFAULT 0 CHECK (order_no >= 0),
   is_active boolean NOT NULL DEFAULT true,
+  is_archived boolean NOT NULL DEFAULT false,
   order_status text NOT NULL DEFAULT 'approved'::text CHECK (order_status = ANY (ARRAY['approved'::text, 'pending'::text, 'rejected'::text])),
   pending_order_no integer,
   created_at timestamp with time zone DEFAULT now(),
@@ -77,6 +78,7 @@ CREATE TABLE public.outcomes (
   order_index integer CHECK (order_index >= 0),
   code text,
   curriculum_year text,
+  is_current boolean NOT NULL DEFAULT true,
   CONSTRAINT outcomes_pkey PRIMARY KEY (id),
   CONSTRAINT outcomes_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );

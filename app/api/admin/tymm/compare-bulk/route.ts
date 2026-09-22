@@ -39,7 +39,11 @@ export async function POST(request: NextRequest) {
         'topic_learning_outcomes(id, code, title, outcomes(id, code, description)))'
     )
     .eq('lesson_id', lessonId)
-    .eq('grade_id', gradeId);
+    .eq('grade_id', gradeId)
+    // Eski yıldan arşivlenmiş (is_current=false) kazanımlar bu karşılaştırmaya hiç girmesin —
+    // aksi halde metni değişmiş eski satır DB tarafında "TYMM'de yok" gibi görünür.
+    .eq('topics.outcomes.is_current', true)
+    .eq('topics.topic_learning_outcomes.outcomes.is_current', true);
   if (unitsError) return NextResponse.json({ error: unitsError.message }, { status: 500 });
   // PostgREST embed'i tablo adıyla (topic_learning_outcomes) dönüyor — compareUnits.ts'nin
   // DbTopic tipiyle eşleşsin diye learningOutcomeGroups'a çeviriyoruz. Grup içindeki

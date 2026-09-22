@@ -57,7 +57,7 @@ export async function computeUnitTopicPacing(
   const topicIds = ((topicsData as TopicRow[] | null) || []).map((t) => t.id);
   if (topicIds.length < 2) return result;
 
-  const { data: outcomesData } = await supabase.from('outcomes').select('id, topic_id').in('topic_id', topicIds);
+  const { data: outcomesData } = await supabase.from('outcomes').select('id, topic_id').in('topic_id', topicIds).eq('is_current', true);
   const outcomes = (outcomesData as OutcomeRow[] | null) || [];
   if (!outcomes.length) return result;
 

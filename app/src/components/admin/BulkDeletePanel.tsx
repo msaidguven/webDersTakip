@@ -5,9 +5,10 @@ import { createClient } from '@/utils/supabase/client';
 
 type Row = { id: number; label: string };
 type UnitSummary = { id: number; title: string; topicCount: number; outcomeCount: number; questionCount: number; contentCount: number };
-type Scope = 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-units' | 'grade-lesson-outcomes';
+type Scope = 'unit' | 'unit-questions' | 'unit-topics' | 'unit-contents' | 'grade-lesson-units' | 'grade-lesson-outcomes';
 
 const SCOPE_LABEL: Record<Scope, string> = {
+  unit: 'Üniteyi Sil',
   'unit-questions': 'Soruları Sil',
   'unit-topics': 'Konuları Sil',
   'unit-contents': 'İçerikleri Sil',
@@ -202,6 +203,9 @@ export default function BulkDeletePanel() {
                         <td className="p-3 text-muted-foreground">{u.contentCount}</td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-2">
+                            <DangerButton count={1} onClick={() => openConfirm('unit', `"${u.title}" — ${SCOPE_LABEL['unit']}`, 1, u.id)}>
+                              {SCOPE_LABEL['unit']}
+                            </DangerButton>
                             <DangerButton
                               count={u.questionCount}
                               onClick={() => openConfirm('unit-questions', `"${u.title}" — ${SCOPE_LABEL['unit-questions']}`, u.questionCount, u.id)}
@@ -243,7 +247,7 @@ export default function BulkDeletePanel() {
         <ConfirmModal
           title={confirm.title}
           count={confirm.count}
-          allowForce={confirm.scope === 'unit-questions' || confirm.scope === 'unit-topics' || confirm.scope === 'grade-lesson-units'}
+          allowForce={confirm.scope === 'unit' || confirm.scope === 'unit-questions' || confirm.scope === 'unit-topics' || confirm.scope === 'grade-lesson-units'}
           deleting={deleting}
           onCancel={() => setConfirm(null)}
           onConfirm={handleConfirmDelete}

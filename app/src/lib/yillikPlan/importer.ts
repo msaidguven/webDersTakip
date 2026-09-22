@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ParsedRow } from './docxParser';
 import { computeMissingCodeAssignments } from '@/app/src/lib/outcomeCodes';
+import { fuzzyNorm } from '@/app/src/lib/tymm/compareUnits';
 
 export type LogLevel = 'info' | 'success' | 'warning' | 'error';
 export type LogEntry = { msg: string; level: LogLevel };
@@ -291,6 +292,7 @@ async function assignMissingCodesForTopic(sb: SB, topicId: number): Promise<numb
     .from('outcomes')
     .select('id, order_index, code')
     .eq('topic_id', topicId)
+    .eq('is_current', true)
     .order('order_index', { ascending: true });
   const outcomes = (outcomesData as { id: number; order_index: number | null; code: string | null }[] | null) || [];
   if (!outcomes.length) return 0;
@@ -365,6 +367,22 @@ export async function importOutcomes(
 
   const eklendiSet = new Set<string>();
   const touchedTopicIds = new Set<number>();
+  const touchedOutcomeIdsByTopic = new Map<number, number[]>();
+  // FUZZY eşleşme için topic_id → o konunun kazanımları önbelleği (bkz. compareUnits.ts
+  // fuzzyNorm) — noktalama/boşluk/Türkçe İ-I-ı-i farkı görmezden gelinir, aksi halde DOCX'te
+  // tek bir nokta/boşluk farkı bile kazanımı "değişti" sanıp gereksiz yere arşivliyor ve o
+  // kazanıma bağlı sorular (question_outcomes) "güncel değil" görünüyordu (kullanıcının
+  // 2026-09-22 TYMM tarafında canlıda yakaladığı bug, DOCX yolu da aynı riski taşıyordu).
+  const outcomesByTopicCache = new Map<number, { id: number; description: string }[]>();
+  async function getTopicOutcomes(topicId: number) {
+    let list = outcomesByTopicCache.get(topicId);
+    if (!list) {
+      const { data } = await sb.from('outcomes').select('id, description').eq('topic_id', topicId);
+      list = (data as { id: number; description: string }[] | null) || [];
+      outcomesByTopicCache.set(topicId, list);
+    }
+    return list;
+  }
   let basarili = 0;
   let hata = 0;
   let atlanmis = 0;
@@ -400,21 +418,33 @@ export async function importOutcomes(
       const endWeek = haftalar.length ? haftalar[haftalar.length - 1] : null;
 
       try {
-        // upsert: yeniden aktarımda aynı (topic_id, description) için unique-violation
-        // yerine mevcut kazanımın id'sini döndürür (bkz. outcomes_topic_description_unique,
-        // supabase/migrations/yillik_plan_upsert_constraints.sql).
-        const { data: ex } = await sb.from('outcomes').select('id').eq('topic_id', topicId).eq('description', description).maybeSingle();
+        // FUZZY eşleşme (yukarıdaki not) — birebir değil. is_current=true: bu satır güncel
+        // plana ait — fuzzy eşleşmeyen eski kazanımlar aşağıda, konu döngüsü bittikten sonra
+        // is_current=false yapılır (bkz. outcomes_is_current.sql).
+        const topicOutcomes = await getTopicOutcomes(topicId);
+        const descFuzzy = fuzzyNorm(description);
+        const existing = topicOutcomes.find((o) => fuzzyNorm(o.description) === descFuzzy);
 
-        const { data: upserted, error: upsertError } = await sb
-          .from('outcomes')
-          .upsert({ topic_id: topicId, description }, { onConflict: 'topic_id,description' })
-          .select('id')
-          .single();
-        if (upsertError || !upserted) throw upsertError || new Error('upsert başarısız');
-        const outcomeId = (upserted as { id: number }).id;
-        if (ex) atlanmis += 1;
-        else basarili += 1;
+        let outcomeId: number;
+        if (existing) {
+          const { error: updateError } = await sb.from('outcomes').update({ description, is_current: true }).eq('id', existing.id);
+          if (updateError) throw updateError;
+          existing.description = description;
+          outcomeId = existing.id;
+          atlanmis += 1;
+        } else {
+          const { data: created, error: insertError } = await sb
+            .from('outcomes')
+            .insert({ topic_id: topicId, description, is_current: true })
+            .select('id')
+            .single();
+          if (insertError || !created) throw insertError || new Error('kazanım oluşturulamadı');
+          outcomeId = (created as { id: number }).id;
+          topicOutcomes.push({ id: outcomeId, description });
+          basarili += 1;
+        }
         touchedTopicIds.add(topicId);
+        touchedOutcomeIdsByTopic.set(topicId, [...(touchedOutcomeIdsByTopic.get(topicId) || []), outcomeId]);
 
         if (startWeek && endWeek) {
           const { data: wx } = await sb
@@ -436,6 +466,29 @@ export async function importOutcomes(
       }
     }
   }
+
+  // Metni değiştiği için yukarıdaki upsert'e YAKALANMAYAN eski kazanımları arşivle:
+  // sadece bu importun dokunduğu konularda, bu importta upsert edilenlerin DIŞINDA kalan
+  // is_current=true satırları is_current=false yap. Upsert'ten SONRA çalışması önemli —
+  // tersi sırada (önce arşivle, sonra upsert) aynı metinli kazanımlar upsert'in ON
+  // CONFLICT'i onları hiç güncellemediği için (id değişmez) yanlışlıkla arşivlenmiş kalırdı.
+  let arsivlendi = 0;
+  for (const topicId of touchedTopicIds) {
+    const keepIds = touchedOutcomeIdsByTopic.get(topicId) || [];
+    const { data: archived, error: archiveError } = await sb
+      .from('outcomes')
+      .update({ is_current: false })
+      .eq('topic_id', topicId)
+      .eq('is_current', true)
+      .not('id', 'in', `(${keepIds.join(',') || '0'})`)
+      .select('id');
+    if (archiveError) {
+      log(`  ⚠️  Konu ${topicId}: eski kazanımlar arşivlenemedi: ${archiveError.message}`, 'warning');
+      continue;
+    }
+    arsivlendi += (archived as { id: number }[] | null)?.length || 0;
+  }
+  if (arsivlendi) log(`🗄  ${arsivlendi} eski kazanım arşivlendi (is_current=false)`, 'success');
 
   // Kodu (a,b,c...) boş kalan kazanımlara, hafta+sıra bazlı kesintisiz alfabe atanır —
   // topic-sections/assign-codes ile aynı mantık (bkz. assignMissingCodesForTopic).

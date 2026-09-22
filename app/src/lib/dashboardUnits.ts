@@ -184,7 +184,8 @@ export async function getUnitsForLesson(
     .from('topics')
     .select('id, unit_id, title, slug, order_no')
     .in('unit_id', unitIds)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('is_archived', false);
   const topics = (topicRows as TopicRow[] | null) || [];
 
   const topicCountByUnit = new Map<number, number>();

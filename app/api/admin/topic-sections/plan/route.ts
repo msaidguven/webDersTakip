@@ -357,7 +357,8 @@ export async function POST(request: NextRequest) {
   const { data: outcomesData } = await supabase
     .from('outcomes')
     .select('id, code')
-    .eq('topic_id', topicRow.id);
+    .eq('topic_id', topicRow.id)
+    .eq('is_current', true);
 
   const codeToOutcomeId = new Map<string, number>();
   for (const o of (outcomesData as OutcomeRow[] | null) || []) {

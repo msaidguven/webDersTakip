@@ -217,7 +217,7 @@ export default function ContentAuditTab() {
       supabase.from('lesson_grades').select('lesson_id, grade_id, is_active'),
       supabase.from('units').select('id, lesson_id, grade_id, title, order_no, is_active').order('order_no'),
       supabase.from('topics').select('id, unit_id, title, order_no, is_active').order('order_no'),
-      supabase.from('outcomes').select('id, topic_id'),
+      supabase.from('outcomes').select('id, topic_id').eq('is_current', true),
       supabase.from('topic_contents').select('id, topic_id, title, is_published'),
       supabase.from('topic_content_sections').select('id, topic_content_id, heading, status, order_no'),
     ]);

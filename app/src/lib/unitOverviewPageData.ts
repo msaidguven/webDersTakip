@@ -46,6 +46,7 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
     .select('id, title, slug, order_no')
     .eq('unit_id', unit.id)
     .eq('is_active', true)
+    .eq('is_archived', false)
     .order('order_no', { ascending: true });
   const topics = (topicRows as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
 

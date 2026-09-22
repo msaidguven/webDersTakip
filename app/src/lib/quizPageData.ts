@@ -211,12 +211,13 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
   const unit = (unitRows as UnitRowFull[] | null)?.[0] || null;
   if (!unit) return null;
 
-  const { data: topicData, count: topicCount } = await supabase
+  let unitTopicsQuery = supabase
     .from('topics')
     .select('id, slug, order_no', { count: 'exact' })
     .eq('unit_id', unit.id)
-    .eq('is_active', true)
-    .order('order_no', { ascending: true });
+    .eq('is_active', true);
+  if (!isAdmin) unitTopicsQuery = unitTopicsQuery.eq('is_archived', false);
+  const { data: topicData, count: topicCount } = await unitTopicsQuery.order('order_no', { ascending: true });
 
   const topicRows = (topicData as UnitTopicRow[] | null) || [];
   const firstTopic = topicRows.find((topic) => topic.slug) || null;

@@ -7,6 +7,7 @@
 
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { slugify } from '@/app/src/lib/yillikPlan/importer';
+import { normUnitTitleForMatch, stripUnitTitleNumberPrefix, fuzzyNorm } from './compareUnits';
 import type { TymmUnit } from './tymmParser';
 
 type UnitRow = { id: number; order_no: number };
@@ -17,6 +18,12 @@ export type SaveTymmUnitParams = {
   gradeId: number;
   lessonId: number;
   curriculumYear: string | null;
+  // Yeni parse edilen bir kazanım metnini (comp.text), admin'in önizlemede elle seçtiği ESKİ
+  // bir kazanım id'sine bağlar — otomatik fuzzy eşleşme "1-2 kelime değişti, farklı kazanım"
+  // sanıp yeni satır açabileceği durumlar için (kullanıcının 2026-09-22 isteği: "ana konu
+  // aynıysa ben elle eşleştirebilmeliyim, sorular kaybolmasın"). Eşleşen metin, bu id'ye
+  // sahip satırı GÜNCELLER (insert değil) — o kazanıma bağlı question_outcomes korunur.
+  manualOutcomeMerges?: Record<string, number>;
 };
 
 export type ImportUnitResult =
@@ -31,7 +38,7 @@ export type ImportUnitResult =
   | { ok: false; error: string };
 
 export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUnitResult> {
-  const { unit, gradeId, lessonId, curriculumYear } = params;
+  const { unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges } = params;
 
   const supabase = createServiceClient();
 
@@ -45,14 +52,25 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
     await supabase.from('lesson_grades').insert({ lesson_id: lessonId, grade_id: gradeId, is_active: true });
   }
 
-  const unitTitle = unit.unitTitle;
-  const { data: existingUnit } = await supabase
+  // Parser normalde "1. Öğrenme Alanı: " gibi bir öneki zaten ayıklıyor (bkz. tymmParser.ts
+  // unitNumberMatch) ama bu ayıklama regex'in eşleşmediği bir h1 formatında sessizce
+  // başarısız olabiliyor — stripUnitTitleNumberPrefix burada ikinci bir güvenlik ağı: yeni
+  // ünite oluşturulurken DB'ye çirkin/tutarsız bir başlık yazılmasın diye.
+  const unitTitle = stripUnitTitleNumberPrefix(unit.unitTitle);
+  // Birebir title eşleşmesi YETERLİ DEĞİL: TYMM zaman zaman başlığın başına "1. Öğrenme
+  // Alanı: " gibi bir sıra numarası ekliyor, DB'deki ünite bu önek olmadan kayıtlı —
+  // normUnitTitleForMatch bu farkı yok sayar (bkz. compareUnits.ts, kullanıcının 2026-09-22
+  // bulduğu mükerrer ünite bug'ı). Ünite sayısı az olduğu için (lesson+grade başına genelde
+  // <15) tek tek çekip JS'te normalize ederek eşleştirmek ucuz.
+  const { data: allUnitsForLessonGrade } = await supabase
     .from('units')
-    .select('id, order_no')
+    .select('id, order_no, title')
     .eq('lesson_id', lessonId)
-    .eq('grade_id', gradeId)
-    .eq('title', unitTitle)
-    .maybeSingle();
+    .eq('grade_id', gradeId);
+  const normalizedTarget = normUnitTitleForMatch(unitTitle);
+  const existingUnit = ((allUnitsForLessonGrade as (UnitRow & { title: string })[] | null) || []).find(
+    (u) => normUnitTitleForMatch(u.title) === normalizedTarget
+  );
 
   let unitId: number;
   if (existingUnit) {
@@ -94,15 +112,28 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
     unitId = (created as { id: number }).id;
   }
 
-  const { data: existingTopicsData } = await supabase.from('topics').select('id, title, order_no').eq('unit_id', unitId);
+  const { data: existingTopicsData } = await supabase.from('topics').select('id, title, order_no, learning_outcome').eq('unit_id', unitId);
   const existingTopicByTitle = new Map<string, number>(
     ((existingTopicsData as { id: number; title: string; order_no: number }[] | null) || []).map((t) => [t.title, t.id])
+  );
+  // Konu ilk kez oluşturulduğunda learning_outcome yazılıyor (aşağıda), ama daha ÖNCE
+  // (ör. elle veya farklı bir yoldan) boş bırakılmış mevcut konularda bu alan hep boş
+  // kalıyordu — TYMM'i yeniden aktarınca dolsun diye topicId → mevcut learning_outcome
+  // değerini burada tutuyoruz (yalnızca boşsa aşağıda doldurulacak, dolu bir değer ASLA
+  // ezilmez — admin'in elle yaptığı düzenlemeyi kaybetmemek için).
+  const existingTopicLearningOutcomeById = new Map<number, string | null>(
+    ((existingTopicsData as { id: number; learning_outcome: string | null }[] | null) || []).map((t) => [t.id, t.learning_outcome])
   );
   let nextTopicOrder = Math.max(0, ...((existingTopicsData as { order_no: number }[] | null) || []).map((t) => t.order_no)) + 1;
 
   let topicsCreated = 0;
   let outcomesCreated = 0;
   let outcomesSkipped = 0;
+  // topic_id → bu import'ta güncellenen/oluşturulan outcome id'leri. Import sonunda,
+  // her dokunulan konuda bu listenin DIŞINDA kalan is_current=true satırlar
+  // is_current=false yapılır (metni değiştiği için eşleşmeyen eski yıl kazanımları) —
+  // bkz. supabase/migrations/outcomes_is_current.sql.
+  const touchedOutcomeIdsByTopic = new Map<number, number[]>();
 
   // Bir konunun kaç ayrı öğrenme çıktısı grubu aldığını (nextTopicOrder gibi) topic_id
   // bazında sayıyoruz — topic_learning_outcomes.order_no için, ve topics.learning_outcome
@@ -110,6 +141,24 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
   // çıktısı grubu düştüğünde onun üstüne yazıp ilkini kaybetmemek için — asıl doğru kayıt
   // artık topic_learning_outcomes'ta, bkz. supabase/migrations/topic_learning_outcomes.sql).
   const learningOutcomeGroupCountByTopic = new Map<number, number>();
+
+  // topic_id → o konunun kazanımları (id + description), yalnızca ihtiyaç oldukça çekilip
+  // önbelleğe alınır. Eşleştirme artık BİREBİR metin değil FUZZY (bkz. compareUnits.ts
+  // fuzzyNorm — noktalama/boşluk/Türkçe İ-I-ı-i farkını yok sayar): TYMM bir kazanımın
+  // sonuna tek bir nokta eklediğinde bile eski metin eşleşmiyor, kazanım "değişti"
+  // sanılıp arşivleniyor ve o kazanıma bağlı sorular (question_outcomes) "güncel değil"
+  // görünüyordu (kullanıcının 2026-09-22 canlıda yakaladığı gerçek örnek — bkz.
+  // supabase/migrations/outcomes_is_current.sql).
+  const outcomesByTopicCache = new Map<number, { id: number; description: string }[]>();
+  async function getTopicOutcomes(topicId: number) {
+    let list = outcomesByTopicCache.get(topicId);
+    if (!list) {
+      const { data } = await supabase.from('outcomes').select('id, description').eq('topic_id', topicId);
+      list = (data as { id: number; description: string }[] | null) || [];
+      outcomesByTopicCache.set(topicId, list);
+    }
+    return list;
+  }
 
   for (const learningOutcome of unit.learningOutcomes) {
     const topicTitle = learningOutcome.topicTitle;
@@ -135,6 +184,11 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       existingTopicByTitle.set(topicTitle, topicId);
       nextTopicOrder += 1;
       topicsCreated += 1;
+    } else if (!existingTopicLearningOutcomeById.get(topicId)) {
+      // Mevcut konu, ama learning_outcome boş — geriye dönük doldur (bir sonraki öğrenme
+      // çıktısı grubu aynı konuya düşerse tekrar UPDATE atmamak için map'i hemen güncelliyoruz).
+      await supabase.from('topics').update({ learning_outcome: learningOutcomeText }).eq('id', topicId);
+      existingTopicLearningOutcomeById.set(topicId, learningOutcomeText);
     }
 
     // Öğrenme çıktısı grubu: aynı konuya ikinci (üçüncü, ...) kez düşen bir öğrenme çıktısı
@@ -165,24 +219,70 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       learningOutcomeId = (createdGroup as { id: number }).id;
     }
 
+    const touchedOutcomeIds = touchedOutcomeIdsByTopic.get(topicId) || [];
+    const topicOutcomes = await getTopicOutcomes(topicId);
     for (const comp of learningOutcome.components) {
-      let outcomeQuery = supabase.from('outcomes').select('id').eq('topic_id', topicId).eq('description', comp.text);
-      outcomeQuery = curriculumYear ? outcomeQuery.eq('curriculum_year', curriculumYear) : outcomeQuery.is('curriculum_year', null);
-      const { data: existingOutcome } = await outcomeQuery.maybeSingle();
+      // Önce ADMİN'İN ELLE SEÇTİĞİ eşleştirme (bkz. SaveTymmUnitParams.manualOutcomeMerges) —
+      // fuzzy eşleşmeden ÖNCELİKLİ: admin "bu yeni metin aslında şu eski kazanımın güncellenmiş
+      // hali" demişse, otomatik mantık bunu geçersiz kılmamalı.
+      const manualMergeId = manualOutcomeMerges?.[comp.text];
+      // FUZZY eşleşme (bkz. yukarıdaki not): noktalama/boşluk/Türkçe İ-I-ı-i farkı görmezden
+      // gelinir, curriculum_year eşleşme anahtarının parçası değil. Bulunan satır güncel
+      // yılın verisiyle (ve TYMM'in en son yazımıyla) yerinde güncellenir (is_current=true).
+      const compFuzzy = fuzzyNorm(comp.text);
+      const existingOutcome =
+        (manualMergeId != null ? topicOutcomes.find((o) => o.id === manualMergeId) : undefined) ??
+        topicOutcomes.find((o) => fuzzyNorm(o.description) === compFuzzy);
 
       if (existingOutcome) {
+        const outcomeId = existingOutcome.id;
+        const { error: updateError } = await supabase
+          .from('outcomes')
+          .update({ description: comp.text, code: comp.letter, curriculum_year: curriculumYear, learning_outcome_id: learningOutcomeId, is_current: true })
+          .eq('id', outcomeId);
+        if (updateError) {
+          return { ok: false, error: updateError.message };
+        }
+        existingOutcome.description = comp.text;
+        touchedOutcomeIds.push(outcomeId);
         outcomesSkipped += 1;
         continue;
       }
 
-      const { error: outcomeError } = await supabase
+      const { data: createdOutcome, error: outcomeError } = await supabase
         .from('outcomes')
-        .insert({ topic_id: topicId, description: comp.text, code: comp.letter, curriculum_year: curriculumYear, learning_outcome_id: learningOutcomeId });
-      if (outcomeError) {
-        return { ok: false, error: outcomeError.message };
+        .insert({
+          topic_id: topicId,
+          description: comp.text,
+          code: comp.letter,
+          curriculum_year: curriculumYear,
+          learning_outcome_id: learningOutcomeId,
+          is_current: true,
+        })
+        .select('id')
+        .single();
+      if (outcomeError || !createdOutcome) {
+        return { ok: false, error: outcomeError?.message || 'Kazanım oluşturulamadı' };
       }
+      const newId = (createdOutcome as { id: number }).id;
+      topicOutcomes.push({ id: newId, description: comp.text });
+      touchedOutcomeIds.push(newId);
       outcomesCreated += 1;
     }
+    touchedOutcomeIdsByTopic.set(topicId, touchedOutcomeIds);
+  }
+
+  // Bu importta dokunulan her konuda, yukarıdaki eşleştirme/güncellemeye YAKALANMAYAN
+  // (metni değiştiği için eşleşmeyen) eski is_current=true kazanımları arşivle. Tüm
+  // konular işlendikten SONRA, tek seferde çalışması önemli — aksi halde henüz o
+  // konuya sıra gelmemiş kazanımlar erken arşivlenip touchedOutcomeIds'e hiç girmezdi.
+  for (const [topicId, keepIds] of touchedOutcomeIdsByTopic) {
+    await supabase
+      .from('outcomes')
+      .update({ is_current: false })
+      .eq('topic_id', topicId)
+      .eq('is_current', true)
+      .not('id', 'in', `(${keepIds.join(',') || '0'})`);
   }
 
   return { ok: true, unitId, unitTitle, topicsCreated, outcomesCreated, outcomesSkipped };

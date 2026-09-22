@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
   const [{ data: contentsData }, { data: outcomesData }] = await Promise.all([
     supabase.from('topic_contents').select('id, topic_id').in('topic_id', topicIds),
-    supabase.from('outcomes').select('topic_id, code, description').in('topic_id', topicIds),
+    supabase.from('outcomes').select('topic_id, code, description').in('topic_id', topicIds).eq('is_current', true),
   ]);
 
   const contents = (contentsData as ContentRow[] | null) || [];

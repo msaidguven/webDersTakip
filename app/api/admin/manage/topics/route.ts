@@ -5,7 +5,7 @@ import { deleteTopicsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import { revalidateUnitPagesForTopics, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
-const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active'] as const;
+const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active', 'is_archived'] as const;
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   const gradeId = request.nextUrl.searchParams.get('gradeId');
   const search = request.nextUrl.searchParams.get('search');
   const isActive = request.nextUrl.searchParams.get('isActive');
+  const isArchived = request.nextUrl.searchParams.get('isArchived');
 
   let unitIds: number[] | null = null;
   if (!unitId && (lessonId || gradeId)) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('topics')
-    .select('id, unit_id, title, subtitle, slug, order_no, is_active, curriculum_code, icon, units(title)')
+    .select('id, unit_id, title, subtitle, slug, order_no, is_active, is_archived, curriculum_code, icon, units(title)')
     .order('unit_id', { ascending: true })
     .order('order_no', { ascending: true })
     .limit(500);
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
   else if (unitIds) query = query.in('unit_id', unitIds);
   if (search) query = query.ilike('title', `%${search}%`);
   if (isActive) query = query.eq('is_active', isActive === 'true');
+  if (isArchived) query = query.eq('is_archived', isArchived === 'true');
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -74,10 +76,15 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('topics').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // is_active dahil — bir konunun görünürlüğü değişince o ünitedeki TÜM konu
+  // is_active/is_archived dahil — bir konunun görünürlüğü değişince o ünitedeki TÜM konu
   // sayfalarının sidebar listesi de değişir, sadece kendi sayfası değil.
   await revalidateUnitPagesForTopics(supabase, ids);
-  if (Object.prototype.hasOwnProperty.call(patch, 'is_active')) revalidateHomepage();
+  if (
+    Object.prototype.hasOwnProperty.call(patch, 'is_active') ||
+    Object.prototype.hasOwnProperty.call(patch, 'is_archived')
+  ) {
+    revalidateHomepage();
+  }
   return NextResponse.json({ ok: true });
 }
 

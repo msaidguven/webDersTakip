@@ -131,6 +131,7 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
     .from('outcomes')
     .select('id, description, order_index, code')
     .eq('topic_id', eligible.topic_id)
+    .eq('is_current', true)
     .order('order_index', { ascending: true });
   const outcomes = outcomeRows || [];
   const outcomeIds = outcomes.map((o: { id: number }) => o.id);

@@ -177,7 +177,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
         .eq('unit_id', unitId)
         .order('order_no', { ascending: true })
     : null;
-  if (topicsQuery && !isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
+  if (topicsQuery && !isAdmin) topicsQuery = topicsQuery.eq('is_active', true).eq('is_archived', false);
 
   const [{ data: topicsData }, { data: weekOutcomes }] = await Promise.all([
     topicsQuery ? topicsQuery : Promise.resolve({ data: null as TopicRow[] | null }),
@@ -199,6 +199,7 @@ async function getDersData(sinifId: string, dersSlug: string, requestedWeek: num
           .from('outcomes')
           .select('id, description, topic_id, topics!inner(title, unit_id, units!inner(title, lesson_id, grade_id))')
           .in('id', outcomeIds)
+          .eq('is_current', true)
       : Promise.resolve({ data: null as OutcomeRow[] | null }),
     topicIds.length
       ? supabase.from('topic_contents').select('id, topic_id, hero_image_url, subtitle').in('topic_id', topicIds).eq('is_published', true)

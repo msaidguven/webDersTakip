@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const topicIds = topics.map((t) => t.id);
   const [{ data: outcomesData }, { data: groupsData }] = topicIds.length
     ? await Promise.all([
-        supabase.from('outcomes').select('id, topic_id, description, code, learning_outcome_id').in('topic_id', topicIds).order('id', { ascending: true }),
+        supabase.from('outcomes').select('id, topic_id, description, code, learning_outcome_id').in('topic_id', topicIds).eq('is_current', true).order('id', { ascending: true }),
         supabase.from('topic_learning_outcomes').select('id, topic_id, code, title, order_no').in('topic_id', topicIds).order('order_no', { ascending: true }),
       ])
     : [{ data: [] as OutcomeRow[] }, { data: [] as LearningOutcomeRow[] }];

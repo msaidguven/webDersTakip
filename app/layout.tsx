@@ -26,7 +26,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const setThemeScript = `(function(){try{const t=localStorage.getItem('theme');const prefersDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; if(t==='dark' || (!t && prefersDark)){document.documentElement.classList.add('dark')} else {document.documentElement.classList.remove('dark')} }catch(e){} })()`;
+  // Eskiden kullanıcı hiç seçim yapmamışsa (localStorage'da 'theme' yoksa) işletim
+  // sistemi/tarayıcı karanlık moddaysa site de otomatik dark açılıyordu
+  // (prefers-color-scheme fallback'i) — kullanıcının 2026-09-22 isteği: site VARSAYILAN
+  // olarak her zaman light açılsın, dark sadece ThemeToggle ile bilinçli seçildiğinde
+  // (localStorage'a 'dark' yazıldığında) uygulansın.
+  const setThemeScript = `(function(){try{const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')} else {document.documentElement.classList.remove('dark')} }catch(e){} })()`;
 
   return (
     <html lang="tr" suppressHydrationWarning>

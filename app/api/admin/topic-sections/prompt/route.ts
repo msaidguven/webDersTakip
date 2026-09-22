@@ -108,6 +108,7 @@ export async function GET(request: NextRequest) {
     .from('outcomes')
     .select('id, description, order_index, code')
     .eq('topic_id', topicRow.id)
+    .eq('is_current', true)
     .order('order_index', { ascending: true });
 
   const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];

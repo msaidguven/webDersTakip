@@ -39,9 +39,31 @@ type StepKey = 'units' | 'topics' | 'outcomes';
 type LessonRow = { id: number; name: string };
 type GradeRow = { id: number; name: string };
 
+// Kaydetmeden ÖNCE, konu bazlı özet: kaç kazanım aynen kalacak, kaç tanesi yeni eklenecek,
+// kaç tanesi (DB'de is_current=true ama TYMM'de artık yok diye) arşivlenecek. saveTymmUnit
+// (app/src/lib/tymm/importUnit.ts) ile BİREBİR AYNI eşleşme kuralını (topic_id + description
+// tam string eşitliği) kullanan /api/admin/tymm/fetch tarafında hesaplanır — önizleme hiçbir
+// zaman kaydetmenin gerçekte yapacağından farklı bir şey göstermesin diye.
+type TymmTopicDiff = {
+  topicTitle: string;
+  topicExists: boolean;
+  topicId: number | null;
+  unchanged: number;
+  new: number;
+  toArchive: number;
+  newDescriptions: string[];
+  toArchiveOutcomes: { id: number; description: string }[];
+};
+
 // SADECE ÇEKME (yazma yok) sonucu — admin bunu düzenleyip onayladıktan sonra ayrı bir
 // istekle (save) kaydedilir, bkz. Card 4 üstündeki not.
-type TymmFetchResult = { unit: TymmUnit; unmatchedLines: string[]; boundaryWarnings: string[]; rawSections: TymmRawSections };
+type TymmFetchResult = {
+  unit: TymmUnit;
+  unmatchedLines: string[];
+  boundaryWarnings: string[];
+  rawSections: TymmRawSections;
+  topicDiffs?: TymmTopicDiff[];
+};
 
 // DB'YE YAZMA sonucu
 type TymmImportResult = {
@@ -205,6 +227,14 @@ export default function YillikPlanPanel() {
   const [tymmBulkMode, setTymmBulkMode] = useState(false);
   const [tymmUrl, setTymmUrl] = useState('');
   const [tymmYear, setTymmYear] = useState('2026-2027');
+  // Admin'in AÇIKÇA seçtiği niyet: "Yeni Yıllık Plan Ekle" mi yoksa "Eskisini Güncelle" mi.
+  // Kod tarafında saveTymmUnit her iki durumu da zaten doğru hallediyor (varsa günceller,
+  // yoksa oluşturur) — bu seçim sadece bir GÜVENLİK KEMERİ: seçilen niyetle TYMM'den gelen
+  // gerçek eşleşme durumu çelişirse uyarı gösterir, ve "Güncelle" seçilince arşivlenecek
+  // kazanımları admin ONAYLAMADAN kaydetmeyi engeller (kullanıcının 2026-09-22 ısrarı:
+  // "bana sorsun, ben elle düzeltebilmeliyim, sorular kaybolmasın").
+  const [importMode, setImportMode] = useState<'new' | 'update' | null>(null);
+  const [archiveReviewConfirmed, setArchiveReviewConfirmed] = useState(false);
 
   const [fetching, setFetching] = useState(false);
   const [fetchErr, setFetchErr] = useState<string | null>(null);
@@ -212,7 +242,13 @@ export default function YillikPlanPanel() {
   const [previewUnmatched, setPreviewUnmatched] = useState<string[]>([]);
   const [previewBoundaryWarnings, setPreviewBoundaryWarnings] = useState<string[]>([]);
   const [previewRawSections, setPreviewRawSections] = useState<TymmRawSections | null>(null);
+  const [previewTopicDiffs, setPreviewTopicDiffs] = useState<TymmTopicDiff[] | undefined>(undefined);
   const [comparePreviewOpen, setComparePreviewOpen] = useState(false);
+  // "Yeni" görünen bir kazanım metnini admin elle eski bir kazanım id'sine eşlerse burada
+  // tutulur (comp.text → eski outcome id) — fuzzy eşleşmenin kaçırdığı, 1-2 kelime değişen
+  // ama aynı kazanım olan durumlar için (bkz. TymmSaveDiffSummary, kullanıcının 2026-09-22
+  // isteği: "sorular kaybolmasın, ben elle eşleştirebilmeliyim").
+  const [manualOutcomeMerges, setManualOutcomeMerges] = useState<Record<string, number>>({});
 
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -481,13 +517,16 @@ export default function YillikPlanPanel() {
     setPreviewUnmatched([]);
     setPreviewBoundaryWarnings([]);
     setPreviewRawSections(null);
+    setPreviewTopicDiffs(undefined);
+    setManualOutcomeMerges({});
+    setArchiveReviewConfirmed(false);
     setSaveResult(null);
     setSaveErr(null);
     try {
       const res = await fetch('/api/admin/tymm/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tymmUrl: tymmUrl.trim() }),
+        body: JSON.stringify({ tymmUrl: tymmUrl.trim(), lessonId, gradeId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -499,6 +538,7 @@ export default function YillikPlanPanel() {
       setPreviewUnmatched(result.unmatchedLines);
       setPreviewBoundaryWarnings(result.boundaryWarnings);
       setPreviewRawSections(result.rawSections);
+      setPreviewTopicDiffs(result.topicDiffs);
     } catch {
       setFetchErr('İstek başarısız (ağ hatası)');
     } finally {
@@ -514,7 +554,13 @@ export default function YillikPlanPanel() {
       const res = await fetch('/api/admin/tymm/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unit: previewUnit, gradeId, lessonId, curriculumYear: tymmYear.trim() || null }),
+        body: JSON.stringify({
+          unit: previewUnit,
+          gradeId,
+          lessonId,
+          curriculumYear: tymmYear.trim() || null,
+          manualOutcomeMerges: Object.keys(manualOutcomeMerges).length ? manualOutcomeMerges : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -524,6 +570,7 @@ export default function YillikPlanPanel() {
       const result = data as TymmImportResult;
       setSaveResult({ ...result, sourceUrl: tymmUrl.trim() });
       setPreviewUnit(null);
+      setManualOutcomeMerges({});
       setWeekUnitId(String(result.unitId));
       return true;
     } catch {
@@ -707,6 +754,16 @@ export default function YillikPlanPanel() {
   }
 
   const ready = !!rows && rows.length > 0 && lessonId != null && gradeId != null;
+
+  // "Eskisini Güncelle" seçiliyken, arşivlenecek (eşleşmeyen) kazanım varsa admin ONAY
+  // VERMEDEN kaydedemez — elle eşleştirilenler (manualOutcomeMerges) zaten sayılmaz, geriye
+  // kalan gerçekten "değişti/kayboldu" sanılacaklar için bilinçli bir onay istiyoruz
+  // (kullanıcının 2026-09-22 ısrarı: sorular sessizce kaybolmasın).
+  const unresolvedArchiveCount = (previewTopicDiffs || []).reduce((n, d) => {
+    const mergedIds = new Set(d.newDescriptions.filter((desc) => manualOutcomeMerges[desc] != null).map((desc) => manualOutcomeMerges[desc]));
+    return n + d.toArchiveOutcomes.filter((o) => !mergedIds.has(o.id)).length;
+  }, 0);
+  const needsArchiveReview = importMode === 'update' && unresolvedArchiveCount > 0 && !archiveReviewConfirmed;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -917,22 +974,52 @@ export default function YillikPlanPanel() {
 
         {!tymmBulkMode ? (
           <>
+            {/* Admin önce niyetini AÇIKÇA seçer — sistem sessizce "var mı yok mu" diye karar
+                vermez. Seçime göre aşağıda uyumsuzluk uyarısı ve (Güncelle'de) arşiv onayı
+                zorunlu hale gelir (kullanıcının 2026-09-22 ısrarı). */}
+            <div className="mb-3">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ne yapıyorsun?</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setImportMode('new')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    importMode === 'new'
+                      ? 'bg-emerald-500 text-white border-emerald-500'
+                      : 'bg-surface text-muted-foreground border-border hover:border-emerald-400'
+                  }`}
+                >
+                  🆕 Yeni Yıllık Plan Ekle
+                </button>
+                <button
+                  onClick={() => setImportMode('update')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    importMode === 'update'
+                      ? 'bg-indigo-500 text-white border-indigo-500'
+                      : 'bg-surface text-muted-foreground border-border hover:border-indigo-400'
+                  }`}
+                >
+                  🔄 Eskisini Güncelle
+                </button>
+              </div>
+            </div>
+
             <div className="mb-3">
               <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">TYMM Ünite URL&apos;i</label>
               <input
                 value={tymmUrl}
                 onChange={(e) => setTymmUrl(e.target.value)}
                 placeholder="https://tymm.meb.gov.tr/.../unite/408"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
+                disabled={!importMode}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400 disabled:opacity-40"
               />
             </div>
 
             <button
               onClick={runTymmFetch}
-              disabled={fetching || !tymmUrl.trim()}
+              disabled={fetching || !tymmUrl.trim() || !importMode}
               className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {fetching ? 'Çekiliyor…' : '👁 Getir ve Önizle'}
+              {fetching ? 'Çekiliyor…' : !importMode ? 'Önce yukarıdan seç' : '👁 Getir ve Önizle'}
             </button>
 
             {fetchErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {fetchErr}</p>}
@@ -951,9 +1038,26 @@ export default function YillikPlanPanel() {
                     onClick={() => setComparePreviewOpen(true)}
                     className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-bold hover:bg-indigo-500/20"
                   >
-                    🔍 Karşılaştır ve Onayla
+                    {importMode === 'update' ? '📊 DB ile Karşılaştır' : '🔍 Önizle ve Onayla'}
                   </button>
                 </div>
+
+                {importMode && previewTopicDiffs && previewTopicDiffs.length > 0 && (
+                  <>
+                    {importMode === 'new' && previewTopicDiffs.some((d) => d.topicExists) && (
+                      <p className="mt-3 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                        ⚠️ &quot;Yeni Ekle&quot; seçtin ama bu ünitenin bazı/tüm konuları DB&apos;de ZATEN VAR — bu aslında bir güncelleme olacak. Emin
+                        değilsen &quot;Eskisini Güncelle&quot;yi seç.
+                      </p>
+                    )}
+                    {importMode === 'update' && previewTopicDiffs.every((d) => !d.topicExists) && (
+                      <p className="mt-3 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                        ⚠️ &quot;Eskisini Güncelle&quot; seçtin ama eşleşen HİÇBİR konu bulunamadı — bu tamamen YENİ bir kayıt oluşturacak. Emin
+                        değilsen &quot;Yeni Yıllık Plan Ekle&quot;yi seç.
+                      </p>
+                    )}
+                  </>
+                )}
                 {saveErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {saveErr}</p>}
               </div>
             )}
@@ -1336,11 +1440,18 @@ export default function YillikPlanPanel() {
           unmatchedLines={previewUnmatched}
           boundaryWarnings={previewBoundaryWarnings}
           rawSections={previewRawSections}
+          topicDiffs={previewTopicDiffs}
+          manualOutcomeMerges={manualOutcomeMerges}
+          onManualMergeChange={setManualOutcomeMerges}
+          unresolvedArchiveCount={importMode === 'update' ? unresolvedArchiveCount : 0}
+          archiveReviewConfirmed={archiveReviewConfirmed}
+          onArchiveReviewChange={setArchiveReviewConfirmed}
+          importMode={importMode}
           onChange={(mutator) => setPreviewUnit((u) => (u ? mutator(u) : u))}
           onClose={() => setComparePreviewOpen(false)}
           saving={saving}
           saveErr={saveErr}
-          canSave={!!lessonId && !!gradeId}
+          canSave={!!lessonId && !!gradeId && !needsArchiveReview}
           onSave={async () => {
             const ok = await runTymmSave();
             if (ok) setComparePreviewOpen(false);
@@ -2373,12 +2484,149 @@ function TymmRawSectionsView({ rawSections }: { rawSections: TymmRawSections | n
 // KAYDETMEDEN ÖNCE karşılaştırma: sol tarafta düzenlenebilir önizleme (TymmUnitEditor),
 // sağda TYMM'den çektiğimiz ham bölümler — admin düzeltmeleri doğrudan burada, kaynağa
 // bakarak yapabilir.
+// Kaydetmeden ÖNCE gösterilen özet kart — hangi konuların aktarılacağını ve her birinde
+// saveTymmUnit'in ne yapacağını (aynı kalacak / yeni / arşivlenecek) tek bakışta gösterir.
+// Sayılar API'den (bkz. app/api/admin/tymm/fetch/route.ts → buildTopicDiffs) geliyor, o da
+// saveTymmUnit ile AYNI (topic_id, description) eşleşme kuralını kullanıyor — burası ayrı
+// bir hesap YAPMIYOR, sadece gösteriyor.
+function TymmSaveDiffSummary({
+  topicDiffs,
+  manualOutcomeMerges,
+  onManualMergeChange,
+}: {
+  topicDiffs: TymmTopicDiff[];
+  manualOutcomeMerges: Record<string, number>;
+  onManualMergeChange?: (next: Record<string, number>) => void;
+}) {
+  const totalToArchive = topicDiffs.reduce((n, d) => n + d.toArchive, 0);
+
+  function setMerge(newDescription: string, oldOutcomeId: number | null) {
+    if (!onManualMergeChange) return;
+    const next = { ...manualOutcomeMerges };
+    if (oldOutcomeId == null) delete next[newDescription];
+    else next[newDescription] = oldOutcomeId;
+    onManualMergeChange(next);
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3.5 mb-3">
+      <p className="text-[11px] font-black text-foreground uppercase tracking-wide mb-2">
+        📋 {topicDiffs.length} konu aktarılacak
+        {totalToArchive > 0 && (
+          <span className="ml-1.5 text-amber-600 dark:text-amber-400">— {totalToArchive} kazanım arşivlenecek, kontrol edin</span>
+        )}
+      </p>
+      <ul className="space-y-2">
+        {topicDiffs.map((d) => (
+          <li key={d.topicTitle} className="text-[11px] leading-relaxed">
+            <span className="font-semibold text-foreground">{d.topicTitle}</span>
+            {' — '}
+            {!d.topicExists ? (
+              <span className="text-indigo-600 dark:text-indigo-300 font-semibold">Yeni konu</span>
+            ) : (
+              <>
+                {d.unchanged > 0 && <span className="text-muted-foreground">{d.unchanged} kazanım aynı kalacak</span>}
+                {d.unchanged > 0 && (d.new > 0 || d.toArchive > 0) && <span className="text-muted-foreground"> · </span>}
+                {d.new > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{d.new} yeni</span>}
+                {d.new > 0 && d.toArchive > 0 && <span className="text-muted-foreground"> · </span>}
+                {d.toArchive > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">{d.toArchive} arşivlenecek</span>
+                )}
+                {d.unchanged === 0 && d.new === 0 && d.toArchive === 0 && (
+                  <span className="text-muted-foreground">değişiklik yok</span>
+                )}
+              </>
+            )}
+
+            {/* Ham metin karşılaştırması: hem yeni (TYMM) hem eski (DB) kazanımların TAM metnini
+                yan yana gösteriyoruz — kırpılmış/gizli hiçbir şey yok, admin 1-2 kelimelik farkı
+                gözle görebilsin diye (kullanıcının 2026-09-22 ısrarı: "nereden karşılaştıracam"). */}
+            {d.topicExists && (d.newDescriptions.length > 0 || d.toArchiveOutcomes.length > 0) && (
+              <div className="mt-2 ml-3 space-y-2.5">
+                {d.newDescriptions.length > 0 && d.toArchiveOutcomes.length > 0 && onManualMergeChange && (
+                  <div className="space-y-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
+                    <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                      Bunlardan biri eski bir kazanımın güncellenmiş hali olabilir — TAM metinleri karşılaştır ve eşleştir:
+                    </p>
+                    {d.newDescriptions.map((desc) => {
+                      const mergedId = manualOutcomeMerges[desc];
+                      const mergedOld = mergedId != null ? d.toArchiveOutcomes.find((o) => o.id === mergedId) : null;
+                      return (
+                        <div key={desc} className="rounded-md border border-border bg-background p-2 space-y-1.5">
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-wide text-emerald-600 dark:text-emerald-400">TYMM&apos;den yeni</p>
+                            <p className="text-foreground">{desc}</p>
+                          </div>
+                          <select
+                            value={mergedId ?? ''}
+                            onChange={(e) => setMerge(desc, e.target.value ? Number(e.target.value) : null)}
+                            className="w-full rounded border border-border bg-surface px-1.5 py-1 text-[10px] text-foreground"
+                          >
+                            <option value="">— Eşleşme yok, yeni kazanım olarak ekle</option>
+                            {d.toArchiveOutcomes.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                DB&apos;deki #{o.id} ile eşleştir (güncelle)
+                              </option>
+                            ))}
+                          </select>
+                          {mergedOld && (
+                            <div className="rounded bg-amber-500/10 p-1.5">
+                              <p className="text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                Eşleştirdiğin DB&apos;deki eski metin
+                              </p>
+                              <p className="text-foreground/80">{mergedOld.description}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {d.newDescriptions.length > 0 && (d.toArchiveOutcomes.length === 0 || !onManualMergeChange) && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Yeni eklenecek kazanımlar</p>
+                    {d.newDescriptions.map((desc) => (
+                      <p key={desc} className="text-foreground/80">{desc}</p>
+                    ))}
+                  </div>
+                )}
+                {(() => {
+                  const mergedIds = new Set(Object.values(manualOutcomeMerges));
+                  const unmatched = d.toArchiveOutcomes.filter((o) => !mergedIds.has(o.id));
+                  if (!unmatched.length) return null;
+                  return (
+                    <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-red-700 dark:text-red-300">
+                        Hiçbir yeniyle eşleştirilmedi — arşivlenecek (DB&apos;deki tam metin)
+                      </p>
+                      {unmatched.map((o) => (
+                        <p key={o.id} className="text-foreground/80">{o.description}</p>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function TymmPreviewCompareModal({
   tymmUrl,
   unit,
   unmatchedLines,
   boundaryWarnings,
   rawSections,
+  topicDiffs,
+  manualOutcomeMerges,
+  onManualMergeChange,
+  unresolvedArchiveCount,
+  archiveReviewConfirmed,
+  onArchiveReviewChange,
+  importMode,
   onChange,
   onClose,
   saving,
@@ -2391,6 +2639,13 @@ function TymmPreviewCompareModal({
   unmatchedLines: string[];
   boundaryWarnings: string[];
   rawSections: TymmRawSections | null;
+  topicDiffs?: TymmTopicDiff[];
+  manualOutcomeMerges?: Record<string, number>;
+  onManualMergeChange?: (next: Record<string, number>) => void;
+  unresolvedArchiveCount?: number;
+  archiveReviewConfirmed?: boolean;
+  onArchiveReviewChange?: (v: boolean) => void;
+  importMode?: 'new' | 'update' | null;
   onChange: (mutator: (u: TymmUnit) => TymmUnit) => void;
   onClose: () => void;
   saving: boolean;
@@ -2398,27 +2653,75 @@ function TymmPreviewCompareModal({
   canSave: boolean;
   onSave: () => void;
 }) {
+  // "Eskisini Güncelle" GERÇEKTEN 2 aşamalı: önce SADECE karşılaştırma (kaydetme butonu
+  // görünmez bile), admin "İncelemeyi Bitirdim" deyip geçmeden kaydetme adımına ulaşamaz.
+  // "Yeni Ekle"de karşılaştıracak eski bir şey olmadığı için tek adım yeterli (kullanıcının
+  // 2026-09-22 ısrarı: "onayla ve kaydet yerine önce db ile karşılaştır butonu olsa").
+  const [step, setStep] = useState<'compare' | 'save'>(importMode === 'update' ? 'compare' : 'save');
+  const readyToProceed = !unresolvedArchiveCount || archiveReviewConfirmed;
+
   return (
     <SplitCompareView
-      title={`${unit.unitTitle} — Önizleme (düzenlenebilir)`}
+      title={`${unit.unitTitle} — ${step === 'compare' ? 'DB ile Karşılaştır' : 'Onayla ve Kaydet'}`}
       tymmUrl={tymmUrl}
       onClose={onClose}
       left={
         <>
-          <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} boundaryWarnings={boundaryWarnings} rawSections={rawSections} onChange={onChange} />
-          {!canSave && (
-            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-4">
-              ⚠️ Kaydetmeden önce Sınıf ve Ders seçin.
-            </p>
+          {topicDiffs && topicDiffs.length > 0 && (
+            <TymmSaveDiffSummary topicDiffs={topicDiffs} manualOutcomeMerges={manualOutcomeMerges || {}} onManualMergeChange={onManualMergeChange} />
           )}
-          {saveErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {saveErr}</p>}
-          <button
-            onClick={onSave}
-            disabled={saving || !canSave}
-            className="mt-4 px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Kaydediliyor…' : '✅ Onayla ve Kaydet'}
-          </button>
+
+          {step === 'compare' ? (
+            <>
+              <TymmUnitEditor unit={unit} unmatchedLines={unmatchedLines} boundaryWarnings={boundaryWarnings} rawSections={rawSections} onChange={onChange} />
+              {!!unresolvedArchiveCount && onArchiveReviewChange && (
+                <label className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!archiveReviewConfirmed}
+                    onChange={(e) => onArchiveReviewChange(e.target.checked)}
+                    className="mt-0.5 accent-amber-500"
+                  />
+                  <span>
+                    <strong>{unresolvedArchiveCount} kazanım arşivlenecek</strong> (yukarıda eşleştirilmemiş olanlar) — bunların gerçekten
+                    farklı/eski kazanımlar olduğunu, birer kelime farkıyla aynı kazanım olmadığını yukarıdaki tam metinlerden kontrol ettim.
+                  </span>
+                </label>
+              )}
+              <button
+                onClick={() => setStep('save')}
+                disabled={!readyToProceed}
+                className="mt-4 px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                İncelemeyi Bitirdim, Kaydetmeye Geç →
+              </button>
+            </>
+          ) : (
+            <>
+              {importMode === 'update' && (
+                <button onClick={() => setStep('compare')} className="mb-3 text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:underline">
+                  ← Karşılaştırmaya dön
+                </button>
+              )}
+              <p className="text-[11px] text-muted-foreground mb-3">
+                {unit.unitTitle} — {new Set(unit.learningOutcomes.map((o) => o.topicTitle)).size} konu ·{' '}
+                {unit.learningOutcomes.reduce((n, o) => n + o.components.length, 0)} kazanım DB&apos;ye yazılacak.
+              </p>
+              {!canSave && !unresolvedArchiveCount && (
+                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+                  ⚠️ Kaydetmeden önce Sınıf ve Ders seçin.
+                </p>
+              )}
+              {saveErr && <p className="text-sm text-red-600 dark:text-red-400 mb-3">❌ {saveErr}</p>}
+              <button
+                onClick={onSave}
+                disabled={saving || !canSave}
+                className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Kaydediliyor…' : '✅ Onayla ve Kaydet'}
+              </button>
+            </>
+          )}
         </>
       }
       right={<TymmRawSectionsView rawSections={rawSections} />}

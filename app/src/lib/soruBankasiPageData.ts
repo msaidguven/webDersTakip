@@ -166,7 +166,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   const unitIds = units.map((u) => u.id);
   const [questionCountByUnit, { data: topicRows }] = await Promise.all([
     getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true, excludeClassical: true }),
-    supabase.from('topics').select('id, unit_id, order_no').in('unit_id', unitIds).eq('is_active', true).order('order_no', { ascending: true }),
+    supabase.from('topics').select('id, unit_id, order_no').in('unit_id', unitIds).eq('is_active', true).eq('is_archived', false).order('order_no', { ascending: true }),
   ]);
   const topicIdsByUnit = new Map<number, number[]>();
   const topicCountByUnit = new Map<number, number>();
@@ -238,7 +238,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const unit = (unitRows as { id: number; title: string; slug: string | null }[] | null)?.[0] || null;
   if (!unit) return null;
 
-  const topicQuery = supabase.from('topics').select('id, title, slug, order_no').eq('unit_id', unit.id).eq('is_active', true);
+  const topicQuery = supabase.from('topics').select('id, title, slug, order_no').eq('unit_id', unit.id).eq('is_active', true).eq('is_archived', false);
   const { data: topicRows } = await topicQuery.order('order_no', { ascending: true });
   const topics = (topicRows as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
 

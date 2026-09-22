@@ -95,12 +95,32 @@ export function norm(s: string): string {
   return s.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+// SADECE ünite başlığı eşleştirmesinde kullanılır. TYMM zaman zaman ünite başlığının başına
+// "1. Öğrenme Alanı: ", "2. Ünite: " gibi bir sıra numarası + etiket ekliyor; DB'deki ünite
+// bu önek olmadan kayıtlı olduğu için salt norm() ile birebir eşleşme başarısız oluyor ve
+// (kullanıcının 2026-09-22 bulduğu bug) mevcut ünite yerine YEPYENİ, mükerrer bir ünite
+// oluşturuluyordu. Her iki taraftan da bu öneği (varsa) atıyoruz ki DB'de öneksiz/önekli
+// hangi şekilde kayıtlıysa olsun eşleşsin.
+export function normUnitTitleForMatch(s: string): string {
+  return norm(s).replace(/^\d+\s*[.)]\s*[^:]{1,60}:\s*/, '');
+}
+
+// normUnitTitleForMatch'in aksine BÜYÜK/KÜÇÜK HARFİ KORUYARAK aynı öneki atar — yeni bir
+// ünite ilk kez oluşturulurken DB'ye "1. Öğrenme Alanı: Birlikte Yaşamak" gibi çirkin/
+// tutarsız bir başlık YAZILMASIN diye (parser normalde bu öneki zaten ayıklıyor, bkz.
+// tymmParser.ts unitNumberMatch — bu sadece o ayıklama bir sebeple başarısız olursa devreye
+// giren bir güvenlik ağı).
+export function stripUnitTitleNumberPrefix(s: string): string {
+  const trimmed = s.trim().replace(/\s+/g, ' ');
+  return trimmed.replace(/^\d+\s*[.)]\s*[^:]{1,60}:\s*/, '').trim() || trimmed;
+}
+
 // SADECE kazanım/öğrenme çıktısı METNİ karşılaştırmasında kullanılır (yapısal eşleştirmede
 // — konu/ünite başlığı, kod — DEĞİL). norm()'a ek olarak: noktalama işaretlerini atar ve
 // Türkçe noktalı/noktasız I/İ/ı/i farkını yok sayar (ör. "Varsayımı" ile "Varsayımi" aynı
 // sayılır) — kullanıcının 2026-09-20 isteği: "ufak tefek boşluk, harf, nokta vb karakterleri
 // ihmal edebiliyorsa etsin".
-function fuzzyNorm(s: string): string {
+export function fuzzyNorm(s: string): string {
   return norm(s)
     .replace(/İ/g, 'i')
     .replace(/I/g, 'i')
@@ -398,6 +418,6 @@ export function dbOnlyUnitDiffs(dbUnits: DbUnit[], matchedDbIds: Set<number>, ov
 }
 
 export function findDbUnitMatch(dbUnits: DbUnit[], tymmTitle: string): DbUnit | undefined {
-  const target = norm(tymmTitle);
-  return dbUnits.find((u) => norm(u.title) === target);
+  const target = normUnitTitleForMatch(tymmTitle);
+  return dbUnits.find((u) => normUnitTitleForMatch(u.title) === target);
 }

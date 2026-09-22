@@ -27,6 +27,7 @@ import {
   Share2,
   Download,
   Settings2,
+  Info,
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
@@ -34,6 +35,7 @@ import SectionContent from './SectionContent';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, TopicTestCta, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
 import {
   type Outcome,
@@ -1956,12 +1958,35 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </div>
                     )}
 
+                    {activeTopic?.isArchived && (
+                      <Alert className="not-prose mb-8 sm:mb-10 border-amber-200 bg-amber-50 text-amber-900">
+                        <Info className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-amber-900">Arşivlenmiş konu</AlertTitle>
+                        <AlertDescription className="text-amber-800">
+                          Bu konu güncel müfredatta yer almıyor, genel kültür amaçlı yayında tutuluyor.{' '}
+                          {gradeSlug && lessonSlug && activeUnitSlug && (
+                            <Link href={`/${gradeSlug}/${lessonSlug}/${activeUnitSlug}`} className="font-bold underline">
+                              {unitTitle} ünitesine dön
+                            </Link>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     {/* Sunum — varsayılan olarak gömülü gösteriliyor, sağ üstteki büyüteç
                         ikonuyla tam ekrana geçiliyor (kullanıcının 2026-09-20 isteği). Hata/eski
                         içerik uyarısı sadece admin'e gösterilir, öğrenci için sessizce boş kalır. */}
                     {activeTopic && slideDeck && (
                       <div className="not-prose mb-8 sm:mb-10">
-                        <SlidePlayer deck={slideDeck} topicId={Number(activeTopic.id)} variant="embedded" onExpand={() => setSlideDeckExpanded(true)} />
+                        <SlidePlayer
+                          deck={slideDeck}
+                          topicId={Number(activeTopic.id)}
+                          gradeId={Number(gradeId)}
+                          lessonId={Number(lessonId)}
+                          unitId={activeUnit?.id ?? null}
+                          variant="embedded"
+                          onExpand={() => setSlideDeckExpanded(true)}
+                        />
                         {isAdmin && slideDeck.hasStaleSections && activeTopic && (
                           <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
                             ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
@@ -1978,7 +2003,15 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </div>
                     )}
                     {activeTopic && slideDeckExpanded && slideDeck && typeof document !== 'undefined' && createPortal(
-                      <SlidePlayer deck={slideDeck} topicId={Number(activeTopic.id)} variant="overlay" onClose={() => setSlideDeckExpanded(false)} />,
+                      <SlidePlayer
+                        deck={slideDeck}
+                        topicId={Number(activeTopic.id)}
+                        gradeId={Number(gradeId)}
+                        lessonId={Number(lessonId)}
+                        unitId={activeUnit?.id ?? null}
+                        variant="overlay"
+                        onClose={() => setSlideDeckExpanded(false)}
+                      />,
                       document.body
                     )}
                     {activeTopic?.heroImageUrl && (

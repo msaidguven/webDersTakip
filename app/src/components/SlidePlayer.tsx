@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Minus, PartyPopper, Plus, Trophy, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks, Loader2, Maximize2, Minimize2, Minus, PartyPopper, Plus, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { useAuth } from '@/app/src/context/AuthContext';
 
 // Her "section" slaydına, sırayla değişen bir renk teması atanıyor — konu boyunca hep aynı
 // mor tonu görmek yerine slayttan slayta renk değişimi, aynı içeriğin tek düze/sıkıcı
@@ -30,6 +31,11 @@ const ACCENTS = [
 const MIN_FONT_SCALE = 1;
 const MAX_FONT_SCALE = 2.5;
 const FONT_SCALE_STEP = 0.25;
+
+// Soru fazındaki numara şeridi kayan bir pencere: her zaman 10 numara görünür, ‹/› butonları
+// pencereyi 5'er kaydırır (1-10, sonra 5-15, ...) — kullanıcının 2026-09-22 isteği.
+const PILL_WINDOW_SIZE = 10;
+const PILL_PAGE_STEP = 5;
 
 // Görsel/diyagram olmayan section slaytları için dekoratif, konu-nötr bir desen — her slayt
 // bomboş/yazı-yığını gibi hissetmesin diye. Rastgele değil (SSR/hydration'da tutarlı olsun
@@ -67,9 +73,19 @@ function DecorativePattern({ seed, from, to }: { seed: number; from: string; to:
 type SlidePlayerProps = {
   deck: SlideDeck;
   // Sunum bitince "Soruları Çöz" adımı için konunun soru bankasını çekmek amacıyla lazım
-  // (bkz. /api/topics/[topicId]/all-questions) — istatistik/oturum tutulmuyor, sadece
-  // öğretmenin akıllı tahtada sırayla gösterip çözdürmesi için (kullanıcının 2026-09-21 isteği).
+  // (bkz. /api/topics/[topicId]/all-questions) — öğretmen akıllı tahtada sırayla gösterip
+  // çözdürüyor (kullanıcının 2026-09-21 isteği); giriş yapmış bir öğrenci içinse istatistiğe
+  // de yazılıyor (bkz. recordSlideQuizAnswer).
   topicId: number;
+  // İstatistik kaydı (test_sessions) için — grade_id ZORUNLU: sync_user_question_stats_on_answer
+  // trigger'ı grade_id NULL olan bir oturumun cevaplarını SESSİZCE user_question_stats'a
+  // YAZMIYOR (bkz. o migration'daki "IF v_grade_id IS NULL THEN RETURN NEW" satırı) — bu
+  // ikisi verilmeden test_session_answers'a satır düşse bile SRS/panel/liderlik tablosu hiç
+  // güncellenmez (kullanıcının 2026-09-22 "çözdüm ama görünmedi" bulduğu gerçek bug).
+  // lessonId/unitId zorunlu değil ama tutarlılık için veriliyorsa geçiliyor.
+  gradeId?: number | null;
+  lessonId?: number | null;
+  unitId?: number | null;
   // 'overlay' (varsayılan): tam ekranı kaplayan, karartılmış arka planlı sunum modu (Escape/X
   // ile kapanır). 'embedded': ders sayfasına gömülü, normal sayfa akışında bir kart — kapatma
   // yok, sağ üstte sadece "tam ekranda aç" (onExpand) butonu var.
@@ -78,7 +94,7 @@ type SlidePlayerProps = {
   onExpand?: () => void;
 };
 
-export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClose, onExpand }: SlidePlayerProps) {
+export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = null, unitId = null, variant = 'overlay', onClose, onExpand }: SlidePlayerProps) {
   const [index, setIndex] = useState(0);
   // Bir "section" slaydına ilk girildiğinde madde listesi tek seferde değil, ok tuşuna/
   // "İleri"ye her basışta bir madde daha açılarak (kademeli) gösterilir — öğretmenin sınıfta
@@ -104,14 +120,43 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
   // bankası aynı tam ekran kabukta, slayt slayt (1 soru/slayt) gösteriliyor.
   const [phase, setPhase] = useState<'slides' | 'outro' | 'questions'>('slides');
   const [qIndex, setQIndex] = useState(0);
+  const [pillStart, setPillStart] = useState(0);
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
-  // Sadece bu ekranda geçerli, kayıt/istatistik YOK — geri gidince önceki tıklamalar
-  // kaybolmasın diye soru component'leri hiç unmount edilmiyor (bkz. questions.map aşağıda),
-  // bu map de sadece "D:/Y:" sayacı için — onAnswered zaten her soru en fazla bir kez tetikler.
+  // API, giriş yapmış kullanıcıda TÜM soruları değil kişiselleştirilmiş 10'luk bir parti
+  // döndürüyor (bkz. /api/topics/[topicId]/all-questions, kullanıcının 2026-09-22 isteği) —
+  // personalized bunu ayırt etmek için (misafirde false, tüm sorular gelir), allCaughtUp
+  // "havuzda şu an çözülmeye uygun hiçbir soru kalmadı" (hepsi ustalaşılmış) durumunu mini
+  // özet ekranında bir not olarak göstermek için.
+  const [questionsPersonalized, setQuestionsPersonalized] = useState(false);
+  const [questionsAllCaughtUp, setQuestionsAllCaughtUp] = useState(false);
+  // Kişiselleştirilmiş 10'luk parti bitince ("Bitir"e basılınca) mini bir özet ekranı
+  // gösterip "Yeni 10 Soru Çöz" ile bir sonraki partiye geçilebiliyor — phase 'questions'
+  // olarak kalıyor, sadece bu bayrak soru kartı yerine özet kartını render ettiriyor (yeni
+  // bir phase değeri açıp header/nav'daki onlarca `phase !== 'outro'` kontrolünü tek tek
+  // güncellemek yerine).
+  const [showBatchResult, setShowBatchResult] = useState(false);
+  // Geri gidince önceki tıklamalar kaybolmasın diye soru component'leri hiç unmount
+  // edilmiyor (bkz. questions.map aşağıda) — bu map "D:/Y:" sayacı için; ayrıca giriş yapmış
+  // kullanıcıda aşağıdaki recordAnswer'ı tetikleyen onAnswered de aynı map'i dolduruyor.
   const [answeredMap, setAnsweredMap] = useState<Record<number, 'correct' | 'incorrect' | 'revealed'>>({});
   const [questionsAttempt, setQuestionsAttempt] = useState(0);
+
+  // Giriş yapmış öğrenci evde tek başına slayttan soru çözüyorsa bu da istatistiğe (SRS,
+  // panel, liderlik tablosu) yansımalı — aksi halde emeği boşa gider (kullanıcının 2026-09-22
+  // isteği). QuizClient'taki AYNI test_sessions/test_session_answers akışının daha sade bir
+  // kopyası: burada resume/"Tekrar Çöz"/klasik(açık uçlu) soru YOK (konu havuzu zaten
+  // question_type_id=4'ü hariç tutuyor, bkz. getTopicQuestionPoolIds), o yüzden QuizClient'ın
+  // tüm karmaşıklığını buraya taşımak yerine küçük, bu ekrana özel bir sürüm yazıldı.
+  // Misafirde (isAuthenticated=false — akıllı tahtadaki tipik durum) hiçbir şey kaydedilmez.
+  const { isAuthenticated, user, supabase } = useAuth();
+  const [quizSessionId, setQuizSessionId] = useState<number | null>(null);
+  const [hasAnsweredOnceInSlides, setHasAnsweredOnceInSlides] = useState(false);
+  const quizClientIdRef = useRef<string>('');
+  const quizSessionQuestionsKeyRef = useRef<string | null>(null);
+  const quizPendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
+  const questionStartRef = useRef<number>(0);
   // Her soru KaTeX ile matematik render ediyor (bkz. topicContentV11.renderPlainTextMath) —
   // hepsini "Soruları Çöz"de tek seferde mount edersek (eskiden öyleydi) konu 20-30 soruluksa
   // ana thread'i bloke edip sunumu donmuş gibi hissettiriyordu (kullanıcının 2026-09-21
@@ -130,13 +175,158 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setQIndex(0);
     setQuestions(null);
     setQuestionsError(null);
+    setQuestionsPersonalized(false);
+    setQuestionsAllCaughtUp(false);
+    setShowBatchResult(false);
     setAnsweredMap({});
     setMountedQIndexes(new Set());
     setAnimKey((k) => k + 1);
+    setQuizSessionId(null);
+    setHasAnsweredOnceInSlides(false);
+    quizSessionQuestionsKeyRef.current = null;
+    quizPendingAnswersRef.current = [];
   }, [topicId]);
 
+  // clientId'yi mount'ta bir kez oluşturur (test_session_answers.client_id NOT NULL) —
+  // QuizClient'taki aynı desen (bkz. o dosyadaki clientIdRef efekti).
   useEffect(() => {
-    if (phase !== 'outro' || questions !== null || questionsLoading) return;
+    if (!quizClientIdRef.current) {
+      quizClientIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    }
+  }, []);
+
+  // Giriş yapmış kullanıcı ilk cevabı verince (hasAnsweredOnceInSlides) bu soru setiyle bir
+  // test_sessions kaydı açar — session, tıklayıp hiç soru çözmeden çıkanlar için anlamsız bir
+  // "yarım kalan test" oluşturmasın diye sayfa açılır açılmaz değil, İLK CEVAPTA açılıyor
+  // (QuizClient ile aynı gerekçe). Tüm sorular cevaplanınca (auto_complete_web_quiz_session
+  // trigger'ı) oturum kendiliğinden tamamlanmış sayılır — burada ayrıca finish_test_session
+  // çağırmaya gerek yok.
+  useEffect(() => {
+    if (!isAuthenticated || !user || !questions || questions.length === 0 || !hasAnsweredOnceInSlides) return;
+    const questionsKey = questions.map((q) => q.id).join(',');
+    if (quizSessionQuestionsKeyRef.current === questionsKey) return;
+    quizSessionQuestionsKeyRef.current = questionsKey;
+
+    if (!quizClientIdRef.current) {
+      quizClientIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    }
+
+    // test_session_questions.order_no'da DB'de CHECK (order_no >= 1 AND order_no <= 10) var
+    // (uygulama genelinde MAX_QUESTIONS_PER_TEST=10 ile eşleşen sabit bir sınır) — SlidePlayer
+    // konunun TÜM sorularını (bazı konularda 10'dan fazla) göndermeye çalışınca bu kısıt tüm
+    // RPC'yi başarısız kılıp session'ın hiç açılmamasına yol açıyordu (kullanıcının "çözdüm ama
+    // hiçbir şey görünmedi" bulduğu gerçek bug — "start_web_quiz_session error: ... order_check
+    // violates"). Sadece bu "atama" adımı 10'a kesiliyor; questions zaten SRS'e göre öncelik
+    // sıralı geldiği için (bkz. getAllTopicQuestionsPrioritized) ilk 10 zaten en değerlileri.
+    // Bunun ötesinde cevaplanan sorular da (recordSlideQuizAnswer) YİNE user_question_stats'a
+    // yazılır — o kayıt bu 10'luk atama listesine bağlı değil, her cevapta ayrı çalışır.
+    const assignedQuestionIds = questions.slice(0, MAX_QUESTIONS_PER_TEST).map((q) => q.id);
+
+    supabase
+      .rpc('start_web_quiz_session', {
+        p_client_id: quizClientIdRef.current,
+        p_grade_id: gradeId,
+        p_lesson_id: lessonId,
+        p_unit_id: unitId,
+        p_topic_id: topicId,
+        p_question_ids: assignedQuestionIds,
+      })
+      .then(({ data, error }: { data: number | null; error: { message: string } | null }) => {
+        if (error) {
+          console.error('start_web_quiz_session error:', error.message);
+          return;
+        }
+        if (typeof data === 'number') setQuizSessionId(data);
+      });
+    // user (nesne) yerine user?.id: bkz. QuizClient'taki aynı efektin gerekçesi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id, questions, hasAnsweredOnceInSlides, supabase, topicId, gradeId, lessonId, unitId]);
+
+  // sessionId hazır olduğunda, ondan önce (hızlı cevaplayan kullanıcıda) kuyruklanmış
+  // cevapları gönderir — bkz. QuizClient'taki syncSession ile aynı desen, sadece burada
+  // "test bitince finish_test_session çağır" adımı YOK (auto-complete trigger'ı yeterli).
+  useEffect(() => {
+    if (quizSessionId == null || !user) return;
+    if (quizPendingAnswersRef.current.length === 0) return;
+    const toFlush = quizPendingAnswersRef.current;
+    quizPendingAnswersRef.current = [];
+    supabase
+      .from('test_session_answers')
+      .insert(
+        toFlush.map((a) => ({
+          test_session_id: quizSessionId,
+          question_id: a.questionId,
+          user_id: user.id,
+          client_id: quizClientIdRef.current,
+          is_correct: a.isCorrect,
+          duration_seconds: a.durationSeconds,
+        }))
+      )
+      .then(({ error }: { error: { message: string } | null }) => {
+        if (error) console.error('test_session_answers flush error:', error.message);
+      });
+    // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
+    // kullanıcı için bile yeni bir referansla gelir — bkz. QuizClient'taki aynı gerekçe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizSessionId, user?.id, supabase]);
+
+  // Her sorunun görülme anını tutar (duration_seconds için) — soru değişince sıfırlanır.
+  useEffect(() => {
+    questionStartRef.current = Date.now();
+  }, [qIndex, questionsAttempt]);
+
+  const recordSlideQuizAnswer = useCallback(
+    (questionId: number, isCorrect: boolean) => {
+      if (!isAuthenticated || !user) return;
+      if (!hasAnsweredOnceInSlides) setHasAnsweredOnceInSlides(true);
+      const durationSeconds = Math.max(0, Math.round((Date.now() - questionStartRef.current) / 1000));
+      if (quizSessionId == null) {
+        quizPendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds });
+        return;
+      }
+      supabase
+        .from('test_session_answers')
+        .insert({
+          test_session_id: quizSessionId,
+          question_id: questionId,
+          user_id: user.id,
+          client_id: quizClientIdRef.current,
+          is_correct: isCorrect,
+          duration_seconds: durationSeconds,
+        })
+        .then(({ error }: { error: { message: string } | null }) => {
+          if (error) console.error('test_session_answers insert error:', error.message);
+        });
+    },
+    // user (nesne) yerine user?.id — bkz. yukarıdaki flush efektindeki aynı gerekçe. Bu
+    // fonksiyonun referansı sabit kalmalı ki aşağıdaki handleQuestionAnswered (ve dolayısıyla
+    // memo'lu QuestionAnswerKeyItem) gereksiz yere değişmesin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAuthenticated, user?.id, hasAnsweredOnceInSlides, quizSessionId, supabase]
+  );
+
+  // Tüm mount'lu QuestionAnswerKeyItem'lara AYNI referansla geçiliyor (bkz. yukarıdaki
+  // memo notu) — inline bir arrow function yerine burada tanımlanması, soru cevaplanınca
+  // sadece o soru değil, önceden görülmüş/hidden tüm sorular da yeniden render edilip
+  // "donuk/yavaş" hissettirmesin diye (kullanıcının 2026-09-22 şikayeti).
+  const handleQuestionAnswered = useCallback(
+    (id: number, status: 'correct' | 'incorrect' | 'revealed') => {
+      setAnsweredMap((m) => ({ ...m, [id]: status }));
+      // Klasik (açık uçlu) soru bu havuzda hiç yok (question_type_id=4 hariç tutuluyor),
+      // yani 'revealed' burada pratikte oluşmaz — yine de güvenlik için sadece
+      // correct/incorrect istatistiğe yazılır.
+      if (status === 'correct' || status === 'incorrect') {
+        recordSlideQuizAnswer(id, status === 'correct');
+      }
+    },
+    [recordSlideQuizAnswer]
+  );
+
+  useEffect(() => {
+    // Eskiden sadece 'outro' (tebrik ekranı) fazında tetikleniyordu — artık üst çubuktaki
+    // "Sorulara Geç" kısayolu (bkz. jumpToQuestions) slaytları atlayıp doğrudan 'questions'
+    // fazına geçebildiği için, sorular henüz yüklenmemişse o fazda da fetch tetiklenmeli.
+    if ((phase !== 'outro' && phase !== 'questions') || questions !== null || questionsLoading) return;
     setQuestionsLoading(true);
     setQuestionsError(null);
     fetch(`/api/topics/${topicId}/all-questions`)
@@ -144,6 +334,8 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
         if (!res.ok) throw new Error();
         const data = await res.json();
         setQuestions((data.questions as QuizQuestion[]) || []);
+        setQuestionsPersonalized(!!data.personalized);
+        setQuestionsAllCaughtUp(!!data.allCaughtUp);
       })
       .catch(() => setQuestionsError('Sorular yüklenemedi.'))
       .finally(() => setQuestionsLoading(false));
@@ -160,10 +352,22 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setPhase('questions');
     setQIndex(0);
     setAnsweredMap({});
+    setShowBatchResult(false);
     setMountedQIndexes(new Set([0]));
     setQuestionsAttempt((a) => a + 1);
     setAnimKey((k) => k + 1);
   }, []);
+
+  // Kişiselleştirilmiş 10'luk parti bitince mini özet ekranındaki "Yeni 10 Soru Çöz" —
+  // questions'ı null'a çekmek fetch efektini yeniden tetikler (o efekt sadece questions===null
+  // iken çalışıyor); artık her cevap user_question_stats'a işlendiği için API'nin bir
+  // sonraki çağrısı doğal olarak farklı (yeni öncelikli) bir 10'luk parti döndürür — ayrıca
+  // bir "offset" bilgisi tutmaya gerek yok.
+  const startNewBatch = useCallback(() => {
+    setQuestions(null);
+    setQuestionsError(null);
+    startQuestions();
+  }, [startQuestions]);
 
   const goPrev = useCallback(() => {
     if (phase === 'questions') {
@@ -187,6 +391,14 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
       if (questions && qIndex < questions.length - 1) {
         setQIndex((q) => q + 1);
         setAnimKey((k) => k + 1);
+        return;
+      }
+      // Son soru: kişiselleştirilmiş (giriş yapmış) 10'luk partide, son soru da
+      // cevaplandıysa "Bitir"e basmak mini özet ekranını açar. Misafirde (tüm sorular,
+      // kişiselleştirme yok) bu adım hiç yok — eskisi gibi son soruda hiçbir şey olmaz.
+      if (questionsPersonalized && questions && answeredMap[questions[qIndex]?.id] != null) {
+        setShowBatchResult(true);
+        setAnimKey((k) => k + 1);
       }
       return;
     }
@@ -206,7 +418,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     }
     setPhase('outro');
     setAnimKey((k) => k + 1);
-  }, [phase, qIndex, questions, bulletsLeft, index, total, startQuestions]);
+  }, [phase, qIndex, questions, bulletsLeft, index, total, startQuestions, questionsPersonalized, answeredMap]);
 
   const jumpTo = useCallback((i: number) => {
     if (phase === 'questions') {
@@ -232,19 +444,11 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     }
   }, []);
 
-  // Kaydırma (swipe) ile tıklamanın davranışı kasten farklı: tıklama maddeleri tek tek açar
-  // (bkz. revealUpTo/goNext), ama swipe'ta öğretmen/öğrenci genelde "bu slaytla işim bitti,
-  // sıradakine geç" demek istiyor — bu yüzden bir kaydırmada önce kalan tüm maddeler birden
-  // açılıyor, henüz açılmamış madde kalmıyorsa (ya da slayt bölüm değilse) bir sonraki
-  // kaydırmada slayt/soru değişiyor (kullanıcının 2026-09-21 isteği).
-  const swipeNext = useCallback(() => {
-    if (phase === 'slides' && slide.kind === 'section' && bulletsLeft > 0) {
-      setRevealedCount(slide.bullets.length);
-      return;
-    }
-    goNext();
-  }, [phase, slide, bulletsLeft, goNext]);
-
+  // Eskiden kaydırma (swipe) bir slaytın KALAN TÜM maddelerini birden açıyordu ("bu slaytla
+  // işim bitti, sıradakine geç" niyeti) — ama mobilde artık her adımda TEK madde tam ekran
+  // gösteriliyor (kullanıcının 2026-09-22 isteği), bu yüzden swipe da tıklama/"İleri" ile
+  // AYNI tek-adım mantığına (goNext) bağlandı; aksi halde bir kaydırma mobildeki tüm madde
+  // sayfalarını atlayıp doğrudan slaydın sonuna zıplardı.
   const SWIPE_MIN_DISTANCE = 48;
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -258,9 +462,9 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx < 0) swipeNext();
+    if (dx < 0) goNext();
     else goPrev();
-  }, [lightbox, swipeNext, goPrev]);
+  }, [lightbox, goNext, goPrev]);
 
   const isOverlay = variant === 'overlay';
 
@@ -317,6 +521,20 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
     setMountedQIndexes((prev) => (prev.has(qIndex) ? prev : new Set(prev).add(qIndex)));
   }, [phase, qIndex]);
 
+  // İleri/geri okuyla ya da swipe ile soru değiştirildiğinde, o soru şu an görünen 10'luk
+  // pencerenin dışına çıktıysa numara şeridi de otomatik o soruyu içeren pencereye kayar —
+  // aksi halde "Sonraki"ye basınca aktif soru numarası şeritte görünmeyen bir yerde kalırdı.
+  // Pencere hâlâ görünürdeyse dokunmuyor, aksi halde << >> ile elle gezinirken her soru
+  // değişiminde pencere sıfırlanırdı.
+  useEffect(() => {
+    if (phase !== 'questions' || !questions) return;
+    setPillStart((s) => {
+      if (qIndex >= s && qIndex < s + PILL_WINDOW_SIZE) return s;
+      const maxStart = Math.max(0, questions.length - PILL_WINDOW_SIZE);
+      return Math.min(maxStart, Math.floor(qIndex / PILL_PAGE_STEP) * PILL_PAGE_STEP);
+    });
+  }, [phase, qIndex, questions]);
+
   useEffect(() => {
     if (!lightbox) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -361,10 +579,13 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           : undefined
       }
     >
-      {/* Embedded (ders sayfasına gömülü) varyant eskiden max-w-5xl'de sabitti — sayfadaki
-          diğer içerikle kıyaslandığında küçük/sıkışık duruyordu (kullanıcının 2026-09-22
-          "slaytı biraz daha büyütelim" isteği). */}
-      <div className={`flex flex-col items-center gap-3 w-full ${isOverlay ? '' : 'max-w-6xl'}`}>
+      {/* Embedded (ders sayfasına gömülü) varyant eskiden max-w-6xl (1152px) gibi SABİT bir
+          üst sınırdaydı — büyük ekranlarda, DersClient'ın zaten orantılı büyüyen ana içerik
+          sütunu (bkz. o dosyadaki `1fr` grid kolonu) çok daha geniş olsa bile slayt küçük
+          kalıp etrafı boş bırakıyordu (kullanıcının 2026-09-22 "ekran büyürse en az %80-90
+          genişlesin" isteği). Artık sabit bir üst sınır YOK — genişlik tamamen üst kapsayıcı
+          sütuna bırakılıyor, o zaten ekran büyüdükçe orantılı büyüyor. */}
+      <div className="flex flex-col items-center gap-3 w-full">
         <div
           key={cardKey}
           onTouchStart={handleTouchStart}
@@ -409,8 +630,29 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {phase !== 'outro' && (
+              {phase !== 'outro' && !showBatchResult && (
                 <>
+                  {/* Slaytların tamamını izlemeden doğrudan sorulara atlamak için kısayol —
+                      eskiden tek yol slaytların sonuna kadar gidip "Soruları Çöz"e basmaktı
+                      (kullanıcının 2026-09-22 "ayrı bir sekme olsa iyi olmaz mı" isteği).
+                      startQuestions zaten qIndex/answeredMap'i sıfırlayıp 'questions' fazına
+                      geçiyor; sorular henüz çekilmediyse aşağıdaki fetch efekti (artık
+                      'questions' fazında da tetiklenecek şekilde genişletildi) devreye girer. */}
+                  {phase === 'slides' && (
+                    <button
+                      type="button"
+                      onClick={startQuestions}
+                      aria-label="Sorulara geç"
+                      title="Sorulara geç"
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white/90 px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-[11px] font-black text-slate-500 shadow-sm transition-colors hover:bg-slate-100"
+                    >
+                      <ListChecks className="h-3.5 w-3.5 shrink-0" />
+                      {/* Diğer üst çubuk rozetleri (%büyütme, D:/Y:, sayfa sayacı) +/- ile
+                          büyüyor ama bu yazı unutulmuştu — sabit kalıyordu (kullanıcının
+                          2026-09-22 bulduğu eksiklik). */}
+                      <span className="hidden sm:inline" style={smallBadgeStyle(11)}>Sorulara Geç</span>
+                    </button>
+                  )}
                   {/* Akıllı tahtadan uzaktaki öğrenciler için metin büyütme/küçültme — sadece bu
                       oturumda geçerli, kaydedilmiyor. */}
                   <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
@@ -424,7 +666,13 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                     >
                       <Minus className="h-3 w-3" />
                     </button>
-                    <span className="w-7 text-center text-[9px] sm:text-[10px] font-black text-slate-500" style={smallBadgeStyle(10)}>%{Math.round(fontScale * 100)}</span>
+                    {/* Eskiden sabit w-7 (28px) genişlikteydi — yazı da +/- ile birlikte
+                        büyüyünce (bkz. smallBadgeStyle) %250'de metin bu sabit kutuya
+                        sığmayıp yan butonların ÜSTÜNE taşıyor, onları görünmez kılıyordu
+                        (kullanıcının 2026-09-22 bulduğu bug). min-w-7 ile taban genişlik
+                        korunuyor ama metin büyüdükçe kutu da otomatik genişliyor, komşu
+                        butonların üstüne binmiyor. */}
+                    <span className="min-w-7 px-0.5 text-center text-[9px] sm:text-[10px] font-black text-slate-500 whitespace-nowrap" style={smallBadgeStyle(10)}>%{Math.round(fontScale * 100)}</span>
                     <button
                       type="button"
                       onClick={() => setFontScale((s) => Math.min(MAX_FONT_SCALE, Math.round((s + FONT_SCALE_STEP) * 100) / 100))}
@@ -514,6 +762,68 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                 </button>
               )}
             </div>
+          ) : phase === 'questions' && !questions ? (
+            // "Sorulara Geç" kısayolu slaytları atlayıp doğrudan buraya gelebiliyor — bu
+            // durumda sorular henüz çekilmemiş/hata almış olabilir, tebrik ekranındaki aynı
+            // yükleniyor/hata görünümü burada da gösteriliyor.
+            <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+              {questionsError ? (
+                <p className="text-sm font-bold text-rose-500">{questionsError}</p>
+              ) : (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <p className="text-xs font-bold text-slate-400">Sorular yükleniyor...</p>
+                </>
+              )}
+            </div>
+          ) : phase === 'questions' && questions && questions.length === 0 ? (
+            // "Sorulara Geç" kısayolu, konunun hiç sorusu olmadığı bir durumda da (eskiden
+            // sadece tebrik ekranından erişilebildiği için görünmeyen bir hal) buraya
+            // gelebiliyor.
+            <div className="relative flex flex-1 min-h-0 items-center justify-center px-6 text-center">
+              <p className="text-sm font-bold text-slate-400">Bu konu için henüz soru eklenmemiş.</p>
+            </div>
+          ) : phase === 'questions' && showBatchResult && questions ? (
+            // Kişiselleştirilmiş 10'luk parti bitti — mini bir özet + "Yeni 10 Soru Çöz"
+            // (kullanıcının 2026-09-22 isteği). Tam ekran sonuç ekranı (QuizClient'taki gibi)
+            // yerine bilinçli olarak küçük tutuldu: burada asıl akış slayt/sunum, testin
+            // kendisi değil.
+            <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+              <div
+                className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm"
+                style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+              >
+                <Trophy className="h-7 w-7 text-white" />
+              </div>
+              <p className="text-2xl font-black text-slate-800">
+                {questions.filter((q) => answeredMap[q.id] === 'correct').length} / {questions.length} doğru
+              </p>
+              {questionsAllCaughtUp && (
+                <p className="max-w-xs text-xs font-bold text-slate-400">
+                  Bu konudaki tüm soruları şu an için tamamladın — yeni bir parti, tekrar vakti en yakın sorularla gelir.
+                </p>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={startNewBatch}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-black text-white shadow-lg transition-transform hover:scale-105"
+                  style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+                >
+                  Yeni 10 Soru Çöz →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhase('slides');
+                    setAnimKey((k) => k + 1);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-500 shadow-sm transition-colors hover:bg-slate-50"
+                >
+                  Slaytlara Dön
+                </button>
+              </div>
+            </div>
           ) : phase === 'questions' && questions ? (
             <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-1 pb-4 sm:pb-8 overflow-y-auto">
               {/* Sorular hiç unmount edilmiyor — sadece görünürlük değişiyor. Aksi halde
@@ -537,10 +847,16 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                       question={q}
                       index={i}
                       numberBadge="label"
-                      accentColor={accent.bar}
+                      // Eskiden global `accent.bar` (o an açık olan SORUYA göre) veriliyordu —
+                      // bu, qIndex her değiştiğinde TÜM mount'lu (görünmeyen dahil) soruların
+                      // accentColor prop'unu "değişti" gösterip memo'yu (aşağıdaki not) her
+                      // soru geçişinde boşa çıkarıyordu. Kendi index'ine (i) göre sabit bir
+                      // renk almak hem daha doğru (her soru hep aynı temayı korur) hem de
+                      // memo'nun gerçekten işe yaraması için şart.
+                      accentColor={ACCENTS[i % ACCENTS.length].bar}
                       interactive
                       fontScale={fontScale}
-                      onAnswered={(id, status) => setAnsweredMap((m) => ({ ...m, [id]: status }))}
+                      onAnswered={handleQuestionAnswered}
                     />
                   </div>
                 );
@@ -584,8 +900,9 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                     scroll alanının ÜSTÜNE (görünmeyen tarafa) denk geliyordu — kullanıcı ilk
                     maddenin "kaybolduğunu" düşünüyordu (2026-09-21). justify-start ile liste
                     her zaman baştan görünür, kısa listelerde de üstte başlaması kabul edilebilir
-                    bir görünüm. */}
-                <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2.5 justify-start overflow-y-auto py-1">
+                    bir görünüm. Bu liste artık sadece MASAÜSTÜ (sm+) — mobil için aşağıdaki
+                    tek-madde görünümüne bakın. */}
+                <div className="hidden sm:flex flex-1 min-w-0 flex-col gap-2.5 justify-start overflow-y-auto py-1">
                   {slide.bullets.length ? (
                     slide.bullets.map((bullet, i) => {
                       const revealed = i < revealedCount;
@@ -596,7 +913,7 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                           type="button"
                           onClick={() => revealUpTo(i)}
                           disabled={revealed}
-                          className={`flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-left transition-all duration-300 ${
+                          className={`flex items-center gap-3 rounded-2xl border px-4 py-2.5 text-left transition-all duration-300 ${
                             revealed
                               ? 'opacity-100 translate-y-0 shadow-sm'
                               : isNextUp
@@ -609,17 +926,53 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
                           }}
                         >
                           <span
-                            className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[9px] sm:text-[10px] font-black text-white shadow"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white shadow"
                             style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
                           >
                             {i + 1}
                           </span>
-                          <span className="text-[11px] sm:text-sm font-medium text-slate-700 leading-snug" style={slideTextStyle(0.875, 1.4)}>{bullet}</span>
+                          <span className="text-sm font-medium text-slate-700 leading-snug" style={slideTextStyle(0.875, 1.4)}>{bullet}</span>
                         </button>
                       );
                     })
                   ) : (
-                    <p className="text-xs sm:text-sm italic text-slate-400">İçerik özetlenemedi</p>
+                    <p className="text-sm italic text-slate-400">İçerik özetlenemedi</p>
+                  )}
+                </div>
+
+                {/* Mobil: maddeler artık alt alta BİRİKMİYOR — her dokunuşta ("İleri"/swipe,
+                    ikisi de goNext'e bağlı) sadece o an açık olan TEK madde, büyük ve
+                    ortalanmış yazıyla tam ekran gösteriliyor. revealedCount zaten "kaçıncı
+                    madde açıldı" sayacı (masaüstündeki kademeli açılmayla AYNI state) — burada
+                    "şu an gösterilecek madde" olarak yeniden kullanılıyor. Bu, tek maddelik
+                    slaytlarda ekranın bomboş/yazının cılız görünmesi sorununu da çözüyor
+                    (kullanıcının 2026-09-22 şikayeti): artık kaç madde olursa olsun mobilde
+                    her zaman TEK bir madde, ekranı dolduracak boyutta gösteriliyor. */}
+                <div className="flex sm:hidden flex-1 min-w-0 flex-col items-center justify-center gap-4 px-2 text-center">
+                  {slide.bullets.length ? (
+                    (() => {
+                      const i = Math.min(revealedCount - 1, slide.bullets.length - 1);
+                      return (
+                        <>
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black text-white shadow"
+                            style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+                          >
+                            {i + 1}
+                          </span>
+                          <p className="text-lg font-bold leading-snug text-slate-700" style={slideTextStyle(1.25, 1.5)}>
+                            {slide.bullets[i]}
+                          </p>
+                          {slide.bullets.length > 1 && (
+                            <span className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                              {i + 1} / {slide.bullets.length}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <p className="text-sm italic text-slate-400">İçerik özetlenemedi</p>
                   )}
                 </div>
 
@@ -665,7 +1018,10 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
           )}
 
           {/* İleri/geri okları artık ekranın kenarlarında havada değil, slaydın kendi alt
-              çubuğunda — nokta göstergesiyle aynı satırda (kullanıcının 2026-09-21 isteği). */}
+              çubuğunda — nokta göstergesiyle aynı satırda (kullanıcının 2026-09-21 isteği).
+              Mini özet ekranında (showBatchResult) bu satırın hiç anlamı yok — o ekranın
+              kendi "Yeni 10 Soru Çöz"/"Slaytlara Dön" butonları var. */}
+          {!showBatchResult && (
           <div className="relative z-10 flex shrink-0 items-center justify-center gap-3 sm:gap-4 px-3 pb-2.5 pt-1.5 sm:px-6 sm:pb-4 sm:pt-2">
             <button
               type="button"
@@ -677,43 +1033,118 @@ export default function SlidePlayer({ deck, topicId, variant = 'overlay', onClos
               <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
 
-            {phase !== 'outro' && (
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                {(phase === 'questions' ? questions || [] : deck.slides).map((_, i) => {
-                  const current = phase === 'questions' ? qIndex : index;
-                  return (
+            {phase === 'questions' && questions ? (
+              // Soru fazında slayt sayısı çok olduğunda (20-30 soru) eskiden burada tek
+              // satırda büyüyen bir nokta dizisi vardı — genişliği kısıtlanmadığı için
+              // sağdaki "Sonraki" oku ekran dışına taşıp kayboluyordu (kullanıcının
+              // 2026-09-22 bulduğu bug). Yatay kaydırma yerine (kullanıcının isteği: "scroll
+              // niyetine << >> butonlarıyla 5'er ilerlesin, 10 tane görünsün, 1-10 sonra
+              // 5-15 gibi") kayan bir pencere: her zaman PILL_WINDOW_SIZE (10) numara
+              // görünür, ‹/› butonları pencereyi PILL_PAGE_STEP (5) kaydırır — ok butonları
+              // (slayt ileri/geri) hep aynı yerde sabit kalıyor.
+              (() => {
+                const maxStart = Math.max(0, questions.length - PILL_WINDOW_SIZE);
+                // Giriş yapmış kullanıcıda artık soru sayısı zaten 10'a sabit (bkz.
+                // getTopicTestQuestions) — bu durumda pencere tüm soruları kapsıyor ve ‹/›
+                // hiçbir şey yapmadan hep pasif duruyordu (kullanıcının 2026-09-22 şikayeti).
+                // Sadece pencerenin gerçekten kaydıracağı bir şey varsa (misafirde 10'dan
+                // fazla soru olan konularda) gösteriliyor.
+                const hasMultiplePages = maxStart > 0;
+                return (
+                  <div className="flex items-center gap-1">
+                    {hasMultiplePages && (
                     <button
-                      key={i}
                       type="button"
-                      onClick={() => jumpTo(i)}
-                      aria-label={phase === 'questions' ? `${i + 1}. soruya git` : `${i + 1}. slayta git`}
-                      className="h-1.5 rounded-full transition-all duration-300"
-                      style={{
-                        width: i === current ? '1.75rem' : '0.5rem',
-                        background: i === current ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
-                      }}
-                    />
-                  );
-                })}
+                      onClick={() => setPillStart((s) => Math.max(0, s - PILL_PAGE_STEP))}
+                      disabled={pillStart === 0}
+                      aria-label="Önceki sorular"
+                      className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    )}
+                    <div className="flex items-center gap-1">
+                      {questions.slice(pillStart, pillStart + PILL_WINDOW_SIZE).map((q, iInWindow) => {
+                        const i = pillStart + iInWindow;
+                        const status = answeredMap[q.id];
+                        const isCurrent = i === qIndex;
+                        const cls =
+                          status === 'correct'
+                            ? 'bg-emerald-500 text-white'
+                            : status === 'incorrect'
+                              ? 'bg-rose-500 text-white'
+                              : status === 'revealed'
+                                ? 'bg-indigo-500 text-white'
+                                : 'bg-slate-900/10 text-slate-500';
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => jumpTo(i)}
+                            aria-label={`${i + 1}. soruya git`}
+                            className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-black transition-all ${cls} ${
+                              isCurrent ? 'ring-2 ring-offset-1' : ''
+                            }`}
+                            style={isCurrent ? ({ ['--tw-ring-color' as string]: accent.bar } as React.CSSProperties) : undefined}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {hasMultiplePages && (
+                    <button
+                      type="button"
+                      onClick={() => setPillStart((s) => Math.min(maxStart, s + PILL_PAGE_STEP))}
+                      disabled={pillStart >= maxStart}
+                      aria-label="Sonraki sorular"
+                      className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                    )}
+                  </div>
+                );
+              })()
+            ) : phase !== 'outro' ? (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {deck.slides.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => jumpTo(i)}
+                    aria-label={`${i + 1}. slayta git`}
+                    className="h-1.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: i === index ? '1.75rem' : '0.5rem',
+                      background: i === index ? `linear-gradient(90deg, ${accent.from}, ${accent.to})` : inactiveDotColor,
+                    }}
+                  />
+                ))}
               </div>
-            )}
+            ) : null}
 
             <button
               type="button"
               onClick={goNext}
               disabled={
                 // 'slides' fazında son slayttan sonra "İleri" tebrik ekranına geçtiği için hiç
-                // kilitlenmiyor; kilitlenme sadece soru fazlarında (soru yoksa/son sorudaysa) geçerli.
+                // kilitlenmiyor; kilitlenme sadece soru fazlarında (soru yoksa/son sorudaysa)
+                // geçerli. Kişiselleştirilmiş partide (giriş yapmış kullanıcı) son soru da
+                // cevaplandıysa kilitlenmez — bu durumda "İleri" mini özet ekranını açar
+                // (bkz. goNext'teki showBatchResult dalı).
                 phase === 'outro' ? !questions || questions.length === 0
-                  : phase === 'questions' ? !questions || qIndex === questions.length - 1
+                  : phase === 'questions'
+                    ? !questions || (qIndex === questions.length - 1 && !(questionsPersonalized && answeredMap[questions[qIndex]?.id] != null))
                     : false
               }
-              aria-label="Sonraki"
+              aria-label={phase === 'questions' && qIndex === (questions?.length ?? 0) - 1 && questionsPersonalized ? 'Bitir' : 'Sonraki'}
               className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navBtnClass}`}
             >
               <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
+          )}
         </div>
       </div>
 

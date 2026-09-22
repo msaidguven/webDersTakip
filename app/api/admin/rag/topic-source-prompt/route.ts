@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const [{ data: grade }, { data: lesson }, { data: outcomesData }] = await Promise.all([
     supabase.from('grades').select('name').eq('id', unit.grade_id).maybeSingle(),
     supabase.from('lessons').select('name').eq('id', unit.lesson_id).maybeSingle(),
-    supabase.from('outcomes').select('code, description').eq('topic_id', topicId).order('id', { ascending: true }),
+    supabase.from('outcomes').select('code, description').eq('topic_id', topicId).eq('is_current', true).order('id', { ascending: true }),
   ]);
 
   const outcomeRows = (outcomesData as { code: string | null; description: string }[] | null) || [];

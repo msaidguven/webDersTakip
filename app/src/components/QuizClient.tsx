@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
@@ -503,7 +503,14 @@ export function ClassicalView({
 // /soru-bankasi sayfası (bkz. app/soru-bankasi/.../page.tsx) bunu kullanıyor — ikisi de
 // "tüm soruları cevaplarıyla göster" ihtiyacını aynı, tek yerde test edilmiş mantıkla
 // karşılıyor.
-export function QuestionAnswerKeyItem({
+// memo ile sarılı — SlidePlayer'ın soru fazında görülmüş TÜM sorular mount'lu kalır (bkz.
+// SlidePlayer.tsx'teki mountedQIndexes notu) ve o slayt player'ın herhangi bir state
+// değişikliğinde (yazı boyutu, sayfa geçişi, istatistik kaydı vb.) hepsi normalde yeniden
+// render edilirdi — memo, props'u değişmeyen (görünmeyen) soruları render'dan muaf tutarak
+// bunu önlüyor (kullanıcının 2026-09-22 "sorular/şıklar donuyor gibi yavaşladı" şikayeti).
+// Etkili olması için SlidePlayer'ın onAnswered'ı useCallback ile SABİT bir referans olarak
+// geçmesi şart — aksi halde her render'da yeni bir fonksiyon = memo hep "props değişti" görür.
+function QuestionAnswerKeyItemImpl({
   question: q,
   index,
   interactive = false,
@@ -785,6 +792,8 @@ export function QuestionAnswerKeyItem({
     </>
   );
 }
+
+export const QuestionAnswerKeyItem = memo(QuestionAnswerKeyItemImpl);
 
 // Tüm soru+cevap anahtarı — bilerek sadece SONUÇ ekranında (showResult) render ediliyor,
 // aktif çözüm ekranında DEĞİL. Önceden SEO amacıyla aktif ekranda da gösteriliyordu ama bu,
@@ -1535,60 +1544,68 @@ export default function QuizClient({
     // (bkz. QuizModal) bu dar sütun etrafında dev boş alan bırakıyordu (kullanıcının
     // 2026-09-22 "boşluklar çok fazla, bu nedir acemice" şikayeti). max-w-2xl'e
     // çıkarıldı, dikey dolgu da (sm:py-12 → sm:py-6) sadeleştirildi.
-    <div className="mx-auto max-w-5xl px-3 py-3 sm:px-4 sm:py-6">
-      <div className="mb-2 flex items-center justify-between gap-2 sm:mb-4">
-        <ExitLink
-          href={exitHref}
-          label={exitLabel}
-          onExit={onExit}
-          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
-        />
-        {/* Yazı boyutu +/- — akıllı tahtadan uzaktaki öğrenciler için (kullanıcının
-            2026-09-22 isteği), SlidePlayer'daki aynı kontrol. */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-default px-1 py-0.5">
-          <button
-            type="button"
-            onClick={() => setFontScale((s) => Math.max(1, Math.round((s - 0.15) * 100) / 100))}
-            disabled={fontScale <= 1}
-            aria-label="Yazıyı küçült"
-            title="Yazıyı küçült"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Minus className="h-3 w-3" />
-          </button>
-          <span className="w-8 text-center text-[10px] font-black text-muted-foreground">%{Math.round(fontScale * 100)}</span>
-          <button
-            type="button"
-            onClick={() => setFontScale((s) => Math.min(1.9, Math.round((s + 0.15) * 100) / 100))}
-            disabled={fontScale >= 1.9}
-            aria-label="Yazıyı büyüt"
-            title="Yazıyı büyüt (akıllı tahta için)"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-3 sm:mb-5">
-        <div className="mb-1.5 flex items-center justify-between text-xs font-black text-muted-foreground">
-          {intro ? <span className="truncate uppercase tracking-widest text-indigo-500">Soru {index + 1}</span> : <span className="truncate uppercase tracking-widest text-indigo-500">{scopeLabel}</span>}
-          <span className="flex shrink-0 items-center gap-2">
+    // Sonra max-w-5xl (1024px) sabit bir tavan oldu — QuizModal içeriği zaten ~94vw
+    // genişliğinde açılıyor ama bu iç kapsayıcı onu 1024px'e kesiyordu, büyük ekranlarda
+    // (özellikle akıllı tahta) soru kartı küçük kalıp etrafı boşta duruyordu (kullanıcının
+    // 2026-09-22 "ekran büyürse en az %80-90 genişlesin" isteği). min(92vw, 1600px) ile
+    // hem ekranın büyük kısmını kullanıyor hem de aşırı geniş monitörlerde satırlar
+    // okunamayacak kadar uzamıyor.
+    <div className="mx-auto max-w-[min(92vw,1600px)] px-3 py-3 sm:px-4 sm:py-4">
+      {/* Eskiden çıkış linki/yazı boyutu, ilerleme çubuğu ve soru numaraları üç ayrı,
+          birbirinden mb-2/mb-3/mb-5 boşluklarla ayrılmış blok halindeydi — hem gereksiz
+          dikey yer kaplıyor hem de "acemice" görünüyordu (kullanıcının 2026-09-22 "tasarımı
+          komple değiştir, şık bir test sayfası olsun" isteği). Artık tek, tutarlı bir kart
+          içinde birleşik: üst satır (çıkış/sayaç/yazı boyutu), ilerleme çubuğu, soru
+          numaraları şeridi. */}
+      <div className="mb-3 overflow-hidden rounded-2xl border border-default bg-surface-elevated shadow-sm sm:mb-4">
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-5 sm:py-3">
+          <ExitLink
+            href={exitHref}
+            label={exitLabel}
+            onExit={onExit}
+            className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
+          />
+          <div className="flex shrink-0 items-center gap-2">
             {secondsPerQuestion != null && !currentIsAnswered && (
               <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
             )}
-            <span>
-              {answeredCount}/{questions.length}
+            <span className="text-xs font-black text-muted-foreground">
+              {intro ? `Soru ${index + 1}` : scopeLabel} · {answeredCount}/{questions.length}
             </span>
-          </span>
+            {/* Yazı boyutu +/- — akıllı tahtadan uzaktaki öğrenciler için (kullanıcının
+                2026-09-22 isteği), SlidePlayer'daki aynı kontrol. */}
+            <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-default px-1 py-0.5">
+              <button
+                type="button"
+                onClick={() => setFontScale((s) => Math.max(1, Math.round((s - 0.15) * 100) / 100))}
+                disabled={fontScale <= 1}
+                aria-label="Yazıyı küçült"
+                title="Yazıyı küçült"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <span className="w-8 text-center text-[10px] font-black text-muted-foreground">%{Math.round(fontScale * 100)}</span>
+              <button
+                type="button"
+                onClick={() => setFontScale((s) => Math.min(1.9, Math.round((s + 0.15) * 100) / 100))}
+                disabled={fontScale >= 1.9}
+                aria-label="Yazıyı büyüt"
+                title="Yazıyı büyüt (akıllı tahta için)"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+        <div className="h-1.5 w-full bg-surface">
           <div
-            className="h-full rounded-full bg-indigo-500 transition-all duration-500 ease-out"
+            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out"
             style={{ width: `${(answeredCount / questions.length) * 100}%` }}
           />
         </div>
-        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex items-center gap-1.5 overflow-x-auto border-t border-default px-3.5 py-2.5 sm:px-5" style={{ scrollbarWidth: 'thin' }}>
           {questions.map((q, i) => {
             const isCurrent = i === index;
             const isLocked = !!locked[q.id];

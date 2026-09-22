@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       .from('outcomes')
       .select('id, description, order_index, code')
       .eq('topic_id', topicId)
+      .eq('is_current', true)
       .order('order_index', { ascending: true });
     const outcomeRows = (outcomesData as { id: number; description: string; order_index: number | null; code: string | null }[] | null) || [];
 
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       .from('outcomes')
       .select('id, description, order_index, code')
       .eq('topic_id', topicId)
+      .eq('is_current', true)
       .order('order_index', { ascending: true });
     const outcomeRows = (outcomesData as { id: number; description: string; order_index: number | null; code: string | null }[] | null) || [];
     const outcomeIds = outcomeRows.map((o) => o.id);

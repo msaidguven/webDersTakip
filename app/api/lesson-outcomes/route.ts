@@ -56,6 +56,7 @@ export async function GET(request: Request) {
     .from('outcomes')
     .select('id, description, topic_id, order_index, code')
     .in('topic_id', topicIds)
+    .eq('is_current', true)
     .order('order_index', { ascending: true });
 
   const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];

@@ -305,7 +305,7 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
 }
 
 export async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
-  const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true);
+  const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true).eq('is_archived', false);
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
   if (!topicIds.length) return [];
 

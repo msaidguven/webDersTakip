@@ -44,6 +44,7 @@ export type EntityConfig = {
   label: string;
   needsTopic?: boolean; // liste için konu seçimi zorunlu
   hasActiveToggle?: boolean; // is_active alanı var, "sil" = pasifleştir
+  hasArchiveToggle?: boolean; // is_archived alanı var, "Arşivle"/"Arşivden Çıkar" toplu işlemi
   columns: ColumnConfig[];
   editFields: FieldConfig[];
   extraFilters?: ExtraFilterConfig[];
@@ -55,6 +56,15 @@ const ACTIVE_STATUS_FILTER: ExtraFilterConfig = {
   options: [
     { value: 'true', label: 'Aktif' },
     { value: 'false', label: 'Pasif' },
+  ],
+};
+
+const ARCHIVE_STATUS_FILTER: ExtraFilterConfig = {
+  key: 'isArchived',
+  label: 'Arşiv',
+  options: [
+    { value: 'true', label: 'Arşivlendi' },
+    { value: 'false', label: 'Arşivde Değil' },
   ],
 };
 
@@ -88,14 +98,24 @@ export const ENTITIES: EntityConfig[] = [
     key: 'topics',
     label: 'Konular',
     hasActiveToggle: true,
-    extraFilters: [ACTIVE_STATUS_FILTER],
+    hasArchiveToggle: true,
+    extraFilters: [ACTIVE_STATUS_FILTER, ARCHIVE_STATUS_FILTER],
     columns: [
       { key: 'title', label: 'Başlık' },
       { key: 'unit', label: 'Ünite', render: (r) => r.units?.title || '—' },
       { key: 'order_no', label: 'Sıra' },
       { key: 'curriculum_code', label: 'Kod' },
       { key: 'question_count', label: 'Soru' },
-      { key: 'is_active', label: 'Durum', render: (r) => <StatusBadge active={r.is_active} /> },
+      {
+        key: 'is_active',
+        label: 'Durum',
+        render: (r) => (
+          <div className="flex flex-wrap gap-1">
+            <StatusBadge active={r.is_active} />
+            {r.is_archived && <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300">Arşivlendi</span>}
+          </div>
+        ),
+      },
     ],
     editFields: [
       { key: 'title', label: 'Başlık', type: 'text' },
@@ -103,6 +123,7 @@ export const ENTITIES: EntityConfig[] = [
       { key: 'order_no', label: 'Sıra No', type: 'number' },
       { key: 'curriculum_code', label: 'Müfredat Kodu', type: 'text' },
       { key: 'is_active', label: 'Aktif', type: 'boolean' },
+      { key: 'is_archived', label: 'Arşivlendi', type: 'boolean' },
     ],
   },
   {
@@ -443,6 +464,23 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
     loadList();
   }
 
+  async function handleBulkArchive(archived: boolean) {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    const res = await fetch(`/api/admin/manage/${entityKey}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, patch: { is_archived: archived } }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showNotice('error', data.error || 'Güncellenemedi');
+      return;
+    }
+    showNotice('success', `${ids.length} kayıt ${archived ? 'arşivlendi' : 'arşivden çıkarıldı'}`);
+    loadList();
+  }
+
   const listRequiresTopic = entity.needsTopic && !topicId;
 
   return (
@@ -542,6 +580,16 @@ export default function ManagementTab({ initialEntity }: { initialEntity?: Entit
               </button>
               <button onClick={() => handleBulkActive(false)} className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm hover:bg-accent">
                 Pasifleştir
+              </button>
+            </>
+          )}
+          {entity.hasArchiveToggle && (
+            <>
+              <button onClick={() => handleBulkArchive(true)} className="px-3 py-1.5 bg-amber-500/20 text-amber-300 rounded-lg text-xs sm:text-sm hover:bg-amber-500/30">
+                Arşivle
+              </button>
+              <button onClick={() => handleBulkArchive(false)} className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm hover:bg-accent">
+                Arşivden Çıkar
               </button>
             </>
           )}

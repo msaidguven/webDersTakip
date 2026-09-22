@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     .from('outcomes')
     .select('id, topic_id, description, code')
     .in('topic_id', topicIds)
+    .eq('is_current', true)
     .order('id', { ascending: true }); // eklenme sırası = TYMM'deki a,b,c... sırası
   const outcomeRows = (outcomesData as OutcomeRow[] | null) || [];
 

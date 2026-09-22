@@ -8,7 +8,7 @@ type OutcomeRow = {
   topic_id: number;
   order_index: number | null;
 };
-type TopicRow = { id: number; title: string; slug: string | null; order_no: number };
+type TopicRow = { id: number; title: string; slug: string | null; order_no: number; is_archived: boolean };
 type TopicContentRow = {
   id: number;
   topic_id: number;
@@ -81,6 +81,8 @@ export type LessonWeekContent = {
   // false ise bu konunun section/highlight içeriği henüz çekilmedi (bkz. activeTopic parametresi) —
   // sidebar'da başlık/slug göstermek için yeterli ama tam içerik client tarafında ayrıca yüklenmeli.
   contentLoaded: boolean;
+  // Konu artık güncel müfredatta değil ama sayfası hâlâ canlı — bkz. topics.is_archived.
+  isArchived: boolean;
 };
 
 function extractHeroImageAlt(generationMeta: unknown): string | null {
@@ -98,7 +100,7 @@ function extractHeroImageAlt(generationMeta: unknown): string | null {
 export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number, isAdmin = false, activeTopic?: { id?: number; slug?: string } | null) {
   let topicsQuery = supabase
     .from('topics')
-    .select('id, title, slug, order_no')
+    .select('id, title, slug, order_no, is_archived')
     .eq('unit_id', unitId)
     .order('order_no', { ascending: true });
   if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
@@ -115,7 +117,14 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       .gte('end_week', week),
   ]);
 
-  const topics = (topicsData as TopicRow[] | null) || [];
+  // Arşivlenmiş konular normal navigasyondan (sidebar/hafta listesi) gizlenir — AMA
+  // doğrudan açılan konu (activeTopic) arşivli olsa bile kendi sayfası canlı kalmalı
+  // (bkz. /farkli-konular). Bu yüzden filtre burada, sorgu seviyesinde DEĞİL, activeTopic'i
+  // istisna tutacak şekilde JS tarafında uygulanıyor.
+  const allTopics = (topicsData as TopicRow[] | null) || [];
+  const topics = !isAdmin
+    ? allTopics.filter((t) => !t.is_archived || t.id === activeTopic?.id || (activeTopic?.slug && t.slug === activeTopic.slug))
+    : allTopics;
   const topicIds = topics.map((t) => t.id);
   const topicTitleById = new Map(topics.map((topic) => [topic.id, topic.title]));
 
@@ -143,6 +152,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .from('outcomes')
           .select('id, description, topic_id, order_index')
           .in('topic_id', topicIds)
+          .eq('is_current', true)
           .order('order_index', { ascending: true })
       : Promise.resolve({ data: [] as OutcomeRow[] }),
     contentTopicIds.length ? topicContentsQuery : Promise.resolve({ data: [] as TopicContentRow[], error: null }),
@@ -201,6 +211,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     discussionPromptHtml: null,
     highlights: [],
     contentLoaded: false,
+    isArchived: t.is_archived,
   }));
 
   if (contentTopicIds.length) {

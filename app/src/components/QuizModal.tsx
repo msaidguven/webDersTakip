@@ -69,12 +69,12 @@ export default function QuizModal({ children, onClose }: { children: React.React
         {/* İçerideki QuizClient zaten kendi yatay padding'ini veriyor — burada AYRICA büyük
             padding vermek gereksiz boşluk yaratıyordu (kullanıcının "boşluklar çok fazla"
             şikayeti) — üst/yan dolgu azaltıldı. */}
-        {/* İçerik modalın tam yüksekliğinden kısaysa (çoğu soru ekranı öyle) ortalanıyor —
-            aksi halde dev boyuttaki modalın altında koca bir boşluk kalıyordu (kullanıcının
-            2026-09-22 "acemice görünüyor" şikayeti). Uzun içerik (sonuç ekranı, cevap
-            anahtarı vb.) yine normal şekilde yukarıdan başlayıp kayıyor. */}
-        <div className="flex h-full flex-col overflow-y-auto pt-12 pb-4 sm:h-[94vh] sm:px-5">
-          <div className="m-auto w-full">{children}</div>
+        {/* Eskiden içerik kısaysa (m-auto ile) dikey ortalanıyordu — ama bu, dev (94vh)
+            modalda üstte KOCA bir boşluk bırakıp soruyu ekranın alt yarısına itiyordu
+            (kullanıcının 2026-09-22 "üstte çok boşluk var, soru altta kalıyor" şikayeti).
+            Artık içerik her zaman en üstten başlıyor, kısa sabit bir üst boşlukla. */}
+        <div className="h-full overflow-y-auto pt-10 pb-4 sm:h-[94vh] sm:px-5 sm:pt-8">
+          <div className="mx-auto w-full">{children}</div>
         </div>
       </div>
     </div>

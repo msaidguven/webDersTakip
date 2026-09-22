@@ -8,13 +8,12 @@ export default function ThemeToggle() {
   useEffect(() => {
     // Client-side'da çalıştır
     try {
+      // Eskiden kullanıcı hiç seçim yapmamışsa işletim sistemi/tarayıcı tercihine
+      // (prefers-color-scheme) bakılıyordu — site artık her zaman light varsayılan
+      // açılıyor (bkz. layout.tsx'teki aynı gerekçe), dark sadece burada bilinçli
+      // seçilince uygulanıyor.
       const t = localStorage.getItem("theme");
-      let initialValue: boolean;
-      if (t) {
-        initialValue = t === "dark";
-      } else {
-        initialValue = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      }
+      const initialValue = t === "dark";
       setIsDark(initialValue);
 
       // DOM'u güncelle

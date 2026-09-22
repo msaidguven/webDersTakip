@@ -4,6 +4,7 @@ const LEGAL_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: '/gizlilik-politikasi', label: 'Gizlilik Politikası' },
   { href: '/hakkimizda', label: 'Hakkımızda' },
   { href: '/iletisim', label: 'İletişim' },
+  { href: '/farkli-konular', label: 'Farklı Konular' },
   { href: '/sitemap.xml', label: 'Site Haritası', external: true },
 ];
 

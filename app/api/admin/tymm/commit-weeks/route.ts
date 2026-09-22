@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     .from('outcomes')
     .select('id, topic_id')
     .in('topic_id', topicIds)
+    .eq('is_current', true)
     .order('id', { ascending: true });
   const outcomeRows = (outcomesData as { id: number; topic_id: number }[] | null) || [];
 

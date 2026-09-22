@@ -40,7 +40,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
   const { data: outcomeRows, error: outcomeError } = await supabase
     .from('outcomes')
     .select('id')
-    .eq('topic_id', topicId);
+    .eq('topic_id', topicId)
+    .eq('is_current', true);
 
   if (outcomeError) {
     return NextResponse.json({ error: 'Konu kazanımları okunamadı' }, { status: 500 });

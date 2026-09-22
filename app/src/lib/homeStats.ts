@@ -32,7 +32,7 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
   if (!units.length) return [];
 
   const unitIds = units.map((u) => u.id);
-  const { data: topicRows } = await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true);
+  const { data: topicRows } = await supabase.from('topics').select('id, unit_id').in('unit_id', unitIds).eq('is_active', true).eq('is_archived', false);
   const topics = (topicRows as { id: number; unit_id: number }[] | null) || [];
   const topicIds = topics.map((t) => t.id);
 
@@ -257,6 +257,7 @@ export async function getWeeklyTopicsForGrade(
       units.map((u) => u.id)
     )
     .eq('is_active', true)
+    .eq('is_archived', false)
     .order('id', { ascending: true });
 
   type TopicWithContent = {

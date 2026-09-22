@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     .from('outcomes')
     .select('id, order_index, code')
     .eq('topic_id', topicId)
+    .eq('is_current', true)
     .order('order_index', { ascending: true });
 
   if (selectError) {

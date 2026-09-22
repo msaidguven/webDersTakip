@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       .eq('source', 'ai_generated')
       .eq('is_synthesis', true)
       .order('created_at', { ascending: false }),
-    supabase.from('outcomes').select('topic_id, code, description').in('topic_id', topicIds),
+    supabase.from('outcomes').select('topic_id, code, description').in('topic_id', topicIds).eq('is_current', true),
   ]);
 
   // Bir konu için birden fazla sentez satırı olmamalı (topic-source-synthesis eskisini
