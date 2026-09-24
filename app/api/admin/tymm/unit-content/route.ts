@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
 type TopicRow = { id: number; title: string; order_no: number; learning_outcome: string | null };
-type OutcomeRow = { id: number; topic_id: number; description: string; code: string | null; learning_outcome_id: number | null };
+type OutcomeRow = { id: number; topic_id: number; description: string; code: string | null; learning_outcome_id: number | null; order_index: number | null };
 type LearningOutcomeRow = { id: number; topic_id: number; code: string | null; title: string; order_no: number };
 
 // Admin'in TYMM'den az önce içe aktardığı bir üniteyi, canlı TYMM sayfasıyla yan yana
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const topicIds = topics.map((t) => t.id);
   const [{ data: outcomesData }, { data: groupsData }] = topicIds.length
     ? await Promise.all([
-        supabase.from('outcomes').select('id, topic_id, description, code, learning_outcome_id').in('topic_id', topicIds).eq('is_current', true).order('id', { ascending: true }),
+        supabase.from('outcomes').select('id, topic_id, description, code, learning_outcome_id, order_index').in('topic_id', topicIds).eq('is_current', true).order('order_index', { ascending: true }).order('id', { ascending: true }),
         supabase.from('topic_learning_outcomes').select('id, topic_id, code, title, order_no').in('topic_id', topicIds).order('order_no', { ascending: true }),
       ])
     : [{ data: [] as OutcomeRow[] }, { data: [] as LearningOutcomeRow[] }];
@@ -71,14 +71,14 @@ export async function GET(request: NextRequest) {
         id: t.id,
         title: t.title,
         learningOutcome: t.learning_outcome,
-        outcomes: (outcomesByTopic.get(t.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description })),
+        outcomes: (outcomesByTopic.get(t.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description, orderIndex: o.order_index })),
         learningOutcomeGroups: groups.map((g) => ({
           id: g.id,
           code: g.code,
           title: g.title,
-          outcomes: (outcomesByGroup.get(g.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description })),
+          outcomes: (outcomesByGroup.get(g.id) || []).map((o) => ({ id: o.id, code: o.code, description: o.description, orderIndex: o.order_index })),
         })),
-        ungroupedOutcomes: ungroupedOutcomes.map((o) => ({ id: o.id, code: o.code, description: o.description })),
+        ungroupedOutcomes: ungroupedOutcomes.map((o) => ({ id: o.id, code: o.code, description: o.description, orderIndex: o.order_index })),
       };
     }),
   });

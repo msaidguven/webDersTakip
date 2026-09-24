@@ -49,6 +49,12 @@ export type LearningOutcomeDiff = {
   status: 'same' | 'changed' | 'tymm-only' | 'db-only';
   dbGroupId: number | null;
   learningOutcomeChanged: boolean;
+  // learningOutcomeChanged true olduğunda ASIL fark budur — eskiden bu iki metin
+  // hesaplanıp hemen atılıyordu, UI'da "öğrenme çıktısı metni değişmiş" yazıyordu ama
+  // eski/yeni metnin kendisi hiçbir yerde görünmüyordu (kullanıcının 2026-09-24 bildirimi:
+  // "Geometrik Şekiller ... 1 konu/kazanım farklı ... fark nerede").
+  dbLearningOutcomeText: string | null;
+  tymmLearningOutcomeText: string | null;
   outcomesAdded: string[];
   outcomesRemoved: DbOutcome[];
   outcomesOverridden: DbOutcome[];
@@ -60,6 +66,8 @@ export type TopicDiff = {
   title: string;
   dbTopicId: number | null;
   learningOutcomeChanged: boolean;
+  dbLearningOutcomeText: string | null;
+  tymmLearningOutcomeText: string | null;
   // Konunun öğrenme çıktısı grupları TYMM sırasıyla — DB'de henüz gruplanmamış (eski) bir
   // konuysa boş dizi gelir, UI o zaman aşağıdaki düz outcomesAdded/Removed'a düşer.
   learningOutcomeDiffs: LearningOutcomeDiff[];
@@ -138,35 +146,50 @@ function setDiff(tymmList: string[], dbList: string[]): { added: string[]; remov
   return { added, removed };
 }
 
-// Bir öğrenme çıktısının a/b/c... kazanımlarını, TAHMİN/gruplama YAPMADAN, doğrudan
-// SIRAYA göre ikişer ikişer (TYMM'in i'inci bileşeni ↔ DB'nin i'inci kazanımı) kıyaslar —
-// kullanıcının isteği: "sadece doğru sırada ve sayıda eşleşiyor mu ona baksın". DB tarafı
-// `order_index`'e göre sıralı geliyor (bkz. compare-bulk route'taki sort). Sayı farklıysa
-// fazlalık taraf o pozisyonlarda "eklendi"/"silindi" olarak düşer.
+// Bir öğrenme çıktısının a/b/c... kazanımlarını, TAHMİN/gruplama YAPMADAN, SIRAYA göre
+// kıyaslar — kullanıcının isteği: "sadece doğru sırada ve sayıda eşleşiyor mu ona baksın".
+// DB tarafı `order_index`'e göre sıralı geliyor (bkz. compare-bulk route'taki sort).
+//
+// SAF indeks eşleştirmesi (tymm[i] ↔ db[i]) DEĞİL, LCS (en uzun ortak alt dizi) tabanlı
+// hizalama kullanılıyor: kaydetme sırasında ARADA bir kazanım atlanmışsa (ör. TYMM a,b,c,d,e
+// iken DB'ye sadece a,b,d,e yazılmışsa) saf indeks eşleştirmesi c'den sonraki HER pozisyonu
+// kaydırıp d'yi ve e'yi de "farklı" gösteriyor, atlanan c ise hiçbir yerde "eklenebilir"
+// olarak görünmüyordu — admin'in gerçekten eksik olan kazanımı ekleyecek bir alanı hiç
+// olmuyordu (kullanıcının 2026-09-24 bildirimi: "1 kazanımı eklememiş atlamış ama onu
+// ekleyebileceğim bi alan yok"). LCS hizalaması ortadaki tek bir ekleme/çıkarmayı, ondan
+// SONRAKİ eşleşen kazanımları bozmadan doğru tanır.
 function diffOutcomesPositional(
   tymmTexts: string[],
   dbOutcomes: DbOutcome[],
   overrides: OverrideMap
 ): { added: string[]; removed: DbOutcome[]; overridden: DbOutcome[] } {
+  const n = tymmTexts.length;
+  const m = dbOutcomes.length;
+  const eq = (i: number, j: number) => fuzzyNorm(tymmTexts[i]) === fuzzyNorm(dbOutcomes[j].description);
+
+  // n*m küçük (bir öğrenme çıktısının a/b/c kazanımları), O(n*m) DP burada sorun değil.
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = eq(i, j) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+
   const added: string[] = [];
   const removed: DbOutcome[] = [];
   const overridden: DbOutcome[] = [];
-  const maxLen = Math.max(tymmTexts.length, dbOutcomes.length);
-  for (let i = 0; i < maxLen; i++) {
-    const t = i < tymmTexts.length ? tymmTexts[i] : undefined;
-    const d = i < dbOutcomes.length ? dbOutcomes[i] : undefined;
-    if (t !== undefined && d !== undefined) {
-      if (fuzzyNorm(t) === fuzzyNorm(d.description)) continue;
-      if (overrides.has(d.id)) overridden.push(d);
-      else removed.push(d);
-      continue;
-    }
-    if (t !== undefined) added.push(t);
-    if (d !== undefined) {
-      if (overrides.has(d.id)) overridden.push(d);
-      else removed.push(d);
-    }
+  const dropDb = (d: DbOutcome) => (overrides.has(d.id) ? overridden.push(d) : removed.push(d));
+
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (eq(i, j)) { i++; j++; continue; }
+    if (dp[i + 1][j] >= dp[i][j + 1]) { added.push(tymmTexts[i]); i++; }
+    else { dropDb(dbOutcomes[j]); j++; }
   }
+  while (i < n) { added.push(tymmTexts[i]); i++; }
+  while (j < m) { dropDb(dbOutcomes[j]); j++; }
+
   return { added, removed, overridden };
 }
 
@@ -208,6 +231,8 @@ function diffLearningOutcomeByCode(dbGroup: DbLearningOutcomeGroup, tymmLo: Tymm
       status: 'db-only',
       dbGroupId: dbGroup.id,
       learningOutcomeChanged: false,
+      dbLearningOutcomeText: null,
+      tymmLearningOutcomeText: null,
       outcomesAdded: [],
       outcomesRemoved: removed,
       outcomesOverridden: overridden,
@@ -226,6 +251,8 @@ function diffLearningOutcomeByCode(dbGroup: DbLearningOutcomeGroup, tymmLo: Tymm
     status: same ? 'same' : 'changed',
     dbGroupId: dbGroup.id,
     learningOutcomeChanged,
+    dbLearningOutcomeText: learningOutcomeChanged ? dbLearningOutcomeText : null,
+    tymmLearningOutcomeText: learningOutcomeChanged ? learningOutcomeText : null,
     outcomesAdded: added,
     outcomesRemoved: removed,
     outcomesOverridden: overridden,
@@ -267,6 +294,8 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
         title: dbTopic.title,
         dbTopicId: dbTopic.id,
         learningOutcomeChanged,
+        dbLearningOutcomeText: learningOutcomeChanged ? dbTopic.learning_outcome || '' : null,
+        tymmLearningOutcomeText: learningOutcomeChanged ? combinedLearningOutcomeText : null,
         learningOutcomeDiffs: [],
         outcomesAdded: added,
         outcomesRemoved: removed,
@@ -289,6 +318,11 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
       title: dbTopic.title,
       dbTopicId: dbTopic.id,
       learningOutcomeChanged: learningOutcomeDiffs.some((d) => d.learningOutcomeChanged),
+      // Gruplanmış konuda asıl metin farkı learningOutcomeDiffs[i]'nin kendi
+      // dbLearningOutcomeText/tymmLearningOutcomeText'inde — topic seviyesinde birden
+      // fazla öğrenme çıktısı olabileceği için tek bir metin çiftine indirgenmiyor.
+      dbLearningOutcomeText: null,
+      tymmLearningOutcomeText: null,
       learningOutcomeDiffs,
       outcomesAdded: learningOutcomeDiffs.flatMap((d) => d.outcomesAdded),
       outcomesRemoved: learningOutcomeDiffs.flatMap((d) => d.outcomesRemoved),
@@ -324,6 +358,8 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
         status: 'tymm-only',
         dbGroupId: null,
         learningOutcomeChanged: false,
+        dbLearningOutcomeText: null,
+        tymmLearningOutcomeText: null,
         outcomesAdded: tymmOutcomeTexts,
         outcomesRemoved: [],
         outcomesOverridden: [],
@@ -335,6 +371,8 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
       title: topicTitle,
       dbTopicId: null,
       learningOutcomeChanged: false,
+      dbLearningOutcomeText: null,
+      tymmLearningOutcomeText: null,
       learningOutcomeDiffs,
       outcomesAdded: learningOutcomeDiffs.flatMap((d) => d.outcomesAdded),
       outcomesRemoved: [],
@@ -407,6 +445,8 @@ export function dbOnlyUnitDiffs(dbUnits: DbUnit[], matchedDbIds: Set<number>, ov
           title: t.title,
           dbTopicId: t.id,
           learningOutcomeChanged: false,
+          dbLearningOutcomeText: null,
+          tymmLearningOutcomeText: null,
           learningOutcomeDiffs: [],
           outcomesAdded: [],
           outcomesRemoved: removed,

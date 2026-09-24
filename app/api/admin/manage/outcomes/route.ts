@@ -38,14 +38,22 @@ export async function GET(request: NextRequest) {
 }
 
 // TYMM karşılaştırma ekranından "bu kazanımı ekle" ile tetikleniyor (kullanıcının
-// 2026-09-20 isteği) — description zorunlu, code/order_index admin sonra elle girer.
+// 2026-09-20 isteği) — description zorunlu, code admin sonra elle girer. order_index
+// verilmezse konudaki en yüksek değerin bir fazlası kullanılır (listenin sonuna eklenir).
+// learningOutcomeId verilirse (kullanıcının 2026-09-24 isteği: "sol tarafta öğrenme
+// çıktılarının altına kazanım ekleyip silebilmeliyim") kazanım doğrudan o gruba bağlı
+// oluşturulur — PATCH'teki learning_outcome_id doğrulamasıyla AYNI kural: grup gerçekten
+// aynı konuya ait olmalı.
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const body = await request.json().catch(() => null) as { topicId?: unknown; description?: unknown } | null;
+  const body = await request.json().catch(() => null) as
+    { topicId?: unknown; description?: unknown; learningOutcomeId?: unknown; orderIndex?: unknown } | null;
   const topicId = typeof body?.topicId === 'number' ? body.topicId : Number(body?.topicId);
   const description = typeof body?.description === 'string' ? body.description.trim() : '';
+  const learningOutcomeId = typeof body?.learningOutcomeId === 'number' ? body.learningOutcomeId : null;
+  const explicitOrderIndex = typeof body?.orderIndex === 'number' ? body.orderIndex : null;
 
   if (!topicId || !Number.isInteger(topicId) || !description) {
     return NextResponse.json({ error: 'topicId ve description zorunlu' }, { status: 400 });
@@ -53,19 +61,35 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: maxRow } = await supabase
-    .from('outcomes')
-    .select('order_index')
-    .eq('topic_id', topicId)
-    .order('order_index', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextOrderIndex = ((maxRow as { order_index: number | null } | null)?.order_index ?? 0) + 1;
+  if (learningOutcomeId != null) {
+    const { data: groupRow, error: groupErr } = await supabase
+      .from('topic_learning_outcomes')
+      .select('id, topic_id')
+      .eq('id', learningOutcomeId)
+      .maybeSingle();
+    if (groupErr) return NextResponse.json({ error: groupErr.message }, { status: 500 });
+    if (!groupRow) return NextResponse.json({ error: 'Öğrenme çıktısı grubu bulunamadı' }, { status: 404 });
+    if ((groupRow as { topic_id: number }).topic_id !== topicId) {
+      return NextResponse.json({ error: 'Öğrenme çıktısı grubu farklı bir konuya ait' }, { status: 400 });
+    }
+  }
+
+  let orderIndex = explicitOrderIndex;
+  if (orderIndex == null) {
+    const { data: maxRow } = await supabase
+      .from('outcomes')
+      .select('order_index')
+      .eq('topic_id', topicId)
+      .order('order_index', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    orderIndex = ((maxRow as { order_index: number | null } | null)?.order_index ?? 0) + 1;
+  }
 
   const { data, error } = await supabase
     .from('outcomes')
-    .insert({ topic_id: topicId, description, order_index: nextOrderIndex })
-    .select('id, topic_id, description, order_index, code')
+    .insert({ topic_id: topicId, description, order_index: orderIndex, learning_outcome_id: learningOutcomeId })
+    .select('id, topic_id, description, order_index, code, learning_outcome_id')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
