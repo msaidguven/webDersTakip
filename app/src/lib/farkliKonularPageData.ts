@@ -7,7 +7,7 @@
 import { cache } from 'react';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 
-type TopicRow = { id: number; title: string; slug: string | null; unit_id: number };
+type TopicRow = { id: number; title: string; slug: string | null; unit_id: number; frozen_unit_slug: string | null };
 type UnitRow = { id: number; title: string; slug: string | null; lesson_id: number; grade_id: number };
 type LessonRow = { id: number; name: string; slug: string | null };
 type GradeRow = { id: number; name: string; slug: string | null };
@@ -42,7 +42,7 @@ export const getFarkliKonularData = cache(async function getFarkliKonularData():
 
   const { data: topicRows } = await supabase
     .from('topics')
-    .select('id, title, slug, unit_id')
+    .select('id, title, slug, unit_id, frozen_unit_slug')
     .eq('is_active', true)
     .eq('is_archived', true)
     .order('order_no', { ascending: true });
@@ -50,11 +50,14 @@ export const getFarkliKonularData = cache(async function getFarkliKonularData():
   if (!topics.length) return [];
 
   const unitIds = Array.from(new Set(topics.map((t) => t.unit_id)));
+  // is_active FİLTRESİ YOK: "Arşive Taşı" (bkz. app/api/admin/tymm/archive-topic/route.ts)
+  // taşıdığı üniteler kasıtlı olarak is_active=false (normal ünite listelerinden gizli) —
+  // ama arşivlenmiş konuları burada göstermek bu sayfanın TEK amacı, o yüzden inaktif bir
+  // ünite sırf arşiv ünitesi diye burada da dışlanmamalı.
   const { data: unitRows } = await supabase
     .from('units')
     .select('id, title, slug, lesson_id, grade_id')
-    .in('id', unitIds)
-    .eq('is_active', true);
+    .in('id', unitIds);
   const units = ((unitRows as UnitRow[] | null) || []).filter((u) => !!u.slug);
   const unitById = new Map(units.map((u) => [u.id, u]));
   if (!units.length) return [];
@@ -93,11 +96,15 @@ export const getFarkliKonularData = cache(async function getFarkliKonularData():
       unitGroup = { id: unit.id, title: unit.title, topics: [] };
       lessonGroup.units.push(unitGroup);
     }
+    // frozen_unit_slug varsa (konu Arşiv ünitesine taşındı) yol, canlı ünitenin slug'ı
+    // DEĞİL, taşımadan önceki donmuş slug ile kurulur — konunun indekslenmiş URL'i asla
+    // değişmez (bkz. supabase/migrations/topics_frozen_unit_slug.sql).
+    const unitSlugForPath = topic.frozen_unit_slug || unit.slug;
     unitGroup.topics.push({
       id: topic.id,
       title: topic.title,
       slug: topic.slug as string,
-      path: `/${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}`,
+      path: `/${grade.slug}/${lesson.slug}/${unitSlugForPath}/${topic.slug}`,
     });
   }
 

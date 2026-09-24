@@ -4,6 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { deleteTopicsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import { revalidateUnitPagesForTopics, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
+import { slugify } from '@/app/src/lib/yillikPlan/importer';
 
 const EDITABLE_FIELDS = ['title', 'subtitle', 'order_no', 'curriculum_code', 'icon', 'is_active', 'is_archived'] as const;
 
@@ -50,6 +51,52 @@ export async function GET(request: NextRequest) {
   const items = topics.map((t) => ({ ...t, question_count: questionCountByTopic.get(t.id) ?? 0 }));
 
   return NextResponse.json({ items });
+}
+
+// Konu Yönetimi panelinden ("+ Yeni Konu") — bkz. units/route.ts POST'taki aynı gerekçe:
+// admin'in bilinçli tek tek işlemi, doğrudan yayında oluşturuluyor.
+export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const body = await request.json().catch(() => null) as { unitId?: unknown; title?: unknown } | null;
+  const unitId = typeof body?.unitId === 'number' ? body.unitId : Number(body?.unitId);
+  const title = typeof body?.title === 'string' ? body.title.trim() : '';
+
+  if (!Number.isInteger(unitId) || !title) {
+    return NextResponse.json({ ok: false, error: 'Geçersiz istek' }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+
+  // unit_id + slug birlikte unique (topics_unit_slug_unique) — çakışırsa -2, -3... ekle.
+  const baseSlug = slugify(title);
+  let slug = baseSlug;
+  let suffix = 2;
+  for (;;) {
+    const { data: clash } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('slug', slug).maybeSingle();
+    if (!clash) break;
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  const { data: maxOrderData } = await supabase
+    .from('topics')
+    .select('order_no')
+    .eq('unit_id', unitId)
+    .order('order_no', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = ((maxOrderData as { order_no: number } | null)?.order_no ?? 0) + 1;
+
+  const { data: created, error } = await supabase
+    .from('topics')
+    .insert({ unit_id: unitId, title, slug, order_no: nextOrder, is_active: true })
+    .select('id, unit_id, title, subtitle, slug, order_no, is_active, is_archived, curriculum_code, icon')
+    .single();
+  if (error || !created) return NextResponse.json({ ok: false, error: error?.message || 'Konu oluşturulamadı' }, { status: 500 });
+
+  return NextResponse.json({ ok: true, topic: created });
 }
 
 export async function PATCH(request: NextRequest) {

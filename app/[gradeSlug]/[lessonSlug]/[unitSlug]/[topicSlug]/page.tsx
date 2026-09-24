@@ -184,6 +184,36 @@ async function fetchGradeLessons(supabase: Supabase, gradeId: number): Promise<G
   return lessons;
 }
 
+// Bir konu Arşiv ünitesine taşındığında (bkz. app/api/admin/tymm/archive-topic/route.ts)
+// eski URL'nin ünite segmenti (decodedUnitSlug) artık HİÇBİR ünitenin canlı slug'ına
+// eşleşmeyebilir — ya eski ünite tamamen silinmiştir (Toplu Sil) ya da hâlâ var ama bu
+// konuyu artık içermiyordur. topics.frozen_unit_slug (bkz. supabase/migrations/
+// topics_frozen_unit_slug.sql) o taşımadan ÖNCEKİ slug'ı sakladığı için, normal yol konuyu
+// bulamazsa buradan konunun GÜNCEL (gerçek) ünitesini bulup içeriği ordan çekebiliriz — URL
+// segmentleri (ünite dahil) hiç değişmeden, sayfa eskisi gibi render olur.
+async function resolveFrozenTopicUnit(
+  supabase: Supabase,
+  lId: number,
+  gId: number,
+  decodedUnitSlug: string,
+  decodedTopicSlug: string
+): Promise<UnitRow | null> {
+  const { data } = await supabase
+    .from('topics')
+    .select('id, units!inner(id, title, slug, order_no, start_week, end_week, is_active, lesson_id, grade_id)')
+    .eq('frozen_unit_slug', decodedUnitSlug)
+    .eq('slug', decodedTopicSlug)
+    .eq('is_active', true)
+    .eq('units.lesson_id', lId)
+    .eq('units.grade_id', gId)
+    .maybeSingle();
+  if (!data) return null;
+  type EmbeddedUnit = UnitRow & { lesson_id: number; grade_id: number };
+  const row = data as { units: EmbeddedUnit | EmbeddedUnit[] | null };
+  const unit = Array.isArray(row.units) ? row.units[0] : row.units;
+  return unit ? { id: unit.id, title: unit.title, slug: unit.slug, order_no: unit.order_no, start_week: unit.start_week, end_week: unit.end_week, is_active: unit.is_active } : null;
+}
+
 function normalizeDescription(text: string, maxLength = 158) {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= maxLength) return clean;
@@ -262,21 +292,29 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const activeUnit = unitCandidates.length
     ? unitCandidates.reduce((lowest, u) => (u.id < lowest.id ? u : lowest))
     : null;
-  if (!activeUnit) {
-    return null;
-  }
 
   const totalWeeks = (() => {
     const maxFromUnits = units.reduce((max, u) => Math.max(max, u.end_week ?? u.start_week ?? 0), 0);
     return Math.max(1, Math.min(52, maxFromUnits || 30));
   })();
-
-  // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
-  const unitStart = activeUnit.start_week ?? 1;
-  const unitEnd = activeUnit.end_week ?? totalWeeks;
   const { termStartDate, termEndDate, breaks } = calendar;
   const suggestedWeek = getCurrentCurriculumWeek(totalWeeks, termStartDate, breaks);
-  const week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
+
+  // Normal yolda ünite hiç bulunamadıysa (silinmiş olabilir — bkz. resolveFrozenTopicUnit
+  // üstündeki not) doğrudan donmuş slug'a düşüyoruz; bulunduysa (aşağıda konu onun içinde
+  // çıkmazsa) ikinci bir şans olarak yine deneriz.
+  let contentUnit = activeUnit;
+  let usingFrozenUnit = false;
+  if (!contentUnit) {
+    contentUnit = await resolveFrozenTopicUnit(supabase, lId, gId, decodedUnitSlug, decodedTopicSlug);
+    if (!contentUnit) return null;
+    usingFrozenUnit = true;
+  }
+
+  // Görüntüleme/ilerleme amaçlı temsili hafta: ünitenin haftaya denk gelen aralığı
+  let unitStart = contentUnit.start_week ?? 1;
+  let unitEnd = contentUnit.end_week ?? totalWeeks;
+  let week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
 
   // Soru sayacı (tüm üniteler, "Ünite Testi" butonu için) ile aktif konunun içeriği de
   // birbirinden bağımsız — paralel çekiyoruz. Konu içeriğini (alt başlıklar, ders notu,
@@ -285,19 +323,37 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   // ÇEKMİYORUZ — sadece açılan konu (decodedTopicSlug) tam yüklenir, diğerleri sidebar
   // için hafif kalır ve client tarafında ihtiyaç oldukça (DersClient ->
   // ensureTopicContentLoaded) yüklenir.
-  const [questionCountByUnit, { outcomes, contents }, gradeLessons, allGrades] = await Promise.all([
+  const [questionCountByUnit, weekData, gradeLessons, allGrades] = await Promise.all([
     computeQuestionCountByUnit(supabase, units),
-    getLessonWeekData(supabase, activeUnit.id, week, false, { slug: decodedTopicSlug }),
+    getLessonWeekData(supabase, contentUnit.id, week, false, { slug: decodedTopicSlug }),
     fetchGradeLessons(supabase, gId),
     fetchAllGrades(supabase),
   ]);
+  let { outcomes, contents } = weekData;
 
   const unitsWithQuestionFlag = units.map((u) => {
     const testQuestionCount = questionCountByUnit.get(u.id) ?? 0;
     return { ...u, has_questions: testQuestionCount > 0, test_question_count: testQuestionCount };
   });
 
-  const activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
+  let activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
+
+  // Ünite normal yoldan bulunmuştu ama konu artık onun içinde değil — muhtemelen Arşiv
+  // ünitesine taşındı (bkz. archive-topic route). Henüz denemediysek donmuş slug'la son bir
+  // kez dene; bu da başarısız olursa konu gerçekten yok demektir (gerçek 404).
+  if (!activeTopic && !usingFrozenUnit) {
+    const frozenUnit = await resolveFrozenTopicUnit(supabase, lId, gId, decodedUnitSlug, decodedTopicSlug);
+    if (!frozenUnit) return null;
+    usingFrozenUnit = true;
+    contentUnit = frozenUnit;
+    unitStart = contentUnit.start_week ?? 1;
+    unitEnd = contentUnit.end_week ?? totalWeeks;
+    week = Math.min(unitEnd, Math.max(unitStart, suggestedWeek));
+    const frozenWeekData = await getLessonWeekData(supabase, contentUnit.id, week, false, { slug: decodedTopicSlug });
+    outcomes = frozenWeekData.outcomes;
+    contents = frozenWeekData.contents;
+    activeTopic = contents.find((c) => c.slug === decodedTopicSlug) ?? null;
+  }
   if (!activeTopic) {
     return null;
   }
@@ -307,7 +363,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     lessonId: lId.toString(),
     gradeName: grade.name,
     lessonName: lesson.name,
-    unitName: activeUnit.title,
+    unitName: contentUnit.title,
     outcomes,
     contents,
     units: unitsWithQuestionFlag,
@@ -320,7 +376,9 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     breaks,
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
-    unitSlug: activeUnit.slug,
+    // frozen_unit_slug'la çözüldüyse ÜNİTE segmenti canlı (ör. "arsiv") ünitenin slug'ı
+    // DEĞİL, URL'de zaten gelen ESKİ slug olarak kalır — indekslenmiş URL asla değişmez.
+    unitSlug: usingFrozenUnit ? decodedUnitSlug : contentUnit.slug,
     topicTitle: activeTopic.title,
     topicSlug: activeTopic.slug,
   };

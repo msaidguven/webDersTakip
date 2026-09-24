@@ -26,7 +26,6 @@ import {
   Monitor,
   Share2,
   Download,
-  Settings2,
   Info,
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
@@ -36,7 +35,9 @@ import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, TopicTestCta, TopicSummaryBox, DiscussionPromptBox } from './DersClientCards';
+import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal, TopicSummaryBox, DiscussionPromptBox, StudyModeSelector, type StudyMode, type StudyModeOption } from './DersClientCards';
+import QuizModal from '@/app/src/components/QuizModal';
+import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import {
   type Outcome,
   type WeekedOutcome,
@@ -58,17 +59,15 @@ import {
   STUDY_TIPS,
 } from './dersHelpers';
 
-// Akıllı tahta modu: öğretmen sınıfta konu içeriğini büyük ekranda açtığında yan
-// panelleri gizleyip içeriği tam genişliğe yayar; yazı boyutu +/- ile ayrıca
-// büyütülüp küçültülebilir. Aynı cihaz (sınıf bilgisayarı/tahtası) her derste
-// tekrar kullanıldığı için ikisi de localStorage'da kalıcı.
-const BOARD_MODE_KEY = 'ders-board-mode';
+// Yazı boyutu +/- ile büyütülüp küçültülebilir. Aynı cihaz (sınıf bilgisayarı/tahtası) her
+// derste tekrar kullanıldığı için localStorage'da kalıcı. Akıllı Tahta Modu (yan panelleri
+// gizleyip içeriği büyüten ayrı mod) kaldırıldı (kullanıcının 2026-09-22 isteği) — sadece bu
+// yazı boyutu kontrolü kaldı.
 const CONTENT_SCALE_KEY = 'ders-content-font-scale';
 const LOGIN_HINT_DISMISSED_KEY = 'ders-login-hint-dismissed';
 const MIN_CONTENT_SCALE = 1;
 const MAX_CONTENT_SCALE = 2.2;
 const CONTENT_SCALE_STEP = 0.2;
-const BOARD_MODE_DEFAULT_SCALE = 1.4;
 
 // "İçerik Yönetimi" açılır menüsü — her satır /admin/konu-icerik/[topicId]?panel=X'e gidip
 // o panel/modalı otomatik açık şekilde açıyor (bkz. AdminTopicSectionsPanel.tsx'teki panel
@@ -154,12 +153,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
-  const [boardMode, setBoardMode] = useState(false);
   const [contentScale, setContentScale] = useState(MIN_CONTENT_SCALE);
-  // Akıllı Tahta + yazı büyütme kontrolleri eskiden araç çubuğunda hep açık duruyordu — bir
-  // öğrenci için bu ikisi anlamsız/kafa karıştırıcıydı (kullanıcının 2026-09-22 isteği).
-  // Artık tek bir ayarlar ikonunun arkasında, sadece isteyen açtığında görünüyorlar.
-  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Giriş yapmanın faydası (ilerleme kaydı, yorum, AI'ye soru) eskiden sadece sayfanın en
   // altındaki yorum kutusunda ortaya çıkıyordu — misafir bir kullanıcı sayfayı hiç
   // sonuna kadar kaydırmazsa bunu hiç görmezdi (kullanıcının 2026-09-22 isteği). Kapatılabilir,
@@ -174,26 +168,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   }, []);
 
   useEffect(() => {
-    setBoardMode(localStorage.getItem(BOARD_MODE_KEY) === '1');
     const savedScale = Number(localStorage.getItem(CONTENT_SCALE_KEY));
     if (savedScale >= MIN_CONTENT_SCALE && savedScale <= MAX_CONTENT_SCALE) setContentScale(savedScale);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(BOARD_MODE_KEY, boardMode ? '1' : '0');
-  }, [boardMode]);
-
-  useEffect(() => {
     localStorage.setItem(CONTENT_SCALE_KEY, String(contentScale));
   }, [contentScale]);
-
-  const toggleBoardMode = useCallback(() => {
-    setBoardMode((prev) => {
-      const next = !prev;
-      if (next) setContentScale((s) => (s === MIN_CONTENT_SCALE ? BOARD_MODE_DEFAULT_SCALE : s));
-      return next;
-    });
-  }, []);
   const [kazanimlarOpen, setKazanimlarOpen] = useState(false);
   // kazanimlarWeek "takvim haftası"dır (week prop'u öğretim haftasıdır) — bkz. totalCalendarWeeks
   // yorumu. Modal ilk kez bugünün öğretim haftasını (week) gösterecek şekilde açılsın diye
@@ -212,6 +193,18 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [slideDeckLoading, setSlideDeckLoading] = useState(false);
   const [slideDeckError, setSlideDeckError] = useState<string | null>(null);
   const [slideDeckExpanded, setSlideDeckExpanded] = useState(false);
+  // "Detaylı Konu Anlatımı" / "Anahtar Kavramlar" / "Özet" kartlarına tıklayınca da slayttaki
+  // gibi doğrudan büyütülmüş (modal) halde açılsın diye (kullanıcının 2026-09-22 isteği) —
+  // her modun içeriği gömülü görünümdekiyle AYNI JSX'ten (detailsPanel/highlightsPanel/
+  // summaryPanel) geliyor, hiçbir şey iki kez render edilmiyor, sadece hangi kapsayıcıya
+  // (satır içi mi modal mı) yerleştirileceği değişiyor.
+  const [expandedPanel, setExpandedPanel] = useState<'details' | 'highlights' | 'summary' | null>(null);
+  // "Anahtar Kavramlar" artık sayfada hiç gömülü GÖRÜNMÜYOR — kartına tıklamak SADECE modal
+  // açıyor, activeStudyMode hiç 'highlights' olmuyor (kullanıcının 2026-09-22 isteği: "ders
+  // sayfasından görünmesin artık"). Varsayılan null — sayfa açılınca HİÇBİR kart seçili
+  // değil, kullanıcı bir karta tıklayana kadar içerik alanı boş kalıyor (kullanıcının
+  // 2026-09-22 isteği: "varsayılan olarak hiçbiri seçili olmayacak ve gösterilmeyecek").
+  const [activeStudyMode, setActiveStudyMode] = useState<StudyMode | null>(null);
   const [adminToolsMenuOpen, setAdminToolsMenuOpen] = useState(false);
   const [openSectionAdminMenuId, setOpenSectionAdminMenuId] = useState<string | number | null>(null);
   const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
@@ -290,6 +283,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   // konunun açık bıraktığı durumla kafa karıştırmasın.
   useEffect(() => {
     setTopicSwitcherOpen(false);
+    setActiveStudyMode(null);
   }, [selectedTopicId]);
 
   const toggleTopicExpanded = (id: string | number) => {
@@ -722,14 +716,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   // alt başlık aynı sayfada birlikte render edildiği için "seçim" değil, sadece
   // o başlığa scroll + adres çubuğunu (#slug) güncellemek anlamına geliyor.
   const goToSectionAnchor = (slug: string) => {
-    const el = document.getElementById(slug);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (gradeSlug && lessonSlug && activeUnit?.slug && activeTopic?.slug) {
-        const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}#${slug}`;
-        window.history.replaceState(null, '', url);
+    setActiveStudyMode('details');
+    requestAnimationFrame(() => {
+      const el = document.getElementById(slug);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (gradeSlug && lessonSlug && activeUnit?.slug && activeTopic?.slug) {
+          const url = `/${gradeSlug}/${lessonSlug}/${activeUnit.slug}/${activeTopic.slug}#${slug}`;
+          window.history.replaceState(null, '', url);
+        }
       }
-    }
+    });
     setSidebarOpen(false);
   };
 
@@ -745,6 +742,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       }
       setManualUnitId(Number(unit.id));
     }
+    setActiveStudyMode('details');
     setActiveTopicId(topicId);
     pendingScrollSlugRef.current = slug;
     setSidebarOpen(false);
@@ -1426,14 +1424,233 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     );
   };
 
+  const hasHighlights = !!(activeTopic?.highlights && activeTopic.highlights.length > 0);
+  const hasSlides = !!(activeTopic && (slideDeck || slideDeckLoading || (isAdmin && slideDeckError)));
+  const hasSummary = !!(activeTopic?.summaryHtml || activeTopic?.discussionPromptHtml);
+  // "Konu Kavrama Testi" kartına tıklayınca ara bir CTA ekranı göstermeden doğrudan soru
+  // modalını açıyoruz (kullanıcının 2026-09-24 isteği) — bu hook durumu (status/testData)
+  // hem kartın açıklamasını doldurmak hem de tıklamada testi başlatmak için kullanılıyor.
+  const topicTest = useTopicTest({
+    gradeSlug,
+    lessonSlug,
+    unitSlug: activeUnitSlug,
+    topicSlug: activeTopic?.slug,
+    topicId: activeTopic ? Number(activeTopic.id) : null,
+    unitId: activeUnit ? Number(activeUnit.id) : null,
+  });
+  const hasTopicTest = !!(activeTopic && gradeSlug && lessonSlug && activeUnitSlug && activeTopic.slug) && topicTest.status?.poolSize !== 0;
+
+  const studyModeOptions: StudyModeOption[] = [
+    {
+      id: 'highlights',
+      title: 'Anahtar Kavramlar',
+      description: hasHighlights ? `${activeTopic?.highlights?.length || 0} kavramı hızlıca gözden geçir` : 'Kavramlar hazırlanıyor',
+      icon: <Sparkles className="h-5 w-5" />,
+      iconClass: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
+      activeClass: 'border-indigo-200 bg-indigo-50/60 shadow-indigo-100/70',
+      railClass: 'bg-indigo-500',
+      badge: 'Kavram',
+      available: hasHighlights,
+    },
+    {
+      id: 'details',
+      title: 'Detaylı Konu Anlatımı',
+      description: activeTopic?.sections?.length ? `${activeTopic.sections.length} alt başlıkla adım adım öğren` : 'Konu anlatımını oku',
+      icon: <BookOpen className="h-5 w-5" />,
+      iconClass: 'bg-rose-50 text-rose-600 ring-rose-100',
+      activeClass: 'border-rose-200 bg-rose-50/60 shadow-rose-100/70',
+      railClass: 'bg-rose-500',
+      badge: 'Anlatım',
+      available: !!activeTopic,
+    },
+    {
+      id: 'slides',
+      title: 'Slayt Anlatımı',
+      description: slideDeckLoading ? 'Slaytlar yükleniyor' : 'Görsel sunumla tekrar et',
+      icon: <Monitor className="h-5 w-5" />,
+      iconClass: 'bg-sky-50 text-sky-600 ring-sky-100',
+      activeClass: 'border-sky-200 bg-sky-50/60 shadow-sky-100/70',
+      railClass: 'bg-sky-500',
+      badge: 'Sunum',
+      available: hasSlides,
+    },
+    {
+      id: 'summary',
+      title: 'Özet',
+      description: hasSummary ? 'Kısa tekrar ve düşünme sorusu' : 'Özet hazırlanıyor',
+      icon: <CheckCircle2 className="h-5 w-5" />,
+      iconClass: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+      activeClass: 'border-emerald-200 bg-emerald-50/60 shadow-emerald-100/70',
+      railClass: 'bg-emerald-500',
+      badge: 'Tekrar',
+      available: hasSummary,
+    },
+    {
+      id: 'test',
+      title: 'Konu Kavrama Testi',
+      description: (() => {
+        const status = topicTest.status;
+        if (!status) return 'Bilgini sorularla ölç';
+        if (status.resumable) return `Yarım kalan testin var — ${status.resumable.answeredCount}/${status.resumable.total} soru çözüldü`;
+        return `${status.testSize} soruluk kavrama testi${status.solved > 0 ? ` — ${status.solved}/${status.poolSize} çözüldü` : ''}`;
+      })(),
+      icon: <ListChecks className="h-5 w-5" />,
+      iconClass: 'bg-violet-50 text-violet-600 ring-violet-100',
+      activeClass: 'border-violet-200 bg-violet-50/60 shadow-violet-100/70',
+      railClass: 'bg-violet-500',
+      badge: 'Test',
+      available: hasTopicTest,
+      loading: topicTest.loading,
+    },
+  ];
+  const availableStudyModes = studyModeOptions.filter((item) => item.available);
+  const selectedStudyMode = activeStudyMode && availableStudyModes.some((item) => item.id === activeStudyMode) ? activeStudyMode : null;
+
+  // Modal kapatılınca sayfa "eskisi gibi" (kapatılan modun gömülü hâli) görünmeye devam
+  // ediyordu — activeStudyMode kartı seçili bıraktığı için (kullanıcının 2026-09-22
+  // şikayeti: "ders sayfasında eskisi gibi görmeye devam ediyorum"). Modalı SADECE bu
+  // fonksiyonlarla kapatıyoruz ki activeStudyMode da null'a dönüp hiçbir kart seçili
+  // kalmasın, tıpkı sayfa ilk açıldığındaki gibi.
+  const closeExpandedPanel = () => {
+    setExpandedPanel(null);
+    setActiveStudyMode(null);
+  };
+  const closeSlideOverlay = () => {
+    setSlideDeckExpanded(false);
+    setActiveStudyMode(null);
+  };
+
+  // "Anahtar Kavramlar" ve "Özet" içerikleri — detailsPanel'le aynı desen: hem gömülü hem
+  // modal görünümde AYNI JSX'ten geliyor, iki yere kopyalanmıyor.
+  const highlightsPanel = activeTopic && hasHighlights ? (
+    <div>
+      <div className="mb-4 flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest">
+        <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
+      </div>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {activeTopic.highlights!.map((h, idx) => (
+          <HighlightCard key={idx} highlight={h} />
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  const summaryPanel = activeTopic && hasSummary ? (
+    <div className="space-y-4">
+      {activeTopic.summaryHtml && <TopicSummaryBox topicTitle={activeTopic.title} summaryHtml={activeTopic.summaryHtml} />}
+      {activeTopic.discussionPromptHtml && <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />}
+    </div>
+  ) : null;
+
+  // "Detaylı Konu Anlatımı" içeriği — hem gömülü hem modal (expandedPanel) görünümde AYNI
+  // JSX'ten geliyor, iki yere de kopyalanmıyor. Sadece biri (gömülü/modal) her an gerçekten
+  // mount oluyor, section id'leri hiç çakışmıyor, scroll-spy/goToSectionAnchor gibi mevcut
+  // davranışlar bozulmuyor.
+  const detailsPanel = activeTopic ? (
+    <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
+      {activeTopic.sections && activeTopic.sections.length > 0 ? (
+        <div>
+          {activeTopic.sections.map((section) => {
+            const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
+            return (
+              <section
+                key={section.id}
+                id={slug}
+                data-section-anchor={slug}
+                className="scroll-mt-4 mt-10 border-t-2 border-rose-100 pt-10 first:mt-0 first:border-t-0 first:pt-0"
+              >
+                <div className="flex items-start justify-between gap-2 mb-5">
+                  <h2 className="not-prose flex-1 min-w-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
+                    {section.heading}
+                  </h2>
+                  {isAdmin && (
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setOpenSectionAdminMenuId((id) => (id === section.id ? null : section.id))}
+                        className="inline-flex items-center gap-1 rounded-full border border-[#6c63ff]/30 bg-[#6c63ff]/10 px-2 py-1 text-[10px] font-bold text-[#6c63ff] hover:bg-[#6c63ff]/20 transition-colors"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <ChevronDown className={`h-3 w-3 transition-transform ${openSectionAdminMenuId === section.id ? 'rotate-180' : ''}`} />
+                      </button>
+                      {openSectionAdminMenuId === section.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setOpenSectionAdminMenuId(null)} />
+                          <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
+                            {SECTION_ADMIN_TOOLS_MENU.map((item) => (
+                              <Link
+                                key={item.panel}
+                                href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}&sectionId=${section.id}`}
+                                target="_blank"
+                                onClick={() => setOpenSectionAdminMenuId(null)}
+                                className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                              >
+                                {item.label}
+                              </Link>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {section.html || section.imageUrl || section.diagramSvg || section.videoUrl ? (
+                  <SectionContent
+                    html={section.html || ''}
+                    notebookHtml={section.notebookHtml}
+                    activityPromptHtml={section.activityPromptHtml}
+                    activityExampleHtml={section.activityExampleHtml}
+                    sectionId={section.id}
+                    heading={section.heading}
+                    imageUrl={section.imageUrl}
+                    caption={section.heading}
+                    imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
+                    diagramSvg={section.diagramSvg}
+                    videoUrl={section.videoUrl}
+                    videoType={section.videoType}
+                  />
+                ) : (
+                  <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
+                )}
+              </section>
+            );
+          })}
+          <TopicCompleteButton topicId={activeTopic.id} />
+        </div>
+      ) : activeTopic.content ? (
+        <>
+          <SectionContent html={activeTopic.content} />
+          <TopicCompleteButton topicId={activeTopic.id} />
+        </>
+      ) : isWeekDataLoading ? (
+        <div className="space-y-5 animate-pulse not-prose">
+          <div className="h-7 w-2/3 rounded-lg bg-slate-100" />
+          <div className="space-y-3">
+            <div className="h-4 w-full rounded bg-slate-100" />
+            <div className="h-4 w-11/12 rounded bg-slate-100" />
+            <div className="h-4 w-4/5 rounded bg-slate-100" />
+          </div>
+          <div className="h-28 rounded-2xl bg-slate-100" />
+        </div>
+      ) : (
+        <div className="text-center py-10 not-prose">
+          <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center shadow-sm mx-auto mb-4">
+            <BookOpen className="h-8 w-8 text-slate-300" />
+          </div>
+          <h3 className="text-lg font-extrabold text-slate-800 mb-2">İçerik Hazırlanıyor</h3>
+          <p className="text-sm text-slate-500 font-medium">Bu konu için detaylı ders içeriği yakında eklenecektir.</p>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="flex h-[calc(100dvh-60px)] sm:h-[calc(100dvh-72px)] flex-col bg-[#f9fafb] text-slate-800 font-sans overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
 
       <div className="flex min-h-0 flex-1 overflow-hidden relative">
 
-        {/* MOBILE OVERLAY + LEFT SIDEBAR: akıllı tahta modunda ikisi de tamamen
-            gizlenir — ders/ünite navigasyonu değil, içerik büyük ekranda odak olsun diye. */}
-        {!boardMode && sidebarOpen && (
+        {/* MOBILE OVERLAY */}
+        {sidebarOpen && (
           <div
             className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
             onClick={() => setSidebarOpen(false)}
@@ -1441,7 +1658,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         )}
 
         {/* LEFT SIDEBAR: İÇİNDEKİLER (o ünitedeki konular) */}
-        {!boardMode && (
         <aside className={`
           fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200
           transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-none shrink-0
@@ -1548,7 +1764,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
           <div className="hidden lg:block h-16 shrink-0 border-t border-slate-200/80 bg-white/95" />
 
         </aside>
-        )}
 
         {/* MAIN CONTENT */}
         <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-slate-50">
@@ -1559,14 +1774,14 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 (kullanıcının 2026-09-21 "ortadaki içerik ile sol sidebar arasında büyük boşluk
                 var" şikayeti). max-w-none ile içerik, sidebarlardan arta kalan TÜM genişliği
                 (sadece p-8 dolgusu kadar kenar boşluğuyla) kullanıyor. */}
-            <div className={`mx-auto p-3 sm:p-5 lg:p-8 ${boardMode ? 'max-w-6xl 2xl:max-w-none' : 'max-w-5xl 2xl:max-w-none'}`}>
+            <div className="mx-auto max-w-5xl p-3 sm:p-5 lg:p-8 2xl:max-w-none">
 
               {/* Sağ "Ünite Özeti" sütunu 260px sabitken büyük ekranlarda ortadaki içerikle
                   orantısız kalıyordu — clamp() ile 1024px'te 260px'te başlayıp ekran
                   genişledikçe 360px'e kadar sürekli büyüyor (kullanıcının 2026-09-21
                   "sidebar'lar orantılı genişliyor mu" sorusu — eskiden sadece 2xl'de tek
                   seferlik bir sıçrama vardı, şimdi gerçekten orantılı). */}
-              <div className={`grid grid-cols-1 gap-5 items-start ${boardMode ? '' : 'lg:grid-cols-[1fr_clamp(260px,15vw,360px)]'}`}>
+              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_clamp(260px,15vw,360px)]">
               {/* SOL SÜTUN: hiyerarşi barı + mobil konu dropdown'u + içerik kartı — sağdaki
                   260px'lik özet sütunuyla AYNI grid satırında, aynı hizada kalsınlar diye
                   hepsi tek bir grid item (kullanıcının 2026-09-05 bildirdiği bug: hiyerarşi
@@ -1586,15 +1801,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   handleLessonDropdownSelect/handleUnitDropdownSelect). */}
               <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20 sm:p-3">
                 <div className="flex items-center gap-2">
-                  {!boardMode && (
-                    <button
-                      type="button"
-                      onClick={() => setSidebarOpen(true)}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
-                    >
-                      <Menu className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(true)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 lg:hidden"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </button>
                   <Link
                     href="/"
                     title="Anasayfa"
@@ -1804,156 +2017,141 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
 
                 {/* CONTENT CARD */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 min-w-0">
-                  {/* Üst araç çubuğu — solda bu konunun alt başlıklarına atlayan yatay bir mini
-                      içindekiler şeridi (sayfa çok uzun olduğu için "neredeyim, ne kaldı"
-                      sorusuna cevap versin diye — kullanıcının 2026-09-22 isteği), sağda tek bir
-                      ayarlar ikonu (Akıllı Tahta + yazı büyütme eskiden burada hep açık
-                      duruyordu, sıradan bir öğrenci için anlamsızdı — artık gerekmedikçe
-                      gizli). zoom'lu iç div'in DIŞINDA ki kontroller büyümesin. */}
-                  <div className="not-prose sticky top-0 z-20 flex items-center gap-2 rounded-t-2xl border-b border-slate-100 bg-white/95 px-3 py-2 backdrop-blur-sm sm:px-6">
-                    {activeTopic && activeTopic.sections && activeTopic.sections.length > 1 ? (
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                        {activeTopic.sections.map((section) => {
-                          const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
-                          const isActiveSection = activeSectionSlug === slug;
-                          return (
-                            <button
-                              key={section.id}
-                              type="button"
-                              onClick={() => goToSectionAnchor(slug)}
-                              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-                                isActiveSection ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:bg-slate-50 hover:text-rose-600'
-                              }`}
-                            >
-                              {section.heading}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex-1" />
+                  {/* Üst araç çubuğu — açılır menü ARKASINDA değil, doğrudan ikon olarak
+                      (kullanıcının 2026-09-22 isteği: "açılır menüde olmasın"); sticky top-0
+                      sayesinde sayfa kaydırılırken de kaybolmuyor ("sabit olsun"). Eskiden
+                      solda alt başlıklara atlayan bir mini içindekiler şeridi vardı, "Çalışma
+                      Menüsü" kartları (StudyModeSelector) aynı işi gördüğü için kaldırıldı. */}
+                  <div className="not-prose sticky top-0 z-20 flex items-center justify-end gap-1 rounded-t-2xl border-b border-slate-100 bg-white/95 px-3 py-2 backdrop-blur-sm sm:px-6">
+                    <button
+                      type="button"
+                      onClick={handleShareTopic}
+                      title={topicShareState === 'copied' ? 'Bağlantı kopyalandı!' : 'Sayfayı Paylaş'}
+                      aria-label="Sayfayı Paylaş"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </button>
+                    {activeTopic && (
+                      <a
+                        href={`/api/topic-pdf/${activeTopic.id}`}
+                        title="PDF Olarak İndir"
+                        aria-label="PDF Olarak İndir"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
                     )}
-
-                    <div className="relative shrink-0">
+                    {isAdmin && activeTopic && (
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setAdminToolsMenuOpen((v) => !v)}
+                          title="İçerik Yönetimi"
+                          aria-label="İçerik Yönetimi"
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                            adminToolsMenuOpen ? 'bg-[#6c63ff]/10 text-[#6c63ff]' : 'text-[#6c63ff]/70 hover:bg-[#6c63ff]/10 hover:text-[#6c63ff]'
+                          }`}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                        </button>
+                        {adminToolsMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setAdminToolsMenuOpen(false)} />
+                            <div className="absolute right-0 top-full z-50 mt-1 max-h-[60vh] w-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
+                              <Link
+                                href={`/admin/konu-icerik/${activeTopic.id}`}
+                                target="_blank"
+                                onClick={() => setAdminToolsMenuOpen(false)}
+                                className="block rounded-lg px-2.5 py-2 text-xs font-black text-[#6c63ff] hover:bg-slate-50 transition-colors"
+                              >
+                                Tüm Araçlar (Genel Sayfa) →
+                              </Link>
+                              <div className="my-1 h-px bg-slate-100" />
+                              {ADMIN_TOOLS_MENU.map((item) => (
+                                <Link
+                                  key={item.panel}
+                                  href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}`}
+                                  target="_blank"
+                                  onClick={() => setAdminToolsMenuOpen(false)}
+                                  className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                  {item.label}
+                                </Link>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="ml-1 flex items-center gap-0.5 rounded-lg border border-slate-200 pl-1">
                       <button
                         type="button"
-                        onClick={() => setViewSettingsOpen((v) => !v)}
-                        aria-label="Görünüm ayarları"
-                        title="Görünüm ayarları — Akıllı Tahta modu, yazı boyutu"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                          boardMode || viewSettingsOpen ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
-                        }`}
+                        onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale <= MIN_CONTENT_SCALE}
+                        aria-label="Yazıyı küçült"
+                        title="Yazıyı küçült"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <Settings2 className="h-4 w-4" />
+                        <Minus className="h-3.5 w-3.5" />
                       </button>
-                      {viewSettingsOpen && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setViewSettingsOpen(false)} />
-                          <div className="absolute right-0 top-full z-50 mt-2 w-64 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-                            <button
-                              type="button"
-                              onClick={toggleBoardMode}
-                              title={boardMode ? 'Akıllı tahta modundan çık' : 'Akıllı tahta modu — yan panelleri gizle, içeriği büyüt'}
-                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition-colors ${
-                                boardMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'text-slate-600 hover:bg-slate-50'
-                              }`}
-                            >
-                              <Monitor className="h-3.5 w-3.5 shrink-0" />
-                              {boardMode ? 'Akıllı Tahta Modu (açık)' : 'Akıllı Tahta Modu — yan panelleri gizle'}
-                            </button>
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5">
-                              <span className="text-xs font-bold text-slate-500">Yazı Boyutu</span>
-                              <div className="flex items-center gap-0.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
-                                  disabled={contentScale <= MIN_CONTENT_SCALE}
-                                  aria-label="Yazıyı küçült"
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  <Minus className="h-3.5 w-3.5" />
-                                </button>
-                                <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
-                                  disabled={contentScale >= MAX_CONTENT_SCALE}
-                                  aria-label="Yazıyı büyüt"
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
+                        disabled={contentScale >= MAX_CONTENT_SCALE}
+                        aria-label="Yazıyı büyüt"
+                        title="Yazıyı büyüt"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                   <div className="p-5 sm:p-8 lg:p-10" style={{ zoom: contentScale }}>
+                    {/* Etiket ("Ünite"/"Konu") artık değerin YANINDA değil ÜSTÜNDE — uzun
+                        ünite adları eskiden tek satıra sığdırılmak için "..." ile kesiliyordu,
+                        öğrenci tam adı okuyamıyordu (kullanıcının 2026-09-22 sert şikayeti).
+                        Değer artık truncate edilmiyor, gerekirse doğal olarak alt satıra
+                        sarıyor. Dış bordür/gölge kaldırıldı, dolgu azaltıldı — bu kutu zaten
+                        bordürlü/gölgeli CONTENT CARD'ın İÇİNDE olduğu için "kart içinde kart"
+                        kenar boşluğu fazlalaşıyordu (kullanıcının isteği: "padding'i mi
+                        düşürürsün yoksa card'ı mı kaldırırsın, sen karar ver"). Renkli
+                        gradyan zemin (kullanıcının daha önceki "renkli olsun" isteği) kaldı,
+                        sadece kutu hissi (border/shadow) gitti. */}
                     {activeTopic && (
-                      <div className="not-prose mb-8 sm:mb-10 pb-8 sm:pb-10 border-b border-rose-100 text-center">
-                        <p className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-rose-400">{unitTitle}</p>
-                        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                          <h1 className="font-serif text-3xl sm:text-4xl font-black text-rose-600 leading-tight">{activeTopic.title}</h1>
-                        </div>
-                        <div className="mx-auto mt-4 h-1 w-14 rounded-full bg-rose-200" />
-                        <div className="mx-auto mt-4 flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleShareTopic}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
-                          >
-                            <Share2 className="h-3.5 w-3.5" /> {topicShareState === 'copied' ? 'Bağlantı kopyalandı!' : 'Sayfayı Paylaş'}
-                          </button>
-                          <a
-                            href={`/api/topic-pdf/${activeTopic.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
-                          >
-                            <Download className="h-3.5 w-3.5" /> PDF Olarak İndir
-                          </a>
-                          {isAdmin && (
-                            <div className="relative inline-block">
+                      <div className="not-prose mb-8 sm:mb-10 rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4 text-left sm:p-6">
+                        <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">Ünite</p>
+                        <p className="mt-1 text-2xl sm:text-3xl font-black text-rose-600 leading-snug">{unitTitle}</p>
+                        <p className="mt-4 text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">Konu</p>
+                        <h1 className="mt-1 font-serif text-xl sm:text-2xl font-black text-rose-600 leading-snug">{activeTopic.title}</h1>
+                        <div className="mt-4 h-1 w-14 rounded-full bg-rose-300" />
+                        {/* Konu görseli SADECE açıklamanın yanına alınıyor, ünite/konu
+                            başlığının yanına değil (kullanıcının 2026-09-22 sert
+                            düzeltmesi). Mobilde açıklamanın üstünde, sm+'ta yanında;
+                            tıklayınca hâlâ tam boy zoom modalı açılıyor. */}
+                        {(activeTopic.subtitle || activeTopic.heroImageUrl) && (
+                          <div className="mt-4 flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-6">
+                            {activeTopic.subtitle && (
+                              <p className="min-w-0 flex-1 text-sm sm:text-base text-slate-600 font-medium leading-relaxed">{activeTopic.subtitle}</p>
+                            )}
+                            {activeTopic.heroImageUrl && (
                               <button
                                 type="button"
-                                onClick={() => setAdminToolsMenuOpen((v) => !v)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-[#6c63ff]/30 bg-[#6c63ff]/10 px-3 py-1.5 text-xs font-bold text-[#6c63ff] hover:bg-[#6c63ff]/20 transition-colors"
+                                onClick={() => setHeroImageZoomed(true)}
+                                title="Büyütmek için tıkla"
+                                className="shrink-0 cursor-zoom-in overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 shadow-sm transition hover:border-slate-200 hover:shadow-md"
                               >
-                                <Sparkles className="h-3.5 w-3.5" /> İçerik Yönetimi
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${adminToolsMenuOpen ? 'rotate-180' : ''}`} />
+                                <img
+                                  src={activeTopic.heroImageUrl}
+                                  alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
+                                  className="h-36 w-full object-cover sm:h-28 sm:w-44 lg:h-32 lg:w-52"
+                                  fetchPriority="high"
+                                  decoding="async"
+                                />
                               </button>
-                              {adminToolsMenuOpen && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={() => setAdminToolsMenuOpen(false)} />
-                                  <div className="absolute left-1/2 top-full z-50 mt-2 max-h-[60vh] w-64 -translate-x-1/2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                                    <Link
-                                      href={`/admin/konu-icerik/${activeTopic.id}`}
-                                      target="_blank"
-                                      onClick={() => setAdminToolsMenuOpen(false)}
-                                      className="block rounded-lg px-2.5 py-2 text-xs font-black text-[#6c63ff] hover:bg-slate-50 transition-colors"
-                                    >
-                                      Tüm Araçlar (Genel Sayfa) →
-                                    </Link>
-                                    <div className="my-1 h-px bg-slate-100" />
-                                    {ADMIN_TOOLS_MENU.map((item) => (
-                                      <Link
-                                        key={item.panel}
-                                        href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}`}
-                                        target="_blank"
-                                        onClick={() => setAdminToolsMenuOpen(false)}
-                                        className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                                      >
-                                        {item.label}
-                                      </Link>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {activeTopic.subtitle && (
-                          <p className="mx-auto mt-4 max-w-xl text-sm sm:text-base text-slate-500 font-medium leading-relaxed">{activeTopic.subtitle}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -1973,63 +2171,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       </Alert>
                     )}
 
-                    {/* Sunum — varsayılan olarak gömülü gösteriliyor, sağ üstteki büyüteç
-                        ikonuyla tam ekrana geçiliyor (kullanıcının 2026-09-20 isteği). Hata/eski
-                        içerik uyarısı sadece admin'e gösterilir, öğrenci için sessizce boş kalır. */}
-                    {activeTopic && slideDeck && (
-                      <div className="not-prose mb-8 sm:mb-10">
-                        <SlidePlayer
-                          deck={slideDeck}
-                          topicId={Number(activeTopic.id)}
-                          gradeId={Number(gradeId)}
-                          lessonId={Number(lessonId)}
-                          unitId={activeUnit?.id ?? null}
-                          variant="embedded"
-                          onExpand={() => setSlideDeckExpanded(true)}
-                        />
-                        {isAdmin && slideDeck.hasStaleSections && activeTopic && (
-                          <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
-                            ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
-                            <Link href={`/admin/konu-icerik/${activeTopic.id}?panel=review-summary`} target="_blank" className="underline hover:text-amber-800">
-                              Eksik özetleri AI ile tamamla →
-                            </Link>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {isAdmin && activeTopic && !slideDeck && !slideDeckLoading && slideDeckError && (
-                      <div className="not-prose mb-8 sm:mb-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-bold text-amber-700">
-                        ⚠️ Bu ders için sunum/slayt içeriği yok: {slideDeckError}
-                      </div>
-                    )}
-                    {activeTopic && slideDeckExpanded && slideDeck && typeof document !== 'undefined' && createPortal(
-                      <SlidePlayer
-                        deck={slideDeck}
-                        topicId={Number(activeTopic.id)}
-                        gradeId={Number(gradeId)}
-                        lessonId={Number(lessonId)}
-                        unitId={activeUnit?.id ?? null}
-                        variant="overlay"
-                        onClose={() => setSlideDeckExpanded(false)}
-                      />,
-                      document.body
-                    )}
                     {activeTopic?.heroImageUrl && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => setHeroImageZoomed(true)}
-                          title="Büyütmek için tıkla"
-                          className="not-prose mb-8 block w-full cursor-zoom-in rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 transition hover:border-slate-200 hover:shadow-md"
-                        >
-                          <img
-                            src={activeTopic.heroImageUrl}
-                            alt={buildTopicImageAlt(activeTopic.title, lessonName, gradeName, activeTopic.heroImageAlt)}
-                            className="w-full max-h-[420px] object-contain"
-                            fetchPriority="high"
-                            decoding="async"
-                          />
-                        </button>
                         {heroImageZoomed && typeof document !== 'undefined' && createPortal(
                           <div
                             className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 sm:p-8"
@@ -2059,120 +2202,101 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         )}
                       </>
                     )}
-                    {activeTopic && activeTopic.highlights && activeTopic.highlights.length > 0 && (
-                      <div className="not-prose mb-8">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest">
-                            <Sparkles className="h-4 w-4" /> Anahtar Kavramlar
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {activeTopic.highlights.map((h, idx) => (
-                            <HighlightCard key={idx} highlight={h} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
                     {activeTopic ? (
-                      <div className="prose prose-sm sm:prose lg:prose-base max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-h2:text-xl sm:prose-h2:text-2xl prose-h3:text-lg sm:prose-h3:text-xl prose-p:text-base prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-4 prose-a:text-indigo-600 hover:prose-a:text-indigo-500 prose-strong:text-indigo-700 prose-strong:font-extrabold prose-ul:text-slate-700 prose-li:marker:text-indigo-400 prose-li:text-base prose-li:mb-1.5">
-                        {activeTopic.sections && activeTopic.sections.length > 0 ? (
-                          <>
-                          <div>
-                            {activeTopic.sections.map((section) => {
-                              const slug = activeTopicSectionSlugs.get(section.id) || String(section.id);
-                              return (
-                                <section
-                                  key={section.id}
-                                  id={slug}
-                                  data-section-anchor={slug}
-                                  className="scroll-mt-4 mt-10 border-t-2 border-rose-100 pt-10 first:mt-0 first:border-t-0 first:pt-0"
-                                >
-                                  <div className="flex items-start justify-between gap-2 mb-5">
-                                    <h2 className="not-prose flex-1 min-w-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-rose-600 leading-snug">
-                                      {section.heading}
-                                    </h2>
-                                    {isAdmin && (
-                                      <div className="relative shrink-0">
-                                        <button
-                                          type="button"
-                                          onClick={() => setOpenSectionAdminMenuId((id) => (id === section.id ? null : section.id))}
-                                          className="inline-flex items-center gap-1 rounded-full border border-[#6c63ff]/30 bg-[#6c63ff]/10 px-2 py-1 text-[10px] font-bold text-[#6c63ff] hover:bg-[#6c63ff]/20 transition-colors"
-                                        >
-                                          <Sparkles className="h-3 w-3" />
-                                          <ChevronDown className={`h-3 w-3 transition-transform ${openSectionAdminMenuId === section.id ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        {openSectionAdminMenuId === section.id && (
-                                          <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setOpenSectionAdminMenuId(null)} />
-                                            <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                                              {SECTION_ADMIN_TOOLS_MENU.map((item) => (
-                                                <Link
-                                                  key={item.panel}
-                                                  href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}&sectionId=${section.id}`}
-                                                  target="_blank"
-                                                  onClick={() => setOpenSectionAdminMenuId(null)}
-                                                  className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                                                >
-                                                  {item.label}
-                                                </Link>
-                                              ))}
-                                            </div>
-                                          </>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {section.html || section.imageUrl || section.diagramSvg || section.videoUrl ? (
-                                    <SectionContent
-                                      html={section.html || ''}
-                                      notebookHtml={section.notebookHtml}
-                                      activityPromptHtml={section.activityPromptHtml}
-                                      activityExampleHtml={section.activityExampleHtml}
-                                      sectionId={section.id}
-                                      heading={section.heading}
-                                      imageUrl={section.imageUrl}
-                                      caption={section.heading}
-                                      imageAlt={buildSectionImageAlt(section.heading, activeTopic.title, lessonName, gradeName, section.imageAlt)}
-                                      diagramSvg={section.diagramSvg}
-                                      videoUrl={section.videoUrl}
-                                      videoType={section.videoType}
-                                    />
-                                  ) : (
-                                    <p className="not-prose text-sm text-slate-400 font-medium italic">İçerik hazırlanıyor.</p>
-                                  )}
-                                </section>
-                              );
-                            })}
-                          </div>
-                          {activeTopic.summaryHtml && (
-                            <div className="not-prose">
-                              <TopicSummaryBox topicTitle={activeTopic.title} summaryHtml={activeTopic.summaryHtml} />
+                      <div className="not-prose mt-8">
+                        <StudyModeSelector
+                          options={studyModeOptions}
+                          selectedMode={selectedStudyMode}
+                          onSelect={(mode) => {
+                            // "Anahtar Kavramlar" sayfada hiç gömülü açılmıyor — kartına
+                            // tıklamak SADECE modal açar, activeStudyMode/sayfanın
+                            // "dinlenme" görünümü hiç değişmez (kullanıcının 2026-09-22
+                            // isteği: "ders sayfasından görünmesin artık").
+                            if (mode === 'highlights') {
+                              setExpandedPanel('highlights');
+                              return;
+                            }
+                            // "Konu Kavrama Testi" artık aradaki CTA ekranını/modalini hiç
+                            // göstermiyor — kartına tıklayınca doğrudan test verisini çekip
+                            // (topicTest.startTest) soru modalını açıyor (kullanıcının
+                            // 2026-09-24 isteği: "tıklayınca direkt soruları modal'ı
+                            // açılsın"). Kartın kendi açıklaması zaten status'u gösteriyor.
+                            if (mode === 'test') {
+                              void topicTest.startTest(false);
+                              return;
+                            }
+                            setActiveStudyMode(mode);
+                            // "Slayt Anlatımı" kartına tıklayınca slayt zaten hazırsa
+                            // doğrudan büyütülmüş (tam ekran) hâliyle açılsın — kullanıcı
+                            // sanki slaytın kendi büyüteç düğmesine basmış gibi (kullanıcının
+                            // 2026-09-22 isteği). Slayt henüz yüklenmediyse embedded görünüme
+                            // düşer, portal zaten slideDeck hazır olunca render oluyor.
+                            if (mode === 'slides' && slideDeck) setSlideDeckExpanded(true);
+                            // Aynı mantık "Detaylı Konu Anlatımı" ve "Özet" için de —
+                            // kartına tıklayınca doğrudan modal içinde açılıyor.
+                            if (mode === 'details' || mode === 'summary') setExpandedPanel(mode);
+                          }}
+                        />
+
+                        {/* Slayt kendi kart görünümünü (yuvarlak köşe, gölge) zaten taşıyor —
+                            bunu bir de dışarıdan bordürlü/dolgulu bir panele sokmak "kart içinde
+                            kart" gibi kalabalık duruyordu (kullanıcının 2026-09-22 isteği).
+                            Slayt modunda dış panel tamamen kaldırılıp genişlik tümüyle slayta
+                            bırakılıyor, diğer modlar eski dolgulu/bordürlü paneli koruyor. */}
+                        {/* "Anahtar Kavramlar" kasıtlı olarak burada YOK — SADECE modalde
+                            açılıyor, selectedStudyMode hiç 'highlights' olmuyor (kullanıcının
+                            2026-09-22 isteği). Varsayılan olarak HİÇBİR kart seçili değil
+                            (selectedStudyMode null) — kullanıcı bir karta tıklamadan bu panel
+                            hiç render edilmiyor, boş/dolgulu bir kutu görünmesin diye
+                            (kullanıcının 2026-09-22 sert şikayeti: "varsayılan olarak hiçbiri
+                            seçili olmayacak ve gösterilmeyecek"). */}
+                        {selectedStudyMode && (
+                        <div className={selectedStudyMode === 'slides' ? 'mt-5' : 'mt-5 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6'}>
+                          {selectedStudyMode === 'slides' && (
+                            <div>
+                              {slideDeck && (
+                                <SlidePlayer
+                                  deck={slideDeck}
+                                  topicId={Number(activeTopic.id)}
+                                  gradeId={Number(gradeId)}
+                                  lessonId={Number(lessonId)}
+                                  unitId={activeUnit?.id ?? null}
+                                  variant="embedded"
+                                  onExpand={() => setSlideDeckExpanded(true)}
+                                />
+                              )}
+                              {slideDeckLoading && (
+                                <div className="flex h-48 items-center justify-center rounded-2xl bg-slate-50 text-sm font-black text-slate-400">
+                                  Slaytlar yükleniyor...
+                                </div>
+                              )}
+                              {isAdmin && !slideDeck && !slideDeckLoading && slideDeckError && (
+                                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-bold text-amber-700">
+                                  ⚠️ Bu ders için sunum/slayt içeriği yok: {slideDeckError}
+                                </div>
+                              )}
+                              {isAdmin && slideDeck?.hasStaleSections && (
+                                <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
+                                  ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
+                                  <Link href={`/admin/konu-icerik/${activeTopic.id}?panel=review-summary`} target="_blank" className="underline hover:text-amber-800">
+                                    Eksik özetleri AI ile tamamla →
+                                  </Link>
+                                </p>
+                              )}
                             </div>
                           )}
-                          {activeTopic.discussionPromptHtml && (
-                            <DiscussionPromptBox discussionPromptHtml={activeTopic.discussionPromptHtml} />
-                          )}
-                          </>
-                        ) : activeTopic.content ? (
-                          <SectionContent html={activeTopic.content} />
-                        ) : isWeekDataLoading ? (
-                          <div className="space-y-5 animate-pulse not-prose">
-                            <div className="h-7 w-2/3 rounded-lg bg-slate-100" />
-                            <div className="space-y-3">
-                              <div className="h-4 w-full rounded bg-slate-100" />
-                              <div className="h-4 w-11/12 rounded bg-slate-100" />
-                              <div className="h-4 w-4/5 rounded bg-slate-100" />
-                            </div>
-                            <div className="h-28 rounded-2xl bg-slate-100" />
-                          </div>
-                        ) : (
-                          <div className="text-center py-10 not-prose">
-                            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center shadow-sm mx-auto mb-4">
-                              <BookOpen className="h-8 w-8 text-slate-300" />
-                            </div>
-                            <h3 className="text-lg font-extrabold text-slate-800 mb-2">İçerik Hazırlanıyor</h3>
-                            <p className="text-sm text-slate-500 font-medium">Bu konu için detaylı ders içeriği yakında eklenecektir.</p>
-                          </div>
+
+                          {selectedStudyMode === 'summary' && expandedPanel !== 'summary' && summaryPanel}
+
+                          {/* "Konu Kavrama Testi" burada YOK — SADECE modalde açılıyor
+                              (kullanıcının 2026-09-22 isteği), tıpkı Anahtar Kavramlar gibi. */}
+
+                          {/* Modal (expandedPanel) açıkken burada TEKRAR render etmiyoruz —
+                              aynı detailsPanel'i iki yerde birden mount etmek section id'lerini
+                              çakıştırıp scroll-spy/goToSectionAnchor'ı bozardı. */}
+                          {selectedStudyMode === 'details' && expandedPanel !== 'details' && detailsPanel}
+                        </div>
                         )}
                       </div>
                     ) : (
@@ -2181,23 +2305,130 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         <p className="text-slate-500 font-medium">İçerik bulunamadı</p>
                       </div>
                     )}
-                    {activeTopic && <TopicCompleteButton topicId={activeTopic.id} />}
-                    {/* Ünite Testi kaldırıldı, tek kart olarak Konu Testi kaldı — sayfadan hiç
-                        ayrılmadan (QuizModal overlay) açılıyor, misafir de çözebiliyor
-                        (kullanıcının 2026-09-22 isteği). Slug tabanlı route (gradeSlug/
-                        lessonSlug/activeUnitSlug/activeTopic.slug) yoksa (eski /ders?sinif=
-                        query-param erişimi) bu kart hiç render edilmiyor — o durumda sadece
-                        Soru Bankası linki üzerinden test çözülebilir, ayrı bir dallanma
-                        eklemeye değmez. */}
-                    {activeTopic && gradeSlug && lessonSlug && activeUnitSlug && activeTopic.slug && (
-                      <TopicTestCta
-                        gradeSlug={gradeSlug}
-                        lessonSlug={lessonSlug}
-                        unitSlug={activeUnitSlug}
-                        topicSlug={activeTopic.slug}
+
+                    {activeTopic && slideDeckExpanded && slideDeck && typeof document !== 'undefined' && createPortal(
+                      <SlidePlayer
+                        deck={slideDeck}
                         topicId={Number(activeTopic.id)}
-                        unitId={Number(activeUnit?.id)}
-                      />
+                        gradeId={Number(gradeId)}
+                        lessonId={Number(lessonId)}
+                        unitId={activeUnit?.id ?? null}
+                        variant="overlay"
+                        onClose={closeSlideOverlay}
+                      />,
+                      document.body
+                    )}
+                    {expandedPanel && typeof document !== 'undefined' && createPortal(
+                      (() => {
+                        const panelContent =
+                          expandedPanel === 'details' ? detailsPanel
+                          : expandedPanel === 'highlights' ? highlightsPanel
+                          : summaryPanel;
+                        if (!panelContent) return null;
+                        const panelTitle =
+                          expandedPanel === 'details' ? 'Detaylı Konu Anlatımı'
+                          : expandedPanel === 'highlights' ? 'Anahtar Kavramlar'
+                          : 'Özet';
+                        return (
+                          <div
+                            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-2 sm:p-6"
+                            onClick={closeExpandedPanel}
+                          >
+                            {/* Sabit bir max-width YOK — akıllı tahta gibi büyük ekranlarda da
+                                her şey büyük görünsün diye genişlik her zaman ekranın %90'ı
+                                (kullanıcının 2026-09-22 isteği: "genişlik değeri verme"). */}
+                            <div
+                              className="relative flex h-full w-full flex-col overflow-hidden rounded-none bg-white shadow-2xl sm:h-[calc(100dvh-3rem)] sm:w-[90vw] sm:rounded-2xl"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6">
+                                <p className="min-w-0 flex-1 truncate text-sm font-black text-slate-800">{panelTitle}</p>
+                                {/* Sayfanın kendi yazı boyutu +/- kontrolü modal açıkken
+                                    arkada kalıp erişilemez oluyordu — modal kendi +/- ikonlarını
+                                    taşıyor (kullanıcının 2026-09-22 isteği: "hep modal sayfasına
+                                    +- butonları koyalım"). Aynı contentScale state'ini kullanıyor,
+                                    yani sayfadaki toolbar'la senkron. */}
+                                <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 pl-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setContentScale((s) => Math.max(MIN_CONTENT_SCALE, Math.round((s - CONTENT_SCALE_STEP) * 100) / 100))}
+                                    disabled={contentScale <= MIN_CONTENT_SCALE}
+                                    aria-label="Yazıyı küçült"
+                                    title="Yazıyı küçült"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Minus className="h-3.5 w-3.5" />
+                                  </button>
+                                  <span className="w-9 text-center text-[10px] font-black text-slate-500">%{Math.round(contentScale * 100)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setContentScale((s) => Math.min(MAX_CONTENT_SCALE, Math.round((s + CONTENT_SCALE_STEP) * 100) / 100))}
+                                    disabled={contentScale >= MAX_CONTENT_SCALE}
+                                    aria-label="Yazıyı büyüt"
+                                    title="Yazıyı büyüt"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={closeExpandedPanel}
+                                  aria-label="Kapat"
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8" style={{ zoom: contentScale }}>
+                                {panelContent}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })(),
+                      document.body
+                    )}
+                    {/* "Konu Kavrama Testi" kartına tıklayınca (bkz. onSelect yukarıda)
+                        topicTest.startTest çağrılıyor — normal durumda testData gelir
+                        gelmez soru modalı doğrudan açılıyor, aradaki CTA ekranı yok
+                        (kullanıcının 2026-09-24 isteği). conflict/hata gibi istisnai
+                        durumlar için küçük birer uyarı kutusu var. */}
+                    {topicTest.testData && !topicTest.testData.conflict && typeof document !== 'undefined' && createPortal(
+                      <QuizModal onClose={topicTest.closeTest}>
+                        <QuizWithAsk
+                          key={topicTest.testData.resume?.sessionId ?? 'new'}
+                          gradeId={topicTest.testData.gradeId}
+                          lessonId={topicTest.testData.lessonId}
+                          unitId={topicTest.testData.unitId}
+                          topicId={topicTest.testData.topicId}
+                          scopeLabel={topicTest.testData.scopeLabel}
+                          exitHref={topicTest.testHref}
+                          exitLabel="Kapat"
+                          onExit={topicTest.closeTest}
+                          initialQuestions={topicTest.testData.initialQuestions}
+                          remainingQuestionIds={topicTest.testData.remainingQuestionIds}
+                          allCaughtUp={topicTest.testData.allCaughtUp}
+                          reloadEndpoint={topicTest.testData.reloadEndpoint}
+                          secondsPerQuestion={topicTest.testData.secondsPerQuestion ?? undefined}
+                          resume={topicTest.testData.resume}
+                          questionBankPathBase={topicTest.testData.questionBankPathBase}
+                        />
+                      </QuizModal>,
+                      document.body
+                    )}
+                    {topicTest.testData?.conflict && typeof document !== 'undefined' && createPortal(
+                      <TopicTestConflictModal
+                        conflict={topicTest.testData.conflict}
+                        loading={topicTest.loading}
+                        onStartNew={() => topicTest.startTest(true)}
+                        onClose={topicTest.closeTest}
+                      />,
+                      document.body
+                    )}
+                    {topicTest.error && typeof document !== 'undefined' && createPortal(
+                      <TopicTestErrorModal message={topicTest.error} onClose={topicTest.closeTest} />,
+                      document.body
                     )}
                     {activeTopic && activeUnit && (
                       <div id="konu-tartisma" className="not-prose mt-8 scroll-mt-4">
@@ -2218,9 +2449,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                 </div>
               </div>
 
-                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu — akıllı tahta
-                    modunda gizlenir, içerik tam genişlik kullanır. */}
-                {!boardMode && (
+                {/* RIGHT SIDEBAR: kazanımlar + ünite özeti + MEB takvimi + ipucu */}
                 <div className="flex flex-col gap-4 lg:sticky lg:top-4">
                   <button
                     type="button"
@@ -2264,7 +2493,6 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                     <p className="text-sm text-amber-900/80 font-medium leading-relaxed">{studyTip}</p>
                   </div>
                 </div>
-                )}
               </div>
             </div>
           </div>

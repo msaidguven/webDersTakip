@@ -1,10 +1,10 @@
 'use client';
 
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
-import type { QuizQuestion, MultipleChoiceQuestion, BlankQuestion, MatchingQuestion, ClassicalQuestion, Pair } from '@/app/src/lib/quizQuestions';
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
+import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
@@ -249,87 +249,6 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   );
 }
 
-export function OptionsView({
-  question,
-  selectedId,
-  locked,
-  onSelect,
-  fontScale = 1,
-}: {
-  question: MultipleChoiceQuestion | BlankQuestion;
-  selectedId: number | undefined;
-  locked: boolean;
-  onSelect: (optionId: number) => void;
-  // Akıllı tahta yazı büyütme (+/-) — SADECE metnin font-size'ını büyütür, buton
-  // dolgusu/genişliği rem cinsinden sabit kaldığı için layout taşmaz/devleşmez
-  // (kullanıcının 2026-09-22 "şıklar boşuna büyüyor" şikayeti — eskiden `zoom`
-  // kullanılıyordu, o da tüm kutuyu büyütüyordu).
-  fontScale?: number;
-}) {
-  const options = question.type === 'multiple_choice' ? question.choices : question.options;
-  const svg = <QuestionSvg svgContent={question.svg_content} />;
-  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
-  const optionStyle = fontScale !== 1 ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.5 } : undefined;
-
-  return (
-    <>
-      {question.svg_position !== 'below' && svg}
-      {question.type === 'blank' ? (
-        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg" style={stemStyle}>
-          {question.question_text.split('_____').map((part, i, arr) => (
-            <Fragment key={i}>
-              <MathText text={part} />
-              {i < arr.length - 1 && (
-                <span className="mx-1 inline-block min-w-[90px] rounded-lg border-2 border-dashed border-indigo-400/50 bg-indigo-500/10 px-2.5 py-0.5 text-center text-indigo-500">
-                  {selectedId ? options.find((o) => o.id === selectedId)?.text : '…'}
-                </span>
-              )}
-            </Fragment>
-          ))}
-        </p>
-      ) : (
-        <p className="mb-5 text-base font-black leading-snug text-default sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
-      )}
-      {question.svg_position === 'below' && svg}
-
-      <div className="space-y-2.5">
-        {options.map((opt, i) => {
-          const isChosen = selectedId === opt.id;
-          let stateClasses = 'border-default bg-surface hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5';
-          let badgeState: 'idle' | 'correct' | 'wrong' | 'muted' = 'idle';
-          if (locked) {
-            if (opt.is_correct) {
-              stateClasses = 'border-emerald-400 bg-emerald-500/10 shadow-sm';
-              badgeState = 'correct';
-            } else if (isChosen) {
-              stateClasses = 'border-rose-400 bg-rose-500/10 shadow-sm';
-              badgeState = 'wrong';
-            } else {
-              stateClasses = 'border-default bg-surface opacity-50';
-              badgeState = 'muted';
-            }
-          }
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onSelect(opt.id)}
-              disabled={locked}
-              style={optionStyle}
-              className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left text-sm font-bold text-default shadow-sm transition-all disabled:cursor-default active:scale-[0.98] sm:px-4 ${stateClasses}`}
-            >
-              <OptionLetterBadge index={i} state={badgeState} />
-              <MathText as="span" className="min-w-0 flex-1" text={opt.text} />
-              {locked && opt.is_correct && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />}
-              {locked && isChosen && !opt.is_correct && <XCircle className="h-5 w-5 shrink-0 text-rose-500" />}
-            </button>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
 export function MatchingView({
   question,
   assignment,
@@ -358,7 +277,7 @@ export function MatchingView({
       {/* Soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla eşleştirin") — diğer üç görünümün
           (MultipleChoiceOrBlankView, ClassicalView) hepsi kendi question_text'ini gösteriyordu,
           bu bileşen hiç göstermiyordu (kullanıcının 2026-09-06 bildirdiği bug). */}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-4 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
+      <p className="mb-3 text-base font-black leading-snug text-justify text-default sm:mb-4 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
       <p className="mb-4 text-xs font-bold text-muted-foreground">
         Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
       </p>
@@ -434,70 +353,6 @@ export function MatchingView({
   );
 }
 
-export function ClassicalView({
-  question,
-  value,
-  locked,
-  explanationRevealed,
-  onChange,
-  onCheck,
-  onRevealExplanation,
-  fontScale = 1,
-}: {
-  question: ClassicalQuestion;
-  value: string;
-  locked: boolean;
-  explanationRevealed: boolean;
-  onChange: (value: string) => void;
-  onCheck: () => void;
-  onRevealExplanation: () => void;
-  fontScale?: number;
-}) {
-  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
-  return (
-    <div>
-      {question.svg_position !== 'below' && <QuestionSvg svgContent={question.svg_content} />}
-      <p className="mb-3 text-base font-black leading-snug text-default sm:mb-5 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
-      {question.svg_position === 'below' && <QuestionSvg svgContent={question.svg_content} />}
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={locked}
-        className="h-28 w-full resize-none rounded-xl border border-default bg-surface p-3 text-sm text-default placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none disabled:opacity-70 sm:h-40 sm:p-4 sm:text-base"
-        placeholder="Cevabını buraya yaz..."
-      />
-      <p className="mt-1.5 text-xs font-bold text-muted-foreground">{value.length} karakter</p>
-      {!locked && (
-        <button
-          type="button"
-          onClick={onCheck}
-          disabled={value.trim().length < 5}
-          className="mt-3 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-3 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Cevabımı Kontrol Et
-        </button>
-      )}
-      {locked && !explanationRevealed && (
-        <button
-          type="button"
-          onClick={onRevealExplanation}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/10 py-3 text-sm font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
-        >
-          <Eye className="h-4 w-4" /> Model Cevabı Göster
-        </button>
-      )}
-      {locked && explanationRevealed && (
-        <div className="mt-3 rounded-xl border border-indigo-400/40 bg-indigo-500/10 p-3.5 sm:mt-4 sm:p-4">
-          <p className="text-sm font-black text-indigo-500">Model Cevap</p>
-          <p className="mt-1.5 text-sm font-medium leading-relaxed text-default">
-            <MathText text={question.modelAnswer || 'Bu soru için model cevap eklenmemiş.'} />
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // Tek bir sorunun cevap anahtarı görünümü (soru metni + doğru cevap işaretli/model cevap).
 // Hem aşağıdaki AnswerKeySection (test sonuç ekranındaki katlanır liste) HEM DE
 // /soru-bankasi sayfası (bkz. app/soru-bankasi/.../page.tsx) bunu kullanıyor — ikisi de
@@ -518,6 +373,21 @@ function QuestionAnswerKeyItemImpl({
   fontScale = 1,
   numberBadge = 'dot',
   accentColor = '#6366F1',
+  controlledSelectedId,
+  controlledRevealed,
+  controlledAssignment,
+  onAssignPair: onAssignPairProp,
+  onCheckMatch,
+  forcedAnswered,
+  feedbackMessage,
+  answeredCorrectly,
+  classicalMode = 'reveal',
+  classicalValue,
+  onClassicalChange,
+  onClassicalCheck,
+  twoStepExplanation = false,
+  explanationRevealed: explanationRevealedProp,
+  onRevealExplanation,
 }: {
   question: QuizQuestion;
   index?: number;
@@ -527,7 +397,7 @@ function QuestionAnswerKeyItemImpl({
   // veya arama motoru her şeyi ilk yanıtta görür (bkz. .cevap-aciklama / .cevap-marker için
   // <noscript> override, app/soru-bankasi/.../page.tsx).
   interactive?: boolean;
-  onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed') => void;
+  onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed', optionId?: number) => void;
   // Akıllı tahta metin büyütme (bkz. SlidePlayer +/- kontrolü) — SADECE yazı boyutunu
   // büyütür, buton dolgusu/genişliği rem cinsinden sabit kaldığı için layout taşmaz.
   // rem yerine inline stil kullanılıyor çünkü Tailwind'in text-sm/text-xs'i rem tabanlı
@@ -544,6 +414,44 @@ function QuestionAnswerKeyItemImpl({
   // 'label' varyantında kapsülün rengi — SlidePlayer'daki slayt temasıyla eşleşsin diye
   // dışarıdan veriliyor.
   accentColor?: string;
+  // --- Kontrollü mod (bkz. QuizClient'ın canlı test akışı, kullanıcının 2026-09-24
+  // isteği: "tek component olsun ki bir değişiklik hepsine yansısın") ---
+  // Aşağıdaki prop'ların hepsi OPSİYONEL ve varsayılanları eski (kontrolsüz) davranışı
+  // birebir korur — SlidePlayer/AnswerKeySection hiçbirini geçmediği için hiç etkilenmez.
+  // Geçilirse bileşen o alanda kendi state'i yerine dışarıdan gelen değeri/callback'i
+  // kullanır (klasik "value !== undefined ? value : internalState" kontrollü-bileşen deseni).
+  controlledSelectedId?: number | null;
+  controlledRevealed?: boolean;
+  controlledAssignment?: Record<number, number>;
+  onAssignPair?: (leftId: number, rightId: number) => void;
+  onCheckMatch?: () => void;
+  // Süre doldu / resume gibi "hiçbir şık seçilmeden kilitlendi" durumları için — verilirse
+  // answered hesaplamasında selectedId/revealed'in ÖNÜNE geçer.
+  forcedAnswered?: boolean;
+  // QuizClient'ın rastgele "Harika! 🎉" / "Olsun, öğrenmenin bir parçası! 🌱" tebrik/teselli
+  // mesajı — cevap açıklaması panelinin en üstünde kalın yazıyla gösterilir.
+  feedbackMessage?: string;
+  // Panel rengi normalde selectedId/assignment'tan türetilir — ama resume edilmiş (yarım
+  // kalan testten devam edilen) bir soruda hangi şık seçildiği bilinmez (sadece doğru/yanlış
+  // olduğu bilinir, bkz. QuizClient'taki resume.answers), bu durumda türetim yanlış renk
+  // verirdi. Verildiğinde türetimin ÖNÜNE geçer.
+  answeredCorrectly?: boolean;
+  // 'reveal' (varsayılan): sadece "Model Cevabı Göster" butonu (SlidePlayer'ın eski
+  // davranışı). 'input': öğrenci önce bir metin kutusuna kendi cevabını yazıp "Cevabımı
+  // Kontrol Et"e basar, SONRA model cevap gösterilir — eskiden ayrı bir ClassicalView'da
+  // olan ve slayt tarafında hiç olmayan bir özellik, kaybolmasın diye buraya taşındı
+  // (kullanıcının isteği: "eskisinde olup slaytta olmayan özellikleri koru").
+  classicalMode?: 'reveal' | 'input';
+  classicalValue?: string;
+  onClassicalChange?: (value: string) => void;
+  onClassicalCheck?: () => void;
+  // true olunca: cevap/eşleşme açığa çıktıktan SONRA bile açıklama metni gizli kalır, ayrı
+  // bir "Açıklamayı Göster" butonuna basılana kadar — eskiden QuizClient'ın canlı test
+  // akışındaki davranış (kopya çekmeyi zorlaştırmak için bilinçli iki adımlı reveal),
+  // SlidePlayer'da hiç yoktu, varsayılan false ile o davranış aynen korunuyor.
+  twoStepExplanation?: boolean;
+  explanationRevealed?: boolean;
+  onRevealExplanation?: () => void;
 }) {
   // line-height'ı da vermek şart — Tailwind'in text-sm/text-xs'i font-size+line-height'ı
   // BİRLİKTE (sabit rem) tanımlıyor; sadece fontSize'ı büyütüp line-height'ı eski sabit
@@ -552,9 +460,17 @@ function QuestionAnswerKeyItemImpl({
   // kendi font-size'ına göre orantılı kalıyor, ekstra scale hesabı gerekmiyor.
   const textSmStyle = fontScale !== 1 ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.43 } : undefined;
   const textXsStyle = fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 } : undefined;
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [assignment, setAssignment] = useState<Record<number, number>>({});
+  const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
+  const [internalRevealed, setInternalRevealed] = useState(false);
+  const [internalAssignment, setInternalAssignment] = useState<Record<number, number>>({});
+  const [internalExplanationRevealed, setInternalExplanationRevealed] = useState(false);
+  // Kontrollü/kontrolsüz mod anahtarı: prop verilmediyse (undefined) bileşen kendi state'ini
+  // kullanır (eski davranış, SlidePlayer/AnswerKeySection), verildiyse dışarıdaki state
+  // kaynak alınır (QuizClient'ın canlı test akışı).
+  const selectedId = controlledSelectedId !== undefined ? controlledSelectedId : internalSelectedId;
+  const revealed = controlledRevealed !== undefined ? controlledRevealed : internalRevealed;
+  const assignment = controlledAssignment !== undefined ? controlledAssignment : internalAssignment;
+  const explanationRevealed = explanationRevealedProp !== undefined ? explanationRevealedProp : internalExplanationRevealed;
   const svgPosition = q.type !== 'matching' ? q.svg_position : 'above';
   const svg = <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />;
 
@@ -568,7 +484,7 @@ function QuestionAnswerKeyItemImpl({
               {index + 1}
             </span>
           )}
-          <p className="min-w-0 flex-1 text-sm font-bold text-default">
+          <p className="min-w-0 flex-1 text-sm font-bold text-justify text-default">
             <MathText text={q.question_text} />
           </p>
         </div>
@@ -611,24 +527,28 @@ function QuestionAnswerKeyItemImpl({
 
   // İnteraktif mod: her şık bir <button>, tıklanınca kilitlenir (tek deneme) ve
   // cevap/açıklama bloğu açılır. answered = ya bir şık seçildi (mc/blank) ya da
-  // "Cevabı Göster" butonuna basıldı (matching/classical).
-  const answered = selectedId != null || revealed;
+  // "Cevabı Göster"/"Cevabımı Kontrol Et"ye basıldı (matching/classical) — forcedAnswered
+  // verildiyse (QuizClient'ın süre-doldu/resume durumları) her şeyin önüne geçer.
+  const answered = forcedAnswered !== undefined ? forcedAnswered : selectedId != null || revealed;
   const explanationId = `cevap-aciklama-${q.id}`;
   const optionList = q.type === 'multiple_choice' ? q.choices : q.type === 'blank' ? q.options : null;
 
   const selectOption = (optId: number, isCorrect: boolean) => {
-    if (selectedId != null) return;
-    setSelectedId(optId);
-    onAnswered?.(q.id, isCorrect ? 'correct' : 'incorrect');
+    if (answered) return;
+    if (controlledSelectedId === undefined) setInternalSelectedId(optId);
+    onAnswered?.(q.id, isCorrect ? 'correct' : 'incorrect', optId);
   };
 
   // Eşleştirmede tek bir çift atandığında anında doğru/yanlış göstermiyoruz — kullanıcı
   // tüm çiftleri istediği gibi değiştirebilir, sonuç ancak "Cevabımı Kontrol Et" ile açığa
-  // çıkar (canlı test akışındaki assignMatch/checkMatching ile birebir aynı mantık, bkz.
-  // QuizClient.tsx içindeki assignMatch/checkMatching).
+  // çıkar.
   const assignMatchPair = (leftId: number, rightId: number) => {
-    if (revealed) return;
-    setAssignment((prev) => {
+    if (answered) return;
+    if (onAssignPairProp) {
+      onAssignPairProp(leftId, rightId);
+      return;
+    }
+    setInternalAssignment((prev) => {
       const next = { ...prev };
       for (const [l, r] of Object.entries(next)) {
         if (r === rightId) delete next[Number(l)];
@@ -639,11 +559,32 @@ function QuestionAnswerKeyItemImpl({
   };
 
   const checkMatchAssignment = () => {
-    if (revealed || q.type !== 'matching') return;
+    if (answered || q.type !== 'matching') return;
     if (Object.keys(assignment).length !== q.pairs.length) return;
     const allCorrect = q.pairs.every((p) => assignment[p.id] === p.id);
-    setRevealed(true);
+    if (controlledRevealed === undefined) setInternalRevealed(true);
+    onCheckMatch?.();
     onAnswered?.(q.id, allCorrect ? 'correct' : 'incorrect');
+  };
+
+  const revealClassical = () => {
+    if (answered) return;
+    if (controlledRevealed === undefined) setInternalRevealed(true);
+    onAnswered?.(q.id, 'revealed');
+  };
+
+  const checkClassicalInput = () => {
+    if (answered) return;
+    onClassicalCheck?.();
+    onAnswered?.(q.id, 'revealed');
+  };
+
+  const toggleExplanation = () => {
+    if (onRevealExplanation) {
+      onRevealExplanation();
+      return;
+    }
+    setInternalExplanationRevealed(true);
   };
 
   return (
@@ -663,7 +604,7 @@ function QuestionAnswerKeyItemImpl({
             {index + 1}
           </span>
         )}
-        <p className="min-w-0 flex-1 text-sm font-bold text-default" style={textSmStyle}>
+        <p className="min-w-0 flex-1 text-sm font-bold text-justify text-default" style={textSmStyle}>
           <MathText text={q.question_text} />
         </p>
       </div>
@@ -692,7 +633,7 @@ function QuestionAnswerKeyItemImpl({
                 <button
                   type="button"
                   onClick={() => selectOption(opt.id, opt.is_correct)}
-                  disabled={selectedId != null}
+                  disabled={answered}
                   aria-expanded={answered}
                   aria-controls={explanationId}
                   className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left font-bold shadow-sm transition-all disabled:cursor-default active:scale-[0.98] ${cls}`}
@@ -719,18 +660,43 @@ function QuestionAnswerKeyItemImpl({
 
       {q.type === 'matching' && (
         <div className="mt-2.5">
-          <MatchingView question={q} assignment={assignment} locked={revealed} onAssign={assignMatchPair} onCheck={checkMatchAssignment} />
+          <MatchingView question={q} assignment={assignment} locked={answered} onAssign={assignMatchPair} onCheck={checkMatchAssignment} fontScale={fontScale} />
         </div>
       )}
 
-      {q.type === 'classical' && q.modelAnswer && !revealed && (
+      {/* 'input' modu — eskiden ayrı bir ClassicalView'da olan, öğrencinin önce kendi
+          cevabını yazıp SONRA model cevabı görebildiği akış (kullanıcının isteği:
+          "eskisinde olup slaytta olmayan özellikleri koru"). SlidePlayer bu prop'u hiç
+          geçmediği için classicalMode hep 'reveal' kalır, davranışı değişmez. */}
+      {q.type === 'classical' && classicalMode === 'input' && (
+        <div className="mt-2.5">
+          <textarea
+            value={classicalValue ?? ''}
+            onChange={(e) => onClassicalChange?.(e.target.value)}
+            disabled={answered}
+            style={textSmStyle}
+            className="h-28 w-full resize-none rounded-xl border border-default bg-surface p-3 text-sm text-default placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none disabled:opacity-70 sm:h-36"
+            placeholder="Cevabını buraya yaz..."
+          />
+          <p className="mt-1.5 text-xs font-bold text-muted-foreground" style={textXsStyle}>{(classicalValue ?? '').length} karakter</p>
+          {!answered && (
+            <button
+              type="button"
+              onClick={checkClassicalInput}
+              disabled={(classicalValue ?? '').trim().length < 5}
+              className="mt-2.5 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-2.5 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Cevabımı Kontrol Et
+            </button>
+          )}
+        </div>
+      )}
+
+      {q.type === 'classical' && classicalMode === 'reveal' && q.modelAnswer && !answered && (
         <button
           type="button"
-          onClick={() => {
-            setRevealed(true);
-            onAnswered?.(q.id, 'revealed');
-          }}
-          aria-expanded={revealed}
+          onClick={revealClassical}
+          aria-expanded={answered}
           aria-controls={explanationId}
           className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-black text-indigo-500 transition-colors hover:bg-indigo-500/20"
           style={textXsStyle}
@@ -740,20 +706,27 @@ function QuestionAnswerKeyItemImpl({
       )}
 
       {(() => {
+        if (!answered) return null;
         const selectedOption = optionList?.find((o) => o.id === selectedId);
         const matchAllCorrect = q.type === 'matching' && q.pairs.every((p) => assignment[p.id] === p.id);
+        // classical 'input' modunda modelAnswer olmasa bile (eski ClassicalView'daki gibi)
+        // "Bu soru için model cevap eklenmemiş." yedek metniyle bir açıklama alanı sunuluyor.
         const hasExplanation =
-          q.type === 'matching' || (q.type === 'classical' && !!q.modelAnswer) || ((q.type === 'multiple_choice' || q.type === 'blank') && !!q.solution_text);
-        const accentCls =
-          q.type === 'classical'
-            ? 'border-indigo-500 bg-indigo-500/5'
-            : q.type === 'matching'
-              ? matchAllCorrect
-                ? 'border-emerald-500 bg-emerald-500/5'
-                : 'border-rose-500 bg-rose-500/5'
-              : selectedOption?.is_correct
-                ? 'border-emerald-500 bg-emerald-500/5'
-                : 'border-rose-500 bg-rose-500/5';
+          q.type === 'matching'
+          || (q.type === 'classical' && (classicalMode === 'input' || !!q.modelAnswer))
+          || ((q.type === 'multiple_choice' || q.type === 'blank') && !!q.solution_text);
+        if (!feedbackMessage && !hasExplanation) return null;
+        const isPositive =
+          answeredCorrectly !== undefined ? answeredCorrectly
+          : q.type === 'classical' ? true
+          : q.type === 'matching' ? matchAllCorrect
+          : !!selectedOption?.is_correct;
+        const accentCls = q.type === 'classical' ? 'border-indigo-500 bg-indigo-500/5' : isPositive ? 'border-emerald-500 bg-emerald-500/5' : 'border-rose-500 bg-rose-500/5';
+        // twoStepExplanation: cevap/eşleşme belli olduktan SONRA bile açıklama metni ayrı bir
+        // "Açıklamayı Göster" butonuna kadar gizli kalır — eskiden QuizClient'ın canlı test
+        // akışındaki davranış, kaybolmasın diye korunuyor (varsayılan false'ta SlidePlayer'ın
+        // eski davranışı aynen sürüyor: her şey hemen görünür).
+        const showExplanationBody = !twoStepExplanation || explanationRevealed;
 
         return (
           <div
@@ -763,28 +736,47 @@ function QuestionAnswerKeyItemImpl({
             className="cevap-aciklama grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out data-[open=true]:grid-rows-[1fr] data-[open=true]:opacity-100 data-[open=true]:mt-2.5"
           >
             <div className="overflow-hidden">
-              {hasExplanation && (
-                <div className={`rounded-r-lg border-l-4 p-3 ${accentCls}`}>
-                  {q.type === 'matching' && (
-                    <ul className="space-y-1 text-sm text-muted-foreground" style={textSmStyle}>
-                      {q.pairs.map((p) => (
-                        <li key={p.id}>
-                          <MathText as="span" className="font-bold text-default" text={p.left_text} /> → <MathText text={p.right_text} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {q.type === 'classical' && q.modelAnswer && (
-                    <p className="text-sm text-muted-foreground" style={textSmStyle}>
-                      <span className="font-black text-indigo-500">Model Cevap: </span>
-                      <MathText text={q.modelAnswer} />
-                    </p>
-                  )}
-                  {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
-                    <p className="text-xs text-muted-foreground" style={textXsStyle}><MathText text={q.solution_text} /></p>
-                  )}
-                </div>
-              )}
+              <div className={`rounded-r-lg border-l-4 p-3 ${accentCls}`}>
+                {feedbackMessage && (
+                  <p
+                    className={`text-sm font-black ${isPositive ? 'text-emerald-600' : q.type === 'classical' ? 'text-indigo-500' : 'text-rose-600'}`}
+                    style={textSmStyle}
+                  >
+                    {feedbackMessage}
+                  </p>
+                )}
+                {hasExplanation && twoStepExplanation && !explanationRevealed && (
+                  <button
+                    type="button"
+                    onClick={toggleExplanation}
+                    className={`flex items-center gap-1.5 text-xs font-black text-indigo-500 hover:underline ${feedbackMessage ? 'mt-2' : ''}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Açıklamayı Göster
+                  </button>
+                )}
+                {hasExplanation && showExplanationBody && (
+                  <div className={feedbackMessage ? 'mt-2' : ''}>
+                    {q.type === 'matching' && (
+                      <ul className="space-y-1 text-sm text-muted-foreground" style={textSmStyle}>
+                        {q.pairs.map((p) => (
+                          <li key={p.id}>
+                            <MathText as="span" className="font-bold text-default" text={p.left_text} /> → <MathText text={p.right_text} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {q.type === 'classical' && (
+                      <p className="text-sm text-muted-foreground" style={textSmStyle}>
+                        <span className="font-black text-indigo-500">Model Cevap: </span>
+                        <MathText text={q.modelAnswer || 'Bu soru için model cevap eklenmemiş.'} />
+                      </p>
+                    )}
+                    {(q.type === 'multiple_choice' || q.type === 'blank') && q.solution_text && (
+                      <p className="text-xs text-muted-foreground" style={textXsStyle}><MathText text={q.solution_text} /></p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -1540,214 +1532,205 @@ export default function QuizClient({
   const isCorrect = !!correct[current.id];
 
   return (
-    // Eskiden max-w-lg (512px) ile sabitti — artık çok daha geniş bir modal içinde
-    // (bkz. QuizModal) bu dar sütun etrafında dev boş alan bırakıyordu (kullanıcının
-    // 2026-09-22 "boşluklar çok fazla, bu nedir acemice" şikayeti). max-w-2xl'e
-    // çıkarıldı, dikey dolgu da (sm:py-12 → sm:py-6) sadeleştirildi.
-    // Sonra max-w-5xl (1024px) sabit bir tavan oldu — QuizModal içeriği zaten ~94vw
-    // genişliğinde açılıyor ama bu iç kapsayıcı onu 1024px'e kesiyordu, büyük ekranlarda
-    // (özellikle akıllı tahta) soru kartı küçük kalıp etrafı boşta duruyordu (kullanıcının
-    // 2026-09-22 "ekran büyürse en az %80-90 genişlesin" isteği). min(92vw, 1600px) ile
-    // hem ekranın büyük kısmını kullanıyor hem de aşırı geniş monitörlerde satırlar
-    // okunamayacak kadar uzamıyor.
-    <div className="mx-auto max-w-[min(92vw,1600px)] px-3 py-3 sm:px-4 sm:py-4">
-      {/* Eskiden çıkış linki/yazı boyutu, ilerleme çubuğu ve soru numaraları üç ayrı,
-          birbirinden mb-2/mb-3/mb-5 boşluklarla ayrılmış blok halindeydi — hem gereksiz
-          dikey yer kaplıyor hem de "acemice" görünüyordu (kullanıcının 2026-09-22 "tasarımı
-          komple değiştir, şık bir test sayfası olsun" isteği). Artık tek, tutarlı bir kart
-          içinde birleşik: üst satır (çıkış/sayaç/yazı boyutu), ilerleme çubuğu, soru
-          numaraları şeridi. */}
-      <div className="mb-3 overflow-hidden rounded-2xl border border-default bg-surface-elevated shadow-sm sm:mb-4">
-        <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-5 sm:py-3">
-          <ExitLink
-            href={exitHref}
-            label={exitLabel}
-            onExit={onExit}
-            className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
-          />
-          <div className="flex shrink-0 items-center gap-2">
+    // Kartın ETRAFI artık SlidePlayer'ın sunum ekranıyla AYNI: koyu, degrade bir "sahne"
+    // üstünde ortalanmış, sınırlı genişlikte tek bir beyaz kart — eskiden bu alan QuizModal'ın
+    // kendi beyaz panelini uçtan uca dolduruyordu, "slaytta küçük/şık bir kart, testte devasa
+    // bir sayfa" farkı buradan geliyordu (kullanıcının 2026-09-24 sert şikayeti: "slaytdaki
+    // sorular gibi aynı görünüm olsun"). Üst/alt kontrol şeritleri de SlidePlayer'daki gibi
+    // KARTIN İÇİNDE, akışta (absolute değil) tek satır.
+    <div
+      className="flex h-full min-h-[560px] flex-col items-center justify-center gap-3 p-2 sm:p-6"
+      style={{ background: 'radial-gradient(circle at 50% 20%, rgba(129,140,248,0.35), transparent 55%), rgba(15, 23, 42, 0.94)' }}
+    >
+      <div className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" style={{ maxHeight: 'min(92vh, 920px)' }}>
+        <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-indigo-500 to-purple-500" />
+
+        {/* Üst kontrol çubuğu — SlidePlayer'daki eyebrow rozeti + zoom/sayaç/kapat düzenini
+            birebir izliyor. */}
+        <div className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pt-3 sm:px-6 sm:pt-5">
+          <div className="min-w-0 flex-1">
+            <div className="inline-block max-w-full truncate rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black uppercase tracking-wide text-white shadow-sm">
+              {intro ? `Soru ${index + 1}` : scopeLabel}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
             {secondsPerQuestion != null && !currentIsAnswered && (
               <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
             )}
-            <span className="text-xs font-black text-muted-foreground">
-              {intro ? `Soru ${index + 1}` : scopeLabel} · {answeredCount}/{questions.length}
-            </span>
-            {/* Yazı boyutu +/- — akıllı tahtadan uzaktaki öğrenciler için (kullanıcının
-                2026-09-22 isteği), SlidePlayer'daki aynı kontrol. */}
-            <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-default px-1 py-0.5">
+            <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => setFontScale((s) => Math.max(1, Math.round((s - 0.15) * 100) / 100))}
                 disabled={fontScale <= 1}
                 aria-label="Yazıyı küçült"
                 title="Yazıyı küçült"
-                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <Minus className="h-3 w-3" />
               </button>
-              <span className="w-8 text-center text-[10px] font-black text-muted-foreground">%{Math.round(fontScale * 100)}</span>
+              <span className="min-w-7 px-0.5 text-center text-[9px] sm:text-[10px] font-black text-slate-500 whitespace-nowrap">%{Math.round(fontScale * 100)}</span>
               <button
                 type="button"
                 onClick={() => setFontScale((s) => Math.min(1.9, Math.round((s + 0.15) * 100) / 100))}
                 disabled={fontScale >= 1.9}
                 aria-label="Yazıyı büyüt"
                 title="Yazıyı büyüt (akıllı tahta için)"
-                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <Plus className="h-3 w-3" />
               </button>
             </div>
-          </div>
-        </div>
-        <div className="h-1.5 w-full bg-surface">
-          <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out"
-            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
-          />
-        </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto border-t border-default px-3.5 py-2.5 sm:px-5" style={{ scrollbarWidth: 'thin' }}>
-          {questions.map((q, i) => {
-            const isCurrent = i === index;
-            const isLocked = !!locked[q.id];
-            const isReachable = i <= maxIndex;
-            let cls = 'bg-surface text-muted-foreground';
-            if (isLocked) cls = q.type === 'classical' ? 'bg-indigo-500 text-white' : correct[q.id] ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white';
-            return (
+            <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black text-slate-500 shadow-sm">
+              {answeredCount}/{questions.length}
+            </div>
+            {onExit ? (
               <button
-                key={q.id}
                 type="button"
-                onClick={() => jumpToIndex(i)}
-                disabled={!isReachable}
-                title={`${i + 1}. Soru`}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cls} ${
-                  isCurrent ? 'ring-2 ring-indigo-400 ring-offset-1' : ''
-                }`}
+                onClick={onExit}
+                aria-label={exitLabel}
+                title={exitLabel}
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-slate-900/60 text-white shadow-sm transition-colors hover:bg-slate-900/80"
               >
-                {i + 1}
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* NOT: `zoom` KULLANILMIYOR — zoom, metinle birlikte şık butonlarının padding/genişliğini
-          de büyütüp gereksiz yere devasa yapıyordu (kullanıcının 2026-09-22 şikayeti). Bunun
-          yerine fontScale, OptionsView/MatchingView/ClassicalView'a prop olarak geçiliyor; o
-          bileşenler SADECE metin font-size'ını (+ orantılı line-height) büyütüyor, buton
-          dolgusu/genişliği sabit kalıyor (SlidePlayer'daki QuestionAnswerKeyItem ile aynı desen). */}
-      <div className="relative overflow-hidden rounded-2xl border border-default bg-surface-elevated p-3.5 shadow-md sm:p-6">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500" />
-        <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
-          <span className="inline-block rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-            {TYPE_LABELS[current.type]}
-          </span>
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleShare(current)}
-              aria-label="Soruyu paylaş"
-              title="Soruyu paylaş"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-            </button>
-            {isAdmin && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  aria-label="Soruyu düzenle"
-                  title="Soruyu düzenle"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteOpen(true)}
-                  aria-label="Soruyu sil"
-                  title="Soruyu sil"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </>
+            ) : (
+              <Link
+                href={exitHref}
+                aria-label={exitLabel}
+                title={exitLabel}
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-slate-900/60 text-white shadow-sm transition-colors hover:bg-slate-900/80"
+              >
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Link>
             )}
           </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3 sm:px-6 sm:pb-4 sm:pt-4">
+        {/* Soru kartı artık SlidePlayer'daki (Slayt Anlatımı) sorularla AYNI, tek paylaşılan
+          component'ten (QuestionAnswerKeyItem) geliyor — kullanıcının 2026-09-24 isteği:
+          "konu kavrama testinde sorular slayt sayfasındaki gibi görünsün ... hepsi tek
+          componentte olsun ki bir değişiklik hepsine yansısın". Süre/oturum/istatistik
+          kaydı gibi TÜM canlı test mantığı burada (QuizClient) aynen kalıyor, sadece görsel
+          kart paylaşılan component'ten geliyor. Eski ayrı OptionsView/MatchingView/
+          ClassicalView kartındaki, slayt tarafında hiç olmayan üç özellik — süre doldu/resume
+          kilidi, açık uçlu soruda önce kendi cevabını yazıp SONRA model cevabı görme, iki
+          adımlı "Açıklamayı Göster" — kaybolmasın diye QuestionAnswerKeyItem'a yeni opsiyonel
+          prop'lar olarak eklendi (bkz. o bileşendeki "Kontrollü mod" yorumu); SlidePlayer
+          bunların hiçbirini geçmediği için kendi davranışı bire bir aynı kalıyor. */}
+        <div className="mb-2 flex justify-end gap-1 sm:mb-3">
+          <button
+            type="button"
+            onClick={() => handleShare(current)}
+            aria-label="Soruyu paylaş"
+            title="Soruyu paylaş"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                aria-label="Soruyu düzenle"
+                title="Soruyu düzenle"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-indigo-500"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(true)}
+                aria-label="Soruyu sil"
+                title="Soruyu sil"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-500"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
         </div>
         {shareState === 'copied' && <p className="mb-2 text-xs font-bold text-emerald-500">Bağlantı kopyalandı!</p>}
         {editSaved && <p className="mb-2 text-xs font-bold text-emerald-500">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
 
-        {current.type === 'matching' && (
-          <MatchingView question={current} assignment={matchAssign[current.id] || {}} locked={isAnswered} onAssign={assignMatch} onCheck={checkMatching} fontScale={fontScale} />
-        )}
-        {current.type === 'classical' && (
-          <ClassicalView
-            question={current}
-            value={classicalAnswer[current.id] || ''}
-            locked={isAnswered}
-            explanationRevealed={!!revealedExplanation[current.id]}
-            onChange={setClassicalText}
-            onCheck={checkClassical}
-            onRevealExplanation={() => revealExplanation(current.id)}
-            fontScale={fontScale}
-          />
-        )}
-        {(current.type === 'multiple_choice' || current.type === 'blank') && (
-          <OptionsView question={current} selectedId={selection[current.id]} locked={isAnswered} onSelect={selectAnswer} fontScale={fontScale} />
-        )}
+        <QuestionAnswerKeyItem
+          key={`${reloadKey}-${current.id}`}
+          question={current}
+          index={index}
+          interactive
+          numberBadge="label"
+          fontScale={fontScale}
+          controlledSelectedId={current.type === 'multiple_choice' || current.type === 'blank' ? selection[current.id] ?? null : undefined}
+          controlledAssignment={current.type === 'matching' ? matchAssign[current.id] || {} : undefined}
+          onAssignPair={assignMatch}
+          onCheckMatch={checkMatching}
+          forcedAnswered={isAnswered}
+          answeredCorrectly={isAnswered ? isCorrect : undefined}
+          feedbackMessage={feedback[current.id]}
+          classicalMode="input"
+          classicalValue={classicalAnswer[current.id] || ''}
+          onClassicalChange={setClassicalText}
+          onClassicalCheck={checkClassical}
+          twoStepExplanation
+          explanationRevealed={!!revealedExplanation[current.id]}
+          onRevealExplanation={() => revealExplanation(current.id)}
+          onAnswered={(_questionId, _status, optionId) => {
+            // matching/classical kendi sonuçlarını onCheckMatch/onClassicalCheck üzerinden
+            // zaten işledi (bkz. QuestionAnswerKeyItem) — optionId SADECE çoktan
+            // seçmeli/boşluk doldurmada gelir, bu yüzden burada sadece o durumda işlem
+            // yapmak çift kayıt/çift puanlamayı önlüyor.
+            if (optionId != null) selectAnswer(optionId);
+          }}
+        />
+        </div>
 
-        {isAnswered && current.type !== 'classical' && (
-          <div className={`mt-3 rounded-xl border p-3.5 sm:mt-4 sm:p-4 ${isCorrect ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-rose-400/40 bg-rose-500/10'}`}>
-            <p className={`text-sm font-black ${isCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>{feedback[current.id]}</p>
-            {(current.type === 'matching' || current.solution_text) && !revealedExplanation[current.id] && (
-              <button
-                type="button"
-                onClick={() => revealExplanation(current.id)}
-                className="mt-2 flex items-center gap-1.5 text-xs font-black text-indigo-500 hover:underline"
-              >
-                <Eye className="h-3.5 w-3.5" /> Açıklamayı Göster
-              </button>
-            )}
-            {revealedExplanation[current.id] && current.type !== 'matching' && current.solution_text && (
-              <p className="mt-1.5 text-sm font-medium leading-relaxed text-muted-foreground"><MathText text={current.solution_text} /></p>
-            )}
-            {revealedExplanation[current.id] && current.type === 'matching' && !isCorrect && (
-              <ul className="mt-1.5 space-y-1 text-sm font-medium leading-relaxed text-muted-foreground">
-                {current.pairs
-                  .filter((p) => matchAssign[current.id]?.[p.id] !== p.id)
-                  .map((p) => (
-                    <li key={p.id}>
-                      <MathText as="span" className="font-black text-default" text={p.left_text} /> → <MathText text={p.right_text} />
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center gap-2.5 sm:mt-6">
+        {/* Alt gezinme çubuğu — SlidePlayer'daki ok + numara şeridiyle AYNI desen: sol/sağ
+            yuvarlak ok butonları, ortada cevaplanmış/yanlış/doğru rengine göre boyanan soru
+            numaraları. Sağ ok, cevaplanmadan ilerlemeyi engelleyen eski davranışı (disabled={!isAnswered})
+            korur — bu, slaytta hiç olmayan ama testte kopya/atlamayı önleyen bilinçli bir kısıt. */}
+        <div className="relative z-10 flex shrink-0 items-center justify-center gap-2 px-3 pb-3 pt-1.5 sm:gap-3 sm:px-6 sm:pb-5 sm:pt-2">
           <button
             type="button"
             onClick={goPrev}
             disabled={index === 0}
-            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 text-sm font-black text-default transition-all hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
+            aria-label="Önceki soru"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900/60 text-white shadow-sm transition-colors hover:bg-slate-900/80 disabled:cursor-not-allowed disabled:opacity-30 sm:h-10 sm:w-10"
           >
-            <ArrowLeft className="h-4 w-4" /> Geri
+            <ChevronLeft className="h-5 w-5" />
           </button>
+          <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {questions.map((q, i) => {
+              const isCurrent = i === index;
+              const isLocked = !!locked[q.id];
+              const isReachable = i <= maxIndex;
+              let cls = 'bg-slate-900/10 text-slate-500';
+              if (isLocked) cls = q.type === 'classical' ? 'bg-indigo-500 text-white' : correct[q.id] ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white';
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => jumpToIndex(i)}
+                  disabled={!isReachable}
+                  title={`${i + 1}. Soru`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cls} ${
+                    isCurrent ? 'ring-2 ring-indigo-400 ring-offset-1' : ''
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
             onClick={goNext}
             disabled={!isAnswered}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-black text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
+            aria-label={index === questions.length - 1 ? 'Sonuçları gör' : 'Sonraki soru'}
+            title={index === questions.length - 1 ? 'Sonuçları gör' : 'Sonraki soru'}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
           >
-            {index === questions.length - 1 ? (
-              <>
-                <Trophy className="h-4 w-4" /> Sonuçları Gör
-              </>
-            ) : (
-              'Sonraki Soru'
-            )}
+            {index === questions.length - 1 ? <Trophy className="h-4 w-4" /> : <ChevronRight className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -1794,3 +1777,4 @@ export default function QuizClient({
     </div>
   );
 }
+

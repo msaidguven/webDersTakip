@@ -60,6 +60,7 @@ CREATE TABLE public.topics (
   order_no integer NOT NULL DEFAULT 0 CHECK (order_no >= 0),
   is_active boolean NOT NULL DEFAULT true,
   is_archived boolean NOT NULL DEFAULT false,
+  frozen_unit_slug text,
   order_status text NOT NULL DEFAULT 'approved'::text CHECK (order_status = ANY (ARRAY['approved'::text, 'pending'::text, 'rejected'::text])),
   pending_order_no integer,
   created_at timestamp with time zone DEFAULT now(),

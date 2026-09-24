@@ -53,6 +53,9 @@ type TymmTopicDiff = {
   toArchive: number;
   newDescriptions: string[];
   toArchiveOutcomes: { id: number; description: string }[];
+  dbTopicTitle: string | null;
+  dbTopics: { id: number; title: string }[];
+  samePairs: { parsedText: string; dbText: string; dbOutcomeId: number }[];
 };
 
 // SADECE ÇEKME (yazma yok) sonucu — admin bunu düzenleyip onayladıktan sonra ayrı bir
@@ -76,7 +79,16 @@ type TymmImportResult = {
 };
 
 type BulkFetchItem =
-  | { url: string; title: string; ok: true; unit: TymmUnit; unmatchedLines: string[]; boundaryWarnings: string[]; rawSections: TymmRawSections }
+  | {
+      url: string;
+      title: string;
+      ok: true;
+      unit: TymmUnit;
+      unmatchedLines: string[];
+      boundaryWarnings: string[];
+      rawSections: TymmRawSections;
+      topicDiffs?: TymmTopicDiff[];
+    }
   | { url: string; title: string; ok: false; error: string };
 type BulkFetchResponse = { unitsFound: number; results: BulkFetchItem[] };
 
@@ -89,6 +101,11 @@ type BulkPreviewItem = {
   unmatchedLines: string[];
   boundaryWarnings: string[];
   rawSections: TymmRawSections | null;
+  // Tek ünite akışıyla AYNI DB karşılaştırma özeti (bkz. buildTopicDiffs.ts) — "Karşılaştır
+  // ve Onayla" toplu akışta da gerçek bir eski|yeni tablosu göstersin diye (kullanıcının
+  // 2026-09-22 bulduğu bug: bu alan hiç doldurulmuyordu, modal direkt kaydet adımına
+  // düşüyordu).
+  topicDiffs?: TymmTopicDiff[];
   fetchError: string | null;
   saving: boolean;
   saveResult: TymmImportResult | null;
@@ -172,6 +189,15 @@ type CompareBulkResponse = {
   fetchErrors: { url: string; title: string; error: string }[];
 };
 
+// "Konuları Karşılaştır" sekmesi — bkz. app/src/lib/tymm/compareTopicsOnly.ts (aynı isimli tip).
+type TopicOnlyDiff = {
+  dbTopicId: number;
+  dbTopicTitle: string;
+  dbUnitTitle: string;
+  matchedInTymm: boolean;
+  isArchived: boolean;
+};
+
 const STEP_ENDPOINTS: Record<StepKey, string> = {
   units: '/api/admin/yillik-plan/import-units',
   topics: '/api/admin/yillik-plan/import-topics',
@@ -181,7 +207,7 @@ const STEP_ENDPOINTS: Record<StepKey, string> = {
 export default function YillikPlanPanel() {
   // Karışık görünmesin diye üç ayrı iş akışı sekmelere ayrıldı — DOCX yükleme ve Ders/Sınıf
   // seçimi ise her sekmede kullanıldığı için sekmelerin dışında, hep görünür kalıyor.
-  const [activeTab, setActiveTab] = useState<'docx' | 'tymm' | 'weeks' | 'compare'>('docx');
+  const [activeTab, setActiveTab] = useState<'docx' | 'tymm' | 'weeks' | 'compare' | 'topicsOnly'>('docx');
 
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
@@ -249,6 +275,14 @@ export default function YillikPlanPanel() {
   // ama aynı kazanım olan durumlar için (bkz. TymmSaveDiffSummary, kullanıcının 2026-09-22
   // isteği: "sorular kaybolmasın, ben elle eşleştirebilmeliyim").
   const [manualOutcomeMerges, setManualOutcomeMerges] = useState<Record<string, number>>({});
+  // Aynı mantık KONU seviyesinde (bkz. app/src/lib/tymm/importUnit.ts SaveTymmUnitParams
+  // notu): parsed konu başlığı → admin'in elle seçtiği DB konu id'si. Fuzzy eşleşme her zaman
+  // doğru DB konusunu bulamayabilir, admin override edebilsin diye.
+  const [manualTopicMerges, setManualTopicMerges] = useState<Record<string, number>>({});
+  // Admin'in title/slug'ı YENİ parse edilen metinle güncellenmesini AÇIKÇA onayladığı DB konu
+  // id'leri — varsayılan boş: eşleşen bir konunun başlığı asla sessizce değiştirilmez (public
+  // URL'lerde kullanılan slug'ı bozmamak için, bkz. importUnit.ts renameTopicIds notu).
+  const [renameTopicIds, setRenameTopicIds] = useState<Set<number>>(new Set());
 
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -259,6 +293,15 @@ export default function YillikPlanPanel() {
   const [bulkFetchErr, setBulkFetchErr] = useState<string | null>(null);
   const [bulkItems, setBulkItems] = useState<BulkPreviewItem[] | null>(null);
   const [bulkCompareIndex, setBulkCompareIndex] = useState<number | null>(null);
+  // "Hepsini Kaydet" — sadece "Yeni Yıllık Plan Ekle" modunda: ilk kez içerik girerken DB'de
+  // karşılaştıracak hiçbir şey yok, her üniteyi tek tek açıp onaylamak gereksiz (kullanıcının
+  // 2026-09-22 ısrarı: "1. defa toplu hepsini giriyorum ve db'ye kaydediyorum"). "Eskisini
+  // Güncelle" modunda bilerek YOK — orada satır satır karşılaştırma zorunlu kalmalı.
+  const [bulkSavingAll, setBulkSavingAll] = useState(false);
+  // Toplu akışta tekil "Karşılaştır ve Onayla" için — henüz per-ünite elle kazanım eşleştirme
+  // yok (bkz. TymmSaveDiffSummary'nin manualOutcomeMerges'i tek ünite akışına özel), sadece
+  // ham arşiv sayısı üzerinden "gördüm" onayı isteniyor. Farklı bir üniteye geçilince sıfırlanır.
+  const [bulkArchiveReviewConfirmed, setBulkArchiveReviewConfirmed] = useState(false);
   // "🤖 Tüm Üniteleri AI ile Ayrıştır" panelinin doldurduğu, her ünitenin KENDİ inline
   // AiAssistPanel'ine verilecek başlangıç JSON metni — version, aynı üniteye ikinci kez
   // doldurulduğunda AiAssistPanel'i yeni bir `key` ile yeniden monte edip pasteValue'yu
@@ -291,6 +334,72 @@ export default function YillikPlanPanel() {
   const [compareErr, setCompareErr] = useState<string | null>(null);
   const [compareResult, setCompareResult] = useState<CompareBulkResponse | null>(null);
   const [compareExpanded, setCompareExpanded] = useState<Set<number>>(new Set());
+
+  // "Konuları Karşılaştır" sekmesi (sadece okuma + "Arşive Taşı" aksiyonu): kazanım seviyesine
+  // hiç inmeden, seçili ders/sınıfın DB'deki konu başlıklarını TYMM'in güncel (tüm üniteler
+  // birleşimi) konu başlıklarıyla kıyaslar — DB'de olup TYMM'de artık HİÇBİR yerde karşılığı
+  // bulunamayan konular "TYMM'de bulunamadı" olarak işaretlenir (bkz. compareTopicsOnly.ts).
+  // Bulk wipe-and-rebuild öncesi admin bunları "Arşive Taşı" ile kenara alabilsin diye
+  // (kullanıcının 2026-09-22 isteği).
+  const [topicsOnlyResult, setTopicsOnlyResult] = useState<TopicOnlyDiff[] | null>(null);
+  const [comparingTopicsOnly, setComparingTopicsOnly] = useState(false);
+  const [topicsOnlyErr, setTopicsOnlyErr] = useState<string | null>(null);
+  const [archivingTopicId, setArchivingTopicId] = useState<number | null>(null);
+  const [archiveErrByTopic, setArchiveErrByTopic] = useState<Record<number, string>>({});
+
+  async function runCompareTopicsOnly() {
+    if (!lessonId || !gradeId) return;
+    setComparingTopicsOnly(true);
+    setTopicsOnlyErr(null);
+    setTopicsOnlyResult(null);
+    setArchiveErrByTopic({});
+    try {
+      const res = await fetch('/api/admin/tymm/compare-topics-only', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, gradeId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setTopicsOnlyErr(data?.error || 'Karşılaştırma başarısız');
+        return;
+      }
+      setTopicsOnlyResult(data.results as TopicOnlyDiff[]);
+    } catch {
+      setTopicsOnlyErr('İstek başarısız (ağ hatası)');
+    } finally {
+      setComparingTopicsOnly(false);
+    }
+  }
+
+  // Bir konuyu Arşiv ünitesine taşır (bkz. app/api/admin/tymm/archive-topic/route.ts) —
+  // başarılı olursa TÜM listeyi yeniden çekmek yerine sadece o satırı iyimser (optimistic)
+  // olarak "Zaten arşivde" durumuna güncelliyoruz, hata olursa satır bazında gösteriyoruz.
+  async function archiveTopic(topicId: number) {
+    setArchivingTopicId(topicId);
+    setArchiveErrByTopic((prev) => {
+      const next = { ...prev };
+      delete next[topicId];
+      return next;
+    });
+    try {
+      const res = await fetch('/api/admin/tymm/archive-topic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setArchiveErrByTopic((prev) => ({ ...prev, [topicId]: data?.error || 'Arşive taşınamadı' }));
+        return;
+      }
+      setTopicsOnlyResult((prev) => (prev ? prev.map((r) => (r.dbTopicId === topicId ? { ...r, isArchived: true } : r)) : prev));
+    } catch {
+      setArchiveErrByTopic((prev) => ({ ...prev, [topicId]: 'İstek başarısız (ağ hatası)' }));
+    } finally {
+      setArchivingTopicId(null);
+    }
+  }
 
   async function runCompare() {
     if (!comparePageUrl.trim() || !lessonId || !gradeId) return;
@@ -519,6 +628,8 @@ export default function YillikPlanPanel() {
     setPreviewRawSections(null);
     setPreviewTopicDiffs(undefined);
     setManualOutcomeMerges({});
+    setManualTopicMerges({});
+    setRenameTopicIds(new Set());
     setArchiveReviewConfirmed(false);
     setSaveResult(null);
     setSaveErr(null);
@@ -560,6 +671,8 @@ export default function YillikPlanPanel() {
           lessonId,
           curriculumYear: tymmYear.trim() || null,
           manualOutcomeMerges: Object.keys(manualOutcomeMerges).length ? manualOutcomeMerges : undefined,
+          manualTopicMerges: Object.keys(manualTopicMerges).length ? manualTopicMerges : undefined,
+          renameTopicIds: renameTopicIds.size ? Array.from(renameTopicIds) : undefined,
         }),
       });
       const data = await res.json();
@@ -571,6 +684,8 @@ export default function YillikPlanPanel() {
       setSaveResult({ ...result, sourceUrl: tymmUrl.trim() });
       setPreviewUnit(null);
       setManualOutcomeMerges({});
+      setManualTopicMerges({});
+      setRenameTopicIds(new Set());
       setWeekUnitId(String(result.unitId));
       return true;
     } catch {
@@ -590,7 +705,7 @@ export default function YillikPlanPanel() {
       const res = await fetch('/api/admin/tymm/fetch-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageUrl: bulkPageUrl.trim() }),
+        body: JSON.stringify({ pageUrl: bulkPageUrl.trim(), lessonId, gradeId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -607,6 +722,7 @@ export default function YillikPlanPanel() {
           unmatchedLines: r.ok ? r.unmatchedLines : [],
           boundaryWarnings: r.ok ? r.boundaryWarnings : [],
           rawSections: r.ok ? r.rawSections : null,
+          topicDiffs: r.ok ? r.topicDiffs : undefined,
           fetchError: r.ok ? null : r.error,
           saving: false,
           saveResult: null,
@@ -646,6 +762,24 @@ export default function YillikPlanPanel() {
     } catch {
       setBulkItems((items) => items!.map((it, i) => (i === index ? { ...it, saving: false, saveErr: 'İstek başarısız (ağ hatası)' } : it)));
       return false;
+    }
+  }
+
+  // Tüm çekilmiş üniteleri SIRAYLA (paralel değil — aynı anda iki isteğin aynı üniteyi
+  // "yok" sanıp iki kez oluşturma riskini önlemek için) kaydeder, saveBulkItem'ı tekrar
+  // kullanır (aynı endpoint, aynı hata/ilerleme gösterimi). Zaten kaydedilmiş veya
+  // çekilemeyen üniteler atlanır.
+  async function saveAllBulkItems() {
+    if (!bulkItems) return;
+    setBulkSavingAll(true);
+    try {
+      for (let i = 0; i < bulkItems.length; i++) {
+        const item = bulkItems[i];
+        if (!item.unit || item.saveResult) continue;
+        await saveBulkItem(i);
+      }
+    } finally {
+      setBulkSavingAll(false);
     }
   }
 
@@ -884,6 +1018,7 @@ export default function YillikPlanPanel() {
           { key: 'tymm', label: '🌐 TYMM’den Aktar' },
           { key: 'weeks', label: '📅 Hafta Ata' },
           { key: 'compare', label: '🔍 Kontrol Et' },
+          { key: 'topicsOnly', label: '📦 Konuları Karşılaştır' },
         ]}
         active={activeTab}
         onSelect={(k) => setActiveTab(k as typeof activeTab)}
@@ -972,37 +1107,38 @@ export default function YillikPlanPanel() {
 
         <div className="h-px bg-border mb-4" />
 
+        {/* Admin önce niyetini AÇIKÇA seçer — sistem sessizce "var mı yok mu" diye karar
+            vermez. Seçime göre aşağıda uyumsuzluk uyarısı, (Güncelle'de) arşiv onayı ve
+            (Toplu + Yeni Ekle'de) tek tıkla "Hepsini Kaydet" gibi davranışlar değişir
+            (kullanıcının 2026-09-22 ısrarı). Hem Tek Ünite hem Toplu sekmesinde geçerli. */}
+        <div className="mb-3">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ne yapıyorsun?</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setImportMode('new')}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                importMode === 'new'
+                  ? 'bg-emerald-500 text-white border-emerald-500'
+                  : 'bg-surface text-muted-foreground border-border hover:border-emerald-400'
+              }`}
+            >
+              🆕 Yeni Yıllık Plan Ekle
+            </button>
+            <button
+              onClick={() => setImportMode('update')}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                importMode === 'update'
+                  ? 'bg-indigo-500 text-white border-indigo-500'
+                  : 'bg-surface text-muted-foreground border-border hover:border-indigo-400'
+              }`}
+            >
+              🔄 Eskisini Güncelle
+            </button>
+          </div>
+        </div>
+
         {!tymmBulkMode ? (
           <>
-            {/* Admin önce niyetini AÇIKÇA seçer — sistem sessizce "var mı yok mu" diye karar
-                vermez. Seçime göre aşağıda uyumsuzluk uyarısı ve (Güncelle'de) arşiv onayı
-                zorunlu hale gelir (kullanıcının 2026-09-22 ısrarı). */}
-            <div className="mb-3">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ne yapıyorsun?</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setImportMode('new')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
-                    importMode === 'new'
-                      ? 'bg-emerald-500 text-white border-emerald-500'
-                      : 'bg-surface text-muted-foreground border-border hover:border-emerald-400'
-                  }`}
-                >
-                  🆕 Yeni Yıllık Plan Ekle
-                </button>
-                <button
-                  onClick={() => setImportMode('update')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
-                    importMode === 'update'
-                      ? 'bg-indigo-500 text-white border-indigo-500'
-                      : 'bg-surface text-muted-foreground border-border hover:border-indigo-400'
-                  }`}
-                >
-                  🔄 Eskisini Güncelle
-                </button>
-              </div>
-            </div>
-
             <div className="mb-3">
               <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">TYMM Ünite URL&apos;i</label>
               <input
@@ -1089,17 +1225,23 @@ export default function YillikPlanPanel() {
                 value={bulkPageUrl}
                 onChange={(e) => setBulkPageUrl(e.target.value)}
                 placeholder="https://tymm.meb.gov.tr/ogretim-programlari/din-kulturu-ve-ahlak-bilgisi-dersi/6"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400"
+                disabled={!importMode}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400 disabled:opacity-40"
               />
-              <p className="text-[11px] text-muted-foreground mt-1">Bu sayfadaki tüm üniteler bulunup çekilir — hiçbiri otomatik kaydedilmez, ünite ünite onaylarsın.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Bu sayfadaki tüm üniteler bulunup çekilir — hiçbiri otomatik kaydedilmez.{' '}
+                {importMode === 'new'
+                  ? 'Aşağıda tek tıkla hepsini kaydedebilir ya da ünite ünite onaylayabilirsin.'
+                  : 'Güncellemede her üniteyi tek tek karşılaştırıp onaylarsın.'}
+              </p>
             </div>
 
             <button
               onClick={runTymmBulkFetch}
-              disabled={bulkFetching || !bulkPageUrl.trim()}
+              disabled={bulkFetching || !bulkPageUrl.trim() || !importMode}
               className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {bulkFetching ? 'Bulunuyor…' : '👁 Üniteleri Bul ve Önizle'}
+              {bulkFetching ? 'Bulunuyor…' : !importMode ? 'Önce yukarıdan seç' : '👁 Üniteleri Bul ve Önizle'}
             </button>
 
             {bulkFetchErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {bulkFetchErr}</p>}
@@ -1130,6 +1272,20 @@ export default function YillikPlanPanel() {
                     {bulkItems.filter((it) => it.saveResult).length}/{bulkItems.length} kaydedildi
                   </p>
                 </div>
+
+                {/* Sadece "Yeni Yıllık Plan Ekle"de: DB'de henüz hiçbir şey yok, tek tek açıp
+                    karşılaştırmaya gerek yok — tek tıkla hepsini kaydet. "Eskisini Güncelle"de
+                    bilerek yok (kullanıcının 2026-09-22 ısrarı: güncellemede satır satır
+                    karşılaştırma zorunlu kalmalı, sorular sessizce kaybolmasın). */}
+                {importMode === 'new' && bulkItems.some((it) => it.unit && !it.saveResult) && (
+                  <button
+                    onClick={saveAllBulkItems}
+                    disabled={bulkSavingAll || !lessonId || !gradeId}
+                    className="w-full px-4 py-2 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    {bulkSavingAll ? 'Hepsi kaydediliyor…' : `🚀 Hepsini Kaydet (${bulkItems.filter((it) => it.unit && !it.saveResult).length} ünite)`}
+                  </button>
+                )}
                 {bulkItems.map((item, idx) => {
                   const topicCount = item.unit ? new Set(item.unit.learningOutcomes.map((o) => o.topicTitle)).size : 0;
                   const outcomeCount = item.unit?.learningOutcomes.reduce((n, o) => n + o.components.length, 0) ?? 0;
@@ -1160,10 +1316,13 @@ export default function YillikPlanPanel() {
                         ) : (
                           item.unit && (
                             <button
-                              onClick={() => setBulkCompareIndex(idx)}
+                              onClick={() => {
+                                setBulkArchiveReviewConfirmed(false);
+                                setBulkCompareIndex(idx);
+                              }}
                               className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors"
                             >
-                              🔍 Karşılaştır ve Onayla
+                              {importMode === 'update' ? '📊 DB ile Karşılaştır' : '🔍 Önizle ve Onayla'}
                             </button>
                           )
                         )}
@@ -1431,6 +1590,95 @@ export default function YillikPlanPanel() {
       </Card>
       )}
 
+      {activeTab === 'topicsOnly' && (
+      <Card title="Konuları Karşılaştır (Sadece Başlık)">
+        <p className="text-xs text-muted-foreground mb-4">
+          Kazanımlara inmeden, sadece KONU BAŞLIKLARINI kıyaslar — seçili ders/sınıfın TYMM sayfasındaki TÜM
+          ünitelerin konu başlıkları TEK bir havuzda toplanır (TYMM güncellemesinde konular üniteler arasında
+          yeniden dağıtılmış olabilir, bu yüzden hangi ünitede olduğuna bakılmaz). DB&apos;de olup bu havuzda hiç
+          karşılığı bulunamayan konular, müfredattan tamamen kaldırılmış olabilir.
+        </p>
+        <p className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-3 py-2 mb-4">
+          📦 Arşive taşınan konular kendi URL&apos;sinde canlı kalır (Google indeksi bozulmaz), sadece ayrı bir
+          &quot;Arşiv&quot; ünitesine taşınır ve normal listelerden gizlenir — soruları/kazanımları etkilenmez.
+        </p>
+
+        {(!lessonId || !gradeId) && (
+          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+            ⚠️ Önce yukarıda Ders ve Sınıf seçin.
+          </p>
+        )}
+
+        <button
+          onClick={runCompareTopicsOnly}
+          disabled={comparingTopicsOnly || !lessonId || !gradeId}
+          className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-bold hover:bg-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {comparingTopicsOnly ? 'Karşılaştırılıyor…' : '🔍 Konuları Karşılaştır'}
+        </button>
+
+        {topicsOnlyErr && <p className="text-sm text-red-600 dark:text-red-400 mt-3">❌ {topicsOnlyErr}</p>}
+
+        {topicsOnlyResult && (
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Toplam Konu" value={topicsOnlyResult.length} />
+              <Stat label="TYMM'de Var" value={topicsOnlyResult.filter((r) => r.matchedInTymm).length} />
+              <Stat label="Bulunamadı" value={topicsOnlyResult.filter((r) => !r.matchedInTymm && !r.isArchived).length} />
+            </div>
+
+            {(() => {
+              const byUnit = new Map<string, TopicOnlyDiff[]>();
+              for (const r of topicsOnlyResult) {
+                const list = byUnit.get(r.dbUnitTitle) || [];
+                list.push(r);
+                byUnit.set(r.dbUnitTitle, list);
+              }
+              return Array.from(byUnit.entries()).map(([unitTitle, rows]) => (
+                <div key={unitTitle} className="rounded-xl border border-border bg-surface p-4">
+                  <p className="text-xs font-bold text-foreground mb-2.5">{unitTitle}</p>
+                  <div className="space-y-1.5">
+                    {rows.map((r) => (
+                      <div key={r.dbTopicId} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
+                        <span className="text-sm text-foreground truncate">{r.dbTopicTitle}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {r.isArchived ? (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                              📦 Zaten arşivde
+                            </span>
+                          ) : r.matchedInTymm ? (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                              ✓ TYMM&apos;de var
+                            </span>
+                          ) : (
+                            <>
+                              {archiveErrByTopic[r.dbTopicId] && (
+                                <span className="text-[10px] text-red-600 dark:text-red-400">❌ {archiveErrByTopic[r.dbTopicId]}</span>
+                              )}
+                              <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                TYMM&apos;de bulunamadı
+                              </span>
+                              <button
+                                onClick={() => archiveTopic(r.dbTopicId)}
+                                disabled={archivingTopicId === r.dbTopicId}
+                                className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20 transition-colors disabled:opacity-40"
+                              >
+                                {archivingTopicId === r.dbTopicId ? 'Taşınıyor…' : '📦 Arşive Taşı'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        )}
+      </Card>
+      )}
+
       {inspecting && <TymmInspectModal key={inspecting.unitId} target={inspecting} onClose={() => setInspecting(null)} />}
 
       {comparePreviewOpen && previewUnit && (
@@ -1443,6 +1691,10 @@ export default function YillikPlanPanel() {
           topicDiffs={previewTopicDiffs}
           manualOutcomeMerges={manualOutcomeMerges}
           onManualMergeChange={setManualOutcomeMerges}
+          manualTopicMerges={manualTopicMerges}
+          onManualTopicMergeChange={setManualTopicMerges}
+          renameTopicIds={renameTopicIds}
+          onRenameTopicIdsChange={setRenameTopicIds}
           unresolvedArchiveCount={importMode === 'update' ? unresolvedArchiveCount : 0}
           archiveReviewConfirmed={archiveReviewConfirmed}
           onArchiveReviewChange={setArchiveReviewConfirmed}
@@ -1459,26 +1711,36 @@ export default function YillikPlanPanel() {
         />
       )}
 
-      {bulkCompareIndex != null && bulkItems?.[bulkCompareIndex]?.unit && (
-        <TymmPreviewCompareModal
-          tymmUrl={bulkItems[bulkCompareIndex].url}
-          unit={bulkItems[bulkCompareIndex].unit as TymmUnit}
-          unmatchedLines={bulkItems[bulkCompareIndex].unmatchedLines}
-          boundaryWarnings={bulkItems[bulkCompareIndex].boundaryWarnings}
-          rawSections={bulkItems[bulkCompareIndex].rawSections}
-          onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
-          onClose={() => setBulkCompareIndex(null)}
-          saving={bulkItems[bulkCompareIndex].saving}
-          saveErr={bulkItems[bulkCompareIndex].saveErr}
-          canSave={!!lessonId && !!gradeId}
-          onSave={async () => {
-            const idx = bulkCompareIndex;
-            if (idx == null) return;
-            const ok = await saveBulkItem(idx);
-            if (ok) setBulkCompareIndex(null);
-          }}
-        />
-      )}
+      {bulkCompareIndex != null && bulkItems?.[bulkCompareIndex]?.unit && (() => {
+        const item = bulkItems[bulkCompareIndex];
+        const bulkUnresolvedArchive = (item.topicDiffs || []).reduce((n, d) => n + d.toArchive, 0);
+        const bulkNeedsReview = importMode === 'update' && bulkUnresolvedArchive > 0 && !bulkArchiveReviewConfirmed;
+        return (
+          <TymmPreviewCompareModal
+            tymmUrl={item.url}
+            unit={item.unit as TymmUnit}
+            unmatchedLines={item.unmatchedLines}
+            boundaryWarnings={item.boundaryWarnings}
+            rawSections={item.rawSections}
+            topicDiffs={item.topicDiffs}
+            unresolvedArchiveCount={importMode === 'update' ? bulkUnresolvedArchive : 0}
+            archiveReviewConfirmed={bulkArchiveReviewConfirmed}
+            onArchiveReviewChange={setBulkArchiveReviewConfirmed}
+            importMode={importMode}
+            onChange={(mutator) => updateBulkItemUnit(bulkCompareIndex, mutator)}
+            onClose={() => setBulkCompareIndex(null)}
+            saving={item.saving}
+            saveErr={item.saveErr}
+            canSave={!!lessonId && !!gradeId && !bulkNeedsReview}
+            onSave={async () => {
+              const idx = bulkCompareIndex;
+              if (idx == null) return;
+              const ok = await saveBulkItem(idx);
+              if (ok) setBulkCompareIndex(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -2489,18 +2751,39 @@ function TymmRawSectionsView({ rawSections }: { rawSections: TymmRawSections | n
 // Sayılar API'den (bkz. app/api/admin/tymm/fetch/route.ts → buildTopicDiffs) geliyor, o da
 // saveTymmUnit ile AYNI (topic_id, description) eşleşme kuralını kullanıyor — burası ayrı
 // bir hesap YAPMIYOR, sadece gösteriyor.
+// Tek bir kazanım karşılaştırma satırının durumu — renk/etiket bundan türetilir.
+type OutcomeRowStatus = 'same' | 'new' | 'archive' | 'matched';
+const OUTCOME_ROW_STYLE: Record<OutcomeRowStatus, { label: string; border: string; text: string }> = {
+  same: { label: 'Aynı', border: 'border-l-border', text: 'text-muted-foreground' },
+  new: { label: 'Yeni', border: 'border-l-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
+  archive: { label: 'Arşivlenecek', border: 'border-l-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+  matched: { label: 'Eşleştirildi', border: 'border-l-indigo-500', text: 'text-indigo-700 dark:text-indigo-300' },
+};
+
+// Kullanıcının 2026-09-22 kesin isteği: "eski (DB) vs yeni (TYMM) SATIR SATIR karşılaştırma,
+// sadece farklar değil TÜM kazanımlar görünsün". Her konu için gerçek bir <table>: sol sütun
+// DB'deki mevcut metin, sağ sütun TYMM'den gelen metin, hiçbiri kırpılmaz/gizlenmez — samePairs
+// (fuzzy-aynı sayılanlar) dahil her satır görünür.
 function TymmSaveDiffSummary({
   topicDiffs,
   manualOutcomeMerges,
   onManualMergeChange,
+  manualTopicMerges,
+  onManualTopicMergeChange,
+  renameTopicIds,
+  onRenameTopicIdsChange,
 }: {
   topicDiffs: TymmTopicDiff[];
   manualOutcomeMerges: Record<string, number>;
   onManualMergeChange?: (next: Record<string, number>) => void;
+  manualTopicMerges?: Record<string, number>;
+  onManualTopicMergeChange?: (next: Record<string, number>) => void;
+  renameTopicIds?: Set<number>;
+  onRenameTopicIdsChange?: (next: Set<number>) => void;
 }) {
   const totalToArchive = topicDiffs.reduce((n, d) => n + d.toArchive, 0);
 
-  function setMerge(newDescription: string, oldOutcomeId: number | null) {
+  function setOutcomeMerge(newDescription: string, oldOutcomeId: number | null) {
     if (!onManualMergeChange) return;
     const next = { ...manualOutcomeMerges };
     if (oldOutcomeId == null) delete next[newDescription];
@@ -2508,59 +2791,123 @@ function TymmSaveDiffSummary({
     onManualMergeChange(next);
   }
 
+  function setTopicMerge(topicTitle: string, dbTopicId: number) {
+    if (!onManualTopicMergeChange) return;
+    onManualTopicMergeChange({ ...manualTopicMerges, [topicTitle]: dbTopicId });
+  }
+
+  function toggleRename(topicId: number, checked: boolean) {
+    if (!onRenameTopicIdsChange) return;
+    const next = new Set(renameTopicIds || []);
+    if (checked) next.add(topicId);
+    else next.delete(topicId);
+    onRenameTopicIdsChange(next);
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-surface p-3.5 mb-3">
-      <p className="text-[11px] font-black text-foreground uppercase tracking-wide mb-2">
+    <div className="rounded-xl border border-border bg-surface p-3.5 mb-3 space-y-4">
+      <p className="text-[11px] font-black text-foreground uppercase tracking-wide">
         📋 {topicDiffs.length} konu aktarılacak
         {totalToArchive > 0 && (
           <span className="ml-1.5 text-amber-600 dark:text-amber-400">— {totalToArchive} kazanım arşivlenecek, kontrol edin</span>
         )}
       </p>
-      <ul className="space-y-2">
-        {topicDiffs.map((d) => (
-          <li key={d.topicTitle} className="text-[11px] leading-relaxed">
-            <span className="font-semibold text-foreground">{d.topicTitle}</span>
-            {' — '}
-            {!d.topicExists ? (
-              <span className="text-indigo-600 dark:text-indigo-300 font-semibold">Yeni konu</span>
-            ) : (
-              <>
-                {d.unchanged > 0 && <span className="text-muted-foreground">{d.unchanged} kazanım aynı kalacak</span>}
-                {d.unchanged > 0 && (d.new > 0 || d.toArchive > 0) && <span className="text-muted-foreground"> · </span>}
-                {d.new > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{d.new} yeni</span>}
-                {d.new > 0 && d.toArchive > 0 && <span className="text-muted-foreground"> · </span>}
-                {d.toArchive > 0 && (
-                  <span className="text-amber-600 dark:text-amber-400 font-semibold">{d.toArchive} arşivlenecek</span>
-                )}
-                {d.unchanged === 0 && d.new === 0 && d.toArchive === 0 && (
-                  <span className="text-muted-foreground">değişiklik yok</span>
-                )}
-              </>
-            )}
 
-            {/* Ham metin karşılaştırması: hem yeni (TYMM) hem eski (DB) kazanımların TAM metnini
-                yan yana gösteriyoruz — kırpılmış/gizli hiçbir şey yok, admin 1-2 kelimelik farkı
-                gözle görebilsin diye (kullanıcının 2026-09-22 ısrarı: "nereden karşılaştıracam"). */}
-            {d.topicExists && (d.newDescriptions.length > 0 || d.toArchiveOutcomes.length > 0) && (
-              <div className="mt-2 ml-3 space-y-2.5">
-                {d.newDescriptions.length > 0 && d.toArchiveOutcomes.length > 0 && onManualMergeChange && (
-                  <div className="space-y-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
-                    <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
-                      Bunlardan biri eski bir kazanımın güncellenmiş hali olabilir — TAM metinleri karşılaştır ve eşleştir:
-                    </p>
-                    {d.newDescriptions.map((desc) => {
-                      const mergedId = manualOutcomeMerges[desc];
-                      const mergedOld = mergedId != null ? d.toArchiveOutcomes.find((o) => o.id === mergedId) : null;
-                      return (
-                        <div key={desc} className="rounded-md border border-border bg-background p-2 space-y-1.5">
-                          <div>
-                            <p className="text-[9px] font-black uppercase tracking-wide text-emerald-600 dark:text-emerald-400">TYMM&apos;den yeni</p>
-                            <p className="text-foreground">{desc}</p>
-                          </div>
+      {topicDiffs.map((d) => {
+        // Admin bir dropdown'dan farklı bir DB konusu seçtiyse (manualTopicMerges) o kazanır —
+        // aksi halde otomatik eşleşen d.topicId/dbTopicTitle kullanılır.
+        const effectiveTopicId = manualTopicMerges?.[d.topicTitle] ?? d.topicId ?? undefined;
+        const effectiveDbTitle =
+          effectiveTopicId != null ? d.dbTopics.find((t) => t.id === effectiveTopicId)?.title ?? d.dbTopicTitle : d.dbTopicTitle;
+        const titleDiffers = !!effectiveDbTitle && effectiveDbTitle !== d.topicTitle;
+        const topicStatusLabel = !d.topicExists ? 'Yeni konu' : titleDiffers ? 'Farklı yazım' : 'Aynı';
+        const topicStatusClass = !d.topicExists
+          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20'
+          : titleDiffers
+          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+          : 'bg-muted text-muted-foreground border-border';
+
+        const mergedArchiveIds = new Set(d.newDescriptions.filter((desc) => manualOutcomeMerges[desc] != null).map((desc) => manualOutcomeMerges[desc]));
+        const unmatchedArchive = d.toArchiveOutcomes.filter((o) => !mergedArchiveIds.has(o.id));
+
+        type Row = { key: string; status: OutcomeRowStatus; db: string; parsed: string; rawDesc?: string; mergedId?: number | null };
+        const rows: Row[] = [
+          ...d.samePairs.map((p): Row => ({ key: `same-${p.dbOutcomeId}`, status: 'same', db: p.dbText, parsed: p.parsedText })),
+          ...d.newDescriptions.map((desc): Row => {
+            const mergedId = manualOutcomeMerges[desc];
+            const mergedOld = mergedId != null ? d.toArchiveOutcomes.find((o) => o.id === mergedId) : null;
+            return {
+              key: `new-${desc}`,
+              status: mergedOld ? 'matched' : 'new',
+              db: mergedOld?.description || '',
+              parsed: desc,
+              rawDesc: desc,
+              mergedId: mergedId ?? null,
+            };
+          }),
+          ...unmatchedArchive.map((o): Row => ({ key: `archive-${o.id}`, status: 'archive', db: o.description, parsed: '' })),
+        ];
+
+        return (
+          <div key={d.topicTitle} className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr className="bg-muted/60 text-left">
+                  <th className="px-2.5 py-1.5 font-black uppercase tracking-wide text-muted-foreground w-[44%]">DB&apos;deki (eski)</th>
+                  <th className="px-2.5 py-1.5 font-black uppercase tracking-wide text-muted-foreground w-[44%]">TYMM&apos;den (yeni)</th>
+                  <th className="px-2.5 py-1.5 font-black uppercase tracking-wide text-muted-foreground w-[12%]">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Konu başlığı satırı */}
+                <tr className="border-t border-border bg-surface">
+                  <td className="px-2.5 py-2 align-top font-semibold text-foreground">{effectiveDbTitle || '— (yok)'}</td>
+                  <td className="px-2.5 py-2 align-top font-semibold text-foreground">
+                    {d.topicTitle}
+                    {titleDiffers && effectiveTopicId != null && (
+                      <label className="mt-1.5 flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!renameTopicIds?.has(effectiveTopicId)}
+                          onChange={(e) => toggleRename(effectiveTopicId, e.target.checked)}
+                          className="accent-indigo-500"
+                        />
+                        DB&apos;deki başlığı bununla güncelle
+                      </label>
+                    )}
+                  </td>
+                  <td className="px-2.5 py-2 align-top">
+                    <span className={`inline-block rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${topicStatusClass}`}>
+                      {topicStatusLabel}
+                    </span>
+                    {titleDiffers && d.dbTopics.length > 1 && onManualTopicMergeChange && (
+                      <select
+                        value={effectiveTopicId ?? ''}
+                        onChange={(e) => e.target.value && setTopicMerge(d.topicTitle, Number(e.target.value))}
+                        className="mt-1.5 block w-full rounded border border-border bg-surface px-1 py-0.5 text-[9px] text-foreground"
+                      >
+                        {d.dbTopics.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            #{t.id} {t.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                </tr>
+
+                {rows.map((row) => {
+                  const style = OUTCOME_ROW_STYLE[row.status];
+                  return (
+                    <tr key={row.key} className={`border-t border-border border-l-4 ${style.border}`}>
+                      <td className="px-2.5 py-1.5 align-top text-foreground/80">{row.db || <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-2.5 py-1.5 align-top text-foreground/80">
+                        {row.parsed || <span className="text-muted-foreground">—</span>}
+                        {row.rawDesc && d.toArchiveOutcomes.length > 0 && onManualMergeChange && (
                           <select
-                            value={mergedId ?? ''}
-                            onChange={(e) => setMerge(desc, e.target.value ? Number(e.target.value) : null)}
-                            className="w-full rounded border border-border bg-surface px-1.5 py-1 text-[10px] text-foreground"
+                            value={row.mergedId ?? ''}
+                            onChange={(e) => setOutcomeMerge(row.rawDesc as string, e.target.value ? Number(e.target.value) : null)}
+                            className="mt-1 block w-full rounded border border-border bg-surface px-1 py-0.5 text-[9px] text-foreground"
                           >
                             <option value="">— Eşleşme yok, yeni kazanım olarak ekle</option>
                             {d.toArchiveOutcomes.map((o) => (
@@ -2569,47 +2916,24 @@ function TymmSaveDiffSummary({
                               </option>
                             ))}
                           </select>
-                          {mergedOld && (
-                            <div className="rounded bg-amber-500/10 p-1.5">
-                              <p className="text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                                Eşleştirdiğin DB&apos;deki eski metin
-                              </p>
-                              <p className="text-foreground/80">{mergedOld.description}</p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {d.newDescriptions.length > 0 && (d.toArchiveOutcomes.length === 0 || !onManualMergeChange) && (
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Yeni eklenecek kazanımlar</p>
-                    {d.newDescriptions.map((desc) => (
-                      <p key={desc} className="text-foreground/80">{desc}</p>
-                    ))}
-                  </div>
-                )}
-                {(() => {
-                  const mergedIds = new Set(Object.values(manualOutcomeMerges));
-                  const unmatched = d.toArchiveOutcomes.filter((o) => !mergedIds.has(o.id));
-                  if (!unmatched.length) return null;
-                  return (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-red-700 dark:text-red-300">
-                        Hiçbir yeniyle eşleştirilmedi — arşivlenecek (DB&apos;deki tam metin)
-                      </p>
-                      {unmatched.map((o) => (
-                        <p key={o.id} className="text-foreground/80">{o.description}</p>
-                      ))}
-                    </div>
+                        )}
+                      </td>
+                      <td className={`px-2.5 py-1.5 align-top font-bold ${style.text}`}>{style.label}</td>
+                    </tr>
                   );
-                })()}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+                })}
+                {rows.length === 0 && d.topicExists && (
+                  <tr className="border-t border-border">
+                    <td colSpan={3} className="px-2.5 py-1.5 text-muted-foreground">
+                      Kazanım yok / değişiklik yok.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2623,6 +2947,10 @@ function TymmPreviewCompareModal({
   topicDiffs,
   manualOutcomeMerges,
   onManualMergeChange,
+  manualTopicMerges,
+  onManualTopicMergeChange,
+  renameTopicIds,
+  onRenameTopicIdsChange,
   unresolvedArchiveCount,
   archiveReviewConfirmed,
   onArchiveReviewChange,
@@ -2642,6 +2970,10 @@ function TymmPreviewCompareModal({
   topicDiffs?: TymmTopicDiff[];
   manualOutcomeMerges?: Record<string, number>;
   onManualMergeChange?: (next: Record<string, number>) => void;
+  manualTopicMerges?: Record<string, number>;
+  onManualTopicMergeChange?: (next: Record<string, number>) => void;
+  renameTopicIds?: Set<number>;
+  onRenameTopicIdsChange?: (next: Set<number>) => void;
   unresolvedArchiveCount?: number;
   archiveReviewConfirmed?: boolean;
   onArchiveReviewChange?: (v: boolean) => void;
@@ -2668,7 +3000,15 @@ function TymmPreviewCompareModal({
       left={
         <>
           {topicDiffs && topicDiffs.length > 0 && (
-            <TymmSaveDiffSummary topicDiffs={topicDiffs} manualOutcomeMerges={manualOutcomeMerges || {}} onManualMergeChange={onManualMergeChange} />
+            <TymmSaveDiffSummary
+              topicDiffs={topicDiffs}
+              manualOutcomeMerges={manualOutcomeMerges || {}}
+              onManualMergeChange={onManualMergeChange}
+              manualTopicMerges={manualTopicMerges}
+              onManualTopicMergeChange={onManualTopicMergeChange}
+              renameTopicIds={renameTopicIds}
+              onRenameTopicIdsChange={onRenameTopicIdsChange}
+            />
           )}
 
           {step === 'compare' ? (

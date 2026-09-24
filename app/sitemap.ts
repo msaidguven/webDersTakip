@@ -8,7 +8,7 @@ type GradeRow = { id: number; slug: string | null };
 type LessonRow = { id: number; slug: string | null };
 type LessonGradeRow = { lesson_id: number; grade_id: number };
 type UnitRow = { id: number; slug: string | null; lesson_id: number; grade_id: number };
-type TopicRow = { id: number; slug: string | null; unit_id: number };
+type TopicRow = { id: number; slug: string | null; unit_id: number; frozen_unit_slug: string | null };
 type QuestionRow = { id: number; topic_id: number | null };
 
 const excludedSitemapUrls = new Set([
@@ -38,7 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       supabase.from('lessons').select('id, slug').eq('is_active', true),
       supabase.from('lesson_grades').select('lesson_id, grade_id').eq('is_active', true),
       supabase.from('units').select('id, slug, lesson_id, grade_id').eq('is_active', true),
-      supabase.from('topics').select('id, slug, unit_id').eq('is_active', true),
+      supabase.from('topics').select('id, slug, unit_id, frozen_unit_slug').eq('is_active', true),
     ]);
 
     const grades = (gradesData as GradeRow[] | null) || [];
@@ -187,18 +187,65 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
 
+    // frozen_unit_slug'ı olan (bkz. supabase/migrations/topics_frozen_unit_slug.sql) bir konu
+    // arşiv ünitesine taşınmış olabilir — o ünite is_active=false olduğu için yukarıdaki
+    // `units` sorgusu (is_active=true filtreli) onu hiç getirmedi, dolayısıyla unitPathById'de
+    // karşılığı yok. Grade/lesson affiliation'ı hâlâ konunun GÜNCEL (arşiv) ünitesinden geliyor
+    // — sadece ÜNİTE segmenti donmuş eski slug'la değiştiriliyor, konunun indekslenmiş URL'i
+    // taşımadan önceki haliyle aynı kalsın diye.
+    const frozenTopicUnitIds = Array.from(
+      new Set(topics.filter((t) => t.frozen_unit_slug && !unitPathById.has(t.unit_id)).map((t) => t.unit_id))
+    );
+    const frozenUnitLessonGradeById = new Map<number, { lesson_id: number; grade_id: number }>();
+    if (frozenTopicUnitIds.length) {
+      const { data: frozenUnitsData } = await supabase
+        .from('units')
+        .select('id, lesson_id, grade_id')
+        .in('id', frozenTopicUnitIds);
+      for (const u of (frozenUnitsData as { id: number; lesson_id: number; grade_id: number }[] | null) || []) {
+        frozenUnitLessonGradeById.set(u.id, { lesson_id: u.lesson_id, grade_id: u.grade_id });
+      }
+    }
+
     const topicPathById = new Map<number, string>();
     for (const t of topics) {
       const unitPath = unitPathById.get(t.unit_id);
-      if (unitPath && t.slug && isWinningUnit(t.unit_id)) {
-        topicPathById.set(t.id, `${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}/${t.slug}`);
+      if (unitPath && t.slug) {
+        // frozen_unit_slug set edilmişse (konu taşındı ama URL donduruldu) ÜNİTE segmenti
+        // olarak canlı ünitenin slug'ı DEĞİL, donmuş eski slug kullanılır — bu yüzden
+        // "kazanan ünite" (isWinningUnit) kontrolü sadece frozen olmayan konular için geçerli.
+        const frozen = t.frozen_unit_slug;
+        if (!frozen && !isWinningUnit(t.unit_id)) continue;
+        const unitSlugForPath = frozen || unitPath.unitSlug;
+        const path = `${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitSlugForPath}/${t.slug}`;
+        topicPathById.set(t.id, path);
         if (!publishedTopicIds.has(t.id)) continue;
         entries.push({
-          url: `${SITE_URL}/${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}/${t.slug}`,
+          url: `${SITE_URL}/${path}`,
           lastModified: now,
           changeFrequency: 'weekly',
           priority: 0.7,
         });
+        continue;
+      }
+      // Konu şu an is_active=false bir ünitede (ör. Arşiv ünitesi) — normal unitPathById'de
+      // karşılığı yok ama frozen_unit_slug varsa yine de eski (donmuş) URL ile sitemap'te
+      // kalmaya devam eder, grade/lesson affiliation'ı ise frozenUnitLessonGradeById'den gelir.
+      if (t.frozen_unit_slug && t.slug) {
+        const lg = frozenUnitLessonGradeById.get(t.unit_id);
+        const gradeSlug = lg ? gradeSlugById.get(lg.grade_id) : undefined;
+        const lessonSlug = lg ? lessonSlugById.get(lg.lesson_id) : undefined;
+        if (gradeSlug && lessonSlug) {
+          const path = `${gradeSlug}/${lessonSlug}/${t.frozen_unit_slug}/${t.slug}`;
+          topicPathById.set(t.id, path);
+          if (!publishedTopicIds.has(t.id)) continue;
+          entries.push({
+            url: `${SITE_URL}/${path}`,
+            lastModified: now,
+            changeFrequency: 'weekly',
+            priority: 0.7,
+          });
+        }
       }
     }
 

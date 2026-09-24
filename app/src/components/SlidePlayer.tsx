@@ -29,7 +29,7 @@ const ACCENTS = [
 // taşırıyordu (kullanıcının 2026-09-21 bulduğu regresyon). Kaldırıldı — büyütme sadece
 // kullanıcının elle bastığı +/- ile oluyor.
 const MIN_FONT_SCALE = 1;
-const MAX_FONT_SCALE = 2.5;
+const MAX_FONT_SCALE = 5;
 const FONT_SCALE_STEP = 0.25;
 
 // Soru fazındaki numara şeridi kayan bir pencere: her zaman 10 numara görünür, ‹/› butonları
@@ -591,14 +591,17 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           className={
-            // Overlay'de kart artık max-w-5xl gibi sabit bir genişliğe değil, ekranın (akıllı
-            // tahta dahil) neredeyse tamamına (%94) 16:9 oranını koruyarak oturuyor — eskiden
-            // büyük ekranlarda kart küçük kalıp etrafı boş kalıyordu (kullanıcının 2026-09-21
-            // sert şikayeti). min(94vw, 94dvh*16/9) / min(94dvh, 94vw*9/16) çifti, hangi eksen
-            // dar ise ona göre kısıtlayıp oranı bozmadan mümkün olan en büyük kutuyu veriyor.
+            // Overlay'de kart 16:9 oranını SIKI SIKIYA koruyordu (min(94vw,94dvh*16/9) /
+            // min(94dvh,94vw*9/16) çifti) — akıllı tahtalarda tarayıcı penceresi 16:9'dan
+            // biraz daha "kısa/geniş" kaldığında (üst çubuk/araç çubuğu dvh'den düşünce)
+            // yükseklik kısıtlayıcı eksen oluyor, genişlik de oranı korumak için küçülüp
+            // kartın İKİ YANINDA kocaman beyaz boşluk bırakıyordu (kullanıcının akıllı tahta
+            // fotoğrafıyla gösterdiği sert şikayet: "neden ortaya sıkışmış, kenarda boşluk
+            // var"). Oran kilidini tamamen kaldırıp genişlik/yükseklik BAĞIMSIZ olarak
+            // ekranın büyük kısmını dolduruyor — içerik buna göre esniyor.
             isOverlay
-              ? 'animate-slide-pop-in relative flex w-full h-[calc(100dvh-4.5rem)] sm:h-[min(94dvh,calc(94vw*9/16))] sm:w-[min(94vw,calc(94dvh*16/9))] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
-              : 'animate-slide-pop-in relative flex w-full aspect-video flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
+              ? 'animate-slide-pop-in relative flex w-full h-[calc(100dvh-4.5rem)] sm:h-[92dvh] sm:w-[92vw] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+              : 'animate-slide-pop-in relative flex w-full aspect-[16/10] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
           }
         >
           {/* Dekoratif, dolaşan renkli blob'lar — kartın arka planına derinlik katıyor */}

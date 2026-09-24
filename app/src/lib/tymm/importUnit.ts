@@ -24,6 +24,17 @@ export type SaveTymmUnitParams = {
   // aynıysa ben elle eşleştirebilmeliyim, sorular kaybolmasın"). Eşleşen metin, bu id'ye
   // sahip satırı GÜNCELLER (insert değil) — o kazanıma bağlı question_outcomes korunur.
   manualOutcomeMerges?: Record<string, number>;
+  // Aynı mantık KONU (topic) seviyesinde: yeni parse edilen bir konu başlığını, admin'in
+  // önizlemede elle seçtiği MEVCUT bir DB konu id'sine bağlar — fuzzy eşleşmenin (aşağıya
+  // bkz.) kaçırdığı ya da yanlış eşleştirdiği durumlar için. Manuel eşleşme her zaman fuzzy'den
+  // ÖNCELİKLİDİR (bkz. manualOutcomeMerges ile aynı öncelik deseni).
+  manualTopicMerges?: Record<string, number>;
+  // Fuzzy/manuel eşleşen bir konunun title/slug'ını yeni parse edilen metinle GÜNCELLEMEK
+  // için admin'in AÇIKÇA onayladığı DB topic id'leri. Konu slug'ları public URL'lerde
+  // kullanıldığından, sadece "aynı konu" tespit edildi diye sessizce yeniden adlandırıp
+  // mevcut linkleri/SEO'yu bozmuyoruz — admin bu id'yi listeye eklemediği sürece eşleşen
+  // konunun title/slug'ı OLDUĞU GİBİ kalır, sadece kazanımları güncellenir.
+  renameTopicIds?: number[];
 };
 
 export type ImportUnitResult =
@@ -38,7 +49,8 @@ export type ImportUnitResult =
   | { ok: false; error: string };
 
 export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUnitResult> {
-  const { unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges } = params;
+  const { unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges, manualTopicMerges, renameTopicIds } = params;
+  const renameTopicIdSet = new Set(renameTopicIds || []);
 
   const supabase = createServiceClient();
 
@@ -160,10 +172,27 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
     return list;
   }
 
+  // Konuları hangi başlıkla bulduğumuzu (renamed'ı sadece bir kez uygulamak için) takip ediyoruz.
+  const renamedTopicIds = new Set<number>();
+
   for (const learningOutcome of unit.learningOutcomes) {
     const topicTitle = learningOutcome.topicTitle;
     const learningOutcomeText = learningOutcome.code ? `${learningOutcome.code}. ${learningOutcome.title}` : learningOutcome.title;
-    let topicId = existingTopicByTitle.get(topicTitle);
+
+    // Konu eşleştirme sırası (bkz. SaveTymmUnitParams.manualTopicMerges/renameTopicIds notu,
+    // ve aynı önceliğin uygulandığı aşağıdaki kazanım eşleştirmesi):
+    // 1) Admin'in elle seçtiği eşleştirme her zaman kazanır.
+    // 2) Birebir başlık eşleşmesi.
+    // 3) FUZZY başlık eşleşmesi (noktalama/boşluk/Türkçe İ-I-ı-i farkını yok sayar) — TYMM
+    //    başlığın sonuna bir nokta eklediğinde bile "yeni konu" sanılıp mükerrer konu/kazanım
+    //    oluşturulmasın diye (kazanımlar için zaten uygulanan aynı fuzzy mantığın konu
+    //    seviyesindeki karşılığı, kullanıcının 2026-09-22 isteği).
+    const manualMergeTopicId = manualTopicMerges?.[topicTitle];
+    let topicId: number | undefined =
+      (manualMergeTopicId != null && Array.from(existingTopicByTitle.values()).includes(manualMergeTopicId) ? manualMergeTopicId : undefined) ??
+      existingTopicByTitle.get(topicTitle) ??
+      Array.from(existingTopicByTitle.entries()).find(([title]) => fuzzyNorm(title) === fuzzyNorm(topicTitle))?.[1];
+
     if (topicId == null) {
       const { data: createdTopic, error: topicError } = await supabase
         .from('topics')
@@ -184,11 +213,20 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       existingTopicByTitle.set(topicTitle, topicId);
       nextTopicOrder += 1;
       topicsCreated += 1;
-    } else if (!existingTopicLearningOutcomeById.get(topicId)) {
-      // Mevcut konu, ama learning_outcome boş — geriye dönük doldur (bir sonraki öğrenme
-      // çıktısı grubu aynı konuya düşerse tekrar UPDATE atmamak için map'i hemen güncelliyoruz).
-      await supabase.from('topics').update({ learning_outcome: learningOutcomeText }).eq('id', topicId);
-      existingTopicLearningOutcomeById.set(topicId, learningOutcomeText);
+    } else {
+      if (!existingTopicLearningOutcomeById.get(topicId)) {
+        // Mevcut konu, ama learning_outcome boş — geriye dönük doldur (bir sonraki öğrenme
+        // çıktısı grubu aynı konuya düşerse tekrar UPDATE atmamak için map'i hemen güncelliyoruz).
+        await supabase.from('topics').update({ learning_outcome: learningOutcomeText }).eq('id', topicId);
+        existingTopicLearningOutcomeById.set(topicId, learningOutcomeText);
+      }
+      // Konu title/slug'ı ASLA sessizce değiştirilmez (public URL'lerde kullanılıyor) — admin
+      // renameTopicIds ile bu konu id'sini AÇIKÇA seçtiyse ve yeni parse edilen başlık DB'dekinden
+      // farklıysa, title/slug bir kez güncellenir.
+      if (renameTopicIdSet.has(topicId) && !renamedTopicIds.has(topicId)) {
+        renamedTopicIds.add(topicId);
+        await supabase.from('topics').update({ title: topicTitle, slug: slugify(topicTitle) }).eq('id', topicId);
+      }
     }
 
     // Öğrenme çıktısı grubu: aynı konuya ikinci (üçüncü, ...) kez düşen bir öğrenme çıktısı

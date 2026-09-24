@@ -4,6 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { deleteUnitsCascade } from '@/app/src/lib/adminCascade';
 import { getQuestionCountsByUnitId } from '@/app/src/lib/questionCounts';
 import { revalidateUnitPages, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
+import { slugify } from '@/app/src/lib/yillikPlan/importer';
 
 const EDITABLE_FIELDS = ['title', 'description', 'order_no', 'start_week', 'end_week', 'is_active', 'duration_hours', 'curriculum_code'] as const;
 
@@ -37,6 +38,75 @@ export async function GET(request: NextRequest) {
   const items = units.map((u) => ({ ...u, question_count: questionCountByUnit.get(u.id) ?? 0 }));
 
   return NextResponse.json({ items });
+}
+
+// Konu Yönetimi panelinden ("+ Yeni Ünite") — TYMM toplu aktarım akışının aksine bu
+// admin'in bilinçli, tek tek yaptığı manuel bir işlem, bu yüzden is_active:false ile
+// incelemeye düşürmüyoruz; doğrudan yayında oluşturuyoruz.
+export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const body = await request.json().catch(() => null) as { lessonId?: unknown; gradeId?: unknown; title?: unknown } | null;
+  const lessonId = typeof body?.lessonId === 'number' ? body.lessonId : Number(body?.lessonId);
+  const gradeId = typeof body?.gradeId === 'number' ? body.gradeId : Number(body?.gradeId);
+  const title = typeof body?.title === 'string' ? body.title.trim() : '';
+
+  if (!Number.isInteger(lessonId) || !Number.isInteger(gradeId) || !title) {
+    return NextResponse.json({ ok: false, error: 'Geçersiz istek' }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+
+  // lesson_grades bağlantısı yoksa oluştur — bkz. tymm/importUnit.ts:saveTymmUnit'teki
+  // aynı kontrol.
+  const { data: lgData } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id')
+    .eq('lesson_id', lessonId)
+    .eq('grade_id', gradeId)
+    .maybeSingle();
+  if (!lgData) {
+    await supabase.from('lesson_grades').insert({ lesson_id: lessonId, grade_id: gradeId, is_active: true });
+  }
+
+  // Slug çakışması olursa -2, -3... ekleyerek benzersizleştir (units.slug üzerinde artık
+  // unique constraint yok ama aynı ders/sınıfta iki farklı ünitenin aynı slug'ı paylaşması
+  // public URL çözümlemesini belirsizleştirir).
+  const baseSlug = slugify(title);
+  let slug = baseSlug;
+  let suffix = 2;
+  for (;;) {
+    const { data: clash } = await supabase
+      .from('units')
+      .select('id')
+      .eq('lesson_id', lessonId)
+      .eq('grade_id', gradeId)
+      .eq('slug', slug)
+      .maybeSingle();
+    if (!clash) break;
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  const { data: maxOrderData } = await supabase
+    .from('units')
+    .select('order_no')
+    .eq('lesson_id', lessonId)
+    .eq('grade_id', gradeId)
+    .order('order_no', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = ((maxOrderData as { order_no: number } | null)?.order_no ?? 0) + 1;
+
+  const { data: created, error } = await supabase
+    .from('units')
+    .insert({ lesson_id: lessonId, grade_id: gradeId, title, slug, order_no: nextOrder, is_active: true })
+    .select('id, lesson_id, grade_id, title, slug, description, order_no, is_active, start_week, end_week, curriculum_code, duration_hours')
+    .single();
+  if (error || !created) return NextResponse.json({ ok: false, error: error?.message || 'Ünite oluşturulamadı' }, { status: 500 });
+
+  return NextResponse.json({ ok: true, unit: created });
 }
 
 export async function PATCH(request: NextRequest) {

@@ -54,7 +54,27 @@ async function resolveIds(
   const { data: unitRows } = await supabase.from('units').select('id').eq('grade_id', gradeId).eq('lesson_id', lessonId);
   const unitIds = ((unitRows as { id: number }[] | null) || []).map((r) => r.id);
 
-  if (scope === 'grade-lesson-units') return { table: 'units', ids: unitIds };
+  if (scope === 'grade-lesson-units') {
+    // "Tüm Üniteleri Sil" — Arşiv ünitesini (ve içinde arşivlenmiş konu barındıran HERHANGİ
+    // bir üniteyi) bu toplu silmeden KORU. "Arşive Taşı" (bkz.
+    // app/api/admin/tymm/archive-topic/route.ts) bir konuyu, TYMM'de artık karşılığı
+    // olmadığı için silinecek eski ünitelerden bilerek ayrı bir Arşiv ünitesine taşıyor —
+    // amaç tam olarak bu: admin yıllık planı sıfırdan içe aktarmadan önce "Tüm Üniteleri
+    // Sil" ile eskisini temizlerken, arşivlenmiş konuların (dolayısıyla soru/kazanım/
+    // içeriklerinin ve donmuş public URL'lerinin, bkz. topics.frozen_unit_slug) yanlışlıkla
+    // silinmemesi. Normalde SADECE Arşiv ünitesi buraya düşer, ama başka bir ünitede de
+    // (beklenmedik şekilde) arşivlenmiş bir konu varsa o da aynı sebeple korunur.
+    if (unitIds.length) {
+      const { data: archivedTopicRows } = await supabase
+        .from('topics')
+        .select('unit_id')
+        .in('unit_id', unitIds)
+        .eq('is_archived', true);
+      const protectedUnitIds = new Set(((archivedTopicRows as { unit_id: number }[] | null) || []).map((r) => r.unit_id));
+      return { table: 'units', ids: unitIds.filter((id) => !protectedUnitIds.has(id)) };
+    }
+    return { table: 'units', ids: unitIds };
+  }
 
   if (!unitIds.length) return { table: 'outcomes', ids: [] };
   const { data: topicRows } = await supabase.from('topics').select('id').in('unit_id', unitIds);

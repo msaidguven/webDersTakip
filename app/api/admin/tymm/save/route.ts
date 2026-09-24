@@ -13,7 +13,15 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = (await request.json().catch(() => null)) as
-    | { unit?: unknown; gradeId?: unknown; lessonId?: unknown; curriculumYear?: unknown; manualOutcomeMerges?: unknown }
+    | {
+        unit?: unknown;
+        gradeId?: unknown;
+        lessonId?: unknown;
+        curriculumYear?: unknown;
+        manualOutcomeMerges?: unknown;
+        manualTopicMerges?: unknown;
+        renameTopicIds?: unknown;
+      }
     | null;
   const unit = body?.unit as TymmUnit | undefined;
   const gradeId = Number(body?.gradeId);
@@ -24,12 +32,18 @@ export async function POST(request: NextRequest) {
   // değişen ama aynı kazanım olan durumlar için (kullanıcının 2026-09-22 isteği).
   const manualOutcomeMerges =
     body?.manualOutcomeMerges && typeof body.manualOutcomeMerges === 'object' ? (body.manualOutcomeMerges as Record<string, number>) : undefined;
+  // Aynı mantık KONU seviyesinde (bkz. importUnit.ts SaveTymmUnitParams.manualTopicMerges).
+  const manualTopicMerges =
+    body?.manualTopicMerges && typeof body.manualTopicMerges === 'object' ? (body.manualTopicMerges as Record<string, number>) : undefined;
+  // Admin'in title/slug'ı AÇIKÇA güncellenmesini onayladığı DB konu id'leri (bkz. importUnit.ts
+  // SaveTymmUnitParams.renameTopicIds — varsayılan olarak sessiz yeniden adlandırma yapılmaz).
+  const renameTopicIds = Array.isArray(body?.renameTopicIds) ? (body.renameTopicIds as unknown[]).filter((v): v is number => typeof v === 'number') : undefined;
 
   if (!unit || !unit.unitTitle || !Array.isArray(unit.learningOutcomes) || !Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'unit, gradeId, lessonId zorunlu' }, { status: 400 });
   }
 
-  const result = await saveTymmUnit({ unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges });
+  const result = await saveTymmUnit({ unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges, manualTopicMerges, renameTopicIds });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result);
 }
