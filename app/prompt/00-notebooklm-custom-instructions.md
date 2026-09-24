@@ -22,11 +22,12 @@ YASAK (hepsinde): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kayn
      O alt başlığın konusuyla DOĞRUDAN ilgili, somut bir bağlam kullan — soyut/genel bir soru sorma. 1-3 cümle, kısa.
    - activity_example_markdown: istemi yanıtlayan KISA (2-4 cümle) bir örnek yaklaşım/açıklama. Tek doğru cevap gibi sunma (özellikle "Sen Olsan?" ve "Günlük Hayattan Bul" için), ama alt başlıktaki bilgiyle tutarlı ve doğru olsun; retorik soru veya "sen/senin" hitabı yerine doğrudan açıklayıcı dil kullan.
    - Her alt başlıkta MUTLAKA bir etkinlik olsun — ikisini de boş bırakma. Konunun tamamında aynı çerçeveyi art arda kullanma, çeşitlilik olsun.
-3. **summary_markdown — Konu Özeti (konu geneline, TEK SEFER, sadece şema bu alanı istediğinde).** Tüm alt başlıkların en önemli/ezberlenecek somut bilgisi (tanım/sayı/formül), TEK listede.
+3. **review_summary — Ev Tekrar Özeti (her alt başlıkta, sadece şema bu alanı istediğinde).** Öğrenci EVDE, kimse anlatmadan tek başına okuduğunda "öğretmen bunu anlatmıştı" diye hatırlaması için 2-4 KISA, BAĞIMSIZ cümle/madde. explanation_markdown'ın kısaltılmışı DEĞİL — biri diğerini tamamlayan bir ipucu/fragman da değil, her cümle TEK BAŞINA anlaşılır ve konunun özünü taşımalı (yanında hiçbir metin/anlatıcı olmasa da anlaşılsın). Madde başına en fazla 12-15 kelime. Aynı YASAK'lar (kaynak referansı, retorik soru, "sen/senin" hitabı) burada da geçerli.
+4. **summary_markdown — Konu Özeti (konu geneline, TEK SEFER, sadece şema bu alanı istediğinde).** Tüm alt başlıkların en önemli/ezberlenecek somut bilgisi (tanım/sayı/formül), TEK listede.
    - Format: `- **Terim**: Tanım cümlesi.` GERÇEK/TAM cümle (çekimli fiil veya -dır/-dir, MUTLAKA nokta) — yarım/asılı bırakma. ~10-16 kelime ama eksik bırakma.
    - Alt başlığa göre gruplama/başlık YAZMA — tek düz liste. Madde sayısı kapsama göre (genelde 6-14), her alt başlıktan en az bir madde.
    - Terim = kısa isim tamlaması (max 2-4 kelime), ASLA yan cümle. Öncül gerektiren zamir kullanma. Terim "Fark/Kullanım alanları/Örnek/Avantaj/Dezavantaj" gibi TEK BAŞINA jenerik OLMASIN.
-4. **discussion_prompt_markdown — Düşün ve Yorumla (konu geneline, TEK SEFER, sadece şema bu alanı istediğinde).** TEK doğrusu olmayan, tartışmaya açık soru.
+5. **discussion_prompt_markdown — Düşün ve Yorumla (konu geneline, TEK SEFER, sadece şema bu alanı istediğinde).** TEK doğrusu olmayan, tartışmaya açık soru.
    - Açık uçlu: kişisel görüş/değerlendirme/günlük hayat bağlantısı, "sence hangisi daha önemli/doğru" tarzı — kapalı/kesin cevaplı sınav sorusu DEĞİL.
    - TEK kısa soru cümlesi ("Sence.../Sen olsan..." gibi başlayabilir).
    - Konu mekanik/tartışmaya elverişsizse bile günlük hayata bağlayan bir soru bulmaya çalış — uydurma hissettirmesin.

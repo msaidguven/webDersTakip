@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ListChecks, Loader2, Maximize2, Minimize2, Minus, PartyPopper, Plus, Trophy, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, ListChecks, Loader2, Maximize2, Minimize2, Minus, PartyPopper, Plus, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
@@ -36,6 +36,9 @@ const FONT_SCALE_STEP = 0.25;
 // pencereyi 5'er kaydırır (1-10, sonra 5-15, ...) — kullanıcının 2026-09-22 isteği.
 const PILL_WINDOW_SIZE = 10;
 const PILL_PAGE_STEP = 5;
+
+// Soru başına süre — dolunca soru otomatik yanlış sayılır (kullanıcının 2026-09-24 isteği).
+const QUESTION_TIME_LIMIT_SECONDS = 60;
 
 // Görsel/diyagram olmayan section slaytları için dekoratif, konu-nötr bir desen — her slayt
 // bomboş/yazı-yığını gibi hissetmesin diye. Rastgele değil (SSR/hydration'da tutarlı olsun
@@ -165,6 +168,10 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   // unmount edilmiyor), sadece henüz görülmemiş sorular ilk kez sıraya gelene kadar hiç
   // render edilmiyor.
   const [mountedQIndexes, setMountedQIndexes] = useState<Set<number>>(() => new Set());
+  // Aktif sorunun geri sayımı (60sn) — süre dolunca handleQuestionAnswered ile 'incorrect'
+  // olarak işaretlenip ilgili soru timedOutIds'e eklenir (bkz. aşağıdaki iki efekt).
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT_SECONDS);
+  const [timedOutIds, setTimedOutIds] = useState<Set<number>>(new Set());
 
   // Deck/konu değişince (embedded SlidePlayer sayfada sabit kalıp deck prop'u değiştiği için)
   // her şeyi baştan başlat — aksi halde önceki konunun ortasında/sorularında kalınırdı.
@@ -180,6 +187,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
     setShowBatchResult(false);
     setAnsweredMap({});
     setMountedQIndexes(new Set());
+    setTimedOutIds(new Set());
     setAnimKey((k) => k + 1);
     setQuizSessionId(null);
     setHasAnsweredOnceInSlides(false);
@@ -354,6 +362,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
     setAnsweredMap({});
     setShowBatchResult(false);
     setMountedQIndexes(new Set([0]));
+    setTimedOutIds(new Set());
     setQuestionsAttempt((a) => a + 1);
     setAnimKey((k) => k + 1);
   }, []);
@@ -521,6 +530,27 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
     setMountedQIndexes((prev) => (prev.has(qIndex) ? prev : new Set(prev).add(qIndex)));
   }, [phase, qIndex]);
 
+  // Soru değişince (ya da yeni bir "Soruları Çöz" denemesi başlayınca) sayaç 60'tan yeniden
+  // başlar.
+  useEffect(() => {
+    setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
+  }, [qIndex, questionsAttempt]);
+
+  // Her saniye azaltır — aktif soru zaten cevaplanmış/süresi dolmuşsa (ör. geri gidip
+  // önceden çözülmüş bir soruya bakılıyorsa) hiç çalışmaz.
+  useEffect(() => {
+    if (phase !== 'questions' || showBatchResult || !questions) return;
+    const current = questions[qIndex];
+    if (!current || answeredMap[current.id] != null || timedOutIds.has(current.id)) return;
+    if (timeLeft <= 0) {
+      setTimedOutIds((prev) => new Set(prev).add(current.id));
+      handleQuestionAnswered(current.id, 'incorrect');
+      return;
+    }
+    const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [phase, showBatchResult, questions, qIndex, timeLeft, answeredMap, timedOutIds, handleQuestionAnswered]);
+
   // İleri/geri okuyla ya da swipe ile soru değiştirildiğinde, o soru şu an görünen 10'luk
   // pencerenin dışına çıktıysa numara şeridi de otomatik o soruyu içeren pencereye kayar —
   // aksi halde "Sonraki"ye basınca aktif soru numarası şeritte görünmeyen bir yerde kalırdı.
@@ -621,18 +651,26 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
               absolute konumlanıyordu ve dar ekranlarda alt satıra sarınca başlığın üstüne
               biniyordu (kullanıcının 2026-09-21 bulduğu regresyon) — artık normal akışta kendi
               satırını kaplıyor, başlık her zaman bunun altından başlıyor. */}
-          <div className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pt-3 sm:px-6 sm:pt-5">
-            <div className="min-w-0">
+          {/* Mobilde eskiden eyebrow rozeti (sınıf · ders · ünite zinciri, tek satırda 40+
+              karakter) ile sağdaki kontrol grubu AYNI satırda yan yana sıkıştırılıyordu —
+              dar ekranda rozet 3-4 satıra sarınca kontroller (büyüt/küçült, sayfa sayacı,
+              tam ekran, X) rozetin yanına küçük ve sıkışık kalıyordu (kullanıcının
+              2026-09-24 "üst üste/sıkışık, X butonu falan olsa iyi olur" şikayeti — buton
+              zaten vardı ama görünürlüğü zayıftı). Artık mobilde iki ayrı, ferah satır:
+              rozet KENDİ satırında tek satıra kırpılıyor (truncate), kontroller altında tam
+              genişlikte kendi satırını kaplıyor. sm+ ekranda eskisi gibi tek satır. */}
+          <div className="relative z-10 flex shrink-0 flex-col gap-2 px-3 pt-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-5">
+            <div className="min-w-0 w-full sm:w-auto">
               {deck.eyebrowText && (
                 <div
-                  className="inline-block rounded-lg px-2.5 py-1.5 text-[9px] sm:text-[11px] font-black uppercase tracking-wide text-white shadow-sm"
+                  className="block max-w-full truncate rounded-lg px-2.5 py-1.5 text-[9px] sm:inline-block sm:text-[11px] font-black uppercase tracking-wide text-white shadow-sm"
                   style={{ background: `linear-gradient(90deg, ${accent.from}, ${accent.to})` }}
                 >
                   {deck.eyebrowText}
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center justify-end gap-1.5">
               {phase !== 'outro' && !showBatchResult && (
                 <>
                   {/* Slaytların tamamını izlemeden doğrudan sorulara atlamak için kısayol —
@@ -841,11 +879,29 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                   büyütüyor, buton dolgusu/genişliği sabit kalıyor. */}
               {questions.map((q, i) => {
                 if (!mountedQIndexes.has(i)) return null;
+                const isTimedOut = timedOutIds.has(q.id);
+                const isActiveUnanswered = i === qIndex && !answeredMap[q.id] && !isTimedOut;
                 return (
                   <div
                     key={`${questionsAttempt}-${q.id}`}
-                    className={i === qIndex ? 'relative z-[1] m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
+                    // Eskiden max-w-4xl ile ortalanıyordu — slayt içeriği (bkz. yukarıdaki
+                    // section/cover blokları) her zaman kartın kenarlarına kadar (px-4/px-8
+                    // dolgu hariç) yayılıyor, ama sorular dar bir sütuna sıkışıp geniş
+                    // ekranlarda iki yanda boşluk bırakıyordu (kullanıcının 2026-09-24
+                    // isteği: "içerikler kenara tam yaslı ama sorular tam yaslanmamış").
+                    // w-full ile artık aynı genişliği (kartın iç dolgusuna kadar) kaplıyor.
+                    className={i === qIndex ? 'relative z-[1] my-auto w-full rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
                   >
+                    {isActiveUnanswered && (
+                      <div
+                        className={`mb-2.5 flex items-center justify-end gap-1.5 text-xs font-black tabular-nums ${
+                          timeLeft <= 10 ? 'text-rose-500' : 'text-slate-400'
+                        }`}
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                        0:{String(timeLeft).padStart(2, '0')}
+                      </div>
+                    )}
                     <QuestionAnswerKeyItem
                       question={q}
                       index={i}
@@ -860,6 +916,16 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                       interactive
                       fontScale={fontScale}
                       onAnswered={handleQuestionAnswered}
+                      // Süre (60sn) dolunca soru cevaplanmamış sayılıp yanlış işaretlenir —
+                      // forcedAnswered kilitleyip doğru şıkkı açığa çıkarır, feedbackMessage
+                      // "süre doldu" uyarısını gösterir (kullanıcının 2026-09-24 isteği).
+                      forcedAnswered={isTimedOut ? true : undefined}
+                      answeredCorrectly={isTimedOut ? false : undefined}
+                      // Eski metin ("Doğru cevap işaretlendi") yanlış anlaşılıyordu — sanki
+                      // öğrenci doğru cevaplamış gibi okunabiliyordu (kullanıcının 2026-09-24
+                      // bulduğu belirsizlik). Artık "yanlış sayıldın" açıkça yazıyor, doğru
+                      // şıkkın aşağıda vurgulanması ayrı bir cümlede belirtiliyor.
+                      feedbackMessage={isTimedOut ? '⏰ Süre doldu! Bu soru yanlış sayıldı. Doğru cevap aşağıda işaretlendi.' : undefined}
                     />
                   </div>
                 );

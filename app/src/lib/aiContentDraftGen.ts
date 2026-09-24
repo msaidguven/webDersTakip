@@ -5,6 +5,7 @@ import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
+import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -35,9 +36,9 @@ type DraftPayload = {
   discussion_prompt_markdown: string | null;
 };
 
-// full_from_synthesis akışının çıktısı elle "AI İçerik Taslaklarını" onaylayan admin
-// tarafından okunacak — burada sadece yayına gitmeye YETECEK kadar şema doğrulaması var
-// (topic-sections/plan/route.ts zaten kendi tarafında tekrar temizliyor).
+// full_from_synthesis akışının çıktısı artık otomatik yayınlanıyor (kullanıcının
+// 2026-09-24 isteği: "evet otomatik yayınlansın") — burada sadece yayına gitmeye YETECEK
+// kadar şema doğrulaması var (publishTopicContent zaten kendi tarafında tekrar temizliyor).
 function parseContentDraft(raw: unknown): DraftPayload | null {
   if (!raw || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
@@ -209,5 +210,34 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
 
   if (insertError || !draftRow) return { generated: false, reason: `Taslak kaydedilemedi: ${insertError?.message}` };
 
-  return { generated: true, draftId: (draftRow as { id: number }).id, topicId: eligible.topic_id };
+  const draftId = (draftRow as { id: number }).id;
+
+  // Taslak kaydedildikten hemen sonra otomatik yayınla — admin panelindeki "AI İçerik
+  // Taslakları" listesi artık bir onay kuyruğu değil, sadece yayınlanan/başarısız olan
+  // taslakların geçmişi. Yayınlama başarısız olursa taslağı 'pending' bırakıyoruz ki admin
+  // panelde görünüp elle onaylanabilsin (best-effort otomasyon, sessizce kaybolmasın).
+  const publishResult = await publishTopicContent(supabase, {
+    topicId: eligible.topic_id,
+    sections: parsed.sections,
+    cover: parsed.cover,
+    ai_model: 'Gemini 3.6 Flash (otomatik taslak)',
+    summary_markdown: parsed.summary_markdown,
+    discussion_prompt_markdown: parsed.discussion_prompt_markdown,
+  });
+
+  if (!publishResult.ok) {
+    return {
+      generated: true,
+      draftId,
+      topicId: eligible.topic_id,
+      reason: `Taslak üretildi ama otomatik yayınlanamadı, admin onayı bekliyor: ${publishResult.error}`,
+    };
+  }
+
+  await supabase
+    .from('topic_section_content_drafts')
+    .update({ status: 'saved', reviewed_at: new Date().toISOString() })
+    .eq('id', draftId);
+
+  return { generated: true, draftId, topicId: eligible.topic_id };
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
+import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { saveTymmUnit } from '@/app/src/lib/tymm/importUnit';
+import { revalidateUnitPages } from '@/app/src/lib/topicPageRevalidation';
 import type { TymmUnit } from '@/app/src/lib/tymm/tymmParser';
 
 // DB'YE YAZAN tek adım: admin'in /api/admin/tymm/fetch(-bulk) ile önizleyip elle
@@ -45,5 +47,13 @@ export async function POST(request: NextRequest) {
 
   const result = await saveTymmUnit({ unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges, manualTopicMerges, renameTopicIds });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+
+  // saveTymmUnit kendisi hiçbir sayfayı revalidate etmiyor — /[gradeSlug]/[lessonSlug]
+  // ISR ile 1 saat cache'lendiği için (page.tsx revalidate=3600), bu çağrı olmadan admin
+  // "Kaydet"e bastıktan hemen sonra public sitede üniteyi göremiyor, ta ki bir saat geçene
+  // ya da başka bir işlem (ör. Yayın Yönetimi'nden is_active PATCH) o sayfayı tetikleyene
+  // kadar (kullanıcının 2026-09-24 canlıda yakaladığı "ekledim ama görünmüyor" bildirimi).
+  await revalidateUnitPages(createServiceClient(), [result.unitId]);
+
   return NextResponse.json(result);
 }

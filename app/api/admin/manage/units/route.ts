@@ -106,6 +106,13 @@ export async function POST(request: NextRequest) {
     .single();
   if (error || !created) return NextResponse.json({ ok: false, error: error?.message || 'Ünite oluşturulamadı' }, { status: 500 });
 
+  // Yeni ünite is_active:true olarak oluşturuluyor ama /[gradeSlug]/[lessonSlug] sayfası
+  // ISR ile 1 saat cache'leniyor (bkz. page.tsx revalidate=3600) — bu çağrı olmazsa admin
+  // üniteyi ekler eklemez public sayfada "henüz ünite bulunamadı" görmeye devam eder, ta ki
+  // biri o sayfayı başka bir yoldan (ör. is_active PATCH) revalidate edene ya da 1 saat
+  // geçene kadar (kullanıcının 2026-09-24 canlıda yakaladığı gerçek örnek).
+  await revalidateUnitPages(supabase, [(created as { id: number }).id]);
+
   return NextResponse.json({ ok: true, unit: created });
 }
 

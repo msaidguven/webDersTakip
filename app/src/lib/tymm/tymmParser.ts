@@ -364,10 +364,18 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
   } else {
     if (contentFramework.length > 0 && rawOutcomes.length > 0) {
       boundaryWarnings.push(
-        `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor — konu başlıkları TYMM'deki kısa başlık yerine öğrenme çıktısı cümlesinden alındı, elle düzeltin.`
+        `İçerik Çerçevesi satır sayısı (${contentFramework.length}) ile öğrenme çıktısı sayısı (${rawOutcomes.length}) uyuşmuyor, hangi konunun hangi öğrenme çıktısına karşılık geldiği TYMM sayfasından güvenle çıkarılamıyor — konu başlıkları BAŞLIKSIZ bırakıldı, aşağıdaki listeden elle seçin.`
       );
     }
-    learningOutcomes = rawOutcomes.map((o) => ({ ...o, topicTitle: o.title }));
+    // ESKİDEN topicTitle: o.title (öğrenme çıktısının kendi UZUN cümlesi) kullanılıyordu —
+    // bu, "İçerik Çerçevesi'nden gelen kısa başlık" ile aynı görsel biçimde (kalın, kart
+    // başlığı) göründüğü için admin çoğu zaman bunun bir TAHMİN olduğunu fark etmeden
+    // kaydediyordu (kullanıcının 2026-09-24 bildirdiği gerçek örnek: 5. Sınıf Sosyal
+    // Bilgiler "Ortak Mirasımız" ünitesi, 4 İçerik Çerçevesi satırına 3 öğrenme çıktısı
+    // düşüyor). Boş bırakmak "(başlıksız)" olarak render ediliyor (bkz. YillikPlanPanel'deki
+    // aynı fallback) — admin'in gözünden kaçmayan, açıkça "eksik/yanlış olabilir" diyen bir
+    // durum; TAHMİN yapmıyoruz (bkz. compareUnits.ts dosya başı aynı karar).
+    learningOutcomes = rawOutcomes.map((o) => ({ ...o, topicTitle: '' }));
   }
 
   return {

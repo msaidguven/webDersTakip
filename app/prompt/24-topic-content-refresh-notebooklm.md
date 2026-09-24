@@ -11,7 +11,7 @@ Kazanımlar:
 
 {pacing_guidance}
 {teacher_guide_guidance}
-(Bu notebook'un sohbet ayarlarındaki Özel Talimatlar'a kayıtlı kurallara göre üret — explanation_markdown/activity_prompt_markdown/activity_example_markdown HER alt başlıkta, summary_markdown/discussion_prompt_markdown ise konu genelinde TEK SEFER.)
+(Bu notebook'un sohbet ayarlarındaki Özel Talimatlar'a kayıtlı kurallara göre üret — explanation_markdown/activity_prompt_markdown/activity_example_markdown/review_summary HER alt başlıkta, summary_markdown/discussion_prompt_markdown ise konu genelinde TEK SEFER.)
 
 SADECE bu JSON'u döndür:
 {
@@ -23,7 +23,8 @@ SADECE bu JSON'u döndür:
       "matched_outcome_codes": [string],
       "explanation_markdown": string,
       "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
-      "activity_example_markdown": string  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
+      "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
+      "review_summary": string  // 2-4 kısa, bağımsız cümle — ev tekrar özeti, bkz. Özel Talimatlar
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama

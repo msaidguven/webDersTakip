@@ -52,6 +52,21 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
   const { unit, gradeId, lessonId, curriculumYear, manualOutcomeMerges, manualTopicMerges, renameTopicIds } = params;
   const renameTopicIdSet = new Set(renameTopicIds || []);
 
+  // Belirsiz sınır durumunda (bkz. tymmParser.ts fallback) topicTitle boş bırakılıyor —
+  // burada ASLA "" başlıklı bir konu oluşturmuyoruz (sessizce çöp veri yazmaktansa, admin'e
+  // önizlemede hangi öğrenme çıktılarının konusu eksik olduğunu söyleyip KAYDETMEYİ
+  // reddediyoruz). Kullanıcının 2026-09-24 canlıda yakaladığı gerçek örnek: 5. Sınıf Sosyal
+  // Bilgiler "Ortak Mirasımız" ünitesi kaydedilince konulardan biri sessizce kayboluyordu —
+  // sessiz veri kaybı, sessiz çöp veriden de kötü, bu yüzden en güvenlisi kaydetmeden önce
+  // durdurmak.
+  const missingTopicTitleFor = unit.learningOutcomes.filter((lo) => !lo.topicTitle.trim());
+  if (missingTopicTitleFor.length > 0) {
+    return {
+      ok: false,
+      error: `${missingTopicTitleFor.length} öğrenme çıktısının konusu belirsiz ("(başlıksız)") — önce önizlemede İçerik Çerçevesi listesinden konu seçin, sonra kaydedin. Kod(lar): ${missingTopicTitleFor.map((lo) => lo.code || lo.title.slice(0, 30)).join(', ')}`,
+    };
+  }
+
   const supabase = createServiceClient();
 
   const { data: lgData } = await supabase
@@ -111,7 +126,13 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
         title: unitTitle,
         slug,
         order_no: nextOrder,
-        is_active: false,
+        // ESKİDEN is_active:false — admin her ünite kaydından SONRA ayrıca Yayın
+        // Yönetimi'ne gidip elle yayına almak zorundaydı, unutunca ünite (DB'de doğru
+        // olsa da) public sitede hiç görünmüyordu. Kullanıcının 2026-09-24 isteği:
+        // "yıllık plan eklerken bundan sonra otomatik yayında olsun ders ve üniteler" —
+        // artık TYMM'den kaydedilen bir ünite direkt yayında; admin istemezse Yayın
+        // Yönetimi'nden elle taslağa alabilir.
+        is_active: true,
         description: `${unitTitle} ünitesi`,
         duration_hours: unit.durationHours,
         key_concepts: unit.keyConcepts,
@@ -308,6 +329,32 @@ export async function saveTymmUnit(params: SaveTymmUnitParams): Promise<ImportUn
       outcomesCreated += 1;
     }
     touchedOutcomeIdsByTopic.set(topicId, touchedOutcomeIds);
+  }
+
+  // İçerik Çerçevesi'nde olup HİÇBİR öğrenme çıktısına düşmeyen konular (ör. bir ünitenin
+  // giriş/genel bakış konusunun TYMM'de ayrı bir kazanımı olmayabiliyor) — yukarıdaki döngü
+  // SADECE unit.learningOutcomes'u işlediği için bunlar hiç oluşturulmuyordu (kullanıcının
+  // 2026-09-24 bildirdiği "4 konu var, 3 tanesini kaydediyor" — tam bu senaryo). Kazanım
+  // ATFETMİYORUZ (TAHMİN yok, bkz. compareUnits.ts aynı karar), sadece konu satırının kendisi
+  // eksik kalmasın diye boş (kazanımsız) oluşturuyoruz — admin sonradan Kazanım Yönetimi'nden
+  // elle doldurabilir.
+  for (const frameworkTitle of unit.contentFramework) {
+    const trimmed = frameworkTitle.trim();
+    if (!trimmed || trimmed.endsWith(':')) continue; // grup başlığı satırı, gerçek konu değil
+    const alreadyExists =
+      existingTopicByTitle.has(frameworkTitle) || Array.from(existingTopicByTitle.keys()).some((title) => fuzzyNorm(title) === fuzzyNorm(frameworkTitle));
+    if (alreadyExists) continue;
+    const { data: createdTopic, error: topicError } = await supabase
+      .from('topics')
+      .insert({ unit_id: unitId, title: frameworkTitle, slug: slugify(frameworkTitle), order_no: nextTopicOrder, is_active: true })
+      .select('id')
+      .single();
+    if (topicError || !createdTopic) {
+      return { ok: false, error: topicError?.message || `Konu oluşturulamadı: ${frameworkTitle}` };
+    }
+    existingTopicByTitle.set(frameworkTitle, (createdTopic as TopicRow & { id: number }).id);
+    nextTopicOrder += 1;
+    topicsCreated += 1;
   }
 
   // Bu importta dokunulan her konuda, yukarıdaki eşleştirme/güncellemeye YAKALANMAYAN

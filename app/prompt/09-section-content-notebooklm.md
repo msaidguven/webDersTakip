@@ -14,6 +14,7 @@ Diğer alt başlıklar (değinme, ayrı anlatılacak): {other_headings}
   "explanation_markdown": string,       // akıcı anlatım, serbest paragraf(lar)
   "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
   "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
+  "review_summary": string,  // 2-4 kısa, bağımsız cümle — ev tekrar özeti, bkz. Özel Talimatlar
   "ai_model": string         // aracın adı, genelde "NotebookLM"
 }
 

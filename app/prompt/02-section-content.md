@@ -15,6 +15,7 @@ Konunun diğer alt başlıkları (bunlara burada DEĞİNME, onlar ayrı anlatıl
   "explanation_markdown": string,       // akıcı anlatım, serbest paragraf(lar)
   "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
   "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
+  "review_summary": string,    // 2-4 kısa, bağımsız cümle — ev tekrar özeti, bkz. açıklama
   "ai_model": string           // Bu içeriği üreten kendi model adını yaz (ör. "Claude Sonnet 4.5", "GPT-5.1", "Gemini 2.5 Pro") — hangi yapay zeka/model olduğunu biliyorsan tam adını, emin değilsen genel adını yaz
 }
 

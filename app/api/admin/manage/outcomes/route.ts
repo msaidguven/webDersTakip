@@ -3,7 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteOutcomesCascade } from '@/app/src/lib/adminCascade';
 
-const EDITABLE_FIELDS = ['description', 'code', 'order_index'] as const;
+const EDITABLE_FIELDS = ['description', 'code', 'order_index', 'learning_outcome_id'] as const;
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -93,6 +93,26 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
+
+  // learning_outcome_id ile bir kazanımı bir öğrenme çıktısı grubuna BAĞLARKEN, grubun
+  // gerçekten aynı konuya (topic) ait olduğunu doğruluyoruz — aksi halde admin'in ekranda
+  // yanlışlıkla başka bir konunun grubunu seçmesi, kazanımı sessizce yanlış konuya
+  // "taşınmış" gibi göstermez (kazanımın kendi topic_id'si değişmiyor, sadece grubu yanlış
+  // olur ve karşılaştırma ekranı bunu tutarsız gösterir).
+  if ('learning_outcome_id' in patch && patch.learning_outcome_id != null) {
+    const groupId = Number(patch.learning_outcome_id);
+    const [{ data: groupRow, error: groupErr }, { data: outcomeRows, error: outcomesErr }] = await Promise.all([
+      supabase.from('topic_learning_outcomes').select('id, topic_id').eq('id', groupId).maybeSingle(),
+      supabase.from('outcomes').select('id, topic_id').in('id', ids),
+    ]);
+    if (groupErr) return NextResponse.json({ error: groupErr.message }, { status: 500 });
+    if (outcomesErr) return NextResponse.json({ error: outcomesErr.message }, { status: 500 });
+    if (!groupRow) return NextResponse.json({ error: 'Öğrenme çıktısı grubu bulunamadı' }, { status: 404 });
+    const groupTopicId = (groupRow as { topic_id: number }).topic_id;
+    const mismatched = ((outcomeRows as { id: number; topic_id: number }[] | null) || []).some((o) => o.topic_id !== groupTopicId);
+    if (mismatched) return NextResponse.json({ error: 'Kazanım ve öğrenme çıktısı grubu farklı konulara ait' }, { status: 400 });
+  }
+
   const { error } = await supabase.from('outcomes').update(patch).in('id', ids);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

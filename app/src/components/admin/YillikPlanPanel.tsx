@@ -1991,8 +1991,18 @@ function TymmUnitEditor({
                         const v = e.target.value;
                         onChange((u) => ({ ...u, learningOutcomes: u.learningOutcomes.map((o, i) => (i === oi ? { ...o, topicTitle: v } : o)) }));
                       }}
+                      list="tymm-content-framework-options"
+                      placeholder="(başlıksız) — İçerik Çerçevesi'nden seçin"
                       className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-xs font-bold text-foreground outline-none focus:border-indigo-400"
                     />
+                    {/* Sınır TAHMİN edilemediğinde (bkz. tymmParser.ts fallback) topicTitle boş
+                        bırakılıyor — burada admin serbest metin yazmak yerine, TYMM'in gerçek
+                        İçerik Çerçevesi satırlarından birini seçebilsin diye öneri listesi. */}
+                    <datalist id="tymm-content-framework-options">
+                      {unit.contentFramework.map((title) => (
+                        <option key={title} value={title} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">
