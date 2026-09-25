@@ -99,8 +99,31 @@ export type UnitDiff = {
   topics: TopicDiff[];
 };
 
+// SADECE öğrenme çıktısı KODU eşleştirmesinde kullanılır. Canlı TYMM parser'ı kodu SONDAKİ
+// NOKTA OLMADAN üretiyor (ör. "FB.5.5.1", bkz. tymmParser.ts OUTCOME_CODE_GLOBAL_RE), ama
+// eski bir import yolu bazı topic_learning_outcomes.code değerlerini sondaki noktayla
+// kaydetmiş ("FB.5.5.1."). norm() bunu ELEMİYOR (sadece boşluk/büyük-küçük harf), bu yüzden
+// "fb.5.5.1." !== "fb.5.5.1" olup TÜM kod eşleştirmesi başarısız oluyordu — içerik birebir
+// aynı olsa bile ünitenin HER konusu "farklı" görünüyordu (kullanıcının 2026-09-25 bildirimi:
+// "5. sınıf fen 5. ünite neden eşleşmiyor halbuki birebir aynı" — Maddenin Doğası ünitesinin
+// 4 konusunun da kodu ".": ile bitiyordu). Bu sadece bir NOKTALAMA normalizasyonu, fuzzyNorm
+// gibi içerik toleransı DEĞİL — yapısal eşleştirmenin "az tefek" tolere etmemesi gereken
+// riski taşımıyor.
+function normCode(s: string): string {
+  // norm() zaten baştaki/sondaki ve aradaki fazla boşluğu temizliyor; buradaki ek adım
+  // sadece kodun başında/sonunda kalmış nokta(lar)ı atıyor.
+  return norm(s).replace(/^\.+|\.+$/g, '');
+}
+
+// .normalize('NFC') GÜVENLİK AĞI: tymmParser.ts'nin plainText() fonksiyonu artık kendi
+// çıktısını NFC'ye normalize ediyor, ama DB'de bu düzeltmeden ÖNCE kaydedilmiş satırlar
+// (ör. farklı bir yoldan, NFD Türkçe karakterlerle girilmiş) hâlâ olabilir — burada da
+// normalize etmek, kaynak fark etmeksizin iki tarafın hep aynı bayt dizisiyle
+// kıyaslanmasını garantiler (bkz. tymmParser.ts plainText() üstündeki not, kullanıcının
+// 2026-09-25 bildirimi: NFD "ç" (c + ̧) ile NFC "ç" görsel olarak aynı ama === ile hiç
+// eşleşmiyordu).
 export function norm(s: string): string {
-  return s.trim().replace(/\s+/g, ' ').toLowerCase();
+  return s.trim().replace(/\s+/g, ' ').toLowerCase().normalize('NFC');
 }
 
 // SADECE ünite başlığı eşleştirmesinde kullanılır. TYMM zaman zaman ünite başlığının başına
@@ -269,7 +292,7 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
   // haritaya girmez, aşağıda ayrıca ele alınır.
   const tymmByCode = new Map<string, TymmLearningOutcome>();
   for (const lo of tymmUnit.learningOutcomes) {
-    if (lo.code) tymmByCode.set(norm(lo.code), lo);
+    if (lo.code) tymmByCode.set(normCode(lo.code), lo);
   }
   const matchedTymmCodes = new Set<string>();
 
@@ -308,8 +331,8 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
     // Yeni (gruplanmış) konu — hangi konuya ait olduğu sorgulanmıyor, DB'nin kendi kararı
     // esas alınıyor; her grup KENDİ KODUYLA TYMM'de aranıp sırayla/sayıca kıyaslanıyor.
     const learningOutcomeDiffs = dbGroups.map((g) => {
-      const tymmLo = g.code ? tymmByCode.get(norm(g.code)) : undefined;
-      if (tymmLo && g.code) matchedTymmCodes.add(norm(g.code));
+      const tymmLo = g.code ? tymmByCode.get(normCode(g.code)) : undefined;
+      if (tymmLo && g.code) matchedTymmCodes.add(normCode(g.code));
       return diffLearningOutcomeByCode(g, tymmLo, overrides);
     });
     const topicSame = learningOutcomeDiffs.every((d) => d.status === 'same');
@@ -334,7 +357,7 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
   // Kodu olup HİÇBİR DB grubunda karşılığı bulunmayan öğrenme çıktıları — gerçekten yeni.
   // Anchor olacak DB verisi olmadığı için TYMM'in kendi (tahmine dayalı) topicTitle'ına göre
   // gruplanıp ayrı "tymm-only" satırlar olarak gösteriliyor.
-  const unmatched = tymmUnit.learningOutcomes.filter((lo) => !lo.code || !matchedTymmCodes.has(norm(lo.code)));
+  const unmatched = tymmUnit.learningOutcomes.filter((lo) => !lo.code || !matchedTymmCodes.has(normCode(lo.code)));
   const unmatchedOrder: string[] = [];
   const unmatchedByTopicTitle = new Map<string, TymmLearningOutcome[]>();
   for (const lo of unmatched) {

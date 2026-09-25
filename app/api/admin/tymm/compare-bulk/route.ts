@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
     .from('units')
     .select(
       'id, title, duration_hours, key_concepts, ' +
-        'topics(id, title, learning_outcome, outcomes(id, code, description), ' +
-        'topic_learning_outcomes(id, code, title, outcomes(id, code, description)))'
+        'topics(id, title, learning_outcome, outcomes(id, code, description, order_index), ' +
+        'topic_learning_outcomes(id, code, title, outcomes(id, code, description, order_index)))'
     )
     .eq('lesson_id', lessonId)
     .eq('grade_id', gradeId)
@@ -47,14 +47,24 @@ export async function POST(request: NextRequest) {
   if (unitsError) return NextResponse.json({ error: unitsError.message }, { status: 500 });
   // PostgREST embed'i tablo adıyla (topic_learning_outcomes) dönüyor — compareUnits.ts'nin
   // DbTopic tipiyle eşleşsin diye learningOutcomeGroups'a çeviriyoruz. Grup içindeki
-  // kazanımları id'ye göre (=eklenme/orijinal sırası) sıralıyoruz — pozisyonel kıyas (bkz.
-  // diffOutcomesPositional) sıraya güveniyor, PostgREST embed sırası garanti değil.
+  // kazanımları order_index'e göre sıralıyoruz — pozisyonel kıyas (bkz. diffOutcomesPositional)
+  // sıraya güveniyor. ÖNCEDEN id'ye göre sıralanıyordu, ama id sadece "hangi sırayla
+  // eklendi"yi yansıtır, a/b/c... GERÇEK pozisyonu değil — bir kazanım sonradan düzenlenip
+  // yeniden eklendiyse (ör. code='b' ama id'si code='a' olandan küçük) id sıralaması TYMM'in
+  // GÜNCEL a/b/c sırasıyla ters düşüyor, bu da içerik birebir aynı olsa bile LCS diff'in
+  // "a" ile "b"yi karşılıklı ekle/sil gibi göstermesine yol açıyordu (kullanıcının 2026-09-25
+  // bildirimi: "7. sınıf fen neden eşleşmiyor ... birebir aynı" — Elektriklenme/Sürdürülebilir
+  // Yaşam ünitelerindeki asıl sebep Unicode NFC/NFD farkıydı, ama "Maddenin Doğasına Yolculuk"
+  // ünitesindeki FB.7.5.7 farkı BUYDU). order_index tam olarak bunun için var; null gelirse
+  // (çok eski satır) id'ye düşülüyor.
   type RawTopic = { topic_learning_outcomes?: DbUnit['topics'][number]['learningOutcomeGroups'] } & DbUnit['topics'][number];
+  type RawOutcome = { id: number; code: string | null; description: string; order_index: number | null };
+  const byOrderThenId = (a: RawOutcome, b: RawOutcome) => (a.order_index ?? a.id) - (b.order_index ?? b.id);
   const dbUnits = ((unitsData as unknown as (Omit<DbUnit, 'topics'> & { topics: RawTopic[] })[] | null) || []).map((u) => ({
     ...u,
     topics: u.topics.map((t) => ({
       ...t,
-      learningOutcomeGroups: (t.topic_learning_outcomes || []).map((g) => ({ ...g, outcomes: [...g.outcomes].sort((a, b) => a.id - b.id) })),
+      learningOutcomeGroups: (t.topic_learning_outcomes || []).map((g) => ({ ...g, outcomes: [...(g.outcomes as RawOutcome[])].sort(byOrderThenId) })),
     })),
   })) as DbUnit[];
 

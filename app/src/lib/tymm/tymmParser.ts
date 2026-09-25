@@ -45,7 +45,14 @@ function stripTags(s: string): string {
 }
 
 export function plainText(s: string): string {
-  return decodeEntities(stripTags(s)).replace(/\s+/g, ' ').trim();
+  // TYMM'in HTML kaynağı Türkçe "ç/ö/ş/ü/ğ/ı/İ" gibi harfleri bazen NFD (ayrışık, ör. "c" +
+  // BİRLEŞTİRİCİ SEDİLLA) kodluyor, DB'ye elle/AI ile girilmiş eski metinler ise NFC
+  // (birleşik, tek kod noktası). Görsel olarak AYNI görünüyorlar ama === ile hiç eşleşmiyor
+  // — bu yüzden içerik birebir aynı olsa bile karşılaştırma ekranı "farklı" gösteriyordu
+  // (kullanıcının 2026-09-25 bildirimi: "7. sınıf fen neden eşleşmiyor ... birebir aynı").
+  // NFC'ye normalize etmek, buradan geçen HER metnin (kazanım, başlık, anahtar kavram...)
+  // hangi kaynaktan geldiğine bakılmaksızın aynı bayt dizisine sahip olmasını garantiler.
+  return decodeEntities(stripTags(s)).replace(/\s+/g, ' ').trim().normalize('NFC');
 }
 
 // "ALAN" satır başlığının hemen sağındaki content div'in HAM içeriğini (etiketler dahil)

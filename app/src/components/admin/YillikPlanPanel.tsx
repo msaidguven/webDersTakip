@@ -1595,12 +1595,7 @@ export default function YillikPlanPanel() {
               ) : (
                 <span className="text-xs text-muted-foreground">Henüz doğrulanmadı</span>
               )}
-              <button
-                onClick={() => patchLessonGrade({ tymmVerified: true })}
-                className="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors"
-              >
-                ✅ Doğru olarak işaretle
-              </button>
+              <VerifyLessonGradeMenu onConfirm={() => patchLessonGrade({ tymmVerified: true })} />
             </div>
 
             {compareResult.fetchErrors.length > 0 && (
@@ -3267,6 +3262,65 @@ function TymmInspectModal({ target, onClose }: { target: InspectTarget; onClose:
         </>
       }
     />
+  );
+}
+
+// "Doğru olarak işaretle" eskiden karşılaştırma sonucunun hemen yanında, tek tıkla çalışan
+// çıplak bir buton olarak duruyordu — çok göze batıyordu ve admin yanlışlıkla birkaç kez
+// tıklamış (kullanıcının 2026-09-25 bildirimi). Artık bir "⋮" menüsünün arkasında ve ikinci
+// bir onay adımı istiyor.
+function VerifyLessonGradeMenu({ onConfirm }: { onConfirm: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  function close() {
+    setOpen(false);
+    setConfirming(false);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title="İşlemler"
+      >
+        ⋮
+      </button>
+      {open && (
+        <>
+          <button className="fixed inset-0 z-10 cursor-default" onClick={close} aria-label="Menüyü kapat" />
+          <div className="absolute right-0 top-full mt-1 z-20 w-64 rounded-lg border border-border bg-card shadow-lg p-2">
+            {!confirming ? (
+              <button
+                onClick={() => setConfirming(true)}
+                className="w-full text-left px-2.5 py-2 rounded-md text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              >
+                ✅ Doğru olarak işaretle
+              </button>
+            ) : (
+              <div className="p-1 space-y-2">
+                <p className="text-[11px] text-foreground">Bu ders/sınıf için &quot;TYMM ile doğrulandı&quot; işaretlensin mi?</p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { onConfirm(); close(); }}
+                    className="flex-1 px-2 py-1.5 rounded-md bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-400 transition-colors"
+                  >
+                    Evet, işaretle
+                  </button>
+                  <button
+                    onClick={close}
+                    className="flex-1 px-2 py-1.5 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Vazgeç
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
