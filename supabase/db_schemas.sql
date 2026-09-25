@@ -769,6 +769,7 @@ CREATE TABLE public.ai_content_draft_worker_runs (
   reason text,
   draft_id bigint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  worker text NOT NULL DEFAULT 'primary'::text CHECK (worker = ANY (ARRAY['primary'::text, 'secondary'::text])),
   CONSTRAINT ai_content_draft_worker_runs_pkey PRIMARY KEY (id),
   CONSTRAINT ai_content_draft_worker_runs_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.topic_section_content_drafts(id)
 );

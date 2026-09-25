@@ -10,6 +10,7 @@
 // endpoint'i) ÇAĞIRIR — paralel bir yayınlama mantığı icat edilmiyor.
 import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { CONTENT_WORKER_PROFILES, type ContentWorkerId } from '@/app/src/lib/contentWorkerProfiles';
 
 type DraftSection = {
   heading: string;
@@ -41,6 +42,7 @@ type WorkerRun = {
   generated: boolean;
   reason: string | null;
   draft_id: number | null;
+  worker: ContentWorkerId;
   created_at: string;
 };
 
@@ -171,7 +173,9 @@ export default function AiContentDraftsPanel() {
             <div className="border-t border-border divide-y divide-border">
               {workerRuns.map((run) => (
                 <div key={run.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs">
-                  <span className="text-muted-foreground shrink-0">{new Date(run.created_at).toLocaleString('tr-TR')}</span>
+                  <span className="text-muted-foreground shrink-0">
+                    {new Date(run.created_at).toLocaleString('tr-TR')} · {CONTENT_WORKER_PROFILES[run.worker]?.model ?? run.worker}
+                  </span>
                   <span className={`truncate text-right ${run.generated ? 'text-emerald-300' : 'text-amber-300'}`}>
                     {run.generated ? 'Taslak üretildi' : run.reason || 'Üretilmedi'}
                   </span>

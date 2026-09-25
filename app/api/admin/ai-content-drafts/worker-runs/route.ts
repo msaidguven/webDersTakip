@@ -14,7 +14,7 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('ai_content_draft_worker_runs')
-    .select('id, generated, reason, draft_id, created_at')
+    .select('id, generated, reason, draft_id, worker, created_at')
     .order('created_at', { ascending: false })
     .limit(RUN_LIMIT);
 

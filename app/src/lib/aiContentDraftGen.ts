@@ -5,6 +5,7 @@ import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
+import type { ContentWorkerProfile } from '@/app/src/lib/contentWorkerProfiles';
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 
@@ -107,7 +108,10 @@ async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise
   return chunkRows.map((c) => c.content).join('\n\n');
 }
 
-export async function generateNextAiContentDraft(supabase: Supabase): Promise<ContentDraftGenerationResult> {
+export async function generateNextAiContentDraft(
+  supabase: Supabase,
+  profile: ContentWorkerProfile
+): Promise<ContentDraftGenerationResult> {
   const { data: eligibleRows, error: eligibleError } = await supabase.rpc('find_next_ai_content_draft_topic');
   if (eligibleError) return { generated: false, reason: `Uygun konu sorgusu başarısız: ${eligibleError.message}` };
 
@@ -194,13 +198,23 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
 
   let raw: unknown;
   try {
-    raw = await generateTopicContentJson(prompt);
+    raw = await generateTopicContentJson(prompt, profile);
   } catch (e) {
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }
 
   const parsed = parseContentDraft(raw);
   if (!parsed) return { generated: false, reason: 'Gemini çıktısı beklenen JSON şemasına uymadı' };
+
+  // İki içerik worker'ı (:13 ve :23) üretim sürerken aynı konuyu seçmiş olabilir — geç kalan
+  // taraf yayınlanmış içeriğin üzerine yazmasın.
+  const { count: existingContentCount } = await supabase
+    .from('topic_contents')
+    .select('id', { count: 'exact', head: true })
+    .eq('topic_id', eligible.topic_id);
+  if (existingContentCount) {
+    return { generated: false, reason: `Konu ${eligible.topic_id} bu sırada diğer worker tarafından üretildi, atlandı` };
+  }
 
   const { data: draftRow, error: insertError } = await supabase
     .from('topic_section_content_drafts')
@@ -212,7 +226,7 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
       // Modelin kendi bildirdiği ai_model alanına güvenilmiyor — denemede Gemini'ye
       // Claude'un adını yazdırdığını gördük (şablondaki örnek değeri papağan gibi
       // tekrarlamış), bu yüzden burayı sabit ve doğru veriyoruz.
-      ai_model: 'Gemini 3.6 Flash (otomatik taslak)',
+      ai_model: profile.label,
       cover: parsed.cover,
       sections: parsed.sections,
       summary_markdown: parsed.summary_markdown,
@@ -234,7 +248,7 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
     topicId: eligible.topic_id,
     sections: parsed.sections,
     cover: parsed.cover,
-    ai_model: 'Gemini 3.6 Flash (otomatik taslak)',
+    ai_model: profile.label,
     summary_markdown: parsed.summary_markdown,
     discussion_prompt_markdown: parsed.discussion_prompt_markdown,
   });

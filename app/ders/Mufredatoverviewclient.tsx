@@ -11,6 +11,7 @@ import {
   BookOpen,
   Calendar,
   ChevronDown,
+  ChevronRight,
   GraduationCap,
   Layers,
   ListChecks,
@@ -126,11 +127,9 @@ export default function MufredatOverviewClient({
   // SearchParamsSync tanımı). currentWeek prop'u sunucunun hesapladığı VARSAYILAN; URL'de
   // ?hafta= varsa onu tercih ediyoruz.
   const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
-  // Konu satırları artık "Konu Anlatımı" + "Soru Bankası" butonlarını her zaman göstermek
-  // yerine tek satırlık, tıklanınca açılan bir akordeon — kullanıcının 2026-09-06 isteği:
-  // "akordiyon olsun, açılan satırda konu ve soru butonları görünsün". Bir seferde sadece
-  // TEK konu açık kalır (id yerine Set kullanmıyoruz, tek elemanlı state yeterli).
-  const [expandedTopicId, setExpandedTopicId] = useState<number | null>(null);
+  // Konu satırı artık akordeon DEĞİL, doğrudan konu anlatımına giden bir link (kullanıcının
+  // 2026-09-25 kararı: "ünite ve konular iç içe girmiş"). Eski akordeon konuya ulaşmayı iki
+  // tığa çıkarıyor, üstelik üniteyle aynı kartta iki farklı tıklama davranışı oluşturuyordu.
   const haftaParam = searchParams.get('hafta');
   const effectiveWeek = haftaParam ? parseInt(haftaParam, 10) || currentWeek : currentWeek;
 
@@ -377,63 +376,84 @@ export default function MufredatOverviewClient({
                         : `border-gray-200/70 ${accent.border}`
                     }`}
                   >
-                    {/* Ünite Başlığı */}
-                    <div className={`px-5 py-4 flex items-center gap-4 ${
+                    {/* Ünite Başlığı — konu satırlarından AÇIKÇA baskın olmalı: daha büyük
+                        punto, versal harf aralığı ve renkli şerit. Başlık ARTIK KESİLMİYOR
+                        (eski truncate mobilde "Güneş Sistemi ..." gibi ünite adını yarıda
+                        bırakıp konu adlarını tam gösteriyordu — hiyerarşi tersine dönüyordu);
+                        "Üniteye Git" dar ekranda kendi satırına iniyor. */}
+                    <div className={`px-4 sm:px-5 py-4 ${
                       isDraftUnit ? 'bg-amber-50/50' : accent.headerBg
                     }`}>
-                      <span className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 shadow-sm ${
-                        isDraftUnit ? 'bg-amber-100 text-amber-700' : accent.badge
-                      }`}>
-                        {displayNo}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className={`text-base font-semibold truncate ${
-                          isDraftUnit ? 'text-amber-800' : 'text-gray-900'
+                      <div className="flex flex-wrap items-start gap-x-3 gap-y-3 sm:gap-x-4">
+                        <span className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 shadow-sm ${
+                          isDraftUnit ? 'bg-amber-100 text-amber-700' : accent.badge
                         }`}>
-                          {unit.title}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {isDraftUnit && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                              Taslak
+                          {displayNo}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${
+                            isDraftUnit ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {displayNo}. Ünite
+                          </p>
+                          <h3 className={`text-lg sm:text-xl font-bold leading-snug text-balance ${
+                            isDraftUnit ? 'text-amber-900' : 'text-gray-900'
+                          }`}>
+                            {unit.title}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {isDraftUnit && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                Taslak
+                              </span>
+                            )}
+                            {start != null && end != null && (
+                              <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200/70">
+                                <Calendar className="h-3 w-3" /> Hafta {start}–{end}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500 font-medium">
+                              {topics.length} konu
                             </span>
-                          )}
-                          {start != null && end != null && (
-                            <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200/70">
-                              <Calendar className="h-3 w-3" /> Hafta {start}–{end}
+                            <span className="text-xs text-gray-500 font-medium">
+                              {unit.questionCount ?? 0} soru
                             </span>
-                          )}
-                          <span className="text-xs text-gray-400 font-medium">
-                            {topics.length} konu
-                          </span>
-                          <span className="text-xs text-gray-400 font-medium">
-                            {unit.questionCount ?? 0} soru
-                          </span>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Ünitenin kendi tanıtım sayfasına (kapak görseli + konu kartları,
-                          bkz. [unitSlug]/page.tsx) link — kullanıcının 2026-09-06 isteği:
-                          "konulara link verdiğimiz gibi ünite sayfasına da güzel bi link
-                          veren buton ekleyelim". Taslak ünitelerin sayfası olmadığından
-                          (getUnitOverviewData is_active filtreliyor) buton gizleniyor. */}
-                      {!isDraftUnit && unit.slug && (
-                        <Link
-                          href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200/70 transition-colors hover:bg-gray-50"
-                        >
-                          Üniteye Git <ArrowRight className="h-3.5 w-3.5" />
-                        </Link>
-                      )}
+                        {/* Ünitenin kendi tanıtım sayfasına (kapak görseli + konu kartları,
+                            bkz. [unitSlug]/page.tsx) link — kullanıcının 2026-09-06 isteği:
+                            "konulara link verdiğimiz gibi ünite sayfasına da güzel bi link
+                            veren buton ekleyelim". Taslak ünitelerin sayfası olmadığından
+                            (getUnitOverviewData is_active filtreliyor) buton gizleniyor.
+                            Geniş ekranda başlığın sağında, dar ekranda (flex-wrap ile) alt
+                            satırda duruyor — başlığın yerini çalıp kesmesin diye. */}
+                        {!isDraftUnit && unit.slug && (
+                          // w-full: dar ekranda kendi satırına iner (flex-wrap'i zorlar), böylece
+                          // ünite başlığı tüm genişliği kullanır. sm:w-auto ile geniş ekranda
+                          // başlığın sağına, aynı satıra geçer.
+                          <div className="order-last w-full sm:order-none sm:w-auto sm:shrink-0 sm:self-center">
+                            <Link
+                              href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200/70 transition-colors hover:bg-gray-50"
+                            >
+                              Ünite Sayfası <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Konular */}
+                    {/* Konular — ünitenin ALTINDA, girintili ve gri zeminli ayrı bir blok.
+                        Girinti + sol dikey ray, "bunlar bu ünitenin içindeki konular"ı
+                        tipografiden bağımsız olarak anlatıyor. */}
                     {topics.length === 0 ? (
-                      <div className="px-5 py-4 text-center text-sm text-gray-400">
+                      <div className="border-t border-gray-100 px-5 py-4 text-center text-sm text-gray-400">
                         Henüz konu eklenmemiş.
                       </div>
                     ) : (
-                      <div className="divide-y divide-gray-100">
+                      <div className="border-t border-gray-100 bg-gray-50/60 py-1.5 pl-4 pr-2 sm:pl-6 sm:pr-3">
+                        <div className="border-l-2 border-gray-200 pl-2 sm:pl-3">
                         {topics.map((topic, idx) => {
                           const hasContent = topic.hasContent !== false;
                           const questionCount = topic.questionCount ?? 0;
@@ -444,78 +464,79 @@ export default function MufredatOverviewClient({
                             ? `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
                             : null;
 
-                          const isExpanded = expandedTopicId === topic.id;
+                          // Satırın TAMAMI konu anlatımına gider (after:inset-0 ile yayılan
+                          // link). Soru rozeti onun ÜSTÜNDE ayrı bir link — iç içe <a>
+                          // kurmadan iki hedefi aynı satıra sığdırmanın standart yolu.
+                          const rowInner = (
+                            <>
+                              <span className="w-7 shrink-0 text-[11px] font-mono font-medium text-gray-400">
+                                {displayNo}.{idx + 1}
+                              </span>
+                              {/* Küçük konu görseli (kullanıcının 2026-09-06 isteği: "bu
+                                  sayfalara da küçük resimler eklenebilir mi") — AYNI
+                                  topic_contents.hero_image_url, görseli olmayan konularda
+                                  hiç gösterilmiyor. */}
+                              {topic.heroImageUrl && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={topic.heroImageUrl}
+                                  alt=""
+                                  className="h-6 w-6 shrink-0 rounded-md object-cover"
+                                />
+                              )}
+                            </>
+                          );
+
+                          if (!hasContent) {
+                            return (
+                              <div
+                                key={topic.id}
+                                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5"
+                              >
+                                {rowInner}
+                                <span className="min-w-0 flex-1 text-sm text-gray-400 line-clamp-2">{topic.title}</span>
+                                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                                  Yakında
+                                </span>
+                              </div>
+                            );
+                          }
 
                           return (
-                            <div key={topic.id}>
-                              {/* Tek satır, tıklanınca akordeon gibi açılır — Konu Anlatımı/Soru
-                                  Bankası butonları artık her zaman görünmüyor, sadece açılınca
-                                  (kullanıcının 2026-09-06 isteği: "akordiyon olsun, açılan satırda
-                                  konu ve soru butonları görünsün"). */}
-                              <button
-                                type="button"
-                                onClick={() => setExpandedTopicId(isExpanded ? null : topic.id)}
-                                className={`flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors hover:bg-gray-50 ${
-                                  isExpanded ? 'bg-gray-50/80' : ''
-                                }`}
-                              >
-                                <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
-                                  {displayNo}.{idx + 1}
-                                </span>
-                                {/* Küçük konu görseli (kullanıcının 2026-09-06 isteği: "bu
-                                    sayfalara da küçük resimler eklenebilir mi") — AYNI
-                                    topic_contents.hero_image_url, görseli olmayan konularda
-                                    hiç gösterilmiyor (satır zaten kompakt, boş kutu eklemeye
-                                    gerek yok). */}
-                                {topic.heroImageUrl && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={topic.heroImageUrl}
-                                    alt=""
-                                    className="h-6 w-6 shrink-0 rounded-md object-cover"
-                                  />
-                                )}
-                                <span className={`text-sm font-medium truncate flex-1 min-w-0 ${hasContent ? 'text-gray-700' : 'text-gray-400'}`}>
+                            <div
+                              key={topic.id}
+                              className="group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-white"
+                            >
+                              {rowInner}
+                              {topicHref ? (
+                                <Link
+                                  href={topicHref}
+                                  className="min-w-0 flex-1 text-sm font-medium text-gray-700 line-clamp-2 after:absolute after:inset-0 group-hover:text-indigo-700"
+                                >
                                   {topic.title}
-                                </span>
-                                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                              </button>
-
-                              {isExpanded && (
-                                <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
-                                  {!hasContent ? (
-                                    <span className="text-xs text-gray-300 px-2 py-1">İçerik eklenmemiş</span>
-                                  ) : topicHref ? (
-                                    <Link
-                                      href={topicHref}
-                                      className="inline-flex items-center gap-1 text-xs font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 px-2.5 py-1 rounded-full transition-colors"
-                                    >
-                                      <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
-                                    </Link>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => goToWeek(start ?? effectiveWeek)}
-                                      className="inline-flex items-center gap-1 text-xs font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 px-2.5 py-1 rounded-full transition-colors"
-                                    >
-                                      <BookOpen className="h-3.5 w-3.5" /> Konu Anlatımı
-                                    </button>
-                                  )}
-                                  {bankHref ? (
-                                    <Link
-                                      href={bankHref}
-                                      className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
-                                    >
-                                      <ListChecks className="h-3.5 w-3.5" /> {questionCount} Soru
-                                    </Link>
-                                  ) : (
-                                    <span className="text-xs text-gray-300 px-2 py-1">Soru yok</span>
-                                  )}
-                                </div>
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => goToWeek(start ?? effectiveWeek)}
+                                  className="min-w-0 flex-1 text-left text-sm font-medium text-gray-700 line-clamp-2 after:absolute after:inset-0 group-hover:text-indigo-700"
+                                >
+                                  {topic.title}
+                                </button>
                               )}
+                              {bankHref && (
+                                <Link
+                                  href={bankHref}
+                                  className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                                >
+                                  <ListChecks className="h-3 w-3" /> {questionCount}
+                                </Link>
+                              )}
+                              <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-indigo-500" />
                             </div>
                           );
                         })}
+                        </div>
                       </div>
                     )}
                   </div>
