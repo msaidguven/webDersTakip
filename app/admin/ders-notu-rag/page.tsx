@@ -8,6 +8,7 @@ import RagQaApprovalPanel from '@/app/src/components/admin/RagQaApprovalPanel';
 import RagReportsPanel from '@/app/src/components/admin/RagReportsPanel';
 import AiQuestionDraftsPanel from '@/app/src/components/admin/AiQuestionDraftsPanel';
 import AiContentDraftsPanel from '@/app/src/components/admin/AiContentDraftsPanel';
+import AiContentWorkerStatsPanel from '@/app/src/components/admin/AiContentWorkerStatsPanel';
 import AiTopicHighlightsPanel from '@/app/src/components/admin/AiTopicHighlightsPanel';
 import RagTopicBuilderPanel from '@/app/src/components/admin/RagTopicBuilderPanel';
 import TeacherGuideDocumentsPanel from '@/app/src/components/admin/TeacherGuideDocumentsPanel';
@@ -15,7 +16,7 @@ import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'content-drafts' | 'highlights' | 'build' | 'teacher-guide';
+type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'content-drafts' | 'worker-stats' | 'highlights' | 'build' | 'teacher-guide';
 
 export default function DersNotuRagPage() {
   return (
@@ -50,6 +51,7 @@ function DersNotuRagPageInner() {
           <TabButton active={tab === 'documents'} onClick={() => setTab('documents')} label="Ders Notu PDF'leri" />
           <TabButton active={tab === 'drafts'} onClick={() => setTab('drafts')} label="AI Soru Taslakları" />
           <TabButton active={tab === 'content-drafts'} onClick={() => setTab('content-drafts')} label="AI İçerik Taslakları" />
+          <TabButton active={tab === 'worker-stats'} onClick={() => setTab('worker-stats')} label="Model Performansı" />
           <TabButton active={tab === 'highlights'} onClick={() => setTab('highlights')} label="AI Anahtar Kavramlar" />
           <TabButton active={tab === 'build'} onClick={() => setTab('build')} label="Sentezle RAG Oluştur" />
           <TabButton active={tab === 'teacher-guide'} onClick={() => setTab('teacher-guide')} label="Öğretmen Kılavuzu" />
@@ -59,6 +61,7 @@ function DersNotuRagPageInner() {
         {tab === 'documents' && <RagDocumentsPanel />}
         {tab === 'drafts' && <AiQuestionDraftsPanel />}
         {tab === 'content-drafts' && <AiContentDraftsPanel />}
+        {tab === 'worker-stats' && <AiContentWorkerStatsPanel />}
         {tab === 'highlights' && <AiTopicHighlightsPanel />}
         {tab === 'build' && <RagTopicBuilderPanel initialTopicId={Number.isFinite(initialTopicId) && initialTopicId > 0 ? initialTopicId : null} />}
         {tab === 'teacher-guide' && <TeacherGuideDocumentsPanel />}

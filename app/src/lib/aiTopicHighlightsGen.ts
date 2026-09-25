@@ -96,7 +96,7 @@ export async function generateNextTopicHighlights(supabase: Supabase): Promise<T
 
   let raw: unknown;
   try {
-    raw = await generateTopicContentJson(prompt);
+    ({ data: raw } = await generateTopicContentJson(prompt));
   } catch (e) {
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }

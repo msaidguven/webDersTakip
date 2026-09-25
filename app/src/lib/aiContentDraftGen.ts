@@ -5,7 +5,7 @@ import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
-import type { ContentWorkerProfile } from '@/app/src/lib/contentWorkerProfiles';
+import { contentModelLabel, type ContentWorkerProfile } from '@/app/src/lib/contentWorkerProfiles';
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 
@@ -197,8 +197,9 @@ export async function generateNextAiContentDraft(
     .replaceAll(sourcePlaceholder, sourceText);
 
   let raw: unknown;
+  let usedModel: string;
   try {
-    raw = await generateTopicContentJson(prompt, profile);
+    ({ data: raw, model: usedModel } = await generateTopicContentJson(prompt, profile));
   } catch (e) {
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -226,7 +227,7 @@ export async function generateNextAiContentDraft(
       // Modelin kendi bildirdiği ai_model alanına güvenilmiyor — denemede Gemini'ye
       // Claude'un adını yazdırdığını gördük (şablondaki örnek değeri papağan gibi
       // tekrarlamış), bu yüzden burayı sabit ve doğru veriyoruz.
-      ai_model: profile.label,
+      ai_model: contentModelLabel(usedModel),
       cover: parsed.cover,
       sections: parsed.sections,
       summary_markdown: parsed.summary_markdown,
@@ -248,7 +249,7 @@ export async function generateNextAiContentDraft(
     topicId: eligible.topic_id,
     sections: parsed.sections,
     cover: parsed.cover,
-    ai_model: profile.label,
+    ai_model: contentModelLabel(usedModel),
     summary_markdown: parsed.summary_markdown,
     discussion_prompt_markdown: parsed.discussion_prompt_markdown,
   });

@@ -1361,7 +1361,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
             </div>
           ) : (
             <>
-              <h4 className={`flex-1 min-w-0 text-xs font-bold leading-snug line-clamp-2 ${isActive ? 'text-violet-900' : 'text-slate-700'}`}>
+              {/* Ünite başlığından bir tık geri planda: font-bold -> font-medium,
+                  slate-700 -> slate-600. Aktif konu yine violet ile öne çıkıyor. */}
+              <h4 className={`flex-1 min-w-0 text-xs leading-snug line-clamp-2 ${isActive ? 'font-bold text-violet-900' : 'font-medium text-slate-600'}`}>
                 {topic.title}
               </h4>
               {/* Nokta/tik neyi ifade ediyor açık değildi (kullanıcının 2026-09-22 şikayeti) —
@@ -1730,7 +1732,13 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       }`}
                     >
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
-                      <span className={`flex-1 min-w-0 truncate text-xs font-black uppercase tracking-wide ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-500'}`}>
+                      {/* Ünite adı ARTIK KESİLMİYOR (kullanıcının 2026-09-25 şikayeti:
+                          "üniteler ve konular iç içe girmiş"). Eski truncate, ünite adını
+                          "BİLİŞİM TEKNOLOJİLERİNİN H..." diye yarıda bırakırken altındaki
+                          konu adları line-clamp-2 ile tam görünüyordu — hiyerarşi tersine
+                          dönüyordu. Renk de slate-500'den slate-800'e çekildi ki ünite,
+                          çocuğu olan konulardan görsel olarak baskın olsun. */}
+                      <span className={`flex-1 min-w-0 text-[13px] font-black uppercase leading-tight tracking-wide line-clamp-2 ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-800'}`}>
                         {unit.title}
                       </span>
                       {isDraftUnit && (
@@ -1743,7 +1751,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
 
                   {isUnitExpanded && (
-                    <div className="ml-3 mt-1 mb-2 space-y-1 border-l border-slate-200 pl-3">
+                    <div className="ml-4 mt-1 mb-2 space-y-0.5 border-l-2 border-slate-200 pl-3">
                       {isLoadingUnit && !unitTopics.length ? (
                         <div className="px-3 py-2 text-xs font-medium text-slate-400">Yükleniyor...</div>
                       ) : unitTopics.length === 0 ? (

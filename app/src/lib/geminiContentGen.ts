@@ -25,31 +25,52 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const RETRY_ON_503_DELAY_MS = 4 * 60 * 1000;
+// Eskiden 503'te AYNI modeli 4 dk bekleyip tekrar deniyordu — gün boyu yoğun olan bir
+// modelde bu hem neredeyse hiç işe yaramıyordu hem de bekleme + uzun üretim Vercel'in 300 sn
+// sınırını aşıp çalışmayı log bile yazamadan öldürüyordu. Artık önce diğer modele geçiliyor;
+// hepsi 503 ise kısa bir beklemeyle sadece 503 verenler bir kez daha deneniyor.
+const RETRY_ALL_OVERLOADED_DELAY_MS = 30 * 1000;
+
+type Attempt = { key: string; model: string };
+
+export interface GeneratedContentJson {
+  data: unknown;
+  // Cevabı gerçekten veren model (fallback devreye girmiş olabilir).
+  model: string;
+}
 
 export async function generateTopicContentJson(
   prompt: string,
   profile: ContentWorkerProfile = CONTENT_WORKER_PROFILES.primary
-): Promise<unknown> {
-  const keys = getApiKeys(profile);
-  let res: Response | null = null;
-  for (let i = 0; i < keys.length; i++) {
-    res = await callGenerateContent(prompt, profile.model, keys[i]);
-    if (res.status === 503) {
-      await sleep(RETRY_ON_503_DELAY_MS);
-      res = await callGenerateContent(prompt, profile.model, keys[i]);
+): Promise<GeneratedContentJson> {
+  const models = [profile.model, ...profile.fallbackModels.filter((m) => m !== profile.model)];
+  // Key önce: aynı key'in kotası tüm modellerde denenmeden yedek key'e (başka bir işin
+  // kotası) geçilmez.
+  let pending: Attempt[] = getApiKeys(profile).flatMap((key) => models.map((model) => ({ key, model })));
+  const failures: string[] = [];
+
+  for (let pass = 0; pass < 2 && pending.length; pass++) {
+    if (pass > 0) await sleep(RETRY_ALL_OVERLOADED_DELAY_MS);
+    const overloaded: Attempt[] = [];
+    for (const attempt of pending) {
+      const res = await callGenerateContent(prompt, attempt.model, attempt.key);
+      if (res.ok) {
+        const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
+        if (!text) throw new Error(`Gemini boş cevap döndürdü (${attempt.model})`);
+        return { data: extractJson(text), model: attempt.model };
+      }
+      // 503 = model yoğun, 429 = bu key'in bu modeldeki kotası dolu — ikisinde de sıradaki
+      // kombinasyon denenir. Diğer hatalar (400, 403...) istek/key sorunudur, devam etmenin anlamı yok.
+      if (res.status !== 503 && res.status !== 429) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Gemini generateContent hatası (${attempt.model}, ${res.status}): ${errText}`);
+      }
+      failures.push(`${attempt.model}: ${res.status}`);
+      if (res.status === 503) overloaded.push(attempt);
     }
-    if (res.ok) break;
-    const isLastKey = i === keys.length - 1;
-    if (res.status !== 429 || isLastKey) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Gemini generateContent hatası (${profile.model}, ${res.status}): ${errText}`);
-    }
-    // 429 ve elde başka key var — yedek key ile devam et.
+    pending = overloaded;
   }
 
-  const data = (await res!.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
-  if (!text) throw new Error('Gemini boş cevap döndürdü');
-  return extractJson(text);
+  throw new Error(`Gemini generateContent hatası, tüm modeller başarısız (${failures.join(', ')})`);
 }

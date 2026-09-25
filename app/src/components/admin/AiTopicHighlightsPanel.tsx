@@ -1,34 +1,32 @@
 'use client';
 
 // Anahtar kavram worker'ı (app/api/rag/generate-topic-highlights) onay beklemeden doğrudan
-// yayınladığı için burada taslak listesi yok — sadece izleme: son 20 çalıştırma, ürettiği
-// konu ve o konuda şu an yayında olan anahtar kavramlar (kullanıcının 2026-09-25 isteği:
-// "en son ne yaptığını göremiyorum").
+// yayınladığı için burada detay yok — kullanıcının 2026-09-25 isteği: "hangisini üretti
+// göreyim ve ürettiği içeriğe link yeterli". Özet kısmı Model Performansı sekmesiyle ortak.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import type { FailureKind, RunSummary } from '@/app/src/lib/workerRunStats';
+import { FAILURE_LABELS, FailureBreakdown, RunSummaryTiles, formatRunTime } from '@/app/src/components/admin/WorkerRunStats';
 
-type Highlight = { icon: string | null; title: string; description: string };
-
-type WorkerRun = {
+type Run = {
   id: number;
   generated: boolean;
   reason: string | null;
-  topic_id: number | null;
+  failureKind: FailureKind | null;
   created_at: string;
+  topic_id: number | null;
   topic_title: string | null;
-  unit_title: string | null;
-  lesson_name: string | null;
-  grade_name: string | null;
-  highlights: Highlight[];
+  context: string | null;
+  href: string | null;
 };
 
+type Stats = { windowDays: number; last24h: RunSummary; last7d: RunSummary; pendingCount: number | null; recent: Run[] };
+
 export default function AiTopicHighlightsPanel() {
-  const [runs, setRuns] = useState<WorkerRun[]>([]);
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,8 +39,7 @@ export default function AiTopicHighlightsPanel() {
           setError(data?.error || 'Çalışma kayıtları alınamadı');
           return;
         }
-        setRuns((data?.runs as WorkerRun[] | null) || []);
-        setPendingCount((data?.pendingCount as number | null) ?? null);
+        setStats(data as Stats);
       } catch {
         if (!cancelled) setError('Ağ hatası oluştu');
       } finally {
@@ -52,8 +49,6 @@ export default function AiTopicHighlightsPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  const generatedCount = runs.filter((r) => r.generated).length;
-
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-2xl border border-border p-4 space-y-1">
@@ -61,10 +56,9 @@ export default function AiTopicHighlightsPanel() {
           Worker her saat <strong>:51</strong>&apos;de çalışır; yayında olup anahtar kavramı eksik olan bir sonraki konuyu
           üretip doğrudan yayınlar.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Son {runs.length} çalıştırmanın {generatedCount} tanesi kavram üretti
-          {pendingCount !== null && ` · sırada bekleyen ${pendingCount} konu`}
-        </p>
+        {stats?.pendingCount != null && (
+          <p className="text-xs text-muted-foreground">Sırada bekleyen {stats.pendingCount} konu</p>
+        )}
       </div>
 
       {error && (
@@ -73,81 +67,50 @@ export default function AiTopicHighlightsPanel() {
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Yükleniyor…</p>
-      ) : runs.length === 0 ? (
-        <div className="bg-card rounded-2xl border border-border p-8 text-center">
-          <p className="text-muted-foreground text-sm">Henüz kayıtlı bir worker çalışması yok</p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {runs.map((run) => {
-            const isOpen = expandedId === run.id;
-            return (
-              <div key={run.id} className="bg-card rounded-2xl border border-border overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setExpandedId((cur) => (cur === run.id ? null : run.id))}
-                  disabled={!run.generated}
-                  className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-surface disabled:hover:bg-transparent"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="mb-1 block text-xs text-muted-foreground">
-                      {new Date(run.created_at).toLocaleString('tr-TR')}
-                    </span>
+      ) : stats && (
+        <section className="bg-card rounded-2xl border border-border p-4 space-y-4">
+          <RunSummaryTiles last24h={stats.last24h} last7d={stats.last7d} windowDays={stats.windowDays} />
+          <FailureBreakdown summary={stats.last7d} windowDays={stats.windowDays} />
+
+          <div>
+            <h3 className="mb-1.5 text-xs font-bold text-muted-foreground">Son çalışmalar</h3>
+            {stats.recent.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Son {stats.windowDays} günde çalışma kaydı yok</p>
+            ) : (
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {stats.recent.map((run) => (
+                  <li key={run.id} className="flex items-center gap-3 px-3 py-2.5 text-xs" title={run.reason ?? undefined}>
+                    <span className="shrink-0 text-muted-foreground tabular-nums">{formatRunTime(run.created_at)}</span>
                     {run.generated ? (
-                      <>
-                        {run.grade_name && (
-                          <span className="mb-1 inline-block text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
-                            {run.grade_name} · {run.lesson_name} · {run.unit_title}
+                      <div className="min-w-0 flex-1">
+                        {run.href ? (
+                          <Link
+                            href={run.href}
+                            target="_blank"
+                            className="inline-flex max-w-full items-center gap-1 font-bold text-emerald-300 hover:underline"
+                          >
+                            <span className="truncate">{run.topic_title || `Konu #${run.topic_id}`}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                            <span className="sr-only">(yeni sekmede açılır)</span>
+                          </Link>
+                        ) : (
+                          <span className="block truncate font-bold text-emerald-300">
+                            {run.topic_title || `Konu #${run.topic_id}`}
                           </span>
                         )}
-                        <p className="truncate text-sm font-bold text-foreground">
-                          {run.topic_title || `Konu #${run.topic_id}`}
-                        </p>
-                      </>
+                        {run.context && <span className="block truncate text-muted-foreground">{run.context}</span>}
+                      </div>
                     ) : (
-                      <p className="text-sm text-amber-300">{run.reason || 'Üretilmedi'}</p>
-                    )}
-                  </div>
-                  {run.generated && (
-                    <>
-                      <span className="shrink-0 text-xs font-black text-muted-foreground">
-                        {run.highlights.length} kavram
+                      <span className="min-w-0 flex-1 truncate text-right text-amber-300">
+                        {FAILURE_LABELS[run.failureKind ?? 'other']}
                       </span>
-                      <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </>
-                  )}
-                </button>
-
-                {isOpen && run.generated && (
-                  <div className="border-t border-border p-4 space-y-2">
-                    {run.highlights.length === 0 ? (
-                      <p className="text-xs text-amber-300">
-                        Bu konuda şu an yayında anahtar kavram yok — sonradan silinmiş olabilir.
-                      </p>
-                    ) : (
-                      run.highlights.map((h, idx) => (
-                        <div key={idx} className="rounded-xl border border-border p-3">
-                          <p className="text-xs font-bold text-foreground">
-                            {h.icon ? `${h.icon} ` : ''}{h.title}
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{h.description}</p>
-                        </div>
-                      ))
                     )}
-                    {run.topic_id && (
-                      <Link
-                        href={`/admin/konu-icerik/${run.topic_id}`}
-                        className="inline-block text-xs font-medium text-indigo-300 hover:underline"
-                      >
-                        Konu içeriğini aç →
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       )}
     </div>
   );
