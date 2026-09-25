@@ -8,6 +8,10 @@ Konuyu bu kaynak metindeki sıraya/mantığa göre alt başlıklara ayır.
 
 {topic_summary_discussion_rules}
 
+Ayrıca konunun en önemli 4-8 anahtar kavramını/terimini çıkar (JSON'da "cover" objesinin içinde, "highlights" dizisi). Bunlar konu sayfasının kapağında öğrenciye "bu konuda şunlar var" diye önizleme olarak gösterilecek.
+
+{topic_highlights_rules}
+
 SADECE aşağıdaki kaynak metinde geçen bilgileri kullan; kaynakta olmayan bir bilgi uydurma.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
@@ -19,7 +23,7 @@ Kazanımlar:
 Kaynak metin:
 {source_text}
 
-Görsel/video promptu VE kapak görseli/anahtar kavramlar bu görevde istenmiyor — ayrı, kendi promptlarıyla yönetiliyor.
+Görsel/video promptu VE kapak görseli bu görevde istenmiyor — ayrı, kendi promptlarıyla yönetiliyor. Anahtar kavramları ise bu görevde, ders notuyla birlikte üreteceksin.
 
 SADECE bu JSON'u döndür, başka metin ekleme:
 {
@@ -38,6 +42,9 @@ SADECE bu JSON'u döndür, başka metin ekleme:
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama
   "discussion_prompt_markdown": string,  // konu sonu "Düşün ve Yorumla" sorusu — bkz. açıklama
   "cover": {
-    "subtitle": string  // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
+    "subtitle": string,  // 8-30 kelime, konuyu tanıtan ve açıklayan birkaç cümle
+    "highlights": [      // 4-8 anahtar kavram — bkz. açıklama
+      { "icon": "tek emoji", "title": "kavram/terim, max 3 kelime", "description": "1 kısa cümle, somut ve doğrulanabilir bir tanım" }
+    ]
   }
 }

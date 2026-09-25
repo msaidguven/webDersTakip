@@ -6,6 +6,7 @@ import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topic
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
+import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -30,7 +31,7 @@ type DraftSection = {
 };
 
 type DraftPayload = {
-  cover: { subtitle: string } | null;
+  cover: { subtitle?: string; highlights?: IncomingHighlight[] } | null;
   sections: DraftSection[];
   summary_markdown: string | null;
   discussion_prompt_markdown: string | null;
@@ -65,10 +66,21 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
     });
   }
 
-  const coverSubtitle = obj.cover && typeof obj.cover === 'object' ? (obj.cover as Record<string, unknown>).subtitle : null;
+  // cover.highlights: anahtar kavramlar artık ders notuyla AYNI çağrıda üretiliyor
+  // (kullanıcının 2026-09-25 kararı). publishTopicContent bunu zaten kabul ediyor, sadece
+  // buradan geçirilmesi gerekiyordu. Model atlarsa :51 worker'ı emniyet ağı olarak dolduruyor.
+  const coverObj = obj.cover && typeof obj.cover === 'object' ? (obj.cover as Record<string, unknown>) : null;
+  const coverSubtitle = typeof coverObj?.subtitle === 'string' ? coverObj.subtitle.trim() : '';
+  const coverHighlights = normalizeHighlights(Array.isArray(coverObj?.highlights) ? (coverObj.highlights as IncomingHighlight[]) : []);
+  const cover = coverSubtitle || coverHighlights.length
+    ? {
+        ...(coverSubtitle ? { subtitle: coverSubtitle } : {}),
+        ...(coverHighlights.length ? { highlights: coverHighlights } : {}),
+      }
+    : null;
 
   return {
-    cover: typeof coverSubtitle === 'string' && coverSubtitle.trim() ? { subtitle: coverSubtitle.trim() } : null,
+    cover,
     sections,
     summary_markdown: typeof obj.summary_markdown === 'string' ? obj.summary_markdown.trim() || null : null,
     discussion_prompt_markdown: typeof obj.discussion_prompt_markdown === 'string' ? obj.discussion_prompt_markdown.trim() || null : null,
@@ -159,15 +171,17 @@ export async function generateNextAiContentDraft(supabase: Supabase): Promise<Co
   const sourcePlaceholder = eligible.source_kind === 'synthesis' ? '{source_text}' : '{book_content}';
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
-  const [explanationNotebookRules, topicSummaryDiscussionRules, template] = await Promise.all([
+  const [explanationNotebookRules, topicSummaryDiscussionRules, topicHighlightsRules, template] = await Promise.all([
     readFile(path.join(promptDir, '_explanation-notebook-rules.md'), 'utf8').catch(() => ''),
     readFile(path.join(promptDir, '_topic-summary-discussion-rules.md'), 'utf8').catch(() => ''),
+    readFile(path.join(promptDir, '_topic-highlights-rules.md'), 'utf8').catch(() => ''),
     readFile(path.join(promptDir, templateFile), 'utf8'),
   ]);
 
   const prompt = template
     .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
     .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
+    .replaceAll('{topic_highlights_rules}', topicHighlightsRules)
     .replaceAll('{grade}', gradeRow.name)
     .replaceAll('{lesson}', lessonRow.name)
     .replaceAll('{unit}', unitRow.title)

@@ -25,7 +25,7 @@ type Draft = {
   id: number;
   topicId: number;
   aiModel: string | null;
-  cover: { subtitle?: string } | null;
+  cover: { subtitle?: string; highlights?: { icon: string | null; title: string; description: string }[] } | null;
   sections: DraftSection[];
   summaryMarkdown: string | null;
   discussionPromptMarkdown: string | null;
@@ -216,6 +216,22 @@ export default function AiContentDraftsPanel() {
 
                 {draft.cover?.subtitle && (
                   <p className="mb-3 rounded-xl bg-surface px-3 py-2 text-xs italic text-muted-foreground">{draft.cover.subtitle}</p>
+                )}
+
+                {/* Anahtar kavramlar artık ders notuyla aynı AI çağrısında üretiliyor —
+                    onaylamadan önce burada görünsün (kullanıcının 2026-09-25 isteği). */}
+                {!!draft.cover?.highlights?.length && (
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {draft.cover.highlights.map((h, idx) => (
+                      <span
+                        key={idx}
+                        title={h.description}
+                        className="rounded-full bg-surface px-2.5 py-1 text-[11px] text-muted-foreground"
+                      >
+                        {h.icon ? `${h.icon} ` : ''}{h.title}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
                 <div className="space-y-3">

@@ -78,9 +78,15 @@ export async function generateNextTopicHighlights(supabase: Supabase): Promise<T
     : 'Bu konu için tanımlı kazanım bulunamadı.';
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
-  const template = await readFile(path.join(promptDir, '07-topic-highlights.md'), 'utf8');
+  // Kavram kuralları içerik üretimiyle (20/31 numaralı promptlar) ORTAK dosyada — worker ile
+  // içerik üretimi aynı kuralları uygulasın diye tek kaynak.
+  const [highlightsRules, template] = await Promise.all([
+    readFile(path.join(promptDir, '_topic-highlights-rules.md'), 'utf8').catch(() => ''),
+    readFile(path.join(promptDir, '07-topic-highlights.md'), 'utf8'),
+  ]);
 
   const prompt = template
+    .replaceAll('{topic_highlights_rules}', highlightsRules)
     .replaceAll('{grade}', gradeRow.name)
     .replaceAll('{lesson}', lessonRow.name)
     .replaceAll('{unit}', unitRow.title)

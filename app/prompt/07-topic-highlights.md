@@ -13,11 +13,8 @@ Konunun ders notu (varsa, kavramları öncelikle buradan çıkar):
 {topic_content}
 
 Kurallar:
-- Sadece bu konuya ÖZGÜ, somut ve doğrulanabilir kavram/terimler seç — genel geçer, her konuya uyan kavram YOK.
-- Yukarıda "Konunun ders notu" doluysa kavramları SADECE oradan çıkar, yeni bilgi uydurma. Boşsa (henüz ders notu yoksa) kazanımlara ve konu başlığına dayanarak üret.
-- Her kavramın açıklaması 1 kısa cümle olsun (tanım niteliğinde, madde madde değil).
-- icon alanına kavramla ilgili TEK bir emoji yaz.
-- title alanı en fazla 3 kelime olsun.
+{topic_highlights_rules}
+- Yukarıda "Konunun ders notu" doluysa kavramları SADECE oradan çıkar. Boşsa (henüz ders notu yoksa) kazanımlara ve konu başlığına dayanarak üret.
 
 SADECE bu JSON'u döndür, başka metin ekleme:
 {

@@ -9,7 +9,7 @@ type DraftRow = {
   lesson_id: number;
   grade_id: number;
   ai_model: string | null;
-  cover: { subtitle?: string } | null;
+  cover: { subtitle?: string; highlights?: { icon: string | null; title: string; description: string }[] } | null;
   sections: unknown;
   summary_markdown: string | null;
   discussion_prompt_markdown: string | null;

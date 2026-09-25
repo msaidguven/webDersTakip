@@ -1,0 +1,5 @@
+- Kavramları ders notunun kendisinden çıkar — notta geçmeyen bir kavram ekleme, yeni bilgi uydurma.
+- Sadece bu konuya ÖZGÜ, somut ve doğrulanabilir kavram/terimler seç — genel geçer, her konuya uyan kavram YOK.
+- Her kavramın açıklaması 1 kısa cümle olsun (tanım niteliğinde, madde madde değil).
+- icon alanına kavramla ilgili TEK bir emoji yaz.
+- title alanı en fazla 3 kelime olsun.
