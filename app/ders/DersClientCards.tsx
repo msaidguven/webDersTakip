@@ -23,9 +23,11 @@ export interface StudyModeOption {
   description: string;
   icon: React.ReactNode;
   iconClass: string;
+  // Kart artık SADECE seçiliyken değil, her zaman kendi pastel zeminini taşıyor
+  // (kullanıcının 2026-09-25 kararı) — restClass o sakin hâli, activeClass seçili hâli.
+  restClass: string;
   activeClass: string;
   railClass: string;
-  badge: string;
   available: boolean;
   // "Konu Kavrama Testi" kartı artık aradaki CTA ekranını atlayıp tıklanır tıklanmaz test
   // verisini çekip direkt soru modalını açıyor (kullanıcının 2026-09-24 isteği) — fetch
@@ -57,51 +59,41 @@ export function StudyModeSelector({
               onClick={() => onSelect(item.id)}
               disabled={item.loading}
               aria-pressed={active}
-              className={`group relative flex items-center justify-between rounded-xl border p-4 text-left transition-all duration-200 disabled:cursor-wait ${active
-                  ? `${item.activeClass} shadow-sm ring-1 ring-indigo-500/20`
-                  : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+              className={`group relative flex items-center gap-3.5 overflow-hidden rounded-xl border p-4 text-left transition-all duration-200 disabled:cursor-wait ${active
+                  ? `${item.activeClass} shadow-sm ring-1 ring-slate-900/10`
+                  : `${item.restClass} hover:shadow-sm`
                 }`}
             >
-              {/* Sol Vurgu Şeridi */}
-              <span className={`absolute inset-y-0 left-0 w-1 rounded-l-xl ${active ? item.railClass : 'bg-transparent group-hover:bg-slate-300'}`} />
+              {/* Sol Vurgu Şeridi — seçiliyken dolu, boştayken soluk ama yine de o kartın rengi */}
+              <span className={`absolute inset-y-0 left-0 w-1 ${active ? item.railClass : `${item.railClass} opacity-40`}`} />
 
-              <div className="flex items-center gap-3.5 pl-1.5 min-w-0 flex-1">
-                {/* İkon Kapsülü */}
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base font-semibold shadow-sm ${item.iconClass}`}>
-                  {item.icon}
+              {/* İkon Kapsülü */}
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm ${item.iconClass}`}>
+                {item.icon}
+              </span>
+
+              {/* Metin — rozet kaldırıldı (başlığın tekrarıydı: "Anahtar Kavramlar" -> "Kavram"),
+                  böylece başlık tek satıra sığıyor ve sarmıyor. */}
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
+                  {item.title}
                 </span>
-
-                {/* Metin İçeriği - Sıkışmayı Önleyen Tipografi */}
-                <div className="min-w-0 flex-1 pr-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold tracking-tight text-slate-900">
-                      {item.title}
-                    </span>
-                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0 ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      {item.badge}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs font-normal text-slate-600 leading-snug">
-                    {item.description}
-                  </p>
-                </div>
+                <p className="mt-0.5 text-xs font-normal leading-snug text-slate-600 line-clamp-2">
+                  {item.description}
+                </p>
               </div>
 
-              {/* Sağ İkon ve Sıra Numarası */}
-              <div className="flex items-center gap-2 shrink-0 border-l border-slate-100 pl-3">
-                <span className={`text-xs font-bold tracking-wider ${active ? 'text-slate-900' : 'text-slate-400'}`}>
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white'}`}>
-                  {item.loading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : active ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  )}
-                </span>
-              </div>
+              {/* Sağ ikon — 01-04 sıra numarası kaldırıldı: kartlar 2 sütunlu gridde
+                  duruyor, numaralar olmayan bir okuma sırası ima ediyordu. */}
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-white/70 text-slate-500 group-hover:bg-slate-900 group-hover:text-white'}`}>
+                {item.loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : active ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
+              </span>
             </button>
           );
         })}

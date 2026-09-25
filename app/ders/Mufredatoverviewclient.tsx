@@ -529,7 +529,7 @@ export default function MufredatOverviewClient({
                                   href={bankHref}
                                   className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                                 >
-                                  <ListChecks className="h-3 w-3" /> {questionCount}
+                                  <ListChecks className="h-3 w-3" /> {questionCount} soru
                                 </Link>
                               )}
                               <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-indigo-500" />

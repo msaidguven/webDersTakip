@@ -42,3 +42,23 @@ export function summarizeWindows(rows: ClassifiableRun[]): { last24h: RunSummary
     last7d: summarizeRuns(rows),
   };
 }
+
+// Worker log'larından üretilen konunun public sayfasına link — PostgREST FK embedding ile
+// gelen `topics(title, slug, units(title, slug, lessons(name, slug), grades(name, slug)))`.
+export const TOPIC_LINK_SELECT = 'topics(title, slug, units(title, slug, lessons(name, slug), grades(name, slug)))';
+
+type Slugged = { slug: string | null };
+export type EmbeddedTopic = {
+  title: string;
+  slug: string | null;
+  units: (Slugged & { title: string; lessons: (Slugged & { name: string }) | null; grades: (Slugged & { name: string }) | null }) | null;
+} | null;
+
+export function describeTopic(t: EmbeddedTopic): { topic_title: string | null; context: string | null; href: string | null } {
+  const u = t?.units;
+  return {
+    topic_title: t?.title ?? null,
+    context: u ? [u.grades?.name, u.lessons?.name, u.title].filter(Boolean).join(' · ') : null,
+    href: t?.slug && u?.slug && u.lessons?.slug && u.grades?.slug ? `/${u.grades.slug}/${u.lessons.slug}/${u.slug}/${t.slug}` : null,
+  };
+}

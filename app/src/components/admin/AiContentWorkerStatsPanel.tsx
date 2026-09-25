@@ -4,8 +4,8 @@
 // kullanıcının 2026-09-25 isteği: "ne kadar çalıştı ve ne kadarı başarılı". İki model yan
 // yana duruyor ki 503 fallback kararı gibi seçimler buradan okunabilsin.
 import { useEffect, useState } from 'react';
-import type { FailureKind, RunSummary } from '@/app/src/lib/workerRunStats';
-import { FAILURE_LABELS, FailureBreakdown, RunSummaryTiles, formatRunTime } from '@/app/src/components/admin/WorkerRunStats';
+import type { RunSummary } from '@/app/src/lib/workerRunStats';
+import { FailureBreakdown, RecentRunList, RunSummaryTiles, type RecentRun } from '@/app/src/components/admin/WorkerRunStats';
 
 type WorkerStats = {
   id: string;
@@ -13,7 +13,7 @@ type WorkerStats = {
   cronMinute: number;
   last24h: RunSummary;
   last7d: RunSummary;
-  recent: { id: number; generated: boolean; reason: string | null; failureKind: FailureKind | null; created_at: string }[];
+  recent: RecentRun[];
 };
 
 export default function AiContentWorkerStatsPanel() {
@@ -71,26 +71,8 @@ export default function AiContentWorkerStatsPanel() {
               <RunSummaryTiles last24h={w.last24h} last7d={w.last7d} windowDays={windowDays} />
               <FailureBreakdown summary={w.last7d} windowDays={windowDays} />
 
-              <div>
-                <h3 className="mb-1.5 text-xs font-bold text-muted-foreground">Son çalışmalar</h3>
-                {w.recent.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Henüz çalışma kaydı yok</p>
-                ) : (
-                  <ul className="divide-y divide-border rounded-xl border border-border">
-                    {w.recent.map((run) => (
-                      <li key={run.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs" title={run.reason ?? undefined}>
-                        <span className="shrink-0 text-muted-foreground tabular-nums">
-                          {formatRunTime(run.created_at)}
-                        </span>
-                        <span className={`truncate text-right ${run.generated ? 'text-emerald-300' : 'text-amber-300'}`}>
-                          {run.generated ? '✓ Taslak üretildi' : FAILURE_LABELS[run.failureKind ?? 'other']}
-                        </span>
-                      </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </section>
+              <RecentRunList runs={w.recent} emptyText="Henüz çalışma kaydı yok" />
+            </section>
           ))}
         </div>
       )}

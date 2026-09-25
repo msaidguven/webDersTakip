@@ -1,5 +1,7 @@
 // AI worker sekmelerinin (Model Performansı, AI Anahtar Kavramlar) ortak özet parçaları —
 // sınıflandırma mantığı app/src/lib/workerRunStats.ts'te.
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
 import type { FailureKind, RunSummary } from '@/app/src/lib/workerRunStats';
 
 export const FAILURE_LABELS: Record<FailureKind, string> = {
@@ -10,7 +12,7 @@ export const FAILURE_LABELS: Record<FailureKind, string> = {
   other: 'Diğer hata',
 };
 
-export function formatRunTime(iso: string): string {
+function formatRunTime(iso: string): string {
   return new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -52,6 +54,63 @@ export function FailureBreakdown({ summary, windowDays }: { summary: RunSummary;
               <span className="tabular-nums text-foreground">{n}</span>
             </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export type RecentRun = {
+  id: number;
+  generated: boolean;
+  reason: string | null;
+  failureKind: FailureKind | null;
+  created_at: string;
+  topic_id: number | null;
+  topic_title: string | null;
+  context: string | null;
+  href: string | null;
+};
+
+// Başarılı satırda üretilen konu + public sayfasına yeni sekmede link, başarısızda neden.
+export function RecentRunList({ runs, emptyText }: { runs: RecentRun[]; emptyText: string }) {
+  return (
+    <div>
+      <h3 className="mb-1.5 text-xs font-bold text-muted-foreground">Son çalışmalar</h3>
+      {runs.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{emptyText}</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {runs.map((run) => {
+            const title = run.topic_title || (run.topic_id ? `Konu #${run.topic_id}` : 'Üretildi');
+            return (
+              <li key={run.id} className="flex items-center gap-3 px-3 py-2.5 text-xs" title={run.reason ?? undefined}>
+                <span className="shrink-0 text-muted-foreground tabular-nums">{formatRunTime(run.created_at)}</span>
+                {run.generated ? (
+                  <div className="min-w-0 flex-1">
+                    {run.href ? (
+                      <Link
+                        href={run.href}
+                        target="_blank"
+                        className="inline-flex max-w-full items-center gap-1 font-bold text-emerald-300 hover:underline"
+                      >
+                        <span className="truncate">{title}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                        <span className="sr-only">(yeni sekmede açılır)</span>
+                      </Link>
+                    ) : (
+                      <span className="block truncate font-bold text-emerald-300">{title}</span>
+                    )}
+                    {run.context && <span className="block truncate text-muted-foreground">{run.context}</span>}
+                  </div>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-right text-amber-300">
+                    {FAILURE_LABELS[run.failureKind ?? 'other']}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
