@@ -4,6 +4,7 @@
 
 import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { unitAccent } from '@/app/src/lib/unitAccents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -81,17 +82,6 @@ function academicYearLabel(): string {
   return now.getMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
-// Her ünite için farklı ama sade vurgu renkleri — headerBg, kullanıcının 2026-09-06 verdiği
-// lacivert+nane yeşili tasarım referansına göre eklendi: ünite başlık şeridi artık düz gri
-// değil, o ünitenin vurgu rengiyle hafifçe tonlanıyor (mockup'taki gibi).
-const UNIT_ACCENTS = [
-  { border: 'border-l-4 border-l-indigo-500', badge: 'bg-indigo-100 text-indigo-700', headerBg: 'bg-indigo-50/60' },
-  { border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 text-purple-700', headerBg: 'bg-purple-50/60' },
-  { border: 'border-l-4 border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700', headerBg: 'bg-emerald-50/60' },
-  { border: 'border-l-4 border-l-amber-500', badge: 'bg-amber-100 text-amber-700', headerBg: 'bg-amber-50/60' },
-  { border: 'border-l-4 border-l-rose-500', badge: 'bg-rose-100 text-rose-700', headerBg: 'bg-rose-50/60' },
-  { border: 'border-l-4 border-l-sky-500', badge: 'bg-sky-100 text-sky-700', headerBg: 'bg-sky-50/60' },
-];
 
 // useSearchParams() bir bileşeni statik/ISR render'da Suspense'e sokup client-only render'a
 // zorluyor (Next kısıtlaması). Bunu, içeriğin TAMAMINI (bütün konu/ünite listesini) taşıyan
@@ -361,7 +351,7 @@ export default function MufredatOverviewClient({
               {units.map((unit, unitIdx) => {
                 const displayNo = unitIdx + 1;
                 const topics = unit.topics ?? [];
-                const accent = UNIT_ACCENTS[unitIdx % UNIT_ACCENTS.length];
+                const accent = unitAccent(unitIdx);
                 const start = unit.start_week;
                 const end = unit.end_week;
                 const isDraftUnit = unit.is_active === false;

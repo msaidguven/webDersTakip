@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { formatWeekDateRangeLabel, getWeekDateRange, getCurriculumWeekFromDate, resolveTeachingWeek, teachingWeekToCalendarWeek, calendarWeeksBetween, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import { getLessonColor } from '@/app/src/lib/homeMapping';
+import { unitAccent } from '@/app/src/lib/unitAccents';
 import SectionContent from './SectionContent';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
@@ -1714,9 +1715,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
               contents.length > 0 ? contents.map((topic, idx) => renderTopicItem(topic, idx, activeUnit as Unit, true)) : (
                 <div className="text-center p-4 text-sm text-slate-400 font-medium">Konular yükleniyor...</div>
               )
-            ) : sortedUnits.length > 0 ? sortedUnits.map((unit) => {
+            ) : sortedUnits.length > 0 ? sortedUnits.map((unit, unitIdx) => {
               const isActiveUnit = String(unit.id) === String(activeUnit?.id);
               const isDraftUnit = unit.is_active === false;
+              // Müfredat sayfasıyla AYNI palet, aynı sırada — bir ünite her iki sayfada da
+              // aynı rengi taşıyor (kullanıcının 2026-09-25 kararı: "her ünite kendi rengi").
+              const accent = unitAccent(unitIdx);
               const unitKey = String(unit.id);
               const isUnitExpanded = expandedUnitIds.has(unitKey);
               const unitTopics = isActiveUnit ? contents : (unitTopicsCache[unitKey] || []);
@@ -1728,17 +1732,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       type="button"
                       onClick={() => handleUnitHeaderClick(unit)}
                       className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                        isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                        isDraftUnit ? 'bg-amber-50/60' : isActiveUnit ? accent.activeBg : 'hover:bg-slate-50'
                       }`}
                     >
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : isActiveUnit ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${isDraftUnit ? 'bg-amber-500' : accent.dot}`} />
                       {/* Ünite adı ARTIK KESİLMİYOR (kullanıcının 2026-09-25 şikayeti:
                           "üniteler ve konular iç içe girmiş"). Eski truncate, ünite adını
                           "BİLİŞİM TEKNOLOJİLERİNİN H..." diye yarıda bırakırken altındaki
                           konu adları line-clamp-2 ile tam görünüyordu — hiyerarşi tersine
                           dönüyordu. Renk de slate-500'den slate-800'e çekildi ki ünite,
                           çocuğu olan konulardan görsel olarak baskın olsun. */}
-                      <span className={`flex-1 min-w-0 text-[13px] font-black uppercase leading-tight tracking-wide line-clamp-2 ${isDraftUnit ? 'text-amber-700' : isActiveUnit ? 'text-indigo-700' : 'text-slate-800'}`}>
+                      <span className={`flex-1 min-w-0 text-[13px] font-black uppercase leading-tight tracking-wide line-clamp-2 ${isDraftUnit ? 'text-amber-700' : accent.text}`}>
                         {unit.title}
                       </span>
                       {isDraftUnit && (
@@ -1751,7 +1755,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                   </div>
 
                   {isUnitExpanded && (
-                    <div className="ml-4 mt-1 mb-2 space-y-0.5 border-l-2 border-slate-200 pl-3">
+                    <div className={`ml-4 mt-1 mb-2 space-y-0.5 border-l-2 pl-3 ${isDraftUnit ? 'border-amber-200' : accent.rail}`}>
                       {isLoadingUnit && !unitTopics.length ? (
                         <div className="px-3 py-2 text-xs font-medium text-slate-400">Yükleniyor...</div>
                       ) : unitTopics.length === 0 ? (
