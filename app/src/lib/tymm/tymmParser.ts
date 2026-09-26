@@ -16,7 +16,18 @@ export type TymmProcessComponent = { letter: string; text: string };
 // Çerçevesi'ndeki karşılık gelen kısa başlık (ör. "İnsanlara Rehber: Peygamber") — sayfada
 // İçerik Çerçevesi satır sayısı öğrenme çıktısı sayısıyla aynıysa sırayla eşleniyor, aksi
 // halde (nadir) öğrenme çıktısı cümlesine düşülüyor.
-export type TymmLearningOutcome = { code: string; title: string; topicTitle: string; components: TymmProcessComponent[] };
+export type TymmLearningOutcome = {
+  code: string;
+  title: string;
+  topicTitle: string;
+  components: TymmProcessComponent[];
+  // Sadece "süreç bileşenlerini konulara dağıt" dalında dolu: bölünmeden önceki asıl öğrenme
+  // çıktısı. Bu bölme bir TAHMİN — bazı ünitelerde a/b/c... konulara değil, HER konuyu
+  // kapsayan süreç adımlarına karşılık geliyor (ör. DKAB.7.5.1: "araştırır/bulur/doğrular/
+  // kaydeder", dört dinin hepsi için). Admin öğrenme çıktısını bölmeden kaydettiyse
+  // compareUnits.ts DB grubunu bununla kıyaslayabilsin diye saklanıyor.
+  splitFrom?: { code: string; title: string; components: TymmProcessComponent[] };
+};
 export type TymmUnit = {
   unitNumber: number | null;
   unitTitle: string;
@@ -363,6 +374,7 @@ export function parseTymmUnitHtml(html: string): ParseTymmResult {
         title: c.text,
         topicTitle: withoutGroupHeaders[frameworkIdx++],
         components: [c],
+        splitFrom: { code: o.code, title: o.title, components: o.components },
       }))
     );
     boundaryWarnings.push(

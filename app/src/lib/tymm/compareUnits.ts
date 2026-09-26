@@ -294,6 +294,21 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
   for (const lo of tymmUnit.learningOutcomes) {
     if (lo.code) tymmByCode.set(normCode(lo.code), lo);
   }
+  // Parser bir öğrenme çıktısını süreç bileşenlerine bölüp konulara dağıttıysa (DKAB.7.5.1 →
+  // 7.5.1a/b/c/ç), DB'de bölünmeden (tam kodla, her konuda aynı) kaydedilmiş hâli de geçerli
+  // sayılmalı — yoksa bölmenin yanlış olduğu ünitelerde her konu "eşleşmiyor" görünüyor
+  // (kullanıcının 2026-09-26 bildirimi, 7. sınıf DKAB "Yaşayan Dünya Dinleri"). Asıl çıktı
+  // kendi koduyla haritaya ekleniyor; bölünmüş kodlarla kayıtlı üniteler (ör. DKAB.6.5.1a)
+  // eskisi gibi kendi parça kodlarıyla eşleşiyor.
+  const splitChildCodes = new Map<string, string[]>();
+  for (const lo of tymmUnit.learningOutcomes) {
+    if (!lo.splitFrom?.code || !lo.code) continue;
+    const parentCode = normCode(lo.splitFrom.code);
+    if (!tymmByCode.has(parentCode)) {
+      tymmByCode.set(parentCode, { code: lo.splitFrom.code, title: lo.splitFrom.title, topicTitle: '', components: lo.splitFrom.components });
+    }
+    splitChildCodes.set(parentCode, [...(splitChildCodes.get(parentCode) ?? []), normCode(lo.code)]);
+  }
   const matchedTymmCodes = new Set<string>();
 
   // TYMM'in kendi topicTitle tahmini SADECE şu durumda kullanılıyor: DB'de hiçbir konuya
@@ -332,7 +347,11 @@ function diffTopics(tymmUnit: TymmUnit, dbTopics: DbTopic[], overrides: Override
     // esas alınıyor; her grup KENDİ KODUYLA TYMM'de aranıp sırayla/sayıca kıyaslanıyor.
     const learningOutcomeDiffs = dbGroups.map((g) => {
       const tymmLo = g.code ? tymmByCode.get(normCode(g.code)) : undefined;
-      if (tymmLo && g.code) matchedTymmCodes.add(normCode(g.code));
+      if (tymmLo && g.code) {
+        matchedTymmCodes.add(normCode(g.code));
+        // Asıl çıktı eşleştiyse parçaları "TYMM'de var, DB'de yok" diye ayrıca listelenmesin.
+        for (const child of splitChildCodes.get(normCode(g.code)) ?? []) matchedTymmCodes.add(child);
+      }
       return diffLearningOutcomeByCode(g, tymmLo, overrides);
     });
     const topicSame = learningOutcomeDiffs.every((d) => d.status === 'same');
