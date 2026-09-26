@@ -11,6 +11,7 @@ import { getWeeklyActiveDays } from '@/app/src/lib/dashboardStreak';
 import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { PanelShell } from '@/app/src/components/PanelShell';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
+import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '@/app/src/lib/username';
 
 interface ProfileRow {
   full_name: string | null;
@@ -594,8 +595,6 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
 
 // ==================== KİŞİSEL BİLGİLER ====================
 
-const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
-
 function PersonalInfoCard({
   initialFullName,
   initialUsername,
@@ -624,7 +623,7 @@ function PersonalInfoCard({
     }
     const trimmedUsername = uname.trim().toLowerCase();
     if (trimmedUsername && !USERNAME_PATTERN.test(trimmedUsername)) {
-      showNotice('error', 'Kullanıcı adı 3-20 karakter olmalı, sadece küçük harf, rakam ve alt çizgi (_) içerebilir');
+      showNotice('error', USERNAME_RULES_MESSAGE);
       return;
     }
     setSaving(true);
@@ -699,8 +698,8 @@ function PersonalInfoCard({
               <input
                 type="text"
                 value={uname}
-                onChange={(e) => setUname(e.target.value.toLowerCase())}
-                maxLength={20}
+                onChange={(e) => setUname(normalizeUsernameInput(e.target.value))}
+                maxLength={30}
                 placeholder="kullanici_adi"
                 className="w-full pl-7 pr-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
               />

@@ -45,12 +45,17 @@ export async function GET(request: NextRequest) {
         // Google kullanıcısını profilsiz bırakmıştı. Alanlar sabit — client'tan bir şey
         // alınmıyor, user id exchangeCodeForSession'dan doğrulanmış geliyor.
         const meta = data.user.user_metadata || {};
-        const { error: insertError } = await createServiceClient().from('profiles').upsert({
+        const service = createServiceClient();
+        // Trigger'la aynı kural: e-postanın @ öncesinden, boşta olan bir kullanıcı adı.
+        const { data: username } = await service.rpc('make_unique_username', { p_seed: data.user.email ?? '' });
+        const { error: insertError } = await service.from('profiles').upsert({
           id: data.user.id,
           full_name: meta.full_name || meta.name || null,
           avatar_url: meta.avatar_url || meta.picture || null,
+          username: typeof username === 'string' ? username : null,
           role: 'student',
           onboarding_completed: false,
+          profile_prompt_pending: true,
         }, { onConflict: 'id', ignoreDuplicates: true });
 
         if (insertError) {

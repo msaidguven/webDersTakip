@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../src/context/AuthContext';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
+import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '../src/lib/username';
 
 function makeMathChallenge() {
   return { a: 1 + Math.floor(Math.random() * 9), b: 1 + Math.floor(Math.random() * 9) };
@@ -19,6 +20,7 @@ export default function RegisterPage() {
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
   const [formData, setFormData] = useState({
     fullName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -74,6 +76,10 @@ export default function RegisterPage() {
       setMathAnswer('');
       return;
     }
+    if (!USERNAME_PATTERN.test(formData.username)) {
+      setBotError(USERNAME_RULES_MESSAGE);
+      return;
+    }
     if (role === 'teacher' && selectedLessonIds.size === 0) {
       setBotError('En az bir branş (ders) seçmelisin');
       return;
@@ -81,6 +87,7 @@ export default function RegisterPage() {
 
     await register({
       fullName: formData.fullName,
+      username: formData.username,
       email: formData.email,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
@@ -220,6 +227,31 @@ export default function RegisterPage() {
                 placeholder="Ahmet Yilmaz"
                 required
               />
+            </div>
+
+            <div>
+              <label htmlFor="register-username" className="block text-sm text-muted-foreground mb-2">Kullanıcı Adı</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                <input
+                  id="register-username"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => handleChange('username', normalizeUsernameInput(e.target.value))}
+                  className={`${inputClass} pl-9`}
+                  placeholder="ahmet.yilmaz"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  aria-describedby="register-username-hint"
+                />
+              </div>
+              <p id="register-username-hint" className="mt-1.5 text-xs text-muted-foreground">
+                Liderlik tablosu ve yorumlarda bu ad görünür. Sonradan profilinden değiştirebilirsin.
+              </p>
             </div>
 
             <div>

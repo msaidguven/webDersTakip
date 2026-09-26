@@ -11,6 +11,7 @@ import { Icon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
+import { ProfilePromptBanner } from './ProfilePromptBanner';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -208,6 +209,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Ana İçerik */}
       <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
+        {!hideHeader && <ProfilePromptBanner />}
         {children}
       </main>
 

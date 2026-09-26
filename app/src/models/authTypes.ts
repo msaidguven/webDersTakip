@@ -24,6 +24,7 @@ export interface LoginCredentials {
 
 export interface RegisterData extends LoginCredentials {
   fullName: string;
+  username: string;
   confirmPassword: string;
   // Öğrenci/öğretmen ayrımı artık AYNI formda (kullanıcı isteği, 2026-09-12) — role'e göre
   // ya gradeId (öğrenci) ya lessonIds (öğretmen, "hangi branş(lar)da ders veriyorsun") gelir.

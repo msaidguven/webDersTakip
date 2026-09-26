@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 import { getClientIp, checkAuthRateLimit, recordAuthAttempt, verifyBotChallenge } from '@/app/src/lib/authSecurity';
 
 // Öğrenci VE öğretmen kaydı — ayrı bir "Öğretmen Girişi" sayfası kaldırıldı (kullanıcı
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
     email?: unknown;
     password?: unknown;
     fullName?: unknown;
+    username?: unknown;
     role?: unknown;
     gradeId?: unknown;
     lessonIds?: unknown;
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
   const email = typeof body.email === 'string' ? body.email.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
   const role = body.role === 'teacher' ? 'teacher' : 'student';
   const gradeId = typeof body.gradeId === 'number' && Number.isInteger(body.gradeId) ? body.gradeId : null;
   const lessonIds = Array.isArray(body.lessonIds)
@@ -52,6 +55,10 @@ export async function POST(request: NextRequest) {
   if (!email || password.length < 6 || !fullName) {
     await recordAuthAttempt(ip, 'register', false);
     return NextResponse.json({ error: 'E-posta, şifre (en az 6 karakter) ve ad soyad gerekli' }, { status: 400 });
+  }
+  if (!USERNAME_PATTERN.test(username)) {
+    await recordAuthAttempt(ip, 'register', false);
+    return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 });
   }
   if (role === 'student' && !gradeId) {
     await recordAuthAttempt(ip, 'register', false);
@@ -63,6 +70,13 @@ export async function POST(request: NextRequest) {
   }
 
   const service = createServiceClient();
+
+  // Auth hesabı açılmadan ÖNCE: alınmış kullanıcı adı yüzünden hesap açılıp hemen geri
+  // silinmesin. Aradaki yarış (iki kişi aynı anda) aşağıda 23505 ile ayrıca yakalanıyor.
+  const { data: takenRow } = await service.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (takenRow) {
+    return NextResponse.json({ error: 'Bu kullanıcı adı zaten alınmış' }, { status: 409 });
+  }
 
   // email_confirm:true — admin.createUser onay maili GÖNDERMİYOR; bu bayrak olmadan hesap
   // sonsuza kadar "onaylanmamış" kalıyor ve aşağıdaki signInWithPassword "Email not
@@ -84,13 +98,16 @@ export async function POST(request: NextRequest) {
   // AYNI sütunun false başlayıp /profil'de tamamlanması, app/auth/callback/route.ts).
   const { error: profileError } = await service.from('profiles').insert(
     role === 'teacher'
-      ? { id: created.user.id, full_name: fullName, role: 'teacher', is_verified: false, onboarding_completed: true }
-      : { id: created.user.id, full_name: fullName, role: 'student', grade_id: gradeId, onboarding_completed: true }
+      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true }
+      : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true }
   );
 
   if (profileError) {
     await service.auth.admin.deleteUser(created.user.id);
     await recordAuthAttempt(ip, 'register', false);
+    if (profileError.code === '23505') {
+      return NextResponse.json({ error: 'Bu kullanıcı adı zaten alınmış' }, { status: 409 });
+    }
     return NextResponse.json({ error: 'Kayıt yapılamadı' }, { status: 500 });
   }
 

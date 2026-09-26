@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 
 const EDITABLE_FIELDS = ['full_name', 'username', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
 const MAX_TEACHER_LESSONS = 10;
 
-// profiles.username DB'de sadece UNIQUE, başka bir format kısıtı yok (bkz. db_schemas.sql).
-// Liderlik tablosu ve yorumlar bu alanı gösteriyor (full_name yerine, gizlilik için — bkz.
-// add_weekly_leaderboard_rpc.sql), bu yüzden burada makul bir kullanıcı adı formatı
-// uygulama katmanında zorlanıyor: 3-20 karakter, küçük harf/rakam/alt çizgi.
-const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+// Kullanıcı adı kuralı app/src/lib/username.ts'te (DB'de profiles_username_format CHECK'i
+// ile aynı). Liderlik tablosu ve yorumlar bu alanı gösteriyor (full_name yerine, gizlilik
+// için — bkz. add_weekly_leaderboard_rpc.sql).
 
 // /profil sayfası artık tamamen client-side render oluyor (bkz. ProfilClient.tsx) — sayfa
 // kabuğu (Sidebar/TopBar) bekletilmeden hemen çizilsin diye kendi profilini okuma da
@@ -28,7 +27,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('full_name, username, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed')
+    .select('full_name, username, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed, profile_prompt_pending')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -66,6 +65,8 @@ export async function PATCH(request: NextRequest) {
   for (const key of EDITABLE_FIELDS) {
     if (key in rawPatch) patch[key] = rawPatch[key];
   }
+  // Yeni üye "profilini güncelle" uyarısı: sadece kapatılabilir (false), kullanıcı geri açamaz.
+  if (rawPatch.profile_prompt_pending === false) patch.profile_prompt_pending = false;
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: 'Güncellenecek alan yok' }, { status: 400 });
   }
@@ -75,9 +76,12 @@ export async function PATCH(request: NextRequest) {
     if (raw === null) {
       // kullanıcı adını kaldırmasına izin veriliyor (leaderboard/yorumlarda 'Öğrenci' gösterilir)
     } else if (typeof raw !== 'string' || !USERNAME_PATTERN.test(raw)) {
-      return NextResponse.json({ error: 'Kullanıcı adı 3-20 karakter olmalı, sadece küçük harf, rakam ve alt çizgi (_) içerebilir' }, { status: 400 });
+      return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 });
     }
   }
+
+  // Profilde herhangi bir şeyi kaydeden kullanıcı uyarının amacını yerine getirmiş olur.
+  patch.profile_prompt_pending = false;
 
   const service = createServiceClient();
   const { error } = await service.from('profiles').update(patch).eq('id', user.id);
