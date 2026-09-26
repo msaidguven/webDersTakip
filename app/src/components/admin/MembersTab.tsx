@@ -11,11 +11,30 @@ type LookupRow = { id: number; label: string };
 
 const ROLE_LABELS: Record<string, string> = { student: 'Öğrenci', teacher: 'Öğretmen', admin: 'Admin' };
 
-function formatLastSignIn(value: unknown): string {
-  if (typeof value !== 'string' || !value) return 'Hiç giriş yapmadı';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Hiç giriş yapmadı';
-  return date.toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function toTime(value: unknown): number {
+  if (typeof value !== 'string' || !value) return NaN;
+  return new Date(value).getTime();
+}
+
+function formatDateTime(t: number): string {
+  return new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// "Son görülme" = son sayfa ziyareti (profiles.last_seen_at) ile son gerçek girişin
+// (auth last_sign_in_at) yenisi. Sadece last_sign_in_at'e bakmak, oturumu açık kalıp her
+// gün gelen kullanıcıyı haftalarca eski tarihle gösteriyordu.
+function lastSeenTime(m: Member): number {
+  const seen = toTime(m.last_seen_at);
+  const signIn = toTime(m.last_sign_in_at);
+  if (Number.isNaN(seen)) return signIn;
+  if (Number.isNaN(signIn)) return seen;
+  return Math.max(seen, signIn);
+}
+
+function formatLastSeen(m: Member): string {
+  const t = lastSeenTime(m);
+  if (!Number.isNaN(t)) return formatDateTime(t);
+  return m.email_confirmed === false ? 'E-posta onaylanmadı' : 'Hiç giriş yapmadı';
 }
 
 export default function MembersTab() {
@@ -29,7 +48,7 @@ export default function MembersTab() {
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [editRow, setEditRow] = useState<Member | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ ids: string[] } | null>(null);
-  // "Son Giriş" başlığına tıklayınca sıralansın (kullanıcı isteği, 2026-09-15) — sunucudan
+  // "Son Görülme" başlığına tıklayınca sıralansın (kullanıcı isteği, 2026-09-15) — sunucudan
   // gelen liste zaten updated_at'a göre sıralı olduğu için bu SADECE client'ta, o an ekranda
   // olan satırlar üzerinde yapılıyor, ayrı bir API parametresi gerekmiyor. null = sunucudan
   // geldiği sıra, 'desc' = en son giriş yapan üstte, 'asc' = en eski/hiç girmemiş üstte.
@@ -37,7 +56,7 @@ export default function MembersTab() {
 
   const sortedItems = useMemo(() => {
     if (!lastSignInSort) return items;
-    const withTime = items.map((m) => ({ m, t: typeof m.last_sign_in_at === 'string' ? new Date(m.last_sign_in_at).getTime() : NaN }));
+    const withTime = items.map((m) => ({ m, t: lastSeenTime(m) }));
     withTime.sort((a, b) => {
       const aTime = Number.isNaN(a.t) ? -Infinity : a.t;
       const bTime = Number.isNaN(b.t) ? -Infinity : b.t;
@@ -212,7 +231,7 @@ export default function MembersTab() {
                     className="flex items-center gap-1 uppercase tracking-wide hover:text-foreground"
                     title="Sırala"
                   >
-                    Son Giriş
+                    Son Görülme
                     {lastSignInSort === 'desc' ? (
                       <ArrowDown className="h-3.5 w-3.5" />
                     ) : lastSignInSort === 'asc' ? (
@@ -238,7 +257,12 @@ export default function MembersTab() {
                     <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300">{ROLE_LABELS[m.role] || m.role}</span>
                   </td>
                   <td className="p-3 text-muted-foreground">{m.grades?.name || '—'}</td>
-                  <td className="p-3 text-muted-foreground whitespace-nowrap">{formatLastSignIn(m.last_sign_in_at)}</td>
+                  <td
+                    className="p-3 text-muted-foreground whitespace-nowrap"
+                    title={Number.isNaN(toTime(m.last_sign_in_at)) ? undefined : `Son giriş: ${formatDateTime(toTime(m.last_sign_in_at))}`}
+                  >
+                    {formatLastSeen(m)}
+                  </td>
                   <td className="p-3">
                     <span
                       title={m.banned && m.banned_reason ? m.banned_reason : undefined}
@@ -374,6 +398,7 @@ function MemberEditModal({
             <input type="checkbox" checked={isVerified} onChange={(e) => setIsVerified(e.target.checked)} className="w-4 h-4 accent-indigo-500" />
             <span className="text-muted-foreground text-sm">Doğrulanmış hesap</span>
           </label>
+          <MemberPageViews memberId={row.id} />
         </div>
 
         <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
@@ -431,5 +456,65 @@ function ConfirmMemberModal({
         </div>
       </div>
     </div>
+  );
+}
+
+type PageView = { path: string; created_at: string };
+
+function safeDecode(path: string): string {
+  try { return decodeURIComponent(path); } catch { return path; }
+}
+
+// Üyenin son ziyaret ettiği sayfalar (bkz. PageViewTracker + user_page_views).
+function MemberPageViews({ memberId }: { memberId: string }) {
+  const [views, setViews] = useState<PageView[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/manage/members/${memberId}/page-views`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) setError(data.error || 'Yüklenemedi');
+        else setViews(data.items || []);
+      } catch {
+        if (!cancelled) setError('Yüklenemedi');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [memberId]);
+
+  return (
+    <section className="pt-3 border-t border-border">
+      <h4 className="text-muted-foreground text-xs sm:text-sm mb-2">Son ziyaret ettiği sayfalar</h4>
+      {error ? (
+        <p className="text-red-300 text-xs">{error}</p>
+      ) : views === null ? (
+        <p className="text-muted-foreground text-xs">Yükleniyor...</p>
+      ) : views.length === 0 ? (
+        <p className="text-muted-foreground text-xs">Henüz kayıt yok</p>
+      ) : (
+        <ol className="max-h-64 overflow-y-auto divide-y divide-border rounded-xl border border-border">
+          {views.map((v, i) => (
+            <li key={`${v.created_at}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+              <a
+                href={v.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-400 hover:text-indigo-300 truncate min-w-0"
+                title={v.path}
+              >
+                {safeDecode(v.path)}
+              </a>
+              <time dateTime={v.created_at} className="text-muted-foreground whitespace-nowrap shrink-0">
+                {formatDateTime(new Date(v.created_at).getTime())}
+              </time>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }

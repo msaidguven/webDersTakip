@@ -3,7 +3,7 @@ import { StaticPageLayout } from '@/app/src/components/StaticPageLayout';
 
 const canonicalPath = '/gizlilik-politikasi';
 const CONTACT_EMAIL = 'info@derstakip.net';
-const LAST_UPDATED = '12 Ağustos 2026';
+const LAST_UPDATED = '26 Eylül 2026';
 
 export const metadata: Metadata = {
   title: 'Gizlilik Politikası',
@@ -29,6 +29,11 @@ export default function PrivacyPolicyPage() {
         <li>
           <strong>Kullanım verileri:</strong> Çözdüğünüz testler, ilerleme durumunuz ve platform içi
           aktiviteniz gibi hizmeti sunmak için gerekli veriler.
+        </li>
+        <li>
+          <strong>Sayfa ziyaretleri:</strong> Giriş yaptığınızda platformda ziyaret ettiğiniz sayfaların
+          adresi ve zamanı. Bu kayıt yalnızca platformu geliştirmek için kullanılır ve 90 gün sonra
+          otomatik olarak silinir.
         </li>
         <li>
           <strong>Teknik veriler:</strong> Oturumunuzu açık tutmak için gerekli çerezler ve tema tercihiniz

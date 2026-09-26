@@ -64,7 +64,11 @@ export async function POST(request: NextRequest) {
 
   const service = createServiceClient();
 
-  const { data: created, error: createError } = await service.auth.admin.createUser({ email, password });
+  // email_confirm:true — admin.createUser onay maili GÖNDERMİYOR; bu bayrak olmadan hesap
+  // sonsuza kadar "onaylanmamış" kalıyor ve aşağıdaki signInWithPassword "Email not
+  // confirmed" ile düşüyordu (e-postayla kayıt olan herkes hiç giriş yapamıyordu, bulgu
+  // 2026-09-26). Kullanıcı isteği: şimdilik e-posta onayı yok, kayıt olan direkt girer.
+  const { data: created, error: createError } = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (createError || !created.user) {
     await recordAuthAttempt(ip, 'register', false);
     const message = createError?.message?.toLowerCase().includes('already been registered')
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest) {
   // (cookie-bound client ile) yapmak session'ı sunucu tarafında set eder ama tarayıcıdaki
   // Supabase client'ının (AuthContext'in dinlediği) belleğindeki oturumu GÜNCELLEMEZ; kullanıcı
   // sayfayı yenileyene kadar hâlâ "giriş yapmamış" görünür (bkz. kullanıcının 2026-09-05
-  // bildirdiği bug). Proje e-posta onayı istiyorsa bu adım sessizce session'sız döner —
+  // bildirdiği bug). Oturum açma başarısız olursa (ağ hatası vb.) session'sız dönülür —
   // kullanıcı normal şekilde /login üzerinden giriş yapar.
   let session: { access_token: string; refresh_token: string } | null = null;
   try {

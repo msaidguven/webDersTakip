@@ -7,6 +7,7 @@ import { metadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";
 import { StructuredData } from "./src/components/StructuredData";
+import { PageViewTracker } from "./src/components/PageViewTracker";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -66,6 +67,7 @@ export default function RootLayout({
           </>
         )}
         <AuthProvider>
+          <PageViewTracker />
           <MainLayout>
             {children}
           </MainLayout>
