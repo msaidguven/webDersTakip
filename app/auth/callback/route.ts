@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
 // Google (ve ileride eklenebilecek başka OAuth sağlayıcıların) giriş akışının
 // döndüğü yer: Supabase bize bir "code" verir, bunu oturuma çeviriyoruz. İlk kez
@@ -38,14 +39,19 @@ export async function GET(request: NextRequest) {
       let needsOnboarding = false;
 
       if (!existingProfile) {
+        // Profil normalde auth.users insert trigger'ında oluşuyor (bkz.
+        // supabase/migrations/oauth_profile_on_signup_trigger.sql); bu sadece emniyet ağı.
+        // Service role ile: kullanıcının kendi oturumuyla yapılan insert RLS'e takılıp 7
+        // Google kullanıcısını profilsiz bırakmıştı. Alanlar sabit — client'tan bir şey
+        // alınmıyor, user id exchangeCodeForSession'dan doğrulanmış geliyor.
         const meta = data.user.user_metadata || {};
-        const { error: insertError } = await supabase.from('profiles').insert({
+        const { error: insertError } = await createServiceClient().from('profiles').upsert({
           id: data.user.id,
           full_name: meta.full_name || meta.name || null,
           avatar_url: meta.avatar_url || meta.picture || null,
           role: 'student',
           onboarding_completed: false,
-        });
+        }, { onConflict: 'id', ignoreDuplicates: true });
 
         if (insertError) {
           console.error('OAuth profil oluşturma hatası:', insertError, { userId: data.user.id });
