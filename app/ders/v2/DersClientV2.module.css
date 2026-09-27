@@ -221,8 +221,13 @@
 .fact b { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* Hero image zoom */
-.zoom { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(15, 20, 38, .8); padding: 24px; cursor: zoom-out; }
-.zoom img { max-width: 100%; max-height: 100%; border-radius: 16px; }
+/* Portal ile document.body'ye basıldığı için .root token'ları burada yok — renkler sabit. */
+.zoom { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(15, 20, 38, .75); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); padding: 16px; cursor: zoom-out; }
+.zoomFrame { position: relative; max-width: min(1100px, 100%); max-height: 100%; padding: 12px; background: #fff; border-radius: 20px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); cursor: default; }
+/* Ekrana sığar: çerçeve dolgusu (2×12px) + dış boşluk (2×16px) düşülerek. */
+.zoomImg { display: block; max-width: 100%; max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px); width: auto; height: auto; object-fit: contain; border-radius: 12px; }
+.zoomClose { position: absolute; top: 20px; right: 20px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); color: #0F1426; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); cursor: pointer; }
+.zoomClose:hover { background: #fff; }
 
 /* Mobile (composes yalnız tek sınıflı seçicide ve medya sorgusu dışında çalışır) */
 .chips { display: none; }

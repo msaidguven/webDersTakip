@@ -268,7 +268,13 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
                   className={s.pathBtn}
                   disabled={!step.enabled}
                   aria-current={now ? 'step' : undefined}
-                  onClick={() => (step.id === 'test' ? startTest() : scrollTo(step.id))}
+                  onClick={() => {
+                    // Test ve slayt sayfada aşağı kaydırmak yerine doğrudan açılır pencerede açılır
+                    // (kullanıcının 2026-09-27 isteği); diğer adımlar ilgili bölüme kaydırır.
+                    if (step.id === 'test') startTest();
+                    else if (step.id === 'slayt') setSlidesExpanded(true);
+                    else scrollTo(step.id);
+                  }}
                 >
                   <span className={s.node}>{!now && i < stepIdx && step.enabled ? '✓' : i + 1}</span>
                   <span className={s.stepTitle}>{step.title}</span>
@@ -606,9 +612,14 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
 
       {/* Portallar: kapak görseli, slayt tam ekran, test, admin araçları */}
       {heroZoomed && topic.heroImageUrl && createPortal(
-        <div className={s.zoom} onClick={() => setHeroZoomed(false)} role="dialog" aria-label="Kapak görseli">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={topic.heroImageUrl} alt={buildTopicImageAlt(topic.title, lessonName, gradeName, topic.heroImageAlt)} />
+        <div className={s.zoom} onClick={() => setHeroZoomed(false)} role="dialog" aria-modal="true" aria-label="Kapak görseli">
+          <div className={s.zoomFrame} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className={s.zoomClose} onClick={() => setHeroZoomed(false)} aria-label="Kapat">
+              <X size={16} aria-hidden="true" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={topic.heroImageUrl} alt={buildTopicImageAlt(topic.title, lessonName, gradeName, topic.heroImageAlt)} className={s.zoomImg} />
+          </div>
         </div>,
         document.body
       )}
