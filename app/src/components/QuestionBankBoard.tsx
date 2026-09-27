@@ -14,14 +14,15 @@
 // gösterildi" durumu var (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu).
 // Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
 // takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, LayoutGrid, MessageCircle, X, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Award, CheckCircle2, LayoutGrid, MessageCircle, RotateCcw, X, XCircle } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
+import { useQuestionBankViewer, type QuestionStat } from '@/app/src/hooks/useQuestionBankViewer';
 
 // Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
 // (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
@@ -85,6 +86,44 @@ function dotColorClass(status: AnswerStatus | undefined): string {
   return 'border border-default bg-surface text-muted-foreground';
 }
 
+function relativeDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const days = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000);
+  if (days <= 0) return 'bugün';
+  if (days === 1) return 'yarın';
+  return `${days} gün sonra`;
+}
+
+// Öğrencinin bu soruyla geçmişi (useQuestionBankViewer → user_question_stats).
+function QuestionStatStrip({ stat }: { stat: QuestionStat }) {
+  const review = stat.is_mastered ? null : relativeDay(stat.next_review_at);
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-black sm:text-xs">
+      <span className="flex items-center gap-1 rounded-full bg-indigo-500/10 px-2.5 py-1 text-indigo-600 dark:text-indigo-300">
+        <RotateCcw className="h-3 w-3" /> {stat.total_attempts} kez çözdün
+      </span>
+      <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="h-3 w-3" /> {stat.correct_attempts} doğru
+      </span>
+      <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-rose-600 dark:text-rose-400">
+        <XCircle className="h-3 w-3" /> {stat.wrong_attempts} yanlış
+      </span>
+      {stat.last_answer_correct != null && (
+        <span className="rounded-full border border-default px-2.5 py-1 text-muted-foreground">
+          Son cevabın: <span className={stat.last_answer_correct ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{stat.last_answer_correct ? 'doğru' : 'yanlış'}</span>
+        </span>
+      )}
+      {stat.is_mastered ? (
+        <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-700 dark:text-amber-300">
+          <Award className="h-3 w-3" /> Öğrendin
+        </span>
+      ) : review ? (
+        <span className="rounded-full border border-default px-2.5 py-1 text-muted-foreground">Tekrar: {review}</span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function QuestionBankBoard({
   questions: initialQuestions,
   basePath,
@@ -102,6 +141,18 @@ export default function QuestionBankBoard({
 }) {
   const isAdmin = useIsAdmin();
   const [questions, setQuestions] = useState(initialQuestions);
+  // Giriş yapmış öğrenci sadece testte çözdüğü soruları (istatistikleriyle) görür; misafir,
+  // öğretmen ve admin tüm listeyi (bkz. useQuestionBankViewer). Sunucu HTML'i her zaman tam
+  // liste — SEO değişmez.
+  const viewer = useQuestionBankViewer(initialQuestions.map((q) => q.id));
+  const studentMode = viewer.status === 'student';
+  const shownQuestions = studentMode ? questions.filter((q) => viewer.stats.has(q.id)) : questions;
+  const shownRef = useRef(shownQuestions);
+  useEffect(() => {
+    shownRef.current = shownQuestions;
+  });
+  // Öğrenci paylaşım linkiyle (?soru=ID) henüz çözmediği bir soruya geldiyse.
+  const [lockedSharedQuestion, setLockedSharedQuestion] = useState(false);
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
   const [scale, setScale] = useState(MIN_SCALE);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -139,12 +190,13 @@ export default function QuestionBankBoard({
     const handler = (e: Event) => {
       const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
       if (questionId == null) return;
-      const index = questions.findIndex((q) => q.id === questionId);
+      const index = shownRef.current.findIndex((q) => q.id === questionId);
+      setLockedSharedQuestion(index === -1);
       if (index !== -1) setActiveIndex(index);
     };
     window.addEventListener(FOCUS_QUESTION_EVENT, handler);
     return () => window.removeEventListener(FOCUS_QUESTION_EVENT, handler);
-  }, [questions]);
+  }, []);
 
   useEffect(() => {
     const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
@@ -170,6 +222,16 @@ export default function QuestionBankBoard({
   }, [mapOpen]);
 
   const scoreableIds = useMemo(() => questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id), [questions]);
+  const currentIndex = Math.min(activeIndex, Math.max(0, shownQuestions.length - 1));
+  // Soru haritasındaki renk: öğrencide son cevabına göre, diğerlerinde bu sayfadaki cevaba göre.
+  const dotStatus = (id: number): AnswerStatus | undefined => {
+    if (!studentMode) return answers[id];
+    const last = viewer.stats.get(id)?.last_answer_correct;
+    return last == null ? undefined : last ? 'correct' : 'incorrect';
+  };
+  const studentTotals = studentMode
+    ? [...viewer.stats.values()].reduce((acc, st) => ({ attempts: acc.attempts + st.total_attempts, correct: acc.correct + st.correct_attempts, wrong: acc.wrong + st.wrong_attempts, mastered: acc.mastered + (st.is_mastered ? 1 : 0) }), { attempts: 0, correct: 0, wrong: 0, mastered: 0 })
+    : null;
   const correctCount = scoreableIds.filter((id) => answers[id] === 'correct').length;
   const incorrectCount = scoreableIds.filter((id) => answers[id] === 'incorrect').length;
   // İlerleme çubuğu hangi soruyu GÖRÜNTÜLEDİĞİNİ değil, kaç soruyu GERÇEKTEN tamamladığını
@@ -191,10 +253,40 @@ export default function QuestionBankBoard({
 
   return (
     <>
-      {questions.length > 0 && (
+      {lockedSharedQuestion && (
+        <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-700 dark:text-amber-300">
+          Paylaşılan soruyu henüz çözmedin. Yukarıdan testi başlatınca karşına çıkacak; çözdükten sonra burada cevabı ve istatistiğinle görünür.
+        </p>
+      )}
+
+      {studentMode && shownQuestions.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-default bg-surface-elevated p-6 text-center">
+          <p className="text-sm font-black text-default">Bu konudan henüz soru çözmedin</p>
+          <p className="mt-1 text-xs font-bold text-muted-foreground">
+            Yukarıdan testi başlat. Çözdüğün her soru burada cevabı, kaç kez çözdüğün ve kaç doğru/yanlış yaptığınla görünecek.
+          </p>
+        </div>
+      )}
+
+      {studentMode && studentTotals && shownQuestions.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-default bg-surface-elevated px-3.5 py-3 shadow-sm sm:mb-6 sm:px-4">
+          <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
+            Soru {currentIndex + 1}/{shownQuestions.length}
+          </span>
+          <span className="text-xs font-black text-default">{shownQuestions.length}/{questions.length} soruyu çözdün</span>
+          <span className="text-xs font-bold text-muted-foreground">{studentTotals.attempts} çözüm</span>
+          <span className="flex items-center gap-1 text-xs font-black text-emerald-500"><CheckCircle2 className="h-3.5 w-3.5" /> {studentTotals.correct}</span>
+          <span className="flex items-center gap-1 text-xs font-black text-rose-500"><XCircle className="h-3.5 w-3.5" /> {studentTotals.wrong}</span>
+          {studentTotals.mastered > 0 && (
+            <span className="flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-300"><Award className="h-3.5 w-3.5" /> {studentTotals.mastered} öğrenildi</span>
+          )}
+        </div>
+      )}
+
+      {!studentMode && questions.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-default bg-surface-elevated px-3.5 py-3 shadow-sm sm:mb-6 sm:px-4">
           <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
-            Soru {activeIndex + 1}/{questions.length}
+            Soru {currentIndex + 1}/{questions.length}
           </span>
           <span className="flex shrink-0 items-center gap-1 text-xs font-black text-emerald-500">
             <CheckCircle2 className="h-3.5 w-3.5" /> {correctCount}
@@ -217,7 +309,7 @@ export default function QuestionBankBoard({
       )}
 
       <div>
-        {questions.map((q, i) => (
+        {shownQuestions.map((q, i) => (
           <div
             key={q.id}
             id={`soru-${q.id}`}
@@ -227,7 +319,7 @@ export default function QuestionBankBoard({
             // ayrı bir işaretleyici class (question-bank-item) gerekiyor, bkz.
             // [konu]/page.tsx'teki noscript stili.
             className="question-bank-item rounded-3xl border border-default bg-surface-elevated p-4 shadow-md sm:p-6"
-            style={{ display: i === activeIndex ? undefined : 'none' }}
+            style={{ display: i === currentIndex ? undefined : 'none' }}
           >
             <QuestionCardHeader
               question={q}
@@ -237,8 +329,14 @@ export default function QuestionBankBoard({
               onScaleDecrease={() => setScale((s) => Math.max(MIN_SCALE, Math.round((s - SCALE_STEP) * 100) / 100))}
               onScaleIncrease={() => setScale((s) => Math.min(MAX_SCALE, Math.round((s + SCALE_STEP) * 100) / 100))}
             />
+            {studentMode && viewer.stats.get(q.id) && <QuestionStatStrip stat={viewer.stats.get(q.id)!} />}
             <div style={{ zoom: scale }}>
-              <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
+              {/* Öğrenci bu soruyu zaten testte çözdü: cevap anahtarı doğrudan açık (inceleme). */}
+              {studentMode ? (
+                <QuestionAnswerKeyItem question={q} index={i} />
+              ) : (
+                <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
+              )}
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
@@ -256,20 +354,20 @@ export default function QuestionBankBoard({
         ))}
       </div>
 
-      {questions.length > 1 && (
+      {shownQuestions.length > 1 && (
         <div className="mt-4 flex items-center justify-between gap-3 sm:mt-6">
           <button
             type="button"
-            onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
-            disabled={activeIndex === 0}
+            onClick={() => setActiveIndex(Math.max(0, currentIndex - 1))}
+            disabled={currentIndex === 0}
             className="flex items-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 py-2.5 text-xs font-black text-default transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
           >
             <ArrowLeft className="h-4 w-4" /> Önceki Soru
           </button>
           <button
             type="button"
-            onClick={() => setActiveIndex((i) => Math.min(questions.length - 1, i + 1))}
-            disabled={activeIndex === questions.length - 1}
+            onClick={() => setActiveIndex(Math.min(shownQuestions.length - 1, currentIndex + 1))}
+            disabled={currentIndex === shownQuestions.length - 1}
             className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
           >
             Sonraki Soru <ArrowRight className="h-4 w-4" />
@@ -298,7 +396,7 @@ export default function QuestionBankBoard({
         );
       })()}
 
-      {questions.length > 1 && (
+      {shownQuestions.length > 1 && (
         <>
           {/* Masaüstü: sağda sabit duran optik panel */}
           <nav
@@ -306,15 +404,15 @@ export default function QuestionBankBoard({
             className="fixed right-3 top-1/2 z-20 hidden max-h-[75vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-default bg-surface-elevated/95 p-2.5 shadow-lg backdrop-blur lg:block"
           >
             <div className="grid grid-cols-4 gap-1.5">
-              {questions.map((q, i) => (
+              {shownQuestions.map((q, i) => (
                 <button
                   key={q.id}
                   type="button"
                   onClick={() => setActiveIndex(i)}
                   title={`Soru ${i + 1}`}
                   aria-label={`Soru ${i + 1}'e git`}
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(answers[q.id])} ${
-                    i === activeIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(dotStatus(q.id))} ${
+                    i === currentIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
                   }`}
                 >
                   {i + 1}
@@ -369,7 +467,7 @@ export default function QuestionBankBoard({
                   </span>
                 </div>
                 <div className="grid grid-cols-5 gap-2.5 sm:grid-cols-6">
-                  {questions.map((q, i) => (
+                  {shownQuestions.map((q, i) => (
                     <button
                       key={q.id}
                       type="button"
@@ -378,8 +476,8 @@ export default function QuestionBankBoard({
                         setMapOpen(false);
                       }}
                       aria-label={`Soru ${i + 1}'e git`}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black transition-transform active:scale-90 ${dotColorClass(answers[q.id])} ${
-                        i === activeIndex ? 'ring-2 ring-offset-1 ring-offset-surface ring-indigo-500' : ''
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black transition-transform active:scale-90 ${dotColorClass(dotStatus(q.id))} ${
+                        i === currentIndex ? 'ring-2 ring-offset-1 ring-offset-surface ring-indigo-500' : ''
                       }`}
                     >
                       {i + 1}

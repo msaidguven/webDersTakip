@@ -20,6 +20,7 @@
 // açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
 // akışa yönlendiriliyor.
 import { useCallback, useEffect, useState } from 'react';
+import { QUESTION_BANK_STATS_REFRESH_EVENT } from '@/app/src/hooks/useQuestionBankViewer';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -204,6 +205,8 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   const closeTest = useCallback(() => {
     setTestData(null);
     refetchStatus();
+    // Sayfadaki "çözdüğün sorular" listesi (useQuestionBankViewer) yeni cevapları görsün.
+    window.dispatchEvent(new Event(QUESTION_BANK_STATS_REFRESH_EVENT));
   }, [refetchStatus]);
 
   const resumable = status?.resumable ?? null;

@@ -192,7 +192,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
 
       {/* Herkeste kapalı başlar (?soru= paylaşım linkinde ve kapaktaki "incele" ile açılır) —
           sorular yine de sunucu HTML'inde tam; bkz. SoruBankasiBrowseSection.tsx. */}
-      <SoruBankasiBrowseSection questionCount={questions.length}>
+      <SoruBankasiBrowseSection questionCount={questions.length} questionIds={questions.map((q) => q.id)}>
         <QuestionBankBoard
           questions={questions}
           basePath={buildQuestionBankPath(data)}

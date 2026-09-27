@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { attachLearningOutcomeCodes, buildOutcomeKeys, resolveOutcomeCode } from '@/app/src/lib/outcomeCodes';
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 import { generateSlideDeck } from '@/app/src/lib/topicSlideDeck';
@@ -35,7 +36,7 @@ type CleanSection = {
   imageFieldProvided: boolean;
   videoFieldProvided: boolean;
 };
-type OutcomeRow = { id: number; code: string | null };
+type OutcomeRow = { id: number; code: string | null; learning_outcome_id: number | null };
 export type IncomingCover = { subtitle?: unknown; image_prompt?: unknown; highlights?: IncomingHighlight[] };
 
 export type PublishTopicContentInput = {
@@ -297,25 +298,27 @@ export async function publishTopicContent(supabase: Supabase, body: PublishTopic
 
   const { data: outcomesData } = await supabase
     .from('outcomes')
-    .select('id, code')
+    .select('id, code, learning_outcome_id')
     .eq('topic_id', topicRow.id)
     .eq('is_current', true);
 
-  const codeToOutcomeId = new Map<string, number>();
-  for (const o of (outcomesData as OutcomeRow[] | null) || []) {
-    if (o.code?.trim()) codeToOutcomeId.set(o.code.trim(), o.id);
-  }
+  // Kodlar prompt'taki anahtarlarla (bkz. buildOutcomeKeys) çözülüyor — aynı konuda iki "a"
+  // olabildiği için eskiden olduğu gibi düz harf→id haritası yanlış/eksik eşleşiyordu.
+  const outcomes = await attachLearningOutcomeCodes(supabase, (outcomesData as OutcomeRow[] | null) || []);
+  const outcomeKeys = buildOutcomeKeys(outcomes);
 
   const unresolvedCodes = new Set<string>();
   const links: { section_id: number; outcome_id: number }[] = [];
 
   cleanSections.forEach((s, idx) => {
+    const seen = new Set<number>();
     for (const code of s.matched_outcome_codes) {
-      const outcomeId = codeToOutcomeId.get(code);
-      if (outcomeId) {
-        links.push({ section_id: finalIds[idx], outcome_id: outcomeId });
-      } else {
+      const outcomeId = resolveOutcomeCode(code, outcomes, outcomeKeys);
+      if (outcomeId == null) {
         unresolvedCodes.add(code);
+      } else if (!seen.has(outcomeId)) {
+        seen.add(outcomeId);
+        links.push({ section_id: finalIds[idx], outcome_id: outcomeId });
       }
     }
   });

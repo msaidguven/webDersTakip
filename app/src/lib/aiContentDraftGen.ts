@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
+import { attachLearningOutcomeCodes, buildOutcomeKeys, sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
@@ -146,11 +146,12 @@ export async function generateNextAiContentDraft(
 
   const { data: outcomeRows } = await supabase
     .from('outcomes')
-    .select('id, description, order_index, code')
+    .select('id, description, order_index, code, learning_outcome_id')
     .eq('topic_id', eligible.topic_id)
     .eq('is_current', true)
     .order('order_index', { ascending: true });
-  const outcomes = outcomeRows || [];
+  const outcomes = await attachLearningOutcomeCodes(supabase, outcomeRows || []);
+  const outcomeKeys = buildOutcomeKeys(outcomes);
   const outcomeIds = outcomes.map((o: { id: number }) => o.id);
   const { data: weeksData } = outcomeIds.length
     ? await supabase.from('outcome_weeks').select('outcome_id, start_week').in('outcome_id', outcomeIds)
@@ -164,7 +165,7 @@ export async function generateNextAiContentDraft(
     }))
   );
   const outcomesText = sortedOutcomes.length
-    ? sortedOutcomes.map((o: { code: string | null; description: string }) => `${o.code}) ${o.description}`).join('\n')
+    ? sortedOutcomes.map((o: { id: number; description: string }) => `${outcomeKeys.get(o.id)}) ${o.description}`).join('\n')
     : 'Bu konu için tanımlı kazanım bulunamadı.';
 
   const pacingMap = await computeUnitTopicPacing(supabase, unitRow.id, eligible.lesson_id, eligible.grade_id);
@@ -267,6 +268,17 @@ export async function generateNextAiContentDraft(
     .from('topic_section_content_drafts')
     .update({ status: 'saved', reviewed_at: new Date().toISOString() })
     .eq('id', draftId);
+
+  // Eşleşmeyen kazanım kodu artık sessizce kaybolmuyor: worker çalıştırma kaydına (reason)
+  // düşer — kazanımsız kalan bölüme soru worker'ı soru üretmez, fark edilmesi şart.
+  if (publishResult.unresolvedCodes?.length) {
+    return {
+      generated: true,
+      draftId,
+      topicId: eligible.topic_id,
+      reason: `Yayınlandı ama şu kazanım kodları eşleşmedi (bölüm kazanımsız kalmış olabilir): ${publishResult.unresolvedCodes.join(', ')}`,
+    };
+  }
 
   return { generated: true, draftId, topicId: eligible.topic_id };
 }

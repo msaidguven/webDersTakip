@@ -19,12 +19,16 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { ChevronDown, Info, Library } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useQuestionBankViewer } from '../hooks/useQuestionBankViewer';
 import { FOCUS_QUESTION_EVENT, OPEN_QUESTION_LIST_EVENT } from '../lib/soruBankasiEvents';
 
 const noopSubscribe = () => () => {};
 
-export default function SoruBankasiBrowseSection({ questionCount, children }: { questionCount: number; children: React.ReactNode }) {
+export default function SoruBankasiBrowseSection({ questionCount, questionIds, children }: { questionCount: number; questionIds: number[]; children: React.ReactNode }) {
   const { user } = useAuth();
+  // Öğrenci sadece çözdüğü soruları görür (bkz. useQuestionBankViewer) — başlık ona göre.
+  const viewer = useQuestionBankViewer(questionIds);
+  const studentMode = viewer.status === 'student';
   // Sunucu snapshot'ı '' (ISR HTML'i parametresiz) — hydration uyuşmazlığı olmadan client'ta
   // gerçek ?soru= değerine geçer. useSearchParams burada Suspense sınırı isterdi.
   const search = useSyncExternalStore(noopSubscribe, () => window.location.search, () => '');
@@ -58,16 +62,23 @@ export default function SoruBankasiBrowseSection({ questionCount, children }: { 
         className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-surface"
       >
         <span className="flex items-center gap-2.5 text-sm font-black text-default">
-          <Library className="h-4 w-4 text-muted-foreground" /> Cevap anahtarlı tüm sorular ({questionCount})
+          <Library className="h-4 w-4 text-muted-foreground" />
+          {studentMode ? `Çözdüğün sorular (${viewer.stats.size}/${questionCount})` : `Cevap anahtarlı tüm sorular (${questionCount})`}
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {/* display:none ile gizleniyor, DOM'dan kaldırılmıyor — bkz. dosya başı SEO notu. */}
       <div id="soru-bankasi-listesi" style={{ display: open ? undefined : 'none' }} className="border-t border-default p-3.5 sm:p-5">
-        {user && (
+        {studentMode && viewer.stats.size > 0 && viewer.stats.size < questionCount && (
           <p className="mb-3 flex items-start gap-2 rounded-xl bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-300 sm:mb-4">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Burada çözdüğün sorular istatistiğine kaydedilmez. Kaydetmek için yukarıdan testi başlat.
+            Burada testte çözdüğün sorular görünür. Kalan {questionCount - viewer.stats.size} soru testte karşına çıkacak.
+          </p>
+        )}
+        {user && viewer.status === 'staff' && (
+          <p className="mb-3 flex items-start gap-2 rounded-xl bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-300 sm:mb-4">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Öğretmen/admin görünümü: tüm sorular. Öğrenciler burada sadece testte çözdükleri soruları görür.
           </p>
         )}
         {children}

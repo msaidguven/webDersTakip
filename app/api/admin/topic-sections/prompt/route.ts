@@ -3,14 +3,14 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
+import { attachLearningOutcomeCodes, buildOutcomeKeys, sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
-type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null };
+type OutcomeRow = { id: number; description: string; order_index: number | null; code: string | null; learning_outcome_id: number | null };
 type OutcomeWeekRow = { outcome_id: number; start_week: number };
 type SectionRow = { id: number; heading: string; order_no: number; body_markdown?: string | null };
 type SectionOutcomeLinkRow = { section_id: number; outcome_id: number };
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
 
   const { data: outcomesData } = await supabase
     .from('outcomes')
-    .select('id, description, order_index, code')
+    .select('id, description, order_index, code, learning_outcome_id')
     .eq('topic_id', topicRow.id)
     .eq('is_current', true)
     .order('order_index', { ascending: true });
@@ -129,8 +129,11 @@ export async function GET(request: NextRequest) {
   }
 
   const outcomes = sortOutcomesByWeek(
-    outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
+    (await attachLearningOutcomeCodes(supabase, outcomeRows)).map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null }))
   );
+  // AI'a giden benzersiz kazanım anahtarları — aynı konuda iki "a" varsa "FB.5.2.1.a" biçimine
+  // geçer, publishTopicContent aynı anahtarlarla geri çözer (bkz. outcomeCodes.buildOutcomeKeys).
+  const outcomeKeys = buildOutcomeKeys(outcomes);
 
   if (
     type === 'plan' || type === 'full' || type === 'full_from_synthesis' ||
@@ -213,7 +216,7 @@ export async function GET(request: NextRequest) {
     const template = await readFile(templatePath, 'utf8');
 
     const outcomesText = outcomes.length
-      ? outcomes.map((o) => `${o.code}) ${o.description}`).join('\n')
+      ? outcomes.map((o) => `${outcomeKeys.get(o.id)}) ${o.description}`).join('\n')
       : 'Bu konu için tanımlı kazanım bulunamadı.';
 
     // MEB'in bu konuya (ünitenin diğer konularına göre) ne kadar süre ayırdığını
@@ -246,7 +249,7 @@ export async function GET(request: NextRequest) {
 
   if (isTopicLevelType) {
     const outcomesText = outcomes.length
-      ? outcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
+      ? outcomes.map((o) => `${outcomeKeys.get(o.id)}) ${o.description}`).join('\n')
       : 'Bu konu için tanımlı kazanım bulunamadı.';
 
     let topicContentText = '';
@@ -397,7 +400,7 @@ export async function GET(request: NextRequest) {
     : outcomes;
 
   const sectionOutcomesText = matchedOutcomes.length
-    ? matchedOutcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n')
+    ? matchedOutcomes.map((o) => `${outcomeKeys.get(o.id)}) ${o.description}`).join('\n')
     : 'Bu alt başlık için tanımlı kazanım bulunamadı.';
 
   if (isNotebookQuestionType) {

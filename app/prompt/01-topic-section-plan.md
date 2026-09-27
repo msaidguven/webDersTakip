@@ -18,7 +18,7 @@ Kazanımlar:
     {
       "heading": string,              // alt başlık, max 4 kelime
       "order_no": integer,             // 0'dan başlayan öğretim sırası
-      "matched_outcome_codes": [string] // bu alt başlıkta işlenen kazanım kodları (a, b, c, ç)
+      "matched_outcome_codes": [string] // bu alt başlıkta işlenen kazanımların kodları — listede ")" işaretinden önce yazan kodu AYNEN kopyala (ör. "a" ya da "FB.5.2.1.a"); kendin kod üretme, numaralandırma ya da kısaltma
     }
   ],
   "cover": {

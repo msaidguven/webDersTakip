@@ -20,7 +20,7 @@ SADECE bu JSON'u döndür:
     {
       "heading": string,                // listeden AYNEN kopyala
       "order_no": integer,               // sıraya göre 0'dan başlat
-      "matched_outcome_codes": [string],
+      "matched_outcome_codes": [string], // kazanım listesinde ")" işaretinden önce yazan kodu AYNEN kopyala (ör. "a" ya da "FB.5.2.1.a"); kendin kod üretme, numaralandırma ya da kısaltma
       "explanation_markdown": string,
       "activity_prompt_markdown": string,   // "Düşün:/Hayal Et:/Dene:" ile başlayan kısa istem
       "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa örnek yaklaşım
