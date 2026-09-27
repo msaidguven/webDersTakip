@@ -251,8 +251,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
                   className={s.artImg}
                   onClick={() => setHeroZoomed(true)}
                 />
-                {sections.length > 0 && <div className={s.floatA}><strong>{sections.length} bölüm</strong>adım adım anlatım</div>}
-                {hasTest && testSize != null && <div className={s.floatB}><strong>{testSize} soru</strong>kavrama testi</div>}
               </figure>
             )}
           </div>
