@@ -41,7 +41,9 @@ export default async function TopicTestPage({ params }: PageProps) {
 
   return (
     <>
+      {/* Soru bankası/slayt ile aynı tam ekran oynatıcı (2026-09-27); çıkışta exitHref'e döner. */}
       <QuizWithAsk
+        presentation="player"
         key={data.topicId}
         gradeId={data.gradeId}
         lessonId={data.lessonId}

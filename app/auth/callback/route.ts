@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
 
 // Google (ve ileride eklenebilecek başka OAuth sağlayıcıların) giriş akışının
 // döndüğü yer: Supabase bize bir "code" verir, bunu oturuma çeviriyoruz. İlk kez
@@ -21,9 +22,9 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const rawRedirect = searchParams.get('redirectTo') || '/';
-  // Açık yönlendirme (open redirect) riskine karşı sadece aynı site içi, göreli
-  // yollara izin veriyoruz.
-  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
+  // Açık yönlendirme (open redirect) riskine karşı sadece aynı site içi, göreli yollar —
+  // eski kontrol "/\evil.com" biçimini kaçırıyordu (bkz. safeRedirect.ts).
+  const redirectTo = safeRedirectPath(rawRedirect, '/');
 
   if (code) {
     const supabase = await createClient();

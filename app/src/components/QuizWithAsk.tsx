@@ -5,7 +5,7 @@ import QuizClient, { type QuizClientProps } from './QuizClient';
 import UnitDiscussion from './UnitDiscussion';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 
-type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
+export type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
   gradeId: number;
   lessonId: number;
   unitId: number;

@@ -10,6 +10,7 @@ import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import TopicDesignSwitch from '../../../../ders/TopicDesignSwitch';
+import { getTopicPageDesign } from '@/app/src/lib/topicPageDesign';
 import DersHighlight from '../../../../ders/DersHighlight';
 
 // Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
@@ -387,7 +388,10 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
 export default async function TopicPage({ params }: PageProps) {
   const { gradeSlug, lessonSlug, unitSlug, topicSlug } = await params;
 
-  const data = await getTopicPageData(gradeSlug, lessonSlug, unitSlug, topicSlug);
+  const [data, publishedDesign] = await Promise.all([
+    getTopicPageData(gradeSlug, lessonSlug, unitSlug, topicSlug),
+    getTopicPageDesign(createAnonClient()),
+  ]);
 
   if (!data) {
     notFound();
@@ -403,6 +407,7 @@ export default async function TopicPage({ params }: PageProps) {
         }}
       />
       <TopicDesignSwitch
+        publishedDesign={publishedDesign}
         initialData={data}
         gradeId={data.gradeId}
         lessonId={data.lessonId}

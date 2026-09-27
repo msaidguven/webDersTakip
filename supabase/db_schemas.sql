@@ -27,6 +27,8 @@ CREATE TABLE public.lesson_grades (
   created_at timestamp with time zone DEFAULT now(),
   is_active boolean NOT NULL DEFAULT true,
   weekly_hours integer CHECK (weekly_hours IS NULL OR weekly_hours >= 1),
+  tymm_page_url text,
+  tymm_verified boolean NOT NULL DEFAULT false,
   CONSTRAINT lesson_grades_pkey PRIMARY KEY (lesson_id, grade_id),
   CONSTRAINT fk_lg_grade FOREIGN KEY (grade_id) REFERENCES public.grades(id),
   CONSTRAINT fk_lg_lesson FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
@@ -59,8 +61,6 @@ CREATE TABLE public.topics (
   slug text NOT NULL,
   order_no integer NOT NULL DEFAULT 0 CHECK (order_no >= 0),
   is_active boolean NOT NULL DEFAULT true,
-  is_archived boolean NOT NULL DEFAULT false,
-  frozen_unit_slug text,
   order_status text NOT NULL DEFAULT 'approved'::text CHECK (order_status = ANY (ARRAY['approved'::text, 'pending'::text, 'rejected'::text])),
   pending_order_no integer,
   created_at timestamp with time zone DEFAULT now(),
@@ -69,6 +69,7 @@ CREATE TABLE public.topics (
   curriculum_code text,
   learning_outcome text,
   rag_last_checked_at timestamp with time zone,
+  is_archived boolean NOT NULL DEFAULT false,
   CONSTRAINT topics_pkey PRIMARY KEY (id),
   CONSTRAINT topics_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id)
 );
@@ -79,9 +80,11 @@ CREATE TABLE public.outcomes (
   order_index integer CHECK (order_index >= 0),
   code text,
   curriculum_year text,
+  learning_outcome_id bigint,
   is_current boolean NOT NULL DEFAULT true,
   CONSTRAINT outcomes_pkey PRIMARY KEY (id),
-  CONSTRAINT outcomes_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
+  CONSTRAINT outcomes_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
+  CONSTRAINT outcomes_learning_outcome_id_fkey FOREIGN KEY (learning_outcome_id) REFERENCES public.topic_learning_outcomes(id)
 );
 CREATE TABLE public.topic_contents (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -114,7 +117,7 @@ CREATE TABLE public.unit_videos (
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   full_name text,
-  username text UNIQUE,
+  username text UNIQUE CHECK (username IS NULL OR char_length(username) >= 3 AND char_length(username) <= 30 AND username ~ '^[a-z0-9_]+(\.[a-z0-9_]+)*$'::text) NOT VALI),
   gender text CHECK (gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])),
   birth_date date,
   about text,
@@ -135,6 +138,8 @@ CREATE TABLE public.profiles (
   banned_reason text,
   banned_by uuid,
   onboarding_completed boolean NOT NULL DEFAULT true,
+  last_seen_at timestamp with time zone,
+  profile_prompt_pending boolean NOT NULL DEFAULT false,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES public.profiles(id),
@@ -441,6 +446,7 @@ CREATE TABLE public.topic_content_sections (
   video_prompt text,
   video_url text,
   video_type text CHECK (video_type = ANY (ARRAY['ai_generated'::text, 'youtube'::text])),
+  review_summary text,
   CONSTRAINT topic_content_sections_pkey PRIMARY KEY (id),
   CONSTRAINT topic_content_sections_topic_content_id_fkey FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id)
 );
@@ -772,4 +778,58 @@ CREATE TABLE public.ai_content_draft_worker_runs (
   worker text NOT NULL DEFAULT 'primary'::text CHECK (worker = ANY (ARRAY['primary'::text, 'secondary'::text])),
   CONSTRAINT ai_content_draft_worker_runs_pkey PRIMARY KEY (id),
   CONSTRAINT ai_content_draft_worker_runs_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.topic_section_content_drafts(id)
+);
+CREATE TABLE public.topic_content_slides (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  topic_content_id bigint NOT NULL UNIQUE,
+  slides jsonb NOT NULL,
+  ai_model text,
+  generated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT topic_content_slides_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_content_slides_topic_content_id_fkey FOREIGN KEY (topic_content_id) REFERENCES public.topic_contents(id)
+);
+CREATE TABLE public.outcome_tymm_overrides (
+  outcome_id bigint NOT NULL,
+  tymm_text text NOT NULL,
+  note text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT outcome_tymm_overrides_pkey PRIMARY KEY (outcome_id),
+  CONSTRAINT outcome_tymm_overrides_outcome_id_fkey FOREIGN KEY (outcome_id) REFERENCES public.outcomes(id),
+  CONSTRAINT outcome_tymm_overrides_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.topic_learning_outcomes (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  topic_id bigint NOT NULL,
+  code text,
+  title text NOT NULL,
+  order_no integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT topic_learning_outcomes_pkey PRIMARY KEY (id),
+  CONSTRAINT topic_learning_outcomes_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
+);
+CREATE TABLE public.ai_topic_highlights_worker_runs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  generated boolean NOT NULL,
+  reason text,
+  topic_id bigint,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_topic_highlights_worker_runs_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_topic_highlights_worker_runs_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
+);
+CREATE TABLE public.user_page_views (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  path text NOT NULL CHECK (char_length(path) >= 1 AND char_length(path) <= 500),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_page_views_pkey PRIMARY KEY (id),
+  CONSTRAINT user_page_views_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.site_settings (
+  key text NOT NULL CHECK (key ~ '^[a-z0-9_]{1,64}$'::text),
+  value jsonb NOT NULL,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_by uuid,
+  CONSTRAINT site_settings_pkey PRIMARY KEY (key),
+  CONSTRAINT site_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
 );

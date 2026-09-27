@@ -34,7 +34,9 @@ export default async function UnitTestPage({ params }: PageProps) {
           Taslak — bu ünitede henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
         </div>
       )}
+      {/* Soru bankası/slayt ile aynı tam ekran oynatıcı (2026-09-27); çıkışta exitHref'e döner. */}
       <QuizWithAsk
+        presentation="player"
         key={data.unitId}
         gradeId={data.gradeId}
         lessonId={data.lessonId}

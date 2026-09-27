@@ -6,12 +6,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 import { useAuth } from '../src/context/AuthContext';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
+import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
 
 // Ana login form bileşeni
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const explicitRedirectTo = searchParams?.get('redirectTo');
+  // Açık yönlendirme önlemi: sadece site içi göreli yollar (bkz. safeRedirect.ts).
+  const rawRedirectTo = searchParams?.get('redirectTo');
+  const explicitRedirectTo = rawRedirectTo ? safeRedirectPath(rawRedirectTo, '') || null : null;
   const redirectTo = explicitRedirectTo || '/panel';
 
   const { isAuthenticated, loading, user, supabase } = useAuth();

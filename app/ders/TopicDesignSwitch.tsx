@@ -3,75 +3,27 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import DersClient, { type DersClientProps } from './DersClient';
-import { TOPIC_PAGE_DESIGN, type TopicPageDesign } from '@/app/src/lib/topicPageDesign';
-import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { isTopicPageDesign, type TopicPageDesign } from '@/app/src/lib/topicPageDesign';
 
-// Varsayılan tasarım (TOPIC_PAGE_DESIGN) sunucuda render edilir — SEO ve ISR önbelleği
-// değişmez. Önizleme seçimi sunucuda okunmuyor (okunsaydı sayfa ISR'dan çıkardı); mount
-// sonrası client'ta uygulanır:
-//   * ?tasarim=v1|v2 parametresi (paylaşılabilir önizleme linki), ya da
-//   * admin'e görünen köşedeki v1/v2 düğmesi — seçim bu tarayıcıda hatırlanır, konudan
-//     konuya geçince de korunur (kullanıcının 2026-09-27 bildirimi: parametre gezinirken
-//     kayboluyordu, v2 görünmüyordu).
+// Yayındaki tasarım (publishedDesign) sunucuda site_settings'ten okunup render edilir — SEO ve
+// ISR önbelleği korunur. Değiştirme: Admin → Ayarlar (/admin/ayarlar); kaydedilince tüm konu
+// sayfaları revalidate edilir, herkes yeni tasarımı görür (kullanıcının 2026-09-27 isteği).
+// ?tasarim=v1|v2 sadece o sayfa görüntülemesi için önizlemedir (kalıcı değil).
 const DersClientV2 = dynamic(() => import('./v2/DersClientV2'));
-const STORAGE_KEY = 'topic-page-design-preview';
+// Eski sürümde önizleme tarayıcıda kalıcı tutuluyordu; artık yayındaki ayar esas.
+const LEGACY_PREVIEW_KEY = 'topic-page-design-preview';
 
-function isDesign(value: string | null): value is TopicPageDesign {
-  return value === 'v1' || value === 'v2';
-}
+type Props = DersClientProps & { publishedDesign: TopicPageDesign };
 
-function readPreference(): TopicPageDesign | null {
-  const fromUrl = new URLSearchParams(window.location.search).get('tasarim');
-  if (isDesign(fromUrl)) {
-    try { localStorage.setItem(STORAGE_KEY, fromUrl); } catch { /* depolama kapalı olabilir */ }
-    return fromUrl;
-  }
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return isDesign(stored) ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-export default function TopicDesignSwitch(props: DersClientProps) {
-  const isAdmin = useIsAdmin();
-  const [design, setDesign] = useState<TopicPageDesign>(TOPIC_PAGE_DESIGN);
+export default function TopicDesignSwitch({ publishedDesign, ...props }: Props) {
+  const [preview, setPreview] = useState<TopicPageDesign | null>(null);
 
   useEffect(() => {
-    const preferred = readPreference();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- tarayıcıya özel tercih, ISR'ı bozmamak için client'ta okunuyor
-    if (preferred) setDesign(preferred);
+    try { localStorage.removeItem(LEGACY_PREVIEW_KEY); } catch { /* depolama kapalı olabilir */ }
+    const fromUrl = new URLSearchParams(window.location.search).get('tasarim');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL'den tek seferlik okuma (ISR'ı bozmamak için client'ta)
+    if (isTopicPageDesign(fromUrl)) setPreview(fromUrl);
   }, []);
 
-  function choose(next: TopicPageDesign) {
-    setDesign(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* depolama kapalı olabilir */ }
-  }
-
-  return (
-    <>
-      {design === 'v2' ? <DersClientV2 {...props} /> : <DersClient {...props} />}
-      {isAdmin && (
-        <div
-          role="group"
-          aria-label="Konu sayfası tasarımı"
-          className="fixed bottom-24 left-3 z-[60] flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 p-1 text-xs font-bold shadow-lg backdrop-blur sm:bottom-4"
-        >
-          <span className="px-2 text-slate-500">Tasarım</span>
-          {(['v1', 'v2'] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => choose(d)}
-              aria-pressed={design === d}
-              className={`rounded-full px-3 py-1.5 transition-colors ${design === d ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              {d}{d === TOPIC_PAGE_DESIGN ? ' ·yayında' : ''}
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
+  return (preview ?? publishedDesign) === 'v2' ? <DersClientV2 {...props} /> : <DersClient {...props} />;
 }

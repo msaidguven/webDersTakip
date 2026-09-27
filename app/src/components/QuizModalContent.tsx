@@ -1,5 +1,5 @@
 // app/src/components/QuizModalContent.tsx
-// Konu kavrama testi ve ünite testinin modal içeriği — hem panelin hem soru bankasının
+// Konu kavrama testi ve ünite testinin modal içeriği (tam ekran oynatıcı, bkz. RouteQuizPlayer) — hem panelin hem soru bankasının
 // intercepting route'ları (bkz. app/panel/@modal/... ve app/soru-bankasi/@modal/...) BU
 // component'i çağırıyor. Tek fark: hangi sayfadan açıldıysa "X'e Dön" linki oraya gitsin
 // diye exitHref/exitLabel dışarıdan veriliyor — kod/mantık kopyalanmıyor, sadece çıkış
@@ -15,8 +15,7 @@ import {
   buildTopicPath,
   buildQuestionBankPath,
 } from '@/app/src/lib/quizPageData';
-import QuizWithAsk from '@/app/src/components/QuizWithAsk';
-import QuizModal from '@/app/src/components/QuizModal';
+import RouteQuizPlayer from '@/app/src/components/questionPlayer/RouteQuizPlayer';
 
 export async function TopicTestModalContent({
   gradeSlug,
@@ -41,25 +40,23 @@ export async function TopicTestModalContent({
   const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadTopicQuizState(data);
 
   return (
-    <QuizModal>
-      <QuizWithAsk
-        key={data.topicId}
-        gradeId={data.gradeId}
-        lessonId={data.lessonId}
-        unitId={data.unitId}
-        topicId={data.topicId}
-        scopeLabel={`${data.topicTitle} Kavrama Testi`}
-        exitHref={exitHref ?? buildTopicPath(data)}
-        exitLabel={exitLabel}
-        initialQuestions={initialQuestions}
-        remainingQuestionIds={remainingQuestionIds}
-        allCaughtUp={allCaughtUp}
-        reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
-        secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
-        resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
-        questionBankPathBase={buildQuestionBankPath(data)}
-      />
-    </QuizModal>
+    <RouteQuizPlayer
+      key={data.topicId}
+      gradeId={data.gradeId}
+      lessonId={data.lessonId}
+      unitId={data.unitId}
+      topicId={data.topicId}
+      scopeLabel={`${data.topicTitle} Kavrama Testi`}
+      exitHref={exitHref ?? buildTopicPath(data)}
+      exitLabel={exitLabel}
+      initialQuestions={initialQuestions}
+      remainingQuestionIds={remainingQuestionIds}
+      allCaughtUp={allCaughtUp}
+      reloadEndpoint={`/api/topic-test-questions?topicId=${data.topicId}`}
+      secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
+      resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
+      questionBankPathBase={buildQuestionBankPath(data)}
+    />
   );
 }
 
@@ -84,28 +81,26 @@ export async function UnitTestModalContent({
   const { resumable, initialQuestions, remainingQuestionIds, allCaughtUp } = await loadUnitQuizState(data);
 
   return (
-    <QuizModal>
-      <QuizWithAsk
-        key={data.unitId}
-        gradeId={data.gradeId}
-        lessonId={data.lessonId}
-        unitId={data.unitId}
-        scopeLabel={`${data.unitTitle} Ünite Testi`}
-        exitHref={exitHref ?? data.exitHref}
-        exitLabel={exitLabel}
-        initialQuestions={initialQuestions}
-        remainingQuestionIds={remainingQuestionIds}
-        allCaughtUp={allCaughtUp}
-        reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
-        secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
-        resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
-        intro={{
-          subLabel: `${data.gradeName} / ${data.lessonName}`,
-          description: data.unitDescription,
-          topicCount: data.topicCount,
-          questionCount: data.questionCount,
-        }}
-      />
-    </QuizModal>
+    <RouteQuizPlayer
+      key={data.unitId}
+      gradeId={data.gradeId}
+      lessonId={data.lessonId}
+      unitId={data.unitId}
+      scopeLabel={`${data.unitTitle} Ünite Testi`}
+      exitHref={exitHref ?? data.exitHref}
+      exitLabel={exitLabel}
+      initialQuestions={initialQuestions}
+      remainingQuestionIds={remainingQuestionIds}
+      allCaughtUp={allCaughtUp}
+      reloadEndpoint={`/api/unit-test-questions?unitId=${data.unitId}`}
+      secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
+      resume={resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null}
+      intro={{
+        subLabel: `${data.gradeName} / ${data.lessonName}`,
+        description: data.unitDescription,
+        topicCount: data.topicCount,
+        questionCount: data.questionCount,
+      }}
+    />
   );
 }

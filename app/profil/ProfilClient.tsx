@@ -12,6 +12,7 @@ import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { PanelShell } from '@/app/src/components/PanelShell';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '@/app/src/lib/username';
+import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
 
 interface ProfileRow {
   full_name: string | null;
@@ -144,7 +145,8 @@ export default function ProfilClient() {
   // Google/OAuth ile İLK giriş yapan kullanıcı buraya, asıl gideceği yere gitmeden ÖNCE
   // yönlendirilir (bkz. app/auth/callback/route.ts) — öğrenci/öğretmen + sınıf/branş
   // seçimini tamamladıktan sonra bu adrese devam eder (yoksa panel'e).
-  const nextAfterOnboarding = searchParams?.get('next') || '/panel';
+  // Açık yönlendirme önlemi (bkz. safeRedirect.ts) — ?next= dışarıdan gelebiliyor.
+  const nextAfterOnboarding = safeRedirectPath(searchParams?.get('next'), '/panel');
 
   const email = authUser?.email;
 

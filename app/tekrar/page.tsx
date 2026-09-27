@@ -56,6 +56,8 @@ export default async function SrsReviewPage() {
 
   return (
     <QuizClient
+      // Diğer testlerle aynı tam ekran oynatıcı (2026-09-27); çıkışta panele döner.
+      presentation="player"
       scopeLabel="Tekrar Zamanı"
       exitHref="/panel"
       exitLabel="Panele Dön"
