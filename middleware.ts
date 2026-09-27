@@ -15,6 +15,12 @@ const LEGACY_TOPIC_SLUG = /^[a-z]{2,5}-\d+-\d+-\d+-(.+)$/;
 // adresler gelirse eki atıp yeni konu kavrama testi adresine yönlendiriyoruz.
 const LEGACY_SORULAR_SUFFIX = /^(.+)-sorular$/;
 
+// Yıllık plandan gelen bazı ünite adları "2. Öğrenme Alanı: Evimiz Dünya" biçimindeydi ve
+// slug'a da "2-ogrenme-alani-evimiz-dunya" olarak girmişti (6. sınıf Sosyal Bilgiler).
+// Önek DB'den kaldırıldı (bkz. supabase/migrations/units_strip_ogrenme_alani_prefix.sql);
+// Google'da indekslenmiş eski adresler yeni slug'a kalıcı yönlendiriliyor.
+const LEGACY_UNIT_OGRENME_ALANI = /^\d+-ogrenme-alani-(.+)$/;
+
 // Oturum gerektiren alanlar — banlı bir kullanıcının, henüz süresi dolmamış access
 // token'ıyla bu sayfalara girmesini engellemek için her istekte is_banned kontrol edilir.
 const PROTECTED_PREFIXES = ['/panel', '/profil', '/admin', '/ogretmen', '/dashboard'];
@@ -90,6 +96,18 @@ export async function middleware(request: NextRequest) {
   }
 
   const segments = pathname.split('/').filter(Boolean);
+
+  // Ünite slug'ı: /[sınıf]/[ders]/[ünite]/... → index 2; /soru-bankasi/[sınıf]/[ders]/[ünite]/... → index 3
+  const unitIndex = segments[0] === 'soru-bankasi' ? 3 : 2;
+  const unitMatch = segments[unitIndex]?.match(LEGACY_UNIT_OGRENME_ALANI);
+  if (unitMatch && !pathname.startsWith('/admin') && !pathname.startsWith('/api')) {
+    const fixed = [...segments];
+    fixed[unitIndex] = unitMatch[1];
+    const url = new URL(`/${fixed.join('/')}`, request.url);
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url, 308);
+  }
+
   if (segments.length === 4) {
     const prefixMatch = segments[3].match(LEGACY_TOPIC_SLUG);
     if (prefixMatch) {
@@ -119,7 +137,9 @@ export const config = {
     '/ogretmen',
     '/dashboard/:path*',
     '/dashboard',
+    '/:gradeSlug/:lessonSlug/:unitSlug',
     '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug',
+    '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug/:rest+',
     '/soru-bankasi/:path*',
   ],
 };

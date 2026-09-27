@@ -26,6 +26,8 @@ interface UnitStatus {
   loggedIn: boolean;
   poolSize: number;
   solved: number;
+  correct: number;
+  wrong: number;
 }
 
 export default function SoruBankasiLessonUnits({
@@ -88,9 +90,17 @@ export default function SoruBankasiLessonUnits({
                 </span>
               )}
 
+              {/* Panel ders kartlarıyla aynı kişisel özet (2026-09-26): panel artık üniteleri
+                  göstermiyor, ünite bazlı ilerleme burada görülüyor. */}
               {status?.loggedIn && status.solved > 0 && (
-                <div className="mt-2 h-1.5 w-full max-w-[180px] overflow-hidden rounded-full bg-surface">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${percent}%` }} />
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-1.5 w-full max-w-[140px] overflow-hidden rounded-full bg-surface">
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${percent}%` }} />
+                  </div>
+                  <span className="whitespace-nowrap text-[11px] font-bold text-muted-foreground">
+                    %{percent} · <span className="text-emerald-600">{status.correct}✓</span>{' '}
+                    <span className="text-rose-600">{status.wrong}✗</span>
+                  </span>
                 </div>
               )}
             </div>

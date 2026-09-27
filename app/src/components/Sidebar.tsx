@@ -35,7 +35,7 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, weeklyActi
         ✕
       </button>
 
-      {/* Dersler kartları artık panel içeriğinde (LessonExplorer) — sidebar'da onun yerine
+      {/* Ders kartları panel içeriğinde (LessonProgressCards) — sidebar'da onun yerine
           haftalık ilerleme özeti var. Mobilde panel anasayfasında istatistiklerin altında da
           ayrıca gösterildiği için mobil sidebar'da gizli, aynı bilgiyi iki kez göstermemek için. */}
       <div className="hidden lg:block flex-1 px-3 py-6 overflow-y-auto">

@@ -76,6 +76,10 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
 
   const me = entries.find((e) => e.isMe);
   const topEntries = entries.slice(0, limit);
+  // Bir üst sıradakini geçmek için gereken soru — eşitlikte user_id'ye göre sıralandığı için
+  // (bkz. get_weekly_leaderboard) geçmek kesin olarak +1 ister.
+  const above = me && me.rank > 1 ? entries[me.rank - 2] : null;
+  const questionsToPass = above && me ? above.totalQuestions - me.totalQuestions + 1 : null;
   const showMeSeparately = !!me && !topEntries.some((e) => e.isMe);
 
   return (
@@ -88,6 +92,18 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
           </Link>
         )}
       </div>
+
+      {me && (
+        <div className="px-4 sm:px-6 py-2.5 border-b border-default bg-indigo-500/5 text-xs sm:text-sm text-default">
+          {me.rank === 1 ? (
+            <>🥇 Bu hafta sınıfında <b>1. sıradasın</b>, yerini koru!</>
+          ) : (
+            <>
+              <b>{me.rank - 1}. sıraya</b> çıkmak için <b className="text-indigo-500">{questionsToPass} soru</b> daha çöz.
+            </>
+          )}
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <div className="p-6 sm:p-8 text-center">

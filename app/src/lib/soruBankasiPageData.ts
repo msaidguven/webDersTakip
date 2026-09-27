@@ -14,18 +14,10 @@ import { getQuestionCountsByLessonGrade, getQuestionCountsByUnitId, getQuestionC
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
 
-export function buildSoruBankasiIndexPath() {
-  return `/soru-bankasi`;
-}
-export function buildSoruBankasiGradePath(gradeSlug: string) {
-  return `/soru-bankasi/${gradeSlug}`;
-}
-export function buildSoruBankasiLessonPath(gradeSlug: string, lessonSlug: string) {
-  return `/soru-bankasi/${gradeSlug}/${lessonSlug}`;
-}
-export function buildSoruBankasiUnitPath(gradeSlug: string, lessonSlug: string, unitSlug: string) {
-  return `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}`;
-}
+// Yol üreticiler client bileşenlerinden de (panel) kullanıldığı için ayrı, bağımlılıksız bir
+// modülde — bu dosyayı client bundle'a çekmesinler diye. Mevcut importlar bozulmasın diye
+// buradan yeniden export ediliyor.
+export { buildSoruBankasiIndexPath, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from './soruBankasiPaths';
 
 export function buildSoruBankasiBreadcrumbJsonLd(items: { name: string; path: string }[]) {
   return {

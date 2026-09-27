@@ -14,17 +14,17 @@
 // değişmesini istemiyor, özellikle ?soru=ID gibi bir konuma deep-link'lenmişken o URL'de
 // kalınmasını istiyor. Bu yüzden artık HİÇ navigasyon yok: tıklanınca /api/soru-bankasi/
 // topic-test veya unit-test'ten QuizWithAsk'ın ihtiyaç duyduğu HER ŞEY tek istekte çekilir,
-// sonuç saf React state'te tutulup QuizModal + QuizWithAsk aynı sayfada (gerçek
+// sonuç saf React state'te tutulup QuizWithAsk (presentation="player", tam ekran) aynı sayfada (gerçek
 // kavrama-testi/unite-testi sayfasıyla AYNI motor, AYNI veri fonksiyonları) render edilir.
 // href yine de gerçek test sayfasına işaret ediyor (JS kapalıyken / orta-tık yeni sekmede
 // açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
 // akışa yönlendiriliyor.
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
-import QuizModal from '@/app/src/components/QuizModal';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 
 interface TestData {
@@ -66,103 +66,56 @@ interface TestStatusCardProps {
   unitId: number;
   title: string;
   color: 'indigo' | 'emerald';
+  // Misafire gösterilecek özel içerik (ör. konu sayfasındaki kapak + mini test, bkz.
+  // GuestTestCover). Verilmezse varsayılan üyelik çağrısı (GuestTestCta).
+  guestContent?: React.ReactNode;
 }
 
 const COLOR_CLASSES = {
-  indigo: { ring: 'text-indigo-500', button: 'bg-indigo-600 hover:bg-indigo-700', bar: 'bg-indigo-500' },
-  emerald: { ring: 'text-emerald-500', button: 'bg-emerald-600 hover:bg-emerald-700', bar: 'bg-emerald-500' },
+  indigo: { button: 'bg-indigo-600 hover:bg-indigo-700', bar: 'bg-indigo-500' },
+  emerald: { button: 'bg-emerald-600 hover:bg-emerald-700', bar: 'bg-emerald-500' },
 } as const;
 
-// Ham "Çözülen" sayısı yerine ilerleme çubuğu + başarı yüzdesi (kullanıcı isteği,
-// 2026-09-13: "çözülen soru yerine ilerleme çubuğu ekle ve başarı yüzdesi ekle") —
-// bir sayı yerine ne kadarının bittiğini ve ne kadarının doğru olduğunu görsel/oranla
-// gösteriyor, ham "Çözülen: 17" tek başına bunu anlatmıyordu.
+// 2026-09-26 sadeleştirmesi: kart eskiden iki ayrı istatistik bloğu (genel 3 kutu + yarım
+// kalan test için halka ve 4 kutu) gösteriyordu, "0/10" ile "10 soru · 0 çözülen" aynı şeyi
+// iki kez söylüyordu. Artık: tek ilerleme çubuğu + tek satır doğru/yanlış/başarı özeti +
+// tek buton; yarım kalan testin durumu butonun alt satırında.
 function SolvedProgressBar({ solved, total, barClass }: { solved: number; total: number; barClass: string }) {
   const pct = total > 0 ? Math.min(100, Math.round((solved / total) * 100)) : 0;
   return (
     <div className="w-full">
-      <div className="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-        <span>Çözülen</span>
-        <span className="text-default">{solved}/{total} Soru</span>
+      <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-muted-foreground">
+        <span>
+          <span className="text-default">{solved}/{total}</span> soru çözüldü
+        </span>
+        <span className="font-black text-default">%{pct}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+      <div
+        className="h-2 w-full overflow-hidden rounded-full bg-surface"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Çözülen soru oranı"
+      >
         <div className={`h-full rounded-full ${barClass} transition-all duration-500`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
-// r=40, çevre = 2*pi*40 ≈ 251.33 — yüzdeye göre strokeDashoffset hesaplanıyor,
-// -rotate-90 ile başlangıç 12 yönüne (saat başı) çekiliyor. Yarım kalan test bölümü
-// (compact) daha küçük bir halka kullanıyor (kullanıcının 2026-09-06 isteği).
-const RING_RADIUS = 40;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-const RING_RADIUS_COMPACT = 30;
-const RING_CIRCUMFERENCE_COMPACT = 2 * Math.PI * RING_RADIUS_COMPACT;
-
-// Kartın en üst satırındaki küçük istatistik kutucukları (Soru/Çözülen/Doğru/Yanlış) —
-// kullanıcının 2026-09-06 isteği: "soru sayısı, çözülen, doğru, yanlış bilgisini card'lar
-// ekleyerek güzelleştirelim", eskiden burası sadece "10 soruluk test" düz metniydi.
-// `compact`, yarım kalan test bölümü (kullanıcının 2026-09-06 isteği: "genel bilgiler
-// üstte normal boyut, yarım kalan test verileri altta biraz daha küçük") için.
-function StatTile({ value, label, tone, compact }: { value: number; label: string; tone?: 'emerald' | 'rose'; compact?: boolean }) {
-  const toneClass = tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : 'text-default';
-  if (compact) {
-    return (
-      <div className="flex flex-col items-center gap-0.5 rounded-lg bg-surface px-1.5 py-1.5">
-        <span className={`text-sm font-black ${toneClass}`}>{value}</span>
-        <span className="text-[8px] font-black uppercase tracking-wide text-muted-foreground">{label}</span>
-      </div>
-    );
-  }
+function ResultSummary({ correct, wrong, solved }: { correct: number; wrong: number; solved: number }) {
+  if (solved === 0) return null;
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-surface px-2 py-2.5">
-      <span className={`text-lg font-black sm:text-xl ${toneClass}`}>{value}</span>
-      <span className="text-[9px] font-black uppercase tracking-wide text-muted-foreground sm:text-[10px]">{label}</span>
-    </div>
+    <p className="flex w-full items-center justify-center gap-4 text-sm font-bold">
+      <span className="text-emerald-600">✓ {correct} doğru</span>
+      <span className="text-rose-600">✗ {wrong} yanlış</span>
+      <span className="text-muted-foreground">%{Math.round((correct / solved) * 100)} başarı</span>
+    </p>
   );
 }
 
-function ProgressRing({
-  percent,
-  ringClass,
-  label,
-  sublabel,
-  compact,
-}: {
-  percent: number;
-  ringClass: string;
-  label: string;
-  sublabel: string;
-  compact?: boolean;
-}) {
-  const radius = compact ? RING_RADIUS_COMPACT : RING_RADIUS;
-  const circumference = compact ? RING_CIRCUMFERENCE_COMPACT : RING_CIRCUMFERENCE;
-  const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
-  return (
-    <div className={`relative flex shrink-0 items-center justify-center ${compact ? 'h-20 w-20' : 'h-28 w-28'}`}>
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={radius} fill="none" strokeWidth={compact ? '7' : '9'} style={{ stroke: 'var(--border)' }} />
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          fill="none"
-          strokeWidth={compact ? '7' : '9'}
-          strokeLinecap="round"
-          className={ringClass}
-          style={{ stroke: 'currentColor', strokeDasharray: circumference, strokeDashoffset: offset, transition: 'stroke-dashoffset 0.4s ease' }}
-        />
-      </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className={`font-black text-default ${compact ? 'text-sm' : 'text-xl'}`}>{label}</span>
-        <span className="text-[9px] font-black uppercase tracking-wide text-muted-foreground">{sublabel}</span>
-      </div>
-    </div>
-  );
-}
-
-export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color }: TestStatusCardProps) {
+export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color, guestContent }: TestStatusCardProps) {
   const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
   const [testData, setTestData] = useState<TestData | null>(null);
   const [testLoading, setTestLoading] = useState(false);
@@ -267,68 +220,41 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         // yüzden etiket artık bir metin DÜĞÜMÜ değil, aria-label ÖZNİTELİĞİ: ekran
         // okuyucular hâlâ duyuruyor ama sayfanın çıkarılan metninde hiç yer almıyor.
         <div className="w-full animate-pulse space-y-2" role="status" aria-label="Durum yükleniyor">
-          <div className="h-8 rounded-xl bg-surface" />
-          <div className="grid grid-cols-3 gap-2">
-            <div className="h-14 rounded-xl bg-surface" />
-            <div className="h-14 rounded-xl bg-surface" />
-            <div className="h-14 rounded-xl bg-surface" />
-          </div>
+          <div className="h-6 rounded-lg bg-surface" />
+          <div className="mx-auto h-5 w-2/3 rounded-lg bg-surface" />
+          <div className="h-14 rounded-xl bg-surface" />
         </div>
+      ) : !status.loggedIn ? (
+        // Misafir (2026-09-26 sadeleştirmesi): eskiden sıfırlarla dolu istatistikler + gri,
+        // tıklanamayan "Teste Başla" gösteriliyordu — yer kaplayıp hiçbir şey yaptırmıyordu.
+        // Artık tek bir net çağrı; soruların kendisi zaten aşağıda açık (SEO içeriği).
+        guestContent ?? <GuestTestCta questionCount={status.poolSize} />
       ) : (
         <>
-          {/* Genel bilgiler HER ZAMAN üstte, normal boyutta — yarım kalan bir test olsa
-              bile bu konuda/ünitede bugüne kadarki toplam durum kaybolmasın (kullanıcının
-              2026-09-06 isteği: "ünite sayfasındaki gibi tamamını da göstersin, genel
-              bilgileri üstte, yarım kalan testle ilgili verileri altta göstersin"). */}
           <SolvedProgressBar solved={status.solved} total={status.poolSize} barClass={classes.bar} />
-          <div className="grid w-full grid-cols-3 gap-2">
-            <StatTile value={status.correct} label="Doğru" tone="emerald" />
-            <StatTile value={status.wrong} label="Yanlış" tone="rose" />
-            <StatTile value={status.solved > 0 ? Math.round((status.correct / status.solved) * 100) : 0} label="Başarı %" />
-          </div>
+          <ResultSummary correct={status.correct} wrong={status.wrong} solved={status.solved} />
 
-          {!status.loggedIn && !resumable && (
-            <p className="-mt-1 text-xs font-bold text-muted-foreground">
-              İstatistiklerin tutulması için giriş yapmanız gerekmektedir
-            </p>
-          )}
-
-          {/* Yarım kalan test varsa ALTTA, daha küçük bir blokta — genel bilgilerle
-              karışmasın diye kendi çerçevesi var. */}
-          {resumable && (
-            <div className="flex w-full flex-col items-center gap-2.5 rounded-xl border border-default/60 bg-surface/60 p-3">
-              <p className="text-[11px] font-bold text-muted-foreground">Tamamlanmamış bir testiniz var</p>
-
-              <ProgressRing
-                compact
-                percent={resumable.total ? (resumable.answeredCount / resumable.total) * 100 : 0}
-                ringClass={classes.ring}
-                label={`${resumable.answeredCount}/${resumable.total}`}
-                sublabel="Soru"
-              />
-
-              <div className="grid w-full grid-cols-4 gap-1.5">
-                <StatTile compact value={resumable.total} label="Soru" />
-                <StatTile compact value={resumable.answeredCount} label="Çözülen" />
-                <StatTile compact value={resumable.correctCount} label="Doğru" tone="emerald" />
-                <StatTile compact value={resumable.wrongCount} label="Yanlış" tone="rose" />
-              </div>
-            </div>
-          )}
-
-          {/* Giriş yapılmamışsa "Teste Başla" devre dışı — kaydedilmeyen bir test açmanın
-              anlamı yok, giriş yapması için yönlendiriliyor (kullanıcının 2026-09-06 isteği).
-              Soru Bankası (cevap anahtarlı, tam liste) bölümü ise misafirde hâlâ açık kalıyor
-              (bkz. SoruBankasiBrowseSection.tsx) — en azından o içerikten faydalansın. */}
           {resumable ? (
             <a
               href={testHref}
               onClick={startOrResumeTest}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-xl ${classes.button} px-4 py-3 text-sm font-black text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+              className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
             >
-              {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Teste Devam Et <ArrowRight className="h-4 w-4" /></>}
+              {testLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <span className="flex items-center gap-1.5 text-sm font-black">
+                    Teste Devam Et <ArrowRight className="h-4 w-4" />
+                  </span>
+                  <span className="text-[11px] font-bold text-white/80">
+                    Yarım kalan test: {resumable.answeredCount}/{resumable.total} soru
+                    {resumable.answeredCount > 0 ? ` · ${resumable.correctCount} doğru, ${resumable.wrongCount} yanlış` : ''}
+                  </span>
+                </>
+              )}
             </a>
-          ) : status.loggedIn && conflictInfo ? (
+          ) : conflictInfo ? (
             // Aynı ünitede zaten açık, çakışan bir oturum var — sessizce üstüne yazmak
             // yerine kullanıcıya seçim sunuluyor (kullanıcının 2026-09-06 isteği: "önceki
             // testin linkini de verelim, isterse önce onu açabilsin").
@@ -353,7 +279,7 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
                 </button>
               </div>
             </div>
-          ) : status.loggedIn ? (
+          ) : (
             <a
               href={testHref}
               onClick={startOrResumeTest}
@@ -370,14 +296,6 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
                 </>
               )}
             </a>
-          ) : (
-            <div
-              aria-disabled="true"
-              className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-200 px-4 py-3 text-gray-400"
-            >
-              <span className="text-sm font-black">Teste Başla</span>
-              <span className="text-[11px] font-bold">Giriş yapmanız gerekiyor</span>
-            </div>
           )}
         </>
       )}
@@ -385,31 +303,55 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
       {testError && <p className="text-xs font-bold text-rose-500">{testError}</p>}
 
       {testData && (
-        <QuizModal onClose={closeTest}>
-          <QuizWithAsk
-            key={testData.resume?.sessionId ?? 'new'}
-            gradeId={testData.gradeId}
-            lessonId={testData.lessonId}
-            unitId={testData.unitId}
-            topicId={testData.topicId}
-            scopeLabel={testData.scopeLabel}
-            exitHref={testHref}
-            exitLabel="Kapat"
-            onExit={closeTest}
-            initialQuestions={testData.initialQuestions}
-            remainingQuestionIds={testData.remainingQuestionIds}
-            allCaughtUp={testData.allCaughtUp}
-            reloadEndpoint={testData.reloadEndpoint}
-            secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
-            resume={testData.resume}
-            questionBankPathBase={testData.questionBankPathBase}
-            // intro BİLEREK verilmiyor: kullanıcı zaten bu karttaki "Teste Başla/Devam Et"
-            // butonuna tıklayarak testi başlatmayı onaylamış oluyor — modal içinde ayrıca bir
-            // "kapak sayfası" (intro) gösterip ikinci kez "Başla" dedirtmek gereksiz bir adım
-            // (kullanıcının 2026-09-06 bildirdiği bug).
-          />
-        </QuizModal>
+        <QuizWithAsk
+          presentation="player"
+          key={testData.resume?.sessionId ?? 'new'}
+          gradeId={testData.gradeId}
+          lessonId={testData.lessonId}
+          unitId={testData.unitId}
+          topicId={testData.topicId}
+          scopeLabel={testData.scopeLabel}
+          exitHref={testHref}
+          exitLabel="Kapat"
+          onExit={closeTest}
+          initialQuestions={testData.initialQuestions}
+          remainingQuestionIds={testData.remainingQuestionIds}
+          allCaughtUp={testData.allCaughtUp}
+          reloadEndpoint={testData.reloadEndpoint}
+          secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
+          resume={testData.resume}
+          questionBankPathBase={testData.questionBankPathBase}
+          // intro BİLEREK verilmiyor: kullanıcı zaten bu karttaki "Teste Başla/Devam Et"
+          // butonuna tıklayarak testi başlatmayı onaylamış oluyor — modal içinde ayrıca bir
+          // "kapak sayfası" (intro) gösterip ikinci kez "Başla" dedirtmek gereksiz bir adım
+          // (kullanıcının 2026-09-06 bildirdiği bug).
+        />
       )}
+    </div>
+  );
+}
+
+function GuestTestCta({ questionCount }: { questionCount: number }) {
+  const pathname = usePathname();
+  return (
+    <div className="flex w-full flex-col items-center gap-3">
+      <p className="text-xs font-bold text-muted-foreground sm:text-sm">
+        Üye ol, {questionCount} soruluk bu testi çöz — doğru/yanlışların kaydedilsin, eksik konuların sana hatırlatılsın.
+      </p>
+      <div className="grid w-full grid-cols-2 gap-2">
+        <Link
+          href="/register"
+          className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-black text-white transition-opacity hover:opacity-90"
+        >
+          Ücretsiz Üye Ol
+        </Link>
+        <Link
+          href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
+          className="rounded-xl border border-default bg-surface px-4 py-3 text-sm font-black text-default transition-colors hover:bg-surface-elevated"
+        >
+          Giriş Yap
+        </Link>
+      </div>
     </div>
   );
 }

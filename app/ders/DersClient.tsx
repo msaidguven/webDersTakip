@@ -35,9 +35,9 @@ import SectionContent from './SectionContent';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
+import AdminTopicToolsHost, { preloadAdminTopicTools, ADMIN_TOOLS_MENU, SECTION_ADMIN_TOOLS_MENU, type AdminToolRequest } from './AdminTopicToolsHost';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { CurriculumWeekCard, HighlightCard, TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal, TopicSummaryBox, DiscussionPromptBox, StudyModeSelector, type StudyMode, type StudyModeOption } from './DersClientCards';
-import QuizModal from '@/app/src/components/QuizModal';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import {
   type Outcome,
@@ -70,37 +70,7 @@ const MIN_CONTENT_SCALE = 1;
 const MAX_CONTENT_SCALE = 2.2;
 const CONTENT_SCALE_STEP = 0.2;
 
-// "İçerik Yönetimi" açılır menüsü — her satır /admin/konu-icerik/[topicId]?panel=X'e gidip
-// o panel/modalı otomatik açık şekilde açıyor (bkz. AdminTopicSectionsPanel.tsx'teki panel
-// query-param eşlemesi). Sadece TOPIC seviyesindeki (belirli bir alt başlık gerektirmeyen)
-// araçlar burada — alt başlık bazlı araçlar (görsel/diyagram/video) için SECTION_ADMIN_TOOLS_MENU'ye
-// bkz., her alt başlığın kendi menüsünde ?sectionId= ile birlikte kullanılıyor.
-const ADMIN_TOOLS_MENU: { panel: string; label: string }[] = [
-  { panel: 'plan', label: 'Alt Başlık Planı Prompt\'u' },
-  { panel: 'cover-image', label: 'Konu Kapak Görseli' },
-  { panel: 'highlights', label: 'Anahtar Kavramları Güncelle (AI)' },
-  { panel: 'highlight-quick-add', label: 'Anahtar Kavram Ekle' },
-  { panel: 'topic-summary', label: 'Konu Özetini Düzenle' },
-  { panel: 'review-summary', label: 'Eksik Özetleri AI ile Tamamla' },
-  { panel: 'topic-questions-general', label: 'Genel Sorular' },
-  { panel: 'topic-questions-classical', label: 'Açık Uçlu Sorular' },
-  { panel: 'classical-generate', label: 'Açık Uçlu Soru Üret (AI)' },
-  { panel: 'notebooklm-setup', label: 'NotebookLM Kurulum' },
-];
-
-// Alt başlık (section) bazlı araçlar — her alt başlığın kendi menüsünde ?panel=X&sectionId=Y
-// ile /admin/konu-icerik/[topicId]'ye gidip ilgili section modalını otomatik açık getiriyor
-// (kullanıcının 2026-09-21 isteği: "özellikle diyagram resim güncelleme için kullanabilirim").
-// İçerik/soru üretimi gibi kaynak varyantı (NotebookLM/sentez) gerektiren araçlar burada YOK —
-// o varyant admin panelinde contentSourceKind'e göre belirleniyor, deep-link'te belirsiz kalırdı.
-const SECTION_ADMIN_TOOLS_MENU: { panel: string; label: string }[] = [
-  { panel: 'image', label: 'Görsel Ekle/Güncelle' },
-  { panel: 'diagram', label: 'Diyagram Ekle/Güncelle' },
-  { panel: 'video', label: 'Video Ekle/Güncelle' },
-  { panel: 'video-suggestion', label: 'YouTube Önerisi' },
-];
-
-interface DersClientProps {
+export interface DersClientProps {
   initialData: {
     gradeName: string;
     lessonName: string;
@@ -208,6 +178,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   const [activeStudyMode, setActiveStudyMode] = useState<StudyMode | null>(null);
   const [adminToolsMenuOpen, setAdminToolsMenuOpen] = useState(false);
   const [openSectionAdminMenuId, setOpenSectionAdminMenuId] = useState<string | number | null>(null);
+  const [adminToolRequest, setAdminToolRequest] = useState<AdminToolRequest | null>(null);
+  const [slideDeckReloadKey, setSlideDeckReloadKey] = useState(0);
   const [topicSwitcherOpen, setTopicSwitcherOpen] = useState(false);
   const [lessonSwitcherOpen, setLessonSwitcherOpen] = useState(false);
   const [unitSwitcherOpen, setUnitSwitcherOpen] = useState(false);
@@ -325,6 +297,12 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
       cancelled = true;
     };
   }, [supabase, user]);
+
+  // Admin olduğu anlaşılınca içerik araçlarının kodunu arka planda indir — menüden
+  // tıklayınca sadece o aracın verisi beklenir.
+  useEffect(() => {
+    if (isAdmin) preloadAdminTopicTools();
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!heroImageZoomed) return;
@@ -465,8 +443,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
   // ileri/geri ile ona yaklaştığında bu, tek bir konunun içeriğini arkaplanda/isteğe bağlı çeker.
   const inFlightTopicContentFetchesRef = useRef<Record<string, Promise<void> | undefined>>({});
 
-  const ensureTopicContentLoaded = useCallback((topic: Content, unit: Unit): Promise<void> => {
-    if (topic.contentLoaded) return Promise.resolve();
+  // force: admin aracı kapandıktan sonra konunun güncel halini tekrar çekmek için.
+  const ensureTopicContentLoaded = useCallback((topic: Content, unit: Unit, force = false): Promise<void> => {
+    if (topic.contentLoaded && !force) return Promise.resolve();
     const key = String(topic.id);
     if (inFlightTopicContentFetchesRef.current[key]) return inFlightTopicContentFetchesRef.current[key]!;
 
@@ -498,6 +477,31 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     inFlightTopicContentFetchesRef.current[key] = fetchPromise;
     return fetchPromise;
   }, [gradeId, lessonId, week]);
+
+  // Admin aracı kapanınca: yapılan değişiklik (görsel, içerik, özet...) sayfaya yansısın diye
+  // aktif konunun içeriğini ve slaytlarını tazele.
+  const closeAdminTool = useCallback(() => {
+    setAdminToolRequest(null);
+    if (activeTopic && activeUnit) void ensureTopicContentLoaded(activeTopic, activeUnit, true);
+    setSlideDeckReloadKey((k) => k + 1);
+  }, [activeTopic, activeUnit, ensureTopicContentLoaded]);
+
+  // Eski /admin/konu-icerik/[id]?panel=X bağlantıları buraya ?adminTool=X ile yönlendiriliyor
+  // (bkz. app/admin/konu-icerik/[topicId]/page.tsx) — admin doğrulanınca aracı aç, parametreyi sil.
+  const adminToolParamHandledRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || !activeTopic || adminToolParamHandledRef.current) return;
+    adminToolParamHandledRef.current = true;
+    const url = new URL(window.location.href);
+    const tool = url.searchParams.get('adminTool');
+    if (!tool) return;
+    const sectionId = Number(url.searchParams.get('sectionId'));
+    url.searchParams.delete('adminTool');
+    url.searchParams.delete('sectionId');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL'den tek seferlik okuma
+    setAdminToolRequest({ panel: tool as AdminToolRequest['panel'], sectionId: Number.isInteger(sectionId) && sectionId > 0 ? sectionId : null });
+  }, [isAdmin, activeTopic]);
 
   // Sayfa ilk içeriğini yükledikten SONRA (arkaplanda, tek seferlik), henüz
   // önbellekte olmayan ünitelerin konularını sırayla arka planda ısıtır —
@@ -1191,7 +1195,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
     return () => {
       cancelled = true;
     };
-  }, [activeTopic?.id]);
+  }, [activeTopic?.id, slideDeckReloadKey]);
 
   // Sayfa doğrudan bir #alt-başlık linkiyle açıldıysa (ör. arama sonucundan),
   // ilk içerik render olduktan sonra bir kere o başlığa kaydır.
@@ -1581,15 +1585,17 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           <div className="fixed inset-0 z-40" onClick={() => setOpenSectionAdminMenuId(null)} />
                           <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
                             {SECTION_ADMIN_TOOLS_MENU.map((item) => (
-                              <Link
+                              <button
+                                type="button"
                                 key={item.panel}
-                                href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}&sectionId=${section.id}`}
-                                target="_blank"
-                                onClick={() => setOpenSectionAdminMenuId(null)}
-                                className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                onClick={() => {
+                                  setOpenSectionAdminMenuId(null);
+                                  setAdminToolRequest({ panel: item.panel, sectionId: Number(section.id) });
+                                }}
+                                className="block w-full truncate rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                               >
                                 {item.label}
-                              </Link>
+                              </button>
                             ))}
                           </div>
                         </>
@@ -2071,25 +2077,23 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setAdminToolsMenuOpen(false)} />
                             <div className="absolute right-0 top-full z-50 mt-1 max-h-[60vh] w-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                              <Link
-                                href={`/admin/konu-icerik/${activeTopic.id}`}
-                                target="_blank"
-                                onClick={() => setAdminToolsMenuOpen(false)}
-                                className="block rounded-lg px-2.5 py-2 text-xs font-black text-[#6c63ff] hover:bg-slate-50 transition-colors"
+                              <button
+                                type="button"
+                                onClick={() => { setAdminToolsMenuOpen(false); setAdminToolRequest({ panel: 'all' }); }}
+                                className="block w-full rounded-lg px-2.5 py-2 text-left text-xs font-black text-[#6c63ff] hover:bg-slate-50 transition-colors"
                               >
-                                Tüm Araçlar (Genel Sayfa) →
-                              </Link>
+                                Tüm Araçlar →
+                              </button>
                               <div className="my-1 h-px bg-slate-100" />
                               {ADMIN_TOOLS_MENU.map((item) => (
-                                <Link
+                                <button
+                                  type="button"
                                   key={item.panel}
-                                  href={`/admin/konu-icerik/${activeTopic.id}?panel=${item.panel}`}
-                                  target="_blank"
-                                  onClick={() => setAdminToolsMenuOpen(false)}
-                                  className="block truncate rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                  onClick={() => { setAdminToolsMenuOpen(false); setAdminToolRequest({ panel: item.panel }); }}
+                                  className="block w-full truncate rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                                 >
                                   {item.label}
-                                </Link>
+                                </button>
                               ))}
                             </div>
                           </>
@@ -2291,9 +2295,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                               {isAdmin && slideDeck?.hasStaleSections && (
                                 <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
                                   ⚠️ Bu içeriğin bazı alt başlıklarında &quot;ev tekrar özeti&quot; yok (eski üretim) — slayt maddeleri kaba bir bölmeyle çıkarıldı.{' '}
-                                  <Link href={`/admin/konu-icerik/${activeTopic.id}?panel=review-summary`} target="_blank" className="underline hover:text-amber-800">
+                                  <button type="button" onClick={() => setAdminToolRequest({ panel: 'review-summary' })} className="underline hover:text-amber-800">
                                     Eksik özetleri AI ile tamamla →
-                                  </Link>
+                                  </button>
                                 </p>
                               )}
                             </div>
@@ -2407,8 +2411,8 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                         (kullanıcının 2026-09-24 isteği). conflict/hata gibi istisnai
                         durumlar için küçük birer uyarı kutusu var. */}
                     {topicTest.testData && !topicTest.testData.conflict && typeof document !== 'undefined' && createPortal(
-                      <QuizModal onClose={topicTest.closeTest}>
                         <QuizWithAsk
+                          presentation="player"
                           key={topicTest.testData.resume?.sessionId ?? 'new'}
                           gradeId={topicTest.testData.gradeId}
                           lessonId={topicTest.testData.lessonId}
@@ -2425,8 +2429,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                           secondsPerQuestion={topicTest.testData.secondsPerQuestion ?? undefined}
                           resume={topicTest.testData.resume}
                           questionBankPathBase={topicTest.testData.questionBankPathBase}
-                        />
-                      </QuizModal>,
+                        />,
                       document.body
                     )}
                     {topicTest.testData?.conflict && typeof document !== 'undefined' && createPortal(
@@ -2682,6 +2685,9 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
         </div>
       )}
 
+      {isAdmin && activeTopic && adminToolRequest && (
+        <AdminTopicToolsHost topicId={Number(activeTopic.id)} request={adminToolRequest} onClose={closeAdminTool} />
+      )}
     </div>
   );
 }

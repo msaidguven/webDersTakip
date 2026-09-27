@@ -488,7 +488,12 @@ function MemberPageViews({ memberId }: { memberId: string }) {
 
   return (
     <section className="pt-3 border-t border-border">
-      <h4 className="text-muted-foreground text-xs sm:text-sm mb-2">Son ziyaret ettiği sayfalar</h4>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h4 className="text-muted-foreground text-xs sm:text-sm">Son ziyaret ettiği sayfalar</h4>
+        <a href={`/admin/uye-aktivitesi?user=${memberId}`} className="text-indigo-400 hover:text-indigo-300 text-xs whitespace-nowrap">
+          Tüm geçmiş →
+        </a>
+      </div>
       {error ? (
         <p className="text-red-300 text-xs">{error}</p>
       ) : views === null ? (

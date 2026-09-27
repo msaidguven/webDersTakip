@@ -27,8 +27,8 @@ export function buildSvgLessonGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
   const isVisualHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
   return isVisualHeavy
-    ? `${lessonName} dersinde bir diyagram/görsel büyük ihtimalle gerekli olur — her soru için buna gerçekten ihtiyaç olup olmadığını dikkatlice değerlendir.`
-    : `${lessonName} dersinde görsel genelde gerekmez — sadece görsel olmadan gerçekten anlaşılmayacak istisnai bir soru varsa doldur.`;
+    ? `${lessonName} dersinde görsel sık gerekir; her soruda gerçekten gerekip gerekmediğine bak.`
+    : `${lessonName} dersinde görsel genelde gerekmez; sadece istisnai durumda doldur.`;
 }
 
 // Soru üretiminde de aynı VISUAL_HEAVY_LESSON_KEYWORDS listesini kullanıyoruz — matematiksel
@@ -43,7 +43,8 @@ export function buildMathNotationGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
   const isMathHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
   if (!isMathHeavy) return '';
-  return `- Kesir/üs/kök/işlem/denklem gibi GERÇEK bir matematiksel YAPI içeren ifadelerde LaTeX kullan: satır içi \\( ... \\), blok/ayrı satır \\[ ... \\] (ör. "\\(x^2 + 3x - 4 = 0\\)", "\\(\\frac{1}{2}\\)", "\\(\\sqrt{16}\\)") — sayfa bunu KaTeX ile düzgün formül olarak gösteriyor, düz metin ("1/2", "karekök(16)") YAZMA. AMA sade bir tam sayı/sonuç şıkkını (ör. "50", "172") ASLA LaTeX'e sarma — "\\(50\\)" DEĞİL, sadece "50" yaz; LaTeX sadece yukarıdaki gibi gerçek bir matematiksel yapı olduğunda kullanılır, tek başına bir sayı bu kapsama GİRMEZ.`;
+  // Kısa tutuluyor: NotebookLM soru promptlarının toplam sınırı ~3900 karakter (2026-09-26).
+  return `- Gerçek matematiksel yapıda (kesir, üs, kök, denklem) LaTeX kullan: satır içi \\( \\), blok \\[ \\] (ör. \\(\\frac{1}{2}\\), \\(x^2+3x-4=0\\)); "1/2", "karekök(16)" gibi düz metin YAZMA. Tek başına sayı/sonuç şıkkını ("50") LaTeX'e SARMA.`;
 }
 
 // Klasik soru şablonları hem manuel kopyala-yapıştır akışında (count parametresi yok,

@@ -84,6 +84,13 @@ export default function AdminPanel() {
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
+          <Link
+            href="/admin/uye-aktivitesi"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span className="text-base sm:text-lg">📈</span>
+            <span className="font-medium truncate">Üye Aktivitesi</span>
+          </Link>
           <NavButton active={activeTab === 'schools'} onClick={() => { setActiveTab('schools'); setSidebarOpen(false); }} icon="🏫" label="Okullar" />
           <NavButton active={activeTab === 'code-cleanup'} onClick={() => { setActiveTab('code-cleanup'); setSidebarOpen(false); }} icon="🧹" label="Kod Temizliği" />
           <Link

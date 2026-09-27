@@ -17,45 +17,19 @@ export interface Week {
   status: 'past' | 'current' | 'future' | 'locked';
 }
 
-// Panel anasayfasındaki ders kartları için — ünite kartlarıyla aynı görsel dilde
-// (soru sayısı + progress bar), bkz. LessonExplorer.
+// Panel ders kartı — üniteler panelde gösterilmiyor, detay Soru Bankası'nda (bkz.
+// dashboardLessons.ts). Doğru/yanlış her sorunun SON cevabına göre.
 export interface LessonProgress {
   id: string;
   name: string;
   icon: string;
   totalQuestions: number;
   solvedQuestions: number;
+  correctAnswers: number;
+  wrongAnswers: number;
   progress: number;
-}
-
-export interface Unit {
-  id: string;
-  title: string;
-  subtitle: string;
-  weekNumber: number;
-  totalTopics: number;
-  totalQuestions: number;
-  solvedQuestions: number;
-  progress: number;
-  status: 'in_progress' | 'completed';
-  successRate?: number;
-  href?: string;
-}
-
-// Ünite akordeonundaki tek konu satırı — içerik (Konu Anlatımı) ve sorular (Soru Çöz)
-// birbirinden BAĞIMSIZ iki durum/buton olarak modellenir (eskiden tek "actionLabel"a
-// indirgeniyordu). href yoksa (içerik/soru hiç yoksa) ilgili buton pasif gösterilir.
-// KİLİT YOK: her konu her zaman erişilebilir, sadece tamamlanma durumu gösterilir.
-export interface UnitTopic {
-  id: string;
-  title: string;
-  contentHref?: string;
-  contentCompleted: boolean;
-  quizHref?: string;
-  quizProgress: number;
-  quizCompleted: boolean;
-  totalQuestions: number;
-  solvedQuestions: number;
+  soruBankasiHref?: string;
+  weakTopic: { title: string; wrongCount: number; href: string } | null;
 }
 
 export interface Stat {
@@ -97,12 +71,8 @@ export interface DashboardData {
   stats: Stat[];
   overallStats: { totalQuestions: number; correctAnswers: number; wrongAnswers: number; accuracy: number } | null;
   srsReview: SRSReview | null;
-  units: Unit[];
   recentActivities: Activity[];
-  activeUnitId: string | null;
-  topicsByUnitId: Record<string, UnitTopic[]>;
   lessons: LessonProgress[];
-  selectedLessonId: string | null;
 }
 
 // Navigation

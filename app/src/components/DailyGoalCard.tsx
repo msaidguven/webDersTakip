@@ -13,6 +13,10 @@ export function DailyGoalCard({ dailyProgress, dailyGoal, streak, dueSrsCount }:
   const progressPct = dailyGoal > 0 ? Math.min(100, Math.round((dailyProgress / dailyGoal) * 100)) : 0;
   const goalReached = dailyProgress >= dailyGoal;
 
+  // Seri dünden devam ediyor ama bugün henüz soru yok — gece yarısı sıfırlanacak (bkz.
+  // getCurrentStreak: bugün boşsa dünden sayılıyor).
+  const streakAtRisk = streak > 0 && dailyProgress === 0;
+
   const heading = goalReached
     ? 'Bugünkü hedefini tamamladın! 🎉'
     : dueSrsCount > 0
@@ -21,9 +25,11 @@ export function DailyGoalCard({ dailyProgress, dailyGoal, streak, dueSrsCount }:
 
   const subtext = goalReached
     ? 'Harika gidiyorsun, serini korumak için yarın da uğra.'
-    : dueSrsCount > 0
-      ? `${dueSrsCount} soru tekrar zamanı geldi, önce onları çöz.`
-      : `${dailyGoal} soru çözerek serini canlı tut.`;
+    : streakAtRisk
+      ? `🔥 ${streak} günlük serin var — bugün soru çözmezsen sıfırlanacak!`
+      : dueSrsCount > 0
+        ? `${dueSrsCount} soru tekrar zamanı geldi, önce onları çöz.`
+        : `${dailyGoal} soru çözerek serini canlı tut.`;
 
   return (
     <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-transparent border border-indigo-500/20 p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
@@ -36,7 +42,7 @@ export function DailyGoalCard({ dailyProgress, dailyGoal, streak, dueSrsCount }:
 
       <div className="flex-1 min-w-0">
         <h3 className="text-base sm:text-lg font-semibold text-default mb-1">{heading}</h3>
-        <p className="text-muted-foreground text-xs sm:text-sm mb-3">{subtext}</p>
+        <p className={`text-xs sm:text-sm mb-3 ${streakAtRisk ? 'text-orange-500 font-semibold' : 'text-muted-foreground'}`}>{subtext}</p>
 
         {!goalReached && (
           <div className="space-y-1.5">

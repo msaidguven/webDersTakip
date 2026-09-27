@@ -10,7 +10,7 @@ import { ActivityFeed } from '../src/components/ActivityFeed';
 import { DailyGoalCard } from '../src/components/DailyGoalCard';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { LeaderboardCard } from '../src/components/LeaderboardCard';
-import { LessonExplorer } from '../src/components/LessonExplorer';
+import { LessonProgressCards } from '../src/components/LessonProgressCards';
 
 // Panel artık tek bir global spinnerla değil, her bölüm kendi verisi gelince ayrı ayrı
 // dolduruluyor (bkz. kullanıcının "adım adım yüklensin, hepsini beklemeden" isteği,
@@ -23,15 +23,14 @@ export default function PanelPage() {
   const {
     data,
     isAuthenticated,
-    unitsContext,
-    isSwitchingLesson,
+    gradeName,
+    lessonsStatus,
     isAuthResolving,
     isProfileLoading,
-    isUnitsLoading,
+    isLessonsLoading,
     isStatsLoading,
     isActivityLoading,
     isOverallLoading,
-    selectLesson,
     handleSRSReview,
   } = useDashboardViewModel();
 
@@ -136,7 +135,7 @@ export default function PanelPage() {
           {/* Haftalık ilerleme (masaüstünde bunun yerine sidebar'da gösteriliyor — bkz.
               Sidebar.tsx; burada sadece mobilde, sidebar gizli olduğu için) */}
           <div className="lg:hidden mb-6 sm:mb-8">
-            {isUnitsLoading ? <SkeletonBlock className="h-40" /> : <WeeklyProgress activeDays={data.weeklyActiveDays} />}
+            {isLessonsLoading ? <SkeletonBlock className="h-40" /> : <WeeklyProgress activeDays={data.weeklyActiveDays} />}
           </div>
         </>
       ) : (
@@ -147,29 +146,20 @@ export default function PanelPage() {
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
-        {/* Left Column - SRS & Units (2/3) */}
+        {/* Left Column - SRS & Dersler (2/3) */}
         <div className="lg:col-span-2 space-y-6 sm:space-y-8">
           {/* SRS Alert */}
           {isAuthenticated && !isStatsLoading && data.srsReview && (
             <SRSWidget review={data.srsReview} onReview={handleSRSReview} />
           )}
 
-          {/* Dersler → Üniteler → Konular gezgini — tek bileşen, mobil/web aynı */}
-          <div id="uniteler" className="scroll-mt-24">
+          {/* Ders kartları — üniteler/konular panelde gezilmiyor, Soru Bankası'na yönlendiriliyor
+              (bkz. LessonProgressCards). */}
+          <div id="derslerim" className="scroll-mt-24">
             {!isAuthenticated ? (
               <AuthPrompt message="Derslerini ve ilerlemeni görmek için giriş yap." />
             ) : (
-              <LessonExplorer
-                lessons={data.lessons}
-                isLessonsLoading={isUnitsLoading}
-                units={data.units}
-                topicsByUnitId={data.topicsByUnitId}
-                activeUnitId={data.activeUnitId}
-                isSwitchingLesson={isSwitchingLesson}
-                gradeName={unitsContext?.gradeName ?? null}
-                lessonName={unitsContext?.lessonName ?? null}
-                onSelectLesson={selectLesson}
-              />
+              <LessonProgressCards lessons={data.lessons} isLoading={isLessonsLoading} gradeName={gradeName} status={lessonsStatus} />
             )}
           </div>
         </div>

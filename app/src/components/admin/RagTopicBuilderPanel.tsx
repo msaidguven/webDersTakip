@@ -303,7 +303,7 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
             rel="noreferrer"
             className="inline-block text-[11px] font-bold text-[#6c63ff] hover:underline"
           >
-            Kaynak hazır — içerik/soru üretimi için tam içerik yönetimini aç →
+            Kaynak hazır — içerik/soru üretimi için konu sayfasında içerik yönetimini aç →
           </a>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import HomeClient from './HomeClient';
+import { getPublicWeeklyTopStudents } from './src/lib/leaderboard';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import { getSiteStats, getHomeGradeSections, getWeeklyTopicsForGrade, getPublishedUnitContent, getPublicMemberCount, type HomeGradeSection, type WeeklyTopicItem } from './src/lib/homeStats';
@@ -50,10 +51,11 @@ export default async function HomePage() {
   // konuları da stats/gradeSections'a bağlı olmadığı için aynı Promise.all'a alındı.
   const publishedUnitsAll = await getPublishedUnitContent(supabase, gradeIds);
 
-  const [gradeSectionsMap, weeklyTopicsEntries, memberCount] = await Promise.all([
+  const [gradeSectionsMap, weeklyTopicsEntries, memberCount, topStudents] = await Promise.all([
     getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
     Promise.all(rows.map(async (r) => [r.id, await getWeeklyTopicsForGrade(supabase, r.id, r.slug)] as const)),
     getPublicMemberCount(supabase),
+    getPublicWeeklyTopStudents(supabase),
   ]);
 
   const stats = getSiteStats(gradeIds, publishedUnitsAll, memberCount);
@@ -64,5 +66,5 @@ export default async function HomePage() {
   const weeklyTopics: Record<string, WeeklyTopicItem[]> = {};
   for (const [id, topics] of weeklyTopicsEntries) weeklyTopics[String(id)] = topics;
 
-  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} weeklyTopics={weeklyTopics} />;
+  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} weeklyTopics={weeklyTopics} topStudents={topStudents} />;
 }

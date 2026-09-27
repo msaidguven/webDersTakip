@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle, Check, Clipboard, ImagePlus, ListChecks, MoreVertical, Pencil, Plus,
   RefreshCw, Shapes, Sparkles, Trash2, Video, Youtube, X,
@@ -287,7 +286,30 @@ export function ToolButton({
   );
 }
 
-export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }) {
+export type AdminTopicPanelKey =
+  | 'plan' | 'cover-image' | 'highlights' | 'highlight-quick-add' | 'topic-summary' | 'review-summary'
+  | 'topic-questions-general' | 'topic-questions-classical' | 'classical-generate' | 'notebooklm-setup'
+  | 'image' | 'diagram' | 'video' | 'video-suggestion';
+
+type AdminTopicSectionsPanelProps = {
+  topicId: number;
+  // Açılışta doğrudan açılacak araç (ders sayfasındaki İçerik Yönetimi menüleri).
+  initialPanel?: AdminTopicPanelKey | null;
+  initialSectionId?: number | null;
+  // true: panelin gövdesi hiç çizilmez, sadece initialPanel'in modalı açılır; o modal
+  // kapanınca onClose çağrılır. Ders sayfasındaki hızlı erişim için (kullanıcının
+  // 2026-09-26 isteği: araçlar ayrı admin sayfasına gitmeden, ders sayfasında hızlı açılsın).
+  modalOnly?: boolean;
+  onClose?: () => void;
+};
+
+export default function AdminTopicSectionsPanel({
+  topicId,
+  initialPanel = null,
+  initialSectionId = null,
+  modalOnly = false,
+  onClose,
+}: AdminTopicSectionsPanelProps) {
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -351,23 +373,24 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
     load();
   }, [load]);
 
-  // Ders sayfasındaki admin araçları açılır menüsünden (DersClient.tsx) doğrudan bu panele,
-  // ilgili modal zaten açık halde gelinebilsin diye — kullanıcının 2026-09-20/21 isteği:
-  // "her prompt için ayrı link verelim, sayfaya gelince o panel açık olsun". Section bazlı
-  // araçlar (görsel/diyagram/video/YouTube önerisi) da ?sectionId= ile destekleniyor —
-  // bundle (ve bundle.sections) yüklenmeden section'ı bulamayacağımız için bundle hazır
-  // olana kadar bekliyoruz. didAutoOpenPanel bir kere çalışsın diye: aksi halde admin
-  // modalı kapattıktan sonra herhangi bir kayıt (load() tetikleyen) bundle'ı değiştirip
-  // URL'de panel= hâlâ dururken modalı sessizce yeniden açardı.
-  const searchParams = useSearchParams();
+  // initialPanel ile gelinince ilgili modal açık başlasın. Section bazlı araçlar
+  // (görsel/diyagram/video/YouTube önerisi) bundle.sections yüklenmeden section'ı bulamaz,
+  // o yüzden bundle hazır olana kadar bekleniyor. didAutoOpenPanel bir kere çalışsın diye:
+  // aksi halde modal kapatıldıktan sonra herhangi bir kayıt (load()) modalı yeniden açardı.
   const didAutoOpenPanel = useRef(false);
+  // Konu geneli soru araçları, tam paneldeki gibi konunun kaynağına göre doğru promptu açsın
+  // (kitap → NotebookLM, sentez → RAG sentezi, bilinmiyor → genel); bu yüzden kaynak türü
+  // belli olana kadar beklenir.
+  const needsSourceKind = initialPanel === 'topic-questions-general' || initialPanel === 'topic-questions-classical';
   useEffect(() => {
     if (!bundle || didAutoOpenPanel.current) return;
+    if (needsSourceKind && contentSourceKind === null) return;
     didAutoOpenPanel.current = true;
-    const panel = searchParams.get('panel');
-    const sectionIdParam = searchParams.get('sectionId');
-    const section = sectionIdParam ? bundle.sections.find((s) => String(s.id) === sectionIdParam) ?? null : null;
-    switch (panel) {
+    const useSynthesis = contentSourceKind === 'synthesis' && unitDedupChecked;
+    const useNotebook = contentSourceKind === 'notebook';
+    const section = initialSectionId != null ? bundle.sections.find((s) => s.id === initialSectionId) ?? null : null;
+    let opened = true;
+    switch (initialPanel) {
       case 'review-summary': setReviewSummaryModalOpen(true); break;
       case 'cover-image': setCoverImageModalOpen(true); break;
       case 'highlights': setHighlightsModalOpen(true); break;
@@ -375,20 +398,25 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       case 'topic-summary': setTopicSummaryModalOpen(true); break;
       case 'plan': setPlanModalOpen(true); break;
       case 'notebooklm-setup': setNotebookLmSetupOpen(true); break;
-      case 'topic-questions-general': setTopicQuestionsVariant('general'); break;
-      case 'topic-questions-classical': setTopicQuestionsVariant('classical'); break;
+      case 'topic-questions-general':
+        setTopicQuestionsVariant(useSynthesis ? 'rag_synthesis' : useNotebook ? 'notebooklm' : 'general'); break;
+      case 'topic-questions-classical':
+        setTopicQuestionsVariant(useSynthesis ? 'classical_rag_synthesis' : useNotebook ? 'classical_notebooklm' : 'classical'); break;
       case 'classical-generate': setClassicalGenerateTarget({ section: null }); break;
-      case 'image': if (section) setImageModalTarget(section); break;
-      case 'diagram': if (section) setDiagramModalTarget(section); break;
-      case 'video': if (section) setVideoModalTarget(section); break;
-      case 'video-suggestion': if (section) setVideoSuggestionsModalTarget(section); break;
-      default: break;
+      case 'image': if (section) setImageModalTarget(section); else opened = false; break;
+      case 'diagram': if (section) setDiagramModalTarget(section); else opened = false; break;
+      case 'video': if (section) setVideoModalTarget(section); else opened = false; break;
+      case 'video-suggestion': if (section) setVideoSuggestionsModalTarget(section); else opened = false; break;
+      default: opened = false; break;
     }
-  }, [bundle, searchParams]);
+    // Modal modunda açılacak bir şey yoksa (bilinmeyen araç / alt başlık bulunamadı) takılı kalma.
+    if (modalOnly && !opened) onClose?.();
+  }, [bundle, initialPanel, initialSectionId, modalOnly, onClose, needsSourceKind, contentSourceKind, unitDedupChecked]);
 
   useEffect(() => {
     const unitId = bundle?.unit?.id ?? null;
-    if (!bundle) return;
+    // Modal modunda panel gövdesi çizilmiyor; sadece soru araçları için gerekiyor.
+    if (!bundle || (modalOnly && !needsSourceKind)) return;
     let cancelled = false;
     (async () => {
       const [synthRes, dedupRes, bookRes] = await Promise.all([
@@ -404,7 +432,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
       setContentSourceKind(hasSynthesis ? 'synthesis' : hasBook ? 'notebook' : 'unknown');
     })();
     return () => { cancelled = true; };
-  }, [bundle, topicId, reloadCount]);
+  }, [bundle, topicId, reloadCount, modalOnly, needsSourceKind]);
 
   async function handleAssignCodes() {
     setAssigning(true);
@@ -506,7 +534,32 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
     }
   }
 
-  if (loading) {
+  const anyModalOpen = Boolean(
+    planModalOpen || editingSection || sectionModalTarget || imageModalTarget || diagramModalTarget ||
+    videoModalTarget || videoSuggestionsModalTarget || questionsModalTarget || classicalGenerateTarget ||
+    notebookPlanVariant || notebookLmSetupOpen || coverImageModalOpen || highlightsModalOpen ||
+    highlightQuickAddOpen || highlightEditIndex != null || topicSummaryModalOpen || reviewSummaryModalOpen ||
+    topicQuestionsVariant
+  );
+  // Modal modunda: açılan modal kapanınca (anyModalOpen true → false) host'a haber ver.
+  const wasModalOpenRef = useRef(false);
+  useEffect(() => {
+    if (!modalOnly) return;
+    if (anyModalOpen) wasModalOpenRef.current = true;
+    else if (wasModalOpenRef.current) onClose?.();
+  }, [anyModalOpen, modalOnly, onClose]);
+
+  if (loading && modalOnly && !bundle) {
+    return (
+      <div role="status" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30">
+        <div className="flex items-center gap-2 rounded-xl bg-card px-4 py-3 text-sm font-bold text-foreground shadow-xl">
+          <span className="h-4 w-4 rounded-full border-2 border-[#6c63ff] border-t-transparent animate-spin" /> Açılıyor...
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !bundle) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card/60 p-6 text-sm text-muted-foreground">
         Yönetim paneli yükleniyor...
@@ -521,6 +574,140 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
     bundle.outcomes.map((o) => (o.startWeek == null ? 'none' : `${o.startWeek}-${o.endWeek}`))
   );
   const outcomesSpanMultipleWeeks = distinctWeekRanges.size > 1;
+
+  const modals = (
+    <>
+      {planModalOpen && (
+        <PlanModal topicId={topicId} onClose={() => setPlanModalOpen(false)} onSaved={() => { setPlanModalOpen(false); load(); }} />
+      )}
+
+      {editingSection && (
+        <SectionContentEditModal
+          section={editingSection}
+          onClose={() => setEditingSection(null)}
+          onSaved={() => { setEditingSection(null); load(); }}
+        />
+      )}
+
+      {notebookPlanVariant === 'full' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'content_refresh_notebooklm' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="content_refresh_notebooklm"
+          title="İçeriği Güncelle (NotebookLM) — Başlıklar Sabit"
+          description="Alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği NotebookLM ile yeniden yazılır. Bu promptu NotebookLM'e, kaynak olarak ders kitabının PDF'ini yüklediğiniz notebook'ta sorun. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="NotebookLM"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'full_from_synthesis' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="full_from_synthesis"
+          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
+          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookPlanVariant === 'content_refresh_from_synthesis' && (
+        <NotebookPlanModal
+          topicId={topicId}
+          promptType="content_refresh_from_synthesis"
+          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
+          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
+          defaultAiModel="Claude Sonnet 5"
+          onClose={() => setNotebookPlanVariant(null)}
+          onSaved={() => { setNotebookPlanVariant(null); load(); }}
+        />
+      )}
+      {notebookLmSetupOpen && (
+        <NotebookLmSetupModal onClose={() => setNotebookLmSetupOpen(false)} />
+      )}
+
+      {coverImageModalOpen && (
+        <TopicCoverImageModal topicId={topicId} onClose={() => setCoverImageModalOpen(false)} onSaved={() => { setCoverImageModalOpen(false); load(); }} />
+      )}
+      {highlightsModalOpen && (
+        <TopicHighlightsModal topicId={topicId} onClose={() => setHighlightsModalOpen(false)} onSaved={() => { setHighlightsModalOpen(false); load(); }} />
+      )}
+      {highlightQuickAddOpen && (
+        <TopicHighlightQuickAddModal topicId={topicId} onClose={() => setHighlightQuickAddOpen(false)} onSaved={() => { setHighlightQuickAddOpen(false); load(); }} />
+      )}
+      {highlightEditIndex != null && (
+        <TopicHighlightEditModal topicId={topicId} index={highlightEditIndex} onClose={() => setHighlightEditIndex(null)} onSaved={() => { setHighlightEditIndex(null); load(); }} />
+      )}
+      {topicSummaryModalOpen && (
+        <TopicSummaryEditModal topicId={topicId} topicTitle={bundle.topic.title} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
+      )}
+      {reviewSummaryModalOpen && (
+        <ReviewSummaryBackfillModal topicId={topicId} onClose={() => setReviewSummaryModalOpen(false)} onSaved={() => load()} />
+      )}
+
+      {topicQuestionsVariant && (
+        <TopicQuestionsModal
+          topicId={topicId}
+          topicTitle={bundle.topic.title}
+          variant={topicQuestionsVariant}
+          onClose={() => { setTopicQuestionsVariant(null); load(); }}
+        />
+      )}
+      {classicalGenerateTarget && (
+        <ClassicalGenerateModal
+          topicId={topicId}
+          topicTitle={bundle.topic.title}
+          section={classicalGenerateTarget.section}
+          onClose={() => { setClassicalGenerateTarget(null); load(); }}
+        />
+      )}
+
+      {sectionModalTarget && (
+        <SectionModal
+          topicId={topicId}
+          section={sectionModalTarget.section}
+          variant={sectionModalTarget.variant}
+          onClose={() => setSectionModalTarget(null)}
+          onSaved={() => { setSectionModalTarget(null); load(); }}
+        />
+      )}
+      {imageModalTarget && (
+        <ImageModal
+          topicId={topicId}
+          section={imageModalTarget}
+          onClose={() => setImageModalTarget(null)}
+          onSaved={load}
+          onImageChanged={load}
+        />
+      )}
+      {diagramModalTarget && (
+        <DiagramModal topicId={topicId} section={diagramModalTarget} onClose={() => setDiagramModalTarget(null)} onSaved={load} />
+      )}
+      {videoModalTarget && (
+        <VideoModal topicId={topicId} section={videoModalTarget} onClose={() => setVideoModalTarget(null)} onSaved={load} />
+      )}
+      {videoSuggestionsModalTarget && (
+        <VideoSuggestionsModal topicId={topicId} section={videoSuggestionsModalTarget} onClose={() => setVideoSuggestionsModalTarget(null)} onSaved={load} />
+      )}
+      {questionsModalTarget && (
+        <QuestionsModal
+          topicId={topicId}
+          section={questionsModalTarget.section}
+          variant={questionsModalTarget.variant}
+          onClose={() => { setQuestionsModalTarget(null); load(); }}
+        />
+      )}
+    </>
+  );
+
+  if (modalOnly) return modals;
 
   return (
     <div className="rounded-2xl border border-dashed border-[#6c63ff]/40 bg-background p-6">
@@ -816,133 +1003,7 @@ export default function AdminTopicSectionsPanel({ topicId }: { topicId: number }
         />
       )}
 
-      {planModalOpen && (
-        <PlanModal topicId={topicId} onClose={() => setPlanModalOpen(false)} onSaved={() => { setPlanModalOpen(false); load(); }} />
-      )}
-
-      {editingSection && (
-        <SectionContentEditModal
-          section={editingSection}
-          onClose={() => setEditingSection(null)}
-          onSaved={() => { setEditingSection(null); load(); }}
-        />
-      )}
-
-      {notebookPlanVariant === 'full' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
-      {notebookPlanVariant === 'content_refresh_notebooklm' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="content_refresh_notebooklm"
-          title="İçeriği Güncelle (NotebookLM) — Başlıklar Sabit"
-          description="Alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği NotebookLM ile yeniden yazılır. Bu promptu NotebookLM'e, kaynak olarak ders kitabının PDF'ini yüklediğiniz notebook'ta sorun. AI çıktısını aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="NotebookLM"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
-      {notebookPlanVariant === 'full_from_synthesis' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="full_from_synthesis"
-          title="RAG Sentezinden — Tek Prompt (Alt Başlık + İçerik)"
-          description="Kitapsız ders — bu prompt, RAG için zaten hazırladığınız çoklu-AI sentez metnini kaynak alır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
-      {notebookPlanVariant === 'content_refresh_from_synthesis' && (
-        <NotebookPlanModal
-          topicId={topicId}
-          promptType="content_refresh_from_synthesis"
-          title="Sentezden İçeriği Güncelle — Başlıklar Sabit"
-          description="Kitapsız ders — alt başlıklar değişmez, mevcut listeleri prompt'a gömülü gelir; sadece her başlığın içeriği RAG için zaten hazırlanmış sentez metniyle yeniden yazılır. Dışarıda bir AI'a (ör. Claude) sorup dönen JSON'u aşağıya yapıştırıp tek seferde kaydedin — görsel/diyagram/soru bağlantıları korunur."
-          defaultAiModel="Claude Sonnet 5"
-          onClose={() => setNotebookPlanVariant(null)}
-          onSaved={() => { setNotebookPlanVariant(null); load(); }}
-        />
-      )}
-      {notebookLmSetupOpen && (
-        <NotebookLmSetupModal onClose={() => setNotebookLmSetupOpen(false)} />
-      )}
-
-      {coverImageModalOpen && (
-        <TopicCoverImageModal topicId={topicId} onClose={() => setCoverImageModalOpen(false)} onSaved={() => { setCoverImageModalOpen(false); load(); }} />
-      )}
-      {highlightsModalOpen && (
-        <TopicHighlightsModal topicId={topicId} onClose={() => setHighlightsModalOpen(false)} onSaved={() => { setHighlightsModalOpen(false); load(); }} />
-      )}
-      {highlightQuickAddOpen && (
-        <TopicHighlightQuickAddModal topicId={topicId} onClose={() => setHighlightQuickAddOpen(false)} onSaved={() => { setHighlightQuickAddOpen(false); load(); }} />
-      )}
-      {highlightEditIndex != null && (
-        <TopicHighlightEditModal topicId={topicId} index={highlightEditIndex} onClose={() => setHighlightEditIndex(null)} onSaved={() => { setHighlightEditIndex(null); load(); }} />
-      )}
-      {topicSummaryModalOpen && (
-        <TopicSummaryEditModal topicId={topicId} topicTitle={bundle.topic.title} onClose={() => setTopicSummaryModalOpen(false)} onSaved={() => { setTopicSummaryModalOpen(false); load(); }} />
-      )}
-      {reviewSummaryModalOpen && (
-        <ReviewSummaryBackfillModal topicId={topicId} onClose={() => setReviewSummaryModalOpen(false)} onSaved={() => load()} />
-      )}
-
-      {topicQuestionsVariant && (
-        <TopicQuestionsModal
-          topicId={topicId}
-          topicTitle={bundle.topic.title}
-          variant={topicQuestionsVariant}
-          onClose={() => { setTopicQuestionsVariant(null); load(); }}
-        />
-      )}
-      {classicalGenerateTarget && (
-        <ClassicalGenerateModal
-          topicId={topicId}
-          topicTitle={bundle.topic.title}
-          section={classicalGenerateTarget.section}
-          onClose={() => { setClassicalGenerateTarget(null); load(); }}
-        />
-      )}
-
-      {sectionModalTarget && (
-        <SectionModal
-          topicId={topicId}
-          section={sectionModalTarget.section}
-          variant={sectionModalTarget.variant}
-          onClose={() => setSectionModalTarget(null)}
-          onSaved={() => { setSectionModalTarget(null); load(); }}
-        />
-      )}
-      {imageModalTarget && (
-        <ImageModal
-          topicId={topicId}
-          section={imageModalTarget}
-          onClose={() => setImageModalTarget(null)}
-          onSaved={load}
-          onImageChanged={load}
-        />
-      )}
-      {diagramModalTarget && (
-        <DiagramModal topicId={topicId} section={diagramModalTarget} onClose={() => setDiagramModalTarget(null)} onSaved={load} />
-      )}
-      {videoModalTarget && (
-        <VideoModal topicId={topicId} section={videoModalTarget} onClose={() => setVideoModalTarget(null)} onSaved={load} />
-      )}
-      {videoSuggestionsModalTarget && (
-        <VideoSuggestionsModal topicId={topicId} section={videoSuggestionsModalTarget} onClose={() => setVideoSuggestionsModalTarget(null)} onSaved={load} />
-      )}
-      {questionsModalTarget && (
-        <QuestionsModal
-          topicId={topicId}
-          section={questionsModalTarget.section}
-          variant={questionsModalTarget.variant}
-          onClose={() => { setQuestionsModalTarget(null); load(); }}
-        />
-      )}
+      {modals}
     </div>
   );
 }
@@ -1603,7 +1664,11 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-export function PromptCopyBox({ prompt, loading }: { prompt: string; loading: boolean }) {
+// NotebookLM tek mesaj sınırı (kullanıcının 2026-09-26 ölçümü: ~3900 karakter).
+export const NOTEBOOKLM_PROMPT_MAX_CHARS = 3900;
+
+export function PromptCopyBox({ prompt, loading, maxChars }: { prompt: string; loading: boolean; maxChars?: number }) {
+  const overLimit = maxChars != null && !loading && prompt.length > maxChars;
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -1619,7 +1684,14 @@ export function PromptCopyBox({ prompt, loading }: { prompt: string; loading: bo
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-muted-foreground">Prompt</span>
+        <span className="text-xs font-bold text-muted-foreground">
+          Prompt
+          {maxChars != null && !loading && prompt && (
+            <span className={`ml-2 font-mono ${overLimit ? 'text-red-500' : 'text-muted-foreground/70'}`}>
+              {prompt.length.toLocaleString('tr-TR')} / {maxChars.toLocaleString('tr-TR')} karakter{overLimit ? ' — NotebookLM sınırı aşıldı' : ''}
+            </span>
+          )}
+        </span>
         <button
           onClick={handleCopy}
           disabled={loading || !prompt}
@@ -2933,7 +3005,7 @@ export function QuestionsModal({
         {promptError ? (
           <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
         ) : (
-          <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+          <PromptCopyBox prompt={prompt} loading={loadingPrompt} maxChars={isNotebook ? NOTEBOOKLM_PROMPT_MAX_CHARS : undefined} />
         )}
 
         <div>
@@ -4879,7 +4951,7 @@ export function TopicQuestionsModal({
         {promptError ? (
           <p className="text-xs font-bold text-[#ff6584]">{promptError}</p>
         ) : (
-          <PromptCopyBox prompt={prompt} loading={loadingPrompt} />
+          <PromptCopyBox prompt={prompt} loading={loadingPrompt} maxChars={isNotebook ? NOTEBOOKLM_PROMPT_MAX_CHARS : undefined} />
         )}
 
         <div>

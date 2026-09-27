@@ -9,19 +9,16 @@
 // sayfa her yenilendiğinde zıplamıyor, ama hafta ilerledikçe doğal biçimde
 // artıyor ve her yeni haftada sıfırdan yeniden hesaplanıyor.
 
-const SEED_NAMES = [
-  // Rumuz tarzı
-  'demir_yumruk', 'kartal34', 'zeka_kupu', 'kod_ninja', 'sessiz_fatih',
-  'gece_kartali', 'hizli_tilki', 'keskin_zeka', 'maratoncu', 'cozum_ustasi',
-  'gizli_deha', 'ates_bocegi', 'yildiz_avcisi', 'akilli_ordek', 'son_viraj',
-  // Gerçek isme benzer tarz
-  'ahmet_demir23', 'mehmet_yildiz', 'zeynep_kara56', 'elif_su19', 'yusuf_aydin',
-  'ayse_nur34', 'emre_kaya07', 'buse_celik', 'kerem_ozturk15', 'irem_dogan',
-  'berkay_arslan22', 'sude_kaplan', 'mert_ozdemir08', 'defne_avci', 'alp_koc03',
-  'ecrin_bal17', 'kaan_sahin', 'nisa_bulut29', 'umut_polat11', 'melis_er',
-  'cinar_gunes14', 'yagmur_ceylan', 'taha_kurt08', 'elis_ay25', 'batuhan_deniz',
-  'rana_gun33', 'ege_yavuz17', 'sena_kilic', 'arda_tas06', 'beren_ipek',
-];
+// 2026-09-26 kalibrasyonu: eskiden 45 kayıt × günde 9-33 soru (haftada ~125+) vardı —
+// gerçek veride haftanın en aktif öğrencisi ~116 soruda kalırken listenin DİBİNE düşüyordu
+// (116 soru ile 33. sıra), yani teşvik yerine caydırıyordu. Artık 12 kayıt, her gün 5-25 soru
+// (kullanıcı kararı, 2026-09-26).
+// Panel de anasayfa da "Ad S." gösterdiği için rumuz tarzı kayıtlar kaldırıldı.
+const SEED_NAMES: Record<string, string> = {
+  ahmet_demir23: 'Ahmet D.', zeynep_kara56: 'Zeynep K.', elif_su19: 'Elif S.', yusuf_aydin: 'Yusuf A.',
+  ayse_nur34: 'Ayşe N.', emre_kaya07: 'Emre K.', irem_dogan: 'İrem D.', kerem_ozturk15: 'Kerem Ö.',
+  defne_avci: 'Defne A.', kaan_sahin: 'Kaan Ş.', cinar_gunes14: 'Çınar G.', yagmur_ceylan: 'Yağmur C.',
+};
 
 function hashString(str: string): number {
   let h = 0;
@@ -49,14 +46,16 @@ function daysElapsedInWeek(weekStart: string): number {
   return Math.min(6, Math.max(0, diff)); // 0 = Pazartesi ... 6 = Pazar
 }
 
+// Seed anahtarı (ör. "ahmet_demir23") sayıların eski haftalarla aynı hash'ten türemesi için
+// korunuyor; dışarıya sadece görünen isim çıkar.
 export function getSeedLeaderboardEntries(weekStart: string): { displayName: string; totalQuestions: number }[] {
   const elapsedDays = daysElapsedInWeek(weekStart);
-  return SEED_NAMES.map((name) => {
-    const rand = mulberry32(hashString(`${weekStart}:${name}`));
+  return Object.entries(SEED_NAMES).map(([key, displayName]) => {
+    const rand = mulberry32(hashString(`${weekStart}:${key}`));
     let totalQuestions = 0;
     for (let day = 0; day <= elapsedDays; day++) {
-      totalQuestions += 9 + Math.floor(rand() * 25); // günlük ~9-33 soru
+      totalQuestions += 5 + Math.floor(rand() * 21); // günde 5-25 soru
     }
-    return { displayName: name, totalQuestions };
+    return { displayName, totalQuestions };
   });
 }

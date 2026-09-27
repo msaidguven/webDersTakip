@@ -19,6 +19,8 @@
 // 'xlsx' paketinin default export'u yok (sadece named export'lar) — `import XLSX from 'xlsx'`
 // tsx/Node ile çalışıyor görünse de Next'in Turbopack production build'inde "Export default
 // doesn't exist in target module" hatasıyla patlıyordu (2026-09-10, Vercel deploy hatası).
+import { stripUnitTitleNumberPrefix } from '@/app/src/lib/tymm/compareUnits';
+
 import { read as xlsxRead, utils as xlsxUtils, type WorkSheet, type Range } from 'xlsx';
 import { type ParsedRow } from './docxParser';
 
@@ -256,7 +258,8 @@ function parseSheet(sheetName: string, sheet: WorkSheet): ParsedRow[] {
     if (weekNo != null) lastWeekNo = weekNo;
     const saat = col.saat != null ? saatOku(r[col.saat] || '') : null;
 
-    const temalar = splitBySlashLine(temaRaw).map((t) => t.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
+    // "2. Öğrenme Alanı: " gibi sıra+etiket öneki ünite adına girmesin (bkz. docxParser alanTemizle).
+    const temalar = splitBySlashLine(temaRaw).map((t) => stripUnitTitleNumberPrefix(t.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()));
     const icerikler = col.icerik != null ? splitIcerikColumn(r[col.icerik] || '') : [];
     const ogrenmeGruplari = col.ogrenmeCiktilari != null ? splitByBlankLine(r[col.ogrenmeCiktilari] || '') : [];
     const surecGruplariRaw = col.surecBilesenleri != null ? splitByBlankLine(r[col.surecBilesenleri] || '') : [];

@@ -9,7 +9,7 @@ import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/route
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
-import DersClient from '../../../../ders/DersClient';
+import TopicDesignSwitch from '../../../../ders/TopicDesignSwitch';
 import DersHighlight from '../../../../ders/DersHighlight';
 
 // Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
@@ -402,7 +402,7 @@ export default async function TopicPage({ params }: PageProps) {
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
-      <DersClient
+      <TopicDesignSwitch
         initialData={data}
         gradeId={data.gradeId}
         lessonId={data.lessonId}

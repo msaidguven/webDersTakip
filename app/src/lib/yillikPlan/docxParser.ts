@@ -10,6 +10,7 @@
 // dikey birleşik hücre olduğu için bu davranış burada da (buildCellGrid) replike edilir.
 
 import JSZip from 'jszip';
+import { stripUnitTitleNumberPrefix } from '@/app/src/lib/tymm/compareUnits';
 import { DOMParser, type Element } from '@xmldom/xmldom';
 
 export type ParsedRow = {
@@ -180,10 +181,14 @@ function tcTitle(s: string): string {
     .join(' ');
 }
 
+// Ünite adı: kazanım kodları ve TYMM tarzı "2. Öğrenme Alanı: " sıra+etiket öneki atılır
+// (kullanıcının 2026-09-26 isteği — 6. sınıf Sosyal Bilgiler üniteleri bu önekle girmişti;
+// TYMM içe aktarması aynı stripUnitTitleNumberPrefix'i zaten kullanıyor).
 function alanTemizle(s: string): string {
   let temiz = s.replace(/[A-ZÇĞİÖŞÜa-zçğışöü0-9]+\.\d+(\.\d+)*\.?\s*/g, '').trim();
   temiz = (temiz.split('\n')[0] || '').trim();
-  return temiz ? tcTitle(temiz) : tcTitle((s.split('\n')[0] || '').trim());
+  const baslik = temiz ? tcTitle(temiz) : tcTitle((s.split('\n')[0] || '').trim());
+  return stripUnitTitleNumberPrefix(baslik);
 }
 
 function tatilMi(cells: string[]): boolean {

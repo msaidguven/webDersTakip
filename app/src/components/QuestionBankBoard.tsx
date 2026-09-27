@@ -21,6 +21,7 @@ import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
 
 // Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
 // (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
@@ -141,8 +142,8 @@ export default function QuestionBankBoard({
       const index = questions.findIndex((q) => q.id === questionId);
       if (index !== -1) setActiveIndex(index);
     };
-    window.addEventListener('soru-bankasi:focus-question', handler);
-    return () => window.removeEventListener('soru-bankasi:focus-question', handler);
+    window.addEventListener(FOCUS_QUESTION_EVENT, handler);
+    return () => window.removeEventListener(FOCUS_QUESTION_EVENT, handler);
   }, [questions]);
 
   useEffect(() => {

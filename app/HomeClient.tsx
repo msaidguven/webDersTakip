@@ -17,6 +17,8 @@ import { WeeklyTopics } from './src/components/home/WeeklyTopics';
 import { WhyJoin, HowItWorks } from './src/components/home/WhyJoinAndHowItWorks';
 import { MyStats } from './src/components/home/MyStats';
 import { FooterCTA } from './src/components/home/FooterCTA';
+import { TopStudents } from './src/components/home/TopStudents';
+import type { TopStudentEntry } from './src/lib/leaderboard';
 
 interface GradeRow {
   id: number;
@@ -58,9 +60,10 @@ interface HomeClientProps {
   stats: SiteStats;
   gradeSections: Record<string, HomeGradeSection>;
   weeklyTopics: Record<string, WeeklyTopicItem[]>;
+  topStudents: TopStudentEntry[];
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, weeklyTopics }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, weeklyTopics, topStudents }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -130,6 +133,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
           )}
 
           <QuickAccess />
+
+          <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
 
           {selectedGrade && (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

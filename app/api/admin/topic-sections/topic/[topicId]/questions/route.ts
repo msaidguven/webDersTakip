@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { parseQuestions, TYPE_ID, INVALID_MESSAGE } from '@/app/src/lib/parseMixedQuestions';
+import { revalidateUnitPagesForTopics, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 
 interface Params {
   topicId: string;
@@ -117,6 +118,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
     }
 
     savedCount += 1;
+  }
+
+  // Konu geneli sorular da ünite testi sayacını, konunun soru bankası sayfasını (ilk soruda
+  // "henüz soru yok"tan normal, indekslenebilir sayfaya dönüşüyor) ve hub'ları etkiliyor.
+  if (savedCount > 0) {
+    await revalidateUnitPagesForTopics(supabase, [(topicRow as { id: number }).id]);
+    revalidateHomepage();
   }
 
   return NextResponse.json({ ok: true, savedCount });

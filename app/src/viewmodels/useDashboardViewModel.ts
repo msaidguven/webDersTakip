@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardData, Stat } from '../models/types';
 import { useAuth } from '../context/AuthContext';
-import { getDashboardUnitsData, getUnitsForLesson } from '../lib/dashboardUnits';
+import { getDashboardLessons } from '../lib/dashboardLessons';
 import { getDueSrsCount, buildSrsReview } from '../lib/dashboardSrs';
 import { getRecentActivities } from '../lib/dashboardActivities';
 import { getTodayStats, getOverallStats } from '../lib/dashboardStats';
@@ -32,32 +32,29 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   stats: EMPTY_STATS,
   overallStats: null,
   srsReview: null,
-  units: [],
   recentActivities: [],
-  activeUnitId: null,
-  topicsByUnitId: {},
   lessons: [],
-  selectedLessonId: null,
 };
+
+export type LessonsStatus = 'ok' | 'no-grade' | 'error';
 
 interface UseDashboardViewModelReturn {
   // State
   data: DashboardData;
   isAuthenticated: boolean;
   notificationCount: number;
-  unitsContext: { lessonName: string | null; gradeName: string | null } | null;
-  isSwitchingLesson: boolean;
+  gradeName: string | null;
+  lessonsStatus: LessonsStatus;
   // Panelin bölüm bazlı yüklenmesi için — hepsi tek bir global spinner yerine, her bölüm
   // kendi verisi gelince ayrı ayrı görünür (bkz. kullanıcıyla "adım adım yüklensin" isteği).
   isAuthResolving: boolean;
   isProfileLoading: boolean;
-  isUnitsLoading: boolean;
+  isLessonsLoading: boolean;
   isStatsLoading: boolean;
   isActivityLoading: boolean;
   isOverallLoading: boolean;
 
   // Actions
-  selectLesson: (lessonId: string) => void;
   handleSRSReview: () => void;
   handleStartQuiz: () => void;
   refreshData: (options?: { silent?: boolean }) => Promise<void>;
@@ -71,19 +68,15 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // State
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const [isUnitsLoading, setIsUnitsLoading] = useState(true);
+  const [isLessonsLoading, setIsLessonsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [isActivityLoading, setIsActivityLoading] = useState(true);
   const [isOverallLoading, setIsOverallLoading] = useState(true);
   // DB'de bir bildirim tablosu/sistemi yok — sahte bir sayı göstermek yerine gerçek (boş)
   // durum olan 0'dan başlıyor. Bildirimler gerçek bir kaynağa bağlanana kadar hep 0 kalacak.
   const [notificationCount, setNotificationCount] = useState(0);
-  const [unitsContext, setUnitsContext] = useState<{ lessonName: string | null; gradeName: string | null } | null>(null);
-  // selectLesson'ın hangi sınıf için ünite çekeceğini bilmesi için — profildeki grade_id
-  // boş olabileceğinden (bkz. getDashboardUnitsData) test_sessions'tan türetilen gerçek
-  // sınıf id'si ayrıca tutuluyor.
-  const [unitsGradeId, setUnitsGradeId] = useState<number | null>(null);
-  const [isSwitchingLesson, setIsSwitchingLesson] = useState(false);
+  const [gradeName, setGradeName] = useState<string | null>(null);
+  const [lessonsStatus, setLessonsStatus] = useState<LessonsStatus>('ok');
   // refreshData tarafından artırılır — efekt buna da bağlı olduğu için manuel yenileme,
   // effect'i kopyalamadan aynı yükleme mantığını tekrar çalıştırır.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -93,13 +86,13 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   // (bkz. kullanıcının "sayfayı duraklatmayacak şekilde hızlıca yenilensin" isteği, 2026-09-02).
   const silentRefreshRef = useRef(false);
 
-  // Kullanıcı adı, üniteler, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
+  // Kullanıcı adı, ders kartları, hafta kartları, SRS tekrar sayısı, son aktiviteler, stats satırı ve
   // streak/günlük hedef: gerçek veri. Streak, user_time_based_stats'taki ardışık aktif günlerden
   // türetiliyor (bkz. dashboardStreak.ts) — ayrı bir tablo gerekmedi.
   //
   // Eskiden TEK bir Promise.all + TEK bir setData ile hepsi birden, en yavaş parça bitene kadar
   // hiçbir şey göstermiyordu. Artık her bölüm kendi promise zincirinde, kendi setData/isXLoading
-  // çağrısıyla bağımsız çözülüyor: sadece `getDashboardUnitsData` (üniteler, en ağır zincir) ve
+  // çağrısıyla bağımsız çözülüyor: sadece `getDashboardLessons` (ders kartları) ve
   // `getDueSrsCount`/`getTodayStats` profildeki grade_id'yi bekliyor, geri kalanı (aktiviteler,
   // streak, bugünkü soru sayısı, haftalık aktif günler, genel istatistik) hiç beklemeden hemen başlar.
   useEffect(() => {
@@ -114,10 +107,9 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
       // yeni bir fetch tetiklenene kadar state'te kalıp isAuthenticated=false
       // ekranıyla birlikte yanlışlıkla gösterilebiliyordu — burada sıfırlanıyor.
       setData(EMPTY_DASHBOARD_DATA);
-      setUnitsContext(null);
-      setUnitsGradeId(null);
+      setGradeName(null);
       setIsProfileLoading(true);
-      setIsUnitsLoading(true);
+      setIsLessonsLoading(true);
       setIsStatsLoading(true);
       setIsActivityLoading(true);
       setIsOverallLoading(true);
@@ -131,7 +123,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     silentRefreshRef.current = false;
     if (!silent) {
       setIsProfileLoading(true);
-      setIsUnitsLoading(true);
+      setIsLessonsLoading(true);
       setIsStatsLoading(true);
       setIsActivityLoading(true);
       setIsOverallLoading(true);
@@ -156,26 +148,14 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
         return gradeId;
       });
 
-    // Üniteler + konular — en ağır zincir, kendi bölümünü (Üniteler) bağımsız günceller.
+    // Ders kartları — tek RPC (get_my_lesson_progress), profildeki grade_id'yi bekler.
     profileGradeId.then((gradeId) =>
-      getDashboardUnitsData(supabase, userId, gradeId).then((unitsResult) => {
+      getDashboardLessons(supabase, userId, gradeId).then((result) => {
         if (cancelled) return;
-        setData((prev) => ({
-          ...prev,
-          units: unitsResult?.units ?? [],
-          activeUnitId: unitsResult?.activeUnitId ?? null,
-          topicsByUnitId: unitsResult?.topicsByUnitId ?? {},
-          lessons: unitsResult?.lessons ?? [],
-          selectedLessonId: unitsResult?.selectedLessonId ?? null,
-        }));
-        setUnitsContext(unitsResult ? { lessonName: unitsResult.lessonName, gradeName: unitsResult.gradeName } : null);
-        // unitsResult, hiç test_sessions kaydı yoksa null döner (bkz. getDashboardUnitsData) —
-        // ama selectLesson (sidebar'dan ders seçimi) yine de bir gradeId'ye ihtiyaç duyuyor.
-        // Test oturumu hiç yokken bunu null bırakmak, sidebar'daki derslere tıklamayı
-        // sessizce no-op yapıyordu; profildeki grade_id zaten Sidebar'ın kendisinin de
-        // kullandığı kaynak olduğu için burada da güvenli bir fallback.
-        setUnitsGradeId(unitsResult?.gradeId ?? gradeId ?? null);
-        setIsUnitsLoading(false);
+        setData((prev) => ({ ...prev, lessons: result?.lessons ?? [] }));
+        setGradeName(result?.gradeName ?? null);
+        setLessonsStatus(!result ? 'no-grade' : result.failed ? 'error' : 'ok');
+        setIsLessonsLoading(false);
       })
     );
 
@@ -199,7 +179,7 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     });
 
     // Haftalık aktif gün noktaları — bağımsız, hazır olunca sessizce state'e yazılır (ayrı bir
-    // loading flag'i yok, WeeklyProgress zaten isUnitsLoading'e göre gösteriliyor).
+    // loading flag'i yok, WeeklyProgress zaten isLessonsLoading'e göre gösteriliyor).
     getWeeklyActiveDays(supabase, userId).then((weeklyActiveDays) => {
       if (!cancelled) setData((prev) => ({ ...prev, weeklyActiveDays }));
     });
@@ -226,38 +206,6 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
   }, [user?.id, supabase, refreshKey]);
 
   // Actions
-
-  // Hızlı art arda sekme tıklamalarında, eski (geç dönen) bir isteğin sonucu yeni seçilen
-  // dersin üstüne yazmasın diye — her çağrı kendi id'sini damgalar, sadece EN SON çağrı
-  // sonucu uygulanır.
-  const lessonRequestRef = useRef(0);
-
-  // Panelin ders sekmelerinden/sidebar'dan birine tıklayınca: aynı sınıf içinde, sadece o
-  // dersin ünite listesini/konularını yeniden çeker (test_sessions'a hiç dokunmaz —
-  // "en son pratik yapılan ders" varsayımı sadece İLK yüklemede kullanılıyor).
-  const selectLesson = useCallback((lessonId: string) => {
-    if (!user || !unitsGradeId || lessonId === data.selectedLessonId) return;
-    const numericLessonId = Number(lessonId);
-    if (!Number.isFinite(numericLessonId)) return;
-
-    const requestId = ++lessonRequestRef.current;
-    setIsSwitchingLesson(true);
-    getUnitsForLesson(supabase, user.id, numericLessonId, unitsGradeId)
-      .then((result) => {
-        if (lessonRequestRef.current !== requestId) return;
-        setUnitsContext({ lessonName: result.lessonName, gradeName: result.gradeName });
-        setData((prev) => ({
-          ...prev,
-          units: result.units,
-          activeUnitId: result.activeUnitId,
-          topicsByUnitId: result.topicsByUnitId,
-          selectedLessonId: lessonId,
-        }));
-      })
-      .finally(() => {
-        if (lessonRequestRef.current === requestId) setIsSwitchingLesson(false);
-      });
-  }, [user, supabase, unitsGradeId, data.selectedLessonId]);
 
   const handleSRSReview = useCallback(() => {
     router.push('/tekrar');
@@ -289,18 +237,17 @@ export function useDashboardViewModel(): UseDashboardViewModelReturn {
     // State
     data,
     isAuthenticated: !!user,
-    unitsContext,
+    gradeName,
+    lessonsStatus,
     notificationCount,
-    isSwitchingLesson,
     isAuthResolving: authLoading,
     isProfileLoading,
-    isUnitsLoading,
+    isLessonsLoading,
     isStatsLoading,
     isActivityLoading,
     isOverallLoading,
 
     // Actions
-    selectLesson,
     handleSRSReview,
     handleStartQuiz,
     refreshData,

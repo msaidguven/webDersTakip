@@ -14,7 +14,7 @@ import { findResumableSession, findConflictingSession } from '@/app/src/lib/quiz
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
 type UnitRow = { id: number; title: string; slug: string | null };
-type TopicRow = { id: number; title: string; slug: string | null };
+type TopicRow = { id: number; title: string; slug: string | null; learning_outcome: string | null };
 
 // Not: admin/taslak dallanması yok — bu fonksiyon bilerek her zaman public (is_active +
 // soru>0) filtreler. Konu/ders/sınıf/soru-bankası sayfaları ISR ile cache'lenebilsin diye
@@ -23,7 +23,10 @@ type TopicRow = { id: number; title: string; slug: string | null };
 // sayfaları bu fonksiyonu paylaşıyor ama zaten loadTopicQuizState/loadUnitQuizState'in
 // oturum ihtiyacı yüzünden dinamik kalıyorlar — buradaki değişiklik onları cache'lemez,
 // sadece admin'in oradan da taslak önizlemesini kaldırır.
-export const getTopicTestPageData = cache(async function getTopicTestPageData(
+// Konu bulunursa soru sayısı 0 olsa bile döner — soru bankası sayfası sorusu olmayan konuda
+// 404 yerine "henüz soru eklenmedi" (noindex) gösteriyor (kullanıcının 2026-09-26 isteği).
+// Test akışları "soru yoksa yok" davranışını getTopicTestPageData üzerinden koruyor.
+export const getTopicPageBaseData = cache(async function getTopicPageBaseData(
   gradeSlug: string,
   lessonSlug: string,
   unitSlug: string,
@@ -64,7 +67,7 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
 
   const topicQuery = supabase
     .from('topics')
-    .select('id, title, slug')
+    .select('id, title, slug, learning_outcome')
     .eq('unit_id', unit.id)
     .eq('slug', decodedTopicSlug)
     .eq('is_active', true);
@@ -82,11 +85,18 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
   // onları içermemeli (kullanıcı isteği, 2026-09-13).
   const [{ count: topicQuestionCount }, { data: topicContentData }] = await Promise.all([
     supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id).eq('is_active', true).neq('question_type_id', 4),
-    supabase.from('topic_contents').select('hero_image_url').eq('topic_id', topic.id).maybeSingle(),
+    // Birden fazla sürüm satırı olabilir — .maybeSingle() o durumda hata verip görseli
+    // kaybediyordu; yayındaki en yeni sürüm tercih ediliyor.
+    supabase
+      .from('topic_contents')
+      .select('hero_image_url, is_published')
+      .eq('topic_id', topic.id)
+      .order('is_published', { ascending: false })
+      .order('version_no', { ascending: false })
+      .limit(1),
   ]);
+  const content = ((topicContentData as { hero_image_url: string | null; is_published: boolean }[] | null) || [])[0] ?? null;
   const questionCount = topicQuestionCount ?? 0;
-
-  if (questionCount === 0) return null;
 
   return {
     gradeId: grade.id,
@@ -103,11 +113,28 @@ export const getTopicTestPageData = cache(async function getTopicTestPageData(
     lessonSlug: lesson.slug,
     unitSlug: unit.slug,
     topicSlug: topic.slug,
-    heroImageUrl: (topicContentData as { hero_image_url: string | null } | null)?.hero_image_url ?? null,
+    heroImageUrl: content?.hero_image_url ?? null,
+    // Soru bankası sayfasında konu anlatımına link + konuya özgü kısa açıklama (SEO) için.
+    // Kazanım kodu ("BTY.6.1.1. ") öğrenciye bir şey ifade etmediği için atılıyor.
+    hasPublishedContent: content?.is_published === true,
+    learningOutcome: topic.learning_outcome?.replace(/^[\p{Lu}\d.]+\.\s+/u, '').trim() || null,
   };
 });
 
-export type TopicTestPageData = NonNullable<Awaited<ReturnType<typeof getTopicTestPageData>>>;
+export type TopicPageBaseData = NonNullable<Awaited<ReturnType<typeof getTopicPageBaseData>>>;
+
+// Test/soru bankası akışları için: sorusu olmayan konu "yok" sayılır.
+export const getTopicTestPageData = cache(async function getTopicTestPageData(
+  gradeSlug: string,
+  lessonSlug: string,
+  unitSlug: string,
+  topicSlug: string
+) {
+  const data = await getTopicPageBaseData(gradeSlug, lessonSlug, unitSlug, topicSlug);
+  return data && data.questionCount > 0 ? data : null;
+});
+
+export type TopicTestPageData = TopicPageBaseData;
 
 export function buildTopicPath(data: TopicTestPageData) {
   return `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}/${data.topicSlug}`;

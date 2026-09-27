@@ -17,6 +17,7 @@ type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
 // wrapper o durumu tutup UnitDiscussion'a aktarıyor.
 export default function QuizWithAsk({ gradeId, lessonId, unitId, topicId, ...quizProps }: QuizWithAskProps) {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
+  const isPlayer = quizProps.presentation === 'player';
 
   // Yorumlar/AI sohbeti artık soru cevaplanmadan da görülebiliyor (kullanıcının
   // "soruyu çözmeden de yorum butonunu görmeliyim" isteği, 2026-09-02) — UnitDiscussion
@@ -24,6 +25,27 @@ export default function QuizWithAsk({ gradeId, lessonId, unitId, topicId, ...qui
   const handleCurrentQuestionChange = useCallback((q: QuizQuestion | null) => {
     setCurrentQuestion(q);
   }, []);
+
+  // Oynatıcı (tam ekran) görünümünde yorumlar/AI sohbeti testin ALTINDA değil, sorunun
+  // "Anlamadım, sor" butonuyla açılan yan panelde (bkz. QuizClient renderAside).
+  const renderAside = useCallback(
+    (q: QuizQuestion) => (
+      <UnitDiscussion
+        gradeId={gradeId}
+        lessonId={lessonId}
+        unitId={unitId}
+        quizQuestionId={q.id}
+        questionContext={formatQuestionContext(q)}
+        defaultExpanded
+        hideToggle
+      />
+    ),
+    [gradeId, lessonId, unitId]
+  );
+
+  if (isPlayer) {
+    return <QuizClient {...quizProps} gradeId={gradeId} lessonId={lessonId} unitId={unitId} topicId={topicId} renderAside={renderAside} />;
+  }
 
   return (
     <>

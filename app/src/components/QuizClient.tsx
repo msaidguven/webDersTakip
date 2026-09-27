@@ -1,15 +1,32 @@
 'use client';
 
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { submitAnswers, startSessionWithRetry, flushAnswerOutbox } from '@/app/src/lib/answerSync';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
 import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
 import MathText from '@/app/src/components/MathText';
+import {
+  SLIDE_ACCENTS,
+  NAV_BTN_CLASS,
+  PLAYER_BADGE_CLASS,
+  PLAYER_NAV_ROW_CLASS,
+  PLAYER_TOP_BAR_CLASS,
+  PlayerEyebrow,
+  FontScaleControl,
+  OverlayWindowButtons,
+  PlayerFrame,
+  QuestionPills,
+  pillWindowFor,
+  useFullscreen,
+  type AnswerStatus,
+} from '@/app/src/components/questionPlayer/QuestionPlayerParts';
 
 const CORRECT_MESSAGES = [
   'Harika! 🎉',
@@ -116,20 +133,26 @@ function formatTime(seconds: number) {
 // otomatik temizlenir.
 function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () => void }) {
   const [timeLeft, setTimeLeft] = useState(seconds);
+  // onTimeout eskiden setTimeLeft güncelleyicisinin İÇİNDEN çağrılıyordu: React güncelleyiciyi
+  // saf kabul edip (dev'de iki kez) çalıştırabildiği için süre dolan soru iki kez kaydediliyor
+  // ve "render sırasında başka bileşeni güncelleme" hatası çıkıyordu (2026-09-27). Artık sayaç
+  // sadece sayıyor; süre dolunca onTimeout ayrı bir efektte ve TEK SEFER çağrılıyor.
+  const onTimeoutRef = useRef(onTimeout);
+  const firedRef = useRef(false);
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  });
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          onTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft((prev) => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (timeLeft > 0 || firedRef.current) return;
+    firedRef.current = true;
+    onTimeoutRef.current();
+  }, [timeLeft]);
 
   return (
     <span className={`flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono ${timeLeft <= 10 ? 'border-rose-400/50 text-rose-500' : 'border-default text-default'}`}>
@@ -860,6 +883,14 @@ export interface QuizClientProps {
   // değişmesin, sayfadan hiç ayrılınmasın). Verilmezse davranış eskisiyle birebir aynı
   // (exitHref'e normal Link navigasyonu).
   onExit?: () => void;
+  // 'player' (2026-09-26): slayt oynatıcısıyla AYNI tam ekran görünüm (bkz. QuestionPlayerParts)
+  // — soru bankası ve konu sayfasındaki client-side testler kullanıyor, kendi overlay'ini
+  // çizdiği için QuizModal İÇİNE KONMAZ. Oturum/resume/SRS/süre/admin mantığı iki görünümde
+  // de BİREBİR aynı; sadece render farklı. Varsayılan 'page' eski görünüm (kavrama/ünite testi
+  // sayfaları, panel modalı, tekrar).
+  presentation?: 'page' | 'player';
+  // Oynatıcıda "Sor" panelinin içeriği (yorumlar + AI'ya sor, bkz. QuizWithAsk) — aktif soruya göre.
+  renderAside?: (question: QuizQuestion) => ReactNode;
 }
 
 // exitHref'e Link ile git (varsayılan, mevcut tüm çağıranlar) ya da onExit callback'ini
@@ -902,6 +933,8 @@ export default function QuizClient({
   allCaughtUp: initialAllCaughtUp = false,
   questionBankPathBase,
   onExit,
+  presentation = 'page',
+  renderAside,
 }: QuizClientProps) {
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
@@ -1077,8 +1110,8 @@ export default function QuizClient({
       clientIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     }
 
-    supabase
-      .rpc('start_web_quiz_session', {
+    void startSessionWithRetry<number>(() =>
+      supabase.rpc('start_web_quiz_session', {
         p_client_id: clientIdRef.current,
         p_grade_id: gradeId ?? null,
         p_lesson_id: lessonId ?? null,
@@ -1086,13 +1119,9 @@ export default function QuizClient({
         p_topic_id: topicId ?? null,
         p_question_ids: gradedIds,
       })
-      .then(({ data, error }: { data: number | null; error: { message: string } | null }) => {
-        if (error) {
-          console.error('start_web_quiz_session error:', error.message);
-          return;
-        }
-        if (typeof data === 'number') setSessionId(data);
-      });
+    ).then((data) => {
+      if (typeof data === 'number') setSessionId(data);
+    });
     // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
     // kullanıcı için bile yeni bir referansla gelir, id ise gerçekten değişmediği sürece sabittir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1109,7 +1138,9 @@ export default function QuizClient({
       if (pendingAnswersRef.current.length > 0) {
         const toFlush = pendingAnswersRef.current;
         pendingAnswersRef.current = [];
-        const { error } = await supabase.from('test_session_answers').insert(
+        // finish_test_session bu cevapları okuyacağı için gönderim bitene kadar beklenir.
+        await submitAnswers(
+          supabase,
           toFlush.map((a) => ({
             test_session_id: currentSessionId,
             question_id: a.questionId,
@@ -1119,11 +1150,12 @@ export default function QuizClient({
             duration_seconds: a.durationSeconds,
           }))
         );
-        if (error) console.error('test_session_answers flush error:', error.message);
       }
 
       if (showResult && finishedSessionRef.current !== currentSessionId) {
         finishedSessionRef.current = currentSessionId;
+        // Son cevaplar hâlâ gönderiliyor olabilir — oturum kapanmadan önce kutu boşalsın.
+        await flushAnswerOutbox(supabase, user!.id);
         const { error } = await supabase.rpc('finish_test_session', { p_session_id: currentSessionId });
         if (error) console.error('finish_test_session error:', error.message);
       }
@@ -1146,8 +1178,15 @@ export default function QuizClient({
     questionStartRef.current = Date.now();
   }, [index, questions]);
 
+  // Aynı denemede (reloadKey) bir soru yalnız bir kez kaydedilir — zaman aşımı + tıklama gibi
+  // üst üste gelen çağrılar çift test_session_answers satırı (ve istatistikte çift sayım) üretmesin.
+  const recordedAnswersRef = useRef<Set<string>>(new Set());
+
   function recordAnswer(questionId: number, isCorrect: boolean) {
     if (!user) return;
+    const recordKey = `${reloadKey}:${questionId}`;
+    if (recordedAnswersRef.current.has(recordKey)) return;
+    recordedAnswersRef.current.add(recordKey);
     // İLK cevap: yukarıdaki efeği (henüz hiç tetiklenmediyse) tetikleyip test oturumunu
     // açtırır — session artık soru seti yüklenir yüklenmez değil, burada açılıyor.
     if (!hasAnsweredOnce) setHasAnsweredOnce(true);
@@ -1158,19 +1197,14 @@ export default function QuizClient({
       pendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds });
       return;
     }
-    supabase
-      .from('test_session_answers')
-      .insert({
-        test_session_id: sessionId,
-        question_id: questionId,
-        user_id: user.id,
-        client_id: clientIdRef.current,
-        is_correct: isCorrect,
-        duration_seconds: durationSeconds,
-      })
-      .then(({ error }: { error: { message: string } | null }) => {
-        if (error) console.error('test_session_answers insert error:', error.message);
-      });
+    void submitAnswers(supabase, [{
+      test_session_id: sessionId,
+      question_id: questionId,
+      user_id: user.id,
+      client_id: clientIdRef.current,
+      is_correct: isCorrect,
+      duration_seconds: durationSeconds,
+    }]);
   }
 
   const current = questions[index];
@@ -1330,12 +1364,165 @@ export default function QuizClient({
     }
   }
 
+  // ---- Oynatıcı (presentation='player') ----
+  const isPlayer = presentation === 'player';
+  const router = useRouter();
+  const playerRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(playerRef);
+  const [asideOpen, setAsideOpen] = useState(false);
+  // Numara şeridi penceresi: aktif soru pencerenin dışına çıkınca otomatik kayar, ama ‹/› ile
+  // elle kaydırılabilsin diye hangi index için hesaplandığı da tutuluyor (effect'te setState yok).
+  const [pillWindow, setPillWindow] = useState({ start: 0, forIndex: index });
+  const pillStart = pillWindow.forIndex === index ? pillWindow.start : pillWindowFor(index, pillWindow.start, questions.length);
+  const setPillStart = useCallback(
+    (updater: (s: number) => number) =>
+      setPillWindow((w) => ({ start: updater(w.forIndex === index ? w.start : pillWindowFor(index, w.start, questions.length)), forIndex: index })),
+    [index, questions.length]
+  );
+  const pillStatuses = useMemo(() => {
+    const m: Record<number, AnswerStatus> = {};
+    for (const q of questions) {
+      if (!locked[q.id]) continue;
+      m[q.id] = q.type === 'classical' ? 'revealed' : correct[q.id] ? 'correct' : 'incorrect';
+    }
+    return m;
+  }, [questions, locked, correct]);
+  const exitQuiz = useCallback(() => (onExit ? onExit() : router.push(exitHref)), [onExit, router, exitHref]);
+
+  // Klavye: ← → soru, Escape kapat (tam ekrandaysa tarayıcı zaten ondan çıkar, testi kapatmayız).
+  const playerNavRef = useRef({ next: () => {}, prev: () => {}, canNext: false });
+  useEffect(() => {
+    playerNavRef.current = { next: goNext, prev: goPrev, canNext: !!(questions[index] && locked[questions[index].id]) };
+  });
+  useEffect(() => {
+    if (!isPlayer) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.key === 'Escape') {
+        if (asideOpen) setAsideOpen(false);
+        else if (!document.fullscreenElement && !editOpen && !confirmDeleteOpen) exitQuiz();
+      } else if (e.key === 'ArrowLeft') playerNavRef.current.prev();
+      else if (e.key === 'ArrowRight' && playerNavRef.current.canNext) playerNavRef.current.next();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isPlayer, asideOpen, editOpen, confirmDeleteOpen, exitQuiz]);
+
+  const adminLayers = (
+    <>
+      {editOpen && current && (
+        <QuizQuestionEditModal
+          questionId={current.id}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false);
+            setEditSaved(true);
+            setTimeout(() => setEditSaved(false), 4000);
+          }}
+        />
+      )}
+
+      {confirmDeleteOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-default bg-surface-elevated p-5">
+            <h3 className="text-base font-black text-default">Bu soru silinsin mi?</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">Bu işlem geri alınamaz.</p>
+            {deleteError && <p className="mt-2 text-xs font-bold text-rose-500">{deleteError}</p>}
+            <div className="mt-4 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(false)}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-black text-default disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminDelete}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-black text-white hover:bg-rose-600 disabled:opacity-50"
+              >
+                {deleting ? 'Siliniyor...' : 'Sil'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const playerAccent = SLIDE_ACCENTS[index % SLIDE_ACCENTS.length];
+  const playerShell = (body: ReactNode, opts: { controls?: ReactNode; footer?: ReactNode } = {}) => (
+    <PlayerFrame
+      variant="overlay"
+      accent={playerAccent}
+      containerRef={playerRef}
+      cardKey={`quiz-${reloadKey}`}
+      outside={adminLayers}
+      headerResetKey={`${index}-${showResult}`}
+      header={
+        <div className={PLAYER_TOP_BAR_CLASS}>
+          <div className="min-w-0 w-full sm:w-auto">
+            <PlayerEyebrow text={scopeLabel} accent={playerAccent} fontScale={fontScale} />
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {opts.controls}
+            <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={exitQuiz} />
+          </div>
+        </div>
+      }
+    >
+      {body}
+      {opts.footer}
+    </PlayerFrame>
+  );
+  const playerMessage = (icon: ReactNode, title: string, text: string) =>
+    playerShell(
+      <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-3 px-6 text-center">
+        {icon}
+        <h2 className="text-lg font-black text-slate-800">{title}</h2>
+        <p className="max-w-sm text-sm font-medium text-slate-500">{text}</p>
+        <button
+          type="button"
+          onClick={exitQuiz}
+          className="mt-2 rounded-full px-5 py-2.5 text-xs font-black text-white shadow-sm"
+          style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}
+        >
+          {exitLabel}
+        </button>
+      </div>
+    );
+
+  if (loading && isPlayer) {
+    return playerShell(
+      <div className="relative flex flex-1 items-center justify-center gap-2 text-slate-400" role="status">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span className="text-sm font-bold">Sorular hazırlanıyor...</span>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-sm font-bold">Sorular hazırlanıyor...</span>
       </div>
+    );
+  }
+
+  if (questions.length === 0 && allCaughtUp && isPlayer) {
+    return playerMessage(
+      <Trophy className="h-10 w-10 text-emerald-500" />,
+      'Tebrikler! 🎉',
+      'Şu anlık çözülecek yeni veya tekrar zamanı gelmiş soru yok. Az sonra tekrar uğra!'
     );
   }
 
@@ -1359,6 +1546,10 @@ export default function QuizClient({
     );
   }
 
+  if (questions.length === 0 && isPlayer) {
+    return playerMessage(<Trophy className="h-10 w-10 text-slate-300" />, 'Bu konu için henüz soru yok', 'Yakında bu konu için sorular eklenecek.');
+  }
+
   if (questions.length === 0) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
@@ -1377,7 +1568,8 @@ export default function QuizClient({
     );
   }
 
-  if (intro && !started) {
+  // Oynatıcıda intro yok: kullanıcı testi zaten bir "Teste Başla/Devam Et" butonuyla açıyor.
+  if (intro && !started && !isPlayer) {
     return (
       <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-12">
         <ExitLink
@@ -1410,6 +1602,95 @@ export default function QuizClient({
             <Play className="h-4 w-4" /> Başla
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (showResult && isPlayer) {
+    const percent = gradedQuestions.length ? Math.round((score / gradedQuestions.length) * 100) : 0;
+    const wrongCount = gradedQuestions.length - score;
+    const encouragement =
+      percent >= 80
+        ? '🎉 Harika! Bu konuyu gerçekten kavramışsın.'
+        : percent >= 50
+          ? '💪 İyi gidiyorsun, biraz daha pratikle daha da iyi olacaksın.'
+          : '📖 Bu konuyu bir daha gözden geçirip tekrar denemeye ne dersin?';
+    return playerShell(
+      <div
+        className="relative flex flex-1 min-h-0 flex-col items-center gap-4 overflow-y-auto px-4 py-6 text-center sm:px-8"
+        style={{ background: `linear-gradient(135deg, ${playerAccent.from}22, white 55%)` }}
+      >
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}>
+          <Trophy className="h-8 w-8 text-white" />
+        </div>
+        <div>
+          <p className="text-3xl sm:text-4xl font-black text-slate-800">
+            {score}/{gradedQuestions.length} <span className="text-lg sm:text-xl text-slate-400">doğru</span>
+          </p>
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            %{percent} başarı · <span className="text-emerald-600">{score} doğru</span> · <span className="text-rose-500">{wrongCount} yanlış</span>
+            {classicalCount > 0 ? ` · ${classicalCount} açık uçlu` : ''}
+          </p>
+          <p className="mt-2 text-sm font-bold text-slate-700">{encouragement}</p>
+          {isAuthenticated && <p className="mt-1 text-xs font-bold text-emerald-600">✓ Sonuçların kaydedildi</p>}
+        </div>
+
+        {/* Soruları tek tek gözden geçir — tıklayınca o soruya döner (cevabı/açıklaması açık). */}
+        <div className="grid w-full max-w-2xl gap-1.5 text-left sm:grid-cols-2">
+          {questions.map((q, i) => {
+            const isClassical = q.type === 'classical';
+            const isCorrectQ = !!correct[q.id];
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => jumpToIndex(i)}
+                className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-left transition-colors hover:bg-white"
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                    isClassical ? 'bg-indigo-500/15 text-indigo-500' : isCorrectQ ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-500'
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">{q.question_text}</span>
+                {!isClassical && (isCorrectQ ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />)}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2 pb-2">
+          <button
+            type="button"
+            onClick={retry}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-xs font-black text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Yeni Test Çöz
+          </button>
+          <button
+            type="button"
+            onClick={exitQuiz}
+            className="rounded-full px-5 py-2.5 text-xs font-black text-white shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}
+          >
+            {exitLabel}
+          </button>
+        </div>
+
+        {!isAuthenticated && (
+          <div className="w-full max-w-sm rounded-2xl border border-indigo-200 bg-white/80 p-4">
+            <p className="text-sm font-bold text-slate-700">Bu sonuç kaydedilmedi.</p>
+            <p className="mt-1 text-xs text-slate-500">Üye olursan doğru/yanlışların, günlük serin ve tekrar zamanı gelen sorular senin için takip edilir.</p>
+            <Link
+              href="/register"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-xs font-black text-white"
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Ücretsiz Üye Ol
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
@@ -1525,6 +1806,171 @@ export default function QuizClient({
       </div>
       {answerKey}
       </>
+    );
+  }
+
+  if (isPlayer) {
+    const isAnsweredP = !!locked[current.id];
+    const isCorrectP = !!correct[current.id];
+    const isLastP = index === questions.length - 1;
+    return playerShell(
+      <>
+        {/* key: her soruda kaydırma kutusu yenilenir → yeni soru en baştan görünür. */}
+        <div key={current.id} className="relative flex flex-1 min-h-0 flex-col overflow-y-auto px-4 pt-1 pb-4 sm:px-8 sm:pb-6">
+          <div className="relative z-[1] my-auto w-full rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6">
+            <div className="mb-2 flex items-center justify-end gap-1">
+              {renderAside && (
+                <button
+                  type="button"
+                  onClick={() => setAsideOpen(true)}
+                  className="mr-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" /> Anlamadım, sor
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleShare(current)}
+                aria-label="Soruyu paylaş"
+                title="Soruyu paylaş"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    aria-label="Soruyu düzenle"
+                    title="Soruyu düzenle"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    aria-label="Soruyu sil"
+                    title="Soruyu sil"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+            {shareState === 'copied' && <p className="mb-2 text-xs font-bold text-emerald-600">Bağlantı kopyalandı!</p>}
+            {editSaved && <p className="mb-2 text-xs font-bold text-emerald-600">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
+
+            <QuestionAnswerKeyItem
+              key={`${reloadKey}-${current.id}`}
+              question={current}
+              index={index}
+              interactive
+              numberBadge="label"
+              accentColor={playerAccent.bar}
+              fontScale={fontScale}
+              controlledSelectedId={current.type === 'multiple_choice' || current.type === 'blank' ? selection[current.id] ?? null : undefined}
+              controlledAssignment={current.type === 'matching' ? matchAssign[current.id] || {} : undefined}
+              onAssignPair={assignMatch}
+              onCheckMatch={checkMatching}
+              forcedAnswered={isAnsweredP}
+              answeredCorrectly={isAnsweredP ? isCorrectP : undefined}
+              feedbackMessage={feedback[current.id]}
+              classicalMode="input"
+              classicalValue={classicalAnswer[current.id] || ''}
+              onClassicalChange={setClassicalText}
+              onClassicalCheck={checkClassical}
+              twoStepExplanation
+              explanationRevealed={!!revealedExplanation[current.id]}
+              onRevealExplanation={() => revealExplanation(current.id)}
+              onAnswered={(_questionId, _status, optionId) => {
+                // matching/classical kendi sonucunu onCheckMatch/onClassicalCheck ile işliyor;
+                // optionId sadece çoktan seçmeli/boşluk doldurmada gelir (çift kayıt olmasın).
+                if (optionId != null) selectAnswer(optionId);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* "Anlamadım, sor" paneli: yorumlar + AI'ya sor (bkz. QuizWithAsk). Kartın içinde,
+            sağdan açılan bir çekmece — testten çıkmadan aynı soru hakkında soru sorulabiliyor. */}
+        {asideOpen && renderAside && (
+          <div className="absolute inset-0 z-20 flex justify-end bg-slate-900/30" onClick={() => setAsideOpen(false)}>
+            <div
+              role="dialog"
+              aria-label={`${index + 1}. soru hakkında`}
+              className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h3 className="text-sm font-black text-slate-800">{index + 1}. soru hakkında</h3>
+                <button
+                  type="button"
+                  onClick={() => setAsideOpen(false)}
+                  aria-label="Paneli kapat"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">{renderAside(current)}</div>
+            </div>
+          </div>
+        )}
+      </>,
+      {
+        controls: (
+          <>
+            {secondsPerQuestion != null && !currentIsAnswered && (
+              <span className="text-[11px] font-black text-slate-500">
+                <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
+              </span>
+            )}
+            <FontScaleControl fontScale={fontScale} onChange={setFontScale} />
+            <div className={`hidden sm:block ${PLAYER_BADGE_CLASS}`}>
+              <span className="text-emerald-600">D:{score}</span> <span className="text-rose-500">Y:{Object.values(pillStatuses).filter((v) => v === 'incorrect').length}</span>
+            </div>
+            <div className={`text-slate-500 ${PLAYER_BADGE_CLASS}`}>
+              {index + 1}/{questions.length}
+            </div>
+          </>
+        ),
+        footer: (
+          <div className={PLAYER_NAV_ROW_CLASS}>
+            <button type="button" onClick={goPrev} disabled={index === 0} aria-label="Önceki soru" className={NAV_BTN_CLASS}>
+              <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+            <QuestionPills
+              questions={questions}
+              qIndex={index}
+              answeredMap={pillStatuses}
+              pillStart={pillStart}
+              setPillStart={setPillStart}
+              onJump={jumpToIndex}
+              accentBar={playerAccent.bar}
+              isJumpable={(i) => i <= maxIndex}
+            />
+            {/* Cevaplamadan ilerlemek yok (kayıtlı testte atlama/kopya önlemi, eski davranış). */}
+            {isLastP ? (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={!isAnsweredP}
+                className="shrink-0 rounded-full px-4 py-2 text-xs sm:text-sm font-black text-white shadow-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+                style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}
+              >
+                Bitir ({answeredCount}/{questions.length})
+              </button>
+            ) : (
+              <button type="button" onClick={goNext} disabled={!isAnsweredP} aria-label="Sonraki soru" className={NAV_BTN_CLASS}>
+                <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            )}
+          </div>
+        ),
+      }
     );
   }
 
@@ -1735,45 +2181,7 @@ export default function QuizClient({
         </div>
       </div>
 
-      {editOpen && (
-        <QuizQuestionEditModal
-          questionId={current.id}
-          onClose={() => setEditOpen(false)}
-          onSaved={() => {
-            setEditOpen(false);
-            setEditSaved(true);
-            setTimeout(() => setEditSaved(false), 4000);
-          }}
-        />
-      )}
-
-      {confirmDeleteOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-default bg-surface-elevated p-5">
-            <h3 className="text-base font-black text-default">Bu soru silinsin mi?</h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">Bu işlem geri alınamaz.</p>
-            {deleteError && <p className="mt-2 text-xs font-bold text-rose-500">{deleteError}</p>}
-            <div className="mt-4 flex gap-2.5">
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteOpen(false)}
-                disabled={deleting}
-                className="flex-1 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-black text-default disabled:opacity-50"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={handleAdminDelete}
-                disabled={deleting}
-                className="flex-1 rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-black text-white hover:bg-rose-600 disabled:opacity-50"
-              >
-                {deleting ? 'Siliniyor...' : 'Sil'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {adminLayers}
     </div>
   );
 }

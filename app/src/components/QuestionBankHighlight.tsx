@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
 
 // ?soru=ID ile gelen paylaşım linkleri için: sayfa yüklendiğinde ilgili soruyu gösterir.
 // Artık scroll+highlight YAPMIYOR — QuestionBankBoard tek soru moduna geçtiğinden (bkz.
@@ -33,7 +34,7 @@ export default function QuestionBankHighlight() {
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent('soru-bankasi:focus-question', { detail: { questionId: activeQuestionId } }));
+        window.dispatchEvent(new CustomEvent(FOCUS_QUESTION_EVENT, { detail: { questionId: activeQuestionId } }));
         if (highlightTarget) {
           window.dispatchEvent(
             new CustomEvent('soru-bankasi:open-comments', { detail: { questionId: activeQuestionId, target: highlightTarget } })
