@@ -3,6 +3,13 @@
   "installCommand": "npm ci",
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/cron/srs-reminder-notify", "schedule": "0 6 * * *" }
+    {
+      "path": "/api/cron/srs-reminder-notify",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/push-reminders",
+      "schedule": "0 16 * * *"
+    }
   ]
 }

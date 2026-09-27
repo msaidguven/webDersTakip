@@ -5,10 +5,10 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 const EDITABLE_FIELDS = ['full_name', 'username', 'role', 'grade_id', 'school_name', 'branch', 'is_verified'] as const;
 const BAN_DURATION = '87600h'; // ~10 yıl — kalıcıya yakın ama tersine çevrilebilir "pasifleştirme"
 
-type AuthUserLite = { id: string; email?: string; email_confirmed_at?: string | null; banned_until?: string | null; last_sign_in_at?: string | null };
+type AuthUserLite = { id: string; email?: string; email_confirmed_at?: string | null; banned_until?: string | null; last_sign_in_at?: string | null; created_at?: string | null };
 
 async function loadAuthUserMap(supabase: ReturnType<typeof createServiceClient>) {
-  const map = new Map<string, { email: string | null; emailConfirmed: boolean; banned: boolean; lastSignInAt: string | null }>();
+  const map = new Map<string, { email: string | null; emailConfirmed: boolean; banned: boolean; lastSignInAt: string | null; createdAt: string | null }>();
   try {
     const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (error || !data) return map;
@@ -17,7 +17,7 @@ async function loadAuthUserMap(supabase: ReturnType<typeof createServiceClient>)
       // auth.users.last_sign_in_at — Supabase Auth'un kendi tuttuğu alan, ayrı bir
       // tracking eklemeye gerek yok (kullanıcı isteği, 2026-09-15: "son giriş yapan
       // üyeleri ve giriş tarihlerini görmek istiyorum").
-      map.set(u.id, { email: u.email || null, emailConfirmed: !!u.email_confirmed_at, banned, lastSignInAt: u.last_sign_in_at || null });
+      map.set(u.id, { email: u.email || null, emailConfirmed: !!u.email_confirmed_at, banned, lastSignInAt: u.last_sign_in_at || null, createdAt: u.created_at || null });
     }
   } catch {
     // auth.admin erişilemezse (yanlış servis anahtarı vb.) e-posta/ban bilgisi olmadan devam et
@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
       email_confirmed: auth?.emailConfirmed ?? true,
       banned: auth?.banned ?? false,
       last_sign_in_at: auth?.lastSignInAt ?? null,
+      // Kayıt anı da bir giriştir; Auth bazı kayıtlarda (otomatik açılan oturum, OAuth)
+      // last_sign_in_at'i hiç doldurmuyor — "Son görülme"nin son yedeği bu.
+      registered_at: auth?.createdAt ?? null,
     };
   });
 

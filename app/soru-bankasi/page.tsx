@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradesIndexData, buildSoruBankasiIndexPath, buildSoruBankasiGradePath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
-import { getGradeIcon, getGradeColor, getGradeDescription } from '@/app/src/lib/homeMapping';
+import { getGradeIcon, getGradeColor, getGradeDescription, formatGradeRange } from '@/app/src/lib/homeMapping';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active filtreli), bu yüzden ISR ile
 // cache'lenebiliyor — bkz. [sinif]/page.tsx'teki aynı desen.
@@ -30,7 +30,7 @@ export default async function SoruBankasiIndexPage() {
       <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
         <p className="text-xs font-black uppercase tracking-widest text-indigo-500">Soru Bankası</p>
         <h1 className="mt-1 text-lg font-black leading-tight text-default sm:text-2xl">Sınıfını Seç</h1>
-        <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">5. sınıftan 12. sınıfa, cevap anahtarlı soru bankasına ulaş.</p>
+        <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{formatGradeRange(data.grades.map((g) => g.level)) || 'Tüm sınıflar'} için cevap anahtarlı soru bankasına ulaş.</p>
       </div>
 
       <div className="space-y-2.5">

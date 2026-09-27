@@ -6,15 +6,15 @@
 // farkı: konu değişimi sayfa içi state yerine gerçek sayfa geçişiyle (her konu zaten ISR ile
 // önbellekli ayrı bir sayfa) — sayfa içi önbellek/prefetch mantığına gerek kalmıyor.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Onest, Unbounded } from 'next/font/google';
-import { Sparkles, ChevronDown, X, ListTree } from 'lucide-react';
+import { Sparkles, ChevronDown, X, ListTree, ArrowUp } from 'lucide-react';
 import SectionContent from '../SectionContent';
 import { TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
-import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type Unit } from '../dersHelpers';
+import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type Outcome, type Unit } from '../dersHelpers';
 import type { DersClientProps } from '../DersClient';
 import AdminTopicToolsHost, { preloadAdminTopicTools, ADMIN_TOOLS_MENU, SECTION_ADMIN_TOOLS_MENU, type AdminToolRequest } from '../AdminTopicToolsHost';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
@@ -22,6 +22,9 @@ import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
+import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
+import TopicSwitcher from './TopicSwitcher';
 import s from './DersClientV2.module.css';
 
 const displayFont = Unbounded({ subsets: ['latin', 'latin-ext'], weight: ['500', '700'], variable: '--font-v2-display', display: 'swap' });
@@ -30,6 +33,33 @@ const bodyFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['400', '500',
 const NO_SECTIONS: NonNullable<Content['sections']> = [];
 
 type StepId = 'kavramlar' | 'bolumler' | 'slayt' | 'ozet' | 'test';
+
+type OutcomeGroup = {
+  key: string;
+  learningOutcome: NonNullable<Outcome['learningOutcome']> | null;
+  items: { key: string; letter: string; description: string }[];
+};
+
+// Kazanımlar öğrenme çıktısına göre gruplanır ve MEB'in kendi harfiyle (a, b, c…) gösterilir —
+// harfler her öğrenme çıktısında baştan başladığı için tek listede yeniden harflendirmek
+// kılavuzdaki maddelerle çelişirdi. Harf/öğrenme çıktısı olmayan eski kayıtlarda sıradan üretilir.
+function groupOutcomes(outcomes: Outcome[]): OutcomeGroup[] {
+  const groups: OutcomeGroup[] = [];
+  for (const o of outcomes) {
+    const lo = o.learningOutcome ?? null;
+    const loId = o.learningOutcomeId ?? lo?.id ?? null;
+    const key = loId != null ? `lo-${loId}` : 'none';
+    let group = groups.find((g) => g.key === key);
+    if (!group) {
+      group = { key, learningOutcome: lo, items: [] };
+      groups.push(group);
+    }
+    const code = o.code?.trim();
+    const letter = code && code.length <= 3 ? code : outcomeLetterAt(group.items.length);
+    group.items.push({ key: String(o.id ?? `${key}-${group.items.length}`), letter, description: o.description });
+  }
+  return groups;
+}
 
 function cx(...names: (string | false | null | undefined)[]) {
   return names.filter(Boolean).join(' ');
@@ -49,16 +79,22 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const sections = topic?.sections ?? NO_SECTIONS;
   const sectionSlugs = useMemo(() => buildSectionSlugs(sections), [sections]);
   const highlights = topic?.highlights ?? [];
-  const topicOutcomes = initialData.outcomes.filter((o) => topic && String(o.topicId) === String(topic.id));
+  const outcomeGroups = groupOutcomes(initialData.outcomes.filter((o) => topic && String(o.topicId) === String(topic.id)));
 
-  const nextTopic = contents[topicIndex + 1];
-  const nextTopicHref = nextTopic?.slug ? buildTopicHref(gradeSlug, lessonSlug, unitSlug, nextTopic.slug) : null;
-  const nextUnit = unitIndex >= 0 ? units[unitIndex + 1] : undefined;
-  const next = nextTopic && nextTopicHref
-    ? { label: 'Sıradaki konu', title: nextTopic.title, href: nextTopicHref }
-    : nextUnit?.slug && gradeSlug && lessonSlug
-      ? { label: 'Sıradaki ünite', title: nextUnit.title, href: `/${gradeSlug}/${lessonSlug}/${nextUnit.slug}` }
-      : null;
+  // Konu sınırında bir önceki/sonraki üniteye geçilir (ünite sayfasına, o ünitenin
+  // konuları burada yüklü değil).
+  const unitHref = (u: Unit | undefined) => (u?.slug && gradeSlug && lessonSlug ? `/${gradeSlug}/${lessonSlug}/${u.slug}` : null);
+  const topicHref = (c: Content | undefined) => (c?.slug ? buildTopicHref(gradeSlug, lessonSlug, unitSlug, c.slug) : null);
+  const pagerLink = (c: Content | undefined, u: Unit | undefined, dir: 'prev' | 'next') => {
+    const cHref = topicHref(c);
+    if (c && cHref) return { label: dir === 'prev' ? 'Önceki konu' : 'Sıradaki konu', title: c.title, href: cHref };
+    const uHref = unitHref(u);
+    if (u && uHref) return { label: dir === 'prev' ? 'Önceki ünite' : 'Sıradaki ünite', title: u.title, href: uHref };
+    return null;
+  };
+  const prev = pagerLink(contents[topicIndex - 1], unitIndex > 0 ? units[unitIndex - 1] : undefined, 'prev');
+  const next = pagerLink(contents[topicIndex + 1], unitIndex >= 0 ? units[unitIndex + 1] : undefined, 'next');
+  const unitQuestionsHref = unit?.test_question_count && gradeSlug && lessonSlug && unitSlug ? buildSoruBankasiUnitPath(gradeSlug, lessonSlug, unitSlug) : null;
 
   // ---- Kavrama testi (v1 ile aynı hook) ----
   const topicTest = useTopicTest({
@@ -122,7 +158,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [seen, setSeen] = useState<Set<string>>(() => new Set());
   const [activeStep, setActiveStep] = useState<StepId>('kavramlar');
-  const chipsRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!('IntersectionObserver' in window)) return;
     const partObserver = new IntersectionObserver((entries) => {
@@ -140,11 +175,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
     document.querySelectorAll<HTMLElement>('[data-step]').forEach((el) => stepObserver.observe(el));
     return () => { partObserver.disconnect(); stepObserver.disconnect(); };
   }, [sections]);
-  useEffect(() => {
-    if (!activeSlug || !chipsRef.current) return;
-    const chip = chipsRef.current.querySelector<HTMLElement>(`[data-chip="${CSS.escape(activeSlug)}"]`);
-    if (chip) chipsRef.current.scrollTo({ left: chip.offsetLeft - 8, behavior: 'smooth' });
-  }, [activeSlug]);
 
   const activeIndex = sections.findIndex((sec) => sectionSlugs.get(sec.id) === activeSlug);
   const readCount = seen.size;
@@ -160,6 +190,40 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
     return () => document.removeEventListener('keydown', onKey);
   }, [switcherOpen, heroZoomed]);
 
+  // ---- Başa dön + mobil alt çubuk (kullanıcı istekleri, 2026-09-27) ----
+  // Aşağı ok bilerek yok: sayfa içi atlama için öğrenme yolu / içindekiler var. Masaüstünde
+  // sağ alt köşede yüzer; mobilde köşe alt çubukla dolu olduğu için çubuğun içinde.
+  // Mobil alt çubuk aşağı kaydırırken (okurken) gizlenir, yukarı kaydırınca geri gelir —
+  // okuma sırasında ekranı kaplamasın (mobil tarayıcı adres çubuğuyla aynı davranış).
+  const [showToTop, setShowToTop] = useState(false);
+  const [dockHidden, setDockHidden] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    let lastY = window.scrollY;
+    const update = () => {
+      frame = 0;
+      const y = window.scrollY;
+      setShowToTop(y > window.innerHeight * 1.5);
+      const delta = y - lastY;
+      // Küçük titreşimleri (iOS lastik kaydırma, momentum sonu) yok say.
+      if (Math.abs(delta) < 8) return;
+      const nearBottom = y + window.innerHeight >= document.documentElement.scrollHeight - 80;
+      setDockHidden(delta > 0 && y > 120 && !nearBottom);
+      lastY = y;
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+  const scrollToTop = () => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+
   const startTest = () => { void topicTest.startTest(false); };
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -173,7 +237,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
     { id: 'test', title: 'Kavrama testi', meta: testSize ? `${testSize} soru` : 'Test', enabled: hasTest },
   ];
 
-  const [featureHighlight, ...otherHighlights] = highlights;
 
   return (
     <div className={cx(s.root, displayFont.variable, bodyFont.variable)}>
@@ -223,12 +286,25 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
               </p>
               <h1 className={s.h1}>{topic.title}</h1>
               {topic.subtitle && <p className={s.lead}>{topic.subtitle}</p>}
-              {topicOutcomes.length > 0 && (
-                <ul className={s.outcomes} aria-label="Kazanımlar">
-                  {topicOutcomes.map((o, i) => (
-                    <li key={o.id ?? i} className={s.outcome}><span className={s.outcomeTag}>Kazanım</span><span>{o.description}</span></li>
+              {outcomeGroups.length > 0 && (
+                <section className={s.outcomes} aria-labelledby="kazanimlar-baslik">
+                  <h2 id="kazanimlar-baslik" className={s.outcomesTitle}>Kazanımlar</h2>
+                  {outcomeGroups.map((g) => (
+                    <div key={g.key} className={s.outcomeGroup}>
+                      {g.learningOutcome && (
+                        <p className={s.learningOutcome}>
+                          {g.learningOutcome.code && <span className={s.learningOutcomeCode}>{g.learningOutcome.code}</span>}
+                          {g.learningOutcome.title}
+                        </p>
+                      )}
+                      <ol className={s.outcomeList}>
+                        {g.items.map((o) => (
+                          <li key={o.key} className={s.outcome}><span className={s.outcomeTag}>{o.letter})</span><span>{o.description}</span></li>
+                        ))}
+                      </ol>
+                    </div>
                   ))}
-                </ul>
+                </section>
               )}
               {topic.isArchived && <p className={s.archived}>Bu konu güncel müfredatta yer almıyor; içerik arşiv olarak duruyor.</p>}
               <div className={s.heroActions}>
@@ -293,13 +369,10 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
               <p>Konu boyunca bu kavramlar sık geçecek. Metinde kalın yazılan terimler fosforlu kalemle işaretli.</p>
             </div>
             <dl className={s.bento}>
-              {featureHighlight && (
-                <div className={s.feature}><dt>{featureHighlight.title}</dt><dd>{featureHighlight.description}</dd></div>
-              )}
-              {otherHighlights.map((h, i) => (
+              {highlights.map((h, i) => (
                 <div
                   key={`${h.title}-${i}`}
-                  className={cx(s.entry, otherHighlights.length % 5 !== 0 && i === otherHighlights.length - 1 && otherHighlights.length % 2 === 1 && s.entryWide)}
+                  className={cx(s.entry, highlights.length % 2 === 1 && i === highlights.length - 1 && s.entryWide)}
                 >
                   <dt>{h.title}</dt><dd>{h.description}</dd>
                 </div>
@@ -340,19 +413,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
           )}
 
           <article className={s.article}>
-            {sections.length > 0 && (
-              <nav className={s.chips} aria-label="Bölümler" ref={chipsRef}>
-                {sections.map((sec) => {
-                  const slug = sectionSlugs.get(sec.id) || String(sec.id);
-                  return (
-                    <a key={sec.id} href={`#${slug}`} data-chip={slug} className={slug === activeSlug ? s.chipActive : s.chip}>
-                      {sec.heading}
-                    </a>
-                  );
-                })}
-              </nav>
-            )}
-
             {sections.length > 0 ? (
               sections.map((sec, i) => {
                 const slug = sectionSlugs.get(sec.id) || String(sec.id);
@@ -494,9 +554,27 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
           </section>
         )}
 
-        {next && (
-          <Link href={next.href} className={s.next}>
-            <span><small>{next.label}</small><strong>{next.title}</strong></span>
+        {(prev || next) && (
+          <nav className={s.pager} aria-label="Konular arası geçiş">
+            {prev && (
+              <Link href={prev.href} className={cx(s.next, s.prev)} rel="prev">
+                <span className={s.go} aria-hidden="true">←</span>
+                <span><small>{prev.label}</small><strong>{prev.title}</strong></span>
+              </Link>
+            )}
+            {next && (
+              <Link href={next.href} className={cx(s.next, s.nextEnd)} rel="next">
+                <span><small>{next.label}</small><strong>{next.title}</strong></span>
+                <span className={s.go} aria-hidden="true">→</span>
+              </Link>
+            )}
+          </nav>
+        )}
+
+        {/* Konu değiştir penceresi sadece gezinme için; ünitenin soruları konu bitince burada. */}
+        {unitQuestionsHref && unit && (
+          <Link href={unitQuestionsHref} className={cx(s.next, s.unitQuestions)}>
+            <span><small>Bu ünitenin soruları · {unit.test_question_count} soru</small><strong>{unit.title}</strong></span>
             <span className={s.go} aria-hidden="true">→</span>
           </Link>
         )}
@@ -528,11 +606,16 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
       </div>
 
       {/* Mobil alt çubuk */}
-      <div className={s.dock} role="region" aria-label="Konu ilerlemesi">
+      <div className={cx(s.dock, dockHidden && s.dockHidden)} role="region" aria-label="Konu ilerlemesi" inert={dockHidden}>
         <div className={s.dockText}>
           <span>{activeIndex >= 0 ? `Bölüm ${activeIndex + 1} / ${sections.length}` : unitName}</span>
           <strong>{activeIndex >= 0 ? sections[activeIndex].heading : topic.title}</strong>
         </div>
+        {showToTop && (
+          <button type="button" className={s.dockTop} onClick={scrollToTop} aria-label="Sayfanın başına dön" title="Başa dön">
+            <ArrowUp size={18} aria-hidden="true" />
+          </button>
+        )}
         {hasTest ? (
           <button type="button" className={cx(s.btnPrimary, s.dockBtn)} onClick={startTest} disabled={topicTest.loading}>Teste başla</button>
         ) : (
@@ -540,74 +623,29 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
         )}
       </div>
 
+      <button
+        type="button"
+        className={cx(s.toTop, showToTop && s.toTopVisible)}
+        onClick={scrollToTop}
+        aria-label="Sayfanın başına dön"
+        title="Başa dön"
+        aria-hidden={!showToTop}
+        tabIndex={showToTop ? 0 : -1}
+      >
+        <ArrowUp size={20} aria-hidden="true" />
+      </button>
+
       {/* Konu değiştirici */}
       {switcherOpen && (
-        <div className={s.switcher} role="dialog" aria-modal="true" aria-label="Konu değiştir">
-          <div className={s.switcherShade} onClick={() => setSwitcherOpen(false)} />
-          <div className={cx(s.switcherPanel, displayFont.variable, bodyFont.variable)}>
-            <div className={s.switcherHead}>
-              <h2>Konu değiştir</h2>
-              <button type="button" className={s.iconBtn} onClick={() => setSwitcherOpen(false)} aria-label="Kapat"><X size={16} /></button>
-            </div>
-            {allGrades.length > 1 && (
-              <>
-                <p className={s.switcherLabel}>Sınıf</p>
-                <div className={s.pillRow}>
-                  {allGrades.map((g) => g.slug && (
-                    <Link key={g.id} href={`/${g.slug}`} className={g.slug === gradeSlug ? s.pillActive : s.pill}>{g.name}</Link>
-                  ))}
-                </div>
-              </>
-            )}
-            {gradeLessons.length > 1 && gradeSlug && (
-              <>
-                <p className={s.switcherLabel}>Ders</p>
-                <div className={s.pillRow}>
-                  {gradeLessons.map((l) => l.slug && (
-                    <Link key={l.id} href={`/${gradeSlug}/${l.slug}`} className={l.slug === lessonSlug ? s.pillActive : s.pill}>{l.name}</Link>
-                  ))}
-                </div>
-              </>
-            )}
-            <p className={s.switcherLabel}>Üniteler ve konular</p>
-            <ul className={s.unitList}>
-              {units.map((u, i) => {
-                const current = u.slug === unitSlug;
-                return (
-                  <li key={u.id}>
-                    {gradeSlug && lessonSlug && u.slug ? (
-                      <Link href={`/${gradeSlug}/${lessonSlug}/${u.slug}`} className={current ? s.unitLinkActive : s.unitLink} onClick={() => setSwitcherOpen(false)}>
-                        <span>{i + 1}. {u.title}</span>
-                        {u.test_question_count ? <span className={s.small}>{u.test_question_count} soru</span> : null}
-                      </Link>
-                    ) : (
-                      <span className={s.unitLink}>{i + 1}. {u.title}</span>
-                    )}
-                    {current && contents.length > 0 && (
-                      <ul className={s.topicList}>
-                        {contents.map((c) => {
-                          const href = c.slug ? buildTopicHref(gradeSlug, lessonSlug, unitSlug, c.slug) : null;
-                          return href && (
-                          <li key={c.id}>
-                            <Link
-                              href={href}
-                              className={c.id === topic.id ? s.topicLinkActive : s.topicLink}
-                              aria-current={c.id === topic.id ? 'page' : undefined}
-                              onClick={() => setSwitcherOpen(false)}
-                            >
-                              {c.title}
-                            </Link>
-                          </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
+        <TopicSwitcher
+          className={cx(displayFont.variable, bodyFont.variable)}
+          grades={allGrades.filter((g) => g.slug)}
+          gradeLessons={gradeLessons}
+          units={units}
+          contents={contents}
+          current={{ gradeId: Number(gradeId), lessonId: Number(lessonId), unitId: unit?.id ?? null, topicId: topic ? Number(topic.id) : null }}
+          onClose={() => setSwitcherOpen(false)}
+        />
       )}
 
       {/* Portallar: kapak görseli, slayt tam ekran, test, admin araçları */}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchAllRows } from './fetchAllRows';
 
 // units/topics/lesson_grades/grades üzerindeki `question_count` kolonu elle güncellenmiyordu
 // (soru eklenince/silinince senkron kalmıyordu), bu yüzden kaldırıldı — bunun yerine bu dosya
@@ -13,12 +14,38 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+// PostgREST tek istekte en fazla 1000 satır döndürür — satırları çekip JS'te saymak ya da
+// id listesi toplamak, toplam 1000'i geçince SESSİZCE eksik sonuç verir. Bu yüzden:
+//   • sayımlar DB'de GROUP BY ile (count_questions_by_topic RPC'si, bkz.
+//     count_questions_by_topic_filters.sql) — konu listesi RPC'nin dönüşü de 1000'e
+//     takılmasın diye parçalar halinde gönderilir;
+//   • gerçekten satır gereken yerler (silme için id listesi, kullanıcı istatistiği eşleme)
+//     fetchAllQuestionRows ile sayfa sayfa okur.
+const TOPIC_CHUNK = 500;
+
+type QuestionFilter = { activeOnly?: boolean; excludeClassical?: boolean };
+
+// Soru satırlarını id sırasıyla sayfa sayfa okur (bkz. fetchAllRows); filtre yoksa tüm satırlar.
+export async function fetchAllQuestionRows<T>(
+  supabase: AnySupabaseClient,
+  columns: string,
+  topicIds: number[],
+  opts?: QuestionFilter
+): Promise<T[]> {
+  if (!topicIds.length) return [];
+  return fetchAllRows<T>((from, to) => {
+    let query = supabase.from('questions').select(columns).in('topic_id', topicIds);
+    if (opts?.activeOnly) query = query.eq('is_active', true);
+    if (opts?.excludeClassical) query = query.neq('question_type_id', 4);
+    return query.order('id', { ascending: true }).range(from, to);
+  });
+}
+
 // Verilen topic id'lerine doğrudan bağlı (questions.topic_id) soruların id listesini döner.
 // Silme/listeleme akışlarının ortak kaynağı — hiçbir yerde question_usages'a bakılmaz.
 export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topicIds: number[]): Promise<number[]> {
-  if (!topicIds.length) return [];
-  const { data } = await supabase.from('questions').select('id').in('topic_id', topicIds);
-  return ((data as { id: number }[] | null) || []).map((r) => r.id);
+  const rows = await fetchAllQuestionRows<{ id: number }>(supabase, 'id', topicIds);
+  return rows.map((r) => r.id);
 }
 
 // activeOnly=true, taslak (svg_prompt bekleyen/yayınlanmamış, is_active=false) soruları
@@ -34,19 +61,26 @@ export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topic
 export async function getQuestionCountsByTopicId(
   supabase: AnySupabaseClient,
   topicIds: number[],
-  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
+  opts?: QuestionFilter
 ): Promise<Map<number, number>> {
-  if (!topicIds.length) return new Map();
-
-  let query = supabase.from('questions').select('id, topic_id').in('topic_id', topicIds);
-  if (opts?.activeOnly) query = query.eq('is_active', true);
-  if (opts?.excludeClassical) query = query.neq('question_type_id', 4);
-  const { data } = await query;
-
   const counts = new Map<number, number>();
-  for (const q of (data as { id: number; topic_id: number | null }[] | null) || []) {
-    if (q.topic_id == null) continue;
-    counts.set(q.topic_id, (counts.get(q.topic_id) ?? 0) + 1);
+  const unique = [...new Set(topicIds)];
+  const chunks: number[][] = [];
+  for (let i = 0; i < unique.length; i += TOPIC_CHUNK) chunks.push(unique.slice(i, i + TOPIC_CHUNK));
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase.rpc('count_questions_by_topic', {
+        p_topic_ids: chunk,
+        p_active_only: !!opts?.activeOnly,
+        p_exclude_classical: !!opts?.excludeClassical,
+      })
+    )
+  );
+  for (const { data, error } of results) {
+    // Sessizce 0 göstermek yerine hata ver — sayfa ISR'da bir önceki (doğru) sürümü sunmaya devam eder.
+    if (error) throw new Error(`count_questions_by_topic başarısız: ${error.message}`);
+    for (const r of (data as { topic_id: number; cnt: number }[] | null) || []) counts.set(Number(r.topic_id), Number(r.cnt));
   }
   return counts;
 }
@@ -54,7 +88,7 @@ export async function getQuestionCountsByTopicId(
 export async function getQuestionCountsByUnitId(
   supabase: AnySupabaseClient,
   unitIds: number[],
-  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
+  opts?: QuestionFilter
 ): Promise<Map<number, number>> {
   if (!unitIds.length) return new Map();
 
@@ -75,28 +109,26 @@ export async function getQuestionCountsByUnitId(
 export async function getQuestionCountsByLessonGrade(
   supabase: AnySupabaseClient,
   pairs: { lessonId: number; gradeId: number }[],
-  opts?: { activeOnly?: boolean; excludeClassical?: boolean }
+  opts?: QuestionFilter
 ): Promise<Map<string, number>> {
   if (!pairs.length) return new Map();
 
   const lessonIds = Array.from(new Set(pairs.map((p) => p.lessonId)));
   const gradeIds = Array.from(new Set(pairs.map((p) => p.gradeId)));
 
-  // Tek istekte units -> topics -> questions'ı nested embed ile çekip JS'de
-  // sayıyoruz; ayrı ayrı sıralı sorgular yerine tek round-trip.
-  let unitsQuery = supabase
+  // Sadece units → topics id'leri çekilip sayım RPC'ye bırakılıyor (eskiden tüm soru
+  // satırları nested embed ile çekilip JS'te sayılıyordu).
+  const { data: unitsData } = await supabase
     .from('units')
-    .select('lesson_id, grade_id, topics(questions(id))')
+    .select('lesson_id, grade_id, topics(id)')
     .in('lesson_id', lessonIds)
     .in('grade_id', gradeIds);
-  if (opts?.activeOnly) unitsQuery = unitsQuery.eq('topics.questions.is_active', true);
-  if (opts?.excludeClassical) unitsQuery = unitsQuery.neq('topics.questions.question_type_id', 4);
-  const { data: unitsData } = await unitsQuery;
-  const units = (unitsData as { lesson_id: number; grade_id: number; topics: { questions: { id: number }[] }[] }[] | null) || [];
+  const units = (unitsData as { lesson_id: number; grade_id: number; topics: { id: number }[] | null }[] | null) || [];
+  const topicCounts = await getQuestionCountsByTopicId(supabase, units.flatMap((u) => (u.topics ?? []).map((t) => t.id)), opts);
 
   const result = new Map<string, number>();
   for (const u of units) {
-    const questionCount = (u.topics ?? []).reduce((sum, t) => sum + (t.questions?.length ?? 0), 0);
+    const questionCount = (u.topics ?? []).reduce((sum, t) => sum + (topicCounts.get(t.id) ?? 0), 0);
     const key = `${u.lesson_id}:${u.grade_id}`;
     result.set(key, (result.get(key) ?? 0) + questionCount);
   }

@@ -6,7 +6,7 @@ import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 // Anasayfa -> sınıf -> dersler sayfasında, ünite listesini (ünite sayfasına gitmeden)
 // doğrudan orada gösterip her üniteye tıklandığında ilk konusuna link vermek için kullanılır.
 type UnitRow = { id: number; title: string; slug: string | null; order_no: number; is_active: boolean };
-type TopicRow = { id: number; unit_id: number; slug: string | null; order_no: number };
+type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number };
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -18,6 +18,9 @@ export async function GET(request: Request) {
   // içerik döner" notu); publicOnly olmadan admin bypass'ı diğer çağıranlar için (Yayın
   // Yönetimi paneli, anasayfa ders seçici) olduğu gibi kalır.
   const publicOnly = searchParams.get('publicOnly') === '1';
+  // v2 konu sayfasının "Konu değiştir" penceresi sınıf → ders → ünite → konu listesini sayfa
+  // değiştirmeden gezebilsin diye her ünitenin TÜM konularını da ister.
+  const includeTopics = searchParams.get('includeTopics') === '1';
 
   if (![gradeId, lessonId].every(Number.isFinite)) {
     return NextResponse.json({ error: 'Eksik veya hatalı parametre' }, { status: 400 });
@@ -51,10 +54,11 @@ export async function GET(request: Request) {
   const unitIds = units.map((u) => u.id);
 
   const firstTopicByUnit = new Map<number, TopicRow>();
+  const topicsByUnit = new Map<number, TopicRow[]>();
   if (unitIds.length) {
     let topicsQuery = supabase
       .from('topics')
-      .select('id, unit_id, slug, order_no')
+      .select('id, unit_id, title, slug, order_no')
       .in('unit_id', unitIds)
       .order('order_no', { ascending: true });
     if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
@@ -62,6 +66,7 @@ export async function GET(request: Request) {
 
     for (const t of (topicsData as TopicRow[] | null) || []) {
       if (!firstTopicByUnit.has(t.unit_id)) firstTopicByUnit.set(t.unit_id, t);
+      if (includeTopics) topicsByUnit.set(t.unit_id, [...(topicsByUnit.get(t.unit_id) || []), t]);
     }
   }
 
@@ -72,6 +77,7 @@ export async function GET(request: Request) {
     orderNo: u.order_no,
     isActive: u.is_active,
     firstTopicSlug: firstTopicByUnit.get(u.id)?.slug ?? null,
+    ...(includeTopics && { topics: (topicsByUnit.get(u.id) || []).map((t) => ({ id: t.id, title: t.title, slug: t.slug })) }),
   }));
 
   return NextResponse.json({ units: result });

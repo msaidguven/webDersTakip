@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { fetchAllRows } from '@/app/src/lib/fetchAllRows';
+import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
 type UnitSummary = { id: number; title: string; topicCount: number; outcomeCount: number; questionCount: number; contentCount: number };
 
@@ -34,33 +36,32 @@ export async function GET(request: NextRequest) {
   const topicIds = topics.map((t) => t.id);
   const topicToUnit = new Map(topics.map((t) => [t.id, t.unit_id]));
 
-  const [{ data: outcomeRows }, { data: questionRows }, { data: contentRows }] = topicIds.length
+  // Satır sayısı 1000'i geçebilir (PostgREST sınırı) — sorular DB'de sayılır, diğerleri sayfalı okunur.
+  const [outcomeRows, questionCountByTopic, contentRows] = topicIds.length
     ? await Promise.all([
-        supabase.from('outcomes').select('topic_id').in('topic_id', topicIds),
-        supabase.from('questions').select('topic_id, id').in('topic_id', topicIds),
-        supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds),
+        fetchAllRows<{ topic_id: number }>((from, to) => supabase.from('outcomes').select('topic_id').in('topic_id', topicIds).order('id').range(from, to)),
+        getQuestionCountsByTopicId(supabase, topicIds),
+        fetchAllRows<{ topic_id: number }>((from, to) => supabase.from('topic_contents').select('topic_id').in('topic_id', topicIds).order('id').range(from, to)),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [[], new Map<number, number>(), []];
 
   const topicCountByUnit = new Map<number, number>();
   for (const t of topics) topicCountByUnit.set(t.unit_id, (topicCountByUnit.get(t.unit_id) || 0) + 1);
 
   const outcomeCountByUnit = new Map<number, number>();
-  for (const r of (outcomeRows as { topic_id: number }[] | null) || []) {
+  for (const r of outcomeRows) {
     const unitId = topicToUnit.get(r.topic_id);
     if (unitId != null) outcomeCountByUnit.set(unitId, (outcomeCountByUnit.get(unitId) || 0) + 1);
   }
 
-  const questionIdsByUnit = new Map<number, Set<number>>();
-  for (const r of (questionRows as { topic_id: number; id: number }[] | null) || []) {
-    const unitId = topicToUnit.get(r.topic_id);
-    if (unitId == null) continue;
-    if (!questionIdsByUnit.has(unitId)) questionIdsByUnit.set(unitId, new Set());
-    questionIdsByUnit.get(unitId)!.add(r.id);
+  const questionCountByUnit = new Map<number, number>();
+  for (const [topicId, count] of questionCountByTopic) {
+    const unitId = topicToUnit.get(topicId);
+    if (unitId != null) questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) || 0) + count);
   }
 
   const contentCountByUnit = new Map<number, number>();
-  for (const r of (contentRows as { topic_id: number }[] | null) || []) {
+  for (const r of contentRows) {
     const unitId = topicToUnit.get(r.topic_id);
     if (unitId != null) contentCountByUnit.set(unitId, (contentCountByUnit.get(unitId) || 0) + 1);
   }
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
     title: u.title,
     topicCount: topicCountByUnit.get(u.id) || 0,
     outcomeCount: outcomeCountByUnit.get(u.id) || 0,
-    questionCount: questionIdsByUnit.get(u.id)?.size || 0,
+    questionCount: questionCountByUnit.get(u.id) || 0,
     contentCount: contentCountByUnit.get(u.id) || 0,
   }));
 

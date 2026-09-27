@@ -1,14 +1,34 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const MAX_BULLETS = 5;
+const MAX_OBJECTIVES = 5;
+const MAX_CONCEPTS = 8;
 
+// Sunum sınıfta öğretmen anlatımında da kullanılıyor (kullanıcı isteği, 2026-09-27) —
+// alt başlık özetlerinin yanına kazanımlar, anahtar kavramlar, etkinlik, konu özeti ve
+// tartışma slaytları eklendi. Hepsi içerik üretiminde ZATEN üretilen alanlardan geliyor,
+// ek AI çağrısı yok. Veri yoksa o slayt atlanır.
+export type SlideKind = 'cover' | 'objectives' | 'concepts' | 'section' | 'activity' | 'summary' | 'discussion';
+
+export type SlideConcept = { term: string; description: string };
+
+// Ortak alanlar (heading/bullets/görsel) her tipte dolu tutuluyor — pptx dışa aktarımı
+// (presentation/route.ts) her slaytı "başlık + madde listesi" olarak çizdiği için yeni
+// tipler orada ek kod gerektirmeden çalışır. items/label/reveal sadece oynatıcı içindir.
 export type SlideDeckSlide = {
-  kind: 'cover' | 'section';
+  kind: SlideKind;
   heading: string;
   subtitle: string | null;
   bullets: string[];
   imageUrl: string | null;
   diagramSvg: string | null;
+  // concepts, summary: terim + açıklama çiftleri (summary sadece tüm satırlar "**X**: Y" ise).
+  items?: SlideConcept[];
+  // activity: çerçeve etiketi ("Sen Olsan?" vb.) ve tıklayınca açılan örnek yaklaşım.
+  label?: string | null;
+  reveal?: string | null;
+  // Sınıf içi tahmini süre (dk) — bkz. SLIDE_MINUTES / fitToTimeBudget.
+  minutes?: number;
 };
 
 export type SlideDeckTip = { title: string; content: string };
@@ -18,6 +38,8 @@ export type SlideDeck = {
   eyebrowText: string;
   slides: SlideDeckSlide[];
   tip: SlideDeckTip | null;
+  // Sınıf içi tahmini toplam süre (dk). Eski, cache'lenmiş (topic_content_slides) desteklerde yok.
+  estimatedMinutes?: number;
   // En az bir alt başlıkta review_summary yok, kaba cümle-bölme yedeğine düşüldü (bkz.
   // deriveBullets) — admin panelinde "bu içerik eski, yeniden kaydet" uyarısı için.
   hasStaleSections: boolean;
@@ -38,6 +60,10 @@ type SectionRow = {
   diagram_svg: string | null;
 };
 type TipRow = { title: string; content: string };
+type ActivityRow = { activity_prompt_markdown: string | null; activity_example_markdown: string | null };
+type HighlightRow = { title: string; description: string };
+type OutcomeRow = { description: string };
+type TopicWrapRow = { summary_markdown: string | null; discussion_prompt_markdown: string | null };
 
 function stripMarkdown(text: string): string {
   return text
@@ -93,6 +119,71 @@ function deriveBullets(section: SectionRow): { bullets: string[]; stale: boolean
   return { bullets: fallbackBullets(section.body_markdown), stale: true };
 }
 
+// İçerik promptunun etkinlik çerçeveleri (bkz. app/prompt/_explanation-notebook-rules.md).
+const ACTIVITY_FRAMES = ['Günlük Hayattan Bul', 'Sen Olsan?', 'Karşılaştır', 'Hayal Et', 'Düşün', 'Dene'];
+
+function parseActivity(promptMarkdown: string): { label: string; text: string } {
+  const text = stripMarkdown(promptMarkdown);
+  for (const frame of ACTIVITY_FRAMES) {
+    if (text.toLocaleLowerCase('tr-TR').startsWith(frame.toLocaleLowerCase('tr-TR'))) {
+      const rest = text.slice(frame.length).replace(/^\s*[:：]\s*/, '').trim();
+      if (rest) return { label: frame, text: rest };
+    }
+  }
+  return { label: 'Düşün', text };
+}
+
+// Konu özeti AI'dan "- **Terim**: açıklama" satırları olarak geliyor; hepsi bu kalıptaysa
+// terim/açıklama kartı, değilse düz madde olarak gösterilir.
+function parseSummary(summaryMarkdown: string): { bullets: string[]; items?: SlideConcept[] } {
+  const lines = summaryMarkdown.split(/\n+/).map((l) => l.replace(/^\s*(?:[-•]|\*(?!\*))\s*/, '').trim()).filter(Boolean);
+  const pairs = lines.map((l) => /^\*\*(.+?)\*\*\s*[:：]\s*(.+)$/.exec(l));
+  const bullets = lines.map((l) => stripMarkdown(l)).filter(Boolean).slice(0, MAX_BULLETS + 1);
+  if (pairs.length && pairs.every(Boolean)) {
+    const items = pairs.slice(0, MAX_BULLETS + 1).map((m) => ({ term: stripMarkdown(m![1]), description: stripMarkdown(m![2]) }));
+    return { bullets: items.map((i) => `${i.term}: ${i.description}`), items };
+  }
+  return { bullets };
+}
+
+// Sınıf içi tahmini süreler (dk) — öğretmenin anlatma/soru sorma temposuna göre kaba
+// değerler. Amaç kesin ölçüm değil, sunumun 20-25 dk'yı aşmaması (kullanıcı isteği).
+const SLIDE_MINUTES = {
+  cover: () => 0.5,
+  objectives: () => 1,
+  concepts: (n: number) => 0.5 + 0.3 * n,
+  section: (bullets: number, hasVisual: boolean) => 1 + 0.6 * bullets + (hasVisual ? 0.5 : 0),
+  activity: () => 2,
+  summary: () => 1.5,
+  discussion: () => 2,
+};
+const TIME_BUDGET_MINUTES = 25;
+
+const sumMinutes = (slides: SlideDeckSlide[]) => slides.reduce((t, s) => t + (s.minutes ?? 0), 0);
+
+// Bütçe aşılırsa kırpma sırası: önce etkinlikler (kalanlar konuya eşit yayılır), sonra
+// tartışma, kazanımlar, kavramlar. Kapak, alt başlıklar ve konu özeti hiç atılmaz — alt
+// başlıklar tek başına bütçeyi aşıyorsa sunum yine de eksiksiz gösterilir.
+function fitToTimeBudget(slides: SlideDeckSlide[]): SlideDeckSlide[] {
+  if (sumMinutes(slides) <= TIME_BUDGET_MINUTES) return slides;
+
+  const activityIdx = slides.flatMap((s, i) => (s.kind === 'activity' ? [i] : []));
+  const withoutActivities = slides.filter((s) => s.kind !== 'activity');
+  const room = TIME_BUDGET_MINUTES - sumMinutes(withoutActivities);
+  const keepCount = Math.max(0, Math.min(activityIdx.length, Math.floor(room / SLIDE_MINUTES.activity())));
+  const keep = new Set<number>();
+  for (let j = 0; j < keepCount; j++) {
+    keep.add(activityIdx[Math.floor(((j + 0.5) * activityIdx.length) / keepCount)]);
+  }
+  let result = slides.filter((s, i) => s.kind !== 'activity' || keep.has(i));
+
+  for (const kind of ['discussion', 'objectives', 'concepts'] as const) {
+    if (sumMinutes(result) <= TIME_BUDGET_MINUTES) break;
+    result = result.filter((s) => s.kind !== kind);
+  }
+  return result;
+}
+
 export type GenerateSlideDeckResult =
   | { ok: true; topicContentId: number; deck: SlideDeck }
   | { ok: false; status: number; error: string };
@@ -126,16 +217,32 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
   const topicContentRow = topicContent as TopicContentRow | null;
   if (!topicContentRow) return { ok: false, status: 404, error: 'Bu konu için içerik hazırlanmamış' };
 
-  const [{ data: sectionsData }, { data: tipData }] = await Promise.all([
+  const [{ data: sectionsData }, { data: tipData }, { data: highlightsData }, { data: outcomesData }, { data: wrapData }] = await Promise.all([
     supabase
       .from('topic_content_sections')
-      .select('id, order_no, heading, body_markdown, review_summary, image_url, diagram_svg')
+      .select('id, order_no, heading, body_markdown, review_summary, image_url, diagram_svg, activity_prompt_markdown, activity_example_markdown')
       .eq('topic_content_id', topicContentRow.id)
       .order('order_no', { ascending: true }),
     supabase.from('topic_content_tips').select('title, content').eq('topic_content_id', topicContentRow.id).maybeSingle(),
+    supabase
+      .from('topic_content_highlights')
+      .select('title, description')
+      .eq('topic_content_id', topicContentRow.id)
+      .order('order_no', { ascending: true })
+      .limit(MAX_CONCEPTS),
+    supabase
+      .from('outcomes')
+      .select('description')
+      .eq('topic_id', topicRow.id)
+      .eq('is_current', true)
+      .order('order_index', { ascending: true }),
+    supabase.from('topic_contents').select('summary_markdown, discussion_prompt_markdown').eq('id', topicContentRow.id).maybeSingle(),
   ]);
-  const sections = (sectionsData as SectionRow[] | null) || [];
+  const sections = (sectionsData as (SectionRow & ActivityRow)[] | null) || [];
   const tipRow = tipData as TipRow | null;
+  const highlights = ((highlightsData as HighlightRow[] | null) || []).filter((h) => h.title?.trim() && h.description?.trim());
+  const outcomes = ((outcomesData as OutcomeRow[] | null) || []).map((o) => o.description.trim()).filter(Boolean);
+  const wrap = wrapData as TopicWrapRow | null;
 
   if (!sections.length) return { ok: false, status: 404, error: 'Bu konuda henüz alt başlık yok' };
 
@@ -148,20 +255,97 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
       bullets: [],
       imageUrl: topicContentRow.hero_image_url,
       diagramSvg: null,
+      minutes: SLIDE_MINUTES.cover(),
     },
-    ...sections.map((section): SlideDeckSlide => {
-      const { bullets, stale } = deriveBullets(section);
-      if (stale) hasStaleSections = true;
-      return {
-        kind: 'section',
+  ];
+
+  if (outcomes.length) {
+    const shown = outcomes.slice(0, MAX_OBJECTIVES);
+    const hidden = outcomes.length - shown.length;
+    slides.push({
+      kind: 'objectives',
+      heading: 'Bu derste neler öğreneceğiz?',
+      subtitle: hidden > 0 ? `+${hidden} kazanım daha` : null,
+      bullets: shown,
+      imageUrl: null,
+      diagramSvg: null,
+      minutes: SLIDE_MINUTES.objectives(),
+    });
+  }
+
+  if (highlights.length) {
+    const items = highlights.map((h) => ({ term: h.title.trim(), description: h.description.trim() }));
+    slides.push({
+      kind: 'concepts',
+      heading: 'Anahtar kavramlar',
+      subtitle: null,
+      bullets: items.map((i) => `${i.term}: ${i.description}`),
+      imageUrl: null,
+      diagramSvg: null,
+      items,
+      minutes: SLIDE_MINUTES.concepts(items.length),
+    });
+  }
+
+  for (const section of sections) {
+    const { bullets, stale } = deriveBullets(section);
+    if (stale) hasStaleSections = true;
+    slides.push({
+      kind: 'section',
+      heading: section.heading,
+      subtitle: null,
+      bullets,
+      imageUrl: section.image_url,
+      diagramSvg: section.diagram_svg,
+      minutes: SLIDE_MINUTES.section(bullets.length, !!(section.image_url || section.diagram_svg)),
+    });
+
+    if (section.activity_prompt_markdown?.trim()) {
+      const { label, text } = parseActivity(section.activity_prompt_markdown);
+      const example = section.activity_example_markdown?.trim() ? stripMarkdown(section.activity_example_markdown) : null;
+      slides.push({
+        kind: 'activity',
         heading: section.heading,
         subtitle: null,
+        bullets: example ? [`${label}: ${text}`, `Örnek yaklaşım: ${example}`] : [`${label}: ${text}`],
+        imageUrl: null,
+        diagramSvg: null,
+        label,
+        reveal: example,
+        minutes: SLIDE_MINUTES.activity(),
+      });
+    }
+  }
+
+  if (wrap?.summary_markdown?.trim()) {
+    const { bullets, items } = parseSummary(wrap.summary_markdown);
+    if (bullets.length) {
+      slides.push({
+        kind: 'summary',
+        heading: 'Konuyu toparlayalım',
+        subtitle: null,
         bullets,
-        imageUrl: section.image_url,
-        diagramSvg: section.diagram_svg,
-      };
-    }),
-  ];
+        imageUrl: null,
+        diagramSvg: null,
+        items,
+        minutes: SLIDE_MINUTES.summary(),
+      });
+    }
+  }
+
+  if (wrap?.discussion_prompt_markdown?.trim()) {
+    slides.push({
+      kind: 'discussion',
+      heading: 'Tartışalım',
+      subtitle: null,
+      bullets: [stripMarkdown(wrap.discussion_prompt_markdown)],
+      imageUrl: null,
+      diagramSvg: null,
+      minutes: SLIDE_MINUTES.discussion(),
+    });
+  }
+
+  const fitted = fitToTimeBudget(slides);
 
   return {
     ok: true,
@@ -169,9 +353,10 @@ export async function generateSlideDeck(supabase: SupabaseClient<any>, topicId: 
     deck: {
       topicTitle: topicRow.title,
       eyebrowText,
-      slides,
+      slides: fitted,
       tip: tipRow?.content ? { title: tipRow.title, content: tipRow.content } : null,
       hasStaleSections,
+      estimatedMinutes: Math.round(sumMinutes(fitted)),
     },
   };
 }

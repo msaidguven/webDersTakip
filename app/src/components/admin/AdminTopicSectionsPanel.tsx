@@ -634,7 +634,7 @@ export default function AdminTopicSectionsPanel({
       )}
 
       {coverImageModalOpen && (
-        <TopicCoverImageModal topicId={topicId} onClose={() => setCoverImageModalOpen(false)} onSaved={() => { setCoverImageModalOpen(false); load(); }} />
+        <TopicCoverImageModal topicId={topicId} onClose={() => setCoverImageModalOpen(false)} onSaved={(imageAdded) => { if (imageAdded) setCoverImageModalOpen(false); load(); }} />
       )}
       {highlightsModalOpen && (
         <TopicHighlightsModal topicId={topicId} onClose={() => setHighlightsModalOpen(false)} onSaved={() => { setHighlightsModalOpen(false); load(); }} />
@@ -4247,7 +4247,9 @@ export function TopicCoverImageModal({
 }: {
   topicId: number;
   onClose: () => void;
-  onSaved: () => void;
+  // imageAdded=true → görsel yüklendi/seçildi, iş bitti (çağıran modalı kapatabilir).
+  // Prompt kaydı/görsel kaldırma ara adım: veri yenilenmeli ama modal açık kalmalı.
+  onSaved: (imageAdded: boolean) => void;
 }) {
   const [loadingBundle, setLoadingBundle] = useState(true);
   const [topicContentId, setTopicContentId] = useState<number | null>(null);
@@ -4347,7 +4349,7 @@ export function TopicCoverImageModal({
       setSavedPrompt(finalPrompt);
       setSavedAlt(altText || null);
       setRawPrompt('');
-      onSaved();
+      onSaved(false);
     } finally {
       setPromptSaving(false);
     }
@@ -4369,7 +4371,7 @@ export function TopicCoverImageModal({
       }
       setHeroUrl(data.imageUrl);
       setHeroFile(null);
-      onSaved();
+      onSaved(true);
     } finally {
       setHeroBusy(false);
     }
@@ -4391,7 +4393,7 @@ export function TopicCoverImageModal({
       }
       setHeroUrl(data.imageUrl);
       setShowGallery(false);
-      onSaved();
+      onSaved(true);
     } finally {
       setHeroBusy(false);
     }
@@ -4406,7 +4408,7 @@ export function TopicCoverImageModal({
       const res = await fetch(`/api/admin/topic-sections/hero-image?topicContentId=${topicContentId}`, { method: 'DELETE' });
       if (res.ok) {
         setHeroUrl(null);
-        onSaved();
+        onSaved(false);
       }
     } finally {
       setHeroBusy(false);

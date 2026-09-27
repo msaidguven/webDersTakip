@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { createPublicClient } from '@/utils/supabase/public';
 import { SITE_URL } from '@/app/src/lib/site';
+import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
 export const revalidate = 3600;
 
@@ -9,7 +10,6 @@ type LessonRow = { id: number; slug: string | null };
 type LessonGradeRow = { lesson_id: number; grade_id: number };
 type UnitRow = { id: number; slug: string | null; lesson_id: number; grade_id: number };
 type TopicRow = { id: number; slug: string | null; unit_id: number; frozen_unit_slug: string | null };
-type QuestionRow = { id: number; topic_id: number | null };
 
 const excludedSitemapUrls = new Set([
   `${SITE_URL}/5-sinif/fen-bilimleri/isigin-dunyasi/fb-5-4-3-tam-golgenin-olusumu`,
@@ -27,19 +27,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const supabase = createPublicClient();
 
-    const [
-      { data: gradesData },
-      { data: lessonsData },
-      { data: lessonGradesData },
-      { data: unitsData },
-      { data: topicsData },
-    ] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('grades').select('id, slug').eq('is_active', true),
       supabase.from('lessons').select('id, slug').eq('is_active', true),
       supabase.from('lesson_grades').select('lesson_id, grade_id').eq('is_active', true),
       supabase.from('units').select('id, slug, lesson_id, grade_id').eq('is_active', true),
       supabase.from('topics').select('id, slug, unit_id, frozen_unit_slug').eq('is_active', true),
     ]);
+    // Supabase sorgu hatalarını fırlatmaz, sonuçta döndürür — loglanmazsa sitemap sessizce
+    // eksik çıkar (2026-09-27: canlıda eksik topics.frozen_unit_slug sütunu yüzünden konu ve
+    // soru bankası adreslerinin tamamı aylarca sitemap'te yoktu, hiçbir log düşmedi).
+    const queryNames = ['grades', 'lessons', 'lesson_grades', 'units', 'topics'];
+    results.forEach((r, i) => {
+      if (r.error) console.error(`[sitemap] ${queryNames[i]} sorgusu başarısız:`, r.error.message);
+    });
+    const [
+      { data: gradesData },
+      { data: lessonsData },
+      { data: lessonGradesData },
+      { data: unitsData },
+      { data: topicsData },
+    ] = results;
 
     const grades = (gradesData as GradeRow[] | null) || [];
     const lessons = (lessonsData as LessonRow[] | null) || [];
@@ -60,16 +68,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // question_type_id=4 ("classical") HARİÇ — bir konunun tek sorusu klasikse
       // getTopicTestPageData/soru-bankası sayfası bunu "sorusu yok" sayıp noindex döner
       // (bkz. quizQuestions.ts'teki aynı filtre), sitemap de AYNI tanımı kullanmalı.
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('id, topic_id')
-        .in('topic_id', topicIds)
-        .eq('is_active', true)
-        .neq('question_type_id', 4);
-      for (const q of (questionsData as QuestionRow[] | null) || []) {
-        if (q.topic_id == null) continue;
-        topicIdsWithQuestions.add(q.topic_id);
-        const unitId = unitIdByTopicId.get(q.topic_id);
+      // Sayım DB'de — satır çekmek toplam 1000 soruyu geçince listeyi eksik bırakırdı.
+      const countByTopic = await getQuestionCountsByTopicId(supabase, topicIds, { activeOnly: true, excludeClassical: true });
+      for (const [topicId, count] of countByTopic) {
+        if (count <= 0) continue;
+        topicIdsWithQuestions.add(topicId);
+        const unitId = unitIdByTopicId.get(topicId);
         if (unitId != null) unitIdsWithQuestions.add(unitId);
       }
     }
@@ -247,6 +251,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           });
         }
       }
+    }
+
+    // Ünite tanıtım sayfaları (/sınıf/ders/ünite, bkz. [unitSlug]/page.tsx) indekslenebilir ama
+    // sitemap'te hiç yoktu. Yayında en az bir konusu olmayan ünite sayfası boş bir liste
+    // gösterir (ince içerik), onlar eklenmiyor; aynı yolu paylaşan "kaybeden" üniteler de.
+    const unitIdsWithPublishedTopics = new Set(topics.filter((t) => publishedTopicIds.has(t.id)).map((t) => t.unit_id));
+    for (const [unitId, unitPath] of unitPathById) {
+      if (!unitIdsWithPublishedTopics.has(unitId) || !isWinningUnit(unitId)) continue;
+      entries.push({
+        url: `${SITE_URL}/${unitPath.gradeSlug}/${unitPath.lessonSlug}/${unitPath.unitSlug}`,
+        lastModified: now,
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      });
     }
 
     // Soru bankası sayfası (alt başlıklar + konu geneli, questions.topic_id tek kaynak)

@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
 
   const deck = (slideRow as SlideRow).slides;
   const totalSlides = deck.slides.length;
+  const lastSectionIndex = deck.slides.findLastIndex((sl) => sl.kind === 'section');
 
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_16x9';
@@ -118,8 +119,8 @@ export async function POST(request: NextRequest) {
       : slideData.diagramSvg
         ? svgToImageData(slideData.diagramSvg)
         : null;
-    const isLast = index === deck.slides.length - 1;
-    const showTip = isLast && !!deck.tip?.content;
+    // İpucu son ALT BAŞLIK slaydında (sunum artık özet/tartışma slaytlarıyla bitiyor, bkz. SlidePlayer).
+    const showTip = index === lastSectionIndex && !!deck.tip?.content;
 
     const slide = pres.addSlide();
     slide.background = { color: 'FFFFFF' };

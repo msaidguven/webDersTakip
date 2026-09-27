@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { metadata, viewport as customViewport } from "./metadata";
+import { buildSiteMetadata, viewport as customViewport } from "./metadata";
 import { AuthProvider } from "./src/context/AuthContext";
 import { MainLayout } from "./src/components/MainLayout";
 import { StructuredData } from "./src/components/StructuredData";
@@ -20,7 +20,8 @@ const inter = Inter({
   display: "swap",
 });
 
-export { metadata };
+// Site başlığı/açıklaması aktif sınıflardan üretiliyor (bkz. buildSiteMetadata) — sınıf eklendikçe güncel.
+export const generateMetadata = buildSiteMetadata;
 export const viewport: Viewport = customViewport;
 
 export default function RootLayout({

@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
 
       <h2>Çocukların gizliliği</h2>
       <p>
-        Platform 5-8. sınıf öğrencilerine yönelik içerik sunar. Reşit olmayan kullanıcıların hesap
+        Platform ortaokul ve lise (5-12. sınıf) öğrencilerine yönelik içerik sunar. Reşit olmayan kullanıcıların hesap
         oluştururken bir veli/vasi gözetiminde olması önerilir.
       </p>
 

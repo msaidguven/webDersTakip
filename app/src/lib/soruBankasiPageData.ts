@@ -99,7 +99,7 @@ export const getSoruBankasiGradeData = cache(async function getSoruBankasiGradeD
     getQuestionCountsByLessonGrade(supabase, lessonIds.map((lessonId) => ({ lessonId, gradeId: grade.id })), { activeOnly: true, excludeClassical: true }),
   ]);
 
-  // icon/order_no anasayfadaki ders kartlarıyla (bkz. homeStats.ts + LessonGrid.tsx) AYNI
+  // icon/order_no anasayfadaki ders kartlarıyla (bkz. homeStats.ts + GradeLessonPicker.tsx) AYNI
   // kaynaktan — kullanıcının 2026-09-06 isteği: "derslere resim icon ekle".
   const lessons = ((lessonRows as (LessonRow & { order_no: number | null; icon: string | null })[] | null) || [])
     .filter((lesson) => lesson.slug)

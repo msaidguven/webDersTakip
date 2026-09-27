@@ -20,15 +20,22 @@ function formatDateTime(t: number): string {
   return new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// "Son görülme" = son sayfa ziyareti (profiles.last_seen_at) ile son gerçek girişin
-// (auth last_sign_in_at) yenisi. Sadece last_sign_in_at'e bakmak, oturumu açık kalıp her
-// gün gelen kullanıcıyı haftalarca eski tarihle gösteriyordu.
+// "Son görülme" = son sayfa ziyareti (profiles.last_seen_at; oturum açık kalsa da her
+// ziyarette güncellenir), son gerçek giriş (auth last_sign_in_at) ve kayıt tarihinin en
+// yenisi. Kayıt tarihi yedek: Auth bazı kayıtlarda last_sign_in_at'i hiç doldurmuyor ve
+// sayfa takibi öncesi gelmiş üyeler aksi halde "Hiç giriş yapmadı" görünüyordu.
 function lastSeenTime(m: Member): number {
-  const seen = toTime(m.last_seen_at);
+  const times = [m.last_seen_at, m.last_sign_in_at, m.registered_at].map(toTime).filter((t) => !Number.isNaN(t));
+  return times.length ? Math.max(...times) : NaN;
+}
+
+function lastSeenTitle(m: Member): string | undefined {
+  const parts: string[] = [];
   const signIn = toTime(m.last_sign_in_at);
-  if (Number.isNaN(seen)) return signIn;
-  if (Number.isNaN(signIn)) return seen;
-  return Math.max(seen, signIn);
+  const registered = toTime(m.registered_at);
+  if (!Number.isNaN(signIn)) parts.push(`Son giriş: ${formatDateTime(signIn)}`);
+  if (!Number.isNaN(registered)) parts.push(`Kayıt: ${formatDateTime(registered)}`);
+  return parts.length ? parts.join('\n') : undefined;
 }
 
 function formatLastSeen(m: Member): string {
@@ -259,7 +266,7 @@ export default function MembersTab() {
                   <td className="p-3 text-muted-foreground">{m.grades?.name || '—'}</td>
                   <td
                     className="p-3 text-muted-foreground whitespace-nowrap"
-                    title={Number.isNaN(toTime(m.last_sign_in_at)) ? undefined : `Son giriş: ${formatDateTime(toTime(m.last_sign_in_at))}`}
+                    title={lastSeenTitle(m)}
                   >
                     {formatLastSeen(m)}
                   </td>

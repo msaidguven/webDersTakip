@@ -6,7 +6,14 @@
 import { slugifyHeading } from '@/app/src/lib/site';
 import type { CurriculumBreak } from '@/app/src/lib/routeParsing';
 
-export type Outcome = { id?: string | number; description: string; topicId?: string | number | null };
+export type Outcome = {
+  id?: string | number;
+  description: string;
+  topicId?: string | number | null;
+  code?: string | null;
+  learningOutcomeId?: number | null;
+  learningOutcome?: { id: number; code: string | null; title: string } | null;
+};
 export type WeekedOutcome = Outcome & {
   startWeek: number | null;
   endWeek: number | null;

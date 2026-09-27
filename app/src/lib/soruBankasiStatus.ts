@@ -9,6 +9,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_QUESTIONS_PER_TEST } from './quizQuestions';
 import { findResumableSession } from './quizResume';
+import { fetchAllRows } from './fetchAllRows';
+import { fetchAllQuestionRows } from './questionCounts';
 
 export interface SoruBankasiTestStatus {
   loggedIn: boolean;
@@ -133,8 +135,7 @@ export async function getUnitTopicStats(
 
   // question_type_id=4 ("classical") HARİÇ — ünite sayfasındaki "Konu Bazlı Analizler"
   // öğrencinin çözebileceği sorulara göre olmalı (kullanıcı isteği, 2026-09-13).
-  const { data: questionRows } = await supabase.from('questions').select('id, topic_id').in('topic_id', topicIds).eq('is_active', true).neq('question_type_id', 4);
-  const rows = (questionRows as { id: number; topic_id: number }[] | null) || [];
+  const rows = await fetchAllQuestionRows<{ id: number; topic_id: number }>(supabase, 'id, topic_id', topicIds, { activeOnly: true, excludeClassical: true });
 
   const questionIdsByTopic = new Map<number, number[]>();
   const topicIdByQuestionId = new Map<number, number>();
@@ -147,14 +148,19 @@ export async function getUnitTopicStats(
 
   const statsByTopic = new Map<number, { solved: number; correct: number }>();
   if (userId && rows.length) {
-    const { data: statsRows } = await supabase
-      .from('user_question_stats')
-      .select('question_id, last_answer_correct')
-      .eq('user_id', userId)
-      .in('question_id', rows.map((r) => r.id))
-      .gt('total_attempts', 0);
+    const questionIds = rows.map((r) => r.id);
+    const statsRows = await fetchAllRows<{ question_id: number; last_answer_correct: boolean }>((from, to) =>
+      supabase
+        .from('user_question_stats')
+        .select('question_id, last_answer_correct')
+        .eq('user_id', userId)
+        .in('question_id', questionIds)
+        .gt('total_attempts', 0)
+        .order('question_id')
+        .range(from, to)
+    );
 
-    for (const stat of (statsRows as { question_id: number; last_answer_correct: boolean }[] | null) || []) {
+    for (const stat of statsRows) {
       const topicId = topicIdByQuestionId.get(stat.question_id);
       if (topicId == null) continue;
       const entry = statsByTopic.get(topicId) || { solved: 0, correct: 0 };

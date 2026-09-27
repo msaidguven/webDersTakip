@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
@@ -135,17 +136,13 @@ async function computeQuestionCountByUnit(supabase: Supabase, units: UnitRow[]):
   if (!topicIds.length) return questionCountByUnit;
 
   // question_type_id=4 ("classical") HARİÇ — "Ünite Testi" linki/soru sayısı öğrencinin
-  // çözebileceği sorulara göre olmalı (kullanıcı isteği, 2026-09-13).
-  const { data: questionsData } = await supabase
-    .from('questions')
-    .select('id, topic_id')
-    .in('topic_id', topicIds)
-    .eq('is_active', true)
-    .neq('question_type_id', 4);
-  for (const q of (questionsData as { id: number; topic_id: number }[] | null) || []) {
-    const unitId = unitIdByTopicId.get(q.topic_id);
+  // çözebileceği sorulara göre olmalı (kullanıcı isteği, 2026-09-13). Sayım DB'de (1000 satır
+  // limitine takılmasın diye, bkz. questionCounts.ts).
+  const countByTopic = await getQuestionCountsByTopicId(supabase, topicIds, { activeOnly: true, excludeClassical: true });
+  for (const [topicId, count] of countByTopic) {
+    const unitId = unitIdByTopicId.get(topicId);
     if (unitId == null) continue;
-    questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) ?? 0) + 1);
+    questionCountByUnit.set(unitId, (questionCountByUnit.get(unitId) ?? 0) + count);
   }
   return questionCountByUnit;
 }

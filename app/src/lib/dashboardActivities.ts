@@ -42,22 +42,23 @@ export async function getRecentActivities(
   const unitIds = [...new Set(sessions.map((s) => s.unit_id).filter((id): id is number => id != null))];
   const lessonIds = [...new Set(sessions.map((s) => s.lesson_id).filter((id): id is number => id != null))];
   const gradeIds = [...new Set(sessions.map((s) => s.grade_id).filter((id): id is number => id != null))];
-  const topicIds = [...new Set(
-    sessions.filter((s) => !s.completed_at).map((s) => s.settings?.topic_id).filter((id): id is number => id != null)
-  )];
+  // Tamamlanmış oturumlar da dahil: başlıkta konunun adı gerekiyor (bkz. baseTitle).
+  const topicIds = [...new Set(sessions.map((s) => s.settings?.topic_id).filter((id): id is number => id != null))];
 
   const [{ data: answerRows }, { data: unitRows }, { data: lessonRows }, { data: gradeRows }, { data: topicRows }] = await Promise.all([
     supabase.from('test_session_answers').select('test_session_id, question_id, is_correct, duration_seconds').in('test_session_id', sessionIds),
     unitIds.length ? supabase.from('units').select('id, title, slug').in('id', unitIds) : Promise.resolve({ data: [] }),
     lessonIds.length ? supabase.from('lessons').select('id, name, slug').in('id', lessonIds) : Promise.resolve({ data: [] }),
     gradeIds.length ? supabase.from('grades').select('id, slug').in('id', gradeIds) : Promise.resolve({ data: [] }),
-    topicIds.length ? supabase.from('topics').select('id, slug').in('id', topicIds) : Promise.resolve({ data: [] }),
+    topicIds.length ? supabase.from('topics').select('id, slug, title').in('id', topicIds) : Promise.resolve({ data: [] }),
   ]);
 
   const unitById = new Map(((unitRows as { id: number; title: string; slug: string | null }[] | null) || []).map((u) => [u.id, u]));
   const lessonById = new Map(((lessonRows as { id: number; name: string; slug: string | null }[] | null) || []).map((l) => [l.id, l]));
   const gradeSlugById = new Map(((gradeRows as { id: number; slug: string | null }[] | null) || []).map((g) => [g.id, g.slug]));
-  const topicSlugById = new Map(((topicRows as { id: number; slug: string | null }[] | null) || []).map((t) => [t.id, t.slug]));
+  const topicRowsTyped = (topicRows as { id: number; slug: string | null; title: string }[] | null) || [];
+  const topicSlugById = new Map(topicRowsTyped.map((t) => [t.id, t.slug]));
+  const topicTitleById = new Map(topicRowsTyped.map((t) => [t.id, t.title]));
 
   const answersBySession = new Map<number, AnswerRow[]>();
   for (const row of (answerRows as AnswerRow[] | null) || []) {
@@ -92,7 +93,12 @@ export async function getRecentActivities(
     const unit = s.unit_id ? unitById.get(s.unit_id) : undefined;
     const lesson = s.lesson_id ? lessonById.get(s.lesson_id) : undefined;
 
-    const baseTitle = unit
+    // Konu (kavrama) testi de unit_id taşıdığı için eskiden "Ünite Testi: <ünite>" diye
+    // adlandırılıyordu (2026-09-27 düzeltmesi) — settings.topic_id varsa konu testidir.
+    const sessionTopicTitle = s.settings?.topic_id != null ? topicTitleById.get(s.settings.topic_id) : undefined;
+    const baseTitle = sessionTopicTitle
+      ? `Kavrama Testi: ${sessionTopicTitle}`
+      : unit
       ? `Ünite Testi: ${unit.title}`
       : lesson
         ? `${lesson.name} Testi`

@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ListChecks, Loader2, Maximize2, PartyPopper, Trophy, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, ListChecks, Loader2, Maximize2, PartyPopper, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { ClassroomSlideView, revealStepsLeft } from '@/app/src/components/SlideKindViews';
 import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { submitAnswers, startSessionWithRetry } from '@/app/src/lib/answerSync';
@@ -334,10 +335,11 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
 
   const total = deck.slides.length;
   const slide = deck.slides[index];
-  const isLastSlide = index === total - 1;
-  const showTip = phase === 'slides' && isLastSlide && !!deck.tip?.content;
+  // İpucu kutusu son ALT BAŞLIK slaydında — artık sunum özet/tartışma slaytlarıyla bitiyor.
+  const lastSectionIndex = deck.slides.findLastIndex((sl) => sl.kind === 'section');
+  const showTip = phase === 'slides' && index === lastSectionIndex && !!deck.tip?.content;
   const accent = phase === 'questions' ? ACCENTS[qIndex % ACCENTS.length] : ACCENTS[index % ACCENTS.length];
-  const bulletsLeft = phase === 'slides' && slide.kind === 'section' ? Math.max(0, slide.bullets.length - revealedCount) : 0;
+  const bulletsLeft = phase === 'slides' ? revealStepsLeft(slide, revealedCount) : 0;
 
   const startQuestions = useCallback(() => {
     setPhase('questions');
@@ -424,6 +426,10 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   // art arda basmak yerine öğretmen/öğrenci istediği maddeye doğrudan atlayabilsin.
   const revealUpTo = useCallback((bulletIndex: number) => {
     setRevealedCount((c) => Math.max(c, bulletIndex + 1));
+  }, []);
+  // Sınıf-içi slayt görünümleri (SlideKindViews) doğrudan hedef revealedCount'u veriyor.
+  const revealToStep = useCallback((step: number) => {
+    setRevealedCount((c) => Math.max(c, step));
   }, []);
 
   // Eskiden kaydırma (swipe) bir slaytın KALAN TÜM maddelerini birden açıyordu ("bu slaytla
@@ -726,6 +732,11 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
               <div className={slide.imageUrl ? 'relative z-[1] flex-1 min-w-0' : 'relative z-[1] w-full'}>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-800 leading-tight" style={slideTextStyle(1.875, 1.15)}>{slide.heading}</h1>
                 {slide.subtitle && <p className="mt-3 text-base text-slate-500 font-medium max-w-xl" style={slideTextStyle(1, 1.4)}>{slide.subtitle}</p>}
+                {deck.estimatedMinutes ? (
+                  <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-black text-slate-500 shadow-sm" style={slideTextStyle(0.75, 1.3)}>
+                    <Clock className="h-3.5 w-3.5" /> Yaklaşık {deck.estimatedMinutes} dk · {total} slayt
+                  </p>
+                ) : null}
               </div>
               {slide.imageUrl ? (
                 <button
@@ -745,6 +756,8 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                 </div>
               )}
             </div>
+          ) : slide.kind !== 'section' ? (
+            <ClassroomSlideView slide={slide} accent={accent} revealedCount={revealedCount} onReveal={revealToStep} textStyle={slideTextStyle} />
           ) : (
             <div className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-2 pb-4 sm:pb-8">
               <h2 className="text-lg sm:text-2xl font-black text-slate-800 mb-3 sm:mb-5 shrink-0" style={slideTextStyle(1.5, 1.25)}>{slide.heading}</h2>

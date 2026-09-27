@@ -44,3 +44,15 @@ export function getLessonColor(index: number): string {
   ];
   return colors[index % colors.length];
 }
+
+// Aktif sınıf seviyelerinden okunabilir aralık: [5,6,7] → "5, 6 ve 7. sınıf", [5..8] → "5-8. sınıf".
+// Pazarlama metinleri ("5. sınıftan 12. sınıfa kadar") gerçekte olmayan sınıfları vaat
+// etmesin diye elle yazılmıyor, veriden türetiliyor (2026-09-27).
+export function formatGradeRange(levels: number[]): string {
+  const sorted = [...new Set(levels.filter((l) => l > 0))].sort((a, b) => a - b);
+  if (sorted.length === 0) return '';
+  if (sorted.length === 1) return `${sorted[0]}. sınıf`;
+  const contiguous = sorted.every((l, i) => i === 0 || l === sorted[i - 1] + 1);
+  if (contiguous && sorted.length > 3) return `${sorted[0]}-${sorted[sorted.length - 1]}. sınıf`;
+  return `${sorted.slice(0, -1).join(', ')} ve ${sorted[sorted.length - 1]}. sınıf`;
+}

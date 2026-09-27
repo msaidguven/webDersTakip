@@ -1,29 +1,57 @@
 import type { Metadata, Viewport } from "next";
+import { unstable_cache } from "next/cache";
 import { SITE_URL } from "./src/lib/site";
+import { formatGradeRange } from "./src/lib/homeMapping";
+import { createAnonClient } from "@/utils/supabase/server-anon";
 
-// Ana metadata yapılandırması
+// Aktif sınıf seviyeleri (1 saat önbellekli) — site başlığı/açıklaması sınıf eklendikçe kendiliğinden
+// güncellensin (2026-09-27: sınıflar her hafta ekleniyor, hedef 5-12; eskiden elle "5-8. Sınıf"
+// yazıyordu ama 8. sınıf yoktu). Hata olursa boş liste → metinler sınıf aralığı olmadan kurulur.
+const getActiveGradeLevels = unstable_cache(
+  async (): Promise<number[]> => {
+    try {
+      const { data } = await createAnonClient().from("grades").select("order_no").eq("is_active", true);
+      return ((data as { order_no: number | null }[] | null) || []).map((g) => g.order_no ?? 0).filter((n) => n > 0);
+    } catch {
+      return [];
+    }
+  },
+  ["active-grade-levels"],
+  { revalidate: 3600 }
+);
+
+export async function buildSiteMetadata(): Promise<Metadata> {
+  const levels = await getActiveGradeLevels();
+  const range = formatGradeRange(levels); // "5, 6 ve 7. sınıf" / "5-8. sınıf" / ""
+  const titleRange = range ? range.replace(/sınıf$/, "Sınıf") : "";
+  const title = titleRange ? `Ders Takip - ${titleRange} Konu Anlatımı ve Soru Bankası` : "Ders Takip - Konu Anlatımı ve Soru Bankası";
+  const description = `${range ? `${range} için ` : ""}MEB müfredatına uygun konu anlatımları, cevap anahtarlı soru bankası ve kişisel testler.`;
+  return {
+    ...metadata,
+    title: { default: title, template: "%s | Ders Takip" },
+    description,
+    keywords: [
+      "ders takip",
+      "konu anlatımı",
+      "soru bankası",
+      "online test",
+      "MEB müfredatı",
+      ...[...new Set(levels)].sort((a, b) => a - b).map((l) => `${l}. sınıf`),
+    ],
+    openGraph: { ...metadata.openGraph, title, description },
+    twitter: { ...metadata.twitter, title, description },
+  };
+}
+
+// Ana metadata yapılandırması — sınıfa bağlı metinler (title/description/keywords/OG) üstteki
+// buildSiteMetadata'da üretiliyor; buradakiler sınıftan bağımsız sabitler.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Ders Takip - 5-8. Sınıf Online Test ve Konu Anlatımı",
+    default: "Ders Takip - Konu Anlatımı ve Soru Bankası",
     template: "%s | Ders Takip",
   },
-  description: "5-8. sınıf matematik ve fen bilimleri için haftalık müfredata uygun konu anlatımları, interaktif testler ve kazanım değerlendirmeleri. MEB müfredatı ile tam uyumlu.",
-  keywords: [
-    "ders takip",
-    "online test",
-    "konu anlatımı",
-    "5. sınıf matematik",
-    "6. sınıf matematik",
-    "7. sınıf matematik",
-    "8. sınıf matematik",
-    "fen bilimleri",
-    "MEB müfredatı",
-    "haftalık test",
-    "kazanım değerlendirme",
-    "eğitim",
-    "öğrenme platformu"
-  ],
+  description: "MEB müfredatına uygun konu anlatımları, cevap anahtarlı soru bankası ve kişisel testler.",
   authors: [{ name: "Ders Takip", url: SITE_URL }],
   creator: "Ders Takip",
   publisher: "Ders Takip",
@@ -43,8 +71,8 @@ export const metadata: Metadata = {
     locale: "tr_TR",
     url: SITE_URL,
     siteName: "Ders Takip",
-    title: "Ders Takip - 5-8. Sınıf Online Test ve Konu Anlatımı",
-    description: "MEB müfredatına uygun haftalık konu anlatımları ve interaktif testler. Matematik ve fen bilimleri için kapsamlı öğrenme platformu.",
+    title: "Ders Takip - Konu Anlatımı ve Soru Bankası",
+    description: "MEB müfredatına uygun konu anlatımları, cevap anahtarlı soru bankası ve kişisel testler.",
     images: [
       {
         url: "/og-image.png",
@@ -56,8 +84,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ders Takip - 5-8. Sınıf Online Test ve Konu Anlatımı",
-    description: "MEB müfredatına uygun haftalık konu anlatımları ve interaktif testler.",
+    title: "Ders Takip - Konu Anlatımı ve Soru Bankası",
+    description: "MEB müfredatına uygun konu anlatımları, cevap anahtarlı soru bankası ve kişisel testler.",
     images: ["/og-image.png"],
     creator: "@derstakip",
   },
@@ -74,6 +102,15 @@ export const metadata: Metadata = {
   },
   category: "education",
   classification: "Education",
+  // "Ana ekrana ekle" + iPhone bildirimleri için (bkz. app/manifest.ts, public/sw.js — 2026-09-27).
+  icons: {
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Ders Takip",
+    statusBarStyle: "default",
+  },
 };
 
 // Viewport yapılandırması
@@ -93,7 +130,7 @@ export const structuredData = {
   "@type": "WebSite",
   name: "Ders Takip",
   url: SITE_URL,
-  description: "5-8. sınıf matematik ve fen bilimleri için online test ve konu anlatım platformu",
+  description: "MEB müfredatına uygun konu anlatımı, soru bankası ve online test platformu",
   inLanguage: "tr-TR",
   publisher: {
     "@type": "Organization",

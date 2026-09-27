@@ -2,11 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 
 type WeekOutcomeRow = { outcome_id: number };
+type LearningOutcomeRow = { id: number; code: string | null; title: string };
 type OutcomeRow = {
   id: number;
   description: string;
   topic_id: number;
   order_index: number | null;
+  code: string | null;
+  learning_outcome_id: number | null;
+  topic_learning_outcomes: LearningOutcomeRow | LearningOutcomeRow[] | null;
 };
 type TopicRow = { id: number; title: string; slug: string | null; order_no: number; is_archived: boolean };
 type TopicContentRow = {
@@ -43,7 +47,18 @@ type HighlightRow = {
   order_no: number;
 };
 
-export type LessonWeekOutcome = { id: number; description: string; topicId: number | null; topicTitle: string };
+// code: MEB'in kendi alt madde harfi (a, b, c…) — her öğrenme çıktısında baştan başlar.
+// learningOutcome: TYMM öğrenme çıktısı (ör. MAT.6.1.3); eski/taşınmamış kayıtlarda null.
+export type LessonWeekOutcome = {
+  id: number;
+  description: string;
+  topicId: number | null;
+  topicTitle: string;
+  code: string | null;
+  // Gruplama bununla yapılır — learningOutcome (kod/başlık) okunamasa bile gruplar ayrı kalsın.
+  learningOutcomeId: number | null;
+  learningOutcome: LearningOutcomeRow | null;
+};
 export type LessonWeekSection = {
   id: number;
   heading: string;
@@ -150,7 +165,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     topicIds.length
       ? supabase
           .from('outcomes')
-          .select('id, description, topic_id, order_index')
+          .select('id, description, topic_id, order_index, code, learning_outcome_id, topic_learning_outcomes(id, code, title)')
           .in('topic_id', topicIds)
           .eq('is_current', true)
           .order('order_index', { ascending: true })
@@ -194,6 +209,9 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       description: o.description,
       topicId: o.topic_id,
       topicTitle: topicTitleById.get(o.topic_id) || '',
+      code: o.code?.trim() || null,
+      learningOutcomeId: o.learning_outcome_id,
+      learningOutcome: (Array.isArray(o.topic_learning_outcomes) ? o.topic_learning_outcomes[0] : o.topic_learning_outcomes) ?? null,
     }));
   }
 

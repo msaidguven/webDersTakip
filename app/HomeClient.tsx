@@ -7,16 +7,14 @@ import { logger } from '@/utils/logger';
 import { useAuth } from './src/context/AuthContext';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
-import type { HomeGradeSection, SiteStats, WeeklyTopicItem } from './src/lib/homeStats';
+import type { HomeGradeSection, SiteStats } from './src/lib/homeStats';
+import type { DailyQuestion, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
 import { HomeHero } from './src/components/home/HomeHero';
-import { StatsBar } from './src/components/home/StatsBar';
-import { GradeTabs } from './src/components/home/GradeTabs';
-import { LessonGrid } from './src/components/home/LessonGrid';
-import { QuickAccess } from './src/components/home/QuickAccess';
-import { WeeklyTopics } from './src/components/home/WeeklyTopics';
-import { WhyJoin, HowItWorks } from './src/components/home/WhyJoinAndHowItWorks';
-import { MyStats } from './src/components/home/MyStats';
-import { FooterCTA } from './src/components/home/FooterCTA';
+import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
+import { ThisWeekSection } from './src/components/home/ThisWeekSection';
+import { JoinBand } from './src/components/home/JoinBand';
+import { StudentToday } from './src/components/home/StudentToday';
+import { DailyQuestionCard } from './src/components/home/DailyQuestionCard';
 import { TopStudents } from './src/components/home/TopStudents';
 import type { TopStudentEntry } from './src/lib/leaderboard';
 
@@ -59,11 +57,13 @@ interface HomeClientProps {
   initialGrades: Grade[];
   stats: SiteStats;
   gradeSections: Record<string, HomeGradeSection>;
-  weeklyTopics: Record<string, WeeklyTopicItem[]>;
+  dailyQuestion: DailyQuestion | null;
+  recentTopics: RecentTopicItem[];
+  thisWeekByGrade: Record<string, ThisWeekTopicItem[]>;
   topStudents: TopStudentEntry[];
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, weeklyTopics, topStudents }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestion, recentTopics, thisWeekByGrade }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -110,41 +110,50 @@ export default function HomeClient({ initialGrades, stats, gradeSections, weekly
     setSelectedGradeId(gradeId);
   };
 
+  // Sade anasayfa (2026-09-27 taslağı, yol haritası 2c + 3a).
+  //  - Misafir: hero + Günün Sorusu → sınıf/ders → Bu hafta → sıralama → tek üyelik bandı.
+  //  - Girişli öğrenci ("Bugün"): tek görev + günlük hedef/seri/sıra + Derslerim (StudentToday,
+  //    kişisel veri tarayıcıda) → Bu hafta (kendi sınıfı) → Günün Sorusu. Derin analiz
+  //    "İlerlemem" sayfasında (yol haritası 4); burada tekrar edilmiyor.
+  //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür; girişli görünüm oturum
+  //  açıldıktan sonra tarayıcıda geçer.
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-gradient-radial" />
-
-      <main className="relative py-8 sm:py-14 px-4 sm:px-8">
-        <div className="mx-auto max-w-6xl space-y-10 sm:space-y-14">
-          <div className="space-y-8 sm:space-y-10">
-            <HomeHero isAuthenticated={isAuthenticated} />
-            <div className="rounded-2xl border border-default bg-surface-elevated p-3 shadow-sm sm:p-4">
-              <StatsBar stats={stats} />
-            </div>
-          </div>
-
-          {resolvedGrades.length > 0 && selectedGrade && (
-            <div id="derslerimi" className="space-y-8 sm:space-y-10">
-              <GradeTabs grades={resolvedGrades} selectedGradeId={selectedGrade.id} onSelect={handleSelectGrade} />
-              <div id="derslerimiz">
-                <LessonGrid grade={selectedGrade} section={gradeSections[selectedGrade.id]} />
-              </div>
-            </div>
+    <div className="min-h-screen bg-background">
+      <main className="px-4 py-8 sm:px-8 sm:py-14">
+        <div className="mx-auto flex max-w-6xl flex-col gap-14 sm:gap-20">
+          {isAuthenticated ? (
+            <StudentToday />
+          ) : (
+            <HomeHero
+              isAuthenticated={false}
+              gradeLevels={resolvedGrades.map((g) => g.level)}
+              stats={stats}
+              dailyQuestion={dailyQuestion}
+            />
           )}
 
-          <QuickAccess />
-
-          <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
+          {!isAuthenticated && selectedGrade && (
+            <GradeLessonPicker
+              grades={resolvedGrades}
+              selectedGrade={selectedGrade}
+              section={gradeSections[selectedGrade.id]}
+              onSelect={handleSelectGrade}
+            />
+          )}
 
           {selectedGrade && (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <WeeklyTopics topics={weeklyTopics[selectedGrade.id] ?? []} isAuthenticated={isAuthenticated} />
-              {isAuthenticated ? <MyStats /> : <WhyJoin />}
-              <HowItWorks />
+            <ThisWeekSection gradeName={selectedGrade.name} thisWeek={thisWeekByGrade[selectedGrade.id] ?? []} recent={recentTopics} />
+          )}
+
+          {isAuthenticated && dailyQuestion && (
+            <div id="gunun-sorusu-bolumu" className="scroll-mt-24 lg:max-w-2xl">
+              <DailyQuestionCard data={dailyQuestion} />
             </div>
           )}
 
-          <FooterCTA isAuthenticated={isAuthenticated} />
+          {!isAuthenticated && <TopStudents students={topStudents} isAuthenticated={false} />}
+
+          {!isAuthenticated && <JoinBand />}
         </div>
       </main>
     </div>

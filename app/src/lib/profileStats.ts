@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentStreak } from './dashboardStreak';
+import { fetchAllRows } from './fetchAllRows';
+import { getQuestionCountsByTopicId } from './questionCounts';
 
 export interface ProfileStats {
   totalTests: number;
@@ -24,14 +26,16 @@ export async function getProfileStats(
   supabase: SupabaseClient<any, any, any>,
   userId: string
 ): Promise<ProfileStats> {
-  const [{ data: sessionRows }, { data: answerRows }, streakDays] = await Promise.all([
-    supabase.from('test_sessions').select('id, unit_id, lesson_id, grade_id, completed_at').eq('user_id', userId),
-    supabase.from('test_session_answers').select('question_id, is_correct, test_session_id').eq('user_id', userId),
+  // Aktif bir öğrencinin cevap (ve zamanla oturum) sayısı 1000'i geçer — sayfa sayfa okunur.
+  const [sessions, answers, streakDays] = await Promise.all([
+    fetchAllRows<SessionRow>((from, to) =>
+      supabase.from('test_sessions').select('id, unit_id, lesson_id, grade_id, completed_at').eq('user_id', userId).order('id').range(from, to)
+    ),
+    fetchAllRows<AnswerRow>((from, to) =>
+      supabase.from('test_session_answers').select('question_id, is_correct, test_session_id').eq('user_id', userId).order('id').range(from, to)
+    ),
     getCurrentStreak(supabase, userId),
   ]);
-
-  const sessions = (sessionRows as SessionRow[] | null) || [];
-  const answers = (answerRows as AnswerRow[] | null) || [];
   const completedSessions = sessions.filter((s) => s.completed_at);
 
   const totalQuestions = answers.length;
@@ -99,17 +103,11 @@ export async function getProfileStats(
       if (unitIdByTopicId.size > 0) {
         // question_type_id=4 ("classical") HARİÇ — otomatik değerlendirilemeyen bu sorular
         // testlere hiç girmiyor, o yüzden "üniteyi bitirdin mi" hesabına da dahil edilmemeli.
-        const { data: questionRows } = await supabase
-          .from('questions')
-          .select('topic_id')
-          .in('topic_id', [...unitIdByTopicId.keys()])
-          .eq('is_active', true)
-          .neq('question_type_id', 4);
-        for (const q of (questionRows as { topic_id: number | null }[] | null) || []) {
-          if (q.topic_id == null) continue;
-          const unitId = unitIdByTopicId.get(q.topic_id);
+        const countByTopic = await getQuestionCountsByTopicId(supabase, [...unitIdByTopicId.keys()], { activeOnly: true, excludeClassical: true });
+        for (const [topicId, count] of countByTopic) {
+          const unitId = unitIdByTopicId.get(topicId);
           if (unitId == null) continue;
-          totalQuestionsByUnit.set(unitId, (totalQuestionsByUnit.get(unitId) || 0) + 1);
+          totalQuestionsByUnit.set(unitId, (totalQuestionsByUnit.get(unitId) || 0) + count);
         }
       }
 

@@ -6,7 +6,7 @@ const canonicalPath = '/hakkimizda';
 
 export const metadata: Metadata = {
   title: 'Hakkımızda',
-  description: 'Ders Takip nedir, ne sunar? 5-8. sınıf öğrencileri için MEB müfredatına uygun konu anlatımı ve interaktif test platformu hakkında bilgi alın.',
+  description: 'Ders Takip nedir, ne sunar? Ortaokul ve lise öğrencileri için MEB müfredatına uygun konu anlatımı, soru bankası ve test platformu hakkında bilgi alın.',
   alternates: { canonical: canonicalPath },
   openGraph: { title: 'Hakkımızda | Ders Takip', url: canonicalPath },
 };
@@ -15,8 +15,8 @@ export default function AboutPage() {
   return (
     <StaticPageLayout title="Hakkımızda">
       <p>
-        Ders Takip, 5-8. sınıf öğrencileri için hazırlanmış, MEB müfredatına uygun bir online konu anlatımı ve
-        test platformudur. Amacımız, öğrencilerin haftalık müfredat akışını takip ederek düzenli çalışmasını
+        Ders Takip, ortaokul ve lise öğrencileri (5-12. sınıf) için hazırlanan, MEB müfredatına uygun bir online
+        konu anlatımı, soru bankası ve test platformudur. Sınıflar kademeli olarak ekleniyor. Amacımız, öğrencilerin haftalık müfredat akışını takip ederek düzenli çalışmasını
         kolaylaştırmak.
       </p>
 
