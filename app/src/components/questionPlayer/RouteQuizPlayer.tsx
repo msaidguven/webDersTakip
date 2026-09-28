@@ -1,6 +1,6 @@
 'use client';
 
-// Intercepting route'larla (app/panel/@modal, app/soru-bankasi/@modal) açılan testler için tam
+// Intercepting route'larla (app/ilerlemem/@modal, app/soru-bankasi/@modal) açılan testler için tam
 // ekran oynatıcı (2026-09-27; eskiden QuizModal içinde "sayfa" görünümündeydi). Kapatınca bir
 // önceki sayfaya (router.back) dönülür ve panel verisini tazelemesi için sinyal yayınlanır —
 // panel bu slot'un altında mount'lu kaldığı için yeniden yüklenmiyor (bkz. panelRefreshBridge).

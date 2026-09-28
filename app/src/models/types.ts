@@ -29,6 +29,8 @@ export interface LessonProgress {
   wrongAnswers: number;
   progress: number;
   soruBankasiHref?: string;
+  // Dersin konu anlatımı sayfası (/<sınıf>/<ders>) — girişli anasayfada konulara giden yol.
+  lessonHref?: string;
   weakTopic: { title: string; wrongCount: number; href: string } | null;
 }
 

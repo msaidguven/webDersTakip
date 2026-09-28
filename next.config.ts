@@ -44,6 +44,9 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // "Panel" → "İlerlemem" (2026-09-28): eski link/yer imleri ve alt sayfalar bozulmasın.
+      { source: "/panel", destination: "/ilerlemem", permanent: true },
+      { source: "/panel/:path*", destination: "/ilerlemem/:path*", permanent: true },
       {
         source: "/5-sinif/fen-bilimleri/isigin-dunyasi/fb-5-4-3-tam-golgenin-olusumu",
         destination: "/5-sinif/fen-bilimleri/isigin-dunyasi/tam-golgenin-olusumu",

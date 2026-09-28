@@ -6,7 +6,7 @@
 // farkı: konu değişimi sayfa içi state yerine gerçek sayfa geçişiyle (her konu zaten ISR ile
 // önbellekli ayrı bir sayfa) — sayfa içi önbellek/prefetch mantığına gerek kalmıyor.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -175,6 +175,13 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
     document.querySelectorAll<HTMLElement>('[data-step]').forEach((el) => stepObserver.observe(el));
     return () => { partObserver.disconnect(); stepObserver.disconnect(); };
   }, [sections]);
+  // Mobil bölüm çipleri: aktif çip yatay şeritte görünür kalsın.
+  const chipsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!activeSlug || !chipsRef.current) return;
+    const chip = chipsRef.current.querySelector<HTMLElement>(`[data-chip="${CSS.escape(activeSlug)}"]`);
+    if (chip) chipsRef.current.scrollTo({ left: chip.offsetLeft - 8, behavior: 'smooth' });
+  }, [activeSlug]);
 
   const activeIndex = sections.findIndex((sec) => sectionSlugs.get(sec.id) === activeSlug);
   const readCount = seen.size;
@@ -190,26 +197,16 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
     return () => document.removeEventListener('keydown', onKey);
   }, [switcherOpen, heroZoomed]);
 
-  // ---- Başa dön + mobil alt çubuk (kullanıcı istekleri, 2026-09-27) ----
-  // Aşağı ok bilerek yok: sayfa içi atlama için öğrenme yolu / içindekiler var. Masaüstünde
-  // sağ alt köşede yüzer; mobilde köşe alt çubukla dolu olduğu için çubuğun içinde.
-  // Mobil alt çubuk aşağı kaydırırken (okurken) gizlenir, yukarı kaydırınca geri gelir —
-  // okuma sırasında ekranı kaplamasın (mobil tarayıcı adres çubuğuyla aynı davranış).
+  // ---- Başa dön (kullanıcı istekleri, 2026-09-27) ----
+  // Aşağı ok bilerek yok: sayfa içi atlama için öğrenme yolu / içindekiler / mobil çipler var.
+  // Mobil alt çubuk kaldırıldı (bölüm bilgisi çiplerde, "Teste başla" sayfa başı ve sonunda);
+  // ok her ekranda sağ alt köşede yüzer.
   const [showToTop, setShowToTop] = useState(false);
-  const [dockHidden, setDockHidden] = useState(false);
   useEffect(() => {
     let frame = 0;
-    let lastY = window.scrollY;
     const update = () => {
       frame = 0;
-      const y = window.scrollY;
-      setShowToTop(y > window.innerHeight * 1.5);
-      const delta = y - lastY;
-      // Küçük titreşimleri (iOS lastik kaydırma, momentum sonu) yok say.
-      if (Math.abs(delta) < 8) return;
-      const nearBottom = y + window.innerHeight >= document.documentElement.scrollHeight - 80;
-      setDockHidden(delta > 0 && y > 120 && !nearBottom);
-      lastY = y;
+      setShowToTop(window.scrollY > window.innerHeight * 1.5);
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
     onScroll();
@@ -413,6 +410,19 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
           )}
 
           <article className={s.article}>
+            {sections.length > 0 && (
+              <nav className={s.chips} aria-label="Bölümler" ref={chipsRef}>
+                {sections.map((sec) => {
+                  const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                  return (
+                    <a key={sec.id} href={`#${slug}`} data-chip={slug} title={sec.heading} className={slug === activeSlug ? s.chipActive : s.chip}>
+                      {sec.heading}
+                    </a>
+                  );
+                })}
+              </nav>
+            )}
+
             {sections.length > 0 ? (
               sections.map((sec, i) => {
                 const slug = sectionSlugs.get(sec.id) || String(sec.id);
@@ -606,22 +616,6 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
       </div>
 
       {/* Mobil alt çubuk */}
-      <div className={cx(s.dock, dockHidden && s.dockHidden)} role="region" aria-label="Konu ilerlemesi" inert={dockHidden}>
-        <div className={s.dockText}>
-          <span>{activeIndex >= 0 ? `Bölüm ${activeIndex + 1} / ${sections.length}` : unitName}</span>
-          <strong>{activeIndex >= 0 ? sections[activeIndex].heading : topic.title}</strong>
-        </div>
-        {showToTop && (
-          <button type="button" className={s.dockTop} onClick={scrollToTop} aria-label="Sayfanın başına dön" title="Başa dön">
-            <ArrowUp size={18} aria-hidden="true" />
-          </button>
-        )}
-        {hasTest ? (
-          <button type="button" className={cx(s.btnPrimary, s.dockBtn)} onClick={startTest} disabled={topicTest.loading}>Teste başla</button>
-        ) : (
-          <button type="button" className={cx(s.btnPrimary, s.dockBtn)} onClick={() => setSwitcherOpen(true)}>Konular</button>
-        )}
-      </div>
 
       <button
         type="button"

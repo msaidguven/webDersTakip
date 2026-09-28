@@ -72,7 +72,7 @@ function runText(r: Element): string {
 
 // python-docx Cell.text: paragraflar "\n" ile birleştirilir, her paragraf içindeki
 // run'lar doğrudan (aralarına bir şey eklenmeden) birleştirilir.
-function cellPlainText(tc: Element): string {
+export function cellPlainText(tc: Element): string {
   const paragraphs = directChildren(tc, 'w:p');
   return paragraphs
     .map((p) => {
@@ -223,7 +223,7 @@ function kolonHaritasi(headers: string[]): Record<string, number | null> {
 // (gridSpan) aynı hücre N sütuna, dikey birleşimde (vMerge devamı) aynı hücre
 // kaynağın başladığı satırdan itibaren tüm devam satırlarına yayılır.
 
-function buildCellGrid(table: Element): Element[][] {
+export function buildCellGrid(table: Element): Element[][] {
   const rows = directChildren(table, 'w:tr');
   const grid: Element[][] = [];
   const openVMerge = new Map<number, Element>();

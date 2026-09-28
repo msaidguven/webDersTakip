@@ -1,4 +1,4 @@
-// QuizModal (app/panel/@modal altındaki intercepting route) kapanınca panel anasayfasının
+// QuizModal (app/ilerlemem/@modal altındaki intercepting route) kapanınca panel anasayfasının
 // istatistiklerini/aktivitelerini/ilerlemesini otomatik tazeletmek için köprü — modal ve
 // panel/page.tsx farklı route ağaçlarında (parallel route slot) render edildiğinden aralarında
 // doğrudan prop/callback geçirilemiyor, bu yüzden panelLessonBridge'deki gibi küçük bir

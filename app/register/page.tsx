@@ -48,7 +48,7 @@ export default function RegisterPage() {
   // eşleniği (bkz. bunun eksik olduğu bulunan bug).
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      router.push('/panel');
+      router.push('/');
     }
   }, [isAuthenticated, authLoading, router]);
 
@@ -320,7 +320,7 @@ export default function RegisterPage() {
             <div className="flex-1 h-px bg-default" />
           </div>
 
-          <GoogleSignInButton redirectTo="/panel" />
+          <GoogleSignInButton redirectTo="/" />
 
           <div className="mt-6 text-center space-y-2">
             <p className="text-muted-foreground text-sm">

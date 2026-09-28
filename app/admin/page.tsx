@@ -178,11 +178,11 @@ export default function AdminPanel() {
             <span className="font-medium truncate">Öğretmen Paneli</span>
           </Link>
           <Link
-            href="/panel"
+            href="/ilerlemem"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">📚</span>
-            <span className="font-medium truncate">Öğrenci Paneli</span>
+            <span className="font-medium truncate">İlerlemem (öğrenci)</span>
           </Link>
         </nav>
       </aside>

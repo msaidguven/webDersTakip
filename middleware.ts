@@ -23,7 +23,7 @@ const LEGACY_UNIT_OGRENME_ALANI = /^\d+-ogrenme-alani-(.+)$/;
 
 // Oturum gerektiren alanlar — banlı bir kullanıcının, henüz süresi dolmamış access
 // token'ıyla bu sayfalara girmesini engellemek için her istekte is_banned kontrol edilir.
-const PROTECTED_PREFIXES = ['/panel', '/profil', '/admin', '/ogretmen', '/dashboard'];
+const PROTECTED_PREFIXES = ['/ilerlemem', '/profil', '/admin', '/ogretmen', '/dashboard'];
 
 // auth.users.banned_until (bkz. app/api/admin/manage/members) yeni sign-in/refresh'i
 // zaten engelliyor; ama tarayıcıda hâlâ geçerli bir access token varsa o token süresi
@@ -129,8 +129,8 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/admin',
-    '/panel/:path*',
-    '/panel',
+    '/ilerlemem/:path*',
+    '/ilerlemem',
     '/profil/:path*',
     '/profil',
     '/ogretmen/:path*',

@@ -15,7 +15,7 @@ interface PanelShellProps {
   children: React.ReactNode;
 }
 
-// /panel'in kendi Sidebar kabuğu — /panel/aktiviteler ve /panel/siralama gibi alt
+// /ilerlemem'in kendi Sidebar kabuğu — /ilerlemem/aktiviteler ve /ilerlemem/siralama gibi alt
 // sayfalarda da aynı navigasyonu tekrar yazmadan kullanmak için ayrıldı. Üst header
 // artık site genelindeki tek header'dan (MainLayout) geliyor — burada panele özgü
 // ikinci bir header yok, sadece mobilde Sidebar'ı açan bir menü düğmesi (+ varsa

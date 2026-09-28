@@ -12,6 +12,8 @@ import { NotificationBell } from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
+import { DesktopNav, MobileTabBar, buildNavItems } from './SiteNav';
+import { useMyGradeSlug } from '../hooks/useMyGradeSlug';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -22,6 +24,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isAdmin = useIsAdmin();
   const displayName = useDisplayName();
   const pathname = usePathname();
+  const gradeSlug = useMyGradeSlug();
   const [streak, setStreak] = React.useState<number | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
@@ -64,9 +67,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   // yönettiği için LegalFooter'ı burada gizli tutuyoruz (global header'ı gösterse bile).
   const isTestPageRoute = pathname?.endsWith('/kavrama-testi') || pathname?.endsWith('/unite-testi');
   const hideFooter = hideHeader || isDersRoute || isTestPageRoute;
+  // Mobil alt sekme çubuğu: konu okuma sayfasının kendi sabit Geri/İleri çubuğu ve test
+  // sayfaları varken gösterilmez (footer ile aynı kural) — üst üste iki alt çubuk olmasın.
+  const showTabBar = !hideFooter;
+  const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, gradeSlug });
 
   return (
-    <div className="min-h-screen bg-default">
+    <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : ''}`}>
       {/* Header — her zaman sabit, scroll yönüne göre gizlenmez */}
       {!hideHeader && (
       <nav
@@ -78,8 +85,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       >
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           
-          {/* Logo ve Site Adı */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Logo ve Site Adı + masaüstü menü */}
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
             <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
               {/* Logo */}
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl 
@@ -92,18 +99,19 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
               
               {/* Site Adı */}
-              <div className="flex items-baseline gap-0.5">
+              <div className="flex items-baseline gap-0.5 whitespace-nowrap">
                 <span className="text-base sm:text-xl font-black tracking-tight 
                   bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 
                   dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 
                   bg-clip-text text-transparent">
                   Ders Takip
                 </span>
-                <span className="text-xs sm:text-sm font-bold text-indigo-500/70 dark:text-indigo-400/80">
+                <span className="hidden min-[400px]:inline text-xs sm:text-sm font-bold text-indigo-500/70 dark:text-indigo-400/80">
                   .net
                 </span>
               </div>
             </Link>
+            <DesktopNav items={navItems} />
           </div>
 
           {/* Sağ Menü */}
@@ -137,13 +145,13 @@ export function MainLayout({ children }: MainLayoutProps) {
                       👋 {displayName || user?.email?.split('@')[0]}
                     </div>
                     <Link
-                      href="/panel"
+                      href="/ilerlemem"
                       onClick={() => setIsProfileMenuOpen(false)}
                       className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
                         transition-colors text-sm px-4 py-2.5
                         hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                     >
-                      Panel
+                      İlerlemem
                     </Link>
                     <Link
                       href="/profil"
@@ -184,7 +192,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <Link 
                   href="/login" 
                   className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
-                    transition-colors text-xs sm:text-sm px-3 py-2 rounded-xl 
+                    transition-colors text-xs sm:text-sm px-2 sm:px-3 py-2 rounded-xl whitespace-nowrap 
                     hover:bg-zinc-100 dark:hover:bg-surface-elevated"
                 >
                   Giriş Yap
@@ -214,6 +222,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       </main>
 
       {!hideFooter && <LegalFooter />}
+      {showTabBar && <MobileTabBar items={navItems} />}
     </div>
   );
 }

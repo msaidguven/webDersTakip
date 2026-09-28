@@ -52,10 +52,10 @@ export function HomeHero({
           </a>
           {isAuthenticated ? (
             <Link
-              href="/panel"
+              href="/ilerlemem"
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-default bg-background px-6 py-3.5 text-base font-bold text-default transition-colors hover:bg-surface"
             >
-              <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Panele git
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> İlerlemem
             </Link>
           ) : (
             <Link

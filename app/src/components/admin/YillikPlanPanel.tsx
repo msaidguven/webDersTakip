@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import type { TymmUnit, TymmRawSections, TymmLearningOutcome } from '@/app/src/lib/tymm/tymmParser';
 import { norm as tymmNorm } from '@/app/src/lib/tymm/compareUnits';
+import MaarifWeeksAssign from '@/app/src/components/admin/MaarifWeeksAssign';
 
 type ParsedRow = {
   week_no: number | null;
@@ -331,6 +332,9 @@ export default function YillikPlanPanel() {
   const [weekCommitting, setWeekCommitting] = useState(false);
   const [weekCommitResult, setWeekCommitResult] = useState<CommitWeeksResponse | null>(null);
   const [weekCommitErr, setWeekCommitErr] = useState<string | null>(null);
+  // Yüklenen DOCX Maarif formatındaysa (kodlu süreç bileşenleri) Hafta Ata sekmesi yukarıdaki
+  // ünite ünite akış yerine kod tabanlı tüm-ders akışını (MaarifWeeksAssign) gösterir.
+  const [maarifPlan, setMaarifPlan] = useState<{ file: File; uploadedAt: number; learningOutcomes: number; components: number; weeks: number } | null>(null);
 
   // Kontrol Et sekmesi (sadece okuma): seçili ders/sınıfın TYMM sayfasındaki tüm ünitelerini
   // canlı çekip DB'deki mevcut içerikle toplu kıyaslar — hiçbir şey yazmaz.
@@ -563,6 +567,7 @@ export default function YillikPlanPanel() {
     }
     setFileName(file.name);
     setParsing(true);
+    setMaarifPlan(null);
     setParseError(null);
     setRows(null);
     setXlsxSheets(null);
@@ -580,6 +585,7 @@ export default function YillikPlanPanel() {
       }
       if (isDocx) {
         applyParsedRows(data.rows, data.uniteler || [], data.konu_count || 0);
+        if (data.maarif) setMaarifPlan({ file, uploadedAt: Date.now(), ...data.maarif });
         return;
       }
       // XLSX genelde her sınıf için ayrı bir sayfa içeriyor (ör. BTY_5, BTY_6) — tek
@@ -1418,7 +1424,18 @@ export default function YillikPlanPanel() {
       </Card>
       )}
 
-      {activeTab === 'weeks' && (
+      {activeTab === 'weeks' && maarifPlan && (
+      <Card title="Hafta Ata — Maarif Yıllık Planı (tüm ders)">
+        <p className="text-[11px] text-muted-foreground mb-3">
+          📄 {fileName}: {maarifPlan.learningOutcomes} öğrenme çıktısı, {maarifPlan.components} süreç bileşeni, {maarifPlan.weeks} hafta
+        </p>
+        <MaarifWeeksAssign
+          key={`${maarifPlan.uploadedAt}:${gradeId}:${lessonId}`}
+          file={maarifPlan.file} gradeId={gradeId} lessonId={lessonId} />
+      </Card>
+      )}
+
+      {activeTab === 'weeks' && !maarifPlan && (
       <Card title="Hafta Ata (DOCX/XLSX)">
         <p className="text-xs text-muted-foreground mb-4">
           Yukarıda TYMM&apos;den aktarılmış bir ünitenin konu/kazanımlarına, yüklenen DOCX/XLSX&apos;ten çıkan hafta sırasını atar. Metin benzerliğine değil, konu/kazanım SAYISININ birebir

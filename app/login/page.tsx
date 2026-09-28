@@ -15,7 +15,7 @@ function LoginForm() {
   // Açık yönlendirme önlemi: sadece site içi göreli yollar (bkz. safeRedirect.ts).
   const rawRedirectTo = searchParams?.get('redirectTo');
   const explicitRedirectTo = rawRedirectTo ? safeRedirectPath(rawRedirectTo, '') || null : null;
-  const redirectTo = explicitRedirectTo || '/panel';
+  const redirectTo = explicitRedirectTo || '/';
 
   const { isAuthenticated, loading, user, supabase } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
@@ -23,8 +23,8 @@ function LoginForm() {
   const [password, setPassword] = useState('');
 
   // Giriş yapmış kullanıcıyı yönlendir — açıkça bir redirectTo verilmemişse (ör.
-  // korumalı bir sayfadan atılmamışsa), öğretmen hesapları öğrenci panelinden
-  // (/panel) değil doğrudan /ogretmen'den devam etsin.
+  // korumalı bir sayfadan atılmamışsa), öğretmen hesapları öğrenci anasayfasından
+  // değil doğrudan /ogretmen'den devam etsin.
   useEffect(() => {
     if (loading || !isAuthenticated || !user) return;
     if (explicitRedirectTo) {
@@ -35,7 +35,7 @@ function LoginForm() {
     (async () => {
       const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
       if (cancelled) return;
-      router.push((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/panel');
+      router.push((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/');
     })();
     return () => { cancelled = true; };
   }, [isAuthenticated, loading, router, explicitRedirectTo, user, supabase]);

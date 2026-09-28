@@ -87,7 +87,7 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-default flex items-center justify-between">
         <h3 className="font-semibold text-default text-sm sm:text-base">🏆 Haftalık Sıralama</h3>
         {showSeeAll && entries.length > 0 && (
-          <Link href="/panel/siralama" className="text-xs sm:text-sm text-muted-foreground hover:text-indigo-400 transition-colors">
+          <Link href="/ilerlemem/siralama" className="text-xs sm:text-sm text-muted-foreground hover:text-indigo-400 transition-colors">
             Tümünü Gör →
           </Link>
         )}

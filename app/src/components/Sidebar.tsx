@@ -63,7 +63,7 @@ export function Sidebar({ isOpen, onClose, isAuthenticated, userName, weeklyActi
           </Link>
         ) : (
           <Link
-            href="/login?redirectTo=/panel"
+            href="/login?redirectTo=/ilerlemem"
             className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
           >
             <span>Giriş Yap</span>

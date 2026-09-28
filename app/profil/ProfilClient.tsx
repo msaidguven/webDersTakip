@@ -144,9 +144,9 @@ export default function ProfilClient() {
 
   // Google/OAuth ile İLK giriş yapan kullanıcı buraya, asıl gideceği yere gitmeden ÖNCE
   // yönlendirilir (bkz. app/auth/callback/route.ts) — öğrenci/öğretmen + sınıf/branş
-  // seçimini tamamladıktan sonra bu adrese devam eder (yoksa panel'e).
+  // seçimini tamamladıktan sonra bu adrese devam eder (yoksa anasayfaya — "Bugünkü görevin" orada).
   // Açık yönlendirme önlemi (bkz. safeRedirect.ts) — ?next= dışarıdan gelebiliyor.
-  const nextAfterOnboarding = safeRedirectPath(searchParams?.get('next'), '/panel');
+  const nextAfterOnboarding = safeRedirectPath(searchParams?.get('next'), '/');
 
   const email = authUser?.email;
 

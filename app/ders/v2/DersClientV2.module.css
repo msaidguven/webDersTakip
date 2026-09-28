@@ -243,12 +243,13 @@ button.pillActive { background: var(--ink); }
 .zoomClose:hover { background: #fff; }
 
 /* Mobile (composes yalnız tek sınıflı seçicide ve medya sorgusu dışında çalışır) */
-.dock { display: none; }
-.dockBtn { padding: 12px 18px; font-size: 14px; }
 .toTop { position: fixed; right: 24px; bottom: 24px; z-index: 45; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .2s, transform .2s, color .2s, border-color .2s; }
 .toTopVisible { opacity: 1; transform: none; pointer-events: auto; }
 .toTop:hover { color: var(--accent); border-color: var(--accent); }
-.dockTop { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chips { display: none; }
+/* Uzun başlıklar şeritten taşıp kesilmesin — üç noktayla kısalır, tam başlık title'da. */
+.chip { flex: none; max-width: 72vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); text-decoration: none; color: var(--muted); }
+.chipActive { composes: chip; background: var(--ink); border-color: var(--ink); color: #fff; }
 @media (max-width: 980px) {
   .stageGrid, .stageGridNoArt { grid-template-columns: 1fr; padding: 28px; gap: 26px; }
   .art { order: -1; }
@@ -260,15 +261,11 @@ button.pillActive { background: var(--ink); }
   .blockHead { flex-direction: column; align-items: flex-start; gap: 8px; }
   .reader { grid-template-columns: 1fr; gap: 0; padding-top: 56px; }
   .toc { display: none; }
-  .toTop { display: none; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; position: sticky; top: var(--header-h); z-index: 20; margin-bottom: 18px; background: var(--bg); scrollbar-width: none; }
+  .toTop { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
   .wrapup { grid-template-columns: 1fr; }
   .cta { grid-template-columns: 1fr; gap: 18px; padding: 28px; }
   .bigNum { font-size: 60px; }
-  .dock { display: flex; position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 50; gap: 12px; align-items: center; padding: 8px 8px 8px 18px; background: var(--glass); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow); transition: transform .25s ease, opacity .25s ease; }
-  .dockHidden { transform: translateY(calc(100% + 24px)); opacity: 0; pointer-events: none; }
-  .dockText { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); line-height: 1.3; }
-  .dockText strong { display: block; font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .root { padding-bottom: 96px; }
 }
 @media (max-width: 560px) {
   .pager { grid-template-columns: 1fr; }

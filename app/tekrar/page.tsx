@@ -43,10 +43,10 @@ export default async function SrsReviewPage() {
           Şu an için tüm tekrarların güncel. Yeni sorular çözdükçe zamanı gelenler burada belirecek.
         </p>
         <Link
-          href="/panel"
+          href="/"
           className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-xs font-black text-white transition-opacity hover:opacity-90"
         >
-          Panele Dön
+          Anasayfaya Dön
         </Link>
       </div>
     );
@@ -56,11 +56,11 @@ export default async function SrsReviewPage() {
 
   return (
     <QuizClient
-      // Diğer testlerle aynı tam ekran oynatıcı (2026-09-27); çıkışta panele döner.
+      // Diğer testlerle aynı tam ekran oynatıcı (2026-09-27); çıkışta anasayfaya (Bugünkü görevin) döner.
       presentation="player"
       scopeLabel="Tekrar Zamanı"
-      exitHref="/panel"
-      exitLabel="Panele Dön"
+      exitHref="/"
+      exitLabel="Anasayfaya Dön"
       initialQuestions={initialQuestions}
       reloadEndpoint="/api/srs-review-questions"
       secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}

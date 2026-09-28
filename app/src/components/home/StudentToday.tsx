@@ -5,7 +5,7 @@
 // haftalık tablo) BURADA DEĞİL, "İlerlemem" sayfasında (yol haritası 4) — iki sayfa aynı
 // kutuları tekrar etmesin.
 import Link from 'next/link';
-import { ArrowRight, Flame } from 'lucide-react';
+import { ArrowRight, BookOpen, Flame, PencilLine } from 'lucide-react';
 import type { LessonProgress } from '@/app/src/models/types';
 import { useStudentToday, type TodayTask } from '@/app/src/hooks/useStudentToday';
 import { PushReminderOptIn } from './PushReminderOptIn';
@@ -166,7 +166,7 @@ export function StudentToday() {
           </div>
 
           {data.rank && (
-            <Link href="/panel/siralama" className="mt-auto flex items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3.5 transition-colors hover:bg-surface-elevated">
+            <Link href="/ilerlemem/siralama" className="mt-auto flex items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3.5 transition-colors hover:bg-surface-elevated">
               <span className="text-[15px] font-bold text-default">Sıralamada {data.rank.position}.’sin</span>
               <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                 {data.rank.toPass != null ? `${data.rank.position - 1}.’ye ${data.rank.toPass} soru` : 'Zirvedesin!'}
@@ -191,35 +191,47 @@ function MyLessons({ lessons }: { lessons: LessonProgress[] }) {
     <div className="mt-8 flex flex-col gap-4 sm:mt-10">
       <div className="flex items-end justify-between">
         <h2 className="text-2xl font-black tracking-tight text-default sm:text-3xl">Derslerim</h2>
-        <Link href="/panel" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+        <Link href="/ilerlemem" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
           İlerlemem →
         </Link>
       </div>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {lessons.map((lesson, i) => {
-          const content = (
-            <>
-              <span className="flex items-baseline justify-between gap-2 lg:block">
-                <span className="block text-[15px] font-bold leading-snug text-default lg:min-h-[2.6em]">{lesson.name}</span>
-                <span className="text-xl font-black text-default lg:mt-2 lg:block lg:text-3xl">%{lesson.progress}</span>
-              </span>
-              <span className="block h-2 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
-                <span className={`block h-full rounded-full ${LESSON_BARS[i % LESSON_BARS.length]}`} style={{ width: `${lesson.progress}%` }} />
-              </span>
-            </>
-          );
-          return (
-            <li key={lesson.id}>
-              {lesson.soruBankasiHref ? (
-                <Link href={lesson.soruBankasiHref} className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4 transition-colors hover:border-indigo-400">
-                  {content}
+      {/* Her kartta iki açık hedef (2026-09-28): eskiden kartın tamamı Soru Bankası'na gidiyordu
+          ve girişli öğrencinin anasayfadan konu anlatımına yolu yoktu. Misafir ders listesiyle
+          (GradeLessonPicker) aynı ayrım: ders → konu anlatımı, sorular → Soru Bankası. */}
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {lessons.map((lesson, i) => (
+          <li key={lesson.id} className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="block text-[15px] font-bold leading-snug text-default">{lesson.name}</span>
+              <span className="shrink-0 text-xl font-black text-default">%{lesson.progress}</span>
+            </span>
+            <span
+              className="block h-2 overflow-hidden rounded-full bg-surface-elevated"
+              role="img"
+              aria-label={`Soruların yüzde ${lesson.progress} kadarını çözdün`}
+            >
+              <span className={`block h-full rounded-full ${LESSON_BARS[i % LESSON_BARS.length]}`} style={{ width: `${lesson.progress}%` }} />
+            </span>
+            <span className="mt-auto flex gap-2">
+              {lesson.lessonHref && (
+                <Link
+                  href={lesson.lessonHref}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-surface px-2 text-sm font-bold text-default transition-colors hover:bg-surface-elevated"
+                >
+                  <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" /> Konu anlatımı
                 </Link>
-              ) : (
-                <div className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4">{content}</div>
               )}
-            </li>
-          );
-        })}
+              {lesson.soruBankasiHref && lesson.totalQuestions > 0 && (
+                <Link
+                  href={lesson.soruBankasiHref}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-500/10 px-2 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-500/20 dark:text-indigo-300"
+                >
+                  <PencilLine className="h-4 w-4 shrink-0" aria-hidden="true" /> Soru çöz
+                </Link>
+              )}
+            </span>
+          </li>
+        ))}
       </ul>
     </div>
   );

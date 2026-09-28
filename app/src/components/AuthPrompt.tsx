@@ -16,7 +16,7 @@ export function AuthPrompt({ message }: AuthPromptProps) {
       <p className="text-default font-medium mb-1">Bu bölümü görmek için giriş yapmalısın</p>
       <p className="text-muted-foreground text-sm mb-4">{message}</p>
       <Link
-        href="/login?redirectTo=/panel"
+        href="/login?redirectTo=/ilerlemem"
         className="inline-block px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
       >
         Giriş Yap

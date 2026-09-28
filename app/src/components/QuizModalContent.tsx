@@ -1,6 +1,6 @@
 // app/src/components/QuizModalContent.tsx
 // Konu kavrama testi ve ünite testinin modal içeriği (tam ekran oynatıcı, bkz. RouteQuizPlayer) — hem panelin hem soru bankasının
-// intercepting route'ları (bkz. app/panel/@modal/... ve app/soru-bankasi/@modal/...) BU
+// intercepting route'ları (bkz. app/ilerlemem/@modal/... ve app/soru-bankasi/@modal/...) BU
 // component'i çağırıyor. Tek fark: hangi sayfadan açıldıysa "X'e Dön" linki oraya gitsin
 // diye exitHref/exitLabel dışarıdan veriliyor — kod/mantık kopyalanmıyor, sadece çıkış
 // hedefi değişiyor (bkz. kullanıcının 2026-09-05 isteği: soru bankası ve panel aynı test

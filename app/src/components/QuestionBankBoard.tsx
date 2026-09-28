@@ -427,7 +427,7 @@ export default function QuestionBankBoard({
             onClick={() => setMapOpen(true)}
             aria-label="Soru haritasını aç"
             title="Soru haritası"
-            className="fixed bottom-4 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 transition-transform hover:scale-105 active:scale-95 lg:hidden"
+            className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 md:bottom-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 transition-transform hover:scale-105 active:scale-95 lg:hidden"
           >
             <LayoutGrid className="h-5 w-5" />
           </button>
