@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
+import { QUESTION_WORKER_PROFILES, type QuestionWorkerId } from '@/app/src/lib/questionWorkerProfiles';
 
 // Ham metin alanları (textarea/input) düzenlenebilir kalmalı — ama LaTeX içeren bir
 // soru/şık metni admin'e "\(3 \times (\text{adım sayısı}) + 1\)" gibi ham kaynak olarak
@@ -55,6 +56,7 @@ type WorkerRun = {
   generated: boolean;
   reason: string | null;
   draft_id: number | null;
+  worker: QuestionWorkerId;
   created_at: string;
 };
 
@@ -250,7 +252,9 @@ export default function AiQuestionDraftsPanel() {
             <div className="border-t border-border divide-y divide-border">
               {workerRuns.map((run) => (
                 <div key={run.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs">
-                  <span className="text-muted-foreground shrink-0">{new Date(run.created_at).toLocaleString('tr-TR')}</span>
+                  <span className="text-muted-foreground shrink-0">
+                    {new Date(run.created_at).toLocaleString('tr-TR')} · {QUESTION_WORKER_PROFILES[run.worker]?.label ?? run.worker}
+                  </span>
                   <span className={`truncate text-right ${run.generated ? 'text-emerald-300' : 'text-amber-300'}`}>
                     {run.generated ? 'Taslak üretildi' : run.reason || 'Üretilmedi'}
                   </span>

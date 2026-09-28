@@ -11,6 +11,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { buildSvgLessonGuidance, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
 import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
+import { prettyModelName } from '@/app/src/lib/geminiWorkerProfile';
+import { QUESTION_WORKER_PROFILES, type QuestionWorkerProfile } from '@/app/src/lib/questionWorkerProfiles';
 import { parseQuestions } from '@/app/src/lib/parseMixedQuestions';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +130,10 @@ async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise
 // Bir sonraki uygun alt başlık için taslak üretir, ai_question_drafts'a 'pending' olarak
 // kaydeder. Uygun alt başlık yoksa veya üretim/doğrulama başarısız olursa generated:false
 // döner — çağıran (cron endpoint'i) bunu sessizce no-op olarak ele alır.
-export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<DraftGenerationResult> {
+export async function generateNextAiQuestionDraft(
+  supabase: Supabase,
+  profile: QuestionWorkerProfile = QUESTION_WORKER_PROFILES.primary
+): Promise<DraftGenerationResult> {
   const { data: eligibleRows, error: eligibleError } = await withRetry(() => supabase.rpc('find_next_ai_question_draft_section'));
   if (eligibleError) return { generated: false, reason: `Uygun alt başlık sorgusu başarısız: ${eligibleError.message}` };
 
@@ -165,8 +170,9 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
     .replaceAll('{svg_question_instructions}', svgBlock);
 
   let raw: unknown;
+  let usedModel: string;
   try {
-    raw = await generateQuestionsJson(prompt);
+    ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
   } catch (e) {
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -174,7 +180,9 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
   const parsed = parseQuestions(raw, 7);
   if (!parsed) return { generated: false, reason: 'Gemini çıktısı beklenen JSON şemasına uymadı' };
 
-  const aiModel = typeof (raw as { ai_model?: unknown } | null)?.ai_model === 'string' ? (raw as { ai_model: string }).ai_model.trim() || null : 'Gemini 2.5 Flash';
+  // Modelin JSON'da kendini beyan ettiği ai_model değil, cevabı gerçekten veren model
+  // (503 yedeği devreye girmiş olabilir) — worker istatistikleri buna dayanıyor.
+  const aiModel = prettyModelName(usedModel);
   const questionsPayload = (raw as { questions: unknown[] }).questions;
 
   const { data: draftRow, error: insertError } = await supabase
@@ -192,6 +200,11 @@ export async function generateNextAiQuestionDraft(supabase: Supabase): Promise<D
     .select('id')
     .single();
 
+  // Aynı dakikada başka bir soru worker'ı aynı alt başlığı seçip önce kaydettiyse
+  // uq_ai_question_drafts_one_pending_per_section ihlali — çift taslak yerine sessizce çık.
+  if (insertError?.code === '23505') {
+    return { generated: false, reason: `Alt başlık ${eligible.section_id} için başka bir worker taslak üretti (çakışma)` };
+  }
   if (insertError || !draftRow) return { generated: false, reason: `Taslak kaydedilemedi: ${insertError?.message}` };
 
   return { generated: true, draftId: (draftRow as { id: number }).id, sectionId: eligible.section_id };

@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
 
   let raw: unknown;
   try {
-    raw = await generateQuestionsJson(prompt);
+    ({ data: raw } = await generateQuestionsJson(prompt));
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'AI çağrısı başarısız oldu' }, { status: 502 });
   }

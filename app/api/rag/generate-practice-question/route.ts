@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { generateNextAiQuestionDraft } from '@/app/src/lib/aiQuestionDraftGen';
+import { QUESTION_WORKER_PROFILES, isQuestionWorkerId } from '@/app/src/lib/questionWorkerProfiles';
 
 // RAG kuyruğu boşken (@kanka/@hocam sorusu yoksa) boşa giden 5 dakikalık döngülerin
 // aksine, bu AYRI bir worker — saatte bir (kullanıcının 2026-09-08 isteği, 2026-09-09'da
@@ -25,8 +26,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 });
   }
 
+  // Her pg_cron job'u body'de hangi worker olduğunu söyler; eski job '{}' gönderiyor → primary
+  // (bkz. questionWorkerProfiles.ts).
+  const body = (await request.json().catch(() => ({}))) as { worker?: unknown };
+  if (body.worker !== undefined && !isQuestionWorkerId(body.worker)) {
+    return NextResponse.json({ error: 'Geçersiz worker' }, { status: 400 });
+  }
+  const profile = QUESTION_WORKER_PROFILES[body.worker ?? 'primary'];
+
   const supabase = createServiceClient();
-  const result = await generateNextAiQuestionDraft(supabase);
+  const result = await generateNextAiQuestionDraft(supabase, profile);
 
   // net.http_post (pg_cron) bu yanıtı beklemiyor — sonucu admin panelinde görünür
   // kılmak için burada logluyoruz (bkz. supabase/migrations/ai_question_draft_worker_runs.sql).
@@ -34,6 +43,7 @@ export async function POST(request: NextRequest) {
     generated: result.generated,
     reason: result.reason ?? null,
     draft_id: result.draftId ?? null,
+    worker: profile.id,
   });
 
   return NextResponse.json(result);
