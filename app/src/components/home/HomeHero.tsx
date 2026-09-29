@@ -30,7 +30,8 @@ export function HomeHero({
     <section className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-14">
       <div className="flex flex-col gap-5 sm:gap-6">
         <span className="self-start rounded-full bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
-          MEB müfredatına uygun{gradeRange ? ` · ${gradeRange}` : ''}
+          <strong className="font-black">Ders Takip</strong> · MEB müfredatına uygun
+          {gradeRange && <span className="hidden sm:inline"> · {gradeRange}</span>}
         </span>
         <h1 className="text-4xl font-black leading-[1.04] tracking-tight text-default sm:text-6xl">
           Konuyu öğren,

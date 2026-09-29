@@ -13,6 +13,7 @@ import { HomeHero } from './src/components/home/HomeHero';
 import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
 import { ThisWeekSection } from './src/components/home/ThisWeekSection';
 import { JoinBand } from './src/components/home/JoinBand';
+import { AboutSite } from './src/components/home/AboutSite';
 import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionCard } from './src/components/home/DailyQuestionCard';
 import { TopStudents } from './src/components/home/TopStudents';
@@ -152,6 +153,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
           )}
 
           {!isAuthenticated && <TopStudents students={topStudents} isAuthenticated={false} />}
+
+          {!isAuthenticated && <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />}
 
           {!isAuthenticated && <JoinBand />}
         </div>

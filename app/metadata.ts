@@ -125,21 +125,37 @@ export const viewport: Viewport = {
 };
 
 // JSON-LD Structured Data
+// Marka sinyali (2026-09-29): "ders takip" aramasında anasayfanın markayla eşleşmesi için
+// Organization + WebSite birbirine @id ile bağlı. Google site adını WebSite.name/alternateName'den,
+// logoyu Organization.logo'dan alır. Eski logo adresi (/logo.png) hiç yoktu (404) — gerçek ikon.
+const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 export const structuredData = {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "Ders Takip",
-  url: SITE_URL,
-  description: "MEB müfredatına uygun konu anlatımı, soru bankası ve online test platformu",
-  inLanguage: "tr-TR",
-  publisher: {
-    "@type": "Organization",
-    name: "Ders Takip",
-    logo: {
-      "@type": "ImageObject",
-      url: `${SITE_URL}/logo.png`,
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": ORGANIZATION_ID,
+      name: "Ders Takip",
+      alternateName: ["DersTakip", "derstakip.net"],
+      url: `${SITE_URL}/`,
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/icons/icon-512.png`,
+        width: 512,
+        height: 512,
+      },
     },
-  },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: "Ders Takip",
+      alternateName: ["DersTakip", "derstakip.net"],
+      url: `${SITE_URL}/`,
+      description: "MEB müfredatına uygun konu anlatımı, soru bankası ve online test platformu",
+      inLanguage: "tr-TR",
+      publisher: { "@id": ORGANIZATION_ID },
+    },
+  ],
 };
 
 // Eğitim Platformu Structured Data
