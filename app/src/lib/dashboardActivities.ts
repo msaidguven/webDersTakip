@@ -130,6 +130,7 @@ export async function getRecentActivities(
       iconColor: hasRemainingQuestions ? 'orange' : 'purple',
       isComplete,
       resumeHref,
+      baseTitle,
     };
     return activity;
   });

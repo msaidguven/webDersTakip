@@ -13,6 +13,7 @@ export interface ProgressSummary {
   last7: { answered: number; accuracy: number | null };
   prev7: { answered: number; accuracy: number | null };
   totalAnswered: number;
+  activeDays: number;
   currentStreak: number;
   longestStreak: number;
 }
@@ -131,6 +132,7 @@ export function summarizeActivity(rows: DailyActivity[], today: string = istanbu
     last7: windowTotals(byDay, today, 7),
     prev7: windowTotals(byDay, addDays(today, -7), 7),
     totalAnswered: rows.reduce((sum, r) => sum + r.answered, 0),
+    activeDays: rows.length,
     currentStreak,
     longestStreak,
   };

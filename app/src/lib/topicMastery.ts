@@ -4,14 +4,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from './soruBankasiPaths';
 
-// Kullanıcıyla kararlaştırıldı (2026-09-28): "öğrenildi" = konunun sorularının en az %70'i
-// çözülmüş VE doğruluk en az %80. Az soruyla "öğrendin" denmesin diye kapsam şartı var.
+// Kullanıcıyla kararlaştırıldı:
+//  - "öğrenildi" (2026-09-28) = konunun sorularının en az %70'i çözülmüş VE doğruluk en az %80.
+//  - "zorlanıyorsun" (2026-09-29) = en az 10 soru çözülmüş VE doğruluk %60'ın altında. 10'dan
+//    az soruda değerlendirme yapılmaz ("veri az") — tek-iki yanlışla damga vurulmasın.
+// AYNI eşikler anasayfadaki "en çok zorlandığın konu" SQL'inde de var
+// (supabase/migrations/weak_topic_by_accuracy.sql) — değiştirirsen ikisini birlikte değiştir.
 export const MASTERY_RULES = {
   learnedCoverage: 0.7,
   learnedAccuracy: 0.8,
-  weakAccuracy: 0.5,
-  // Tek yanlışla "zorlanıyorsun" damgası vurulmasın.
-  weakMinSolved: 3,
+  weakAccuracy: 0.6,
+  minSolvedToJudge: 10,
 } as const;
 
 export type MasteryState = 'new' | 'weak' | 'building' | 'learned';
@@ -66,7 +69,7 @@ export function masteryState(total: number, solved: number, correct: number): Ma
   if (solved === 0) return 'new';
   const accuracy = correct / solved;
   if (total > 0 && solved / total >= MASTERY_RULES.learnedCoverage && accuracy >= MASTERY_RULES.learnedAccuracy) return 'learned';
-  if (solved >= MASTERY_RULES.weakMinSolved && accuracy < MASTERY_RULES.weakAccuracy) return 'weak';
+  if (solved >= MASTERY_RULES.minSolvedToJudge && accuracy < MASTERY_RULES.weakAccuracy) return 'weak';
   return 'building';
 }
 
@@ -102,6 +105,30 @@ export function groupMastery(rows: Row[]): LessonMastery[] {
     });
   }
   return [...lessons.values()];
+}
+
+export interface WeakTopic extends TopicMastery {
+  lessonName: string;
+}
+
+// "En çok zorlandığın konular" (4f, kural 2026-09-29): yalnızca "zorlanıyorsun" durumundaki
+// konular (≥10 çözülmüş, doğruluk <%60); en düşük doğruluk önce, eşitlikte yanlışı çok olan.
+// Salt yanlış sayısı KULLANILMAZ: çok soru çözülmüş ama %67 giden konu listeye giriyordu.
+export function weakestTopics(lessons: LessonMastery[], limit = 5): WeakTopic[] {
+  return lessons
+    .flatMap((l) => l.topics.filter((t) => t.state === 'weak').map((t) => ({ ...t, lessonName: l.name })))
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0) || b.wrong - a.wrong)
+    .slice(0, limit);
+}
+
+// Listenin altındaki bilgi satırları: değerlendirmeye yetecek kadar soru çözülmemiş (1–9) ve
+// hiç başlanmamış konu sayıları. "Öğrenildi" olanlar veri az sayılmaz (kapsam şartı zaten var).
+export function masteryCoverage(lessons: LessonMastery[]): { tooFewSolved: number; notStarted: number } {
+  const topics = lessons.flatMap((l) => l.topics);
+  return {
+    tooFewSolved: topics.filter((t) => t.state === 'building' && t.solved < MASTERY_RULES.minSolvedToJudge).length,
+    notStarted: topics.filter((t) => t.state === 'new').length,
+  };
 }
 
 // Profildeki sınıf; yoksa (nadir) en son çözülen testin sınıfı — getDashboardLessons ile aynı.

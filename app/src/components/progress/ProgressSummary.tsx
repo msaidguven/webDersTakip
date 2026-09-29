@@ -4,9 +4,11 @@
 // KAYAN 7 gün: pazartesi sabahı "geçen haftadan az çözdün" demek yanıltıcı olurdu. Takvim
 // haftası yalnızca "Son 4 hafta" tablosunda.
 import { useMemo } from 'react';
+import { ArrowDown, Trophy } from 'lucide-react';
 import { useProgressActivity } from '@/app/src/hooks/useProgressActivity';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
 import { summarizeActivity, type ProgressSummary as Summary } from '@/app/src/lib/progressActivity';
+import { badgeHighlight, type BadgeHighlight } from '@/app/src/lib/badges';
 
 function headline(s: Summary): string {
   const n = s.last7.answered;
@@ -30,6 +32,7 @@ function Tile({ label, value, note }: { label: string; value: string; note: stri
 export function ProgressSummary() {
   const { data, error } = useProgressActivity();
   const summary = useMemo(() => (data ? summarizeActivity(data) : null), [data]);
+  const highlight = useMemo(() => (data ? badgeHighlight(data) : null), [data]);
   const { data: mastery } = useTopicMastery();
   const learned = useMemo(() => {
     if (!mastery?.lessons.length) return null;
@@ -78,6 +81,43 @@ export function ProgressSummary() {
           <Tile label="Toplam" value={String(summary.totalAnswered)} note="çözülen soru" />
         )}
       </div>
+      {highlight && <BadgeLine highlight={highlight} />}
     </section>
+  );
+}
+
+// Rozet motivasyonu tek satırda (2026-09-29): tüm ızgara sayfanın altında kalıyor, mobilde
+// birkaç ekran aşağıda — öğrenci bir sonraki hedefini burada görsün.
+function BadgeLine({ highlight }: { highlight: NonNullable<BadgeHighlight> }) {
+  const { badge } = highlight;
+  return (
+    <div className="flex flex-col gap-3 border-t border-indigo-200 pt-4 dark:border-indigo-500/20 sm:flex-row sm:items-center sm:gap-4 lg:col-span-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
+          <Trophy className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
+        {highlight.kind === 'recent' ? (
+          <p className="text-sm text-default sm:text-[15px]">
+            Bu hafta <b className="font-extrabold">{badge.title}</b> rozetini kazandın!
+          </p>
+        ) : (
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <p className="text-sm text-default sm:text-[15px]">
+              Sıradaki rozet: <b className="font-extrabold">{badge.title}</b> — {badge.remainingLabel} kaldı
+            </p>
+            <span
+              className="block h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-indigo-200/70 dark:bg-indigo-500/20"
+              role="img"
+              aria-label={`İlerleme: ${badge.progressLabel}`}
+            >
+              <span className="block h-full rounded-full bg-indigo-600 dark:bg-indigo-400" style={{ width: `${badge.progress}%` }} />
+            </span>
+          </div>
+        )}
+      </div>
+      <a href="#rozetlerim" className="inline-flex shrink-0 items-center gap-1 self-start text-sm font-extrabold text-indigo-700 hover:underline dark:text-indigo-300 sm:self-center">
+        Tüm rozetler <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
+    </div>
   );
 }

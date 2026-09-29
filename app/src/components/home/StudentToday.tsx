@@ -29,7 +29,7 @@ function taskCopy(task: TodayTask): { title: string; detail: string; cta: string
     case 'weak':
       return {
         title: 'En çok zorlandığın konuyu pekiştir',
-        detail: `${task.topicTitle} · ${task.lessonName} — ${task.wrongCount} yanlışın var.`,
+        detail: `${task.topicTitle} · ${task.lessonName} — ${task.accuracy != null ? `%${task.accuracy} doğru, ` : ''}${task.wrongCount} yanlış.`,
         cta: 'Soruları çöz',
         href: task.href,
       };
@@ -122,7 +122,13 @@ export function StudentToday() {
         <div className="flex flex-col gap-5 rounded-[26px] border border-default bg-background p-6">
           <div className="flex flex-col gap-3">
             <div className="flex items-baseline justify-between">
-              <span className="text-base font-black text-default">Günlük hedef</span>
+              <span className="flex items-baseline gap-2">
+                <span className="text-base font-black text-default">Günlük hedef</span>
+                {/* Hedef İlerlemem başlığında seçiliyor (10/20/40). */}
+                <Link href="/ilerlemem" className="text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                  değiştir
+                </Link>
+              </span>
               <span className="text-sm text-muted-foreground">
                 <b className="text-xl text-default">{data.dailyProgress}</b> / {data.dailyGoal} soru
               </span>
@@ -167,9 +173,10 @@ export function StudentToday() {
 
           {data.rank && (
             <Link href="/ilerlemem/siralama" className="mt-auto flex items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3.5 transition-colors hover:bg-surface-elevated">
-              <span className="text-[15px] font-bold text-default">Sıralamada {data.rank.position}.’sin</span>
+              {/* Sayıdan sonra ek yok ("3.'süsün" sayıya göre değişir): "Haftalık sıralama: 3. sıra". */}
+              <span className="text-[15px] font-bold text-default">Haftalık sıralama: {data.rank.position}. sıra</span>
               <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                {data.rank.toPass != null ? `${data.rank.position - 1}.’ye ${data.rank.toPass} soru` : 'Zirvedesin!'}
+                {data.rank.toPass != null ? `Bir üst sıraya ${data.rank.toPass} soru` : 'Zirvedesin!'}
               </span>
             </Link>
           )}

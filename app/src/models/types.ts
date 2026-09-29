@@ -31,7 +31,8 @@ export interface LessonProgress {
   soruBankasiHref?: string;
   // Dersin konu anlatımı sayfası (/<sınıf>/<ders>) — girişli anasayfada konulara giden yol.
   lessonHref?: string;
-  weakTopic: { title: string; wrongCount: number; href: string } | null;
+  // Kural: ≥10 çözülmüş + doğruluk <%60 (bkz. weak_topic_by_accuracy.sql, topicMastery.ts).
+  weakTopic: { title: string; wrongCount: number; accuracy: number | null; href: string } | null;
 }
 
 export interface Stat {
@@ -65,6 +66,8 @@ export interface Activity {
   iconColor: string;
   isComplete?: boolean;
   resumeHref?: string;
+  // "(Yarım Kaldı)" eki olmadan test adı (İlerlemem → Testlerim, 2026-09-29).
+  baseTitle?: string;
 }
 
 export interface DashboardData {

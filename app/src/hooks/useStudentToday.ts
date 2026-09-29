@@ -6,7 +6,7 @@
 // (RLS: sadece kendi satırları) PARALEL çekiliyor — yeni sorgu/RPC yok.
 import useSWR from 'swr';
 import { useAuth } from '@/app/src/context/AuthContext';
-import { getCurrentStreak, getTodayQuestionCount, getWeeklyActiveDays, DAILY_GOAL_QUESTIONS } from '@/app/src/lib/dashboardStreak';
+import { getCurrentStreak, getTodayQuestionCount, getWeeklyActiveDays, parseDailyGoal } from '@/app/src/lib/dashboardStreak';
 import { getDueSrsCount } from '@/app/src/lib/dashboardSrs';
 import { getRecentActivities } from '@/app/src/lib/dashboardActivities';
 import { getDashboardLessons } from '@/app/src/lib/dashboardLessons';
@@ -16,7 +16,7 @@ import type { LessonProgress } from '@/app/src/models/types';
 export type TodayTask =
   | { kind: 'resume'; title: string; answered: number; total: number; href: string }
   | { kind: 'srs'; count: number; href: string }
-  | { kind: 'weak'; topicTitle: string; lessonName: string; wrongCount: number; href: string }
+  | { kind: 'weak'; topicTitle: string; lessonName: string; wrongCount: number; accuracy: number | null; href: string }
   | { kind: 'goal'; remaining: number; href: string }
   | { kind: 'done' };
 
@@ -45,9 +45,10 @@ function buildTasks(input: {
   if (input.dueSrs > 0) tasks.push({ kind: 'srs', count: input.dueSrs, href: '/tekrar' });
   const weakest = input.lessons
     .filter((l) => l.weakTopic)
-    .sort((a, b) => (b.weakTopic!.wrongCount - a.weakTopic!.wrongCount))[0];
+    // İlerlemem'deki listeyle aynı sıra: en düşük doğruluk önce, eşitlikte yanlışı çok olan.
+    .sort((a, b) => (a.weakTopic!.accuracy ?? 100) - (b.weakTopic!.accuracy ?? 100) || b.weakTopic!.wrongCount - a.weakTopic!.wrongCount)[0];
   if (weakest?.weakTopic) {
-    tasks.push({ kind: 'weak', topicTitle: weakest.weakTopic.title, lessonName: weakest.name, wrongCount: weakest.weakTopic.wrongCount, href: weakest.weakTopic.href });
+    tasks.push({ kind: 'weak', topicTitle: weakest.weakTopic.title, lessonName: weakest.name, wrongCount: weakest.weakTopic.wrongCount, accuracy: weakest.weakTopic.accuracy, href: weakest.weakTopic.href });
   }
   const remaining = Math.max(0, input.dailyGoal - input.dailyProgress);
   if (remaining > 0) {
@@ -64,7 +65,8 @@ async function loadStudentToday(
   supabase: any,
   userId: string
 ): Promise<StudentToday> {
-  const { data: profile } = await supabase.from('profiles').select('full_name, grade_id').eq('id', userId).maybeSingle();
+  const { data: profile } = await supabase.from('profiles').select('full_name, grade_id, daily_goal').eq('id', userId).maybeSingle();
+  const dailyGoal = parseDailyGoal((profile as { daily_goal?: number } | null)?.daily_goal);
   const fullName = ((profile as { full_name: string | null } | null)?.full_name || '').trim();
   const profileGradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
 
@@ -81,7 +83,7 @@ async function loadStudentToday(
   const resumeActivity = activities.find((a) => a.isComplete === false && a.resumeHref);
   const resumable = resumeActivity
     ? {
-        title: resumeActivity.title.replace(/\s*\(Yarım Kaldı\)\s*$/, ''),
+        title: resumeActivity.baseTitle ?? resumeActivity.title,
         answered: resumeActivity.questionCount,
         total: resumeActivity.totalQuestionCount ?? resumeActivity.questionCount,
         href: resumeActivity.resumeHref!,
@@ -97,11 +99,11 @@ async function loadStudentToday(
     gradeName: lessonsResult?.gradeName ?? null,
     streak,
     dailyProgress,
-    dailyGoal: DAILY_GOAL_QUESTIONS,
+    dailyGoal,
     weeklyActiveDays,
     rank: me ? { position: me.rank, toPass: above ? above.totalQuestions - me.totalQuestions + 1 : null } : null,
     lessons,
-    tasks: buildTasks({ resumable, dueSrs, lessons, dailyProgress, dailyGoal: DAILY_GOAL_QUESTIONS }),
+    tasks: buildTasks({ resumable, dueSrs, lessons, dailyProgress, dailyGoal }),
   };
 }
 

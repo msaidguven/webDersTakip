@@ -23,10 +23,10 @@ interface LeaderboardCardProps {
   showSeeAll?: boolean;
 }
 
-// Aynı sınıf seviyesindeki (grade_id) herkese karşı haftalık, tamamen isimsiz bir sıralama —
-// gerçek bir arkadaş/sınıf sistemi yok, bu yüzden başka öğrencilerin kimliği hiçbir zaman
-// gösterilmez; sadece kendi seçtikleri bir kullanıcı adı varsa (profiles.username) o görünür,
-// yoksa "Öğrenci" (bkz. get_weekly_leaderboard RPC'si — bunu da sunucu tarafında garanti eder).
+// Haftalık sıralama — 2026-09-29'dan beri TÜM SINIFLAR tek liste (öğrenci sayısı az; bkz.
+// weekly_leaderboard_all_grades.sql), geçici sahte kayıtlarla karışık (leaderboardSeed.ts).
+// Başka öğrencilerin kimliği gösterilmez: isim sunucuda "Ad S." biçimine indirgenir
+// (format_public_name, bkz. get_weekly_leaderboard RPC'si).
 export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCardProps) {
   const { user, supabase } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
@@ -96,7 +96,7 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
       {me && (
         <div className="px-4 sm:px-6 py-2.5 border-b border-default bg-indigo-500/5 text-xs sm:text-sm text-default">
           {me.rank === 1 ? (
-            <>🥇 Bu hafta sınıfında <b>1. sıradasın</b>, yerini koru!</>
+            <>🥇 Bu hafta <b>1. sıradasın</b>, yerini koru!</>
           ) : (
             <>
               <b>{me.rank - 1}. sıraya</b> çıkmak için <b className="text-indigo-500">{questionsToPass} soru</b> daha çöz.
@@ -108,7 +108,7 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
       {entries.length === 0 ? (
         <div className="p-6 sm:p-8 text-center">
           <p className="text-muted-foreground text-sm">
-            Sınıfın için henüz bir sıralama yok — sınıfını profilinden seçip soru çözmeye başla.
+            Bu hafta henüz sıralama yok — soru çözmeye başla, ilk sen gir.
           </p>
         </div>
       ) : (

@@ -1,10 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toDateString, todayDateString } from './dashboardDate';
 
-// Sabit bir günlük hedef: DB'de kullanıcı bazlı bir dailyGoal alanı yok (bkz.
-// docs/site-iyilestirme-plani.md madde 3 tartışması), bu yüzden herkes için tek bir hedef
-// kullanılıyor. İleride kişiselleştirilecekse profiles'a bir kolon eklenip buradan okunabilir.
+// Günlük hedef öğrencinin seçimi: profiles.daily_goal (10/20/40, bkz. profiles_daily_goal.sql,
+// 2026-09-29). DAILY_GOAL_QUESTIONS varsayılan — profil okunamazsa/eski satırda kullanılır.
 export const DAILY_GOAL_QUESTIONS = 20;
+export const DAILY_GOAL_OPTIONS = [10, 20, 40] as const;
+export type DailyGoal = (typeof DAILY_GOAL_OPTIONS)[number];
+
+export function parseDailyGoal(value: unknown): DailyGoal {
+  return (DAILY_GOAL_OPTIONS as readonly unknown[]).includes(value) ? (value as DailyGoal) : DAILY_GOAL_QUESTIONS;
+}
 
 const STREAK_LOOKBACK_DAYS = 60;
 

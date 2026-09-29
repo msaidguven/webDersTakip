@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
       userName={fullName || 'Öğrenci'}
       weeklyActiveDays={weeklyActiveDays}
       title="Haftalık Sıralama"
-      subtitle="Sınıfındaki (aynı sınıf seviyesindeki) herkesle bu hafta çözdüğün soru sayısına göre karşılaştırma."
+      subtitle="Bu hafta en çok soru çözen öğrenciler (tüm sınıflar). Her pazartesi sıfırlanır."
     >
       <div className="max-w-2xl mx-auto">
         {authLoading ? (

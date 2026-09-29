@@ -24,6 +24,7 @@ type Row = {
   weak_topic_unit_slug: string | null;
   weak_topic_slug: string | null;
   weak_topic_wrong: number | null;
+  weak_topic_accuracy?: number | null;
 };
 
 // Panel ders kartları (2026-09-26 sadeleştirmesi): üniteler panelde gösterilmiyor, her ders
@@ -77,7 +78,7 @@ export async function getDashboardLessons(
       lessonHref: canLink ? `/${row.grade_slug}/${row.lesson_slug}` : undefined,
       weakTopic:
         row.weak_topic_title && weakTopicHref
-          ? { title: row.weak_topic_title, wrongCount: row.weak_topic_wrong ?? 0, href: weakTopicHref }
+          ? { title: row.weak_topic_title, wrongCount: row.weak_topic_wrong ?? 0, accuracy: row.weak_topic_accuracy ?? null, href: weakTopicHref }
           : null,
     };
   });
