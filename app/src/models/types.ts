@@ -68,6 +68,8 @@ export interface Activity {
   resumeHref?: string;
   // "(Yarım Kaldı)" eki olmadan test adı (İlerlemem → Testlerim, 2026-09-29).
   baseTitle?: string;
+  // Oturumun dersi — Derslerim kartında o dersin yarım testini öne çıkarmak için (2026-10-01).
+  lessonId?: number | null;
 }
 
 export interface DashboardData {

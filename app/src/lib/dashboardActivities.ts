@@ -101,11 +101,16 @@ export async function getRecentActivities(
       : unit
       ? `Ünite Testi: ${unit.title}`
       : lesson
-        ? `${lesson.name} Testi`
-        : 'Test';
+        ? `Sıradaki sorular: ${lesson.name}`
+        : 'Tekrar testi';
     const title = hasRemainingQuestions ? `${baseTitle} (Yarım Kaldı)` : baseTitle;
 
     let resumeHref: string | undefined;
+    // Ünitesiz ama dersli oturum = "Sıradaki 10 soru" (2026-10-01); sayfası yarım oturumu
+    // ders bazında bulup devam ettirir (findResumableSession lessonId).
+    if (hasRemainingQuestions && !unit && s.lesson_id != null && s.settings?.topic_id == null) {
+      resumeHref = `/sirali-test/${s.lesson_id}`;
+    }
     if (hasRemainingQuestions && unit?.slug && lesson?.slug && s.grade_id) {
       const gradeSlug = gradeSlugById.get(s.grade_id);
       const topicId = s.settings?.topic_id;
@@ -131,6 +136,7 @@ export async function getRecentActivities(
       isComplete,
       resumeHref,
       baseTitle,
+      lessonId: s.lesson_id,
     };
     return activity;
   });

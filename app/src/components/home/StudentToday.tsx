@@ -5,9 +5,11 @@
 // haftalık tablo) BURADA DEĞİL, "İlerlemem" sayfasında (yol haritası 4) — iki sayfa aynı
 // kutuları tekrar etmesin.
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Flame, PencilLine } from 'lucide-react';
+import { ArrowRight, Flame } from 'lucide-react';
 import type { LessonProgress } from '@/app/src/models/types';
-import { useStudentToday, type TodayTask } from '@/app/src/hooks/useStudentToday';
+import { useStudentToday, type OpenTest, type TodayTask } from '@/app/src/hooks/useStudentToday';
+import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
+import { SEQUENTIAL_TEST_SIZE, sequentialTestHref, type LessonNextStep } from '@/app/src/lib/sequentialTest';
 import { PushReminderOptIn } from './PushReminderOptIn';
 
 const DAY_LABELS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
@@ -186,14 +188,23 @@ export function StudentToday() {
       {/* Akşam hatırlatması (yol haritası 3c) — izin sadece butona basınca istenir. */}
       <PushReminderOptIn />
 
-      {data.lessons.length > 0 && <MyLessons lessons={data.lessons} />}
+      {data.lessons.length > 0 && <MyLessons lessons={data.lessons} nextSteps={data.nextSteps} openTests={data.openTestByLesson} />}
     </section>
   );
 }
 
-const LESSON_BARS = ['bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-fuchsia-600', 'bg-indigo-600', 'bg-rose-600'];
+// Derslerim (2026-10-01 yeniden tasarım, kullanıcı kararı): küçük öğrenci "konu anlatımı mı soru
+// bankası mı?" diye seçmek zorunda kalmasın — her derste TEK ana buton: "Sıradaki 10 soru"
+// (dersin başından müfredat sırasıyla hiç çözmediği sorular; takvimli derste okulda işlenen
+// konularla sınırlı, bkz. sequential_question_queue.sql). Konuyu önce okumak isteyen için
+// sıradaki konunun anlatımına küçük bağlantı; açmadıysa "Önce konuyu oku" öne çıkar.
+// İlerleme ölçüsü yüzde değil "öğrenilen konu" (İlerlemem'deki konu haritasıyla aynı kural).
+// Derste yarım kalan test varsa ÖNCE o (2026-10-01, kullanıcı isteği): yeni test açıp yarım
+// oturum biriktirmek yerine bitirtir; "Sıradaki 10 soru" o durumda küçük bağlantıya iner.
+function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[]; nextSteps: Map<number, LessonNextStep>; openTests: Map<number, OpenTest> }) {
+  const { data: mastery } = useTopicMastery();
+  const learnedByLesson = new Map((mastery?.lessons ?? []).map((l) => [l.id, { learned: l.counts.learned, total: l.topics.length }]));
 
-function MyLessons({ lessons }: { lessons: LessonProgress[] }) {
   return (
     <div className="mt-8 flex flex-col gap-4 sm:mt-10">
       <div className="flex items-end justify-between">
@@ -202,43 +213,102 @@ function MyLessons({ lessons }: { lessons: LessonProgress[] }) {
           İlerlemem →
         </Link>
       </div>
-      {/* Her kartta iki açık hedef (2026-09-28): eskiden kartın tamamı Soru Bankası'na gidiyordu
-          ve girişli öğrencinin anasayfadan konu anlatımına yolu yoktu. Misafir ders listesiyle
-          (GradeLessonPicker) aynı ayrım: ders → konu anlatımı, sorular → Soru Bankası. */}
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {lessons.map((lesson, i) => (
-          <li key={lesson.id} className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4">
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="block text-[15px] font-bold leading-snug text-default">{lesson.name}</span>
-              <span className="shrink-0 text-xl font-black text-default">%{lesson.progress}</span>
-            </span>
-            <span
-              className="block h-2 overflow-hidden rounded-full bg-surface-elevated"
-              role="img"
-              aria-label={`Soruların yüzde ${lesson.progress} kadarını çözdün`}
-            >
-              <span className={`block h-full rounded-full ${LESSON_BARS[i % LESSON_BARS.length]}`} style={{ width: `${lesson.progress}%` }} />
-            </span>
-            <span className="mt-auto flex gap-2">
+        {lessons.map((lesson) => {
+          const step = nextSteps.get(Number(lesson.id));
+          const learned = learnedByLesson.get(Number(lesson.id));
+          const topic = step?.nextTopic;
+          const topicHref = topic && lesson.lessonHref && topic.unitSlug && topic.slug ? `${lesson.lessonHref}/${topic.unitSlug}/${topic.slug}` : null;
+          const count = step ? Math.min(SEQUENTIAL_TEST_SIZE, step.remaining) : 0;
+          const open = openTests.get(Number(lesson.id));
+          return (
+            <li key={lesson.id} className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-base font-extrabold leading-snug text-default">{lesson.name}</span>
+                {learned && learned.total > 0 && (
+                  <span className="text-[13px] font-semibold text-muted-foreground">
+                    {learned.learned} / {learned.total} konu öğrenildi
+                  </span>
+                )}
+              </div>
+
+              {open ? (
+                <div className="mt-auto flex flex-col gap-2">
+                  <Link
+                    href={open.href}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-orange-800"
+                  >
+                    Yarım kalan testine devam et · {open.answered}/{open.total}
+                  </Link>
+                  <p className="text-[13px] leading-snug text-muted-foreground">
+                    <b className="font-bold text-default">{open.title}</b>
+                    {step && step.remaining > 0 && (
+                      <>
+                        {' · '}
+                        <Link href={sequentialTestHref(step.lessonId)} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                          ya da sıradaki {count} soru
+                        </Link>
+                      </>
+                    )}
+                  </p>
+                </div>
+              ) : lesson.totalQuestions === 0 ? (
+                <p className="mt-auto rounded-xl bg-surface p-3 text-sm text-muted-foreground">Bu dersin soruları yakında.</p>
+              ) : step && step.remaining > 0 ? (
+                <div className="mt-auto flex flex-col gap-2">
+                  <Link
+                    href={sequentialTestHref(step.lessonId)}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-indigo-700"
+                  >
+                    Sıradaki {count} soru <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                  {topic && (
+                    <p className="text-[13px] leading-snug text-muted-foreground">
+                      <b className="font-bold text-default">{topic.title}</b> konusundan başlıyor
+                      {topicHref && (
+                        <>
+                          {' · '}
+                          {topic.completed ? (
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">✓ Okudun</span>
+                          ) : (
+                            <Link href={topicHref} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                              {topic.viewed ? 'Konuyu oku' : 'Önce konuyu oku'}
+                            </Link>
+                          )}
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+              ) : step ? (
+                <div className="mt-auto flex flex-col gap-2 rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                    {step.hasCalendar ? 'Okulda işlenen konuların tüm sorularını çözdün 🎉' : 'Bu dersteki tüm soruları çözdün 🎉'}
+                  </p>
+                  <Link href="/tekrar" className="text-[13px] font-bold text-emerald-800 hover:underline dark:text-emerald-300">
+                    Yanlışlarını tekrar et →
+                  </Link>
+                </div>
+              ) : (
+                // Sıradaki adım yüklenemediyse (ör. sınıf seçilmemiş) eski yol: Soru Bankası.
+                lesson.soruBankasiHref && (
+                  <Link
+                    href={lesson.soruBankasiHref}
+                    className="mt-auto flex min-h-12 items-center justify-center rounded-xl bg-indigo-600 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-indigo-700"
+                  >
+                    Soru çöz
+                  </Link>
+                )
+              )}
+
               {lesson.lessonHref && (
-                <Link
-                  href={lesson.lessonHref}
-                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-surface px-2 text-sm font-bold text-default transition-colors hover:bg-surface-elevated"
-                >
-                  <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" /> Konu anlatımı
+                <Link href={lesson.lessonHref} className="self-start text-[13px] font-bold text-muted-foreground hover:text-default hover:underline">
+                  Tüm konular
                 </Link>
               )}
-              {lesson.soruBankasiHref && lesson.totalQuestions > 0 && (
-                <Link
-                  href={lesson.soruBankasiHref}
-                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-500/10 px-2 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-500/20 dark:text-indigo-300"
-                >
-                  <PencilLine className="h-4 w-4 shrink-0" aria-hidden="true" /> Soru çöz
-                </Link>
-              )}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

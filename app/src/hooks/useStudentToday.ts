@@ -12,6 +12,7 @@ import { getRecentActivities } from '@/app/src/lib/dashboardActivities';
 import { getDashboardLessons } from '@/app/src/lib/dashboardLessons';
 import { getWeeklyLeaderboard } from '@/app/src/lib/leaderboard';
 import type { LessonProgress } from '@/app/src/models/types';
+import { getLessonNextSteps, sequentialTestHref, type LessonNextStep } from '@/app/src/lib/sequentialTest';
 
 export type TodayTask =
   | { kind: 'resume'; title: string; answered: number; total: number; href: string }
@@ -19,6 +20,13 @@ export type TodayTask =
   | { kind: 'weak'; topicTitle: string; lessonName: string; wrongCount: number; accuracy: number | null; href: string }
   | { kind: 'goal'; remaining: number; href: string }
   | { kind: 'done' };
+
+export interface OpenTest {
+  title: string;
+  answered: number;
+  total: number;
+  href: string;
+}
 
 export interface StudentToday {
   firstName: string;
@@ -29,6 +37,10 @@ export interface StudentToday {
   weeklyActiveDays: boolean[];
   rank: { position: number; toPass: number | null } | null;
   lessons: LessonProgress[];
+  // Ders id → "Sıradaki 10 soru" adımı (Derslerim kartları). RPC yoksa/hata verirse boş.
+  nextSteps: Map<number, LessonNextStep>;
+  // Ders id → o dersteki EN SON yarım kalan test (Derslerim kartında önce bitirilsin diye).
+  openTestByLesson: Map<number, OpenTest>;
   // Öncelik sırasına göre: [0] ana görev, sonrakiler "sonra" önerileri.
   tasks: TodayTask[];
 }
@@ -39,6 +51,7 @@ function buildTasks(input: {
   lessons: LessonProgress[];
   dailyProgress: number;
   dailyGoal: number;
+  nextSteps: Map<number, LessonNextStep>;
 }): TodayTask[] {
   const tasks: TodayTask[] = [];
   if (input.resumable) tasks.push({ kind: 'resume', ...input.resumable });
@@ -53,8 +66,11 @@ function buildTasks(input: {
   const remaining = Math.max(0, input.dailyGoal - input.dailyProgress);
   if (remaining > 0) {
     // En az ilerlenmiş, sorusu olan derse yönlendir — "nereden başlayayım" sorusunu kapatır.
+    // Sıradaki soru kuyruğu varsa doğrudan o teste (Derslerim'deki "Sıradaki 10 soru" ile aynı).
     const target = input.lessons.filter((l) => l.soruBankasiHref && l.totalQuestions > 0).sort((a, b) => a.progress - b.progress)[0];
-    tasks.push({ kind: 'goal', remaining, href: target?.soruBankasiHref ?? '/soru-bankasi' });
+    const step = target ? input.nextSteps.get(Number(target.id)) : undefined;
+    const href = step && step.remaining > 0 ? sequentialTestHref(step.lessonId) : target?.soruBankasiHref ?? '/soru-bankasi';
+    tasks.push({ kind: 'goal', remaining, href });
   }
   if (!tasks.length) tasks.push({ kind: 'done' });
   return tasks;
@@ -70,7 +86,7 @@ async function loadStudentToday(
   const fullName = ((profile as { full_name: string | null } | null)?.full_name || '').trim();
   const profileGradeId = (profile as { grade_id: number | null } | null)?.grade_id ?? null;
 
-  const [streak, dailyProgress, weeklyActiveDays, dueSrs, activities, lessonsResult, leaderboard] = await Promise.all([
+  const [streak, dailyProgress, weeklyActiveDays, dueSrs, activities, lessonsResult, leaderboard, nextSteps] = await Promise.all([
     getCurrentStreak(supabase, userId),
     getTodayQuestionCount(supabase, userId),
     getWeeklyActiveDays(supabase, userId),
@@ -78,6 +94,7 @@ async function loadStudentToday(
     getRecentActivities(supabase, userId, 12),
     getDashboardLessons(supabase, userId, profileGradeId),
     getWeeklyLeaderboard(supabase),
+    profileGradeId ? getLessonNextSteps(supabase, profileGradeId).catch(() => new Map<number, LessonNextStep>()) : Promise.resolve(new Map<number, LessonNextStep>()),
   ]);
 
   const resumeActivity = activities.find((a) => a.isComplete === false && a.resumeHref);
@@ -89,6 +106,19 @@ async function loadStudentToday(
         href: resumeActivity.resumeHref!,
       }
     : null;
+
+  // activities yeniden eskiye sıralı — ilk görülen, o dersin en son yarım testi.
+  const openTestByLesson = new Map<number, OpenTest>();
+  for (const a of activities) {
+    if (a.isComplete !== false || !a.resumeHref || a.lessonId == null || a.questionCount === 0) continue;
+    if (openTestByLesson.has(a.lessonId)) continue;
+    openTestByLesson.set(a.lessonId, {
+      title: a.baseTitle ?? a.title,
+      answered: a.questionCount,
+      total: a.totalQuestionCount ?? a.questionCount,
+      href: a.resumeHref,
+    });
+  }
 
   const me = leaderboard.find((e) => e.isMe);
   const above = me && me.rank > 1 ? leaderboard[me.rank - 2] : null;
@@ -103,7 +133,9 @@ async function loadStudentToday(
     weeklyActiveDays,
     rank: me ? { position: me.rank, toPass: above ? above.totalQuestions - me.totalQuestions + 1 : null } : null,
     lessons,
-    tasks: buildTasks({ resumable, dueSrs, lessons, dailyProgress, dailyGoal }),
+    nextSteps,
+    openTestByLesson,
+    tasks: buildTasks({ resumable, dueSrs, lessons, dailyProgress, dailyGoal, nextSteps }),
   };
 }
 

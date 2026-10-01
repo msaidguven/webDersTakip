@@ -29,7 +29,11 @@ export async function findResumableSession(
   // (kullanıcı raporu, 2026-09-15: "soruları çözüyorum ama hiç azalmıyor hala 17 diyor").
   // topic/ünite testlerinde bu parametre verilmez (undefined) — içeriğin sınıfı zaten URL'den
   // geliyor, profil sınıfıyla karışmaz.
-  expectedGradeId?: number | null
+  expectedGradeId?: number | null,
+  // Ünitesiz oturumlar (unitId=null) için hangi ders: SRS tekrarı null, "Sıradaki 10 soru" o
+  // dersin id'si (2026-10-01). Verilmezse (undefined) ders filtrelenmez — ünite/konu testleri.
+  // Bu filtre olmadan /tekrar, yarım kalmış bir sıralı testi kendi oturumu sanıp devam ettirirdi.
+  lessonId?: number | null
 ): Promise<ResumableSession | null> {
   let query = supabase
     .from('test_sessions')
@@ -41,6 +45,9 @@ export async function findResumableSession(
 
   query = unitId != null ? query.eq('unit_id', unitId) : query.is('unit_id', null);
   query = topicId != null ? query.eq('settings->>topic_id', String(topicId)) : query.is('settings->>topic_id', null);
+  if (unitId == null && lessonId !== undefined) {
+    query = lessonId != null ? query.eq('lesson_id', lessonId) : query.is('lesson_id', null);
+  }
   if (expectedGradeId !== undefined) {
     query = expectedGradeId != null ? query.eq('grade_id', expectedGradeId) : query.is('grade_id', null);
   }

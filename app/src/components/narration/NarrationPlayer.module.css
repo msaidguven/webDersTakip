@@ -1,0 +1,28 @@
+.stage {
+  background:
+    radial-gradient(1200px 600px at 15% 0%, rgb(99 102 241 / 0.22), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgb(236 72 153 / 0.14), transparent 60%),
+    #0b1020;
+}
+
+.screenIn { animation: screenIn 420ms cubic-bezier(.2, .8, .2, 1) both; }
+.titleIn { animation: titleIn 700ms cubic-bezier(.2, .8, .2, 1) both; }
+.ghostNo { animation: ghostIn 900ms ease-out both; }
+
+/* Kelime grubu: gizli → sesle birlikte bulanıklıktan netleşerek yukarı kayar. */
+/* inline (inline-block değil): uzun gruplar satır sonunda doğal kırılsın; transform inline'da
+   çalışmadığı için kayma efekti yerine bulanıklık + opaklık kullanılıyor. */
+.chunk {
+  transition: opacity 420ms ease-out, filter 420ms ease-out, color 300ms ease-out;
+}
+.chunkHidden { opacity: 0; filter: blur(10px); }
+
+@keyframes screenIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes titleIn { from { opacity: 0; transform: scale(.94); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes ghostIn { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .screenIn, .titleIn, .ghostNo { animation: none; }
+  .chunk { transition: opacity 200ms linear; }
+  .chunkHidden { filter: none; }
+}

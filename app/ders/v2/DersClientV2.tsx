@@ -9,9 +9,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Onest, Unbounded } from 'next/font/google';
-import { Sparkles, ChevronDown, X, ListTree, ArrowUp } from 'lucide-react';
+import { Sparkles, ChevronDown, X, ListTree, ArrowUp, Headphones } from 'lucide-react';
 import SectionContent from '../SectionContent';
 import { TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
 import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type Outcome, type Unit } from '../dersHelpers';
@@ -25,7 +26,11 @@ import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
 import TopicSwitcher from './TopicSwitcher';
+import { NARRATION_PILOT_TOPIC_IDS } from '@/app/src/lib/narration/config';
 import s from './DersClientV2.module.css';
+
+// Sesli anlatım oynatıcısı sadece açılınca yüklenir — sayfanın ilk yüküne eklenmez.
+const NarrationPlayer = dynamic(() => import('@/app/src/components/narration/NarrationPlayer'), { ssr: false });
 
 const displayFont = Unbounded({ subsets: ['latin', 'latin-ext'], weight: ['500', '700'], variable: '--font-v2-display', display: 'swap' });
 const bodyFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--font-v2-body', display: 'swap' });
@@ -114,6 +119,8 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const [slidesError, setSlidesError] = useState<string | null>(null);
   const [slidesExpanded, setSlidesExpanded] = useState(false);
   const [slidesReloadKey, setSlidesReloadKey] = useState(0);
+  const [narrationOpen, setNarrationOpen] = useState(false);
+  const hasNarration = topic != null && NARRATION_PILOT_TOPIC_IDS.has(Number(topic.id));
   const topicId = topic?.id;
   useEffect(() => {
     if (topicId == null) return;
@@ -308,6 +315,11 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
                 <button type="button" className={s.btnPrimary} onClick={() => scrollTo(highlights.length ? 'kavramlar' : 'bolumler')}>
                   Konuya başla <span className={s.arr} aria-hidden="true">→</span>
                 </button>
+                {hasNarration && (
+                  <button type="button" className={s.btnSoft} onClick={() => setNarrationOpen(true)}>
+                    <Headphones size={18} aria-hidden="true" /> Video / Sesli Anlatım
+                  </button>
+                )}
                 {hasTest && (
                   <button type="button" className={s.btnSoft} onClick={startTest} disabled={topicTest.loading}>
                     {topicTest.loading ? 'Test açılıyor…' : 'Kavrama testi'}
@@ -664,6 +676,10 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
           unitId={unit ? Number(unit.id) : null}
           onClose={() => setSlidesExpanded(false)}
         />,
+        document.body
+      )}
+      {narrationOpen && hasNarration && createPortal(
+        <NarrationPlayer topicId={Number(topic.id)} onClose={() => setNarrationOpen(false)} />,
         document.body
       )}
       {topicTest.testData && !topicTest.testData.conflict && createPortal(

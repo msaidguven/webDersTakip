@@ -144,20 +144,43 @@ export interface PersonalizedQuestionSet {
 // bir sayıya yol açıyordu (kullanıcının 2026-09-12 "ne alaka" tepkisi). Artık:
 //   1. Havuzda hiç çözülmemiş (unseen) soru VARSA: SADECE onlar gösterilir — "testi bitir"
 //      modu, SRS'e göre tekrar edilecek sorular bu aşamada HİÇ karışmaz.
-//   2. Unseen kalmadıysa (test gerçekten bitmişse): SRS'e göre tekrar zamanı GELMİŞ sorular
-//      (next_review_at <= şimdi), en acil (en eski next_review_at) önce.
-//   3. Unseen de due de yoksa (her şey çözülmüş, hiçbiri henüz tekrar vaktine gelmemiş):
-//      "hepsini bitirdim, neden testi tekrar açamıyorum" kafa karışıklığını önlemek için
-//      tekrar SIRASI EN YAKIN olan sorular (henüz vakti gelmemiş olsa da) getirilir.
+//   2. Unseen kalmadıysa (test gerçekten bitmişse): SRS'e göre tekrar zamanı GELMİŞ sorular.
+//   3. Unseen de due de yoksa: tekrar sırası EN YAKIN olan sorular (henüz vakti gelmemiş olsa da).
 // Havuzda gerçekten HİÇ soru yoksa allCaughtUp=true kalır.
+//
+// SIRA (2026-10-01, kullanıcı onayı): rastgele DEĞİL, müfredat sırası. Havuz konu gruplarına
+// bölünmüş gelir (konu sırasıyla, her konuda soru id sırasıyla). Seçim gruplar arasında sırayla
+// birer soru alarak yapılır (round-robin): konu testinde tek grup → konunun soruları sırayla;
+// ünite testinde her konudan dengeli pay (4 konu, 10 soru → 3/3/2/2) — "ünite testi" adı gibi
+// tüm üniteyi kapsar ama sorular konu sırasına dizilip gösterilir, karışık gelmez.
+// "Sıradaki 10 soru" (sequential_question_queue.sql) aynı "müfredat sırası + önce çözülmemiş"
+// kuralını ders kapsamında, dengesiz (konu konu) uygular.
+function pickInCurriculumOrder(groups: number[][], candidates: Set<number>, limit: number): number[] {
+  const queues = groups.map((g) => g.filter((id) => candidates.has(id)));
+  const picked: number[] = [];
+  for (let round = 0; picked.length < limit; round++) {
+    let progressed = false;
+    for (const q of queues) {
+      if (round < q.length && picked.length < limit) {
+        picked.push(q[round]);
+        progressed = true;
+      }
+    }
+    if (!progressed) break;
+  }
+  const position = new Map(groups.flat().map((id, i) => [id, i]));
+  return picked.sort((a, b) => (position.get(a) ?? 0) - (position.get(b) ?? 0));
+}
+
 async function selectPersonalizedQuestionIds(
   supabase: ReturnType<typeof createServiceClient>,
-  questionIds: number[],
+  groups: number[][],
   userId: string | null | undefined,
   limit: number
 ): Promise<{ questionIds: number[]; allCaughtUp: boolean }> {
+  const questionIds = groups.flat();
   if (!userId || questionIds.length === 0) {
-    return { questionIds: shuffle(questionIds).slice(0, limit), allCaughtUp: false };
+    return { questionIds: pickInCurriculumOrder(groups, new Set(questionIds), limit), allCaughtUp: false };
   }
 
   const { data: statsRows } = await supabase
@@ -174,43 +197,33 @@ async function selectPersonalizedQuestionIds(
   );
 
   const now = Date.now();
-  const unseen: number[] = [];
-  const due: { id: number; nextReviewAt: number }[] = [];
-
+  const unseen = new Set<number>();
+  const due = new Set<number>();
   for (const id of questionIds) {
     const stat = statsByQuestion.get(id);
-    if (!stat || !stat.total_attempts) {
-      unseen.push(id);
-      continue;
-    }
-    if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) {
-      due.push({ id, nextReviewAt: new Date(stat.next_review_at).getTime() });
-    }
-    // next_review_at gelecekte ise (henüz vakti gelmemiş): bilerek atlanıyor, fallback yok.
+    if (!stat || !stat.total_attempts) unseen.add(id);
+    else if (stat.next_review_at && new Date(stat.next_review_at).getTime() <= now) due.add(id);
+    // next_review_at gelecekte ise (henüz vakti gelmemiş): bu aşamada atlanıyor.
   }
 
-  due.sort((a, b) => a.nextReviewAt - b.nextReviewAt);
+  if (unseen.size > 0) return { questionIds: pickInCurriculumOrder(groups, unseen, limit), allCaughtUp: false };
+  if (due.size > 0) return { questionIds: pickInCurriculumOrder(groups, due, limit), allCaughtUp: false };
 
-  let ordered: number[];
-  if (unseen.length > 0) {
-    ordered = shuffle(unseen);
-  } else if (due.length > 0) {
-    ordered = due.map((d) => d.id);
-  } else {
-    ordered = Array.from(statsByQuestion.values())
-      .filter((s) => s.total_attempts && s.next_review_at)
-      .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime())
-      .map((s) => s.question_id);
-  }
-
-  return { questionIds: ordered.slice(0, limit), allCaughtUp: ordered.length === 0 };
+  // Mod 3: tekrar zamanı en yakın olanlar seçilir, gösterim yine müfredat sırasında.
+  const nearest = Array.from(statsByQuestion.values())
+    .filter((s) => s.total_attempts && s.next_review_at)
+    .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime())
+    .slice(0, limit)
+    .map((s) => s.question_id);
+  if (!nearest.length) return { questionIds: [], allCaughtUp: true };
+  return { questionIds: pickInCurriculumOrder(groups, new Set(nearest), limit), allCaughtUp: false };
 }
 
 // question_type_id=4 ("classical"/açık uçlu) HARİÇ — bu sorular öğretmenin Word'e
 // aktardığı, kendi kendine (otomatik) değerlendirilemeyen açık uçlu sorular; öğrenciye
 // hiçbir testte/soru bankasında gösterilmemeli (kullanıcı isteği, 2026-09-13).
 export async function getTopicQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, topicId: number | string): Promise<number[]> {
-  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true).neq('question_type_id', 4);
+  const { data: questionIdRows } = await supabase.from('questions').select('id').eq('topic_id', topicId).eq('is_active', true).neq('question_type_id', 4).order('id', { ascending: true });
   return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
 }
 
@@ -219,8 +232,8 @@ export async function getTopicQuestionPoolIds(supabase: ReturnType<typeof create
 export async function getTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
   const questionIds = await getTopicQuestionPoolIds(supabase, topicId);
-  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
-  return { questions: await resolveQuestions(selected), allCaughtUp };
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, [questionIds], userId, MAX_QUESTIONS_PER_TEST);
+  return { questions: await resolveQuestions(selected, { preserveOrder: true }), allCaughtUp };
 }
 
 export interface PersonalizedQuestionPlan {
@@ -236,7 +249,7 @@ export interface PersonalizedQuestionPlan {
 export async function planTopicTestQuestions(topicId: number | string, userId?: string | null): Promise<PersonalizedQuestionPlan> {
   const supabase = createServiceClient();
   const questionIds = await getTopicQuestionPoolIds(supabase, topicId);
-  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, [questionIds], userId, MAX_QUESTIONS_PER_TEST);
   if (!selected.length) return { firstQuestion: null, remainingQuestionIds: [], allCaughtUp };
   const [firstQuestion] = await resolveQuestions([selected[0]]);
   return { firstQuestion: firstQuestion ?? null, remainingQuestionIds: selected.slice(1), allCaughtUp };
@@ -304,30 +317,51 @@ export async function getQuestionsByIds(questionIds: number[]): Promise<QuizQues
   return resolveQuestions(questionIds, { preserveOrder: true });
 }
 
-export async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
-  const { data: topicRows } = await supabase.from('topics').select('id').eq('unit_id', unitId).eq('is_active', true).eq('is_archived', false);
+// Ünite havuzu konu gruplarına bölünmüş: konular order_no (sonra id) sırasıyla, her konuda
+// sorular id sırasıyla — seçim bu sırayı korur (bkz. pickInCurriculumOrder).
+export async function getUnitQuestionPoolGroups(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[][]> {
+  const { data: topicRows } = await supabase
+    .from('topics')
+    .select('id')
+    .eq('unit_id', unitId)
+    .eq('is_active', true)
+    .eq('is_archived', false)
+    .order('order_no', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true });
   const topicIds = ((topicRows as { id: number }[] | null) || []).map((t) => t.id);
   if (!topicIds.length) return [];
 
   // question_type_id=4 ("classical") HARİÇ — bkz. getTopicQuestionPoolIds'teki not.
-  const { data: questionIdRows } = await supabase.from('questions').select('id').in('topic_id', topicIds).eq('is_active', true).neq('question_type_id', 4);
-  return ((questionIdRows as { id: number }[] | null) || []).map((r) => r.id);
+  const { data: questionRows } = await supabase
+    .from('questions')
+    .select('id, topic_id')
+    .in('topic_id', topicIds)
+    .eq('is_active', true)
+    .neq('question_type_id', 4)
+    .order('id', { ascending: true });
+  const byTopic = new Map<number, number[]>(topicIds.map((id) => [id, []]));
+  for (const q of (questionRows as { id: number; topic_id: number }[] | null) || []) byTopic.get(q.topic_id)?.push(q.id);
+  return topicIds.map((id) => byTopic.get(id)!).filter((g) => g.length > 0);
+}
+
+export async function getUnitQuestionPoolIds(supabase: ReturnType<typeof createServiceClient>, unitId: number | string): Promise<number[]> {
+  return (await getUnitQuestionPoolGroups(supabase, unitId)).flat();
 }
 
 // Bir ünitenin tüm konularına ait sorular (ünite testi) — questions.topic_id üzerinden,
 // section_id'si dolu ya da boş fark etmeksizin.
 export async function getUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<PersonalizedQuestionSet> {
   const supabase = createServiceClient();
-  const questionIds = await getUnitQuestionPoolIds(supabase, unitId);
-  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
-  return { questions: await resolveQuestions(selected), allCaughtUp };
+  const groups = await getUnitQuestionPoolGroups(supabase, unitId);
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, groups, userId, MAX_QUESTIONS_PER_TEST);
+  return { questions: await resolveQuestions(selected, { preserveOrder: true }), allCaughtUp };
 }
 
 // planTopicTestQuestions ile aynı mantık, ünite testi için — bkz. o fonksiyonun yorumu.
 export async function planUnitTestQuestions(unitId: number | string, userId?: string | null): Promise<PersonalizedQuestionPlan> {
   const supabase = createServiceClient();
-  const questionIds = await getUnitQuestionPoolIds(supabase, unitId);
-  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, questionIds, userId, MAX_QUESTIONS_PER_TEST);
+  const groups = await getUnitQuestionPoolGroups(supabase, unitId);
+  const { questionIds: selected, allCaughtUp } = await selectPersonalizedQuestionIds(supabase, groups, userId, MAX_QUESTIONS_PER_TEST);
   if (!selected.length) return { firstQuestion: null, remainingQuestionIds: [], allCaughtUp };
   const [firstQuestion] = await resolveQuestions([selected[0]]);
   return { firstQuestion: firstQuestion ?? null, remainingQuestionIds: selected.slice(1), allCaughtUp };
