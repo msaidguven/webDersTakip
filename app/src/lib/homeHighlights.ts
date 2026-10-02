@@ -104,12 +104,14 @@ export interface RecentTopicItem {
   publishedAt: string;
   // Son 3 günde yayınlandı → anasayfada "YENİ" rozeti (sunucuda hesaplanır; sayfa ISR 1 saat).
   isNew: boolean;
+  // Konu kapak görseli (topic_contents.hero_image_url); yoksa kartta ders renginde ikon.
+  imageUrl: string | null;
 }
 
 export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, limit = 5, gradeId?: number): Promise<RecentTopicItem[]> {
   let query = supabase
     .from('topic_contents')
-    .select('created_at, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, grade_id, grades(name, slug, is_active), lessons(name, slug)))')
+    .select('created_at, hero_image_url, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, grade_id, grades(name, slug, is_active), lessons(name, slug)))')
     .eq('is_published', true)
     .eq('topics.is_active', true)
     .eq('topics.is_archived', false)
@@ -119,6 +121,7 @@ export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, li
 
   type Row = {
     created_at: string;
+    hero_image_url: string | null;
     topics: Rel<{
       id: number;
       title: string;
@@ -143,6 +146,7 @@ export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, li
       href: topicHref(grade.slug, lesson?.slug, unit?.slug, topic.slug),
       publishedAt: row.created_at,
       isNew: Date.now() - new Date(row.created_at).getTime() < 3 * 86_400_000,
+      imageUrl: row.hero_image_url,
     });
     if (items.length >= limit) break;
   }

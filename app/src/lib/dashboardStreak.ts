@@ -1,14 +1,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toDateString, todayDateString } from './dashboardDate';
 
-// Günlük hedef öğrencinin seçimi: profiles.daily_goal (10/20/40, bkz. profiles_daily_goal.sql,
-// 2026-09-29). DAILY_GOAL_QUESTIONS varsayılan — profil okunamazsa/eski satırda kullanılır.
+// Günlük hedef öğrencinin seçimi: profiles.daily_goal — 5–100 arası, 5'er adım (2026-10-02,
+// önceden yalnız 10/20/40; bkz. profiles_daily_goal_flexible.sql). DAILY_GOAL_QUESTIONS varsayılan —
+// profil okunamazsa/geçersiz değerde kullanılır. Sınırlar DB kısıtı ve set_my_daily_goal ile AYNI.
 export const DAILY_GOAL_QUESTIONS = 20;
-export const DAILY_GOAL_OPTIONS = [10, 20, 40] as const;
-export type DailyGoal = (typeof DAILY_GOAL_OPTIONS)[number];
+export const DAILY_GOAL_MIN = 5;
+export const DAILY_GOAL_MAX = 100;
+export const DAILY_GOAL_STEP = 5;
+// Seçicideki hızlı seçimler.
+export const DAILY_GOAL_PRESETS = [10, 20, 30, 50, 100] as const;
+export type DailyGoal = number;
+
+export function isValidDailyGoal(value: unknown): value is DailyGoal {
+  return typeof value === 'number' && Number.isInteger(value) && value >= DAILY_GOAL_MIN && value <= DAILY_GOAL_MAX && value % DAILY_GOAL_STEP === 0;
+}
 
 export function parseDailyGoal(value: unknown): DailyGoal {
-  return (DAILY_GOAL_OPTIONS as readonly unknown[]).includes(value) ? (value as DailyGoal) : DAILY_GOAL_QUESTIONS;
+  return isValidDailyGoal(value) ? value : DAILY_GOAL_QUESTIONS;
 }
 
 const STREAK_LOOKBACK_DAYS = 60;

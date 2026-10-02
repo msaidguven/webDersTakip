@@ -28,8 +28,8 @@ interface LeaderboardCardProps {
 
 // Haftalık sıralama — 2026-09-29'dan beri TÜM SINIFLAR tek liste (öğrenci sayısı az; bkz.
 // weekly_leaderboard_all_grades.sql), geçici sahte kayıtlarla karışık (leaderboardSeed.ts).
-// Başka öğrencilerin kimliği gösterilmez: isim sunucuda "Ad S." biçimine indirgenir
-// (format_public_name, bkz. get_weekly_leaderboard RPC'si).
+// 2026-10-02'den beri tam ad (kullanıcı kararı) ya da öğrencinin seçtiği takma ad; isim sunucuda
+// belirlenir (leaderboard_display_name, bkz. leaderboard_full_names_and_nickname.sql).
 export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCardProps) {
   const { user, supabase } = useAuth();
   const isAdmin = useIsAdmin();

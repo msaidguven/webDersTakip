@@ -16,8 +16,8 @@ type LeaderboardRow = { rank: number; display_name: string; total_questions: num
 
 // get_weekly_leaderboard (bkz. supabase/migrations/add_weekly_leaderboard_rpc.sql) SECURITY
 // DEFINER bir RPC — çağıranın kendi grade_id'sini kendisi bulur, başka kullanıcıların
-// user_id/full_name/email'ini asla döndürmez, sadece sıra + "Ad S." biçiminde isim (bkz.
-// format_public_name, 2026-09-26'dan beri anasayfayla aynı) + soru sayısı. Sonuç boşsa ya çağıranın grade_id'si yok ya da bu hafta o
+// user_id/email'ini asla döndürmez, sadece sıra + görünen ad (2026-10-02'den beri tam ad ya da
+// öğrencinin seçtiği takma ad, bkz. leaderboard_display_name) + soru sayısı. Sonuç boşsa ya çağıranın grade_id'si yok ya da bu hafta o
 // sınıfta kimse (kendisi dahil) hiç soru çözmemiş demektir.
 export async function getWeeklyLeaderboard(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

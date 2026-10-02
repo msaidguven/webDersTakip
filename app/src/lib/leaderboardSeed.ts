@@ -13,11 +13,14 @@
 // gerçek veride haftanın en aktif öğrencisi ~116 soruda kalırken listenin DİBİNE düşüyordu
 // (116 soru ile 33. sıra), yani teşvik yerine caydırıyordu. Artık 12 kayıt, her gün 5-25 soru
 // (kullanıcı kararı, 2026-09-26).
-// Panel de anasayfa da "Ad S." gösterdiği için rumuz tarzı kayıtlar kaldırıldı.
+// 2026-10-02: gerçek öğrenciler artık tam adla göründüğü için sahte kayıtlar da tam ad; liste
+// 12 → 20 (kullanıcı isteği, soyadları kullanıcının verdiği listeden).
 const SEED_NAMES: Record<string, string> = {
-  ahmet_demir23: 'Ahmet D.', zeynep_kara56: 'Zeynep K.', elif_su19: 'Elif S.', yusuf_aydin: 'Yusuf A.',
-  ayse_nur34: 'Ayşe N.', emre_kaya07: 'Emre K.', irem_dogan: 'İrem D.', kerem_ozturk15: 'Kerem Ö.',
-  defne_avci: 'Defne A.', kaan_sahin: 'Kaan Ş.', cinar_gunes14: 'Çınar G.', yagmur_ceylan: 'Yağmur C.',
+  ahmet_demir23: 'Ahmet Demir', zeynep_kara56: 'Zeynep Kaya', elif_su19: 'Elif Yıldız', yusuf_aydin: 'Yusuf Aslan',
+  ayse_nur34: 'Ayşe Yılmaz', emre_kaya07: 'Emre Doğan', irem_dogan: 'İrem Pamuk', kerem_ozturk15: 'Kerem Toprak',
+  defne_avci: 'Defne Ay', kaan_sahin: 'Kaan Güneş', cinar_gunes14: 'Çınar Deniz', yagmur_ceylan: 'Yağmur Bayram',
+  mert_ok: 'Mert Ok', ecrin_demir: 'Ecrin Demir', ali_yilmaz: 'Ali Yılmaz', nehir_kaya: 'Nehir Kaya',
+  berk_aslan: 'Berk Aslan', asel_gunes: 'Asel Güneş', omer_dogan: 'Ömer Doğan', duru_toprak: 'Duru Toprak',
 };
 
 function hashString(str: string): number {

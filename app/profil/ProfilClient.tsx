@@ -13,10 +13,13 @@ import { PanelShell } from '@/app/src/components/PanelShell';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '@/app/src/lib/username';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
+import { SettingsCard } from './SettingsCard';
 
 interface ProfileRow {
   full_name: string | null;
   username: string | null;
+  nickname: string | null;
+  use_nickname: boolean;
   avatar_url: string | null;
   grade_id: number | null;
   city_id: number | null;
@@ -306,7 +309,7 @@ export default function ProfilClient() {
       userName={fullName}
       weeklyActiveDays={weeklyActiveDays}
       title="Profilim"
-      subtitle="Hesap bilgilerini ve performansını yönet."
+      subtitle="Hesap bilgilerin, ayarların ve performansın."
     >
       {!authUser ? (
         <div className="max-w-2xl mx-auto">
@@ -430,12 +433,21 @@ export default function ProfilClient() {
           </div>
         )}
 
+        {/* Ayarlar: hatırlatma + günlük hedef (öğretmende hedef yok) */}
+        <SettingsCard isStudent={profile?.role !== 'teacher'} />
+
         {/* Kişisel Bilgiler */}
         <PersonalInfoCard
-          key={profile ? `name-ready-${profile.full_name}-${profile.username}` : 'name-loading'}
+          key={profile ? `name-ready-${profile.full_name}-${profile.username}-${profile.nickname}-${profile.use_nickname}` : 'name-loading'}
           initialFullName={profile?.full_name ?? fullName}
           initialUsername={profile?.username ?? username}
-          onSaved={(name, uname) => { setFullName(name); setUsername(uname); }}
+          initialNickname={profile?.nickname ?? null}
+          initialUseNickname={profile?.use_nickname ?? false}
+          onSaved={(name, uname, nickname, useNickname) => {
+            setFullName(name);
+            setUsername(uname);
+            setProfile((p) => (p ? { ...p, full_name: name, username: uname, nickname, use_nickname: useNickname } : p));
+          }}
         />
 
         {/* Okul Bilgileri */}
@@ -600,16 +612,23 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
 function PersonalInfoCard({
   initialFullName,
   initialUsername,
+  initialNickname,
+  initialUseNickname,
   onSaved,
 }: {
   initialFullName: string;
   initialUsername: string | null;
-  onSaved: (name: string, username: string | null) => void;
+  initialNickname: string | null;
+  initialUseNickname: boolean;
+  onSaved: (name: string, username: string | null, nickname: string | null, useNickname: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(initialFullName);
   const [uname, setUname] = useState(initialUsername ?? '');
+  // Haftalık sıralamada tam ad yerine görünecek takma ad (bkz. leaderboard_full_names_and_nickname.sql).
+  const [nick, setNick] = useState(initialNickname ?? '');
+  const [useNick, setUseNick] = useState(initialUseNickname);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   const showNotice = useCallback((kind: 'success' | 'error', text: string) => {
@@ -628,13 +647,20 @@ function PersonalInfoCard({
       showNotice('error', USERNAME_RULES_MESSAGE);
       return;
     }
+    const trimmedNick = nick.replace(/\s+/g, ' ').trim();
+    if (useNick && trimmedNick.length < 2) {
+      showNotice('error', 'Sıralamada takma adın görünsün istiyorsan en az 2 karakterlik bir takma ad yaz');
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const [res] = await Promise.all([
       fetch('/api/profile/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch: { full_name: trimmedName, username: trimmedUsername || null } }),
+        body: JSON.stringify({
+          patch: { full_name: trimmedName, username: trimmedUsername || null, nickname: trimmedNick || null, use_nickname: useNick && !!trimmedNick },
+        }),
       }),
       supabase.auth.updateUser({ data: { full_name: trimmedName } }),
     ]);
@@ -644,7 +670,7 @@ function PersonalInfoCard({
       showNotice('error', data.error || 'Kaydedilemedi');
       return;
     }
-    onSaved(trimmedName, trimmedUsername || null);
+    onSaved(trimmedName, trimmedUsername || null, trimmedNick || null, useNick && !!trimmedNick);
     showNotice('success', 'Bilgiler kaydedildi');
     setEditing(false);
   }
@@ -680,6 +706,9 @@ function PersonalInfoCard({
           <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
             @ {initialUsername || 'Kullanıcı adı belirtilmemiş'}
           </span>
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
+            🏆 Sıralamada: {initialUseNickname && initialNickname ? initialNickname : initialFullName || 'Öğrenci'}
+          </span>
         </div>
       ) : (
         <div className="space-y-4">
@@ -707,12 +736,36 @@ function PersonalInfoCard({
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1.5">
-              Liderlik tablosunda ve yorumlarında gerçek adın yerine bu görünür. Boş bırakırsan &quot;Öğrenci&quot; yazar.
+              Yorumlarında gerçek adın yerine bu görünür. Boş bırakırsan &quot;Öğrenci&quot; yazar.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="takma-ad" className="block text-muted-foreground text-xs font-medium mb-1.5">Takma Ad</label>
+            <input
+              id="takma-ad"
+              type="text"
+              value={nick}
+              onChange={(e) => setNick(e.target.value)}
+              maxLength={24}
+              placeholder="ör. Kuantum Ayşe"
+              className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+            />
+            <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-default">
+              <input
+                type="checkbox"
+                checked={useNick}
+                onChange={(e) => setUseNick(e.target.checked)}
+                className="h-4 w-4 rounded border-default accent-indigo-600"
+              />
+              Haftalık sıralamada adım yerine takma adım görünsün
+            </label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Seçmezsen sıralamada ad soyadın görünür (anasayfadaki &quot;Bu haftanın en çalışkanları&quot; listesi dahil).
             </p>
           </div>
           <div className="flex gap-3 pt-1">
             <button
-              onClick={() => { setEditing(false); setName(initialFullName); setUname(initialUsername ?? ''); }}
+              onClick={() => { setEditing(false); setName(initialFullName); setUname(initialUsername ?? ''); setNick(initialNickname ?? ''); setUseNick(initialUseNickname); }}
               className="px-4 py-2 rounded-xl bg-surface border border-default text-muted-foreground hover:bg-surface-elevated text-sm font-medium transition-colors"
             >
               İptal

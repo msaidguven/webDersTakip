@@ -34,8 +34,12 @@ function toWords(markdown: string): ScriptWord[] {
     for (const t of piece.split(/\s+/)) if (t) words.push({ t, em: i % 2 === 1 });
   });
   // "**hücre**," gibi durumlarda noktalama ayrı bir "kelime" olarak kalır — öncekine yapıştır.
+  // Boşlukla gruplanmış sayılar ("7 806 015 239'un") tek kelimeye birleştirilir (nbsp ile): aksi halde
+  // 2-4 kelimelik gruplara bölünürken sayı ikiye ayrılır ve okunuş kuralı (speech.ts) onu bütün göremez.
   return words.reduce<ScriptWord[]>((acc, w) => {
-    if (/^[.,;:!?)]+$/.test(w.t) && acc.length) acc[acc.length - 1] = { ...acc[acc.length - 1], t: acc[acc.length - 1].t + w.t };
+    const prev = acc[acc.length - 1];
+    if (/^[.,;:!?)]+$/.test(w.t) && prev) acc[acc.length - 1] = { ...prev, t: prev.t + w.t };
+    else if (prev && /^\d{3}(?!\d)/.test(w.t) && /^\d{1,3}(?:\u00a0\d{3})*$/.test(prev.t)) acc[acc.length - 1] = { ...prev, t: `${prev.t}\u00a0${w.t}` };
     else acc.push(w);
     return acc;
   }, []);

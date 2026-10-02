@@ -5,97 +5,28 @@
 // Service worker da ancak o an kaydedilir. iPhone'da Web Push yalnızca "Ana ekrana ekle" ile
 // açılmış sitede çalışır — orada önce bunu anlatırız.
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Bell, BellOff, Share } from 'lucide-react';
+import { usePushReminder } from '@/app/src/hooks/usePushReminder';
 
-type State = 'loading' | 'unsupported' | 'ios-install' | 'denied' | 'available' | 'subscribed' | 'working' | 'error';
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+// Abonelik mantığı usePushReminder'da (Profilim → Ayarlar ile ortak). Bu kart yalnızca hatırlatma
+// kapalıyken ve kullanıcı "Şimdi değil" demediyse görünür; ayarın kalıcı yeri Profilim → Ayarlar.
 const DISMISS_KEY = 'dt-push-optin-dismissed';
 
-function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(padded);
-  const out = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
-
-function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-function isStandalone(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-}
-
-async function detectState(): Promise<State> {
-  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!VAPID_PUBLIC_KEY;
-  if (!supported) return isIos() && !isStandalone() ? 'ios-install' : 'unsupported';
-  if (Notification.permission === 'denied') return 'denied';
-  const reg = await navigator.serviceWorker.getRegistration('/');
-  const sub = await reg?.pushManager.getSubscription();
-  return sub ? 'subscribed' : 'available';
-}
-
 export function PushReminderOptIn() {
-  const [state, setState] = useState<State>('loading');
-  const [dismissed, setDismissed] = useState(false);
+  const { state, subscribe } = usePushReminder();
+  const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
     let wasDismissed = false;
     try {
       wasDismissed = localStorage.getItem(DISMISS_KEY) === '1';
     } catch {
       /* yok say */
     }
-    detectState()
-      .catch((): State => 'unsupported')
-      .then((s) => {
-        if (cancelled) return;
-        setDismissed(wasDismissed);
-        setState(s);
-      });
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage yalnızca istemcide okunabilir
+    setDismissed(wasDismissed);
   }, []);
-
-  const subscribe = async () => {
-    setState('working');
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setState(permission === 'denied' ? 'denied' : 'available');
-        return;
-      }
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) }));
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON() }),
-      });
-      setState(res.ok ? 'subscribed' : 'error');
-    } catch {
-      setState('error');
-    }
-  };
-
-  const unsubscribe = async () => {
-    setState('working');
-    try {
-      const reg = await navigator.serviceWorker.getRegistration('/');
-      const sub = await reg?.pushManager.getSubscription();
-      if (sub) {
-        await fetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
-        await sub.unsubscribe();
-      }
-      setState('available');
-    } catch {
-      setState('error');
-    }
-  };
 
   const dismiss = () => {
     setDismissed(true);
@@ -106,19 +37,7 @@ export function PushReminderOptIn() {
     }
   };
 
-  if (state === 'loading' || state === 'unsupported') return null;
-
-  if (state === 'subscribed') {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Bell className="h-4 w-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
-        Akşam hatırlatmaları açık.
-        <button type="button" onClick={() => void unsubscribe()} className="font-bold text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400">
-          Kapat
-        </button>
-      </p>
-    );
-  }
+  if (state === 'loading' || state === 'unsupported' || state === 'subscribed') return null;
 
   if (dismissed) return null;
 
@@ -142,6 +61,9 @@ export function PushReminderOptIn() {
             ) : (
               'O gün hiç soru çözmediysen akşam 19:00’da tek bir hatırlatma. Günde en fazla bir kez.'
             )}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            İstediğin zaman <Link href="/profil#ayarlar" className="font-bold text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400">Profilim → Ayarlar</Link>’dan açıp kapatabilirsin.
           </p>
         </div>
       </div>

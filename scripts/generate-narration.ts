@@ -4,6 +4,7 @@
 // Kullanım:
 //   npx tsx scripts/generate-narration.ts 567 --dry-run      (sadece ekran/grup bölmesini yazdırır)
 //   npx tsx scripts/generate-narration.ts 567                (Azure, varsayılan ses: azureTts.ts AZURE_NARRATION_VOICES)
+//     (--voice yoksa konunun mevcut sesi korunur; hiç anlatımı yoksa varsayılan ses)
 //     --voice=tr-TR-EmelNeural               belirli bir Azure sesi
 //     --force-section=4,5                      bu bölümleri önbelleğe bakmadan yeniden seslendir
 //     --provider=gemini [--voice=Charon] [--model=gemini-3.8-flash-lite-tts]   (ücretsiz kota ~10 istek/gün)
@@ -15,6 +16,8 @@ import { createAzureEngine } from '../app/src/lib/narration/azureTts';
 import { createGeminiEngine } from '../app/src/lib/narration/geminiTts';
 import { generateTopicNarration, loadNarrationSource } from '../app/src/lib/narration/generateTopicNarration';
 import type { NarrationEngine } from '../app/src/lib/narration/engine';
+import { NARRATION_BUCKET, narrationManifestPath } from '../app/src/lib/narration/config';
+import type { NarrationManifest } from '../app/src/lib/narration/types';
 
 function loadEnv(): Record<string, string> {
   const vars: Record<string, string> = {};
@@ -44,7 +47,22 @@ async function pickEngine(): Promise<NarrationEngine> {
     });
   }
   if (!env.AZURE_SPEECH_KEY || !env.AZURE_SPEECH_REGION) throw new Error('.env.local: AZURE_SPEECH_KEY / AZURE_SPEECH_REGION eksik');
-  return createAzureEngine(env.AZURE_SPEECH_KEY, env.AZURE_SPEECH_REGION, arg('voice') ? [arg('voice')!] : undefined);
+  // --voice verilmediyse konunun MEVCUT sesi korunur (okunuş kuralı düzeltmelerinde eski Elif konuları
+  // Ahmet'e dönmesin, sadece değişen cümleler aynı sesle yeniden üretilsin — 2026-10-03). Anlatımı hiç
+  // olmayan konu varsayılan sesi (AZURE_NARRATION_VOICES) alır.
+  const voice = arg('voice') ?? (await existingAzureVoice());
+  return createAzureEngine(env.AZURE_SPEECH_KEY, env.AZURE_SPEECH_REGION, voice ? [voice] : undefined);
+}
+
+async function existingAzureVoice(): Promise<string | null> {
+  const { data } = await supabase.storage.from(NARRATION_BUCKET).download(narrationManifestPath(topicId));
+  if (!data) return null;
+  try {
+    const manifest = JSON.parse(await data.text()) as NarrationManifest;
+    return manifest.voice.provider === 'azure' ? manifest.voice.voice : null;
+  } catch {
+    return null;
+  }
 }
 
 async function main() {

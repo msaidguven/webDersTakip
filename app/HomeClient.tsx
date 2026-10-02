@@ -151,20 +151,21 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
             />
           )}
 
-          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-            <RecentTopicsCard topics={recent} gradeName={isAuthenticated ? selectedGrade?.name : null} />
+          {recent.length > 0 && <RecentTopicsCard topics={recent} gradeName={isAuthenticated ? selectedGrade?.name : null} />}
+
+          {/* Son satır: misafirde "Ders Takip nedir?" (+üyelik), girişlide Günün Sorusu — yanında sıralama. */}
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
+            {isAuthenticated ? (
+              dailyQuestion && (
+                <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
+                  <DailyQuestionCard data={dailyQuestion} />
+                </div>
+              )
+            ) : (
+              <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />
+            )}
             <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
           </div>
-
-          {isAuthenticated && dailyQuestion && (
-            <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
-              <div className="lg:max-w-xl">
-                <DailyQuestionCard data={dailyQuestion} />
-              </div>
-            </div>
-          )}
-
-          {!isAuthenticated && <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />}
         </div>
       </main>
     </div>

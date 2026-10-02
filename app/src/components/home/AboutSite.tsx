@@ -6,12 +6,12 @@ import type { SiteStats } from '@/app/src/lib/homeStats';
 // neredeyse hiç geçmez oldu ve "ders takip" aramasında anasayfa geriledi. Sitenin kim olduğunu
 // ve ne sunduğunu düz metinle söyleyen kısa bölüm — rakamlar ve sınıf aralığı gerçek veriden
 // (sınıflar her hafta ekleniyor, elle yazılmaz). METİN SEO İÇİN KORUNMALI.
-// v4 sade tasarım (2026-10-02): yanında tek üyelik kartı (eski ayrı JoinBand'ın yerine).
+// 2026-10-02: metnin altında tek üyelik kartı (eski ayrı JoinBand'ın yerine); sayfada sıralamanın yanında.
 export function AboutSite({ gradeLevels, stats }: { gradeLevels: number[]; stats: SiteStats }) {
   const gradeRange = formatGradeRange(gradeLevels);
   return (
-    <section aria-labelledby="ders-takip-nedir" className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="flex max-w-xl flex-col gap-4">
+    <section aria-labelledby="ders-takip-nedir" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <h2 id="ders-takip-nedir" className="text-2xl font-bold tracking-tight text-default">
           Ders Takip nedir?
         </h2>
@@ -26,7 +26,7 @@ export function AboutSite({ gradeLevels, stats }: { gradeLevels: number[]; stats
           senin için takip eder. Yeni sınıflar ve dersler her hafta ekleniyor.
         </p>
       </div>
-      <div className="flex flex-col gap-4 rounded-[20px] border border-indigo-100 bg-indigo-50 p-7 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+      <div className="flex flex-col gap-3 rounded-[20px] border border-indigo-100 bg-indigo-50 p-6 dark:border-indigo-500/20 dark:bg-indigo-500/10">
         <h3 className="text-lg font-bold text-default">Çözdüğün her soru kaydedilsin</h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Yanlışların tekrar zamanı gelince önüne gelir, ilerlemeni görürsün, haftalık sıralamaya girersin.

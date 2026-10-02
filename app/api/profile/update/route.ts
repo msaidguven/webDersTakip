@@ -3,7 +3,9 @@ import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 
-const EDITABLE_FIELDS = ['full_name', 'username', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
+const EDITABLE_FIELDS = ['full_name', 'username', 'nickname', 'use_nickname', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
+// Sıralamadaki takma ad (bkz. leaderboard_full_names_and_nickname.sql): harf, rakam, boşluk, . _ -
+const NICKNAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,22}[\p{L}\p{N}]$/u;
 const MAX_TEACHER_LESSONS = 10;
 
 // Kullanıcı adı kuralı app/src/lib/username.ts'te (DB'de profiles_username_format CHECK'i
@@ -27,7 +29,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('full_name, username, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed, profile_prompt_pending')
+    .select('full_name, username, nickname, use_nickname, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed, profile_prompt_pending')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -78,6 +80,20 @@ export async function PATCH(request: NextRequest) {
     } else if (typeof raw !== 'string' || !USERNAME_PATTERN.test(raw)) {
       return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 });
     }
+  }
+
+  if ('nickname' in patch) {
+    const raw = typeof patch.nickname === 'string' ? patch.nickname.replace(/\s+/g, ' ').trim() : patch.nickname;
+    if (raw === null || raw === '') {
+      patch.nickname = null;
+    } else if (typeof raw !== 'string' || !NICKNAME_PATTERN.test(raw)) {
+      return NextResponse.json({ error: 'Takma ad 2-24 karakter olmalı; harf, rakam, boşluk ve . _ - içerebilir' }, { status: 400 });
+    } else {
+      patch.nickname = raw;
+    }
+  }
+  if ('use_nickname' in patch && typeof patch.use_nickname !== 'boolean') {
+    return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
   // Profilde herhangi bir şeyi kaydeden kullanıcı uyarının amacını yerine getirmiş olur.

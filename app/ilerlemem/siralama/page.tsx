@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
       userName={fullName || 'Öğrenci'}
       weeklyActiveDays={weeklyActiveDays}
       title="Haftalık Sıralama"
-      subtitle="Bu hafta en çok soru çözen öğrenciler (tüm sınıflar). Her pazartesi sıfırlanır."
+      subtitle="Bu hafta en çok soru çözen ilk 20 öğrenci (tüm sınıflar). Her pazartesi sıfırlanır."
     >
       <div className="max-w-2xl mx-auto">
         {authLoading ? (
@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
         ) : !user ? (
           <AuthPrompt message="Sıralamanı görmek için giriş yap." />
         ) : (
-          <LeaderboardCard limit={100} showSeeAll={false} />
+          <LeaderboardCard limit={20} showSeeAll={false} />
         )}
       </div>
     </PanelShell>

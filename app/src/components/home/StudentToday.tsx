@@ -18,7 +18,6 @@ import { SEQUENTIAL_TEST_SIZE, sequentialTestHref, type LessonNextStep } from '@
 import { PushReminderOptIn } from './PushReminderOptIn';
 
 const DAY_LABELS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
-const DATE_FMT = new Intl.DateTimeFormat('tr-TR', { weekday: 'long', timeZone: 'Europe/Istanbul' });
 
 function taskCopy(task: TodayTask): { title: string; detail: string; cta: string; href: string; progress?: number } {
   switch (task.kind) {
@@ -69,9 +68,10 @@ function Skeleton() {
   );
 }
 
-const card = 'rounded-[20px] border border-default bg-background';
+// Belirgin kart (2026-10-02, kullanıcı: "kartlar belirgin olsun"): kırık beyaz zeminde ince çerçeve
+// tek başına kayboluyordu — biraz koyu çerçeve + yumuşak gölge.
+const card = 'rounded-[20px] border border-zinc-200 bg-background shadow-[0_1px_2px_rgba(16,16,40,0.05),0_6px_16px_-8px_rgba(16,16,40,0.14)] dark:border-default dark:shadow-none';
 const btnPrimary = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-indigo-700';
-const btnGhost = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-default bg-background px-5 text-[15px] font-semibold text-default transition-colors hover:bg-surface';
 
 // lessonsAside: masaüstünde Derslerim'in yanında gösterilecek kart (anasayfa: kendi sınıfının
 // "Okulda bu hafta"sı). Yoksa Derslerim tam genişlik.
@@ -90,10 +90,7 @@ export function StudentToday({ lessonsAside }: { lessonsAside?: React.ReactNode 
   return (
     <section aria-labelledby="bugun-baslik" className="flex flex-col gap-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {DATE_FMT.format(new Date())}
-          {data.gradeName ? ` · ${data.gradeName}` : ''}
-        </p>
+        {data.gradeName && <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{data.gradeName}</p>}
         <h1 id="bugun-baslik" className="mt-1 text-[34px] font-bold tracking-[-0.03em] text-default sm:text-[42px]">
           Tekrar hoş geldin, {data.firstName}.
         </h1>
@@ -219,7 +216,7 @@ function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[
   const learnedByLesson = new Map((mastery?.lessons ?? []).map((l) => [l.id, { learned: l.counts.learned, total: l.topics.length }]));
 
   return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {lessons.map((lesson) => {
         const id = Number(lesson.id);
         const step = nextSteps.get(id);
@@ -230,20 +227,24 @@ function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[
         const count = step ? Math.min(SEQUENTIAL_TEST_SIZE, step.remaining) : 0;
         const pct = learned && learned.total > 0 ? Math.max(3, Math.round((learned.learned / learned.total) * 100)) : 0;
 
+        // Sıkı kart (2026-10-02, kullanıcı: "bir bakışta her şeyi görebilsin"): buton ders adının
+        // sağında küçük, durum tek satır, ilerleme çizgisi altta — kart yüksekliği ~yarıya indi.
+        const btnSm = 'inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-semibold transition-colors';
+        const solid = `${btnSm} bg-indigo-600 text-white hover:bg-indigo-700`;
         let action: React.ReactNode = null;
         let detail: React.ReactNode = null;
         if (open) {
           action = (
-            <Link href={open.href} className={`${btnPrimary} w-full`} aria-label={`${open.title} testine devam et, ${open.answered}/${open.total}`}>
-              Devam et · {open.answered}/{open.total}
+            <Link href={open.href} className={solid} aria-label={`${open.title} testine devam et, ${open.answered}/${open.total}`}>
+              Devam · {open.answered}/{open.total}
             </Link>
           );
-          detail = 'Yarım kalan testin var';
+          detail = <span className="font-medium text-amber-700 dark:text-amber-400">Yarım kalan testin var</span>;
         } else if (lesson.totalQuestions === 0) {
-          detail = 'Bu dersin soruları yakında.';
+          detail = 'Soruları yakında';
         } else if (step && step.remaining > 0) {
           action = (
-            <Link href={sequentialTestHref(step.lessonId)} className={`${btnPrimary} w-full`} aria-label={`${lesson.name}: sıradaki ${count} soruyu çöz`}>
+            <Link href={sequentialTestHref(step.lessonId)} className={solid} aria-label={`${lesson.name}: sıradaki ${count} soruyu çöz`}>
               {count} soru çöz
             </Link>
           );
@@ -267,44 +268,47 @@ function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[
           }
         } else if (step) {
           action = (
-            <Link href="/tekrar" className={`${btnGhost} w-full`}>
-              Yanlışlarını tekrar et
+            <Link href="/tekrar" className={`${btnSm} border border-default bg-background text-default hover:bg-surface`}>
+              Tekrar et
             </Link>
           );
-          detail = step.hasCalendar ? 'Okulda işlenen konuların hepsini çözdün' : 'Bu dersteki tüm soruları çözdün';
+          detail = step.hasCalendar ? 'İşlenen konuların hepsini çözdün' : 'Tüm soruları çözdün';
         } else if (lesson.soruBankasiHref) {
           action = (
-            <Link href={lesson.soruBankasiHref} className={`${btnPrimary} w-full`}>
+            <Link href={lesson.soruBankasiHref} className={solid}>
               Soru çöz
             </Link>
           );
         }
 
         return (
-          <li key={lesson.id} className={`${card} flex flex-col gap-4 p-5`}>
+          <li key={lesson.id} className={`flex flex-col gap-2.5 rounded-2xl border p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] ${subjectStyle(lesson.name).tint}`}>
             <div className="flex items-center gap-3">
-              <SubjectIcon lessonName={lesson.name} />
-              {lesson.lessonHref ? (
-                <Link href={lesson.lessonHref} className="min-w-0 flex-1 font-semibold leading-tight text-default hover:text-indigo-600 dark:hover:text-indigo-400">
-                  {lesson.name}
-                </Link>
-              ) : (
-                <span className="min-w-0 flex-1 font-semibold leading-tight text-default">{lesson.name}</span>
-              )}
-              {open && <span className="shrink-0 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Yarım test</span>}
+              <SubjectIcon lessonName={lesson.name} variant="solid" />
+              <div className="min-w-0 flex-1">
+                {lesson.lessonHref ? (
+                  <Link href={lesson.lessonHref} className="line-clamp-1 text-[15px] font-semibold leading-tight text-default hover:text-indigo-600 dark:hover:text-indigo-400" title={lesson.name}>
+                    {lesson.name}
+                  </Link>
+                ) : (
+                  <span className="line-clamp-1 text-[15px] font-semibold leading-tight text-default" title={lesson.name}>
+                    {lesson.name}
+                  </span>
+                )}
+                {learned && learned.total > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {learned.learned} / {learned.total} konu öğrenildi
+                  </span>
+                )}
+              </div>
+              {action}
             </div>
             {learned && learned.total > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs text-muted-foreground">
-                  {learned.learned} / {learned.total} konu öğrenildi
-                </p>
-                <span className="block h-1 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
-                  <span className={`block h-full rounded-full ${subjectStyle(lesson.name).bar}`} style={{ width: `${pct}%` }} />
-                </span>
-              </div>
+              <span className="block h-1 overflow-hidden rounded-full bg-background/80" aria-hidden="true">
+                <span className={`block h-full rounded-full ${subjectStyle(lesson.name).bar}`} style={{ width: `${pct}%` }} />
+              </span>
             )}
-            {detail && <p className="text-sm leading-snug text-muted-foreground">{detail}</p>}
-            {action && <div className="mt-auto">{action}</div>}
+            {detail && <p className="truncate text-[13px] text-muted-foreground">{detail}</p>}
           </li>
         );
       })}
