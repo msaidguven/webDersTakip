@@ -12,11 +12,12 @@ import AiContentWorkerStatsPanel from '@/app/src/components/admin/AiContentWorke
 import AiTopicHighlightsPanel from '@/app/src/components/admin/AiTopicHighlightsPanel';
 import RagTopicBuilderPanel from '@/app/src/components/admin/RagTopicBuilderPanel';
 import TeacherGuideDocumentsPanel from '@/app/src/components/admin/TeacherGuideDocumentsPanel';
+import NarrationWorkerPanel from '@/app/src/components/admin/NarrationWorkerPanel';
 import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'content-drafts' | 'worker-stats' | 'highlights' | 'build' | 'teacher-guide';
+type Tab = 'reports' | 'qa' | 'documents' | 'drafts' | 'content-drafts' | 'worker-stats' | 'highlights' | 'build' | 'teacher-guide' | 'narration';
 
 export default function DersNotuRagPage() {
   return (
@@ -53,6 +54,7 @@ function DersNotuRagPageInner() {
           <TabButton active={tab === 'content-drafts'} onClick={() => setTab('content-drafts')} label="AI İçerik Taslakları" />
           <TabButton active={tab === 'worker-stats'} onClick={() => setTab('worker-stats')} label="Model Performansı" />
           <TabButton active={tab === 'highlights'} onClick={() => setTab('highlights')} label="AI Anahtar Kavramlar" />
+          <TabButton active={tab === 'narration'} onClick={() => setTab('narration')} label="Sesli Anlatım" />
           <TabButton active={tab === 'build'} onClick={() => setTab('build')} label="Sentezle RAG Oluştur" />
           <TabButton active={tab === 'teacher-guide'} onClick={() => setTab('teacher-guide')} label="Öğretmen Kılavuzu" />
         </div>
@@ -63,6 +65,7 @@ function DersNotuRagPageInner() {
         {tab === 'content-drafts' && <AiContentDraftsPanel />}
         {tab === 'worker-stats' && <AiContentWorkerStatsPanel />}
         {tab === 'highlights' && <AiTopicHighlightsPanel />}
+        {tab === 'narration' && <NarrationWorkerPanel />}
         {tab === 'build' && <RagTopicBuilderPanel initialTopicId={Number.isFinite(initialTopicId) && initialTopicId > 0 ? initialTopicId : null} />}
         {tab === 'teacher-guide' && <TeacherGuideDocumentsPanel />}
       </main>
