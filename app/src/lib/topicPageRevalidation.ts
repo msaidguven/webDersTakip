@@ -1,7 +1,7 @@
 // app/src/lib/topicPageRevalidation.ts
 // Genel (SEO'lu) konu sayfası artık ISR ile cache'leniyor (bkz. [topicSlug]/page.tsx'teki
-// revalidate=3600). Admin bir konunun içeriğini/sorularını/ünite-ders aktifliğini
-// değiştirdiğinde, o değişikliğin en geç 1 saat sonra değil ANINDA görünmesi için ilgili
+// revalidate=86400). Admin bir konunun içeriğini/sorularını/ünite-ders aktifliğini
+// değiştirdiğinde, o değişikliğin en geç 1 gün sonra değil ANINDA görünmesi için ilgili
 // admin kayıt endpoint'lerinin DB yazması başarılı olduktan SONRA bu fonksiyonlardan
 // birini çağırması gerekir. Mantık burada TEK yerde toplanıyor ki her endpoint kendi
 // slug-bulma kodunu tekrar yazmasın (ve biri unutulup sessizce bayatlamasın).
@@ -9,7 +9,7 @@
 // Kapsam bilinçli olarak sınırlı: sadece BU public sayfayı besleyen, sık ve aciliyeti
 // yüksek değişiklikler (konu içeriği, sorular, ünite/ders aktiflik) anında invalide
 // edilir. Müfredat takvimi gibi nadir ve sitenin tamamını etkileyen değişiklikler
-// saatlik fallback'e (revalidate=3600) bırakılır — yüzlerce sayfayı tek tek revalidate
+// günlük fallback'e (revalidate=86400) bırakılır — yüzlerce sayfayı tek tek revalidate
 // etmek yerine.
 //
 // Bazı admin endpoint'leri TOPLU çalışır (ör. "birden fazla soruyu aynı anda düzenle"),

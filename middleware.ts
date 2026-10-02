@@ -67,19 +67,8 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const response = NextResponse.next();
 
-  // Soru bankası konu sayfasına ?soru=ID paylaşım linkiyle gelindiğinde: taban URL
-  // (parametresiz) asıl SEO sayfası olarak indekslenmeye devam etsin, ama ?soru= varyasyonu
-  // Google'da AYRI bir sayfa olarak indekslenmesin (ileride 100.000 soruya kadar
-  // ölçeklenince yüz binlerce parametreli URL indekse girerdi). Canonical zaten her zaman
-  // parametresiz taban URL'i gösteriyor (bkz. [konu]/page.tsx generateMetadata) — bu header
-  // onu tamamlıyor. Meta robots etiketi yerine HTTP header kullanıyoruz: aksi halde
-  // searchParams'ı sayfanın kendisinde/generateMetadata'da okumak gerekirdi, bu da sayfayı
-  // ISR cache'inden çıkarırdı (bkz. [konu]/page.tsx'teki "?soru= artık sunucuda okunmuyor"
-  // notu) — middleware, sayfanın render/cache mekanizmasına hiç dokunmadan sadece HTTP
-  // response'a bu header'ı ekliyor.
-  if (pathname.startsWith('/soru-bankasi/') && request.nextUrl.searchParams.has('soru')) {
-    response.headers.set('X-Robots-Tag', 'noindex, follow');
-  }
+  // ?soru= paylaşım linklerinin "noindex" başlığı artık next.config.ts headers() kuralında —
+  // middleware normal sayfa ziyaretlerinde hiç çalışmıyor (bkz. aşağıdaki matcher notu).
 
   if (PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     if (await isRequestBanned(request, response)) {
@@ -125,6 +114,13 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+// Middleware SADECE gerektiği yerde çalışır (2026-10-02): önceden tüm konu/ünite/soru bankası
+// sayfalarında çalışıyordu ve Vercel aktif CPU'sunun ~%24'ünü (ayda ~1,7 sa) yiyordu, oysa bu
+// sayfalardaki tek işi nadir eski URL yönlendirmeleri + ?soru= noindex başlığıydı. Artık:
+// - giriş gerektiren sayfalar (ban kontrolü),
+// - eski URL biçimleri: "<n>-ogrenme-alani-<ünite>" ünite slug'ı, "<kod>-<n>-<n>-<n>-<konu>"
+//   konu slug'ı ve "<konu>-sorular" — regex'ler aşağıdaki LEGACY_* sabitleriyle AYNI olmalı.
+// ?soru= noindex başlığı next.config.ts headers()'ta (CPU harcamayan statik kural).
 export const config = {
   matcher: [
     '/admin/:path*',
@@ -137,9 +133,9 @@ export const config = {
     '/ogretmen',
     '/dashboard/:path*',
     '/dashboard',
-    '/:gradeSlug/:lessonSlug/:unitSlug',
-    '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug',
-    '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug/:rest+',
-    '/soru-bankasi/:path*',
+    '/:gradeSlug/:lessonSlug/:unitSlug(\\d+-ogrenme-alani-[^/]+)/:rest*',
+    '/soru-bankasi/:sinif/:ders/:unite(\\d+-ogrenme-alani-[^/]+)/:rest*',
+    '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug([a-z]{2,5}-\\d+-\\d+-\\d+-[^/]+)',
+    '/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug([^/]+-sorular)',
   ],
 };

@@ -31,5 +31,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const result = await generateSlideDeck(supabase, topicId);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  return NextResponse.json({ deck: result.deck });
+  // Her konu sayfası açılışında tarayıcıdan çağrılıyor — CDN'de 1 saat önbelleklenir, sonra arka
+  // planda yenilenirken bayat kopya sunulur (2026-10-02, Vercel aktif CPU: önbelleksizken her
+  // sayfa görüntülemesi fonksiyonu çalıştırıyordu). Hata yanıtları önbelleklenmez.
+  return NextResponse.json(
+    { deck: result.deck },
+    { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' } },
+  );
 }

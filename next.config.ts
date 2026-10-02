@@ -42,6 +42,19 @@ const nextConfig: NextConfig = {
   images: {
     domains: [],
   },
+  // Soru bankasına ?soru=ID paylaşım linkiyle gelindiğinde parametreli varyasyon ayrı sayfa olarak
+  // indekslenmesin (canonical zaten parametresiz taban URL). Önceden middleware ekliyordu; middleware
+  // her soru bankası isteğinde çalışıp Vercel aktif CPU'su harcadığı için (2026-10-02) statik kurala
+  // taşındı — sayfanın ISR önbelleğine dokunmaz, searchParams sunucuda okunmaz.
+  async headers() {
+    return [
+      {
+        source: "/soru-bankasi/:path*",
+        has: [{ type: "query", key: "soru" }],
+        headers: [{ key: "X-Robots-Tag", value: "noindex, follow" }],
+      },
+    ];
+  },
   async redirects() {
     return [
       // "Panel" → "İlerlemem" (2026-09-28): eski link/yer imleri ve alt sayfalar bozulmasın.

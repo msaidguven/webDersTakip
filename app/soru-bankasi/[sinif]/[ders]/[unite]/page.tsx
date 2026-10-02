@@ -21,7 +21,11 @@ import SoruBankasiUnitTopicAnalytics from '@/app/src/components/SoruBankasiUnitT
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
-export const revalidate = 3600;
+// Günlük fallback (2026-10-02, Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
+// dolaştıkça aynı sayfayı günde 24 kez baştan üretiyordu). İçerik/soru değişince sayfa zaten
+// anında yenileniyor (bkz. app/src/lib/topicPageRevalidation.ts); bu süre yalnızca tarihe bağlı
+// bilgiler (ör. müfredat haftası) için üst sınır. Segment config literal olmak zorunda.
+export const revalidate = 86400;
 
 interface Params {
   sinif: string;

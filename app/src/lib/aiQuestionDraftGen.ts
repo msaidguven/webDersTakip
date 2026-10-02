@@ -48,6 +48,8 @@ type EligibleSectionRow = {
   unit_title: string;
   topic_title: string;
   section_heading: string;
+  // Bu alt başlığın kaçıncı turu (0 = ilk) — bkz. ai_question_draft_rounds.sql.
+  round_no: number;
 };
 
 export interface DraftGenerationResult {
@@ -72,6 +74,30 @@ async function buildOtherHeadingsText(supabase: Supabase, sectionId: number): Pr
     .order('order_no', { ascending: true });
   const others = ((siblingSections as { id: number; heading: string }[] | null) || []).filter((s) => s.id !== sectionId).map((s) => s.heading);
   return others.length ? others.join(', ') : 'Yok';
+}
+
+// 2. turdan itibaren (kullanıcının 2026-10-02 isteği) AI'ya alt başlığın mevcut soruları verilir
+// ki aynı bilgiyi farklı kelimelerle tekrar sormasın. Soru yoksa blok boş kalır — ilk tur
+// prompt'u değişmez.
+const EXISTING_QUESTIONS_LIMIT = 40;
+const EXISTING_QUESTION_MAX_CHARS = 220;
+
+async function buildExistingQuestionsText(supabase: Supabase, sectionId: number): Promise<string> {
+  const { data } = await withRetry(() =>
+    supabase.from('questions').select('question_text').eq('section_id', sectionId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT)
+  );
+  const texts = ((data as { question_text: string | null }[] | null) || [])
+    .map((q) => (q.question_text || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  if (!texts.length) return '';
+  const list = texts
+    .map((t, i) => `${i + 1}. ${t.length > EXISTING_QUESTION_MAX_CHARS ? `${t.slice(0, EXISTING_QUESTION_MAX_CHARS)}…` : t}`)
+    .join('\n');
+  return `
+Bu alt başlık için soru bankasında ZATEN şu ${texts.length} soru var. Bunları ve aynı bilgiyi farklı kelimelerle soran varyasyonlarını TEKRAR ÜRETME. Kitapta bu alt başlıkla ilgili henüz sorulmamış bilgilere, eksik kalan kazanımlara ve farklı zorluk düzeylerine odaklan. Sorulmamış yeterli bilgi kalmadıysa yukarıdaki 3-7 aralığının altına inebilirsin (en az 2 soru); tekrar eden soru üretmektense az soru üretmek daha iyidir.
+Mevcut sorular:
+${list}
+`;
 }
 
 async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sectionId: number): Promise<string> {
@@ -148,9 +174,10 @@ export async function generateNextAiQuestionDraft(
   }
   if (!bookContent) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG kitap içeriği bulunamadı (belge/chunk yok)` };
 
-  const [sectionOutcomesText, otherHeadingsText] = await Promise.all([
+  const [sectionOutcomesText, otherHeadingsText, existingQuestionsText] = await Promise.all([
     buildSectionOutcomesText(supabase, eligible.topic_id, eligible.section_id),
     buildOtherHeadingsText(supabase, eligible.section_id),
+    buildExistingQuestionsText(supabase, eligible.section_id),
   ]);
 
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
@@ -165,6 +192,7 @@ export async function generateNextAiQuestionDraft(
     .replaceAll('{heading}', eligible.section_heading)
     .replaceAll('{section_outcomes}', sectionOutcomesText)
     .replaceAll('{other_headings}', otherHeadingsText)
+    .replaceAll('{existing_questions}', existingQuestionsText)
     .replaceAll('{book_content}', bookContent)
     .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(eligible.lesson_name))
     .replaceAll('{svg_question_instructions}', svgBlock);

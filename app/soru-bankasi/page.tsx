@@ -11,7 +11,11 @@ import { getGradeIcon, getGradeColor, getGradeDescription, formatGradeRange } fr
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active filtreli), bu yüzden ISR ile
 // cache'lenebiliyor — bkz. [sinif]/page.tsx'teki aynı desen.
-export const revalidate = 3600;
+// Günlük fallback (2026-10-02, Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
+// dolaştıkça aynı sayfayı günde 24 kez baştan üretiyordu). İçerik/soru değişince sayfa zaten
+// anında yenileniyor (bkz. app/src/lib/topicPageRevalidation.ts); bu süre yalnızca tarihe bağlı
+// bilgiler (ör. müfredat haftası) için üst sınır. Segment config literal olmak zorunda.
+export const revalidate = 86400;
 
 export default async function SoruBankasiIndexPage() {
   const data = await getSoruBankasiGradesIndexData();

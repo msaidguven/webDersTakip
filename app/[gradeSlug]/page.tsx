@@ -12,7 +12,11 @@ import GradePageClient from './GradePageClient';
 // yapılıyor) — tamamen public içerik, bu yüzden ISR ile cache'lenebiliyor. Konu
 // sayfasındaki gibi generateStaticParams olmadan bu projede revalidate sessizce
 // çalışmıyor (bkz. [topicSlug]/page.tsx'teki not).
-export const revalidate = 3600;
+// Günlük fallback (2026-10-02, Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
+// dolaştıkça aynı sayfayı günde 24 kez baştan üretiyordu). İçerik/soru değişince sayfa zaten
+// anında yenileniyor (bkz. app/src/lib/topicPageRevalidation.ts); bu süre yalnızca tarihe bağlı
+// bilgiler (ör. müfredat haftası) için üst sınır. Segment config literal olmak zorunda.
+export const revalidate = 86400;
 
 interface Params {
   gradeSlug: string;
