@@ -179,8 +179,14 @@ async function selectPersonalizedQuestionIds(
   limit: number
 ): Promise<{ questionIds: number[]; allCaughtUp: boolean }> {
   const questionIds = groups.flat();
-  if (!userId || questionIds.length === 0) {
-    return { questionIds: pickInCurriculumOrder(groups, new Set(questionIds), limit), allCaughtUp: false };
+  if (questionIds.length === 0) return { questionIds: [], allCaughtUp: false };
+  if (!userId) {
+    // Misafir (2026-10-02, kullanıcı isteği): çözdüğü kaydedilmediği için sıralı seçim her
+    // açılışta AYNI 10 soruyu getiriyordu. Seçim rastgele (her konu grubu karıştırılıp yine
+    // dengeli pay), gösterim müfredat sırasında.
+    const position = new Map(questionIds.map((id, i) => [id, i]));
+    const picked = pickInCurriculumOrder(groups.map(shuffle), new Set(questionIds), limit);
+    return { questionIds: picked.sort((a, b) => (position.get(a) ?? 0) - (position.get(b) ?? 0)), allCaughtUp: false };
   }
 
   const { data: statsRows } = await supabase
