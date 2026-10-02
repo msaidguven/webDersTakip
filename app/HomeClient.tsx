@@ -12,7 +12,6 @@ import type { DailyQuestion, RecentTopicItem, ThisWeekTopicItem } from './src/li
 import { HomeHero } from './src/components/home/HomeHero';
 import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
 import { RecentTopicsCard, SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
-import { JoinBand } from './src/components/home/JoinBand';
 import { AboutSite } from './src/components/home/AboutSite';
 import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionCard } from './src/components/home/DailyQuestionCard';
@@ -112,9 +111,11 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     setSelectedGradeId(gradeId);
   };
 
-  // Anasayfa düzeni (2026-09-27 sade taslak, 2026-10-02 iki sütun — kullanıcı isteği).
-  //  - Misafir: hero + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Haftanın
-  //    en çalışkanları] → Ders Takip nedir? → üyelik bandı.
+  // Anasayfa düzeni (v4 sade tasarım, 2026-10-02 — kullanıcı onaylı prototip
+  // ~/İndirilenler/ders_takip_anasayfa_v4_sade.html). Kırık beyaz zemin, beyaz ince çerçeveli
+  // kartlar, tek vurgu rengi (indigo) butonlarda; bölümler arasında ince ayırıcı çizgi.
+  //  - Misafir: giriş + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Bu
+  //    haftanın en çalışkanları] → Ders Takip nedir? + üyelik kartı.
   //  - Girişli: Bugünkü görev + günlük hedef → [Derslerim | Okulda bu hafta (kendi sınıfı)] →
   //    [Yeni eklenenler (kendi sınıfı, son 5) | sıralama] → Günün Sorusu.
   //  Takvim verisi olmayan sınıfta "Okulda bu hafta" kartı yok → Dersler tam genişlik.
@@ -126,9 +127,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   const recent = isAuthenticated && selectedGrade ? recentByGrade[selectedGrade.id] ?? [] : recentTopics;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="px-4 py-8 sm:px-8 sm:py-14">
-        <div className="mx-auto flex max-w-6xl flex-col gap-14 sm:gap-20">
+    <div className="min-h-screen bg-[#FAFAF8] dark:bg-background">
+      <main className="px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
+        <div className="mx-auto flex max-w-5xl flex-col gap-12 sm:gap-14 [&>*+*]:border-t [&>*+*]:border-default [&>*+*]:pt-12 sm:[&>*+*]:pt-14">
           {isAuthenticated ? (
             <StudentToday lessonsAside={hasThisWeek ? thisWeekCard : undefined} />
           ) : (
@@ -141,31 +142,29 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
           )}
 
           {!isAuthenticated && selectedGrade && (
-            <div className={`grid grid-cols-1 items-start gap-6 ${hasThisWeek ? 'lg:grid-cols-2' : ''}`}>
-              <GradeLessonPicker
-                grades={resolvedGrades}
-                selectedGrade={selectedGrade}
-                section={gradeSections[selectedGrade.id]}
-                onSelect={handleSelectGrade}
-              />
-              {hasThisWeek && thisWeekCard}
-            </div>
+            <GradeLessonPicker
+              grades={resolvedGrades}
+              selectedGrade={selectedGrade}
+              section={gradeSections[selectedGrade.id]}
+              onSelect={handleSelectGrade}
+              aside={hasThisWeek ? thisWeekCard : undefined}
+            />
           )}
 
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
             <RecentTopicsCard topics={recent} gradeName={isAuthenticated ? selectedGrade?.name : null} />
             <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
           </div>
 
           {isAuthenticated && dailyQuestion && (
-            <div id="gunun-sorusu-bolumu" className="scroll-mt-24 lg:max-w-2xl">
-              <DailyQuestionCard data={dailyQuestion} />
+            <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
+              <div className="lg:max-w-xl">
+                <DailyQuestionCard data={dailyQuestion} />
+              </div>
             </div>
           )}
 
           {!isAuthenticated && <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />}
-
-          {!isAuthenticated && <JoinBand />}
         </div>
       </main>
     </div>

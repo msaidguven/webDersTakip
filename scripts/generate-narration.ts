@@ -3,8 +3,8 @@
 //
 // Kullanım:
 //   npx tsx scripts/generate-narration.ts 567 --dry-run      (sadece ekran/grup bölmesini yazdırır)
-//   npx tsx scripts/generate-narration.ts 567                (Azure Elif HD; olmazsa tüm konu Elif Flash)
-//     --voice=tr-TR-Elif:MAI-Voice-2.1-Flash   belirli bir Azure sesi
+//   npx tsx scripts/generate-narration.ts 567                (Azure, varsayılan ses: azureTts.ts AZURE_NARRATION_VOICES)
+//     --voice=tr-TR-EmelNeural               belirli bir Azure sesi
 //     --force-section=4,5                      bu bölümleri önbelleğe bakmadan yeniden seslendir
 //     --provider=gemini [--voice=Charon] [--model=gemini-3.8-flash-lite-tts]   (ücretsiz kota ~10 istek/gün)
 

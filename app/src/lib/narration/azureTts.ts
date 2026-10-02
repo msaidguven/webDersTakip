@@ -2,12 +2,19 @@ import type { NarrationEngine } from './engine';
 import { mp3DurationSeconds } from './mp3';
 
 // Azure Speech (REST) motoru. Ses doğrudan MP3 alınır — sunucuda kodlama yok (Vercel aktif CPU
-// bütçesi). Elif MAI seslerinde baş sessizlik ~0, son sessizlik ~0.3 sn (2026-10-02 ölçüldü),
-// kırpmaya gerek yok. MAI sesleri kelime zaman damgası vermiyor; senkron cümle başına ses +
-// cümle içi tahmin (timing.ts).
+// bütçesi). Senkron cümle başına ses + cümle içi tahmin (timing.ts).
 
-// 2026-10-02 dinleme testinde seçildi: Elif HD; yanıt vermezse konunun TAMAMI Elif Flash.
-export const AZURE_NARRATION_VOICES = ['tr-TR-Elif:MAI-Voice-2.1', 'tr-TR-Elif:MAI-Voice-2.1-Flash'];
+// Ses geçmişi: ilk 11 konu Elif HD (MAI önizleme sesi) ile üretildi; 2026-10-02'den sonraki
+// konular kullanıcının isteğiyle Ahmet (klasik nöral, kararlı sürüm). Eski konulara dokunulmadı;
+// içeriği değişen eski bir konu yeniden üretilirse TAMAMI Ahmet ile üretilir (önbellek sese göre
+// ayrı), yani bir konu içinde ses asla karışmaz. Birden çok ses verilirse ilk yanıt veren kullanılır.
+export const AZURE_NARRATION_VOICES = ['tr-TR-AhmetNeural'];
+
+// Klasik nöral seslerin (Ahmet/Emel) başında ~0.37 sn, sonunda ~1.1 sn sessizlik var (2026-10-02
+// ölçüldü) — ekranlar arasında ölü bekleme olurdu. SSML ile kısaltılıyor (sunucuda ses işleme
+// yok): sonuç baş ~0.2, son ~0.28 sn. MAI sesleri (adında ':') zaten kısa, etiket eklenmez.
+const isClassicVoice = (voice: string) => !voice.includes(':');
+const CLASSIC_SILENCE_SSML = '<mstts:silence type="Leading-exact" value="0ms"/><mstts:silence type="Tailing-exact" value="250ms"/>';
 const OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3';
 const TRAILING_SILENCE = 0.3;
 
@@ -23,7 +30,8 @@ const escapeXml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 async function requestOnce(text: string, opts: AzureOptions): Promise<Uint8Array> {
-  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="tr-TR"><voice name="${escapeXml(opts.voice)}">${escapeXml(text)}</voice></speak>`;
+  const silence = isClassicVoice(opts.voice) ? CLASSIC_SILENCE_SSML : '';
+  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="tr-TR"><voice name="${escapeXml(opts.voice)}">${silence}${escapeXml(text)}</voice></speak>`;
   const res = await fetch(`https://${opts.region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: 'POST',
     headers: {
