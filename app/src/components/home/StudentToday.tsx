@@ -90,38 +90,45 @@ export function StudentToday() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         {/* Açık indigo tonlu kart (2026-09-28): koyu/doygun zemin sayfanın beyaz kartları arasında
             fazla ağır duruyordu. Belirginlik zeminden değil tek dolu butondan (asıl eylem) gelir. */}
-        <div className="flex flex-col gap-5 rounded-[26px] border border-indigo-200 bg-indigo-50 p-6 shadow-[0_18px_40px_-28px_rgba(79,70,229,0.45)] dark:border-indigo-500/30 dark:bg-indigo-500/10 sm:p-8">
-          <span className="self-start rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white">
+        {/* 2026-10-02 sıkılaştırma (kullanıcı: büyük buton/kutular küçük öğrenciyi yoruyor): küçük
+            başlık, satır içi buton, "Sonra" önerileri kutu değil tek satırlık bağlantılar. */}
+        <div className="flex flex-col gap-4 rounded-[24px] border border-indigo-200 bg-indigo-50 p-5 shadow-[0_18px_40px_-28px_rgba(79,70,229,0.45)] dark:border-indigo-500/30 dark:bg-indigo-500/10 sm:p-6">
+          <span className="self-start rounded-full bg-indigo-600 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white">
             Bugünkü görevin
           </span>
-          <div className="flex flex-col gap-2">
-            <h2 className="text-2xl font-black leading-tight tracking-tight text-default sm:text-3xl">{copy.title}</h2>
-            <p className="text-base text-muted-foreground">{copy.detail}</p>
+          <div className="flex flex-col gap-1.5">
+            <h2 className="text-xl font-black leading-tight tracking-tight text-default sm:text-2xl">{copy.title}</h2>
+            <p className="text-sm text-muted-foreground sm:text-[15px]">{copy.detail}</p>
           </div>
           {copy.progress != null && (
-            <div className="h-2.5 overflow-hidden rounded-full bg-indigo-200/70 dark:bg-indigo-500/20" role="progressbar" aria-valuenow={copy.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Test ilerlemesi">
+            <div className="h-2 overflow-hidden rounded-full bg-indigo-200/70 dark:bg-indigo-500/20" role="progressbar" aria-valuenow={copy.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Test ilerlemesi">
               <div className="h-full rounded-full bg-indigo-600 dark:bg-indigo-400" style={{ width: `${copy.progress}%` }} />
             </div>
           )}
           <Link
             href={copy.href}
-            className="inline-flex items-center justify-center gap-2 self-stretch rounded-2xl bg-indigo-600 px-6 py-4 text-base font-black text-white shadow-sm transition-colors hover:bg-indigo-700 sm:self-start"
+            className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-5 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-700"
           >
             {copy.cta} <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           {secondary.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 border-t border-indigo-200 pt-5 dark:border-indigo-500/20 sm:grid-cols-2">
+            <ul className="flex flex-col border-t border-indigo-200 pt-1 dark:border-indigo-500/20">
               {secondary.map((s) => (
-                <Link key={s.label} href={s.href} className="flex flex-col gap-1 rounded-2xl border border-default bg-background p-4 transition-colors hover:border-indigo-400">
-                  <span className="text-[13px] font-bold text-muted-foreground">{s.label}</span>
-                  <span className="text-base font-bold text-default">{s.text}</span>
-                </Link>
+                <li key={s.label}>
+                  <Link href={s.href} className="flex min-h-10 items-center justify-between gap-3 py-1.5 text-sm transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">
+                    <span className="min-w-0">
+                      <span className="font-semibold text-muted-foreground">{s.label}: </span>
+                      <span className="font-bold text-default">{s.text}</span>
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
 
-        <div className="flex flex-col gap-5 rounded-[26px] border border-default bg-background p-6">
+        <div className="flex flex-col gap-4 rounded-[24px] border border-default bg-background p-5 sm:p-6">
           <div className="flex flex-col gap-3">
             <div className="flex items-baseline justify-between">
               <span className="flex items-baseline gap-2">
@@ -193,119 +200,104 @@ export function StudentToday() {
   );
 }
 
-// Derslerim (2026-10-01 yeniden tasarım, kullanıcı kararı): küçük öğrenci "konu anlatımı mı soru
-// bankası mı?" diye seçmek zorunda kalmasın — her derste TEK ana buton: "Sıradaki 10 soru"
-// (dersin başından müfredat sırasıyla hiç çözmediği sorular; takvimli derste okulda işlenen
-// konularla sınırlı, bkz. sequential_question_queue.sql). Konuyu önce okumak isteyen için
-// sıradaki konunun anlatımına küçük bağlantı; açmadıysa "Önce konuyu oku" öne çıkar.
-// İlerleme ölçüsü yüzde değil "öğrenilen konu" (İlerlemem'deki konu haritasıyla aynı kural).
-// Derste yarım kalan test varsa ÖNCE o (2026-10-01, kullanıcı isteği): yeni test açıp yarım
-// oturum biriktirmek yerine bitirtir; "Sıradaki 10 soru" o durumda küçük bağlantıya iner.
+// Derslerim (2026-10-01 yeniden tasarım, 2026-10-02 sıkılaştırma — kullanıcı: büyük kartlar
+// küçük öğrenciyi yoruyordu): tek liste, her ders TEK SATIR. Ders adı → dersin konu sayfası;
+// sağda tek küçük buton: yarım test varsa "Devam et" (önce onu bitirsin), yoksa "N soru çöz"
+// (dersin başından müfredat sırasıyla hiç çözmediği sorular, bkz. sequential_question_queue.sql).
+// Alt satır: öğrenilen konu + sıradaki konu ("Önce konuyu oku" / "✓ Okudun").
 function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[]; nextSteps: Map<number, LessonNextStep>; openTests: Map<number, OpenTest> }) {
   const { data: mastery } = useTopicMastery();
   const learnedByLesson = new Map((mastery?.lessons ?? []).map((l) => [l.id, { learned: l.counts.learned, total: l.topics.length }]));
+  const btn = 'inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3.5 text-sm font-extrabold transition-colors';
 
   return (
-    <div className="mt-8 flex flex-col gap-4 sm:mt-10">
+    <div className="mt-8 flex flex-col gap-3 sm:mt-10">
       <div className="flex items-end justify-between">
         <h2 className="text-2xl font-black tracking-tight text-default sm:text-3xl">Derslerim</h2>
         <Link href="/ilerlemem" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
           İlerlemem →
         </Link>
       </div>
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-default bg-background">
         {lessons.map((lesson) => {
-          const step = nextSteps.get(Number(lesson.id));
-          const learned = learnedByLesson.get(Number(lesson.id));
+          const id = Number(lesson.id);
+          const step = nextSteps.get(id);
+          const open = openTests.get(id);
+          const learned = learnedByLesson.get(id);
           const topic = step?.nextTopic;
           const topicHref = topic && lesson.lessonHref && topic.unitSlug && topic.slug ? `${lesson.lessonHref}/${topic.unitSlug}/${topic.slug}` : null;
           const count = step ? Math.min(SEQUENTIAL_TEST_SIZE, step.remaining) : 0;
-          const open = openTests.get(Number(lesson.id));
-          return (
-            <li key={lesson.id} className="flex h-full flex-col gap-3 rounded-2xl border border-default bg-background p-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-base font-extrabold leading-snug text-default">{lesson.name}</span>
-                {learned && learned.total > 0 && (
-                  <span className="text-[13px] font-semibold text-muted-foreground">
-                    {learned.learned} / {learned.total} konu öğrenildi
-                  </span>
-                )}
-              </div>
 
-              {open ? (
-                <div className="mt-auto flex flex-col gap-2">
-                  <Link
-                    href={open.href}
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-orange-800"
-                  >
-                    Yarım kalan testine devam et · {open.answered}/{open.total}
-                  </Link>
-                  <p className="text-[13px] leading-snug text-muted-foreground">
-                    <b className="font-bold text-default">{open.title}</b>
-                    {step && step.remaining > 0 && (
+          let action: React.ReactNode;
+          let detail: React.ReactNode = null;
+          if (open) {
+            action = (
+              <Link href={open.href} className={`${btn} bg-orange-700 text-white hover:bg-orange-800`} aria-label={`${open.title} testine devam et, ${open.answered}/${open.total}`}>
+                Devam et · {open.answered}/{open.total}
+              </Link>
+            );
+            detail = 'Yarım kalan testin var, önce onu bitir.';
+          } else if (lesson.totalQuestions === 0) {
+            action = <span className="shrink-0 px-2 text-sm font-semibold text-muted-foreground">Sorular yakında</span>;
+          } else if (step && step.remaining > 0) {
+            action = (
+              <Link href={sequentialTestHref(step.lessonId)} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`} aria-label={`${lesson.name}: sıradaki ${count} soruyu çöz`}>
+                {count} soru çöz <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            );
+            if (topic) {
+              detail = (
+                <>
+                  {topic.title} ile devam
+                  {topicHref &&
+                    (topic.completed ? (
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400"> · ✓ Okudun</span>
+                    ) : (
                       <>
                         {' · '}
-                        <Link href={sequentialTestHref(step.lessonId)} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
-                          ya da sıradaki {count} soru
+                        <Link href={topicHref} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                          {topic.viewed ? 'Konuyu oku' : 'Önce konuyu oku'}
                         </Link>
                       </>
-                    )}
-                  </p>
-                </div>
-              ) : lesson.totalQuestions === 0 ? (
-                <p className="mt-auto rounded-xl bg-surface p-3 text-sm text-muted-foreground">Bu dersin soruları yakında.</p>
-              ) : step && step.remaining > 0 ? (
-                <div className="mt-auto flex flex-col gap-2">
-                  <Link
-                    href={sequentialTestHref(step.lessonId)}
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-indigo-700"
-                  >
-                    Sıradaki {count} soru <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                  {topic && (
-                    <p className="text-[13px] leading-snug text-muted-foreground">
-                      <b className="font-bold text-default">{topic.title}</b> konusundan başlıyor
-                      {topicHref && (
-                        <>
-                          {' · '}
-                          {topic.completed ? (
-                            <span className="font-bold text-emerald-700 dark:text-emerald-400">✓ Okudun</span>
-                          ) : (
-                            <Link href={topicHref} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
-                              {topic.viewed ? 'Konuyu oku' : 'Önce konuyu oku'}
-                            </Link>
-                          )}
-                        </>
-                      )}
-                    </p>
-                  )}
-                </div>
-              ) : step ? (
-                <div className="mt-auto flex flex-col gap-2 rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
-                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                    {step.hasCalendar ? 'Okulda işlenen konuların tüm sorularını çözdün 🎉' : 'Bu dersteki tüm soruları çözdün 🎉'}
-                  </p>
-                  <Link href="/tekrar" className="text-[13px] font-bold text-emerald-800 hover:underline dark:text-emerald-300">
-                    Yanlışlarını tekrar et →
-                  </Link>
-                </div>
-              ) : (
-                // Sıradaki adım yüklenemediyse (ör. sınıf seçilmemiş) eski yol: Soru Bankası.
-                lesson.soruBankasiHref && (
-                  <Link
-                    href={lesson.soruBankasiHref}
-                    className="mt-auto flex min-h-12 items-center justify-center rounded-xl bg-indigo-600 px-4 text-[15px] font-extrabold text-white transition-colors hover:bg-indigo-700"
-                  >
-                    Soru çöz
-                  </Link>
-                )
-              )}
+                    ))}
+                </>
+              );
+            }
+          } else if (step) {
+            action = (
+              <Link href="/tekrar" className={`${btn} bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300`}>
+                Tekrar et
+              </Link>
+            );
+            detail = step.hasCalendar ? 'İşlenen konuların hepsini çözdün 🎉' : 'Tüm soruları çözdün 🎉';
+          } else {
+            action = lesson.soruBankasiHref ? (
+              <Link href={lesson.soruBankasiHref} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`}>
+                Soru çöz
+              </Link>
+            ) : null;
+          }
 
-              {lesson.lessonHref && (
-                <Link href={lesson.lessonHref} className="self-start text-[13px] font-bold text-muted-foreground hover:text-default hover:underline">
-                  Tüm konular
-                </Link>
-              )}
+          return (
+            <li key={lesson.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                  {lesson.lessonHref ? (
+                    <Link href={lesson.lessonHref} className="text-[15px] font-extrabold leading-snug text-default hover:text-indigo-600 dark:hover:text-indigo-400">
+                      {lesson.name}
+                    </Link>
+                  ) : (
+                    <span className="text-[15px] font-extrabold leading-snug text-default">{lesson.name}</span>
+                  )}
+                  {learned && learned.total > 0 && (
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {learned.learned}/{learned.total} konu öğrenildi
+                    </span>
+                  )}
+                </span>
+                {detail && <span className="text-[13px] leading-snug text-muted-foreground">{detail}</span>}
+              </div>
+              {action}
             </li>
           );
         })}
