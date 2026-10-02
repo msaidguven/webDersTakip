@@ -26,7 +26,6 @@ import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
 import TopicSwitcher from './TopicSwitcher';
-import { NARRATION_PILOT_TOPIC_IDS } from '@/app/src/lib/narration/config';
 import s from './DersClientV2.module.css';
 
 // Sesli anlatım oynatıcısı sadece açılınca yüklenir — sayfanın ilk yüküne eklenmez.
@@ -120,7 +119,7 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const [slidesExpanded, setSlidesExpanded] = useState(false);
   const [slidesReloadKey, setSlidesReloadKey] = useState(0);
   const [narrationOpen, setNarrationOpen] = useState(false);
-  const hasNarration = topic != null && NARRATION_PILOT_TOPIC_IDS.has(Number(topic.id));
+  const hasNarration = !!topic?.hasNarration;
   const topicId = topic?.id;
   useEffect(() => {
     if (topicId == null) return;

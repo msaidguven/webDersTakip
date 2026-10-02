@@ -32,7 +32,7 @@ export type NarrationManifest = {
   topicTitle: string;
   // Kaynak alt başlık metinlerinin özeti — içerik değişince manifest bayatlamış demektir.
   sourceHash: string;
-  voice: { provider: 'gemini'; model: string; voice: string };
+  voice: { provider: 'gemini' | 'azure'; model: string; voice: string };
   generatedAt: string;
   sections: NarrationSection[];
 };

@@ -98,6 +98,8 @@ export type LessonWeekContent = {
   contentLoaded: boolean;
   // Konu artık güncel müfredatta değil ama sayfası hâlâ canlı — bkz. topics.is_archived.
   isArchived: boolean;
+  // "Video / Sesli Anlatım" hazır mı (topic_narrations satırı var mı) — bkz. app/src/lib/narration.
+  hasNarration: boolean;
 };
 
 function extractHeroImageAlt(generationMeta: unknown): string | null {
@@ -230,6 +232,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     highlights: [],
     contentLoaded: false,
     isArchived: t.is_archived,
+    hasNarration: false,
   }));
 
   if (contentTopicIds.length) {
@@ -250,9 +253,10 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
 
     const sectionsByTopic = new Map<number, LessonWeekSection[]>();
     const highlightsByTopic = new Map<number, { icon: string | null; title: string; description: string }[]>();
+    const narratedTopicIds = new Set<number>();
 
     if (contentIds.length) {
-      const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }] = await Promise.all([
+      const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }, { data: narrationsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
           .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type')
@@ -263,7 +267,10 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .select('topic_content_id, icon, title, description, order_no')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
+        // Tablo henüz yoksa (migration çalıştırılmadıysa) hata → buton görünmez, sayfa etkilenmez.
+        supabase.from('topic_narrations').select('topic_id').in('topic_id', contentTopicIds),
       ]);
+      for (const row of (narrationsData as { topic_id: number }[] | null) || []) narratedTopicIds.add(row.topic_id);
 
       // Sorgu bir sebeple (ör. eksik migration) hata verirse sessizce boş alt başlık
       // listesine düşmek yerine logluyoruz — aksi halde TÜM konularda alt başlık/içerik
@@ -313,6 +320,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       discussionPromptHtml: heroByTopic.get(c.id)?.discussionPromptHtml || null,
       highlights: highlightsByTopic.get(c.id) || [],
       contentLoaded: loadedTopicIds.has(c.id),
+      hasNarration: narratedTopicIds.has(c.id),
     }));
   }
 

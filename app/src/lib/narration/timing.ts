@@ -5,13 +5,14 @@
 const PAUSE_WEIGHT: [RegExp, number][] = [[/[.!?]$/, 8], [/[;:]$/, 7], [/,$/, 5]];
 const LEAD_IN = 0.05;
 
-export function estimateChunkStarts(chunkSpeech: string[], duration: number): number[] {
+// trailingSilence: sesin sonundaki konuşmasız kısım — gruplar konuşmanın bittiği ana kadar dağıtılır.
+export function estimateChunkStarts(chunkSpeech: string[], duration: number, trailingSilence = 0): number[] {
   const weights = chunkSpeech.map((s) => {
     const letters = s.replace(/[^\p{L}\p{N}]/gu, '').length + s.split(/\s+/).length;
     return letters + (PAUSE_WEIGHT.find(([re]) => re.test(s))?.[1] ?? 0);
   });
   const total = weights.reduce((a, b) => a + b, 0) || 1;
-  const span = Math.max(0, duration - LEAD_IN);
+  const span = Math.max(0, duration - LEAD_IN - trailingSilence);
   let acc = 0;
   return weights.map((w) => {
     const start = LEAD_IN + (acc / total) * span;

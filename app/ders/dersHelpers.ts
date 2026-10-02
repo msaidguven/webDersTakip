@@ -71,6 +71,8 @@ export type Content = {
   // Konu artık güncel müfredatta değil ama sayfası hâlâ canlı — bkz. topics.is_archived,
   // DersClient.tsx'teki arşiv uyarı kutusu.
   isArchived?: boolean;
+  // "Video / Sesli Anlatım" hazır mı — bkz. lessonWeekData.ts / topic_narrations.
+  hasNarration?: boolean;
 };
 export type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 export type ProfileRoleRow = { role: string | null };

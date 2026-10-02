@@ -1,8 +1,13 @@
-// Gemini TTS ile tek bir cümleyi seslendirir, 16-bit mono PCM döner.
+// Gemini TTS motoru (2026-10-02'den beri yedek sağlayıcı; varsayılan Azure — bkz. azureTts.ts).
+// Ücretsiz katman model başına proje başına günde ~10 istek: konu başına ~50 cümle için yetersiz.
+// Birden çok cümleyi tek istekte seslendirip sessizlikten bölme denendi ve formüllü metinde
+// yanlış böldüğü için kaldırıldı (2026-10-01).
 // NOT: gemini-3.8-*-tts modelleri metne eklenen stil talimatını ("öğretmen gibi oku:") da sesli
 // okuyor ve systemInstruction'ı reddediyor — bu yüzden istekte SADECE okunacak metin gönderiliyor.
 
-export const GEMINI_TTS_SAMPLE_RATE = 24000;
+import type { NarrationEngine } from './engine';
+import { encodeMp3 } from './encodeMp3';
+import { TTS_SAMPLE_RATE, trimSilence } from './pcm';
 
 export type GeminiTtsOptions = { apiKeys: string[]; model: string; voice: string };
 
@@ -38,7 +43,7 @@ function decodeAudio(buf: Buffer, mimeType: string): Int16Array {
     while (off + 8 <= buf.length) {
       const id = buf.subarray(off, off + 4).toString('ascii');
       const size = buf.readUInt32LE(off + 4);
-      if (id === 'fmt ' && buf.readUInt32LE(off + 12) !== GEMINI_TTS_SAMPLE_RATE) throw new Error(`Beklenmeyen örnekleme hızı (${mimeType})`);
+      if (id === 'fmt ' && buf.readUInt32LE(off + 12) !== TTS_SAMPLE_RATE) throw new Error(`Beklenmeyen örnekleme hızı (${mimeType})`);
       if (id === 'data') { pcm = buf.subarray(off + 8, off + 8 + size); break; }
       off += 8 + size + (size % 2);
     }
@@ -47,7 +52,7 @@ function decodeAudio(buf: Buffer, mimeType: string): Int16Array {
   return new Int16Array(aligned.buffer, aligned.byteOffset, Math.floor(aligned.length / 2));
 }
 
-export async function synthesizeSentence(text: string, opts: GeminiTtsOptions): Promise<Int16Array> {
+async function synthesizeSentence(text: string, opts: GeminiTtsOptions): Promise<Int16Array> {
   let lastError: unknown;
   // Anahtarlar sırayla denenir (biri kotayı doldurursa diğerine geçilir); hepsi düşerse beklenip tekrar.
   for (let round = 0; round < 4; round++) {
@@ -64,86 +69,15 @@ export async function synthesizeSentence(text: string, opts: GeminiTtsOptions): 
   throw lastError;
 }
 
-// Ücretsiz katman kotası model başına günde ~10 istek (2026-10-01 ölçüldü) — cümle başına istek
-// bir konuyu bile bitirmiyor. Bu yüzden birden çok cümle TEK istekte seslendirilip ses, cümle
-// aralarındaki duraklamalardan bölünür. Bölme doğrulanamazsa null döner, çağıran tek tek üretir.
-const MIN_GAP_SECONDS = 0.12;
-
-function findSilenceGaps(pcm: Int16Array, threshold = 500): { mid: number; len: number }[] {
-  const win = Math.round(GEMINI_TTS_SAMPLE_RATE * 0.01);
-  const gaps: { mid: number; len: number }[] = [];
-  let runStart = -1;
-  for (let i = 0; i * win < pcm.length; i++) {
-    let peak = 0;
-    for (let j = i * win; j < Math.min(pcm.length, (i + 1) * win); j++) peak = Math.max(peak, Math.abs(pcm[j]));
-    const quiet = peak < threshold;
-    if (quiet && runStart < 0) runStart = i;
-    if ((!quiet || (i + 1) * win >= pcm.length) && runStart >= 0) {
-      const end = quiet ? i + 1 : i;
-      const len = (end - runStart) / 100;
-      if (len >= MIN_GAP_SECONDS) gaps.push({ mid: (runStart + end) / 200, len });
-      runStart = -1;
-    }
-  }
-  return gaps;
-}
-
-export async function synthesizeBatch(texts: string[], opts: GeminiTtsOptions): Promise<Int16Array[] | null> {
-  if (texts.length === 1) return [trimSilence(await synthesizeSentence(texts[0], opts))];
-  // Noktalamasız parçalar (başlıklar) cümle sonu duraklaması alsın diye nokta eklenir.
-  const joined = texts.map((t) => (/[.!?;:]$/.test(t) ? t : `${t}.`)).join('\n\n');
-  const pcm = trimSilence(await synthesizeSentence(joined, opts));
-  const total = pcm.length / GEMINI_TTS_SAMPLE_RATE;
-  const weights = texts.map((t) => t.length);
-  const weightSum = weights.reduce((a, b) => a + b, 0);
-  const expected: number[] = [];
-  let acc = 0;
-  for (let k = 0; k < texts.length - 1; k++) { acc += weights[k]; expected.push((acc / weightSum) * total); }
-  // Kenarlardaki sessizlik sayılmaz (trimSilence sonrası kalan pay).
-  const gaps = findSilenceGaps(pcm).filter((g) => g.mid > 0.3 && g.mid < total - 0.3);
-  if (gaps.length < expected.length) return null;
-
-  // DP: her cümle sınırına sırayla (artan) bir duraklama ata; skor = duraklama uzunluğu − beklenen
-  // konumdan sapma cezası. Cümle sonu duraklamaları cümle içindekilerden belirgin uzun.
-  const K = expected.length;
-  const G = gaps.length;
-  const score = (k: number, g: number) => gaps[g].len - 0.2 * Math.abs(gaps[g].mid - expected[k]);
-  const best: number[][] = Array.from({ length: K }, () => new Array(G).fill(-Infinity));
-  const prev: number[][] = Array.from({ length: K }, () => new Array(G).fill(-1));
-  for (let g = 0; g < G; g++) best[0][g] = score(0, g);
-  for (let k = 1; k < K; k++) {
-    for (let g = k; g < G; g++) {
-      for (let h = k - 1; h < g; h++) {
-        const v = best[k - 1][h] + score(k, g);
-        if (v > best[k][g]) { best[k][g] = v; prev[k][g] = h; }
-      }
-    }
-  }
-  let g = best[K - 1].indexOf(Math.max(...best[K - 1]));
-  const cuts: number[] = new Array(K);
-  for (let k = K - 1; k >= 0; k--) { cuts[k] = gaps[g].mid; g = prev[k][g]; }
-
-  const bounds = [0, ...cuts, total];
-  const pieces: Int16Array[] = [];
-  for (let k = 0; k < texts.length; k++) {
-    const dur = bounds[k + 1] - bounds[k];
-    const expectedDur = (weights[k] / weightSum) * total;
-    // Tahminden çok sapan parça = yanlış bölme (ör. bir cümle atlandı/eklendi) → güvenme.
-    if (dur < expectedDur * 0.45 || dur > expectedDur * 2.2) return null;
-    const from = Math.round(bounds[k] * GEMINI_TTS_SAMPLE_RATE);
-    const to = Math.round(bounds[k + 1] * GEMINI_TTS_SAMPLE_RATE);
-    pieces.push(trimSilence(pcm.subarray(from, to)));
-  }
-  return pieces;
-}
-
-// Baştaki/sondaki sessizliği kırpar (kısa pay bırakarak) — grup zamanlaması tahmini bu sayede
-// cümlenin gerçek başlangıcına oturur, ekranlar arası geçişte de ölü bekleme kalmaz.
-export function trimSilence(pcm: Int16Array, threshold = 500, padSeconds = 0.06): Int16Array {
-  const pad = Math.round(padSeconds * GEMINI_TTS_SAMPLE_RATE);
-  let start = 0;
-  let end = pcm.length - 1;
-  while (start < end && Math.abs(pcm[start]) < threshold) start++;
-  while (end > start && Math.abs(pcm[end]) < threshold) end--;
-  return pcm.subarray(Math.max(0, start - pad), Math.min(pcm.length, end + pad));
+export function createGeminiEngine(opts: GeminiTtsOptions): NarrationEngine {
+  return {
+    provider: 'gemini',
+    model: opts.model,
+    voice: opts.voice,
+    trailingSilence: 0.06,
+    synthesize: async (text) => {
+      const pcm = trimSilence(await synthesizeSentence(text, opts));
+      return { mp3: await encodeMp3(pcm, TTS_SAMPLE_RATE), duration: pcm.length / TTS_SAMPLE_RATE };
+    },
+  };
 }

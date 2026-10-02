@@ -24,16 +24,20 @@ const SYMBOL_IN_PARENS_RE = /\s*\(\s*[=+\-*/<>]\s*\)/g;
 // "sütun/çubuk" → "sütun ya da çubuk" (sayı/hücre bölmeleri formül içinde ele alınıyor).
 const WORD_SLASH_RE = /([a-zçğıöşü]{2,})\/([a-zçğıöşü]{2,})/giu;
 
+// Parantezler virgülle ayrılır ("eşittir TOPLA, parantez aç, A1 … A5, parantez kapat,") —
+// virgülsüz okunuşta Elif HD formülün ortasında takılıyordu (2026-10-02 dinleme testi).
 function spellFormula(formula: string): string {
   const out: string[] = [];
   let buf = '';
   const flush = () => { if (buf) { out.push(buf); buf = ''; } };
   for (const ch of formula) {
     const word = SYMBOL_WORDS[ch];
-    if (word) { flush(); out.push(word); } else buf += ch;
+    if (!word) { buf += ch; continue; }
+    flush();
+    out.push(ch === '(' || ch === ')' ? `, ${word},` : word);
   }
   flush();
-  return out.join(' ');
+  return out.join(' ').replace(/\s+,/g, ',').replace(/,(\s*,)+/g, ',').replace(/^,\s*/, '');
 }
 
 export function toSpeech(display: string): string {
@@ -43,5 +47,7 @@ export function toSpeech(display: string): string {
     .replace(RANGE_RE, '$1 iki nokta üst üste $2')
     .replace(WORD_SLASH_RE, '$1 ya da $2')
     .replace(/\s{2,}/g, ' ')
+    // Formül sonundaki virgül cümle noktalamasıyla çakışmasın: "kapat,." → "kapat."
+    .replace(/,\s*([.;:!?,])/g, '$1')
     .trim();
 }
