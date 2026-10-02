@@ -38,12 +38,24 @@ export interface TopicMastery {
   state: MasteryState;
 }
 
+// Ders raporu için ünite ünite TÜM konular (2026-10-03). total === 0 olan konunun sorusu henüz
+// yok: raporda "Sorular yakında" yazar, href konu anlatımına gider.
+export interface UnitMastery {
+  key: string;
+  title: string;
+  topics: TopicMastery[];
+}
+
 export interface LessonMastery {
   id: number;
   name: string;
   href: string | null;
+  // Yalnız sorusu olan konular — durum sayıları, zorlandığın konular ve özet bunlardan.
   topics: TopicMastery[];
   counts: Record<MasteryState, number>;
+  units: UnitMastery[];
+  /** Sorusu henüz olmayan konu sayısı. */
+  upcoming: number;
 }
 
 export interface MasteryResult {
@@ -56,6 +68,9 @@ type Row = {
   lesson_name: string;
   lesson_slug: string | null;
   grade_slug: string | null;
+  // get_my_topic_mastery_all_topics.sql ile geldi; eski fonksiyonda yok (geriye uyum).
+  unit_id?: number;
+  unit_title?: string | null;
   unit_slug: string | null;
   topic_id: number;
   topic_title: string;
@@ -84,25 +99,42 @@ export function groupMastery(rows: Row[]): LessonMastery[] {
         href: r.grade_slug && r.lesson_slug ? buildSoruBankasiLessonPath(r.grade_slug, r.lesson_slug) : null,
         topics: [],
         counts: { new: 0, weak: 0, building: 0, learned: 0 },
+        units: [],
+        upcoming: 0,
       };
       lessons.set(r.lesson_id, lesson);
     }
+    const hasQuestions = r.total_questions > 0;
     const state = masteryState(r.total_questions, r.solved_questions, r.correct_answers);
-    lesson.counts[state]++;
-    lesson.topics.push({
+    const slugs = r.grade_slug && r.lesson_slug && r.unit_slug && r.topic_slug;
+    const topic: TopicMastery = {
       id: r.topic_id,
       title: r.topic_title,
-      href:
-        r.grade_slug && r.lesson_slug && r.unit_slug && r.topic_slug
-          ? `${buildSoruBankasiUnitPath(r.grade_slug, r.lesson_slug, r.unit_slug)}/${r.topic_slug}`
-          : null,
+      href: !slugs
+        ? null
+        : hasQuestions
+          ? `${buildSoruBankasiUnitPath(r.grade_slug!, r.lesson_slug!, r.unit_slug!)}/${r.topic_slug}`
+          : `/${r.grade_slug}/${r.lesson_slug}/${r.unit_slug}/${r.topic_slug}`,
       total: r.total_questions,
       solved: r.solved_questions,
       correct: r.correct_answers,
       wrong: r.solved_questions - r.correct_answers,
       accuracy: r.solved_questions ? Math.round((r.correct_answers / r.solved_questions) * 100) : null,
       state,
-    });
+    };
+    if (hasQuestions) {
+      lesson.counts[state]++;
+      lesson.topics.push(topic);
+    } else {
+      lesson.upcoming++;
+    }
+    const unitKey = String(r.unit_id ?? r.unit_slug ?? '');
+    let unit = lesson.units.at(-1);
+    if (!unit || unit.key !== unitKey) {
+      unit = { key: unitKey, title: r.unit_title ?? '', topics: [] };
+      lesson.units.push(unit);
+    }
+    unit.topics.push(topic);
   }
   return [...lessons.values()];
 }

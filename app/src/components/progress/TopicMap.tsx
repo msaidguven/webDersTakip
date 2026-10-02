@@ -2,12 +2,13 @@
 
 // Ders raporu (İlerlemem, eski "Konu haritam" kutu ızgarası — 2026-10-02 kullanıcı isteğiyle sade
 // rapora çevrildi). Her ders tek satır: öğrenilen konu sayısı + durum dağılımı çubuğu; satıra
-// dokununca konu listesi açılır (durum yazıyla, renk tek başına anlam taşımaz). Durum kuralı
+// dokununca ünite ünite TÜM konular açılır (2026-10-03; sorusu olmayan konu "Sorular yakında" →
+// konu anlatımına gider, sayılara katılmaz). Durum yazıyla, renk tek başına anlam taşımaz. Durum kuralı
 // lib/topicMastery.ts'te. Zorlanılan konular ayrıca "Zorlandığın konular" bölümünde listelenir.
 import Link from 'next/link';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
-import { MASTERY_LABEL, type LessonMastery, type MasteryState, type TopicMastery } from '@/app/src/lib/topicMastery';
+import { MASTERY_LABEL, type LessonMastery, type MasteryState, type TopicMastery, type UnitMastery } from '@/app/src/lib/topicMastery';
 
 const BAR: Record<MasteryState, string> = {
   learned: 'bg-indigo-600',
@@ -30,15 +31,59 @@ const COUNT_LABEL: Record<MasteryState, string> = {
 const ORDER: MasteryState[] = ['learned', 'building', 'weak', 'new'];
 
 function topicDetail(t: TopicMastery): string {
+  if (t.total === 0) return 'konu anlatımı';
   if (t.state === 'new') return `${t.total} soru`;
   return `%${t.accuracy} · ${t.solved}/${t.total} soru`;
 }
 
+function TopicRow({ t }: { t: TopicMastery }) {
+  const soon = t.total === 0;
+  const label = soon ? 'Sorular yakında' : MASTERY_LABEL[t.state];
+  const body = (
+    <>
+      <span className={`min-w-0 flex-1 text-sm font-medium leading-snug ${soon ? 'text-muted-foreground' : 'text-default'}`}>{t.title}</span>
+      <span className="hidden text-xs text-muted-foreground sm:inline">{topicDetail(t)}</span>
+      <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${soon ? 'text-muted-foreground' : BADGE[t.state]}`}>{label}</span>
+    </>
+  );
+  const cls = 'flex min-h-11 items-center gap-3 px-3 py-2';
+  return (
+    <li>
+      {t.href ? (
+        <Link href={t.href} className={`${cls} transition-colors hover:bg-surface-elevated`} aria-label={`${t.title}: ${label}, ${topicDetail(t)}`}>
+          {body}
+        </Link>
+      ) : (
+        <div className={cls}>{body}</div>
+      )}
+    </li>
+  );
+}
+
+function UnitBlock({ unit }: { unit: UnitMastery }) {
+  const withQ = unit.topics.filter((t) => t.total > 0);
+  const learned = withQ.filter((t) => t.state === 'learned').length;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-3 px-1">
+        <h4 className="text-sm font-semibold text-default">{unit.title || 'Ünite'}</h4>
+        <span className="shrink-0 text-xs text-muted-foreground">{withQ.length ? `${learned} / ${withQ.length} öğrenildi` : 'Sorular yakında'}</span>
+      </div>
+      <ul className="divide-y divide-[var(--border)] rounded-xl border border-default">
+        {unit.topics.map((t) => (
+          <TopicRow key={t.id} t={t} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function LessonRow({ lesson }: { lesson: LessonMastery }) {
   const total = lesson.topics.length;
-  const summary = ORDER.filter((s) => lesson.counts[s] > 0)
-    .map((s) => `${lesson.counts[s]} ${COUNT_LABEL[s]}`)
-    .join(' · ');
+  const summary = [
+    ...ORDER.filter((s) => lesson.counts[s] > 0).map((s) => `${lesson.counts[s]} ${COUNT_LABEL[s]}`),
+    ...(lesson.upcoming ? [`${lesson.upcoming} konunun soruları yakında`] : []),
+  ].join(' · ');
 
   return (
     <li>
@@ -48,12 +93,12 @@ function LessonRow({ lesson }: { lesson: LessonMastery }) {
             <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <span className="font-semibold text-default">{lesson.name}</span>
               <span className="text-sm font-semibold text-default">
-                {lesson.counts.learned} / {total} konu öğrenildi
+                {total ? `${lesson.counts.learned} / ${total} konu öğrenildi` : 'Sorular yakında'}
               </span>
             </span>
             <span className="flex h-2 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
               {ORDER.map((s) =>
-                lesson.counts[s] > 0 ? <span key={s} className={BAR[s]} style={{ width: `${(lesson.counts[s] / total) * 100}%` }} /> : null
+                lesson.counts[s] > 0 && total ? <span key={s} className={BAR[s]} style={{ width: `${(lesson.counts[s] / total) * 100}%` }} /> : null
               )}
             </span>
             <span className="text-xs text-muted-foreground">{summary}</span>
@@ -61,30 +106,12 @@ function LessonRow({ lesson }: { lesson: LessonMastery }) {
           <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
 
-        <ul className="mb-4 divide-y divide-[var(--border)] rounded-xl border border-default">
-          {lesson.topics.map((t) => {
-            const body = (
-              <>
-                <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-default">{t.title}</span>
-                <span className="hidden text-xs text-muted-foreground sm:inline">{topicDetail(t)}</span>
-                <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${BADGE[t.state]}`}>{MASTERY_LABEL[t.state]}</span>
-              </>
-            );
-            const cls = 'flex min-h-11 items-center gap-3 px-3 py-2';
-            return (
-              <li key={t.id}>
-                {t.href ? (
-                  <Link href={t.href} className={`${cls} transition-colors hover:bg-surface-elevated`} aria-label={`${t.title}: ${MASTERY_LABEL[t.state]}, ${topicDetail(t)}`}>
-                    {body}
-                  </Link>
-                ) : (
-                  <div className={cls}>{body}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {lesson.href && (
+        <div className="mb-4 flex flex-col gap-4">
+          {lesson.units.map((u) => (
+            <UnitBlock key={u.key} unit={u} />
+          ))}
+        </div>
+        {lesson.href && total > 0 && (
           <Link href={lesson.href} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
             {lesson.name} Soru Bankası <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
