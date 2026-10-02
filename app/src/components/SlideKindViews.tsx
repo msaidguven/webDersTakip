@@ -98,7 +98,7 @@ function ConceptsView({ slide, accent, revealedCount, onReveal, textStyle }: Vie
               {open ? (
                 <span className="mt-1 block text-xs sm:text-sm font-medium leading-snug text-slate-600" style={textStyle(0.875, 1.4)}>{item.description}</span>
               ) : (
-                <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-slate-400"><Eye className="h-3 w-3" /> Açıklamayı göster</span>
+                <span className="mt-1 flex items-center gap-1 text-[0.6875rem] font-bold text-slate-400"><Eye className="h-3 w-3" /> Açıklamayı göster</span>
               )}
             </button>
           );
@@ -113,7 +113,7 @@ function ActivityView({ slide, accent, revealedCount, onReveal, textStyle }: Vie
   const open = revealedCount >= 2;
   return (
     <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center gap-4 sm:gap-5 overflow-y-auto px-5 sm:px-12 py-4 text-center" style={{ background: `linear-gradient(135deg, ${accent.from}1a, white 60%)` }}>
-      <p className="relative z-[1] max-w-2xl truncate text-[11px] font-black uppercase tracking-wide text-slate-400">{slide.heading}</p>
+      <p className="relative z-[1] max-w-2xl truncate text-[0.6875rem] font-black uppercase tracking-wide text-slate-400">{slide.heading}</p>
       <span
         className="relative z-[1] inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-black text-white shadow"
         style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})`, ...textStyle(0.875, 1.2) }}
@@ -123,7 +123,7 @@ function ActivityView({ slide, accent, revealedCount, onReveal, textStyle }: Vie
       <p className="relative z-[1] max-w-3xl text-lg sm:text-2xl font-bold leading-snug text-slate-800" style={textStyle(1.5, 1.35)}>{text}</p>
       {slide.reveal && (open ? (
         <div className="relative z-[1] max-w-3xl rounded-2xl border bg-white px-5 py-3 text-left shadow-sm" style={{ borderColor: `${accent.bar}33` }}>
-          <p className="mb-1 text-[11px] font-black uppercase tracking-wide" style={{ color: accent.bar }}>Örnek yaklaşım</p>
+          <p className="mb-1 text-[0.6875rem] font-black uppercase tracking-wide" style={{ color: accent.bar }}>Örnek yaklaşım</p>
           <p className="text-sm sm:text-base font-medium leading-relaxed text-slate-600" style={textStyle(1, 1.5)}>{slide.reveal}</p>
         </div>
       ) : (

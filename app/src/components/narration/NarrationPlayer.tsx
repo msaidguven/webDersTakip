@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ListTree, Loader2, Pause, Play, RotateCcw, X } from 'lucide-react';
 import { narrationManifestPath, narrationPublicUrl } from '@/app/src/lib/narration/config';
 import { NARRATION_MANIFEST_VERSION, type NarrationManifest, type NarrationScreen } from '@/app/src/lib/narration/types';
+import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
 import s from './NarrationPlayer.module.css';
 
 // "Video / Sesli Anlatım" oynatıcısı (PROTOTİP, 2026-10-01). Konunun sayfadaki metni cümle cümle,
@@ -52,6 +53,7 @@ const formatTime = (sec: number) => {
 
 function textSizeClass(screen: NarrationScreen): string {
   if (screen.kind === 'title') return 'text-[clamp(2rem,6.2vw,4.4rem)] leading-[1.08]';
+  if (screen.kind === 'heading') return 'text-[clamp(1.75rem,5vw,3.4rem)] leading-[1.12]';
   const len = screen.chunks.reduce((n, c) => n + c.parts.reduce((m, p) => m + p.t.length + 1, 0), 0);
   if (len <= 70) return 'text-[clamp(1.9rem,5.4vw,3.7rem)] leading-[1.18]';
   if (len <= 130) return 'text-[clamp(1.65rem,4.4vw,3.05rem)] leading-[1.22]';
@@ -65,7 +67,13 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
   const [phase, setPhase] = useState<'intro' | 'running' | 'ended'>('intro');
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // Ekrandaki gruplardan sesin ulaştığı (başlamış) grup sayısı; tüm cümle baştan görünür,
+  // sadece okunan grup vurgulanır (kullanıcının 2026-10-02 isteği).
   const [revealed, setRevealed] = useState(0);
+  // Ekranın sesi şu an okunuyor ya da okunurken duraklatıldı mı — vurgu sadece o sırada görünür.
+  const [speaking, setSpeaking] = useState(false);
+  // Akıllı tahtada her şey ekrana orantılı büyür (bkz. useViewportRemScale) — oynatıcı hep tam ekran.
+  useViewportRemScale(true);
   // Bileşen sadece istemcide yükleniyor (dynamic, ssr:false) — başlangıçta localStorage okunabilir.
   const [rate, setRate] = useState<number>(readStoredRate);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -145,10 +153,12 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
     writeStorage(PROGRESS_KEY(topicId), String(i));
     if (autoplay) {
       setRevealed(0);
+      setSpeaking(true);
       setPlaying(true);
       playSafely(audio, () => setPlaying(false));
     } else {
       setRevealed(target.screen.chunks.length);
+      setSpeaking(false);
       setPlaying(false);
     }
   }, [flat, topicId]);
@@ -176,6 +186,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
       const i = indexRef.current;
       const cur = flat[i];
       if (cur) setRevealed(cur.screen.chunks.length);
+      setSpeaking(false);
       if (i >= flat.length - 1) {
         setPlaying(false);
         setPhase('ended');
@@ -283,26 +294,26 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
   const cur = flat[index];
   const sectionCount = manifest?.sections.length ?? 0;
   const section = cur ? manifest?.sections[cur.sectionIndex] : null;
-  const lastChunk = playing ? revealed - 1 : -1;
+  const currentChunk = speaking ? revealed - 1 : -1;
 
   return (
     <div className={`fixed inset-0 z-[120] flex flex-col text-white ${s.stage}`} role="dialog" aria-modal="true" aria-label="Video / Sesli Anlatım">
       {/* Üst çubuk */}
       <div className="flex items-center gap-3 px-4 sm:px-6 pt-[max(env(safe-area-inset-top),12px)] pb-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-indigo-300/90">Video / Sesli Anlatım</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[.14em] text-indigo-300/90">Video / Sesli Anlatım</p>
           <p className="truncate text-sm font-medium text-white/80">
             {section && phase === 'running' ? <>Bölüm {cur!.sectionIndex + 1}/{sectionCount} · {section.title}</> : manifest?.topicTitle ?? ''}
           </p>
         </div>
         <button type="button" onClick={close} aria-label="Kapat" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
-          <X size={20} aria-hidden="true" />
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
       {/* Sahne */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 sm:px-12" onClick={phase === 'running' ? togglePlay : undefined}>
-        {!manifest && !error && <Loader2 className="animate-spin text-white/60" size={36} aria-label="Yükleniyor" />}
+        {!manifest && !error && <Loader2 className="h-9 w-9 animate-spin text-white/60" aria-label="Yükleniyor" />}
 
         {error && (
           <div className="max-w-md text-center">
@@ -323,7 +334,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
               {savedIndex != null ? (
                 <>
                   <button type="button" onClick={() => start(savedIndex)} className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-bold text-slate-900 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
-                    <Play size={20} fill="currentColor" aria-hidden="true" /> Kaldığın yerden devam et
+                    <Play className="h-5 w-5" fill="currentColor" aria-hidden="true" /> Kaldığın yerden devam et
                   </button>
                   <button type="button" onClick={() => start(0)} className="rounded-full px-5 py-3 text-sm font-semibold text-white/80 ring-1 ring-white/25 hover:bg-white/10">
                     Baştan başla
@@ -331,7 +342,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
                 </>
               ) : (
                 <button type="button" onClick={() => start(0)} className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-lg font-bold text-slate-900 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
-                  <Play size={22} fill="currentColor" aria-hidden="true" /> Başlat
+                  <Play className="h-[1.375rem] w-[1.375rem]" fill="currentColor" aria-hidden="true" /> Başlat
                 </button>
               )}
             </div>
@@ -347,7 +358,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
             <h2 className="mt-3 text-[clamp(1.8rem,5vw,3rem)] font-extrabold leading-tight">{manifest.topicTitle}</h2>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <button type="button" onClick={() => start(0)} className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-bold text-slate-900">
-                <RotateCcw size={18} aria-hidden="true" /> Baştan izle
+                <RotateCcw className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" /> Baştan izle
               </button>
               <button type="button" onClick={close} className="rounded-full px-5 py-3 text-sm font-semibold text-white/80 ring-1 ring-white/25 hover:bg-white/10">
                 Konuya dön
@@ -367,6 +378,14 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
                 {cur.screen.chunks.flatMap((c) => c.parts).map((p) => p.t).join(' ')}
               </h2>
             </div>
+          ) : cur.screen.kind === 'heading' ? (
+            // Ara başlık (### …): bölüm başlığından küçük, cümlelerden belirgin.
+            <div key={cur.screen.id} className="w-full max-w-5xl">
+              <p className={`text-sm font-semibold uppercase tracking-[.16em] text-indigo-300/80 ${s.screenIn}`}>{section?.title}</p>
+              <h3 className={`mt-3 border-l-[0.3rem] border-indigo-400 pl-[0.5em] font-extrabold text-indigo-100 ${textSizeClass(cur.screen)} ${s.titleIn}`}>
+                {cur.screen.chunks.flatMap((c) => c.parts).map((p) => p.t).join(' ')}
+              </h3>
+            </div>
           ) : (
             <div key={cur.screen.id} className={`w-full max-w-5xl ${s.screenIn}`}>
               {cur.screen.eyebrow && (
@@ -376,19 +395,22 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
               )}
               <p className={`font-bold ${textSizeClass(cur.screen)}`}>
                 {cur.screen.chunks.map((c, ci) => {
-                  const visible = ci < revealed;
-                  const current = ci === lastChunk;
+                  // Tüm cümle baştan görünür: okunmuş gruplar tam beyaz, okunan grup vurgulu kutuda,
+                  // sıradakiler soluk ama okunur.
+                  const state = ci === currentChunk ? s.chunkCurrent : ci >= revealed ? s.chunkUpcoming : s.chunkDone;
                   return (
-                    <span key={ci} className={`${s.chunk} ${visible ? '' : s.chunkHidden} ${visible && !current && playing ? 'text-white/70' : 'text-white'}`}>
-                      {c.parts.map((p, pi) => {
-                        const formula = p.t.startsWith('=');
-                        const cls = formula
-                          ? 'rounded-md bg-emerald-400/15 px-1.5 font-mono text-emerald-200 ring-1 ring-emerald-300/30'
-                          : p.em ? 'text-amber-300' : '';
-                        return <span key={pi}>{pi > 0 ? ' ' : ''}<span className={cls}>{p.t}</span></span>;
-                      })}
-                      {ci < cur.screen.chunks.length - 1 ? ' ' : ''}
-                    </span>
+                    <Fragment key={ci}>
+                      {ci > 0 ? ' ' : ''}
+                      <span className={`${s.chunk} ${state}`}>
+                        {c.parts.map((p, pi) => {
+                          const formula = p.t.startsWith('=');
+                          const cls = formula
+                            ? 'rounded-md bg-emerald-400/15 px-1.5 font-mono text-emerald-200 ring-1 ring-emerald-300/30'
+                            : p.em ? 'text-amber-300' : '';
+                          return <span key={pi}>{pi > 0 ? ' ' : ''}<span className={cls}>{p.t}</span></span>;
+                        })}
+                      </span>
+                    </Fragment>
                   );
                 })}
               </p>
@@ -445,7 +467,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
           <span ref={timeRef} className="w-24 shrink-0 font-mono text-xs tabular-nums text-white/60">0:00 / {formatTime(totalDuration)}</span>
           <div className="flex flex-1 items-center justify-center gap-2 sm:gap-4">
             <button type="button" onClick={() => step(-1)} disabled={phase !== 'running' || index === 0} aria-label="Önceki ekran" className="grid h-11 w-11 place-items-center rounded-full hover:bg-white/10 disabled:opacity-30">
-              <ChevronLeft size={26} aria-hidden="true" />
+              <ChevronLeft className="h-[1.625rem] w-[1.625rem]" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -454,10 +476,10 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
               aria-label={playing ? 'Duraklat' : 'Oynat'}
               className="grid h-14 w-14 place-items-center rounded-full bg-white text-slate-900 shadow-lg shadow-indigo-500/30 transition-transform hover:scale-105 disabled:opacity-40"
             >
-              {playing ? <Pause size={24} fill="currentColor" aria-hidden="true" /> : <Play size={24} fill="currentColor" className="translate-x-0.5" aria-hidden="true" />}
+              {playing ? <Pause className="h-6 w-6" fill="currentColor" aria-hidden="true" /> : <Play fill="currentColor" className="h-6 w-6 translate-x-0.5" aria-hidden="true" />}
             </button>
             <button type="button" onClick={() => step(1)} disabled={phase !== 'running' || index >= flat.length - 1} aria-label="Sonraki ekran" className="grid h-11 w-11 place-items-center rounded-full hover:bg-white/10 disabled:opacity-30">
-              <ChevronRight size={26} aria-hidden="true" />
+              <ChevronRight className="h-[1.625rem] w-[1.625rem]" aria-hidden="true" />
             </button>
           </div>
           <div className="flex w-24 shrink-0 items-center justify-end gap-1">
@@ -465,7 +487,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
               {rate}x
             </button>
             <button type="button" onClick={() => setMenuOpen((o) => !o)} disabled={!manifest} aria-label="Bölümler" aria-expanded={menuOpen} className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/10 disabled:opacity-30">
-              <ListTree size={18} aria-hidden="true" />
+              <ListTree className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
             </button>
           </div>
         </div>

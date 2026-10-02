@@ -4,8 +4,10 @@
 // yapmalıyım?" sorusunu tek bir görevle yanıtlar. Derin analiz (ustalık haritası, geçmiş,
 // haftalık tablo) BURADA DEĞİL, "İlerlemem" sayfasında (yol haritası 4) — iki sayfa aynı
 // kutuları tekrar etmesin.
+import type React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Flame } from 'lucide-react';
+import { ArrowRight, BookOpen, Flame } from 'lucide-react';
+import { SectionCard } from './SectionCard';
 import type { LessonProgress } from '@/app/src/models/types';
 import { useStudentToday, type OpenTest, type TodayTask } from '@/app/src/hooks/useStudentToday';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
@@ -64,7 +66,9 @@ function Skeleton() {
   );
 }
 
-export function StudentToday() {
+// lessonsAside: masaüstünde Derslerim'in yanında gösterilecek kart (anasayfa: kendi sınıfının
+// "Okulda bu hafta"sı, 2026-10-02). Yoksa Derslerim tam genişlik.
+export function StudentToday({ lessonsAside }: { lessonsAside?: React.ReactNode } = {}) {
   const { data } = useStudentToday();
   if (!data) return <Skeleton />;
 
@@ -128,22 +132,19 @@ export function StudentToday() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 rounded-[24px] border border-default bg-background p-5 sm:p-6">
+        {/* Renkli bölüm kartı (2026-10-02). Hedef İlerlemem başlığında seçiliyor (10/20/40) → "Değiştir". */}
+        <SectionCard
+          tone="orange"
+          headingId="gunluk-hedef"
+          icon={<Flame className="h-5 w-5" aria-hidden="true" />}
+          title="Günlük hedef"
+          subtitle={`${data.dailyProgress} / ${data.dailyGoal} soru`}
+          action={{ href: '/ilerlemem', label: 'Değiştir' }}
+          bodyClassName="flex flex-1 flex-col gap-4 p-5 sm:p-6"
+        >
           <div className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between">
-              <span className="flex items-baseline gap-2">
-                <span className="text-base font-black text-default">Günlük hedef</span>
-                {/* Hedef İlerlemem başlığında seçiliyor (10/20/40). */}
-                <Link href="/ilerlemem" className="text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400">
-                  değiştir
-                </Link>
-              </span>
-              <span className="text-sm text-muted-foreground">
-                <b className="text-xl text-default">{data.dailyProgress}</b> / {data.dailyGoal} soru
-              </span>
-            </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-surface-elevated" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100} aria-label="Günlük hedef">
-              <div className="h-full rounded-full bg-indigo-600" style={{ width: `${goalPct}%` }} />
+              <div className="h-full rounded-full bg-orange-600" style={{ width: `${goalPct}%` }} />
             </div>
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Flame className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
@@ -189,13 +190,18 @@ export function StudentToday() {
               </span>
             </Link>
           )}
-        </div>
+        </SectionCard>
       </div>
 
       {/* Akşam hatırlatması (yol haritası 3c) — izin sadece butona basınca istenir. */}
       <PushReminderOptIn />
 
-      {data.lessons.length > 0 && <MyLessons lessons={data.lessons} nextSteps={data.nextSteps} openTests={data.openTestByLesson} />}
+      {data.lessons.length > 0 && (
+        <div className={`mt-8 grid grid-cols-1 items-start gap-6 sm:mt-10 ${lessonsAside ? 'lg:grid-cols-2' : ''}`}>
+          <MyLessons lessons={data.lessons} nextSteps={data.nextSteps} openTests={data.openTestByLesson} />
+          {lessonsAside}
+        </div>
+      )}
     </section>
   );
 }
@@ -211,14 +217,15 @@ function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[
   const btn = 'inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3.5 text-sm font-extrabold transition-colors';
 
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:mt-10">
-      <div className="flex items-end justify-between">
-        <h2 className="text-2xl font-black tracking-tight text-default sm:text-3xl">Derslerim</h2>
-        <Link href="/ilerlemem" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
-          İlerlemem →
-        </Link>
-      </div>
-      <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-default bg-background">
+    <SectionCard
+      tone="sky"
+      headingId="derslerim"
+      icon={<BookOpen className="h-5 w-5" aria-hidden="true" />}
+      title="Derslerim"
+      subtitle="Her derste sıradaki adımın"
+      action={{ href: '/ilerlemem', label: 'İlerlemem' }}
+    >
+      <ul className="divide-y divide-[var(--border)]">
         {lessons.map((lesson) => {
           const id = Number(lesson.id);
           const step = nextSteps.get(id);
@@ -302,6 +309,6 @@ function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[
           );
         })}
       </ul>
-    </div>
+    </SectionCard>
   );
 }

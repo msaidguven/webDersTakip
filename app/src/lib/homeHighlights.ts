@@ -102,18 +102,20 @@ export interface RecentTopicItem {
   lessonName: string;
   href: string | null;
   publishedAt: string;
+  // Son 3 günde yayınlandı → anasayfada "YENİ" rozeti (sunucuda hesaplanır; sayfa ISR 1 saat).
+  isNew: boolean;
 }
 
-export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, limit = 5): Promise<RecentTopicItem[]> {
-  const { data } = await supabase
+export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, limit = 5, gradeId?: number): Promise<RecentTopicItem[]> {
+  let query = supabase
     .from('topic_contents')
-    .select('created_at, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, grades(name, slug, is_active), lessons(name, slug)))')
+    .select('created_at, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, grade_id, grades(name, slug, is_active), lessons(name, slug)))')
     .eq('is_published', true)
     .eq('topics.is_active', true)
     .eq('topics.is_archived', false)
-    .eq('topics.units.is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(limit * 3);
+    .eq('topics.units.is_active', true);
+  if (gradeId != null) query = query.eq('topics.units.grade_id', gradeId);
+  const { data } = await query.order('created_at', { ascending: false }).limit(limit * 3);
 
   type Row = {
     created_at: string;
@@ -140,10 +142,17 @@ export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, li
       lessonName: lesson?.name ?? '',
       href: topicHref(grade.slug, lesson?.slug, unit?.slug, topic.slug),
       publishedAt: row.created_at,
+      isNew: Date.now() - new Date(row.created_at).getTime() < 3 * 86_400_000,
     });
     if (items.length >= limit) break;
   }
   return items;
+}
+
+// Sınıf başına son eklenen konular (girişli anasayfa, kendi sınıfı — 2026-10-02).
+export async function getRecentlyPublishedTopicsByGrade(supabase: AnySupabaseClient, gradeIds: number[], limit = 5): Promise<Record<string, RecentTopicItem[]>> {
+  const lists = await Promise.all(gradeIds.map((id) => getRecentlyPublishedTopics(supabase, limit, id)));
+  return Object.fromEntries(gradeIds.map((id, i) => [String(id), lists[i]]));
 }
 
 // ---------------------------------------------------------------------------------------

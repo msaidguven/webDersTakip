@@ -9,13 +9,23 @@
 .titleIn { animation: titleIn 700ms cubic-bezier(.2, .8, .2, 1) both; }
 .ghostNo { animation: ghostIn 900ms ease-out both; }
 
-/* Kelime grubu: gizli → sesle birlikte bulanıklıktan netleşerek yukarı kayar. */
-/* inline (inline-block değil): uzun gruplar satır sonunda doğal kırılsın; transform inline'da
-   çalışmadığı için kayma efekti yerine bulanıklık + opaklık kullanılıyor. */
+/* Tüm cümle baştan görünür; sesle birlikte ilerleyen 2-4 kelimelik grup vurgulanır (2026-10-02).
+   box-decoration-break: grup satır sonunda kırılırsa vurgu kutusu her satırda ayrı ve düzgün çizilir. */
 .chunk {
-  transition: opacity 420ms ease-out, filter 420ms ease-out, color 300ms ease-out;
+  border-radius: 0.28em;
+  padding: 0.02em 0.14em;
+  margin: 0 -0.14em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: color 260ms ease-out, background-color 260ms ease-out, box-shadow 260ms ease-out;
 }
-.chunkHidden { opacity: 0; filter: blur(10px); }
+.chunkDone { color: rgb(255 255 255); }
+.chunkUpcoming { color: rgb(255 255 255 / 0.62); }
+/* Hafif vurgu (2026-10-02: belirgin kutu/parlama okuyanın dikkatini anlamdan görsele çekiyordu). */
+.chunkCurrent {
+  color: rgb(255 255 255);
+  background-color: rgb(165 180 252 / 0.14);
+}
 
 @keyframes screenIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes titleIn { from { opacity: 0; transform: scale(.94); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
@@ -23,6 +33,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .screenIn, .titleIn, .ghostNo { animation: none; }
-  .chunk { transition: opacity 200ms linear; }
-  .chunkHidden { filter: none; }
+  .chunk { transition: none; }
 }

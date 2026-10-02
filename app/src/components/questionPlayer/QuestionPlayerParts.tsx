@@ -289,11 +289,11 @@ export function FontScaleControl({
         title="Yazıyı küçült"
         className={btn}
       >
-        <span className="text-[11px] sm:text-xs">A</span>
+        <span className="text-[0.6875rem] sm:text-xs">A</span>
         <Minus className="h-3 w-3" />
       </button>
       {/* min-w-8: metin +/- ile büyüyünce kutu da genişlesin, komşu butonların üstüne binmesin. */}
-      <span className="min-w-8 px-0.5 text-center text-[10px] sm:text-[11px] font-black text-slate-500 whitespace-nowrap tabular-nums" style={badgeStyle}>
+      <span className="min-w-8 px-0.5 text-center text-[0.625rem] sm:text-[0.6875rem] font-black text-slate-500 whitespace-nowrap tabular-nums" style={badgeStyle}>
         %{Math.round(fontScale * 100)}
       </span>
       <button
@@ -473,7 +473,7 @@ export function QuestionPills({
               disabled={isJumpable ? !isJumpable(i) : false}
               aria-label={`${i + 1}. soruya git`}
               aria-current={isCurrent ? 'step' : undefined}
-              className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-black transition-all disabled:cursor-not-allowed disabled:opacity-40 ${cls} ${isCurrent ? 'ring-2 ring-offset-1' : ''}`}
+              className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[0.625rem] sm:text-[0.6875rem] font-black transition-all disabled:cursor-not-allowed disabled:opacity-40 ${cls} ${isCurrent ? 'ring-2 ring-offset-1' : ''}`}
               style={isCurrent ? ({ ['--tw-ring-color' as string]: accentBar } as CSSProperties) : undefined}
             >
               {i + 1}
@@ -502,7 +502,7 @@ export const PLAYER_TOP_BAR_CLASS =
 export const PLAYER_NAV_ROW_CLASS =
   'relative z-10 flex shrink-0 items-center justify-center gap-3 sm:gap-4 px-3 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4 sm:pt-2';
 // Üst çubuktaki küçük rozetlerin (sayaç, D/Y) ortak tabanı — eskiden mobilde 9px'ti.
-export const PLAYER_BADGE_CLASS = 'rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[11px] sm:text-xs font-black shadow-sm';
+export const PLAYER_BADGE_CLASS = 'rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[0.6875rem] sm:text-xs font-black shadow-sm';
 
 // "6. SINIF · DERS · ÜNİTE" rozeti. Eskiden 9px (mobil) / 11px'ti, yazı büyütmeden etkilenmiyordu
 // ve mobilde tek satıra kırpılıp ünite adı hiç görünmüyordu (2026-09-26 geri bildirimi). Artık
@@ -512,7 +512,7 @@ export function PlayerEyebrow({ text, accent, fontScale = 1 }: { text: string; a
     // Satır sınırı (line-clamp) iç SPAN'da: dolgu (padding) aynı elemanda olunca kırpılan 3. satır
     // alt dolgudan yarım görünüyordu (320px iPhone SE'de yakalandı).
     <div
-      className="w-fit max-w-full rounded-lg px-2.5 py-1.5 text-[11px] leading-snug sm:text-xs font-black uppercase tracking-wide text-white shadow-sm"
+      className="w-fit max-w-full rounded-lg px-2.5 py-1.5 text-[0.6875rem] leading-snug sm:text-xs font-black uppercase tracking-wide text-white shadow-sm"
       style={{
         background: `linear-gradient(90deg, ${accent.from}, ${accent.to})`,
         ...(fontScale !== 1 ? { fontSize: `${0.75 * Math.min(fontScale, 2)}rem` } : undefined),

@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { getWeeklyLeaderboard, LeaderboardEntry } from '../lib/leaderboard';
 import { onQuizModalClosed } from '../lib/panelRefreshBridge';
+import { useIsAdmin } from '../hooks/useIsAdmin';
 
-function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
+// showRealMark: sadece admin için gerçek öğrencinin yanında "(G)" (sahte kayıtlardan ayırmak için).
+function LeaderboardRow({ entry, showRealMark }: { entry: LeaderboardEntry; showRealMark: boolean }) {
   return (
     <div className={`flex items-center gap-3 px-4 sm:px-6 py-2.5 sm:py-3 ${entry.isMe ? 'bg-indigo-500/10' : ''}`}>
       <span className={`w-6 text-sm font-bold ${entry.rank <= 3 ? 'text-amber-400' : 'text-muted-foreground'}`}>{entry.rank}</span>
       <span className={`flex-1 text-sm truncate ${entry.isMe ? 'text-indigo-400 font-semibold' : 'text-default'}`}>
         {entry.isMe ? 'Sen' : entry.displayName}
+        {showRealMark && entry.isReal && <span className="ml-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">(G)</span>}
       </span>
       <span className="text-sm text-muted-foreground whitespace-nowrap">{entry.totalQuestions} soru</span>
     </div>
@@ -29,6 +32,7 @@ interface LeaderboardCardProps {
 // (format_public_name, bkz. get_weekly_leaderboard RPC'si).
 export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCardProps) {
   const { user, supabase } = useAuth();
+  const isAdmin = useIsAdmin();
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
 
   useEffect(() => {
@@ -114,12 +118,12 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
       ) : (
         <div className="divide-y divide-white/5">
           {topEntries.map((entry) => (
-            <LeaderboardRow key={entry.rank} entry={entry} />
+            <LeaderboardRow key={entry.rank} entry={entry} showRealMark={isAdmin} />
           ))}
           {showMeSeparately && me && (
             <>
               <div className="px-4 py-1 text-center text-xs text-muted-foreground">•••</div>
-              <LeaderboardRow entry={me} />
+              <LeaderboardRow entry={me} showRealMark={isAdmin} />
             </>
           )}
         </div>

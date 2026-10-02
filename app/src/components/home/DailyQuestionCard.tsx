@@ -10,6 +10,7 @@ import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { CheckCircle2, Sun, Users, XCircle } from 'lucide-react';
+import { SectionCard } from './SectionCard';
 import MathText from '@/app/src/components/MathText';
 import { useAuth } from '@/app/src/context/AuthContext';
 import type { DailyQuestion } from '@/app/src/lib/homeHighlights';
@@ -95,18 +96,16 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
   };
 
   return (
-    <section
-      aria-labelledby="gunun-sorusu"
-      className="flex flex-col gap-4 rounded-3xl border border-default bg-background p-5 shadow-[0_24px_48px_-28px_rgba(27,26,46,0.28)] sm:p-7"
+    // Renkli bölüm kartı (2026-10-02, anasayfa genel tasarım dili — bkz. SectionCard).
+    <SectionCard
+      tone="violet"
+      headingId="gunun-sorusu"
+      icon={<Sun className="h-5 w-5" aria-hidden="true" />}
+      title="Günün Sorusu"
+      subtitle={`${data.gradeName} · ${data.lessonName}`}
+      className="shadow-[0_24px_48px_-28px_rgba(27,26,46,0.28)]"
+      bodyClassName="flex flex-col gap-4 p-5 sm:p-6"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="gunun-sorusu" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-          <Sun className="h-4 w-4" aria-hidden="true" /> Günün Sorusu
-        </h2>
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {data.gradeName} · {data.lessonName}
-        </span>
-      </div>
 
       <MathText as="p" text={question.question_text} className="text-base font-bold leading-relaxed text-default sm:text-lg" />
 
@@ -166,6 +165,6 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
       ) : (
         <p className="text-sm text-muted-foreground">Her gün yeni bir soru. Cevapla, kaç kişinin doğru bildiğini gör.</p>
       )}
-    </section>
+    </SectionCard>
   );
 }

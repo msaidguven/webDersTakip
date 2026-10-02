@@ -5,7 +5,8 @@
 // buton) yerine. Satırın iki hedefi var — ders adı konu anlatımına, sağdaki soru sayısı soru
 // bankasına — iç içe <a> geçersiz HTML olduğu için satır bir kap, içinde iki ayrı link.
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { BookOpen, ChevronRight } from 'lucide-react';
+import { SectionCard } from './SectionCard';
 import type { Grade } from '@/app/src/models/homeTypes';
 import type { HomeGradeSection } from '@/app/src/lib/homeStats';
 
@@ -24,15 +25,18 @@ export function GradeLessonPicker({
   const gradeSlug = section?.gradeSlug ?? selectedGrade.slug;
 
   return (
-    <section id="dersler" aria-labelledby="dersler-baslik" className="flex scroll-mt-24 flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 id="dersler-baslik" className="text-2xl font-black tracking-tight text-default sm:text-3xl">
-            Sınıfını seç
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground sm:text-base">Derse tıkla: konu anlatımı ve soru bankası tek yerde.</p>
-        </div>
-        <div role="tablist" aria-label="Sınıflar" className="grid auto-cols-fr grid-flow-col gap-1.5 rounded-2xl bg-surface-elevated p-1.5 sm:flex">
+    // Renkli bölüm kartı (2026-10-02); masaüstünde ekranın yarısında, "Okulda bu hafta"nın yanında.
+    <SectionCard
+      id="dersler"
+      className="scroll-mt-24"
+      tone="sky"
+      headingId="dersler-baslik"
+      icon={<BookOpen className="h-5 w-5" aria-hidden="true" />}
+      title="Sınıfını seç"
+      subtitle="Derse tıkla: konu anlatımı ve soru bankası tek yerde."
+    >
+      <div className="border-b border-default p-3">
+        <div role="tablist" aria-label="Sınıflar" className="grid auto-cols-fr grid-flow-col gap-1.5 rounded-2xl bg-surface-elevated p-1.5">
           {grades.map((grade) => {
             const active = grade.id === selectedGrade.id;
             return (
@@ -54,7 +58,7 @@ export function GradeLessonPicker({
         </div>
       </div>
 
-      <div id="dersler-listesi" role="tabpanel" className="overflow-hidden rounded-3xl border border-default bg-background">
+      <div id="dersler-listesi" role="tabpanel">
         {lessons.length === 0 ? (
           <p className="p-6 text-center text-sm font-bold text-muted-foreground">Bu sınıf için henüz içerik eklenmedi.</p>
         ) : (
@@ -103,6 +107,6 @@ export function GradeLessonPicker({
           </ul>
         )}
       </div>
-    </section>
+    </SectionCard>
   );
 }

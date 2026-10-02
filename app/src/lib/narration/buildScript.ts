@@ -3,12 +3,13 @@ import { toSpeech } from './speech';
 // Konu metnini (alt başlıkların body_markdown'u) sesli anlatım ekranlarına böler. Saf fonksiyon:
 // AI çağrısı yok, ekranda sayfadaki metnin kendisi görünür (SEO metniyle birebir aynı içerik).
 //
-// Kurallar: her alt başlık bir "title" ekranıyla başlar; her cümle bir ekrandır (çok uzun cümleler
-// noktalı virgülden bölünür); cümle 2-4 kelimelik gruplar halinde sesle birlikte belirir.
+// Kurallar: her alt başlık bir "title" ekranıyla başlar; her ara başlık (###) bir "heading" ekranıdır;
+// her cümle bir ekrandır (çok uzun cümleler noktalı virgülden bölünür); cümle baştan tam görünür,
+// okunan 2-4 kelimelik grup sesle birlikte vurgulanır.
 
 export type ScriptWord = { t: string; em: boolean };
 export type ScriptChunk = { words: ScriptWord[]; speech: string };
-export type ScriptScreen = { kind: 'title' | 'sentence'; eyebrow: string | null; chunks: ScriptChunk[]; speech: string };
+export type ScriptScreen = { kind: 'title' | 'heading' | 'sentence'; eyebrow: string | null; chunks: ScriptChunk[]; speech: string };
 export type ScriptSection = { sectionId: number; title: string; screens: ScriptScreen[] };
 
 export type ScriptSourceSection = { id: number; heading: string; body_markdown: string | null };
@@ -91,8 +92,8 @@ function chunkWords(words: ScriptWord[]): ScriptWord[][] {
 }
 
 function toScreen(kind: ScriptScreen['kind'], eyebrow: string | null, words: ScriptWord[]): ScriptScreen {
-  // Başlık ekranı bütün olarak belirir; gruplama sadece cümle ekranlarında.
-  const chunks = (kind === 'title' ? [words] : chunkWords(words)).map((ws) => ({ words: ws, speech: toSpeech(ws.map((w) => w.t).join(' ')) }));
+  // Başlık ekranları tek parça; gruplama sadece cümle ekranlarında.
+  const chunks = (kind === 'sentence' ? chunkWords(words) : [words]).map((ws) => ({ words: ws, speech: toSpeech(ws.map((w) => w.t).join(' ')) }));
   return { kind, eyebrow, chunks, speech: chunks.map((c) => c.speech).join(' ') };
 }
 
@@ -109,7 +110,16 @@ export function buildNarrationScript(sections: ScriptSourceSection[]): ScriptSec
     for (const raw of (sec.body_markdown ?? '').split('\n')) {
       const line = raw.trim();
       const heading = line.match(/^#{1,6}\s+(.*)$/);
-      if (heading) { flush(); eyebrow = heading[1].replace(/\*\*/g, '').trim(); continue; }
+      if (heading) {
+        flush();
+        eyebrow = heading[1].replace(/\*\*/g, '').trim();
+        // Ara başlıklar da seslendirilir (kullanıcının 2026-10-02 isteği) — bölüm başlığıyla aynıysa
+        // tekrar okunmaz.
+        if (eyebrow && eyebrow.toLocaleLowerCase('tr') !== sec.heading.trim().toLocaleLowerCase('tr')) {
+          screens.push(toScreen('heading', null, toWords(eyebrow)));
+        }
+        continue;
+      }
       if (!line) { flush(); continue; }
       // Tablolar ve görsel/HTML satırları seslendirilmez (prototip kapsamı dışında).
       if (line.startsWith('|') || line.startsWith('<') || line.startsWith('![')) { flush(); continue; }

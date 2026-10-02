@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Clock, ListChecks, Loader2, Maximize2, Party
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { ClassroomSlideView, revealStepsLeft } from '@/app/src/components/SlideKindViews';
+import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
 import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { submitAnswers, startSessionWithRetry } from '@/app/src/lib/answerSync';
@@ -440,12 +441,15 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   const { onTouchStart: handleTouchStart, onTouchEnd: handleTouchEnd } = useSwipe(goNext, goPrev, !!lightbox);
 
   const isOverlay = variant === 'overlay';
+  // Tam ekranda her şey ekran boyutuna orantılı büyür (akıllı tahta); sayfaya gömülü kartta değil.
+  useViewportRemScale(isOverlay);
 
   // Üst çubuktaki küçük rozetler (%büyütme, D:/Y:, sayfa sayacı) +/- ile birlikte büyüsün diye
   // — eskiden sabit [9-11px] kalıyorlardı, metin kocaman olunca orantısız kalıyordu
   // (kullanıcının 2026-09-21 isteği).
   const smallBadgeStyle = useCallback(
-    (basePx: number) => (fontScale !== 1 ? { fontSize: `${basePx * fontScale}px` } : undefined),
+    // rem: tam ekranda kök yazı boyutu ekrana göre büyüdüğünde (useViewportRemScale) rozetler de büyüsün.
+    (basePx: number) => (fontScale !== 1 ? { fontSize: `${(basePx / 16) * fontScale}rem` } : undefined),
     [fontScale]
   );
 
@@ -546,7 +550,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                       onClick={startQuestions}
                       aria-label="Sorulara geç"
                       title="Sorulara geç"
-                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white/90 px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-[11px] font-black text-slate-500 shadow-sm transition-colors hover:bg-slate-100"
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white/90 px-1.5 sm:px-2 py-1.5 text-[0.625rem] sm:text-[0.6875rem] font-black text-slate-500 shadow-sm transition-colors hover:bg-slate-100"
                     >
                       <ListChecks className="h-3.5 w-3.5 shrink-0" />
                       {/* Diğer üst çubuk rozetleri (%büyütme, D:/Y:, sayfa sayacı) +/- ile
@@ -795,7 +799,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                           }}
                         >
                           <span
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white shadow"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.625rem] font-black text-white shadow"
                             style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
                           >
                             {i + 1}
@@ -833,7 +837,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                             {slide.bullets[i]}
                           </p>
                           {slide.bullets.length > 1 && (
-                            <span className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                            <span className="text-[0.6875rem] font-black uppercase tracking-wide text-slate-400">
                               {i + 1} / {slide.bullets.length}
                             </span>
                           )}

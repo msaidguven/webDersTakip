@@ -13,8 +13,10 @@ export type NarrationChunk = {
 
 export type NarrationScreen = {
   id: string;
-  kind: 'title' | 'sentence';
-  // Alt başlık (### ...) — cümle ekranlarının üstünde küçük etiket olarak gösterilir, seslendirilmez.
+  // title: bölüm başlığı · heading: bölüm içindeki ara başlık (### …, 2026-10-02'den beri
+  // seslendiriliyor) · sentence: cümle. Eski oynatıcı bilinmeyen türü cümle gibi çizer.
+  kind: 'title' | 'heading' | 'sentence';
+  // Ara başlık (### ...) — cümle ekranlarının üstünde küçük etiket olarak da gösterilir.
   eyebrow: string | null;
   chunks: NarrationChunk[];
   audio: { path: string; duration: number };

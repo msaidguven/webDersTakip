@@ -11,7 +11,7 @@ import type { HomeGradeSection, SiteStats } from './src/lib/homeStats';
 import type { DailyQuestion, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
 import { HomeHero } from './src/components/home/HomeHero';
 import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
-import { ThisWeekSection } from './src/components/home/ThisWeekSection';
+import { RecentTopicsCard, SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
 import { JoinBand } from './src/components/home/JoinBand';
 import { AboutSite } from './src/components/home/AboutSite';
 import { StudentToday } from './src/components/home/StudentToday';
@@ -60,11 +60,12 @@ interface HomeClientProps {
   gradeSections: Record<string, HomeGradeSection>;
   dailyQuestion: DailyQuestion | null;
   recentTopics: RecentTopicItem[];
-  thisWeekByGrade: Record<string, ThisWeekTopicItem[]>;
+  recentByGrade: Record<string, RecentTopicItem[]>;
+  thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   topStudents: TopStudentEntry[];
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestion, recentTopics, thisWeekByGrade }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestion, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -111,19 +112,25 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     setSelectedGradeId(gradeId);
   };
 
-  // Sade anasayfa (2026-09-27 taslağı, yol haritası 2c + 3a).
-  //  - Misafir: hero + Günün Sorusu → sınıf/ders → Bu hafta → sıralama → tek üyelik bandı.
-  //  - Girişli öğrenci ("Bugün"): tek görev + günlük hedef/seri/sıra + Derslerim (StudentToday,
-  //    kişisel veri tarayıcıda) → Bu hafta (kendi sınıfı) → Günün Sorusu. Derin analiz
-  //    "İlerlemem" sayfasında (yol haritası 4); burada tekrar edilmiyor.
-  //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür; girişli görünüm oturum
-  //  açıldıktan sonra tarayıcıda geçer.
+  // Anasayfa düzeni (2026-09-27 sade taslak, 2026-10-02 iki sütun — kullanıcı isteği).
+  //  - Misafir: hero + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Haftanın
+  //    en çalışkanları] → Ders Takip nedir? → üyelik bandı.
+  //  - Girişli: Bugünkü görev + günlük hedef → [Derslerim | Okulda bu hafta (kendi sınıfı)] →
+  //    [Yeni eklenenler (kendi sınıfı, son 5) | sıralama] → Günün Sorusu.
+  //  Takvim verisi olmayan sınıfta "Okulda bu hafta" kartı yok → Dersler tam genişlik.
+  //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür.
+  const thisWeekCard = selectedGrade ? (
+    <SchoolThisWeekCard gradeName={selectedGrade.name} week={thisWeek.week} topics={thisWeek.byGradeId[selectedGrade.id] ?? []} />
+  ) : null;
+  const hasThisWeek = !!selectedGrade && (thisWeek.byGradeId[selectedGrade.id]?.length ?? 0) > 0;
+  const recent = isAuthenticated && selectedGrade ? recentByGrade[selectedGrade.id] ?? [] : recentTopics;
+
   return (
     <div className="min-h-screen bg-background">
       <main className="px-4 py-8 sm:px-8 sm:py-14">
         <div className="mx-auto flex max-w-6xl flex-col gap-14 sm:gap-20">
           {isAuthenticated ? (
-            <StudentToday />
+            <StudentToday lessonsAside={hasThisWeek ? thisWeekCard : undefined} />
           ) : (
             <HomeHero
               isAuthenticated={false}
@@ -134,25 +141,27 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
           )}
 
           {!isAuthenticated && selectedGrade && (
-            <GradeLessonPicker
-              grades={resolvedGrades}
-              selectedGrade={selectedGrade}
-              section={gradeSections[selectedGrade.id]}
-              onSelect={handleSelectGrade}
-            />
+            <div className={`grid grid-cols-1 items-start gap-6 ${hasThisWeek ? 'lg:grid-cols-2' : ''}`}>
+              <GradeLessonPicker
+                grades={resolvedGrades}
+                selectedGrade={selectedGrade}
+                section={gradeSections[selectedGrade.id]}
+                onSelect={handleSelectGrade}
+              />
+              {hasThisWeek && thisWeekCard}
+            </div>
           )}
 
-          {selectedGrade && (
-            <ThisWeekSection gradeName={selectedGrade.name} thisWeek={thisWeekByGrade[selectedGrade.id] ?? []} recent={recentTopics} />
-          )}
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            <RecentTopicsCard topics={recent} gradeName={isAuthenticated ? selectedGrade?.name : null} />
+            <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
+          </div>
 
           {isAuthenticated && dailyQuestion && (
             <div id="gunun-sorusu-bolumu" className="scroll-mt-24 lg:max-w-2xl">
               <DailyQuestionCard data={dailyQuestion} />
             </div>
           )}
-
-          {!isAuthenticated && <TopStudents students={topStudents} isAuthenticated={false} />}
 
           {!isAuthenticated && <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />}
 
