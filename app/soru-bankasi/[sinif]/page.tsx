@@ -7,8 +7,18 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
-import { getSoruBankasiGradeData, buildSoruBankasiGradePath, buildSoruBankasiLessonPath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
-import { getLessonColor } from '@/app/src/lib/homeMapping';
+import {
+  getSoruBankasiGradeData,
+  getSoruBankasiGradesIndexData,
+  buildSoruBankasiIndexPath,
+  buildSoruBankasiGradePath,
+  buildSoruBankasiLessonPath,
+  buildSoruBankasiBreadcrumbJsonLd,
+} from '@/app/src/lib/soruBankasiPageData';
+import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
+import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
+import { subjectStyle } from '@/app/src/lib/subjectStyle';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -33,50 +43,86 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
 
   const path = buildSoruBankasiGradePath(data.gradeSlug);
 
+  const gradesIndex = await getSoruBankasiGradesIndexData();
+  const questionCount = data.lessons.reduce((n, l) => n + l.questionCount, 0);
+  const intro = data.lessons.length
+    ? `${data.gradeName} soru bankasında ${data.lessons.length} ders ve ${questionCount} soru var: ` +
+      `${joinTr(data.lessons.map((l) => `${l.name} (${l.questionCount} soru)`))}. Bir ders seç; ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorulara ulaş.`
+    : undefined;
+
+  // 2026-10-03 yenilemesi (konu/ünite/ders sayfalarıyla aynı dil): dersler anasayfadaki ders
+  // kartlarıyla aynı görünümde; sağ sütunda TÜM sınıflar, bu sınıf vurgulu.
   return (
-    <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
-      <script
-        id="structured-data-soru-bankasi-grade-breadcrumb"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildSoruBankasiBreadcrumbJsonLd([{ name: `${data.gradeName} Soru Bankası`, path }])).replace(/</g, '\\u003c'),
-        }}
-      />
+    <div className={pageShellCls}>
+      <div className={pageInnerCls}>
+        <script
+          id="structured-data-soru-bankasi-grade-breadcrumb"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(buildSoruBankasiBreadcrumbJsonLd([{ name: `${data.gradeName} Soru Bankası`, path }])).replace(/</g, '\\u003c'),
+          }}
+        />
 
-      <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-widest text-indigo-500">Soru Bankası</p>
-        <h1 className="mt-1 text-lg font-black leading-tight text-default sm:text-2xl">{data.gradeName} Soru Bankası</h1>
-        <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">Bir ders seç, cevap anahtarlı soru bankasına ulaş.</p>
-      </div>
+        <SoruBankasiHeader
+          crumbs={[{ name: 'Soru Bankası', href: buildSoruBankasiIndexPath() }]}
+          eyebrow="MEB müfredatına uygun · Sınıf"
+          title={`${data.gradeName} Soru Bankası`}
+          pills={[`${data.lessons.length} ders`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
+          intro={intro}
+        />
 
-      {!data.hasQuestions && (
-        <div className="mb-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm text-center py-2 px-4">
-          Taslak — bu sınıfta henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
+        {!data.hasQuestions && (
+          <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-800 dark:text-amber-300">
+            Taslak — bu sınıfta henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
+          </p>
+        )}
+
+        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
+          <section aria-labelledby="dersler" className="min-w-0">
+            <h2 id="dersler" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Dersler</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir ders seç; üniteleri ve konuları gör.</p>
+            {data.lessons.length ? (
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {data.lessons.map((lesson) => (
+                  <li key={lesson.slug}>
+                    <Link
+                      href={buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug)}
+                      className={`group flex h-full items-center gap-4 rounded-2xl border p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] ${subjectStyle(lesson.name).tint}`}
+                    >
+                      <SubjectIcon lessonName={lesson.name} variant="solid" size="lg" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold leading-snug text-default group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{lesson.name}</span>
+                        <span className="text-sm text-muted-foreground">{lesson.questionCount} soru</span>
+                      </span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">Bu sınıfta henüz ders eklenmemiş.</p>
+            )}
+          </section>
+
+          <aside className="flex flex-col gap-4" aria-label="Soru bankası gezinmesi">
+            <SoruBankasiNavList
+              id="siniflar"
+              title="Sınıflar"
+              items={gradesIndex.grades
+                .filter((g) => g.questionCount > 0 || g.slug === data.gradeSlug)
+                .map((g) => ({
+                  key: g.slug,
+                  href: buildSoruBankasiGradePath(g.slug),
+                  label: g.name,
+                  meta: `${g.questionCount} soru`,
+                  badge: String(g.level),
+                  lessonName: '',
+                  current: g.slug === data.gradeSlug,
+                  isPage: true,
+                }))}
+            />
+          </aside>
         </div>
-      )}
-
-      <div className="space-y-2.5">
-        {data.lessons.map((lesson) => (
-          <Link
-            key={lesson.slug}
-            href={buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug)}
-            className="flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-          >
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getLessonColor(lesson.colorIndex)} text-lg shadow-sm`}>
-              {lesson.icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-default">{lesson.name}</p>
-              {lesson.questionCount === 0 ? (
-                <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-500">Taslak</span>
-              ) : (
-                <span className="mt-1 inline-block text-xs font-bold text-muted-foreground">{lesson.questionCount} soru</span>
-              )}
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
-        {data.lessons.length === 0 && <p className="py-8 text-center text-sm font-medium text-muted-foreground">Bu sınıfta henüz ders eklenmemiş.</p>}
       </div>
     </div>
   );

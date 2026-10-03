@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradesIndexData, buildSoruBankasiIndexPath, buildSoruBankasiGradePath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
-import { getGradeIcon, getGradeColor, getGradeDescription, formatGradeRange } from '@/app/src/lib/homeMapping';
+import { getGradeDescription, formatGradeRange } from '@/app/src/lib/homeMapping';
+import { SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active filtreli), bu yüzden ISR ile
 // cache'lenebiliyor — bkz. [sinif]/page.tsx'teki aynı desen.
@@ -21,42 +22,57 @@ export default async function SoruBankasiIndexPage() {
   const data = await getSoruBankasiGradesIndexData();
   const path = buildSoruBankasiIndexPath();
 
+  const gradeRange = formatGradeRange(data.grades.map((g) => g.level));
+  const withQuestions = data.grades.filter((g) => g.questionCount > 0);
+  const questionCount = withQuestions.reduce((n, g) => n + g.questionCount, 0);
+
+  // 2026-10-03 yenilemesi (soru bankası sayfalarının ortak dili). Sınıf kartında soru yoksa
+  // açıklama (getGradeDescription) gösterilir.
   return (
-    <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
-      <script
-        id="structured-data-soru-bankasi-index-breadcrumb"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildSoruBankasiBreadcrumbJsonLd([{ name: 'Soru Bankası', path }])).replace(/</g, '\\u003c'),
-        }}
-      />
+    <div className={pageShellCls}>
+      <div className={pageInnerCls}>
+        <script
+          id="structured-data-soru-bankasi-index-breadcrumb"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(buildSoruBankasiBreadcrumbJsonLd([{ name: 'Soru Bankası', path }])).replace(/</g, '\\u003c'),
+          }}
+        />
 
-      <div className="mb-4 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mb-6 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-widest text-indigo-500">Soru Bankası</p>
-        <h1 className="mt-1 text-lg font-black leading-tight text-default sm:text-2xl">Sınıfını Seç</h1>
-        <p className="mt-1 text-xs font-bold text-muted-foreground sm:text-sm">{formatGradeRange(data.grades.map((g) => g.level)) || 'Tüm sınıflar'} için cevap anahtarlı soru bankasına ulaş.</p>
-      </div>
+        <SoruBankasiHeader
+          crumbs={[]}
+          eyebrow="Ders Takip · MEB müfredatına uygun"
+          title="Soru Bankası"
+          pills={[`${withQuestions.length} sınıf`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
+          intro={`${gradeRange || 'Tüm sınıflar'} için ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorular. Sınıfını seç; dersler, üniteler ve konular üzerinden istediğin soruya ulaş ya da kendini kısa testlerle dene.`}
+        />
 
-      <div className="space-y-2.5">
-        {data.grades.map((grade) => (
-          <Link
-            key={grade.slug}
-            href={buildSoruBankasiGradePath(grade.slug)}
-            className="flex items-center gap-3 rounded-2xl border border-default bg-surface-elevated p-4 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-          >
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getGradeColor(grade.level)} text-lg shadow-sm`}>
-              {getGradeIcon(grade.level)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-default">{grade.name}</p>
-              <p className="mt-1 text-xs font-bold text-muted-foreground">
-                {grade.questionCount > 0 ? `${grade.questionCount} soru` : getGradeDescription(grade.level)}
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
-        {data.grades.length === 0 && <p className="py-8 text-center text-sm font-medium text-muted-foreground">Henüz sınıf eklenmemiş.</p>}
+        <section aria-labelledby="sinifini-sec" className="mt-10">
+          <h2 id="sinifini-sec" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Sınıfını seç</h2>
+          {data.grades.length ? (
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.grades.map((grade) => (
+                <li key={grade.slug}>
+                  <Link
+                    href={buildSoruBankasiGradePath(grade.slug)}
+                    className="group flex h-full items-center gap-4 rounded-2xl border border-default bg-background p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)]"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white" aria-hidden="true">
+                      {grade.level}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-default group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{grade.name}</span>
+                      <span className="text-sm text-muted-foreground">{grade.questionCount > 0 ? `${grade.questionCount} soru` : getGradeDescription(grade.level)}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">Henüz sınıf eklenmemiş.</p>
+          )}
+        </section>
       </div>
     </div>
   );

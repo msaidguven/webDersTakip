@@ -10,6 +10,7 @@ import { createAnonClient } from '@/utils/supabase/server-anon';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
 import { planTopicTestQuestions, planUnitTestQuestions, type QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { findResumableSession, findConflictingSession } from '@/app/src/lib/quizResume';
+import { resolvePublicGradeLesson } from '@/app/src/lib/publicGradeLesson';
 
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
@@ -39,14 +40,10 @@ export const getTopicPageBaseData = cache(async function getTopicPageBaseData(
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
   const decodedTopicSlug = decodeURIComponent(topicSlug || '').trim();
 
-  const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
-  ]);
-
-  const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
-  if (!grade || !lesson) return null;
+  // Kapalı ders/sınıf doğrudan URL ile de açılmasın (bkz. publicGradeLesson.ts).
+  const resolved = await resolvePublicGradeLesson(supabase, decodedGradeSlug, decodedLessonSlug);
+  if (!resolved) return null;
+  const { grade, lesson } = resolved;
 
   // slug üzerinde unique constraint yok (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı
   // ünite olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — birden

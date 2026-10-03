@@ -92,7 +92,7 @@ function SolvedProgressBar({ solved, total, barClass }: { solved: number; total:
         <span className="font-black text-default">%{pct}</span>
       </div>
       <div
-        className="h-2 w-full overflow-hidden rounded-full bg-surface"
+        className="h-2 w-full overflow-hidden rounded-full bg-background"
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -108,7 +108,7 @@ function SolvedProgressBar({ solved, total, barClass }: { solved: number; total:
 function ResultSummary({ correct, wrong, solved }: { correct: number; wrong: number; solved: number }) {
   if (solved === 0) return null;
   return (
-    <p className="flex w-full items-center justify-center gap-4 text-sm font-bold">
+    <p className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium">
       <span className="text-emerald-600">✓ {correct} doğru</span>
       <span className="text-rose-600">✗ {wrong} yanlış</span>
       <span className="text-muted-foreground">%{Math.round((correct / solved) * 100)} başarı</span>
@@ -212,8 +212,9 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   const resumable = status?.resumable ?? null;
 
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-default bg-surface-elevated p-4 text-center sm:p-6">
-      <p className="text-base font-black text-default sm:text-lg">{title}</p>
+    // 2026-10-03 soru bankası yenilemesi: açık indigo panel, sola hizalı, düz (geçişsiz) buton.
+    <div className="flex flex-col gap-4 rounded-[20px] border border-indigo-200 bg-indigo-50/70 p-5 dark:border-indigo-500/25 dark:bg-indigo-500/10">
+      <p className="text-lg font-bold text-default">{title}</p>
 
       {!status ? (
         // Metin yerine iskelet (skeleton) — "Durum yükleniyor…" gibi teknik bir cümle SSR
@@ -223,9 +224,9 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         // yüzden etiket artık bir metin DÜĞÜMÜ değil, aria-label ÖZNİTELİĞİ: ekran
         // okuyucular hâlâ duyuruyor ama sayfanın çıkarılan metninde hiç yer almıyor.
         <div className="w-full animate-pulse space-y-2" role="status" aria-label="Durum yükleniyor">
-          <div className="h-6 rounded-lg bg-surface" />
-          <div className="mx-auto h-5 w-2/3 rounded-lg bg-surface" />
-          <div className="h-14 rounded-xl bg-surface" />
+          <div className="h-6 rounded-lg bg-background" />
+          <div className="h-5 w-2/3 rounded-lg bg-background" />
+          <div className="h-12 rounded-xl bg-background" />
         </div>
       ) : !status.loggedIn ? (
         // Misafir (2026-09-26 sadeleştirmesi): eskiden sıfırlarla dolu istatistikler + gri,
@@ -241,16 +242,16 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             <a
               href={testHref}
               onClick={startOrResumeTest}
-              className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+              className={`flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-2.5 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
             >
               {testLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <span className="flex items-center gap-1.5 text-sm font-black">
-                    Teste Devam Et <ArrowRight className="h-4 w-4" />
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    Teste devam et <ArrowRight className="h-4 w-4" />
                   </span>
-                  <span className="text-[11px] font-bold text-white/80">
+                  <span className="text-xs text-white/85">
                     Yarım kalan test: {resumable.answeredCount}/{resumable.total} soru
                     {resumable.answeredCount > 0 ? ` · ${resumable.correctCount} doğru, ${resumable.wrongCount} yanlış` : ''}
                   </span>
@@ -286,16 +287,16 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
             <a
               href={testHref}
               onClick={startOrResumeTest}
-              className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-3 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
+              className={`flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-xl ${classes.button} px-4 py-2.5 text-white transition-colors ${testLoading ? 'pointer-events-none opacity-60' : ''}`}
             >
               {testLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <span className="flex items-center gap-1.5 text-sm font-black">
-                    Teste Başla <ArrowRight className="h-4 w-4" />
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    Teste başla <ArrowRight className="h-4 w-4" />
                   </span>
-                  <span className="text-[11px] font-bold text-white/80">{status.testSize} Soru Çöz</span>
+                  <span className="text-xs text-white/85">{status.testSize} soru</span>
                 </>
               )}
             </a>
@@ -337,22 +338,22 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
 function GuestTestCta({ questionCount }: { questionCount: number }) {
   const pathname = usePathname();
   return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <p className="text-xs font-bold text-muted-foreground sm:text-sm">
+    <div className="flex w-full flex-col gap-3">
+      <p className="text-sm text-muted-foreground">
         Üye ol, {questionCount} soruluk bu testi çöz — doğru/yanlışların kaydedilsin, eksik konuların sana hatırlatılsın.
       </p>
-      <div className="grid w-full grid-cols-2 gap-2">
+      <div className="flex w-full flex-col gap-2">
         <Link
           href="/register"
-          className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-black text-white transition-opacity hover:opacity-90"
+          className="flex min-h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
         >
-          Ücretsiz Üye Ol
+          Ücretsiz üye ol
         </Link>
         <Link
           href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
-          className="rounded-xl border border-default bg-surface px-4 py-3 text-sm font-black text-default transition-colors hover:bg-surface-elevated"
+          className="flex min-h-11 items-center justify-center rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300"
         >
-          Giriş Yap
+          Giriş yap
         </Link>
       </div>
     </div>

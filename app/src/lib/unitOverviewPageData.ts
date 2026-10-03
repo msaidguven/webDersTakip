@@ -8,9 +8,7 @@
 // kartları doğrudan gerçek konu sayfasına (DersClient) link veriyor.
 import { cache } from 'react';
 import { createAnonClient } from '@/utils/supabase/server-anon';
-
-type GradeRow = { id: number; name: string; slug: string | null };
-type LessonRow = { id: number; name: string; slug: string | null };
+import { resolvePublicGradeLesson } from '@/app/src/lib/publicGradeLesson';
 
 export const getUnitOverviewData = cache(async function getUnitOverviewData(gradeSlug: string, lessonSlug: string, unitSlug: string) {
   const supabase = createAnonClient();
@@ -18,13 +16,10 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
 
-  const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
-  ]);
-  const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
-  if (!grade || !lesson) return null;
+  // Kapalı ders/sınıf doğrudan URL ile de açılmasın (bkz. publicGradeLesson.ts).
+  const resolved = await resolvePublicGradeLesson(supabase, decodedGradeSlug, decodedLessonSlug);
+  if (!resolved) return null;
+  const { grade, lesson } = resolved;
 
   // slug artık unique değil (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı ünite
   // olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — order+limit

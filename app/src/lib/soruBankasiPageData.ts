@@ -10,6 +10,7 @@ import { cache } from 'react';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByLessonGrade, getQuestionCountsByUnitId, getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
+import { resolvePublicGradeLesson } from '@/app/src/lib/publicGradeLesson';
 
 type GradeRow = { id: number; name: string; slug: string | null };
 type LessonRow = { id: number; name: string; slug: string | null };
@@ -158,11 +159,12 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   const unitIds = units.map((u) => u.id);
   const [questionCountByUnit, { data: topicRows }] = await Promise.all([
     getQuestionCountsByUnitId(supabase, unitIds, { activeOnly: true, excludeClassical: true }),
-    supabase.from('topics').select('id, unit_id, order_no').in('unit_id', unitIds).eq('is_active', true).eq('is_archived', false).order('order_no', { ascending: true }),
+    supabase.from('topics').select('id, unit_id, title, slug, order_no').in('unit_id', unitIds).eq('is_active', true).eq('is_archived', false).order('order_no', { ascending: true }),
   ]);
+  type TopicRow = { id: number; unit_id: number; title: string; slug: string | null; order_no: number | null };
   const topicIdsByUnit = new Map<number, number[]>();
   const topicCountByUnit = new Map<number, number>();
-  for (const t of (topicRows as { id: number; unit_id: number; order_no: number | null }[] | null) || []) {
+  for (const t of (topicRows as TopicRow[] | null) || []) {
     topicCountByUnit.set(t.unit_id, (topicCountByUnit.get(t.unit_id) ?? 0) + 1);
     const list = topicIdsByUnit.get(t.unit_id) ?? [];
     list.push(t.id);
@@ -175,23 +177,40 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   // ortadaki bir konunun görseli var), ünitenin İLK konusu değil, sırayla görseli OLAN
   // ilk konu temsilci görsel olarak alınıyor.
   const allTopicIds = topicRows?.length ? (topicRows as { id: number }[]).map((t) => t.id) : [];
-  const { data: topicContentRows } = allTopicIds.length
-    ? await supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', allTopicIds)
-    : { data: [] as { topic_id: number; hero_image_url: string | null }[] };
+  // Ders sayfasında her ünitenin altında konuları da listeleniyor (2026-10-03 yenilemesi) —
+  // konu başına soru sayısı bu yüzden burada.
+  const [{ data: topicContentRows }, questionCountByTopic] = allTopicIds.length
+    ? await Promise.all([
+        supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', allTopicIds),
+        getQuestionCountsByTopicId(supabase, allTopicIds, { activeOnly: true, excludeClassical: true }),
+      ])
+    : [{ data: [] as { topic_id: number; hero_image_url: string | null }[] }, new Map<number, number>()];
+  const topicsByUnit = new Map<number, { id: number; number: number; title: string; slug: string; questionCount: number }[]>();
+  for (const t of (topicRows as TopicRow[] | null) || []) {
+    const list = topicsByUnit.get(t.unit_id) ?? [];
+    const number = (topicIdsByUnit.get(t.unit_id) ?? []).indexOf(t.id) + 1;
+    const questionCount = questionCountByTopic.get(t.id) ?? 0;
+    if (t.slug && questionCount > 0) list.push({ id: t.id, number, title: t.title, slug: t.slug, questionCount });
+    topicsByUnit.set(t.unit_id, list);
+  }
   const heroImageByTopic = new Map<number, string | null>();
   for (const row of (topicContentRows as { topic_id: number; hero_image_url: string | null }[] | null) || []) {
     heroImageByTopic.set(row.topic_id, row.hero_image_url);
   }
 
   const unitList = units
+    // number: dersteki gerçek sıra (sorusuz üniteler aşağıda elense de "3. ünite" doğru kalsın).
+    .map((u, i) => ({ ...u, number: i + 1 }))
     .filter((u) => u.slug)
     .map((u) => ({
       id: u.id,
+      number: u.number,
       title: u.title,
       slug: u.slug as string,
       topicCount: topicCountByUnit.get(u.id) ?? 0,
       questionCount: questionCountByUnit.get(u.id) ?? 0,
       imageUrl: (topicIdsByUnit.get(u.id) ?? []).map((topicId) => heroImageByTopic.get(topicId)).find((url) => !!url) ?? null,
+      topics: topicsByUnit.get(u.id) ?? [],
     }))
     .filter((u) => u.questionCount > 0);
 
@@ -206,13 +225,10 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   const decodedLessonSlug = decodeURIComponent(lessonSlug || '').trim();
   const decodedUnitSlug = decodeURIComponent(unitSlug || '').trim();
 
-  const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
-  ]);
-  const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
-  if (!grade || !lesson) return null;
+  // Kapalı ders/sınıf doğrudan URL ile de açılmasın (bkz. publicGradeLesson.ts).
+  const resolved = await resolvePublicGradeLesson(supabase, decodedGradeSlug, decodedLessonSlug);
+  if (!resolved) return null;
+  const { grade, lesson } = resolved;
 
   // slug artık unique değil (aynı ders+sınıfta aynı isme/slug'a sahip iki farklı ünite
   // olabilir, bkz. supabase/migrations/units_slug_unique_per_lesson_grade.sql) — order+limit
@@ -260,9 +276,12 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   }
 
   const topicList = topics
+    // number: ünitedeki gerçek sıra (sorusuz konular aşağıda elense de "3. konu" doğru kalsın).
+    .map((t, i) => ({ ...t, number: i + 1 }))
     .filter((t) => t.slug)
     .map((t) => ({
       id: t.id,
+      number: t.number,
       title: t.title,
       slug: t.slug as string,
       questionCount: questionCountByTopic.get(t.id) ?? 0,

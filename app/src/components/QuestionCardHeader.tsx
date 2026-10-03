@@ -64,20 +64,25 @@ export function ShareQuestionButton({ question: q, basePath }: { question: QuizQ
 const MIN_SCALE = 1;
 const MAX_SCALE = 2.2;
 
+// 2026-10-03 soru bankası yenilemesi: liste görünümünde (bkz. QuestionBankBoard) yazı boyutu
+// listenin üstünde TEK kontrol — kart başına +/- verilmezse (onScale* yok) gösterilmez.
+// number verilirse rozetin önünde "Soru N" yazar.
 export default function QuestionCardHeader({
   question: q,
   isAdmin,
   onDeleted,
-  scale,
+  number,
+  scale = 1,
   onScaleDecrease,
   onScaleIncrease,
 }: {
   question: QuizQuestion;
   isAdmin: boolean;
   onDeleted: (questionId: number) => void;
-  scale: number;
-  onScaleDecrease: () => void;
-  onScaleIncrease: () => void;
+  number?: number;
+  scale?: number;
+  onScaleDecrease?: () => void;
+  onScaleIncrease?: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [editSaved, setEditSaved] = useState(false);
@@ -111,12 +116,16 @@ export default function QuestionCardHeader({
         {(() => {
           const TypeIcon = TYPE_ICONS[q.type];
           return (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-indigo-500">
-              <TypeIcon className="h-3.5 w-3.5" /> {TYPE_LABELS[q.type]}
+            <span className="flex min-w-0 items-center gap-2">
+              {number != null && <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">Soru {number}</span>}
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-surface-elevated px-2 py-1 text-xs font-semibold text-muted-foreground">
+                <TypeIcon className="h-3.5 w-3.5" aria-hidden="true" /> {TYPE_LABELS[q.type]}
+              </span>
             </span>
           );
         })()}
         <div className="flex shrink-0 items-center gap-1">
+          {onScaleDecrease && onScaleIncrease && (
           <div className="flex items-center gap-0.5 rounded-lg border border-default pr-1">
             <button
               type="button"
@@ -140,6 +149,7 @@ export default function QuestionCardHeader({
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
+          )}
           {isAdmin && (
             <>
               <button

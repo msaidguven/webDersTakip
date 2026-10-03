@@ -1,23 +1,21 @@
 'use client';
 
-// /soru-bankasi sayfasındaki soru görünümünü render eder — TEK SORU MODU (kullanıcının
-// 2026-09-05 isteği): SEO için tüm sorular yine sunucu tarafında render edilen HTML'de tam
-// olarak var (aşağıdaki map hepsini koşulsuz döndürüyor), ama görsel olarak sadece
-// `activeIndex`'teki soru gösteriliyor (diğerleri Tailwind'in `hidden` class'ıyla, yani
-// display:none ile gizli) — Google CSS ile gizlenmiş içeriği indexlemeden çıkarmıyor
-// (bkz. Google Search Central rehberi), bu "cloaking" değil çünkü bot ve kullanıcı AYNI
-// HTML'i alıyor, sadece kullanıcıda üstüne bir JS katmanı biniyor. Önceki/Sonraki soru
-// butonları ve sağdaki "optik" soru haritası sadece bu index'i değiştiriyor, yeni bir veri
-// çekmiyor (100 soru zaten ilk yüklemede DOM'da). Üstteki "X/Y cevaplandı, Z doğru" sayacı
-// sadece puanlanabilir sorular (çoktan seçmeli/boşluk doldurma/eşleştirme) üzerinden
-// hesaplanır — açık uçlu sorularda otomatik doğru/yanlış sinyali yok, sadece "cevap
-// gösterildi" durumu var (bkz. QuestionAnswerKeyItem'daki onAnswered 'revealed' durumu).
-// Cevap durumu tamamen bu oturuma özel client-side state'tir, backend'e yazılmaz (puanlı/
-// takipli test için TestStatusCard'daki "Teste Başla" ayrı, gerçek motoru kullanıyor).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Award, CheckCircle2, LayoutGrid, MessageCircle, RotateCcw, X, XCircle } from 'lucide-react';
+// Soru bankası konu sayfasındaki soru LİSTESİ (2026-10-03 yenilemesi; eskiden tek soru modu +
+// optik panel). Sorular alt alta kart; her kart QuestionAnswerKeyItem ile tıklanarak çözülür
+// (şık seç → doğru/yanlış + açıklama, ya da "Cevabı Göster"). İlk INITIAL_VISIBLE soru açık,
+// gerisi "Kalan N soruyu göster" ile açılır; soru türü filtresi var.
+//
+// SEO: TÜM sorular her zaman render edilir — gizli olanlar yalnız display:none (bot ve kullanıcı
+// AYNI HTML'i alır, cloaking değil); JS kapalıyken <noscript> override'ı (.question-bank-item,
+// bkz. [konu]/page.tsx) hepsini açar. Cevap durumu bu oturuma özel, backend'e yazılmaz (puanlı
+// test TestStatusCard'da).
+//
+// Giriş yapmış ÖĞRENCİ yalnız testte çözdüğü soruları istatistikleriyle görür, cevap anahtarı
+// açık (bkz. useQuestionBankViewer); misafir, öğretmen ve admin tüm listeyi.
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Award, CheckCircle2, ChevronDown, MessageCircle, Minus, Plus, RotateCcw, X, XCircle } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
-import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
+import { QuestionAnswerKeyItem, TYPE_LABELS } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
@@ -72,18 +70,36 @@ function CommentsModal({ index, onClose, children }: { index: number; onClose: (
 }
 
 type AnswerStatus = 'correct' | 'incorrect' | 'revealed';
+type TypeFilter = 'all' | QuizQuestion['type'];
 
 const SCOREABLE_TYPES = new Set<QuizQuestion['type']>(['multiple_choice', 'blank', 'matching']);
+const INITIAL_VISIBLE = 10;
 const FONT_SCALE_KEY = 'soru-bankasi-font-scale';
 const MIN_SCALE = 1;
 const MAX_SCALE = 2.2;
 const SCALE_STEP = 0.2;
 
-function dotColorClass(status: AnswerStatus | undefined): string {
-  if (status === 'correct') return 'bg-emerald-500 text-white';
-  if (status === 'incorrect') return 'bg-rose-500 text-white';
-  if (status === 'revealed') return 'bg-indigo-500 text-white';
-  return 'border border-default bg-surface text-muted-foreground';
+// Yazı boyutu tercihi localStorage'da (cihaza özel); sunucuda ve ilk hydration'da 1.
+const SCALE_EVENT = 'soru-bankasi:font-scale';
+function readScale(): number {
+  try {
+    const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
+    return saved >= MIN_SCALE && saved <= MAX_SCALE ? saved : MIN_SCALE;
+  } catch {
+    return MIN_SCALE;
+  }
+}
+function subscribeScale(onChange: () => void) {
+  window.addEventListener(SCALE_EVENT, onChange);
+  return () => window.removeEventListener(SCALE_EVENT, onChange);
+}
+function setScale(update: (v: number) => number) {
+  try {
+    localStorage.setItem(FONT_SCALE_KEY, String(update(readScale())));
+  } catch {
+    // depolama kapalı (gizli sekme vb.) — tercih kaydedilmez
+  }
+  window.dispatchEvent(new Event(SCALE_EVENT));
 }
 
 function relativeDay(iso: string | null): string | null {
@@ -141,9 +157,6 @@ export default function QuestionBankBoard({
 }) {
   const isAdmin = useIsAdmin();
   const [questions, setQuestions] = useState(initialQuestions);
-  // Giriş yapmış öğrenci sadece testte çözdüğü soruları (istatistikleriyle) görür; misafir,
-  // öğretmen ve admin tüm listeyi (bkz. useQuestionBankViewer). Sunucu HTML'i her zaman tam
-  // liste — SEO değişmez.
   const viewer = useQuestionBankViewer(initialQuestions.map((q) => q.id));
   const studentMode = viewer.status === 'student';
   const shownQuestions = studentMode ? questions.filter((q) => viewer.stats.has(q.id)) : questions;
@@ -154,25 +167,15 @@ export default function QuestionBankBoard({
   // Öğrenci paylaşım linkiyle (?soru=ID) henüz çözmediği bir soruya geldiyse.
   const [lockedSharedQuestion, setLockedSharedQuestion] = useState(false);
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
-  const [scale, setScale] = useState(MIN_SCALE);
-  const [activeIndex, setActiveIndex] = useState(0);
-  // Yorumlar bir modalde açılıyor, tek seferde en fazla bir tanesi — UnitDiscussion
-  // (kendi auth/veri sorgularını mount olur olmaz çalıştırıyor) sadece modal açılınca
-  // monte ediliyor, yoksa bir konudaki onlarca soru için aynı anda onlarca sorgu ateşlenirdi.
+  const scale = useSyncExternalStore(subscribeScale, readScale, () => MIN_SCALE);
+  const [filter, setFilter] = useState<TypeFilter>('all');
+  const [expanded, setExpanded] = useState(false);
+  const [focusedId, setFocusedId] = useState<number | null>(null);
+  // Yorumlar modalde; UnitDiscussion yalnız modal açılınca monte edilir (soru başına sorgu olmasın).
   const [commentsForId, setCommentsForId] = useState<number | null>(null);
-  // Profildeki "Yorumlarım"dan gelen linkler hangi kaydın vurgulanacağını da taşır
-  // (ör. "c88" bir yorum, "a56" bir AI cevabı) — UnitDiscussion'a geçiliyor, o da
-  // feed yüklenince o kayda kaydırıp kısa süreliğine vurguluyor.
+  // Profildeki "Yorumlarım" linkleri vurgulanacak kaydı da taşır (ör. "c88" yorum, "a56" AI cevabı).
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
-  // Mobilde masaüstündeki sabit yan "optik" panel yerine kullanılan alt sayfa (bottom
-  // sheet) — dar ekranda fixed bir yan panel ya içeriğin üstüne biner ya da hiç sığmaz,
-  // bu yüzden bir FAB ile açılıp kapanan bir liste olarak gösteriliyor.
-  const [mapOpen, setMapOpen] = useState(false);
 
-  // Profildeki "Yorumlarım"dan ?soru=ID&yorum=... ile gelen deep-link'ler (bkz.
-  // QuestionBankHighlight) ilgili sorunun yorum modalini otomatik açsın diye —
-  // bkz. o component'teki event notu. Düz ?soru=ID linkleri (target yok) bu event'i
-  // hiç dispatch etmiyor, modal açılmıyor.
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ questionId: number; target?: string }>).detail;
@@ -184,195 +187,176 @@ export default function QuestionBankBoard({
     return () => window.removeEventListener('soru-bankasi:open-comments', handler);
   }, []);
 
-  // ?soru=ID ile gelen paylaşım linkleri (bkz. QuestionBankHighlight.tsx) artık scroll
-  // etmiyor — tek soru modunda "o soruyu göster" demek activeIndex'i değiştirmek demek.
+  // ?soru=ID paylaşım linki (bkz. QuestionBankHighlight): listeyi aç, filtreyi kaldır, soruya kaydır.
   useEffect(() => {
     const handler = (e: Event) => {
       const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
       if (questionId == null) return;
-      const index = shownRef.current.findIndex((q) => q.id === questionId);
-      setLockedSharedQuestion(index === -1);
-      if (index !== -1) setActiveIndex(index);
+      const found = shownRef.current.some((q) => q.id === questionId);
+      setLockedSharedQuestion(!found);
+      if (!found) return;
+      setFilter('all');
+      setExpanded(true);
+      setFocusedId(questionId);
     };
     window.addEventListener(FOCUS_QUESTION_EVENT, handler);
     return () => window.removeEventListener(FOCUS_QUESTION_EVENT, handler);
   }, []);
 
+  // Kaydırma, soru görünür olduktan SONRA. Sayfa ilk yüklenirken üstteki istemci bileşenleri
+  // (test kartı vb.) yüksekliği değiştirip yumuşak kaydırmayı yarıda kesiyor — anında kaydır,
+  // sayfa oturunca hedef hâlâ yerinde değilse bir kez daha düzelt.
   useEffect(() => {
-    const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
-    if (saved >= MIN_SCALE && saved <= MAX_SCALE) setScale(saved);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(FONT_SCALE_KEY, String(scale));
-  }, [scale]);
-
-  useEffect(() => {
-    if (!mapOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMapOpen(false);
+    if (focusedId == null) return;
+    const scrollToTarget = () => {
+      const el = document.getElementById(`soru-${focusedId}`);
+      if (!el) return;
+      const offset = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'instant' });
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [mapOpen]);
+    scrollToTarget();
+    const timer = window.setTimeout(scrollToTarget, 600);
+    return () => window.clearTimeout(timer);
+  }, [focusedId]);
 
-  const scoreableIds = useMemo(() => questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id), [questions]);
-  const currentIndex = Math.min(activeIndex, Math.max(0, shownQuestions.length - 1));
-  // Soru haritasındaki renk: öğrencide son cevabına göre, diğerlerinde bu sayfadaki cevaba göre.
-  const dotStatus = (id: number): AnswerStatus | undefined => {
-    if (!studentMode) return answers[id];
-    const last = viewer.stats.get(id)?.last_answer_correct;
-    return last == null ? undefined : last ? 'correct' : 'incorrect';
-  };
+
+  const typeCounts = useMemo(() => {
+    const counts = new Map<QuizQuestion['type'], number>();
+    for (const q of shownQuestions) counts.set(q.type, (counts.get(q.type) ?? 0) + 1);
+    return [...counts.entries()];
+  }, [shownQuestions]);
+
+  const matching = filter === 'all' ? shownQuestions : shownQuestions.filter((q) => q.type === filter);
+  const limit = expanded || filter !== 'all' ? matching.length : INITIAL_VISIBLE;
+  const visibleIds = new Set(matching.slice(0, limit).map((q) => q.id));
+  const hiddenCount = matching.length - visibleIds.size;
+
+  const scoreableIds = useMemo(() => new Set(questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id)), [questions]);
+  const correctCount = Object.entries(answers).filter(([id, st]) => st === 'correct' && scoreableIds.has(Number(id))).length;
+  const incorrectCount = Object.entries(answers).filter(([id, st]) => st === 'incorrect' && scoreableIds.has(Number(id))).length;
   const studentTotals = studentMode
-    ? [...viewer.stats.values()].reduce((acc, st) => ({ attempts: acc.attempts + st.total_attempts, correct: acc.correct + st.correct_attempts, wrong: acc.wrong + st.wrong_attempts, mastered: acc.mastered + (st.is_mastered ? 1 : 0) }), { attempts: 0, correct: 0, wrong: 0, mastered: 0 })
+    ? [...viewer.stats.values()].reduce(
+        (acc, st) => ({ correct: acc.correct + st.correct_attempts, wrong: acc.wrong + st.wrong_attempts, mastered: acc.mastered + (st.is_mastered ? 1 : 0) }),
+        { correct: 0, wrong: 0, mastered: 0 }
+      )
     : null;
-  const correctCount = scoreableIds.filter((id) => answers[id] === 'correct').length;
-  const incorrectCount = scoreableIds.filter((id) => answers[id] === 'incorrect').length;
-  // İlerleme çubuğu hangi soruyu GÖRÜNTÜLEDİĞİNİ değil, kaç soruyu GERÇEKTEN tamamladığını
-  // (cevaplanan/gösterilen — answers'a giren her soru, açık uçlu dahil) göstersin diye
-  // activeIndex yerine answers'ın büyüklüğü kullanılıyor (kullanıcının 2026-09-12 isteği).
-  const answeredCount = Object.keys(answers).length;
 
   const handleAnswered = useCallback((questionId: number, status: AnswerStatus) => {
     setAnswers((prev) => (questionId in prev ? prev : { ...prev, [questionId]: status }));
   }, []);
 
   const handleDeleted = useCallback((questionId: number) => {
-    setQuestions((prev) => {
-      const next = prev.filter((q) => q.id !== questionId);
-      setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
-      return next;
-    });
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
   }, []);
+
+  const chipCls = (active: boolean) =>
+    `inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-sm font-medium transition-colors ${
+      active ? 'border-transparent bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'border-default bg-background text-muted-foreground hover:text-default'
+    }`;
 
   return (
     <>
       {lockedSharedQuestion && (
-        <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-700 dark:text-amber-300">
-          Paylaşılan soruyu henüz çözmedin. Yukarıdan testi başlatınca karşına çıkacak; çözdükten sonra burada cevabı ve istatistiğinle görünür.
+        <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-800 dark:text-amber-300">
+          Paylaşılan soruyu henüz çözmedin. Testi başlatınca karşına çıkacak; çözdükten sonra burada cevabı ve istatistiğinle görünür.
         </p>
       )}
 
       {studentMode && shownQuestions.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-default bg-surface-elevated p-6 text-center">
-          <p className="text-sm font-black text-default">Bu konudan henüz soru çözmedin</p>
-          <p className="mt-1 text-xs font-bold text-muted-foreground">
-            Yukarıdan testi başlat. Çözdüğün her soru burada cevabı, kaç kez çözdüğün ve kaç doğru/yanlış yaptığınla görünecek.
-          </p>
+        <div className="rounded-2xl border border-dashed border-default bg-background p-6 text-center">
+          <p className="font-semibold text-default">Bu konudan henüz soru çözmedin</p>
+          <p className="mt-1 text-sm text-muted-foreground">Testi başlat. Çözdüğün her soru burada cevabı, kaç kez çözdüğün ve doğru/yanlış sayınla görünecek.</p>
         </div>
       )}
 
-      {studentMode && studentTotals && shownQuestions.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-default bg-surface-elevated px-3.5 py-3 shadow-sm sm:mb-6 sm:px-4">
-          <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
-            Soru {currentIndex + 1}/{shownQuestions.length}
-          </span>
-          <span className="text-xs font-black text-default">{shownQuestions.length}/{questions.length} soruyu çözdün</span>
-          <span className="text-xs font-bold text-muted-foreground">{studentTotals.attempts} çözüm</span>
-          <span className="flex items-center gap-1 text-xs font-black text-emerald-500"><CheckCircle2 className="h-3.5 w-3.5" /> {studentTotals.correct}</span>
-          <span className="flex items-center gap-1 text-xs font-black text-rose-500"><XCircle className="h-3.5 w-3.5" /> {studentTotals.wrong}</span>
-          {studentTotals.mastered > 0 && (
-            <span className="flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-300"><Award className="h-3.5 w-3.5" /> {studentTotals.mastered} öğrenildi</span>
+      {shownQuestions.length > 0 && (
+        <div className="mb-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            {studentMode && studentTotals ? (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                <span className="font-semibold text-default">{shownQuestions.length}/{questions.length} soruyu çözdün</span>
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {studentTotals.correct}</span>
+                <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400"><XCircle className="h-4 w-4" aria-hidden="true" /> {studentTotals.wrong}</span>
+                {studentTotals.mastered > 0 && <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><Award className="h-4 w-4" aria-hidden="true" /> {studentTotals.mastered} öğrenildi</span>}
+              </p>
+            ) : correctCount + incorrectCount > 0 ? (
+              <p className="flex items-center gap-3 text-muted-foreground" aria-live="polite">
+                <span>Bu sayfada:</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {correctCount} doğru</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400"><XCircle className="h-4 w-4" aria-hidden="true" /> {incorrectCount} yanlış</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">Bir şık seç, cevabın anında kontrol edilsin.</p>
+            )}
+            <div className="flex items-center gap-0.5 rounded-lg border border-default bg-background" role="group" aria-label="Yazı boyutu">
+              <button type="button" onClick={() => setScale((v) => Math.max(MIN_SCALE, Math.round((v - SCALE_STEP) * 100) / 100))} disabled={scale <= MIN_SCALE} aria-label="Yazıyı küçült" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-default disabled:opacity-40">
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-10 text-center text-xs font-semibold text-muted-foreground">%{Math.round(scale * 100)}</span>
+              <button type="button" onClick={() => setScale((v) => Math.min(MAX_SCALE, Math.round((v + SCALE_STEP) * 100) / 100))} disabled={scale >= MAX_SCALE} aria-label="Yazıyı büyüt" title="Yazıyı büyüt (akıllı tahta için)" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-default disabled:opacity-40">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          {typeCounts.length > 1 && (
+            <div role="group" aria-label="Soru türü" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+              <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')} className={chipCls(filter === 'all')}>
+                Tümü <span className="opacity-60">{shownQuestions.length}</span>
+              </button>
+              {typeCounts.map(([type, count]) => (
+                <button key={type} type="button" aria-pressed={filter === type} onClick={() => setFilter(type)} className={chipCls(filter === type)}>
+                  {TYPE_LABELS[type]} <span className="opacity-60">{count}</span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {!studentMode && questions.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-default bg-surface-elevated px-3.5 py-3 shadow-sm sm:mb-6 sm:px-4">
-          <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
-            Soru {currentIndex + 1}/{questions.length}
-          </span>
-          <span className="flex shrink-0 items-center gap-1 text-xs font-black text-emerald-500">
-            <CheckCircle2 className="h-3.5 w-3.5" /> {correctCount}
-          </span>
-          <span className="flex shrink-0 items-center gap-1 text-xs font-black text-rose-500">
-            <XCircle className="h-3.5 w-3.5" /> {incorrectCount}
-          </span>
-          <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:max-w-40">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-default/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all"
-                style={{ width: `${(answeredCount / questions.length) * 100}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-[10px] font-black text-muted-foreground">
-              %{Math.round((answeredCount / questions.length) * 100)}
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div>
-        {shownQuestions.map((q, i) => (
-          <div
-            key={q.id}
-            id={`soru-${q.id}`}
-            // display:none inline style ile gizleniyor (Tailwind'in genel `hidden`
-            // class'ını KULLANMIYORUZ — sayfada başka amaçlarla `hidden` kullanan öğeler
-            // olabilir, noscript override'ının SADECE bu soru kartlarını hedeflemesi için
-            // ayrı bir işaretleyici class (question-bank-item) gerekiyor, bkz.
-            // [konu]/page.tsx'teki noscript stili.
-            className="question-bank-item rounded-3xl border border-default bg-surface-elevated p-4 shadow-md sm:p-6"
-            style={{ display: i === currentIndex ? undefined : 'none' }}
-          >
-            <QuestionCardHeader
-              question={q}
-              isAdmin={isAdmin}
-              onDeleted={handleDeleted}
-              scale={scale}
-              onScaleDecrease={() => setScale((s) => Math.max(MIN_SCALE, Math.round((s - SCALE_STEP) * 100) / 100))}
-              onScaleIncrease={() => setScale((s) => Math.min(MAX_SCALE, Math.round((s + SCALE_STEP) * 100) / 100))}
-            />
-            {studentMode && viewer.stats.get(q.id) && <QuestionStatStrip stat={viewer.stats.get(q.id)!} />}
-            <div style={{ zoom: scale }}>
-              {/* Öğrenci bu soruyu zaten testte çözdü: cevap anahtarı doğrudan açık (inceleme). */}
+      <ol className="flex flex-col gap-3">
+        {shownQuestions.map((q, i) => {
+          const stat = studentMode ? viewer.stats.get(q.id) : undefined;
+          return (
+            <li
+              key={q.id}
+              id={`soru-${q.id}`}
+              // Gizleme inline display:none + ayrı işaretleyici class — noscript override'ı SADECE
+              // soru kartlarını hedeflesin diye (bkz. [konu]/page.tsx).
+              className={`question-bank-item scroll-mt-24 rounded-[20px] border bg-background p-4 transition-shadow sm:p-5 ${
+                focusedId === q.id ? 'border-indigo-400 ring-2 ring-indigo-500/30' : 'border-default'
+              }`}
+              style={{ display: visibleIds.has(q.id) ? undefined : 'none' }}
+            >
+              <QuestionCardHeader question={q} number={i + 1} isAdmin={isAdmin} onDeleted={handleDeleted} />
+              {stat && <QuestionStatStrip stat={stat} />}
               {studentMode ? (
-                <QuestionAnswerKeyItem question={q} index={i} />
+                <QuestionAnswerKeyItem question={q} fontScale={scale} />
               ) : (
-                <QuestionAnswerKeyItem question={q} index={i} interactive onAnswered={handleAnswered} />
+                <QuestionAnswerKeyItem question={q} fontScale={scale} interactive onAnswered={handleAnswered} />
               )}
-            </div>
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
+                <button
+                  type="button"
+                  onClick={() => setCommentsForId(q.id)}
+                  className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
+                </button>
+                <ShareQuestionButton question={q} basePath={basePath} />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
 
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
-              <button
-                type="button"
-                onClick={() => setCommentsForId(q.id)}
-                className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-indigo-500"
-              >
-                <MessageCircle className="h-3.5 w-3.5" /> Yorum Yap{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
-              </button>
-              <div className="h-4 w-px shrink-0 bg-default/30" />
-              <ShareQuestionButton question={q} basePath={basePath} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {shownQuestions.length > 1 && (
-        <div className="mt-4 flex items-center justify-between gap-3 sm:mt-6">
-          <button
-            type="button"
-            onClick={() => setActiveIndex(Math.max(0, currentIndex - 1))}
-            disabled={currentIndex === 0}
-            className="flex items-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 py-2.5 text-xs font-black text-default transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
-          >
-            <ArrowLeft className="h-4 w-4" /> Önceki Soru
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveIndex(Math.min(shownQuestions.length - 1, currentIndex + 1))}
-            disabled={currentIndex === shownQuestions.length - 1}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
-          >
-            Sonraki Soru <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-default bg-background font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+        >
+          Kalan {hiddenCount} soruyu göster <ChevronDown className="h-4 w-4" aria-hidden="true" />
+        </button>
       )}
 
       {commentsForId != null && (() => {
@@ -395,100 +379,6 @@ export default function QuestionBankBoard({
           </CommentsModal>
         );
       })()}
-
-      {shownQuestions.length > 1 && (
-        <>
-          {/* Masaüstü: sağda sabit duran optik panel */}
-          <nav
-            aria-label="Sorular arası hızlı geçiş"
-            className="fixed right-3 top-1/2 z-20 hidden max-h-[75vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-default bg-surface-elevated/95 p-2.5 shadow-lg backdrop-blur lg:block"
-          >
-            <div className="grid grid-cols-4 gap-1.5">
-              {shownQuestions.map((q, i) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => setActiveIndex(i)}
-                  title={`Soru ${i + 1}`}
-                  aria-label={`Soru ${i + 1}'e git`}
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-transform hover:scale-110 ${dotColorClass(dotStatus(q.id))} ${
-                    i === currentIndex ? 'ring-2 ring-offset-1 ring-indigo-500' : ''
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-          </nav>
-
-          {/* Mobil/tablet: sabit panel sığmadığı için yüzen bir buton + açılır alt sayfa */}
-          <button
-            type="button"
-            onClick={() => setMapOpen(true)}
-            aria-label="Soru haritasını aç"
-            title="Soru haritası"
-            className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 md:bottom-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 transition-transform hover:scale-105 active:scale-95 lg:hidden"
-          >
-            <LayoutGrid className="h-5 w-5" />
-          </button>
-
-          {mapOpen && (
-            <div
-              className="fixed inset-0 z-[60] flex items-end bg-black/70 backdrop-blur-sm lg:hidden"
-              onClick={() => setMapOpen(false)}
-            >
-              <div
-                className="max-h-[75vh] w-full overflow-y-auto rounded-t-2xl border-t border-default bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-black text-default">Soru Haritası</h3>
-                  <button
-                    type="button"
-                    onClick={() => setMapOpen(false)}
-                    aria-label="Kapat"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated hover:text-default transition-colors"
-                  >
-                    <X className="h-4.5 w-4.5" />
-                  </button>
-                </div>
-                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Doğru
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Yanlış
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> Gösterildi
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full border border-default bg-surface" /> Boş
-                  </span>
-                </div>
-                <div className="grid grid-cols-5 gap-2.5 sm:grid-cols-6">
-                  {shownQuestions.map((q, i) => (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveIndex(i);
-                        setMapOpen(false);
-                      }}
-                      aria-label={`Soru ${i + 1}'e git`}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black transition-transform active:scale-90 ${dotColorClass(dotStatus(q.id))} ${
-                        i === currentIndex ? 'ring-2 ring-offset-1 ring-offset-surface ring-indigo-500' : ''
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
     </>
   );
 }

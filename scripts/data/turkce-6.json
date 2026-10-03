@@ -1,0 +1,732 @@
+{
+  "lesson_id": 1,
+  "grade_id": 6,
+  "curriculum_year": "2026-2027",
+  "weekly_hours": 6,
+  "tymm_page_url": "https://tymm.meb.gov.tr/ogretim-programlari/ortaokul-turkce-dersi/7",
+  "units": [
+    {
+      "order_no": 1,
+      "title": "Dilimizin Zenginliği",
+      "slug": "dilimizin-zenginligi",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/104",
+      "duration_hours": 35,
+      "key_concepts": [
+        "Türkçe",
+        "türkü",
+        "tekerleme",
+        "bilmece",
+        "mâni",
+        "ninni",
+        "atasözleri ve deyimler",
+        "merak",
+        "açık fikirlilik",
+        "akıcı okuma",
+        "söz varlığı",
+        "anahtar kelime",
+        "yüzey anlam",
+        "tahmin",
+        "kendini uyarlama (öz yansıtma)"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Sözcükte Anlam: Gerçek, Mecaz ve Terim Anlam",
+          "slug": "sozcukte-anlam-gercek-mecaz-ve-terim-anlam",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.5",
+              "title": "Metinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme"
+            },
+            {
+              "code": "T.D.6.4",
+              "title": "Dinlediğinde/izlediğinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme"
+            }
+          ],
+          "outcomes": [
+            "Kelimelerin gerçek, mecaz ve terim anlamlarını ayırt eder.",
+            "Eş anlamlı ve zıt anlamlı kelimeleri belirler.",
+            "Anlamını bilmediği kelimelerin anlamını cümleden ve metinden yola çıkarak tahmin eder."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Deyimler ve Atasözleri",
+          "slug": "deyimler-ve-atasozleri",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.21",
+              "title": "Metinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.19",
+              "title": "Dinlediğinden/izlediğinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Deyim ile atasözü arasındaki farkı açıklar.",
+            "Deyim ve atasözlerinin metindeki anlamını belirler.",
+            "Günlük hayatta kullanılan kalıp sözleri ve iyi dilek ifadelerini yerinde kullanır."
+          ]
+        },
+        {
+          "order_no": 3,
+          "title": "Metnin Konusu ve Ana Fikri",
+          "slug": "metnin-konusu-ve-ana-fikri",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.6",
+              "title": "Metnin yüzey anlamını belirleyebilme"
+            },
+            {
+              "code": "T.D.6.5",
+              "title": "Dinlediğinin/izlediğinin yüzey anlamını belirleyebilme"
+            },
+            {
+              "code": "T.O.6.4",
+              "title": "Okuyacağı metnin içeriğine yönelik tahminde bulunabilme"
+            }
+          ],
+          "outcomes": [
+            "Metnin konusunu belirler.",
+            "Metnin ana fikrini (ana düşüncesini) belirler.",
+            "Metindeki anahtar kelimelerden yola çıkarak konuyu bulur.",
+            "Başlık ve görsellerden metnin içeriğini tahmin eder."
+          ]
+        },
+        {
+          "order_no": 4,
+          "title": "Bilgilendirici Metin ve Bölümleri",
+          "slug": "bilgilendirici-metin-ve-bolumleri",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.16",
+              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.15",
+              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Bilgilendirici metnin özelliklerini açıklar.",
+            "Bilgilendirici metinde giriş, gelişme ve sonuç bölümlerini belirler.",
+            "Bilgilendirici metindeki anahtar kelimeleri belirler."
+          ]
+        },
+        {
+          "order_no": 5,
+          "title": "Virgülün Kullanımı",
+          "slug": "virgulun-kullanimi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Özne olarak kullanılan \"bu, şu, o\" kelimelerinden sonra virgül kullanır.",
+            "Sıralı cümleleri ayırmak için virgül kullanır.",
+            "Tırnak içinde olmayan alıntı cümlelerini ve konuşma çizgisinden sonra gelen alıntıları virgülle belirtir.",
+            "\"Evet, hayır, peki\" gibi kabul, ret ve teşvik bildiren kelimelerden sonra virgül kullanır."
+          ]
+        },
+        {
+          "order_no": 6,
+          "title": "Da/De, Ki ve Mi'nin Yazımı",
+          "slug": "da-de-ki-ve-mi-nin-yazimi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Bağlaç olan \"de/da\"yı ayrı, bulunma hâl eki olan \"-de/-da\"yı bitişik yazar.",
+            "Bağlaç olan \"ki\"yi ayrı, ek olan \"-ki\"yi bitişik yazar.",
+            "Soru eki \"mi\"yi kendinden önceki kelimeden ayrı yazar."
+          ]
+        }
+      ]
+    },
+    {
+      "order_no": 2,
+      "title": "Bağımsızlık Yolu",
+      "slug": "bagimsizlik-yolu",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/118",
+      "duration_hours": 35,
+      "key_concepts": [
+        "Millî Mücadele",
+        "Cumhuriyet",
+        "karşılaştırma",
+        "sınıflandırma",
+        "özetleme",
+        "yüzey anlam",
+        "derin anlam",
+        "çalışkanlık",
+        "vatanseverlik",
+        "azim ve kararlılık",
+        "bağımsızlık",
+        "millî bilinç"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Kök ve Ek: Yapım Eki ve Çekim Eki",
+          "slug": "kok-ve-ek-yapim-eki-ve-cekim-eki",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Kelimenin kökünü ve eklerini ayırır.",
+            "İsim kökü ile fiil kökünü ayırt eder.",
+            "Yapım eki ile çekim ekini ayırt eder.",
+            "Yapım ekleriyle yeni kelimeler türetir."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Hikâye Unsurları",
+          "slug": "hikaye-unsurlari",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.14",
+              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.13",
+              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Hikâyedeki kişi ve varlık kadrosunu belirler.",
+            "Hikâyenin geçtiği yeri ve zamanı belirler.",
+            "Hikâyedeki olayları oluş sırasına göre sıralar."
+          ]
+        },
+        {
+          "order_no": 3,
+          "title": "Söz Sanatları",
+          "slug": "soz-sanatlari",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.20",
+              "title": "Metindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.18",
+              "title": "Dinlediğindeki/izlediğindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Benzetme sanatını tanır ve benzetmenin ögelerini belirler.",
+            "Kişileştirme ve konuşturma sanatlarını ayırt eder.",
+            "Karşıtlık ve abartma sanatlarını örnekler üzerinde belirler."
+          ]
+        },
+        {
+          "order_no": 4,
+          "title": "Metinden Çıkarım Yapma",
+          "slug": "metinden-cikarim-yapma",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.8",
+              "title": "Metnin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme"
+            },
+            {
+              "code": "T.O.6.9",
+              "title": "Metnin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme"
+            },
+            {
+              "code": "T.D.6.7",
+              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme"
+            },
+            {
+              "code": "T.D.6.8",
+              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Metinde doğrudan söylenmeyen bilgilere ipuçlarından yola çıkarak ulaşır.",
+            "Metindeki kişilerin duygularını ve duygu değişimlerini belirler.",
+            "Metindeki sebep-sonuç ilişkilerini belirler.",
+            "Metinden çıkarılabilecek ve çıkarılamayacak yargıları ayırt eder."
+          ]
+        },
+        {
+          "order_no": 5,
+          "title": "Metinleri Karşılaştırma",
+          "slug": "metinleri-karsilastirma",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.10",
+              "title": "Metin içi karşılaştırma yapabilme"
+            },
+            {
+              "code": "T.O.6.11",
+              "title": "Metinler arası karşılaştırma yapabilme"
+            },
+            {
+              "code": "T.D.6.9",
+              "title": "Dinlediğini/izlediğini kendi içinde karşılaştırabilme"
+            }
+          ],
+          "outcomes": [
+            "Bir metindeki kişi, olay ve durumları karşılaştırır.",
+            "Aynı konudaki iki metni içerik, dil ve anlatım bakımından karşılaştırır.",
+            "Karşılaştırma bildiren ifadeleri (daha, -e göre, ise, kadar) tanır."
+          ]
+        },
+        {
+          "order_no": 6,
+          "title": "Özetleme",
+          "slug": "ozetleme",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.12",
+              "title": "Metindeki unsurları sınıflandırabilme"
+            },
+            {
+              "code": "T.O.6.23",
+              "title": "Okuduğunu özetleyebilme"
+            },
+            {
+              "code": "T.D.6.11",
+              "title": "Dinlediğindeki/izlediğindeki unsurları sınıflandırabilme"
+            }
+          ],
+          "outcomes": [
+            "Metindeki önemli ve önemsiz bilgileri ayırt eder.",
+            "Olayları oluş sırasına göre sıralar.",
+            "Metni kendi cümleleriyle özetler."
+          ]
+        }
+      ]
+    },
+    {
+      "order_no": 3,
+      "title": "Farklı Dünyalar",
+      "slug": "farkli-dunyalar",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/124",
+      "duration_hours": 34,
+      "key_concepts": [
+        "farklı ülkeler",
+        "görgü kuralları",
+        "geleneksel el sanatları",
+        "mutfak kültürü",
+        "giyim kuşam",
+        "halk dansları",
+        "beden dili",
+        "merak",
+        "empati",
+        "açık fikirlilik",
+        "çıkarım",
+        "karşılaştırma",
+        "tartışma",
+        "görsel okuma",
+        "düşünceyi geliştirme yolları",
+        "çoklu ortam ögeleri",
+        "yorumlama",
+        "sınıflandırma",
+        "yaratıcılık"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Ünlü Ses Olayları: Ünlü Düşmesi, Daralması ve Türemesi",
+          "slug": "unlu-ses-olaylari-unlu-dusmesi-daralmasi-ve-turemesi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Ünlü düşmesini (ağız-ağzı) örnekler üzerinde açıklar.",
+            "Ünlü daralmasını (başla-başlıyor) örnekler üzerinde açıklar.",
+            "Ünlü türemesini (dar-daracık) örnekler üzerinde açıklar."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Ünsüz Ses Olayları: Yumuşama, Benzeşme, Türeme ve Kaynaştırma",
+          "slug": "unsuz-ses-olaylari-yumusama-benzesme-tureme-ve-kaynastirma",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Ünsüz yumuşamasını (kitap-kitabı) örnekler üzerinde açıklar.",
+            "Ünsüz benzeşmesini (kitap-çı → kitapçı) örnekler üzerinde açıklar.",
+            "Ünsüz türemesini (his-hissetmek) örnekler üzerinde açıklar.",
+            "Kaynaştırma ünsüzlerinin (y, s, ş, n) kullanıldığı durumları belirler."
+          ]
+        },
+        {
+          "order_no": 3,
+          "title": "İki Noktanın Kullanımı",
+          "slug": "iki-noktanin-kullanimi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Örnek verilecek sözlerden önce iki nokta kullanır.",
+            "Açıklama yapılacak sözlerden önce iki nokta kullanır.",
+            "Karşılıklı konuşmalarda konuşan kişiyi belirten sözlerden sonra iki nokta kullanır."
+          ]
+        },
+        {
+          "order_no": 4,
+          "title": "Şiir Bilgisi: Dize, Dörtlük ve Ahenk",
+          "slug": "siir-bilgisi-dize-dortluk-ve-ahenk",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.18",
+              "title": "Şiirin biçim özelliklerini belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Şiirde dize ve dörtlüğü tanır.",
+            "Şiirde ahengi sağlayan tekrarları belirler.",
+            "Şiir ile düzyazı arasındaki farkları açıklar."
+          ]
+        },
+        {
+          "order_no": 5,
+          "title": "Düşünceyi Geliştirme Yolları",
+          "slug": "dusunceyi-gelistirme-yollari",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.19",
+              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.17",
+              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Tanımlama ve örneklendirme yollarını tanır.",
+            "Karşılaştırma ve benzetme yollarını tanır.",
+            "Sayısal verilerden yararlanma ve tanık gösterme yollarını tanır.",
+            "Bir metinde kullanılan düşünceyi geliştirme yolunu belirler."
+          ]
+        },
+        {
+          "order_no": 6,
+          "title": "Serim, Düğüm, Çözüm (Olay Örgüsü)",
+          "slug": "serim-dugum-cozum-olay-orgusu",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.17",
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.16",
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Olay yazılarında serim, düğüm ve çözüm bölümlerini belirler.",
+            "Bu bölümlerin metindeki işlevini açıklar."
+          ]
+        },
+        {
+          "order_no": 7,
+          "title": "Görsel Okuma ve Yorumlama",
+          "slug": "gorsel-okuma-ve-yorumlama",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.7",
+              "title": "Görselle iletilen anlamı belirleyebilme"
+            },
+            {
+              "code": "T.D.6.20",
+              "title": "Çoklu ortam ögelerine yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.6",
+              "title": "Görselle iletilen anlamı belirleyebilme"
+            }
+          ],
+          "outcomes": [
+            "Görsellerle iletilen anlamı belirler.",
+            "Tablo, grafik ve ikon gibi ögeleri yorumlar.",
+            "Görsel ve yazılı ögelerin anlama katkısını açıklar."
+          ]
+        }
+      ]
+    },
+    {
+      "order_no": 4,
+      "title": "İletişim ve Sosyal İlişkiler",
+      "slug": "iletisim-ve-sosyal-iliskiler",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/270",
+      "duration_hours": 34,
+      "key_concepts": [
+        "iletişim",
+        "etkili iletişim",
+        "kitle iletişim araçları",
+        "metin yapıları",
+        "yorumlama",
+        "önemli bilgileri belirleyebilme",
+        "özetleme",
+        "geçiş ve bağlantı ifadeleri",
+        "hazırlıklı konuşma",
+        "çoklu ortam ögeleri",
+        "yazım kuralları",
+        "noktalama işaretleri",
+        "empati",
+        "sorumluluk",
+        "güven",
+        "girişkenlik"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Öznel ve Nesnel Yargı",
+          "slug": "oznel-ve-nesnel-yargi",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.13",
+              "title": "Metni yorumlayabilme"
+            },
+            {
+              "code": "T.D.6.12",
+              "title": "Dinlediğini/izlediğini yorumlayabilme"
+            }
+          ],
+          "outcomes": [
+            "Öznel ve nesnel yargıları ayırt eder.",
+            "Kişisel yorum içeren ifadeleri belirler."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Metin Yapıları: Karşılaştırma ve Problem-Çözüm",
+          "slug": "metin-yapilari-karsilastirma-ve-problem-cozum",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.15",
+              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme"
+            },
+            {
+              "code": "T.D.6.14",
+              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Karşılaştırma-zıtlık metin yapısını tanır.",
+            "Problem-çözüm metin yapısını tanır.",
+            "Metin yapısından yola çıkarak önemli bilgileri belirler."
+          ]
+        },
+        {
+          "order_no": 3,
+          "title": "Geçiş ve Bağlantı İfadeleri",
+          "slug": "gecis-ve-baglanti-ifadeleri",
+          "learning_outcomes": [
+            {
+              "code": "T.K.6.24",
+              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme"
+            },
+            {
+              "code": "T.Y.6.20",
+              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme"
+            }
+          ],
+          "outcomes": [
+            "Zıtlık bildiren geçiş ifadelerini (ama, fakat, oysaki) tanır.",
+            "Sebep ve sonuç bildiren ifadeleri (çünkü, bu yüzden, dolayısıyla) tanır.",
+            "Amaç ve şart bildiren ifadeleri (için, eğer, -se) tanır.",
+            "Cümleleri uygun geçiş ve bağlantı ifadeleriyle birleştirir."
+          ]
+        },
+        {
+          "order_no": 4,
+          "title": "Açık ve Örtük Anlam",
+          "slug": "acik-ve-ortuk-anlam",
+          "learning_outcomes": [
+            {
+              "code": "T.K.6.23",
+              "title": "Konuşmasında açık ve örtük ifadeleri kullanabilme"
+            },
+            {
+              "code": "T.Y.6.19",
+              "title": "Yazısında açık ve örtük ifade etmeye yönelik yapıları kullanabilme"
+            }
+          ],
+          "outcomes": [
+            "Açıkça söylenen anlam ile ima edilen anlamı ayırt eder.",
+            "Örtük anlatımda deyim ve mecazların rolünü açıklar."
+          ]
+        }
+      ]
+    },
+    {
+      "order_no": 5,
+      "title": "Bilim ve Teknoloji",
+      "slug": "bilim-ve-teknoloji",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/278",
+      "duration_hours": 34,
+      "key_concepts": [
+        "bilim",
+        "teknoloji",
+        "gelecek",
+        "bilim insanları",
+        "yapay zekâ",
+        "çözümleme",
+        "söz sanatları",
+        "açık ve örtük ifade",
+        "geçiş ve bağlantı ifadeleri",
+        "tartışma",
+        "merak",
+        "azim ve kararlılık",
+        "uzmanlaşma",
+        "şüphe duyma",
+        "eleştirel bakma",
+        "analitik düşünme"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Kısaltmaların Yazımı",
+          "slug": "kisaltmalarin-yazimi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Büyük harfle yapılan kısaltmalara gelen ekleri doğru yazar.",
+            "Küçük harfle yapılan kısaltmalara gelen ekleri doğru yazar."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Kısa Çizgi ve Eğik Çizginin Kullanımı",
+          "slug": "kisa-cizgi-ve-egik-cizginin-kullanimi",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Kökleri, gövdeleri ve ekleri ayırmak için kısa çizgi kullanır.",
+            "Eklerin başına ve sonuna kısa çizgi koyar.",
+            "Yan yana yazılan dizeleri ayırmak için eğik çizgi kullanır."
+          ]
+        },
+        {
+          "order_no": 3,
+          "title": "Özne-Yüklem Uyumu",
+          "slug": "ozne-yuklem-uyumu",
+          "learning_outcomes": [
+            {
+              "code": "T.Y.6.21",
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+            }
+          ],
+          "outcomes": [
+            "Cümlede özneyi ve yüklemi bulur.",
+            "Yüklemin özneye uygun kişi eki alması gerektiğini açıklar.",
+            "Özne-yüklem uyumsuzluğundan kaynaklanan hataları düzeltir."
+          ]
+        }
+      ]
+    },
+    {
+      "order_no": 6,
+      "title": "Lider Ruhlar",
+      "slug": "lider-ruhlar",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/282",
+      "duration_hours": 34,
+      "key_concepts": [
+        "bilim",
+        "sanat",
+        "spor",
+        "girişimcilik",
+        "finansal okuryazarlık",
+        "zaman yönetimi",
+        "planlama",
+        "meslekler",
+        "değerlendirme",
+        "eleştirme",
+        "probleme çözüm üretebilme",
+        "merak",
+        "azim ve kararlılık",
+        "empati",
+        "sorumluluk",
+        "girişkenlik",
+        "uzmanlaşma",
+        "yaratıcılık",
+        "açık fikirlilik",
+        "özgün düşünme"
+      ],
+      "topics": [
+        {
+          "order_no": 1,
+          "title": "Metni Değerlendirme ve Eleştirme",
+          "slug": "metni-degerlendirme-ve-elestirme",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.24",
+              "title": "Okuduğunu değerlendirebilme"
+            },
+            {
+              "code": "T.O.6.25",
+              "title": "Metni eleştirebilme"
+            },
+            {
+              "code": "T.O.6.26",
+              "title": "Metindeki probleme çözüm üretebilme"
+            },
+            {
+              "code": "T.D.6.22",
+              "title": "Dinlediğini/izlediğini değerlendirebilme"
+            },
+            {
+              "code": "T.D.6.23",
+              "title": "Dinlediğini/izlediğini eleştirebilme"
+            },
+            {
+              "code": "T.D.6.24",
+              "title": "Dinlediğindeki/izlediğindeki probleme çözüm üretebilme"
+            }
+          ],
+          "outcomes": [
+            "Metnin güçlü ve zayıf yönlerini değerlendirir.",
+            "Yazarın bakış açısını ve amacını belirler.",
+            "Metindeki probleme uygun çözüm önerir."
+          ]
+        },
+        {
+          "order_no": 2,
+          "title": "Biyografi ve Otobiyografi",
+          "slug": "biyografi-ve-otobiyografi",
+          "learning_outcomes": [
+            {
+              "code": "T.O.6.17",
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+            }
+          ],
+          "outcomes": [
+            "Biyografi ve otobiyografinin özelliklerini açıklar.",
+            "Biyografi ile otobiyografi arasındaki farkları belirler.",
+            "Yaşam öykülerinde olayların kronolojik sırasını belirler."
+          ]
+        }
+      ]
+    }
+  ]
+}

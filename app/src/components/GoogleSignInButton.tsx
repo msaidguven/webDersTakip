@@ -22,6 +22,10 @@ export default function GoogleSignInButton({ redirectTo = '/', label = 'Google i
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+        // Her girişte hesap seçme ekranı (2026-10-03): ortak cihazlarda (okul laboratuvarı, aile
+        // bilgisayarı) tarayıcıda açık kalan önceki öğrencinin Google hesabıyla fark etmeden
+        // girilmesin. Onay ekranı tekrar çıkmaz, yalnız hangi hesapla girileceği sorulur.
+        queryParams: { prompt: 'select_account' },
       },
     });
     if (oauthError) {

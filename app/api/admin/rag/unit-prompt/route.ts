@@ -7,6 +7,15 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 // 50MB Storage limitini aşan PDF'ler için: admin bu prompt'u NotebookLM'e
 // (kaynak olarak kitabın PDF'ini yüklediği notebook'ta) sorar, dönen düz metni
 // /api/admin/rag/documents/from-text ile sisteme kaydeder.
+
+// Derse özel şablon (ders slug'ı → app/prompt dosyası). Türkçe'de "ünitenin tamamını aktar"
+// okuma metinlerinin (hikâye/şiir) tamamını istemek demek — hem telifli hem bizim dil bilgisi/
+// anlam konularımıza katkısız; NotebookLM de uzun cevabı keserek asıl kuralları kaybediyordu.
+// Türkçe şablonu kitabın her konuda öğrettiğini konu listesine göre, sayfa numarasıyla çıkarır.
+const LESSON_UNIT_PROMPT_TEMPLATES: Record<string, string> = {
+  turkce: '13-rag-unit-text-turkce.md',
+};
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -25,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   const [{ data: grade }, { data: lesson }] = await Promise.all([
     supabase.from('grades').select('name').eq('id', unit.grade_id).maybeSingle(),
-    supabase.from('lessons').select('name').eq('id', unit.lesson_id).maybeSingle(),
+    supabase.from('lessons').select('name, slug').eq('id', unit.lesson_id).maybeSingle(),
   ]);
 
   // Ünitenin bizim sistemimizdeki gerçek konu/alt başlık listesi — NotebookLM'e kitabın
@@ -70,13 +79,15 @@ export async function GET(request: NextRequest) {
     .filter((s): s is string => !!s)
     .join('\n');
 
-  const templatePath = path.join(process.cwd(), 'app', 'prompt', '13-rag-unit-text.md');
+  const lessonTemplate = LESSON_UNIT_PROMPT_TEMPLATES[(lesson as { slug: string | null } | null)?.slug ?? ''];
+  const templatePath = path.join(process.cwd(), 'app', 'prompt', lessonTemplate ?? '13-rag-unit-text.md');
   const template = await readFile(templatePath, 'utf8');
 
   const prompt = template
     .replaceAll('{grade}', grade?.name || '')
     .replaceAll('{lesson}', lesson?.name || '')
     .replaceAll('{unit}', unit.title)
+    .replaceAll('{topics}', topicRows.map((t) => `- ${t.title}`).join('\n') || 'Bu tema için henüz konu tanımlanmamış.')
     .replaceAll('{section_headings}', sectionHeadingsText || 'Bu ünite için henüz alt başlık planı oluşturulmamış.');
 
   return NextResponse.json({

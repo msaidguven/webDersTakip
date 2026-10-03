@@ -19,6 +19,8 @@ export interface ContentDraftGenerationResult {
   reason?: string;
   draftId?: number;
   topicId?: number;
+  // Yalnız dryRun'da dolu: Gemini'ye gidecek tam prompt.
+  prompt?: string;
 }
 
 type DraftSection = {
@@ -118,18 +120,77 @@ export async function generateNextAiContentDraft(
   const eligible = (eligibleRows as EligibleTopicRow[] | null)?.[0];
   if (!eligible) return { generated: false, reason: 'Uygun konu yok (RAG sentezi veya kitabı hazır, alt başlığı hiç yok, kazanım kodları tam olan bir konu bulunamadı)' };
 
+  return generateContentDraftForTopic(supabase, eligible, profile);
+}
+
+// Tek bir konuyu elle üretmek için (scripts/generate-topic-content.ts) — worker'ın uygunluk
+// sorgusunu atlar (ör. ders henüz kapalıyken yeni bir dersin şablonunu denemek), kaynağı aynı
+// öncelikle seçer: konu sentezi varsa o, yoksa ünitenin kitabı.
+export async function generateContentDraftForTopicId(
+  supabase: Supabase,
+  topicId: number,
+  profile: ContentWorkerProfile,
+  opts: { dryRun?: boolean } = {}
+): Promise<ContentDraftGenerationResult> {
+  const { data: topic } = await supabase
+    .from('topics')
+    .select('id, unit_id, units!inner(lesson_id, grade_id, rag_dedup_checked_at)')
+    .eq('id', topicId)
+    .maybeSingle();
+  const row = topic as { id: number; unit_id: number; units: { lesson_id: number; grade_id: number; rag_dedup_checked_at: string | null } | { lesson_id: number; grade_id: number; rag_dedup_checked_at: string | null }[] } | null;
+  if (!row) return { generated: false, reason: `Konu ${topicId} bulunamadı` };
+  const unit = Array.isArray(row.units) ? row.units[0] : row.units;
+  const { count: synthesisCount } = await supabase
+    .from('rag_documents')
+    .select('id', { count: 'exact', head: true })
+    .eq('topic_id', topicId)
+    .eq('source', 'ai_generated')
+    .eq('is_synthesis', true);
+  return generateContentDraftForTopic(
+    supabase,
+    {
+      topic_id: row.id,
+      unit_id: row.unit_id,
+      lesson_id: unit.lesson_id,
+      grade_id: unit.grade_id,
+      source_kind: synthesisCount && unit.rag_dedup_checked_at ? 'synthesis' : 'book',
+    },
+    profile,
+    opts
+  );
+}
+
+// Derse özel tam konu şablonu (ders slug'ı → app/prompt dosyası). Türkçe'de konular beceri değil
+// dil bilgisi/anlam bilgisi başlıkları (bkz. scripts/import-turkce-6.ts) ve anlatım kural → örnek
+// cümle → sık hata düzeninde. Ünitenin (temanın) ders kitabı RAG'de yoksa üretim yapılmaz.
+const LESSON_CONTENT_TEMPLATES: Record<string, string> = {
+  turkce: '33-turkce-full-topic.md',
+};
+
+async function generateContentDraftForTopic(
+  supabase: Supabase,
+  eligible: EligibleTopicRow,
+  profile: ContentWorkerProfile,
+  opts: { dryRun?: boolean } = {}
+): Promise<ContentDraftGenerationResult> {
   const [{ data: topicRow }, { data: unitRow }, { data: lessonRow }, { data: gradeRow }] = await Promise.all([
     supabase.from('topics').select('id, title').eq('id', eligible.topic_id).maybeSingle(),
     supabase.from('units').select('id, title').eq('id', eligible.unit_id).maybeSingle(),
-    supabase.from('lessons').select('id, name').eq('id', eligible.lesson_id).maybeSingle(),
+    supabase.from('lessons').select('id, name, slug').eq('id', eligible.lesson_id).maybeSingle(),
     supabase.from('grades').select('id, name').eq('id', eligible.grade_id).maybeSingle(),
   ]);
   if (!topicRow || !unitRow || !lessonRow || !gradeRow) {
     return { generated: false, reason: 'Konu/ünite/ders/sınıf kaydı okunamadı' };
   }
+  const lessonTemplate = LESSON_CONTENT_TEMPLATES[(lessonRow as { slug: string | null }).slug ?? ''];
 
   let sourceText = '';
-  if (eligible.source_kind === 'synthesis') {
+  if (lessonTemplate) {
+    // Kitap yüklenmeden üretim YOK (kullanıcının 2026-10-03 kararı): model kendi bilgisinden
+    // konu anlatımı yazmasın, kapsam ve seviye her zaman temanın ders kitabından gelsin.
+    sourceText = (await fetchUnitBookContent(supabase, eligible.unit_id)) || '';
+    if (!sourceText) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG'e ders kitabı yüklenmemiş — içerik üretilmedi` };
+  } else if (eligible.source_kind === 'synthesis') {
     const { data: synthesisDoc } = await supabase
       .from('rag_documents')
       .select('raw_text')
@@ -172,8 +233,11 @@ export async function generateNextAiContentDraft(
   const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), 'content');
   const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id);
 
-  const templateFile = eligible.source_kind === 'synthesis' ? '20-rag-synthesis-full-topic.md' : '31-rag-book-full-topic.md';
-  const sourcePlaceholder = eligible.source_kind === 'synthesis' ? '{source_text}' : '{book_content}';
+  const templateFile = lessonTemplate ?? (eligible.source_kind === 'synthesis' ? '20-rag-synthesis-full-topic.md' : '31-rag-book-full-topic.md');
+  const sourcePlaceholder = lessonTemplate ? '{book_content_block}' : eligible.source_kind === 'synthesis' ? '{source_text}' : '{book_content}';
+  const sourceValue = lessonTemplate
+    ? `Ders kitabının bu temaya ait bölümü (konunun kitapta hangi kurallarla/kavramlarla ve hangi seviyede işlendiğini buradan al; metinlerden cümle kopyalama):\n${sourceText}`
+    : sourceText;
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
   const [explanationNotebookRules, topicSummaryDiscussionRules, topicHighlightsRules, template] = await Promise.all([
@@ -195,7 +259,9 @@ export async function generateNextAiContentDraft(
     .replaceAll('{pacing_guidance}', pacingGuidance)
     .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance)
     .replaceAll('{existing_headings}', '')
-    .replaceAll(sourcePlaceholder, sourceText);
+    .replaceAll(sourcePlaceholder, sourceValue);
+
+  if (opts.dryRun) return { generated: false, reason: 'dry-run', topicId: eligible.topic_id, prompt };
 
   let raw: unknown;
   let usedModel: string;

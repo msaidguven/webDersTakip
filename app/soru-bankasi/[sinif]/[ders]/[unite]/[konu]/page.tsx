@@ -19,6 +19,7 @@ import type { SoruBankasiUnitData } from '@/app/src/lib/soruBankasiPageData';
 import {
   getSoruBankasiUnitData,
   getSoruBankasiGradeData,
+  getSoruBankasiLessonData,
   buildSoruBankasiGradePath,
   buildSoruBankasiLessonPath,
   buildSoruBankasiUnitPath,
@@ -31,6 +32,9 @@ import GuestTestCover from '@/app/src/components/questionPlayer/GuestTestCover';
 import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSection';
 import Link from 'next/link';
 import { BookOpen, ClipboardList } from 'lucide-react';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 
 // Taslak/admin önizlemesi göstermiyor (getTopicTestPageData artık her zaman public +
 // soru>0 filtreli), bu yüzden ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki
@@ -84,169 +88,178 @@ export default async function QuestionBankPage({ params }: PageProps) {
   const commentCounts = await getQuestionCommentCounts(questions.map((q) => q.id));
   const unitData = await getSoruBankasiUnitData(sinif, ders, unite);
   const unitPath = unitData ? buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, unitData.unitSlug) : null;
-  const gradeData = await getSoruBankasiGradeData(sinif);
-  const otherLessons = (gradeData?.lessons || []).filter((l) => l.slug !== ders);
+  const [gradeData, lessonData] = await Promise.all([getSoruBankasiGradeData(sinif), getSoruBankasiLessonData(sinif, ders)]);
 
+  const intro = buildIntro(data, questions);
+
+  // 2026-10-03 yenilemesi (anasayfa tasarım diliyle aynı): üstte başlık + özgün giriş metni +
+  // kazanım (masaüstünde sağda konu görseli); altında soru listesi AÇIK ve test kartı sağ
+  // sütunda (mobilde listenin üstünde). Eskiden sorular kapalı bir kutudaydı, sayfanın
+  // görünen içeriği yalnız büyük test kartıydı.
   return (
-    <div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-12">
-      <script
-        id="structured-data-question-bank-breadcrumb"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildBreadcrumbJsonLd(data, sinif, ders, unite)).replace(/</g, '\\u003c'),
-        }}
-      />
-      {/* Cevap/açıklama blokları JS ile CSS collapse (.cevap-aciklama / .cevap-marker,
-          bkz. QuizClient.tsx) kullanılarak varsayılan gizleniyor; tek soru modunda (bkz.
-          QuestionBankBoard.tsx) aktif olmayan sorular da display:none ile gizleniyor
-          (.question-bank-item). JS kapalıyken bu override devreye girer ve her şey (SEO
-          içeriği zaten DOM'da tam olsa da) görsel olarak da açık görünür — progressive
-          enhancement. */}
-      <noscript>
-        <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}.question-bank-item{display:block!important}#soru-bankasi-listesi{display:block!important}`}</style>
-      </noscript>
-      <Suspense fallback={null}>
-        <QuestionBankHighlight />
-      </Suspense>
+    <div className={pageShellCls}>
+      <div className={pageInnerCls}>
+        <script
+          id="structured-data-question-bank-breadcrumb"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(buildBreadcrumbJsonLd(data, sinif, ders, unite)).replace(/</g, '\\u003c'),
+          }}
+        />
+        {/* Cevap/açıklama blokları JS ile CSS collapse (.cevap-aciklama / .cevap-marker, bkz.
+            QuizClient.tsx), "Kalan N soru" ile açılanlar display:none (.question-bank-item).
+            JS kapalıyken bu override her şeyi açık gösterir — progressive enhancement. */}
+        <noscript>
+          <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}.question-bank-item{display:block!important}`}</style>
+        </noscript>
+        <Suspense fallback={null}>
+          <QuestionBankHighlight />
+        </Suspense>
 
-      {/* Sade başlık (2026-09-26): banner görseli, ayrı "← geri" linki ve büyük harfli yol
-          satırı kaldırıldı — üçü de aynı işi (nerede olduğunu göstermek) farklı biçimde
-          yapıyordu. Tek, küçük bir breadcrumb hem geri dönüşü hem iç linklemeyi karşılıyor;
-          JSON-LD breadcrumb ile birebir aynı hiyerarşi. Görsel og:image olarak kullanılmaya
-          devam ediyor (bkz. generateMetadata). */}
-      <nav aria-label="Konum" className="mb-3 sm:mb-4">
-        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-semibold text-muted-foreground">
-          <li>
-            <Link href={buildSoruBankasiGradePath(sinif)} className="transition-colors hover:text-indigo-500">
-              {data.gradeName}
-            </Link>
-          </li>
-          <li aria-hidden className="opacity-50">/</li>
-          <li>
-            <Link href={buildSoruBankasiLessonPath(sinif, ders)} className="transition-colors hover:text-indigo-500">
-              {data.lessonName}
-            </Link>
-          </li>
-          <li aria-hidden className="opacity-50">/</li>
-          <li className="min-w-0">
-            <Link href={unitPath ?? buildSoruBankasiUnitPath(sinif, ders, unite)} className="transition-colors hover:text-indigo-500">
-              {data.unitTitle}
-            </Link>
-          </li>
-        </ol>
-      </nav>
-
-      <header className="mb-5 sm:mb-7">
-        <h1 className="text-2xl font-black leading-tight tracking-tight text-default sm:text-3xl">
-          {data.topicTitle} <span className="text-indigo-500">Soru Bankası</span>
-        </h1>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
-          <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-indigo-600 dark:text-indigo-300">
-            {questions.length} soru · cevap anahtarlı
-          </span>
+        <SoruBankasiHeader
+          crumbs={[
+            { name: data.gradeName, href: buildSoruBankasiGradePath(sinif) },
+            { name: data.lessonName, href: buildSoruBankasiLessonPath(sinif, ders) },
+            { name: data.unitTitle, href: unitPath ?? buildSoruBankasiUnitPath(sinif, ders, unite) },
+          ]}
+          lessonName={data.lessonName}
+          eyebrow={`${data.gradeName} · ${data.lessonName}`}
+          title={`${data.topicTitle} Soru Bankası`}
+          pills={[`${questions.length} soru`, 'Cevap anahtarlı', 'Açıklamalı', 'Ücretsiz']}
+          intro={intro}
+          imageUrl={data.heroImageUrl}
+          imageAlt={`${data.topicTitle} konu görseli`}
+        >
+          {/* Kazanım: her soru bankası sayfasını kendine özgü kılan metin (SEO). */}
+          {data.learningOutcome && (
+            <p className="mt-4 rounded-r-xl border-l-[3px] border-indigo-400/70 bg-background px-4 py-2.5 text-sm text-muted-foreground">
+              <span className="font-semibold text-default">Kazanım:</span> {data.learningOutcome}
+            </p>
+          )}
           {/* Konu anlatımı ↔ soru bankası karşılıklı iç linki (SEO kümesi). */}
           {data.hasPublishedContent && (
             <Link
               href={buildTopicPath(data)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-default px-2.5 py-1 text-default transition-colors hover:border-indigo-400/60 hover:text-indigo-500"
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
             >
-              <BookOpen className="h-3.5 w-3.5" /> Konu anlatımı
+              <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımını oku
             </Link>
           )}
-        </div>
+        </SoruBankasiHeader>
 
-        {/* Kazanım: her soru bankası sayfasını kendine özgü kılan metin (SEO). */}
-        {data.learningOutcome && (
-          <p className="mt-3 border-l-2 border-indigo-500/40 pl-3 text-sm text-muted-foreground">
-            <span className="font-bold text-default">Kazanım:</span> {data.learningOutcome}
-          </p>
-        )}
-      </header>
-
-      {/* Aşağıdaki liste inceleme amaçlı (cevap anahtarıyla, puansız); asıl puanlı test
-          (Konu Kavrama Testi) aynı sayfada, URL hiç değişmeden, saf client-side modal
-          olarak başlatılıyor — bkz. TestStatusCard.tsx. Slug'lar data.* yerine route
-          param'larından (sinif/ders/unite/konu) veriliyor — TopicTestPageData'daki
-          gradeSlug/lessonSlug/unitSlug/topicSlug DB'den nullable geliyor, bu URL
-          param'ları zaten garanti non-null string. */}
-      {questions.length > 0 && (
-        <div className="mb-4 sm:mb-6">
-          <TestStatusCard
-            scope="topic"
-            gradeSlug={sinif}
-            lessonSlug={ders}
-            unitSlug={unite}
-            topicSlug={konu}
-            topicId={data.topicId}
-            unitId={data.unitId}
-            title="Kavrama Testi"
-            color="indigo"
-            guestContent={
-              <GuestTestCover
-                topicId={data.topicId}
-                topicTitle={data.topicTitle}
-                eyebrowText={`${data.gradeName} · ${data.lessonName} · ${data.topicTitle}`}
-                questionCount={questions.length}
-              />
-            }
-          />
-        </div>
-      )}
-
-      {/* Herkeste kapalı başlar (?soru= paylaşım linkinde ve kapaktaki "incele" ile açılır) —
-          sorular yine de sunucu HTML'inde tam; bkz. SoruBankasiBrowseSection.tsx. */}
-      <SoruBankasiBrowseSection questionCount={questions.length} questionIds={questions.map((q) => q.id)}>
-        <QuestionBankBoard
-          questions={questions}
-          basePath={buildQuestionBankPath(data)}
-          gradeId={data.gradeId}
-          lessonId={data.lessonId}
-          unitId={data.unitId}
-          commentCounts={commentCounts}
-        />
-      </SoruBankasiBrowseSection>
-
-      {/* Alt/ders/sınıf soru bankası hub'larına link HER ZAMAN gösteriliyor (kullanıcının
-          2026-09-06 SEO denetimi isteği: iç linkleme). "Bu Ünitedeki Diğer Konular" pilleri
-          (aynı ünite içi, düşük SEO değeri — bu sayfadan zaten geri linkiyle 1 tıkla ünite
-          sayfasına gidip TÜM konuları görebiliyorsun) yerine SINIFIN DİĞER DERSLERİNE
-          doğrudan link konuldu (kullanıcının 2026-09-10 isteği) — Tüm X Soru Bankaları
-          linkleri zaten dolaylı (2 tık) aynı yere gidiyordu, bu iç link mesafesini 1 tıka
-          indirip site genelinde ders sayfaları arası SEO linklemesini güçlendiriyor. */}
-      {unitData && unitPath && (
-        <div className="mt-6 rounded-2xl border border-default bg-surface-elevated p-3.5 sm:mt-8 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-widest text-indigo-500">{unitData.gradeName}</p>
-          {otherLessons.length > 0 && (
-            <>
-              <h2 className="mt-1 text-sm font-black text-default">Bu Sınıftaki Diğer Dersler</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {otherLessons.map((lesson) => (
-                  <Link
-                    key={lesson.slug}
-                    href={buildSoruBankasiLessonPath(unitData.gradeSlug, lesson.slug)}
-                    className="rounded-full border border-default bg-surface px-3 py-1.5 text-xs font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
-                  >
-                    {lesson.icon} {lesson.name}
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-          <div className={`flex flex-col gap-1.5 text-xs font-bold ${otherLessons.length > 0 ? 'mt-4 border-t border-default pt-3' : 'mt-3'}`}>
-            <Link href={unitPath} className="text-muted-foreground transition-colors hover:text-indigo-500">
-              → {unitData.unitTitle} — Tüm Konular
-            </Link>
-            <Link href={buildSoruBankasiLessonPath(unitData.gradeSlug, unitData.lessonSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
-              → Tüm {unitData.lessonName} Soru Bankaları
-            </Link>
-            <Link href={buildSoruBankasiGradePath(unitData.gradeSlug)} className="text-muted-foreground transition-colors hover:text-indigo-500">
-              → Tüm {unitData.gradeName} Soru Bankaları
-            </Link>
+        {/* Mobilde sıra: test kartı → sorular → ilgili linkler; masaüstünde test kartı ve linkler sağ sütunda. */}
+        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
+          <div className="lg:col-start-2 lg:row-start-1">
+            <TestStatusCard
+              scope="topic"
+              gradeSlug={sinif}
+              lessonSlug={ders}
+              unitSlug={unite}
+              topicSlug={konu}
+              topicId={data.topicId}
+              unitId={data.unitId}
+              title="Kendini test et"
+              color="indigo"
+              guestContent={
+                <GuestTestCover
+                  topicId={data.topicId}
+                  topicTitle={data.topicTitle}
+                  eyebrowText={`${data.gradeName} · ${data.lessonName} · ${data.topicTitle}`}
+                  questionCount={questions.length}
+                />
+              }
+            />
           </div>
+
+          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+            <SoruBankasiBrowseSection questionCount={questions.length} questionIds={questions.map((q) => q.id)}>
+              <QuestionBankBoard
+                questions={questions}
+                basePath={buildQuestionBankPath(data)}
+                gradeId={data.gradeId}
+                lessonId={data.lessonId}
+                unitId={data.unitId}
+                commentCounts={commentCounts}
+              />
+            </SoruBankasiBrowseSection>
+          </div>
+
+          {/* Hiyerarşi gezinmesi (2026-10-03, kullanıcı isteği): ünitenin TÜM konuları, dersin TÜM
+              üniteleri, sınıfın TÜM dersleri — bulunulan yer vurgulu (bkz. SoruBankasiNavList).
+              İç linkleme (2026-09-06/09-10 SEO kararları) bununla karşılanıyor. */}
+          {unitData && unitPath && (
+            <aside className="flex flex-col gap-4 lg:col-start-2 lg:row-start-2" aria-label="Soru bankası gezinmesi">
+              <SoruBankasiNavList
+                id="unitenin-konulari"
+                title={`${unitData.unitTitle} konuları`}
+                items={unitData.topics.map((t) => ({
+                  key: t.id,
+                  href: `${unitPath}/${t.slug}`,
+                  label: t.title,
+                  eyebrow: `${t.number}. konu`,
+                  meta: `${t.questionCount} soru`,
+                  imageUrl: t.heroImageUrl,
+                  lessonName: data.lessonName,
+                  current: t.id === data.topicId,
+                  isPage: true,
+                }))}
+              />
+              <SoruBankasiNavList
+                id="dersin-uniteleri"
+                title={`${unitData.lessonName} üniteleri`}
+                items={(lessonData?.units ?? []).map((u) => ({
+                  key: u.slug,
+                  href: buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, u.slug),
+                  label: u.title,
+                  eyebrow: `${u.number}. ünite`,
+                  meta: `${u.topics.length} konu · ${u.questionCount} soru`,
+                  imageUrl: u.imageUrl,
+                  lessonName: data.lessonName,
+                  current: u.slug === unitData.unitSlug,
+                }))}
+              />
+              <SoruBankasiNavList
+                id="sinifin-dersleri"
+                title={`${unitData.gradeName} dersleri`}
+                items={(gradeData?.lessons ?? []).map((lesson) => ({
+                  key: lesson.slug,
+                  href: buildSoruBankasiLessonPath(unitData.gradeSlug, lesson.slug),
+                  label: lesson.name,
+                  meta: `${lesson.questionCount} soru`,
+                  lessonName: lesson.name,
+                  current: lesson.slug === unitData.lessonSlug,
+                }))}
+                footer={
+                  <Link href={buildSoruBankasiGradePath(unitData.gradeSlug)} className="text-muted-foreground transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">
+                    Tüm {unitData.gradeName} soru bankaları →
+                  </Link>
+                }
+              />
+            </aside>
+          )}
         </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+// Her konu sayfasına özgün giriş metni (SEO; elle yazılmaz, veriden türetilir): soru türlerinin
+// dağılımıyla birlikte. Kazanım ayrı satırda.
+const TYPE_PHRASE: Record<QuizQuestion['type'], string> = {
+  multiple_choice: 'çoktan seçmeli',
+  blank: 'boşluk doldurma',
+  matching: 'eşleştirme',
+  classical: 'açık uçlu',
+};
+
+function buildIntro(data: TopicTestPageData, questions: QuizQuestion[]): string {
+  const counts = new Map<QuizQuestion['type'], number>();
+  for (const q of questions) counts.set(q.type, (counts.get(q.type) ?? 0) + 1);
+  const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([type, n]) => `${n} ${TYPE_PHRASE[type]}`);
+  const typeText = joinTr(parts);
+  return (
+    `${data.gradeName} ${data.lessonName} dersinin ${data.topicTitle} konusuna ait ${questions.length} soru: ${typeText} sorusu. ` +
+    'Her sorunun doğru cevabı ve kısa açıklaması altında yer alıyor; önce kendin çöz, sonra cevabını kontrol et.'
   );
 }
 
