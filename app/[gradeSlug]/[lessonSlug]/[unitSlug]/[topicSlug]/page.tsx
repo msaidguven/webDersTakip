@@ -107,6 +107,7 @@ async function resolveLesson(supabase: Supabase, decodedLessonSlug: string): Pro
     .from('lessons')
     .select('id, name, slug')
     .eq('slug', decodedLessonSlug)
+    .eq('is_active', true)
     .maybeSingle();
   if (lessonBySlug) return lessonBySlug as LessonRow;
 
@@ -117,6 +118,7 @@ async function resolveLesson(supabase: Supabase, decodedLessonSlug: string): Pro
     .from('lessons')
     .select('id, name, slug')
     .eq('id', lessonId)
+    .eq('is_active', true)
     .maybeSingle();
   return lessonById as LessonRow | null;
 }
@@ -278,7 +280,10 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     unitsQuery,
   ]);
 
-  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+  // Satır yoksa da kapalı say (`=== false` satırsız durumu açık bırakıyordu). Dersin kendisi
+  // (lessons.is_active) resolveLesson'da süzülüyor — 2026-10-03'e kadar süzülmüyordu ve kapalı
+  // 6. sınıf Türkçe'nin konu sayfası lesson_grades açılınca herkese açılmıştı.
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active !== true) {
     return null;
   }
 

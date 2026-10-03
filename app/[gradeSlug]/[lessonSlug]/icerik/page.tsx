@@ -67,6 +67,7 @@ export default async function LegacyIcerikRedirectPage({ params, searchParams }:
     .from('lessons')
     .select('id, slug')
     .eq('slug', decodedLessonSlug)
+    .eq('is_active', true)
     .maybeSingle();
   lesson = lessonBySlug as LessonRow | null;
 
@@ -77,6 +78,7 @@ export default async function LegacyIcerikRedirectPage({ params, searchParams }:
         .from('lessons')
         .select('id, slug')
         .eq('id', lessonId)
+        .eq('is_active', true)
         .maybeSingle();
       lesson = lessonById as LessonRow | null;
     }

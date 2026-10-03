@@ -130,7 +130,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
 
   const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
     supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
+    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).eq('is_active', true).maybeSingle(),
   ]);
   const grade = gradeData as GradeRow | null;
   const lesson = lessonData as LessonRow | null;
@@ -142,7 +142,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
     .eq('lesson_id', lesson.id)
     .eq('grade_id', grade.id)
     .maybeSingle();
-  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) return null;
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active !== true) return null;
 
   const unitQuery = supabase
     .from('units')

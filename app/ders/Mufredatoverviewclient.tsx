@@ -221,64 +221,7 @@ export default function MufredatOverviewClient({
           </div>
         </div>
 
-        <div className="lg:grid lg:grid-cols-[180px_220px_1fr] lg:gap-5 lg:items-start">
-
-          {/* Sınıflar Sidebar - Masaüstü */}
-          <aside className="hidden lg:block sticky top-24 self-start">
-            <div className="rounded-xl border border-gray-200/70 bg-white/90 backdrop-blur-sm shadow-sm p-3">
-              <h2 className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 mb-2">
-                <GraduationCap className="h-4 w-4" /> Sınıflar
-              </h2>
-              <nav className="space-y-0.5">
-                {allGrades.filter((g) => g.slug).map((g) => {
-                  const active = g.slug === gradeSlug;
-                  const targetLessonSlug = g.lessonSlug ?? lessonSlug;
-                  return (
-                    <Link
-                      key={g.id}
-                      href={targetLessonSlug ? `/${g.slug}/${targetLessonSlug}` : `/${g.slug}`}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                        active
-                          ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
-                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="text-base leading-none shrink-0">{g.icon || '📘'}</span>
-                      <span className="truncate">{g.name}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
-
-          {/* Dersler Sidebar - Masaüstü */}
-          <aside className="hidden lg:block sticky top-24 self-start">
-            <div className="rounded-xl border border-gray-200/70 bg-white/90 backdrop-blur-sm shadow-sm p-3">
-              <h2 className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 mb-2">
-                <BookOpen className="h-4 w-4" /> Dersler
-              </h2>
-              <nav className="space-y-0.5">
-                {gradeLessons.filter((l) => l.slug).map((l) => {
-                  const active = l.slug === lessonSlug;
-                  return (
-                    <Link
-                      key={l.id}
-                      href={`/${gradeSlug}/${l.slug}`}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                        active
-                          ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
-                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="text-base leading-none shrink-0">{l.icon || '📘'}</span>
-                      <span className="truncate">{l.name}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-6 lg:items-start">
 
           {/* Ana İçerik */}
           <div className="min-w-0">
@@ -546,6 +489,60 @@ export default function MufredatOverviewClient({
             </p>
 
           </div>
+          {/* Dersler + Sınıflar (2026-10-03): eskiden ana içeriğin SOLUNDA iki sütundu ve h2'leri
+              sayfanın h1'inden önce okunuyordu (SEO/ekran okuyucu başlık sırası). Artık sağda, içerikten
+              sonra — soru bankası ve ünite sayfalarıyla aynı yer. */}
+          <aside className="hidden lg:flex lg:flex-col lg:gap-4 sticky top-24 self-start" aria-label="Ders gezinmesi">
+            <div className="rounded-xl border border-gray-200/70 bg-white/90 backdrop-blur-sm shadow-sm p-3">
+              <h2 className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 mb-2">
+                <BookOpen className="h-4 w-4" /> Dersler
+              </h2>
+              <nav className="space-y-0.5">
+                {gradeLessons.filter((l) => l.slug).map((l) => {
+                  const active = l.slug === lessonSlug;
+                  return (
+                    <Link
+                      key={l.id}
+                      href={`/${gradeSlug}/${l.slug}`}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                    >
+                      <span className="text-base leading-none shrink-0">{l.icon || '📘'}</span>
+                      <span className="truncate">{l.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+            <div className="rounded-xl border border-gray-200/70 bg-white/90 backdrop-blur-sm shadow-sm p-3">
+              <h2 className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 mb-2">
+                <GraduationCap className="h-4 w-4" /> Sınıflar
+              </h2>
+              <nav className="space-y-0.5">
+                {allGrades.filter((g) => g.slug).map((g) => {
+                  const active = g.slug === gradeSlug;
+                  const targetLessonSlug = g.lessonSlug ?? lessonSlug;
+                  return (
+                    <Link
+                      key={g.id}
+                      href={targetLessonSlug ? `/${g.slug}/${targetLessonSlug}` : `/${g.slug}`}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                    >
+                      <span className="text-base leading-none shrink-0">{g.icon || '📘'}</span>
+                      <span className="truncate">{g.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
         </div>
       </div>
     </div>

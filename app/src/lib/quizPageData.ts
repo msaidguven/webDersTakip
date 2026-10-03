@@ -202,14 +202,16 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
 
   const [{ data: gradeData }, { data: lessonData }] = await Promise.all([
     supabase.from('grades').select('id, name, slug').eq('slug', decodedGradeSlug).maybeSingle(),
-    supabase.from('lessons').select('id, name, slug').eq('slug', decodedLessonSlug).maybeSingle(),
+    supabase.from('lessons').select('id, name, slug, is_active').eq('slug', decodedLessonSlug).maybeSingle(),
   ]);
 
   const grade = gradeData as GradeRow | null;
-  const lesson = lessonData as LessonRow | null;
+  const lesson = lessonData as (LessonRow & { is_active: boolean }) | null;
   if (!grade || !lesson) return null;
 
   const isAdmin = await isViewerAdmin(supabase);
+  // Kapalı ders (lessons.is_active) yalnız yöneticiye açık — aşağıdaki lesson_grades kontrolüyle aynı kural.
+  if (!isAdmin && !lesson.is_active) return null;
 
   const { data: lessonGradeData } = await supabase
     .from('lesson_grades')
@@ -218,7 +220,7 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
     .eq('grade_id', grade.id)
     .maybeSingle();
 
-  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+  if (!isAdmin && (lessonGradeData as { is_active: boolean } | null)?.is_active !== true) {
     return null;
   }
 

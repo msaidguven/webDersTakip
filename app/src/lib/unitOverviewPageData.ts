@@ -75,16 +75,12 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
   // sayfasındaki bannerImageUrl ile aynı fikir).
   const coverImageUrl = topicList.find((t) => t.heroImageUrl)?.heroImageUrl ?? null;
 
-  // Üstteki Sınıf/Ders/Ünite/Konu hızlı değiştirici (kullanıcının 2026-09-06 isteği: "konu
-  // sayfasındaki gibi bu sayfada da açılır menüler gösterilsin") — DersClient'taki AYNI
-  // hiyerarşi barı görünümü ama farklı etkileşim: burada sayfa içi state DEĞİL, gerçek
-  // navigasyon var (bkz. UnitHierarchyBar.tsx), o yüzden her seviye için sadece hafif bir
-  // seçenek listesi yeterli.
-  const [{ data: allGradesData }, { data: siblingLessonsRaw }, { data: siblingUnitsData }] = await Promise.all([
-    supabase.from('grades').select('id, name, slug, order_no').eq('is_active', true).order('order_no', { ascending: true }),
+  // Sağ sütundaki gezinme (2026-10-03; eskiden üstteki UnitHierarchyBar): sınıfın dersleri +
+  // dersin üniteleri.
+  const [{ data: siblingLessonsRaw }, { data: siblingUnitsData }] = await Promise.all([
     supabase
       .from('lesson_grades')
-      .select('lesson_id, lessons(id, name, slug, icon, is_active)')
+      .select('lesson_id, lessons(id, name, slug, icon, is_active, order_no)')
       .eq('grade_id', grade.id)
       .eq('is_active', true),
     supabase
@@ -96,46 +92,25 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
       .order('order_no', { ascending: true }),
   ]);
 
-  const activeGradeRows = (allGradesData as { id: number; name: string; slug: string | null; order_no: number }[] | null) || [];
-  const activeGradeIds = activeGradeRows.map((g) => g.id);
-  const { data: gradeLessonRows } = activeGradeIds.length
-    ? await supabase
-        .from('lesson_grades')
-        .select('grade_id, lesson_id, lessons(slug, name, is_active)')
-        .in('grade_id', activeGradeIds)
-        .eq('is_active', true)
-    : { data: [] as { grade_id: number; lesson_id: number; lessons: { slug: string | null; name: string; is_active: boolean } | { slug: string | null; name: string; is_active: boolean }[] | null }[] };
-
-  type GradeLessonRow = { grade_id: number; lesson_id: number; lessons: { slug: string | null; name: string; is_active: boolean } | { slug: string | null; name: string; is_active: boolean }[] | null };
-  const lessonsByGrade = new Map<number, { lessonId: number; slug: string | null; name: string }[]>();
-  for (const row of (gradeLessonRows as GradeLessonRow[] | null) || []) {
-    const lessonRow = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
-    if (!lessonRow || lessonRow.is_active === false || !lessonRow.slug) continue;
-    const list = lessonsByGrade.get(row.grade_id) || [];
-    list.push({ lessonId: row.lesson_id, slug: lessonRow.slug, name: lessonRow.name });
-    lessonsByGrade.set(row.grade_id, list);
-  }
-  for (const list of lessonsByGrade.values()) list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-
-  // Sınıf değiştirme — o sınıfta BU ders varsa aynı ders, yoksa o sınıfın ilk dersi (asla
-  // ölü "Ders bulunamadı" ucuna düşülmesin diye, bkz. [lessonSlug]/page.tsx'teki aynı desen).
-  const allGrades = activeGradeRows.map((g) => {
-    const gradeLessonList = lessonsByGrade.get(g.id) || [];
-    const sameLesson = gradeLessonList.find((l) => l.lessonId === lesson.id);
-    const targetLessonSlug = sameLesson?.slug ?? gradeLessonList[0]?.slug ?? null;
-    return { id: g.id, name: g.name, slug: g.slug || String(g.id), lessonSlug: targetLessonSlug };
-  });
-
-  type SiblingLessonRow = { lesson_id: number; lessons: { id: number; name: string; slug: string | null; icon: string | null; is_active: boolean } | { id: number; name: string; slug: string | null; icon: string | null; is_active: boolean }[] | null };
+  type LessonCol = { id: number; name: string; slug: string | null; icon: string | null; is_active: boolean; order_no: number | null };
+  type SiblingLessonRow = { lesson_id: number; lessons: LessonCol | LessonCol[] | null };
+  // Ders sırası sitenin geri kalanıyla aynı (lessons.order_no), eşitlikte ada göre.
   const gradeLessons = ((siblingLessonsRaw as SiblingLessonRow[] | null) || [])
     .map((row) => (Array.isArray(row.lessons) ? row.lessons[0] : row.lessons))
-    .filter((l): l is { id: number; name: string; slug: string | null; icon: string | null; is_active: boolean } => !!l && l.is_active !== false && !!l.slug)
-    .map((l) => ({ id: l.id, name: l.name, slug: l.slug as string, icon: l.icon }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+    .filter((l): l is LessonCol => !!l && l.is_active !== false && !!l.slug)
+    .sort((a, b) => (a.order_no ?? 999) - (b.order_no ?? 999) || a.name.localeCompare(b.name, 'tr'))
+    .map((l) => ({ id: l.id, name: l.name, slug: l.slug as string, icon: l.icon }));
 
-  const siblingUnits = ((siblingUnitsData as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [])
+  // Kardeş ünitelerin gerçek konu sayısı (sorusu olmayanlar dahil) — sağ sütundaki ünite listesi için.
+  const siblingRows = (siblingUnitsData as { id: number; title: string; slug: string | null; order_no: number | null }[] | null) || [];
+  const { data: siblingTopicRows } = siblingRows.length
+    ? await supabase.from('topics').select('unit_id').in('unit_id', siblingRows.map((u) => u.id)).eq('is_active', true).eq('is_archived', false)
+    : { data: [] as { unit_id: number }[] };
+  const topicCountByUnit = new Map<number, number>();
+  for (const row of (siblingTopicRows as { unit_id: number }[] | null) || []) topicCountByUnit.set(row.unit_id, (topicCountByUnit.get(row.unit_id) ?? 0) + 1);
+  const siblingUnits = siblingRows
     .filter((u) => u.slug)
-    .map((u) => ({ id: u.id, title: u.title, slug: u.slug as string }));
+    .map((u) => ({ id: u.id, title: u.title, slug: u.slug as string, topicCount: topicCountByUnit.get(u.id) ?? 0 }));
 
   return {
     gradeId: grade.id,
@@ -150,7 +125,6 @@ export const getUnitOverviewData = cache(async function getUnitOverviewData(grad
     unitDescription: unit.description,
     coverImageUrl,
     topics: topicList,
-    allGrades,
     gradeLessons,
     siblingUnits,
   };

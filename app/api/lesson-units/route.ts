@@ -30,13 +30,11 @@ export async function GET(request: Request) {
   const isAdmin = !publicOnly && (await isViewerAdmin(supabase));
 
   if (!isAdmin) {
-    const { data: lessonGradeData } = await supabase
-      .from('lesson_grades')
-      .select('is_active')
-      .eq('lesson_id', lessonId)
-      .eq('grade_id', gradeId)
-      .maybeSingle();
-    if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+    const [{ data: lessonGradeData }, { data: lessonData }] = await Promise.all([
+      supabase.from('lesson_grades').select('is_active').eq('lesson_id', lessonId).eq('grade_id', gradeId).maybeSingle(),
+      supabase.from('lessons').select('is_active').eq('id', lessonId).maybeSingle(),
+    ]);
+    if ((lessonGradeData as { is_active: boolean } | null)?.is_active !== true || (lessonData as { is_active: boolean } | null)?.is_active !== true) {
       return NextResponse.json({ units: [] });
     }
   }

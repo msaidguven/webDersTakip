@@ -85,6 +85,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     .from('lessons')
     .select('id, name, slug, icon')
     .eq('slug', decodedLessonSlug)
+    .eq('is_active', true)
     .maybeSingle();
   lesson = lessonBySlug as LessonRow | null;
 
@@ -95,6 +96,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
         .from('lessons')
         .select('id, name, slug, icon')
         .eq('id', lessonId)
+        .eq('is_active', true)
         .maybeSingle();
       lesson = lessonById as LessonRow | null;
     }
@@ -114,7 +116,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
     .eq('grade_id', gId)
     .maybeSingle();
 
-  if ((lessonGradeData as { is_active: boolean } | null)?.is_active === false) {
+  if ((lessonGradeData as { is_active: boolean } | null)?.is_active !== true) {
     return null;
   }
 

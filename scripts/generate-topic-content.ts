@@ -5,6 +5,9 @@
 // Kullanım:
 //   npx tsx scripts/generate-topic-content.ts 939 --dry-run   (sadece prompt'u yazdırır, Gemini'ye gitmez)
 //   npx tsx scripts/generate-topic-content.ts 939             (primary içerik profiliyle üretir + yayınlar)
+//   npx tsx scripts/generate-topic-content.ts 939 --all-keys  (tanımlı tüm Gemini key'lerini sırayla dener —
+//                                                              diğer worker'ların kotasından da yer, elle deneme için)
+//   ... --models=gemini-3.7-flash,gemini-3.5-flash             (profilin modelleri yerine bu sırayla dener)
 
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
@@ -22,6 +25,13 @@ if (!Number.isInteger(topicId) || topicId <= 0) {
   process.exit(1);
 }
 const dryRun = process.argv.includes('--dry-run');
+const ALL_GEMINI_KEY_ENVS = ['GEMINI_API_KEY_CONTENT', 'NEW_GEMINI_API_KEY_CONTENT', 'GEMINI_API_KEY_QUESTIONS', 'GEMINI_API_KEY'];
+const modelsArg = process.argv.find((a) => a.startsWith('--models='))?.slice('--models='.length).split(',').filter(Boolean);
+const profile = {
+  ...CONTENT_WORKER_PROFILES.primary,
+  ...(process.argv.includes('--all-keys') ? { apiKeyEnvs: ALL_GEMINI_KEY_ENVS } : {}),
+  ...(modelsArg?.length ? { model: modelsArg[0], fallbackModels: modelsArg.slice(1) } : {}),
+};
 
 async function main() {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!, { auth: { persistSession: false } });
@@ -32,7 +42,7 @@ async function main() {
     return void (process.exitCode = 1);
   }
 
-  const result = await generateContentDraftForTopicId(supabase, topicId, CONTENT_WORKER_PROFILES.primary, { dryRun });
+  const result = await generateContentDraftForTopicId(supabase, topicId, profile, { dryRun });
   if (dryRun) console.log(result.prompt ?? result.reason);
   else console.log(JSON.stringify(result, null, 2));
 }

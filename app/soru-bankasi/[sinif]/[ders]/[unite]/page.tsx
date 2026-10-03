@@ -127,7 +127,7 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
           )}
 
           <section aria-labelledby="konular" className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-            <h2 id="konular" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Konular</h2>
+            <h2 id="konular" className="text-xl font-bold tracking-tight text-default sm:text-2xl">{data.unitTitle} ünitesinin konuları</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir konu seç; soruları cevap anahtarı ve açıklamalarıyla gör.</p>
             {data.topics.length > 0 ? (
               <SoruBankasiUnitTopicAnalytics
