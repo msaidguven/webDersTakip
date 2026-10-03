@@ -216,9 +216,9 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const canonicalPath = `/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}`;
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
   const topicNames = data.topics.map((t) => t.title).join(', ');
-  const title = `${data.unitTitle} — ${data.gradeName} ${data.lessonName}`;
+  const title = `${data.unitTitle} Konu Anlatımı — ${data.gradeName} ${data.lessonName}`;
   const description = topicNames
-    ? `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesinde ${topicNames} konuları: ders notları ve konu anlatımları.`
+    ? `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesi konu anlatımı: ${topicNames}. Ders notları, sesli anlatım ve testler.`
     : `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesi konu anlatımları.`;
 
   return {

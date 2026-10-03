@@ -227,10 +227,10 @@ function normalizeDescription(text: string, maxLength = 158) {
 }
 
 function buildMetaDescription(data: NonNullable<Awaited<ReturnType<typeof getTopicPageData>>>, bodyText: string | null) {
-  const prefix = `${data.topicTitle} konusu; ${data.gradeName} ${data.lessonName} ${data.unitName} ünitesi için`;
+  const prefix = `${data.topicTitle} konu anlatımı: ${data.gradeName} ${data.lessonName}, ${data.unitName} ünitesi.`;
   const detail = bodyText
     ? ` ${bodyText}`
-    : ' konu anlatımı, örnekler ve interaktif alıştırmalarla öğrenmeyi destekler.';
+    : ' Örnekler ve interaktif alıştırmalarla konuyu öğren.';
   return normalizeDescription(`${prefix}${detail}`);
 }
 
@@ -443,7 +443,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       : null;
   const description = buildMetaDescription(data, bodyText);
 
-  const title = `${data.topicTitle} — ${data.gradeName} ${data.lessonName}`;
+  // "Konu Anlatımı" title'da: aramalar "<konu> konu anlatımı" biçiminde; URL'ye eklemek
+  // yerine (301 + sıralama dalgalanması) en güçlü sinyal olan title'a konuldu.
+  const title = `${data.topicTitle} Konu Anlatımı — ${data.gradeName} ${data.lessonName}`;
   const canonicalPath = buildTopicPath(data);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 

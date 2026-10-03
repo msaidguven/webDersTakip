@@ -10,11 +10,14 @@
 // tutuluyor, bkz. yukarısı) — ama o sınır SADECE soru üretim promptu için
 // geçerli, burada (şekli asıl çizecek AI'ye) soru kökünü de vermenin bir
 // maliyeti yok ve şeklin soruyla (sayılar, etiketler, bağlam) birebir
-// tutarlı çıkmasını sağlıyor (kullanıcı isteği 2026-09-09).
+// tutarlı çıkmasını sağlıyor (kullanıcı isteği 2026-09-09). Soru kökünü görünce model
+// soruyu şeklin içinde çözüyordu (7089: "Dengeleyici Kuvvet: 5 N (Batı)"), bu yüzden
+// cevap/çözüm yazma yasağı açıkça eklendi (2026-10-03).
 export const SVG_RENDER_RULES =
   `Teknik kurallar: viewBox'lı <svg> kökü kullan; script/style/foreignObject/image/a/use/gradient/filter/animasyon/event-handler kullanma; ` +
   `renk kodlarını "#" ile başlat; metni <text> içinde tut ve Türkçe yaz; sade 3-4 renk kullan, farklı unsurları (gövde/çizgi/etiket) ayırt et, ` +
-  `çakışan çizgileri aynı renkte bırakma; kontrastlı zemin/yazı kullan; şekil soru metniyle birebir tutarlı olsun (sayılar, etiketler, işaretli noktalar); ` +
+  `çakışan çizgileri aynı renkte bırakma; kontrastlı zemin/yazı kullan; şekil soru kökünde VERİLENLERLE birebir tutarlı olsun (sayılar, etiketler, işaretli noktalar); ` +
+  `şekilde YALNIZCA soru kökünde verilen bilgileri göster: sonuç, hesaplama, formül, kural/açıklama cümlesi, doğru cevap ya da sorulan büyüklüğün değeri kesinlikle yazılmasın (şekil soruyu çözmemeli); sorulan büyüklük gerekiyorsa "?" ile göster; soruda olmayan etiket/yön ekleme; ` +
   `sadece SVG kodu döndür.`;
 
 export function buildSvgGenerationPrompt(params: { questionText: string; svgPrompt: string; topicTitle?: string | null }): string {

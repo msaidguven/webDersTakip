@@ -285,8 +285,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const title = `${data.topicTitle} - ${data.gradeName} ${data.lessonName} Soru Bankası`;
   const description = data.learningOutcome
-    ? `${data.gradeName} ${data.lessonName} ${data.topicTitle}: ${data.questionCount} soru ve cevap anahtarı. Kazanım: ${data.learningOutcome}.`
-    : `${data.gradeName} ${data.lessonName} ${data.topicTitle} konusuna ait ${data.questionCount} soru ve cevap anahtarını tek sayfada incele.`;
+    ? `${data.gradeName} ${data.lessonName} ${data.topicTitle} test soruları: ${data.questionCount} soru ve cevap anahtarı. Kazanım: ${data.learningOutcome}.`
+    : `${data.gradeName} ${data.lessonName} ${data.topicTitle} test soruları: ${data.questionCount} soru ve cevap anahtarı tek sayfada.`;
   // Konunun kendi kapak görseli varsa paylaşım kartında o görünsün (WhatsApp/sosyal medya).
   const ogImage = data.heroImageUrl
     ? { url: data.heroImageUrl, alt: data.topicTitle }

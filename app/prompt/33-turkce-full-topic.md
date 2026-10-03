@@ -9,7 +9,7 @@ TÜRKÇE KONU ANLATIMI KURALLARI (aşağıdaki genel kurallarla çelişirse BUNL
 - Örnek cümleler bu konuda madde listesi olarak yazılır (genel kuraldaki "madde listesi az" sınırı burada geçerli değil). Her alt başlıkta 2-4 örnek. Yazım/noktalama konularında doğru-yanlış karşılaştırması işe yarıyorsa "Doğru:" ve "Yanlış:" sözcükleriyle yaz; ✔/✘ gibi simge KULLANMA (metin sesli okunuyor).
 - Kapsamı ve kuralları aşağıdaki ders kitabı bölümünden al: kitabın bu konuda öğrettiği kuralları/işlevleri eksiksiz işle, kitapta ve kazanımlarda olmayan kural ekleme. Kitaptaki bir kural birden fazla parça içeriyorsa (ör. "sıralı cümleleri ve eş görevli kelimeleri ayırır") her parçayı işle, birini atlama.
 - Terim olarak yalnız kitapta veya kazanımlarda geçen dil bilgisi terimlerini kullan; kendin terim türetme (ör. "özne belirteci" diye bir terim yoktur).
-- Örnek cümleleri SEN yaz (kitaptaki örnek cümleleri, değiştirerek bile olsa kullanma; aynı yapıda yeni cümle kur): kısa, {grade} öğrencisinin günlük hayatına ve "{unit}" temasına yakın, özgün cümleler. Ders kitabındaki metinlerden cümle KOPYALAMA, yazar adı/eser alıntısı kullanma.
+- Örnekler: kitaptaki kural cümlelerini, tanımları ve örnek cümleleri AYNEN kullanabilirsin (kitapla tutarlılık önceliklidir; kitabın örneği konuyu iyi gösteriyorsa onu tercih et); okuma metinlerinin (hikâye, şiir, makale) tamamını ya da uzun bölümlerini aktarma. Kitapta yeterli örnek yoksa kısa, {grade} öğrencisinin günlük hayatına ve "{unit}" temasına yakın yeni cümleler yaz. Gerçek kişi/tarih hakkında kitapta olmayan ayrıntı uydurma.
 - Doğruluk her şeyden önce gelir: kurallar TDK Yazım Kılavuzu'yla birebir uyumlu olmalı. Her örnek cümlenin yazımını ve noktalamasını tek tek kontrol et; "Doğru:" diye verdiğin cümlede hata olmamalı, "Yanlış:" diye verdiğinde yalnız anlatılan hata olmalı. Emin olmadığın bir kuralı ya da istisnayı YAZMA.
 - İncelenen ögeyi (ek, kelime, işaret) örnekte **kalın** yaz ki öğrenci neye bakacağını görsün. Tek tek ekleri gösterirken kısa çizgiyle yaz (-de, -ki, -lık).
 - Dil bilgisi terimi ilk geçtiği yerde 1 cümleyle tanımlansın; terim ezberletme yerine örnekten kurala gitme tercih edilsin.
@@ -38,7 +38,7 @@ SON KONTROL (JSON'u döndürmeden önce tek tek uygula, hatalıysa düzelt):
 2. Bütün kelimeler TDK yazımına uygun mu? Özellikle başlıklarda ve kavram adlarında (ör. "ret" doğru, "red" yanlış; "hâl", "edebî").
 3. "Doğru:" örneklerinde hiçbir yazım/noktalama hatası yok mu; "Yanlış:" örneklerinde yalnız anlatılan hata mı var?
 4. Her etkinlik o alt başlığın kuralını mı yokluyor ve "Örneğe Bak" cevabı kuralı doğru uyguluyor mu? Etkinlikte başka bir konunun kuralını (ör. iki nokta) karıştırma.
-5. Kitaptan kopyalanmış örnek cümle kaldı mı? Kaldıysa yenisiyle değiştir.
+5. Uydurma bilgi var mı (gerçek kişi, tarih, olay hakkında kitapta ve genel kabul görmüş bilgide olmayan ayrıntı)? Varsa çıkar.
 
 SADECE bu JSON'u döndür, başka metin ekleme:
 {

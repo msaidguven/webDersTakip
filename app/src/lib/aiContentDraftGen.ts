@@ -8,6 +8,7 @@ import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
 import { contentModelLabel, type ContentWorkerProfile } from '@/app/src/lib/contentWorkerProfiles';
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
+import { extractTopicBookSection, fetchUnitBookRawText } from '@/app/src/lib/topicBookSection';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -21,7 +22,11 @@ export interface ContentDraftGenerationResult {
   topicId?: number;
   // Yalnız dryRun'da dolu: Gemini'ye gidecek tam prompt.
   prompt?: string;
+  // İki aşamalı derslerde (Türkçe) doğrulama geçişinin yaptığı düzeltmeler.
+  reviewCorrections?: ReviewCorrection[];
 }
+
+type ReviewCorrection = { field: string; issue: string; fix: string };
 
 type DraftSection = {
   heading: string;
@@ -163,9 +168,21 @@ export async function generateContentDraftForTopicId(
 // Derse özel tam konu şablonu (ders slug'ı → app/prompt dosyası). Türkçe'de konular beceri değil
 // dil bilgisi/anlam bilgisi başlıkları (bkz. scripts/import-turkce-6.ts) ve anlatım kural → örnek
 // cümle → sık hata düzeninde. Ünitenin (temanın) ders kitabı RAG'de yoksa üretim yapılmaz.
-const LESSON_CONTENT_TEMPLATES: Record<string, string> = {
-  turkce: '33-turkce-full-topic.md',
+//
+// review: iki aşamalı üretim (kullanıcının 2026-10-03 onayı). Türkçe'de konu yazım/noktalama/
+// dil bilgisi olduğu için tek geçişte kalan küçük hatalar (yanlış genelleme, etkinlik cevabında
+// eksik virgül, "başüstüne" gibi yazım) kabul edilemiyor; ikinci bir çağrı taslağı kitap + TDK'ye
+// göre denetleyip düzeltir. Doğrulama başarısız olursa içerik YAYINLANMAZ.
+const LESSON_CONTENT_TEMPLATES: Record<string, { content: string; review?: string }> = {
+  turkce: { content: '33-turkce-full-topic.md', review: '34-turkce-content-review.md' },
 };
+
+function parseReviewCorrections(raw: unknown): ReviewCorrection[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
+    .map((c) => ({ field: String(c.field ?? ''), issue: String(c.issue ?? ''), fix: String(c.fix ?? '') }));
+}
 
 async function generateContentDraftForTopic(
   supabase: Supabase,
@@ -188,8 +205,9 @@ async function generateContentDraftForTopic(
   if (lessonTemplate) {
     // Kitap yüklenmeden üretim YOK (kullanıcının 2026-10-03 kararı): model kendi bilgisinden
     // konu anlatımı yazmasın, kapsam ve seviye her zaman temanın ders kitabından gelsin.
-    sourceText = (await fetchUnitBookContent(supabase, eligible.unit_id)) || '';
-    if (!sourceText) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG'e ders kitabı yüklenmemiş — içerik üretilmedi` };
+    const bookText = (await fetchUnitBookRawText(supabase, eligible.unit_id)) || (await fetchUnitBookContent(supabase, eligible.unit_id)) || '';
+    if (!bookText) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG'e ders kitabı yüklenmemiş — içerik üretilmedi` };
+    sourceText = extractTopicBookSection(bookText, topicRow.title).text;
   } else if (eligible.source_kind === 'synthesis') {
     const { data: synthesisDoc } = await supabase
       .from('rag_documents')
@@ -233,10 +251,10 @@ async function generateContentDraftForTopic(
   const pacingGuidance = buildPacingGuidance(pacingMap.get(topicRow.id), 'content');
   const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id);
 
-  const templateFile = lessonTemplate ?? (eligible.source_kind === 'synthesis' ? '20-rag-synthesis-full-topic.md' : '31-rag-book-full-topic.md');
+  const templateFile = lessonTemplate?.content ?? (eligible.source_kind === 'synthesis' ? '20-rag-synthesis-full-topic.md' : '31-rag-book-full-topic.md');
   const sourcePlaceholder = lessonTemplate ? '{book_content_block}' : eligible.source_kind === 'synthesis' ? '{source_text}' : '{book_content}';
   const sourceValue = lessonTemplate
-    ? `Ders kitabının bu temaya ait bölümü (konunun kitapta hangi kurallarla/kavramlarla ve hangi seviyede işlendiğini buradan al; metinlerden cümle kopyalama):\n${sourceText}`
+    ? `Ders kitabının bu temaya ait bölümü (konunun kitapta hangi kurallarla/kavramlarla, hangi örneklerle ve hangi seviyede işlendiğini buradan al):\n${sourceText}`
     : sourceText;
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
@@ -271,8 +289,38 @@ async function generateContentDraftForTopic(
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  const parsed = parseContentDraft(raw);
+  let parsed = parseContentDraft(raw);
   if (!parsed) return { generated: false, reason: 'Gemini çıktısı beklenen JSON şemasına uymadı' };
+
+  let reviewCorrections: ReviewCorrection[] | undefined;
+  if (lessonTemplate?.review) {
+    const reviewTemplate = await readFile(path.join(promptDir, lessonTemplate.review), 'utf8');
+    const reviewPrompt = reviewTemplate
+      .replaceAll('{grade}', gradeRow.name)
+      .replaceAll('{lesson}', lessonRow.name)
+      .replaceAll('{unit}', unitRow.title)
+      .replaceAll('{topic}', topicRow.title)
+      .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
+      .replaceAll('{book_content}', sourceText)
+      .replaceAll('{draft_json}', JSON.stringify(parsed, null, 1));
+    let reviewRaw: unknown;
+    try {
+      ({ data: reviewRaw } = await generateTopicContentJson(reviewPrompt, profile));
+    } catch (e) {
+      return { generated: false, reason: `Doğrulama çağrısı başarısız, içerik yayınlanmadı: ${e instanceof Error ? e.message : String(e)}` };
+    }
+    const reviewObj = reviewRaw && typeof reviewRaw === 'object' ? (reviewRaw as Record<string, unknown>) : null;
+    const reviewed = parseContentDraft(reviewObj?.content);
+    if (!reviewed) return { generated: false, reason: 'Doğrulama çıktısı beklenen JSON şemasına uymadı, içerik yayınlanmadı' };
+    if (reviewed.sections.length !== parsed.sections.length) {
+      return { generated: false, reason: `Doğrulama alt başlık sayısını değiştirdi (${parsed.sections.length} → ${reviewed.sections.length}), içerik yayınlanmadı` };
+    }
+    // Kazanım eşleşmesi taslaktan korunur — doğrulama metni düzeltir, bağları değil.
+    reviewed.sections = reviewed.sections.map((sec, i) => ({ ...sec, matched_outcome_codes: parsed!.sections[i].matched_outcome_codes }));
+    if (!reviewed.cover?.highlights?.length && parsed.cover) reviewed.cover = { ...parsed.cover, ...(reviewed.cover ?? {}) };
+    parsed = reviewed;
+    reviewCorrections = parseReviewCorrections(reviewObj?.corrections);
+  }
 
   // İki içerik worker'ı (:13 ve :23) üretim sürerken aynı konuyu seçmiş olabilir — geç kalan
   // taraf yayınlanmış içeriğin üzerine yazmasın.
@@ -324,6 +372,7 @@ async function generateContentDraftForTopic(
   if (!publishResult.ok) {
     return {
       generated: true,
+      reviewCorrections,
       draftId,
       topicId: eligible.topic_id,
       reason: `Taslak üretildi ama otomatik yayınlanamadı, admin onayı bekliyor: ${publishResult.error}`,
@@ -340,11 +389,12 @@ async function generateContentDraftForTopic(
   if (publishResult.unresolvedCodes?.length) {
     return {
       generated: true,
+      reviewCorrections,
       draftId,
       topicId: eligible.topic_id,
       reason: `Yayınlandı ama şu kazanım kodları eşleşmedi (bölüm kazanımsız kalmış olabilir): ${publishResult.unresolvedCodes.join(', ')}`,
     };
   }
 
-  return { generated: true, draftId, topicId: eligible.topic_id };
+  return { generated: true, draftId, topicId: eligible.topic_id, reviewCorrections };
 }

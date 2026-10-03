@@ -2139,7 +2139,7 @@ export default function DersClient({ initialData, gradeId, lessonId, week }: Der
                       <div className="not-prose mb-8 sm:mb-10 rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4 text-left sm:p-6">
                         <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">Ünite</p>
                         <p className="mt-1 text-2xl sm:text-3xl font-black text-rose-600 leading-snug">{unitTitle}</p>
-                        <p className="mt-4 text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">Konu</p>
+                        <p className="mt-4 text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">Konu Anlatımı</p>
                         <h1 className="mt-1 font-serif text-xl sm:text-2xl font-black text-rose-600 leading-snug">{activeTopic.title}</h1>
                         <div className="mt-4 h-1 w-14 rounded-full bg-rose-300" />
                         {/* Konu görseli SADECE açıklamanın yanına alınıyor, ünite/konu

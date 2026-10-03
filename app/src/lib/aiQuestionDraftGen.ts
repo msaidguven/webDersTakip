@@ -14,6 +14,7 @@ import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
 import { prettyModelName } from '@/app/src/lib/geminiWorkerProfile';
 import { QUESTION_WORKER_PROFILES, type QuestionWorkerProfile } from '@/app/src/lib/questionWorkerProfiles';
 import { parseQuestions } from '@/app/src/lib/parseMixedQuestions';
+import { extractTopicBookSection, fetchUnitBookRawText } from '@/app/src/lib/topicBookSection';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -57,7 +58,19 @@ export interface DraftGenerationResult {
   reason?: string;
   draftId?: number;
   sectionId?: number;
+  // Yalnız dryRun'da dolu: Gemini'ye gidecek tam prompt.
+  prompt?: string;
+  // İki aşamalı derslerde (Türkçe) doğrulama geçişinin yaptığı düzeltmeler.
+  reviewCorrections?: { question: string; issue: string; fix: string }[];
 }
+
+// Derse özel soru şablonu (ders slug'ı → app/prompt dosyaları). Türkçe'de sorular yazım/noktalama/
+// dil bilgisi ve anlam bilgisi soruları; tek doğru cevaplı yazmak zor (çeldirici şıkta gözden kaçan
+// bir yazım hatası soruyu iki cevaplı yapar) — bu yüzden ikinci bir çağrı soruları kitap + TDK'ye
+// göre çözüp denetler (kullanıcının 2026-10-03 onayı). Doğrulama başarısızsa taslak kaydedilmez.
+const LESSON_QUESTION_TEMPLATES: Record<string, { questions: string; review: string }> = {
+  turkce: { questions: '35-turkce-section-questions.md', review: '36-turkce-questions-review.md' },
+};
 
 // Kardeş alt başlıklarla örtüşen soru üretilmesin diye (kullanıcının 2026-09-08 bulduğu
 // sorun) — manuel "Soru Ekle (NotebookLM)" akışındaki AYNI {other_headings} deseni
@@ -166,9 +179,63 @@ export async function generateNextAiQuestionDraft(
   const eligible = (eligibleRows as EligibleSectionRow[] | null)?.[0];
   if (!eligible) return { generated: false, reason: 'Uygun alt başlık yok (kitabı yüklü, sorusuz, kazanımı olan bir alt başlık bulunamadı)' };
 
+  return generateQuestionDraftForSection(supabase, eligible, profile);
+}
+
+// Tek bir alt başlığa elle soru taslağı üretmek için (scripts/generate-section-questions.ts) —
+// worker'ın uygunluk sorgusunu atlar (ör. ders henüz kapalıyken yeni bir dersin şablonunu denemek).
+// Taslak worker'daki gibi 'pending' kaydedilir; admin panelinden onaylanır.
+export async function generateQuestionDraftForSectionId(
+  supabase: Supabase,
+  sectionId: number,
+  profile: QuestionWorkerProfile,
+  opts: { dryRun?: boolean } = {}
+): Promise<DraftGenerationResult> {
+  const { data } = await supabase
+    .from('topic_content_sections')
+    .select('id, heading, topic_contents!inner(topic_id, topics!inner(id, title, unit_id, units!inner(id, title, lesson_id, grade_id, lessons!inner(name), grades!inner(name))))')
+    .eq('id', sectionId)
+    .maybeSingle();
+  const one = <T,>(v: T | T[]): T => (Array.isArray(v) ? v[0] : v);
+  type Row = { id: number; heading: string; topic_contents: { topics: { id: number; title: string; unit_id: number; units: { id: number; title: string; lesson_id: number; grade_id: number; lessons: { name: string }; grades: { name: string } } } } };
+  const row = data as unknown as Row | null;
+  if (!row) return { generated: false, reason: `Alt başlık ${sectionId} bulunamadı` };
+  const topic = one(one(row.topic_contents).topics);
+  const unit = one(topic.units);
+  return generateQuestionDraftForSection(
+    supabase,
+    {
+      section_id: row.id,
+      topic_id: topic.id,
+      unit_id: unit.id,
+      lesson_id: unit.lesson_id,
+      grade_id: unit.grade_id,
+      grade_name: one(unit.grades).name,
+      lesson_name: one(unit.lessons).name,
+      unit_title: unit.title,
+      topic_title: topic.title,
+      section_heading: row.heading,
+      round_no: 0,
+    },
+    profile,
+    opts
+  );
+}
+
+async function generateQuestionDraftForSection(
+  supabase: Supabase,
+  eligible: EligibleSectionRow,
+  profile: QuestionWorkerProfile,
+  opts: { dryRun?: boolean } = {}
+): Promise<DraftGenerationResult> {
+  const { data: lessonRow } = await supabase.from('lessons').select('slug').eq('id', eligible.lesson_id).maybeSingle();
+  const lessonTemplate = LESSON_QUESTION_TEMPLATES[(lessonRow as { slug: string | null } | null)?.slug ?? ''];
+
   let bookContent: string | null;
   try {
-    bookContent = await fetchUnitBookContent(supabase, eligible.unit_id);
+    // Türkçe: temanın metninden yalnız bu konunun bölümü (bkz. topicBookSection.ts).
+    const rawBook = lessonTemplate ? await fetchUnitBookRawText(supabase, eligible.unit_id) : null;
+    bookContent = rawBook ? extractTopicBookSection(rawBook, eligible.topic_title).text : await fetchUnitBookContent(supabase, eligible.unit_id);
   } catch (e) {
     return { generated: false, reason: `Ünite ${eligible.unit_id} kitap içeriği sorgusu hata verdi: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -183,7 +250,8 @@ export async function generateNextAiQuestionDraft(
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
   const svgBlock = svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(eligible.lesson_name));
 
-  const template = await readFile(path.join(process.cwd(), 'app', 'prompt', '17-section-questions-rag.md'), 'utf8');
+  const promptDir = path.join(process.cwd(), 'app', 'prompt');
+  const template = await readFile(path.join(promptDir, lessonTemplate?.questions ?? '17-section-questions-rag.md'), 'utf8');
   const prompt = template
     .replaceAll('{grade}', eligible.grade_name)
     .replaceAll('{lesson}', eligible.lesson_name)
@@ -197,6 +265,8 @@ export async function generateNextAiQuestionDraft(
     .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(eligible.lesson_name))
     .replaceAll('{svg_question_instructions}', svgBlock);
 
+  if (opts.dryRun) return { generated: false, reason: 'dry-run', sectionId: eligible.section_id, prompt };
+
   let raw: unknown;
   let usedModel: string;
   try {
@@ -205,8 +275,38 @@ export async function generateNextAiQuestionDraft(
     return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  const parsed = parseQuestions(raw, 7);
+  let parsed = parseQuestions(raw, 7);
   if (!parsed) return { generated: false, reason: 'Gemini çıktısı beklenen JSON şemasına uymadı' };
+
+  let reviewCorrections: DraftGenerationResult['reviewCorrections'];
+  if (lessonTemplate) {
+    const reviewTemplate = await readFile(path.join(promptDir, lessonTemplate.review), 'utf8');
+    const reviewPrompt = reviewTemplate
+      .replaceAll('{grade}', eligible.grade_name)
+      .replaceAll('{lesson}', eligible.lesson_name)
+      .replaceAll('{unit}', eligible.unit_title)
+      .replaceAll('{topic}', eligible.topic_title)
+      .replaceAll('{heading}', eligible.section_heading)
+      .replaceAll('{section_outcomes}', sectionOutcomesText)
+      .replaceAll('{book_content}', bookContent)
+      .replaceAll('{draft_json}', JSON.stringify((raw as { questions: unknown[] }).questions, null, 1));
+    let reviewRaw: unknown;
+    try {
+      ({ data: reviewRaw } = await generateQuestionsJson(reviewPrompt, profile));
+    } catch (e) {
+      return { generated: false, reason: `Doğrulama çağrısı başarısız, taslak kaydedilmedi: ${e instanceof Error ? e.message : String(e)}` };
+    }
+    const reviewed = parseQuestions(reviewRaw, 7);
+    if (!reviewed) return { generated: false, reason: 'Doğrulama çıktısı beklenen JSON şemasına uymadı (ya da tüm sorular elendi), taslak kaydedilmedi' };
+    parsed = reviewed;
+    raw = reviewRaw;
+    const corrections = (reviewRaw as { corrections?: unknown }).corrections;
+    reviewCorrections = Array.isArray(corrections)
+      ? corrections
+          .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
+          .map((c) => ({ question: String(c.question ?? ''), issue: String(c.issue ?? ''), fix: String(c.fix ?? '') }))
+      : [];
+  }
 
   // Modelin JSON'da kendini beyan ettiği ai_model değil, cevabı gerçekten veren model
   // (503 yedeği devreye girmiş olabilir) — worker istatistikleri buna dayanıyor.
@@ -235,5 +335,5 @@ export async function generateNextAiQuestionDraft(
   }
   if (insertError || !draftRow) return { generated: false, reason: `Taslak kaydedilemedi: ${insertError?.message}` };
 
-  return { generated: true, draftId: (draftRow as { id: number }).id, sectionId: eligible.section_id };
+  return { generated: true, draftId: (draftRow as { id: number }).id, sectionId: eligible.section_id, reviewCorrections };
 }

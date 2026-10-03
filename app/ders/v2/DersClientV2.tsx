@@ -283,7 +283,7 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
         <section className={s.stage}>
           <div className={topic.heroImageUrl ? s.stageGrid : s.stageGridNoArt}>
             <div>
-              <span className={s.tag}><i className={s.tagDot} aria-hidden="true" />{lessonName} · {gradeName}</span>
+              <span className={s.tag}><i className={s.tagDot} aria-hidden="true" />{lessonName} · {gradeName} · Konu Anlatımı</span>
               <p className={s.kicker}>
                 {unitIndex >= 0 && <b>Ünite {unitIndex + 1} · </b>}{unitName}{contents.length > 1 && ` · Konu ${topicIndex + 1} / ${contents.length}`}
               </p>
