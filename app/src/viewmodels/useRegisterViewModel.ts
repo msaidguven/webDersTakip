@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { RegisterData, AuthState } from '../models/authTypes';
+import { MIN_PASSWORD_LENGTH } from '../lib/password';
 
 export interface RegisterGradeOption {
   id: number;
@@ -22,12 +22,13 @@ interface UseRegisterViewModelReturn {
   isLoadingGrades: boolean;
   lessons: RegisterLessonOption[];
   isLoadingLessons: boolean;
-  register: (data: RegisterData) => Promise<void>;
+  // Başarılıysa hesabın rolünü döner; yönlendirmeyi ÇAĞIRAN yapar (register/page.tsx) — önceden
+  // burada /login?registered=… adresine gidiliyordu ama giriş sayfası bu parametreyi hiç okumuyordu.
+  register: (data: RegisterData) => Promise<{ role: 'student' | 'teacher' } | null>;
   clearError: () => void;
 }
 
 export function useRegisterViewModel(): UseRegisterViewModelReturn {
-  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: false,
@@ -83,12 +84,13 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
 
   const register = useCallback(async (data: RegisterData) => {
     // Validasyon
+    if (data.password.length < MIN_PASSWORD_LENGTH) {
+      setState(prev => ({ ...prev, error: `Şifre en az ${MIN_PASSWORD_LENGTH} karakter olmalı` }));
+      return null;
+    }
     if (data.password !== data.confirmPassword) {
-      setState(prev => ({
-        ...prev,
-        error: 'Sifreler eslesmiyor',
-      }));
-      return;
+      setState(prev => ({ ...prev, error: 'Şifreler eşleşmiyor' }));
+      return null;
     }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -100,7 +102,7 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
         body: JSON.stringify(data),
       });
       const result = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(result.error || 'Kayit yapilamadi');
+      if (!res.ok) throw new Error(result.error || 'Kayıt yapılamadı');
 
       // bkz. useLoginViewModel — getSession() değil setSession() gerekiyor, aksi halde
       // sayfa yenilenene kadar "giriş yapılmamış" görünüyor. E-posta onayı gerekiyorsa
@@ -115,18 +117,16 @@ export function useRegisterViewModel(): UseRegisterViewModelReturn {
         isAuthenticated: true,
         isLoading: false,
       }));
-
-      // Öğretmen kaydı onay bekler (is_verified:false) — öğrenciden farklı bir mesaj
-      // gösterilsin diye (eski /ogretmen/kayit sayfasındaki AYNI "registered=teacher" bilgisi).
-      router.push(result.role === 'teacher' ? '/login?registered=teacher' : '/login?registered=true');
+      return { role: result.role === 'teacher' ? ('teacher' as const) : ('student' as const) };
     } catch (err) {
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Kayit yapilamadi',
+        error: err instanceof Error ? err.message : 'Kayıt yapılamadı',
       }));
+      return null;
     }
-  }, [router]);
+  }, []);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));

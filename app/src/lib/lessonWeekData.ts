@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 
-type WeekOutcomeRow = { outcome_id: number };
 type LearningOutcomeRow = { id: number; code: string | null; title: string };
 type OutcomeRow = {
   id: number;
@@ -113,8 +112,9 @@ function extractHeroImageAlt(generationMeta: unknown): string | null {
 // başlık+slug ile hafif (contentLoaded:false) döner. Verilmezse (ör. hafta değişimi veya
 // başka bir ünitenin arkaplanda ısıtılması) eskisi gibi ünitedeki TÜM konuların tam içeriği
 // çekilir — bu yüzden parametre opsiyonel ve geriye dönük uyumlu.
+// _week: kazanımlar artık haftaya göre süzülmüyor (bkz. aşağıdaki not); imza çağıranlar için korunuyor.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, week: number, isAdmin = false, activeTopic?: { id?: number; slug?: string } | null) {
+export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>, unitId: number, _week: number, isAdmin = false, activeTopic?: { id?: number; slug?: string } | null) {
   let topicsQuery = supabase
     .from('topics')
     .select('id, title, slug, order_no, is_archived')
@@ -122,17 +122,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     .order('order_no', { ascending: true });
   if (!isAdmin) topicsQuery = topicsQuery.eq('is_active', true);
 
-  const [
-    { data: topicsData },
-    { data: weekOutcomes },
-  ] = await Promise.all([
-    topicsQuery,
-    supabase
-      .from('outcome_weeks')
-      .select('outcome_id')
-      .lte('start_week', week)
-      .gte('end_week', week),
-  ]);
+  const { data: topicsData } = await topicsQuery;
 
   // Arşivlenmiş konular normal navigasyondan (sidebar/hafta listesi) gizlenir — AMA
   // doğrudan açılan konu (activeTopic) arşivli olsa bile kendi sayfası canlı kalmalı
@@ -202,9 +192,12 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     }
     const allTopicOutcomes = topics.flatMap((t) => outcomesByTopic.get(t.id) || []);
 
-    const weekOutcomeIds = new Set(((weekOutcomes as WeekOutcomeRow[] | null) || []).map((w) => w.outcome_id));
-    const weekMatchedOutcomes = allTopicOutcomes.filter((outcome) => weekOutcomeIds.has(outcome.id));
-    const filtered = weekMatchedOutcomes.length ? weekMatchedOutcomes : allTopicOutcomes;
+    // Haftaya göre süzme KALDIRILDI (2026-10-03): ünitede bu haftaya atanmış herhangi bir kazanım
+    // varsa yalnızca onlar bırakılıyordu — bu hafta işlenmeyen konuların sayfasında kazanımların
+    // TAMAMI kayboluyordu (6. Sosyal "Zaman İçinde Değişen Gruplar ve Roller", 3. haftada). Liste
+    // yalnızca konu sayfasındaki "Kazanımlar" kutusunu besliyor; bir konunun sayfası o konunun
+    // bütün güncel kazanımlarını göstermeli. Haftalık görünüm /api/lesson-outcomes'tan beslenir.
+    const filtered = allTopicOutcomes;
 
     outcomes = filtered.map((o) => ({
       id: o.id,

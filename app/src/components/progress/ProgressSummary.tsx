@@ -37,7 +37,8 @@ export function ProgressSummary() {
   const learned = useMemo(() => {
     if (!mastery?.lessons.length) return null;
     const topics = mastery.lessons.flatMap((l) => l.topics);
-    return { done: topics.filter((t) => t.state === 'learned').length, total: topics.length };
+    const upcoming = mastery.lessons.reduce((n, l) => n + l.upcoming, 0);
+    return { done: topics.filter((t) => t.state === 'learned').length, total: topics.length + upcoming };
   }, [mastery]);
 
   if (error) {

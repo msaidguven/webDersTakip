@@ -37,6 +37,8 @@ export interface RegisterData extends LoginCredentials {
   mathA: number;
   mathB: number;
   mathAnswer: string;
+  // Gizlilik Politikası onayı (KVKK) — sunucuda da zorunlu, onay zamanı profiles.privacy_accepted_at'e yazılır.
+  acceptedPrivacy: boolean;
 }
 
 export interface AuthViewModel {

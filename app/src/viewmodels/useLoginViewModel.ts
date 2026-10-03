@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { LoginCredentials, AuthState } from '../models/authTypes';
 
 interface UseLoginViewModelReturn {
   state: AuthState;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  // true: giriş başarılı. Yönlendirmeyi ÇAĞIRAN yapar (login/page.tsx) — önceden burada da
+  // router.push('/') vardı ve sayfanın redirectTo/öğretmen yönlendirmesiyle yarışıyordu.
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   clearError: () => void;
 }
 
 export function useLoginViewModel(): UseLoginViewModelReturn {
-  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: false,
@@ -46,16 +46,16 @@ export function useLoginViewModel(): UseLoginViewModelReturn {
         isAuthenticated: true,
         isLoading: false,
       }));
-
-      router.push('/');
+      return true;
     } catch (err) {
       setState(prev => ({
         ...prev,
         isLoading: false,
         error: err instanceof Error ? err.message : 'Giriş yapılamadı',
       }));
+      return false;
     }
-  }, [router]);
+  }, []);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));

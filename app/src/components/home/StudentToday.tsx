@@ -213,7 +213,7 @@ export function StudentToday({ lessonsAside }: { lessonsAside?: React.ReactNode 
 // "Yanlışlarını tekrar et". Ders rengi yalnız ikon ve ince ilerleme çizgisinde.
 function MyLessons({ lessons, nextSteps, openTests }: { lessons: LessonProgress[]; nextSteps: Map<number, LessonNextStep>; openTests: Map<number, OpenTest> }) {
   const { data: mastery } = useTopicMastery();
-  const learnedByLesson = new Map((mastery?.lessons ?? []).map((l) => [l.id, { learned: l.counts.learned, total: l.topics.length }]));
+  const learnedByLesson = new Map((mastery?.lessons ?? []).map((l) => [l.id, { learned: l.counts.learned, total: l.topics.length + l.upcoming }]));
 
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -3,6 +3,7 @@ import { createAnonClient } from '@/utils/supabase/server-anon';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 import { getClientIp, checkAuthRateLimit, recordAuthAttempt, verifyBotChallenge } from '@/app/src/lib/authSecurity';
+import { MIN_PASSWORD_LENGTH } from '@/app/src/lib/password';
 
 // Öğrenci VE öğretmen kaydı — ayrı bir "Öğretmen Girişi" sayfası kaldırıldı (kullanıcı
 // isteği, 2026-09-12), tek form role'e göre dallanıyor. Bot koruması ve rate limit sadece
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
     mathA?: unknown;
     mathB?: unknown;
     mathAnswer?: unknown;
+    acceptedPrivacy?: unknown;
   } | null;
 
   if (!body || !verifyBotChallenge(body)) {
@@ -52,10 +54,16 @@ export async function POST(request: NextRequest) {
     ? (body.lessonIds as unknown[]).filter((v): v is number => typeof v === 'number' && Number.isInteger(v))
     : [];
 
-  if (!email || password.length < 6 || !fullName) {
+  if (!email || password.length < MIN_PASSWORD_LENGTH || !fullName) {
     await recordAuthAttempt(ip, 'register', false);
-    return NextResponse.json({ error: 'E-posta, şifre (en az 6 karakter) ve ad soyad gerekli' }, { status: 400 });
+    return NextResponse.json({ error: `E-posta, şifre (en az ${MIN_PASSWORD_LENGTH} karakter) ve ad soyad gerekli` }, { status: 400 });
   }
+  // KVKK: Gizlilik Politikası onayı olmadan hesap açılmaz; onay zamanı profile yazılır.
+  if (body.acceptedPrivacy !== true) {
+    await recordAuthAttempt(ip, 'register', false);
+    return NextResponse.json({ error: 'Devam etmek için Gizlilik Politikası’nı kabul etmelisin' }, { status: 400 });
+  }
+  const privacyAcceptedAt = new Date().toISOString();
   if (!USERNAME_PATTERN.test(username)) {
     await recordAuthAttempt(ip, 'register', false);
     return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 });
@@ -85,9 +93,12 @@ export async function POST(request: NextRequest) {
   const { data: created, error: createError } = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (createError || !created.user) {
     await recordAuthAttempt(ip, 'register', false);
-    const message = createError?.message?.toLowerCase().includes('already been registered')
+    const raw = createError?.message?.toLowerCase() ?? '';
+    const message = raw.includes('already been registered')
       ? 'Bu e-posta adresi zaten kayıtlı'
-      : 'Kayıt yapılamadı';
+      : raw.includes('password')
+        ? `Şifre en az ${MIN_PASSWORD_LENGTH} karakter olmalı`
+        : 'Kayıt yapılamadı';
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
@@ -98,8 +109,8 @@ export async function POST(request: NextRequest) {
   // AYNI sütunun false başlayıp /profil'de tamamlanması, app/auth/callback/route.ts).
   const { error: profileError } = await service.from('profiles').insert(
     role === 'teacher'
-      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true }
-      : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true }
+      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt }
+      : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt }
   );
 
   if (profileError) {

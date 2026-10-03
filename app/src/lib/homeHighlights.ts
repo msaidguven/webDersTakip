@@ -171,6 +171,8 @@ export interface ThisWeekTopicItem {
   title: string;
   lessonName: string;
   href: string | null;
+  // Konu kapak görseli (topic_contents.hero_image_url); varsa kartta ikon yerine o.
+  imageUrl: string | null;
 }
 
 export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Promise<{ week: number; byGradeId: Record<string, ThisWeekTopicItem[]> }> {
@@ -179,7 +181,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
 
   const { data } = await supabase
     .from('outcome_weeks')
-    .select('start_week, end_week, outcomes!inner(is_current, topics!inner(id, title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(grade_id, slug, is_active, grades(slug), lessons(name, slug))))')
+    .select('start_week, end_week, outcomes!inner(is_current, topics!inner(id, title, slug, is_active, is_archived, topic_contents!inner(is_published, hero_image_url), units!inner(grade_id, slug, is_active, grades(slug), lessons(name, slug))))')
     .lte('start_week', week)
     .eq('outcomes.is_current', true)
     .eq('outcomes.topics.is_active', true)
@@ -195,6 +197,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
         id: number;
         title: string;
         slug: string | null;
+        topic_contents: Rel<{ hero_image_url: string | null }>;
         units: Rel<{ grade_id: number; slug: string | null; grades: Rel<{ slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
       }>;
     }>;
@@ -215,6 +218,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
       title: topic.title,
       lessonName: lesson?.name ?? '',
       href: topicHref(grade?.slug, lesson?.slug, unit.slug, topic.slug),
+      imageUrl: one(topic.topic_contents)?.hero_image_url ?? null,
     });
   }
   for (const list of Object.values(byGradeId)) list.sort((a, b) => a.lessonName.localeCompare(b.lessonName, 'tr'));

@@ -9,6 +9,11 @@
 //  - Haftada tek öğrenme çıktısı varsa bileşenler kodsuz ("a) …") — kod o haftanın ÖĞRENME
 //    ÇIKTILARI sütunundaki ilk koddan alınır.
 //  - Kodda nokta eksik olabiliyor ("BTY6.6.3.") — normalize edilir ("BTY.6.6.3").
+//
+// İkinci şablon (2026-10-03, 5. sınıf Din Kültürü): tek tablo, üstte grup başlık satırı,
+// bileşen sütunu "SÜREÇ BECERİLERİ" ve harfler aynı satırda yan yana ("a) … b) …") — satırlar
+// harf işaretlerinden bölünerek aynı akışa sokulur; hücre metni tırnaklı olabiliyor.
+// Tatil/okul temelli planlama haftalarında kod olmadığı için kendiliğinden atlanır.
 
 import JSZip from 'jszip';
 import { DOMParser, type Element } from '@xmldom/xmldom';
@@ -29,9 +34,13 @@ const CODE_SRC = '([A-ZÇĞİÖŞÜ]{2,5})\\.?(\\d{1,2})\\.(\\d{1,2})\\.(\\d{1,2
 const CODE_GLOBAL_RE = new RegExp(CODE_SRC, 'g');
 const COMPONENT_LINE_RE = new RegExp(`^(?:${CODE_SRC}\\s*)?([a-zçğıöşü])\\)\\s*(.*)$`);
 const BARE_CODE_LINE_RE = new RegExp(`^${CODE_SRC}\\s*(?:\\([^)]*\\))?\\s*$`);
+// Aynı satırdaki "… gözlem yapar. b) …" ayrımı: boşluktan sonra (isteğe bağlı kodlu) tek harf + ")"
+const INLINE_COMPONENT_SPLIT_RE = new RegExp(`\\s+(?=(?:${CODE_SRC.replace(/\((?!\?)/g, '(?:')}\\s*)?[a-zçğıöşü]\\))`);
 const WEEK_RE = /^(\d{1,2})\s*\.?\s*HAFTA/i;
 // Başlığa yapışan notlar: "(2 Saat)", "*Okul Temelli Planlama"
 const TITLE_NOISE_RE = /\(\d+\s*Saat\)|\*[^\n]*/gi;
+// Bazı şablonlarda hücre metni tırnak içinde ("a) … b) …") — baştaki/sondaki tırnaklar atılır
+const stripQuotes = (s: string) => s.trim().replace(/^["“”„]+|["“”„]+$/g, '').trim();
 
 const normCode = (m: RegExpExecArray | RegExpMatchArray, offset = 1) => `${m[offset]}.${m[offset + 1]}.${m[offset + 2]}.${m[offset + 3]}`;
 const upperTr = (s: string) => s.toLocaleUpperCase('tr');
@@ -58,7 +67,7 @@ function findColumns(headerCells: string[]): Columns | null {
   const up = headerCells.map(upperTr);
   const week = up.findIndex((h) => h.trim() === 'HAFTA');
   const lo = up.findIndex((h) => h.includes('ÖĞRENME ÇIKTI'));
-  const comp = up.findIndex((h) => h.includes('SÜREÇ BİLEŞEN'));
+  const comp = up.findIndex((h, i) => i !== lo && (h.includes('SÜREÇ BİLEŞEN') || h.includes('SÜREÇ BECERİ')));
   return week >= 0 && lo >= 0 && comp >= 0 ? { week, lo, comp } : null;
 }
 
@@ -67,7 +76,7 @@ function parseLearningOutcomeCell(text: string) {
   const matches = [...text.matchAll(CODE_GLOBAL_RE)];
   return matches.map((m, i) => {
     const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
-    const title = text.slice(m.index! + m[0].length, end).replace(TITLE_NOISE_RE, '').replace(/\s+/g, ' ').trim();
+    const title = stripQuotes(text.slice(m.index! + m[0].length, end).replace(TITLE_NOISE_RE, '').replace(/\s+/g, ' '));
     return { code: normCode(m), title };
   });
 }
@@ -113,8 +122,9 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
       // İLK KEZ oluşturulan bileşene eklenir (önceki haftadan gelen tekrar metni çoğaltmasın).
       let current: string | null = weekLos[0]?.code ?? null;
       let appendTo: MaarifComponent | null = null;
-      for (const rawLine of (cells[cols.comp] || '').split('\n')) {
-        const line = rawLine.trim();
+      const lines = (cells[cols.comp] || '').split('\n').flatMap((l) => l.split(INLINE_COMPONENT_SPLIT_RE));
+      for (const rawLine of lines) {
+        const line = stripQuotes(rawLine);
         if (!line) continue;
         const bare = BARE_CODE_LINE_RE.exec(line);
         if (bare) {

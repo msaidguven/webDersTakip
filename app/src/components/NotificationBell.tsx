@@ -14,7 +14,6 @@ type Notification = {
   created_at: string;
 };
 
-const POLL_INTERVAL_MS = 30000;
 
 function formatRelative(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -28,8 +27,8 @@ function formatRelative(iso: string) {
 
 // Header'daki bildirim zili. Projede henüz Supabase Realtime kullanılmıyor (ilk
 // eklendiğinde bilinçli bir tercih — bkz. commit notu); cevaplar zaten dakikalar
-// süren bir kuyruktan geldiği için (bkz. /api/rag/process-queue) 30 sn'lik bir
-// polling gecikmesi kullanıcı için fark etmiyor, realtime'ın karmaşıklığını haklı
+// süren bir kuyruktan geldiği için (bkz. /api/rag/process-queue) sayfa açılışında/zile
+// tıklanınca okumak kullanıcı için yeterli, realtime'ın karmaşıklığını haklı
 // çıkarmıyor. Okuma/okundu-işaretleme doğrudan client'tan RLS ile yapılıyor
 // (bkz. supabase/migrations/notifications.sql) — ayrı bir API route'una gerek yok,
 // sadece kendi satırlarına dokunabiliyor.
@@ -52,11 +51,12 @@ export function NotificationBell() {
     setItems((data as Notification[] | null) || []);
   }, [supabase, user]);
 
+  // Arkada sorgulama YOK (kullanıcı kararı, 2026-10-03): bildirimler veritabanında durduğu için sayfa
+  // açılışında bir kez, bir de zile tıklanınca (liste açılırken) okunur. Önceden 30 sn'de bir koşulsuz
+  // sorguluyordu — arka planda açık kalan tek sekmeyle günde ~2.900 istek, Supabase API isteklerinin
+  // en büyük kalemiydi. Bekleyen @hocam cevabını sayfadaki tartışma bölümü zaten kendisi takip ediyor.
   React.useEffect(() => {
-    if (!isAuthenticated) return;
-    load();
-    const timer = window.setInterval(load, POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    if (isAuthenticated) load();
   }, [isAuthenticated, load]);
 
   React.useEffect(() => {
@@ -98,7 +98,10 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={menuRef}>
       <button
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          if (!isOpen) load();
+          setIsOpen((open) => !open);
+        }}
         aria-label="Bildirimler"
         className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
       >

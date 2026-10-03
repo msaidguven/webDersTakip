@@ -1,343 +1,257 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../src/context/AuthContext';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
+import { AuthBanner, AuthLoading, AuthShell, authStyles as s } from '../src/components/auth/AuthShell';
+import { PasswordField } from '../src/components/auth/PasswordField';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '../src/lib/username';
+import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
+import { offerToSaveCredential } from '@/app/src/lib/browserCredentials';
 
 function makeMathChallenge() {
   return { a: 1 + Math.floor(Math.random() * 9), b: 1 + Math.floor(Math.random() * 9) };
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawRedirectTo = searchParams?.get('redirectTo');
+  const redirectTo = rawRedirectTo ? safeRedirectPath(rawRedirectTo, '/') : '/';
+
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { state, grades, isLoadingGrades, lessons, isLoadingLessons, register, clearError } = useRegisterViewModel();
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
-  const [formData, setFormData] = useState({
-    fullName: '',
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    gradeId: '',
-  });
+  const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '', gradeId: '' });
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false);
 
-  function toggleLesson(id: number) {
-    setSelectedLessonIds((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  // Bot koruması: honeypot (insan görmez/doldurmaz), form açılış zamanı (çok hızlı submit
-  // = bot) ve basit bir toplama sorusu. Üçü de app/api/auth/register'da sunucu tarafında
-  // yeniden doğrulanıyor — burası sadece basit botları erkenden eleyip UX sağlıyor.
+  // Bot koruması: gizli alan (insan görmez/doldurmaz), form açılış zamanı (çok hızlı gönderim =
+  // bot) ve basit bir toplama sorusu (kullanıcı kararıyla kaldı — 2026-10-03, daha önce bir bot
+  // hesabı açılmıştı). Üçü de app/api/auth/register'da sunucuda yeniden doğrulanıyor.
   const [honeypot, setHoneypot] = useState('');
   const [formRenderedAt] = useState(() => Date.now());
   const [mathChallenge, setMathChallenge] = useState(makeMathChallenge);
   const [mathAnswer, setMathAnswer] = useState('');
-  const [botError, setBotError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // Zaten giriş yapmış kullanıcı kayıt formunu görmemeli — login/page.tsx'teki aynı korumanın
-  // eşleniği (bkz. bunun eksik olduğu bulunan bug).
+  // Zaten giriş yapmış kullanıcı kayıt formunu görmez. Kayıt anında giriş yapılmış olur;
+  // o durumda yönlendirmeyi handleSubmit yapar (justRegistered), burası değil.
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      router.push('/');
-    }
-  }, [isAuthenticated, authLoading, router]);
+    if (!authLoading && isAuthenticated && !justRegistered) router.replace('/');
+  }, [isAuthenticated, authLoading, router, justRegistered]);
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const set = (field: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+  const toggleLesson = (id: number) =>
+    setSelectedLessonIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBotError(null);
+    setFormError(null);
+    clearError();
 
-    // İnsan kullanıcı honeypot'u hiç görmediği için dolduramaz — doluysa isteği
-    // sunucuya hiç göndermeden burada kes.
-    if (honeypot.trim() !== '') {
-      setBotError('Doğrulama başarısız. Lütfen sayfayı yenileyip tekrar deneyin.');
-      return;
-    }
-    if (Date.now() - formRenderedAt < 3000) {
-      setBotError('Lütfen formu doldurmak için birkaç saniye ayırın ve tekrar deneyin.');
-      return;
-    }
+    if (honeypot.trim() !== '') return setFormError('Doğrulama başarısız. Sayfayı yenileyip tekrar dener misin?');
+    if (Date.now() - formRenderedAt < 3000) return setFormError('Formu doldurmak için birkaç saniye ayırıp tekrar dener misin?');
     if (parseInt(mathAnswer, 10) !== mathChallenge.a + mathChallenge.b) {
-      setBotError('Toplama işleminin sonucu yanlış.');
       setMathChallenge(makeMathChallenge());
       setMathAnswer('');
-      return;
+      return setFormError('Toplama işleminin sonucu yanlış, yeni soruyu cevaplar mısın?');
     }
-    if (!USERNAME_PATTERN.test(formData.username)) {
-      setBotError(USERNAME_RULES_MESSAGE);
-      return;
-    }
-    if (role === 'teacher' && selectedLessonIds.size === 0) {
-      setBotError('En az bir branş (ders) seçmelisin');
-      return;
-    }
+    if (!USERNAME_PATTERN.test(form.username)) return setFormError(USERNAME_RULES_MESSAGE);
+    if (role === 'student' && !form.gradeId) return setFormError('Sınıfını seçmelisin.');
+    if (role === 'teacher' && selectedLessonIds.size === 0) return setFormError('En az bir branş seçmelisin.');
+    if (!acceptedPrivacy) return setFormError('Devam etmek için Gizlilik Politikası’nı kabul etmelisin.');
 
-    await register({
-      fullName: formData.fullName,
-      username: formData.username,
-      email: formData.email,
-      password: formData.password,
-      confirmPassword: formData.confirmPassword,
+    setJustRegistered(true);
+    const result = await register({
+      fullName: form.fullName.trim(),
+      username: form.username,
+      email: form.email.trim(),
+      password: form.password,
+      confirmPassword: form.confirmPassword,
       role,
-      gradeId: role === 'student' && formData.gradeId ? parseInt(formData.gradeId, 10) : undefined,
+      gradeId: role === 'student' ? parseInt(form.gradeId, 10) : undefined,
       lessonIds: role === 'teacher' ? Array.from(selectedLessonIds) : undefined,
       honeypot,
       formRenderedAt,
       mathA: mathChallenge.a,
       mathB: mathChallenge.b,
       mathAnswer,
+      acceptedPrivacy,
     });
+    if (!result) {
+      setJustRegistered(false);
+      return;
+    }
+    await offerToSaveCredential(form.email.trim(), form.password, form.fullName.trim());
+    // Öğretmen hesabı yönetici onayı bekler — öğretmen paneli bunu kendisi anlatır.
+    router.replace(result.role === 'teacher' ? '/ogretmen' : redirectTo);
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500";
+  if (authLoading || (isAuthenticated && !justRegistered)) return <AuthLoading text="Yönlendiriliyor…" />;
 
-  if (authLoading || isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-default flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Yönlendiriliyor...</p>
-        </div>
-      </div>
-    );
-  }
+  const error = formError || state.error;
+  const loginHref = rawRedirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login';
 
   return (
-    <div className="min-h-screen bg-default flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📚</span>
-          </div>
-          <h1 className="text-2xl font-bold text-default">Ders Takip</h1>
-          <p className="text-muted-foreground mt-2">Hemen ucretsiz kaydol</p>
+    <AuthShell>
+      <form className={s.form} onSubmit={handleSubmit}>
+        <div>
+          <h1 className={s.title}>Ücretsiz hesap oluştur</h1>
+          <p className={s.lead}>İlerlemeni kaydet, sana özel testler çöz.</p>
         </div>
 
-        {/* Form */}
-        <div className="rounded-2xl bg-surface-elevated border border-default p-8">
-          <h2 className="text-xl font-semibold text-default mb-6">Kayit Ol</h2>
+        {/* Gizli alan: insan görmez, botlar genelde tüm alanları doldurur */}
+        <div className={s.honeypot} aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+        </div>
 
-          {(state.error || botError) && (
-            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-              {state.error || botError}
-              <button
-                onClick={() => { clearError(); setBotError(null); }}
-                className="ml-2 text-red-500 hover:text-red-600"
-              >
-                ✕
-              </button>
+        <div className={s.seg} role="group" aria-label="Hesap türü">
+          <button type="button" aria-pressed={role === 'student'} onClick={() => setRole('student')}>Öğrenciyim</button>
+          <button type="button" aria-pressed={role === 'teacher'} onClick={() => setRole('teacher')}>Öğretmenim</button>
+        </div>
+
+        {role === 'student' ? (
+          <div className={s.field}>
+            <label htmlFor="grade" className={s.label}>Sınıfın</label>
+            <div className={`${s.inputWrap} ${s.selectWrap}`}>
+              <select id="grade" className={s.input} value={form.gradeId} onChange={(e) => set('gradeId', e.target.value)} disabled={isLoadingGrades} required>
+                <option value="" disabled>{isLoadingGrades ? 'Sınıflar yükleniyor…' : 'Sınıfını seç'}</option>
+                {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Honeypot: insan kullanıcı bunu görmez, botlar genelde tüm inputları doldurur */}
-            <div className="hidden" aria-hidden="true">
-              <label htmlFor="website">Website</label>
-              <input
-                id="website"
-                name="website"
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={honeypot}
-                onChange={(e) => setHoneypot(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">Öğrenci misin, öğretmen misin?</label>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setRole('student')}
-                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'student' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
-                >
-                  🎒 Öğrenciyim
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('teacher')}
-                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${role === 'teacher' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-default text-muted-foreground hover:border-indigo-500/40'}`}
-                >
-                  🎓 Öğretmenim
-                </button>
-              </div>
-            </div>
-
-            {role === 'student' ? (
-              <div>
-                <label className="block text-sm text-muted-foreground mb-2">Kaçıncı sınıftasın?</label>
-                <select
-                  value={formData.gradeId}
-                  onChange={(e) => handleChange('gradeId', e.target.value)}
-                  className={inputClass}
-                  required
-                  disabled={isLoadingGrades}
-                >
-                  <option value="" disabled>
-                    {isLoadingGrades ? 'Sınıflar yükleniyor...' : 'Sınıfını seç'}
-                  </option>
-                  {grades.map((grade) => (
-                    <option key={grade.id} value={grade.id}>
-                      {grade.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          </div>
+        ) : (
+          <div className={s.field}>
+            <span id="lessons-label" className={s.label}>Branşların</span>
+            {isLoadingLessons ? (
+              <span className={s.hint}>Dersler yükleniyor…</span>
             ) : (
-              <div>
-                <label className="block text-sm text-muted-foreground mb-2">Hangi branş(lar)da ders veriyorsun?</label>
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-default divide-y divide-default">
-                  {isLoadingLessons ? (
-                    <p className="p-3 text-sm text-muted-foreground">Dersler yükleniyor...</p>
-                  ) : (
-                    lessons.map((l) => (
-                      <label key={l.id} className="flex items-center gap-2 p-3 text-sm text-default cursor-pointer">
-                        <input type="checkbox" checked={selectedLessonIds.has(l.id)} onChange={() => toggleLesson(l.id)} />
-                        {l.name}
-                      </label>
-                    ))
-                  )}
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">Kayıt sonrası hesabın onay bekler durumda olur; yönetici onayladıktan sonra öğretmen paneline erişebilirsin.</p>
+              <div className={s.chips} role="group" aria-labelledby="lessons-label">
+                {lessons.map((l) => (
+                  <button key={l.id} type="button" className={s.chip} aria-pressed={selectedLessonIds.has(l.id)} onClick={() => toggleLesson(l.id)}>
+                    {l.name}
+                  </button>
+                ))}
               </div>
             )}
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">Ad Soyad</label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleChange('fullName', e.target.value)}
-                className={inputClass}
-                placeholder="Ahmet Yilmaz"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="register-username" className="block text-sm text-muted-foreground mb-2">Kullanıcı Adı</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
-                <input
-                  id="register-username"
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleChange('username', normalizeUsernameInput(e.target.value))}
-                  className={`${inputClass} pl-9`}
-                  placeholder="ahmet.yilmaz"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  required
-                  minLength={3}
-                  maxLength={30}
-                  aria-describedby="register-username-hint"
-                />
-              </div>
-              <p id="register-username-hint" className="mt-1.5 text-xs text-muted-foreground">
-                Liderlik tablosu ve yorumlarda bu ad görünür. Sonradan profilinden değiştirebilirsin.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">E-posta</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className={inputClass}
-                placeholder="ornek@email.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">Sifre</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                className={inputClass}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">Sifre Tekrar</label>
-              <input
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                className={inputClass}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">
-                Bot olmadığını doğrula: {mathChallenge.a} + {mathChallenge.b} = ?
-              </label>
-              <input
-                type="number"
-                value={mathAnswer}
-                onChange={(e) => setMathAnswer(e.target.value)}
-                className={inputClass}
-                placeholder="Toplamı yaz"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={state.isLoading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
-            >
-              {state.isLoading ? 'Kayit yapiliyor...' : 'Kayit Ol'}
-            </button>
-          </form>
-
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-default" />
-            <span className="text-xs text-muted-foreground">veya</span>
-            <div className="flex-1 h-px bg-default" />
+            <span className={s.hint}>Öğretmen hesapları yönetici onayından sonra açılır.</span>
           </div>
+        )}
 
-          <GoogleSignInButton redirectTo="/" />
-
-          <div className="mt-6 text-center space-y-2">
-            <p className="text-muted-foreground text-sm">
-              Zaten hesabin var mi?{' '}
-              <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
-                Giris Yap
-              </Link>
-            </p>
-          </div>
+        <div className={s.field}>
+          <label htmlFor="fullName" className={s.label}>Ad soyad</label>
+          <input id="fullName" name="name" className={s.input} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} autoComplete="name" placeholder="Ayşe Yılmaz" required />
         </div>
 
-        <div className="mt-8 text-center">
-          <Link href="/" className="text-muted-foreground hover:text-default text-sm">
-            ← Ana Sayfaya Don
-          </Link>
+        <div className={s.field}>
+          <label htmlFor="username" className={s.label}>Kullanıcı adı</label>
+          <div className={s.inputWrap}>
+            <span className={s.at} aria-hidden="true">@</span>
+            <input
+              id="username"
+              name="nickname"
+              className={`${s.input} ${s.withAt}`}
+              value={form.username}
+              onChange={(e) => set('username', normalizeUsernameInput(e.target.value))}
+              // nickname: tarayıcı bunu hesabın giriş kimliği sanmasın — giriş e-postayla yapılıyor.
+              autoComplete="nickname"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="ayse.yilmaz"
+              minLength={3}
+              maxLength={30}
+              aria-describedby="username-hint"
+              required
+            />
+          </div>
+          <span id="username-hint" className={s.hint}>Sıralamada ve yorumlarda görünür, sonra değiştirebilirsin.</span>
         </div>
-      </div>
-    </div>
+
+        <div className={s.field}>
+          <label htmlFor="email" className={s.label}>E-posta</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            className={s.input}
+            value={form.email}
+            onChange={(e) => set('email', e.target.value)}
+            autoComplete="username"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="ornek@eposta.com"
+            required
+          />
+        </div>
+
+        <PasswordField
+          id="new-password"
+          label="Şifre"
+          value={form.password}
+          onChange={(v) => set('password', v)}
+          autoComplete="new-password"
+          placeholder="En az 8 karakter"
+          showStrength
+          onGenerate={(pwd) => setForm((prev) => ({ ...prev, password: pwd, confirmPassword: pwd }))}
+        />
+        <PasswordField
+          id="confirm-password"
+          label="Şifre (tekrar)"
+          value={form.confirmPassword}
+          onChange={(v) => set('confirmPassword', v)}
+          autoComplete="new-password"
+          placeholder="Aynısını yaz"
+          invalid={!!form.confirmPassword && form.confirmPassword !== form.password}
+        />
+
+        <div className={s.field}>
+          <label htmlFor="bot-check" className={s.label}>Bot olmadığını doğrula: {mathChallenge.a} + {mathChallenge.b} kaç eder?</label>
+          <input id="bot-check" className={s.input} inputMode="numeric" autoComplete="off" value={mathAnswer} onChange={(e) => setMathAnswer(e.target.value.replace(/\D/g, ''))} placeholder="Cevap" required />
+        </div>
+
+        <label className={s.check}>
+          <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} required />
+          <span>
+            <Link href="/gizlilik-politikasi" target="_blank" className={s.link}>Gizlilik Politikası</Link>’nı okudum ve kabul ediyorum.
+          </span>
+        </label>
+
+        {error && <AuthBanner kind="err" onClose={() => { setFormError(null); clearError(); }}>{error}</AuthBanner>}
+
+        <button type="submit" className={`${s.btn} ${s.primary}`} disabled={state.isLoading}>
+          {state.isLoading ? 'Hesabın oluşturuluyor…' : 'Hesabımı oluştur'}
+        </button>
+
+        <div className={s.or}>veya</div>
+        <GoogleSignInButton redirectTo={redirectTo} label="Google ile kayıt ol" />
+        <p className={s.hint} style={{ textAlign: 'center', marginTop: -8 }}>
+          Google ile devam ederek <Link href="/gizlilik-politikasi" target="_blank" className={s.link}>Gizlilik Politikası</Link>’nı kabul etmiş olursun.
+        </p>
+
+        <p className={s.foot}>
+          Zaten hesabın var mı? <Link href={loginHref} className={s.link}>Giriş yap</Link>
+        </p>
+      </form>
+    </AuthShell>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

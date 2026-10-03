@@ -168,6 +168,43 @@ function NotebookBox({ label, heading, children }: { label?: string; heading?: s
   );
 }
 
+// Öğrenci notları toplu yükleme (2026-10-03): her etkinlik kutusu kendi notunu ayrı soruyordu —
+// 6 bölümlü konuda her açılışta 6 istek. Aynı anda ekrana gelen kutuların istekleri bir mikro
+// görevde toplanıp TEK sorguyla (section_id IN …) çekilir; sonuç sayfa boyunca bellekte tutulur.
+type NoteSupabase = ReturnType<typeof useAuth>['supabase'];
+const noteCache = new Map<string, string>();
+let pendingNotes: { userId: string; sectionId: number; resolve: (text: string) => void }[] = [];
+let noteFlushScheduled = false;
+const noteKey = (userId: string, sectionId: number) => `${userId}:${sectionId}`;
+
+function loadSectionNote(supabase: NoteSupabase, userId: string, sectionId: number): Promise<string> {
+  const cached = noteCache.get(noteKey(userId, sectionId));
+  if (cached !== undefined) return Promise.resolve(cached);
+  return new Promise((resolve) => {
+    pendingNotes.push({ userId, sectionId, resolve });
+    if (noteFlushScheduled) return;
+    noteFlushScheduled = true;
+    queueMicrotask(async () => {
+      const batch = pendingNotes;
+      pendingNotes = [];
+      noteFlushScheduled = false;
+      const byUser = new Map<string, typeof batch>();
+      for (const item of batch) byUser.set(item.userId, [...(byUser.get(item.userId) ?? []), item]);
+      for (const [uid, items] of byUser) {
+        const ids = [...new Set(items.map((i) => i.sectionId))];
+        const { data } = await supabase
+          .from('topic_content_section_notes')
+          .select('section_id, note_text')
+          .eq('student_id', uid)
+          .in('section_id', ids);
+        const found = new Map(((data as { section_id: number; note_text: string | null }[] | null) ?? []).map((r) => [r.section_id, r.note_text ?? '']));
+        for (const id of ids) noteCache.set(noteKey(uid, id), found.get(id) ?? '');
+        for (const item of items) item.resolve(noteCache.get(noteKey(uid, item.sectionId)) ?? '');
+      }
+    });
+  });
+}
+
 // Öğrencinin etkinliğe verdiği kısa (opsiyonel) kendi notu — SADECE kendisi görür (bkz.
 // topic_activity_and_summary.sql: RLS auth.uid() = student_id), öğretmene/admin'e hiç
 // açılmıyor. Giriş yapmamış ziyaretçiye hiç gösterilmiyor (kaydedecek yer yok).
@@ -185,19 +222,12 @@ function StudentNoteField({ sectionId }: { sectionId: number }) {
     }
     let cancelled = false;
     setLoaded(false);
-    supabase
-      .from('topic_content_section_notes')
-      .select('note_text')
-      .eq('section_id', sectionId)
-      .eq('student_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const text = (data as { note_text: string | null } | null)?.note_text || '';
-        setNote(text);
-        setInitialNote(text);
-        setLoaded(true);
-      });
+    loadSectionNote(supabase, user.id, sectionId).then((text) => {
+      if (cancelled) return;
+      setNote(text);
+      setInitialNote(text);
+      setLoaded(true);
+    });
     return () => {
       cancelled = true;
     };
@@ -221,6 +251,7 @@ function StudentNoteField({ sectionId }: { sectionId: number }) {
           );
       }
       setInitialNote(trimmed);
+      noteCache.set(noteKey(user!.id, sectionId), trimmed);
     } finally {
       setSaving(false);
     }

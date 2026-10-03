@@ -15,7 +15,16 @@ export async function checkAuthRateLimit(ip: string): Promise<{ allowed: boolean
   return { allowed: row.allowed, retryAfterSeconds: row.retry_after_seconds };
 }
 
-export async function recordAuthAttempt(ip: string, kind: 'register' | 'login', success: boolean): Promise<void> {
+// Şifre sıfırlama isteği sınırı (IP başına 15 dakikada 3) — bkz. supabase/migrations/auth_pages_refresh.sql.
+export async function checkPasswordResetLimit(ip: string): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('web_check_password_reset_limit', { p_ip: ip });
+  const row = (data as { allowed: boolean; retry_after_seconds: number }[] | null)?.[0];
+  if (error || !row) return { allowed: true, retryAfterSeconds: 0 };
+  return { allowed: row.allowed, retryAfterSeconds: row.retry_after_seconds };
+}
+
+export async function recordAuthAttempt(ip: string, kind: 'register' | 'login' | 'password_reset', success: boolean): Promise<void> {
   const supabase = createServiceClient();
   await supabase.rpc('web_record_auth_attempt', { p_ip: ip, p_kind: kind, p_success: success });
 }

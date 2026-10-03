@@ -1,175 +1,127 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLoginViewModel } from '../src/viewmodels/useLoginViewModel';
 import { useAuth } from '../src/context/AuthContext';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
+import { AuthBanner, AuthLoading, AuthShell, authStyles as s } from '../src/components/auth/AuthShell';
+import { PasswordField } from '../src/components/auth/PasswordField';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
+import { offerToSaveCredential } from '@/app/src/lib/browserCredentials';
 
-// Ana login form bileşeni
+// /auth/callback'in giriş sayfasına geri gönderdiği hata kodları (bkz. app/auth/callback/route.ts).
+const CALLBACK_ERRORS: Record<string, string> = {
+  oauth: 'Google ile giriş tamamlanamadı. Tekrar dener misin?',
+  profile_creation_failed: 'Hesabın oluşturulurken bir sorun oldu. Biraz sonra tekrar dener misin?',
+  link_expired: 'Bağlantının süresi dolmuş ya da daha önce kullanılmış. Yeni bir bağlantı isteyebilirsin.',
+};
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Açık yönlendirme önlemi: sadece site içi göreli yollar (bkz. safeRedirect.ts).
   const rawRedirectTo = searchParams?.get('redirectTo');
   const explicitRedirectTo = rawRedirectTo ? safeRedirectPath(rawRedirectTo, '') || null : null;
-  const redirectTo = explicitRedirectTo || '/';
+  const callbackError = CALLBACK_ERRORS[searchParams?.get('error') ?? ''] ?? null;
 
   const { isAuthenticated, loading, user, supabase } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showCallbackError, setShowCallbackError] = useState(true);
 
-  // Giriş yapmış kullanıcıyı yönlendir — açıkça bir redirectTo verilmemişse (ör.
-  // korumalı bir sayfadan atılmamışsa), öğretmen hesapları öğrenci anasayfasından
-  // değil doğrudan /ogretmen'den devam etsin.
+  // Giriş yapmış kullanıcıyı TEK yerden yönlendir: açık redirectTo varsa oraya, yoksa öğretmen
+  // /ogretmen'e, öğrenci anasayfaya.
   useEffect(() => {
     if (loading || !isAuthenticated || !user) return;
     if (explicitRedirectTo) {
-      router.push(explicitRedirectTo);
+      router.replace(explicitRedirectTo);
       return;
     }
     let cancelled = false;
     (async () => {
       const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (cancelled) return;
-      router.push((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/');
+      if (!cancelled) router.replace((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/');
     })();
     return () => { cancelled = true; };
   }, [isAuthenticated, loading, router, explicitRedirectTo, user, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login({ email, password });
+    setShowCallbackError(false);
+    if (await login({ email: email.trim(), password })) {
+      void offerToSaveCredential(email.trim(), password);
+    }
   };
 
-  // Yükleniyor veya giriş yapmışsa formu gösterme
-  if (loading || isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-default flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Yonlendiriliyor...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading || isAuthenticated) return <AuthLoading text="Yönlendiriliyor…" />;
+
+  const registerHref = explicitRedirectTo ? `/register?redirectTo=${encodeURIComponent(explicitRedirectTo)}` : '/register';
+  const forgotHref = email.trim() ? `/sifremi-unuttum?email=${encodeURIComponent(email.trim())}` : '/sifremi-unuttum';
 
   return (
-    <div className="min-h-screen bg-default flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/25">
-              <span className="text-3xl">🎓</span>
-            </div>
-            <div className="flex items-baseline justify-center gap-0.5">
-              <span className="text-2xl font-black bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                Ders Takip
-              </span>
-              <span className="text-sm font-bold text-indigo-400/80">.net</span>
-            </div>
-          </Link>
-          <p className="text-muted-foreground mt-2">Öğrenmeye devam et</p>
+    <AuthShell>
+      <form className={s.form} onSubmit={handleSubmit}>
+        <div>
+          <h1 className={s.title}>Tekrar hoş geldin</h1>
+          <p className={s.lead}>Kaldığın yerden devam etmek için giriş yap.</p>
         </div>
 
-        {/* Form */}
-        <div className="rounded-2xl bg-surface-elevated border border-default p-8">
-          <h2 className="text-xl font-semibold text-default mb-6">Giris Yap</h2>
+        {callbackError && showCallbackError && (
+          <AuthBanner kind="err" onClose={() => setShowCallbackError(false)}>{callbackError}</AuthBanner>
+        )}
 
-          {state.error && (
-            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-              {state.error}
-              <button 
-                onClick={clearError}
-                className="ml-2 text-red-500 hover:text-red-600"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">E-posta</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500"
-                placeholder="ornek@email.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-muted-foreground mb-2">Sifre</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-surface border border-default text-default placeholder-muted focus:outline-none focus:border-indigo-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={state.isLoading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
-            >
-              {state.isLoading ? 'Giris yapiliyor...' : 'Giris Yap'}
-            </button>
-          </form>
-
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-default" />
-            <span className="text-xs text-muted-foreground">veya</span>
-            <div className="flex-1 h-px bg-default" />
-          </div>
-
-          <GoogleSignInButton redirectTo={redirectTo} />
-
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground text-sm">
-              Hesabin yok mu?{' '}
-              <Link href="/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
-                Kayit Ol
-              </Link>
-            </p>
-          </div>
+        <div className={s.field}>
+          <label htmlFor="email" className={s.label}>E-posta</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            className={s.input}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            // username: tarayıcı şifre yöneticisi bu alanı hesabın kimliği olarak kaydetsin.
+            autoComplete="username"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="ornek@eposta.com"
+            required
+          />
         </div>
 
-        <div className="mt-8 text-center">
-          <Link href="/" className="text-muted-foreground hover:text-default text-sm">
-            ← Ana Sayfaya Don
-          </Link>
-        </div>
-      </div>
-    </div>
+        <PasswordField
+          id="password"
+          label="Şifre"
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          placeholder="Şifren"
+          labelAside={<Link href={forgotHref} className={s.link}>Şifremi unuttum</Link>}
+        />
+
+        {state.error && <AuthBanner kind="err" onClose={clearError}>{state.error}</AuthBanner>}
+
+        <button type="submit" className={`${s.btn} ${s.primary}`} disabled={state.isLoading}>
+          {state.isLoading ? 'Giriş yapılıyor…' : 'Giriş yap'}
+        </button>
+
+        <div className={s.or}>veya</div>
+        <GoogleSignInButton redirectTo={explicitRedirectTo || '/'} />
+
+        <p className={s.foot}>
+          Hesabın yok mu? <Link href={registerHref} className={s.link}>Kayıt ol</Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }
 
-// Loading fallback
-function LoginLoading() {
-  return (
-    <div className="min-h-screen bg-default flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-muted-foreground">Yükleniyor...</p>
-      </div>
-    </div>
-  );
-}
-
-// Export ana bileşen - Suspense ile sarmalanmış
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginLoading />}>
+    <Suspense fallback={<AuthLoading />}>
       <LoginForm />
     </Suspense>
   );

@@ -51,6 +51,22 @@ async function findCachedAudio(supabase: Supabase, hash: string): Promise<{ path
   return null;
 }
 
+// Önceki manifestteki sesler (ekran kimliği → ses). Dosyalar hiç silinmez/üzerine yazılmaz, bu yüzden
+// manifestte olan ses Storage'da vardır — tek tek listelemeye gerek yok (2026-10-03: her ekran için
+// ayrı list çağrısı, worker'ın saatte ~100-150 boşa Storage isteği üretmesine yol açıyordu).
+async function loadPreviousAudio(supabase: Supabase, topicId: number): Promise<Map<string, { path: string; duration: number }>> {
+  const map = new Map<string, { path: string; duration: number }>();
+  const { data } = await supabase.storage.from(NARRATION_BUCKET).download(narrationManifestPath(topicId));
+  if (!data) return map;
+  try {
+    const prev = JSON.parse(await data.text()) as NarrationManifest;
+    for (const sec of prev.sections) for (const sc of sec.screens) map.set(sc.id, sc.audio);
+  } catch {
+    /* bozuk manifest — önbellek aramasına düşülür */
+  }
+  return map;
+}
+
 export async function loadNarrationSource(supabase: Supabase, topicId: number) {
   const { data: topic, error: topicErr } = await supabase.from('topics').select('id, title').eq('id', topicId).single();
   if (topicErr || !topic) throw new Error(`Konu bulunamadı: ${topicId}`);
@@ -79,6 +95,10 @@ export async function generateTopicNarration(
   if (hashErr || typeof sourceHash !== 'string') throw new Error(`Kaynak özeti alınamadı: ${hashErr?.message ?? 'boş'}`);
 
   const script = buildNarrationScript(source);
+  const previous = await loadPreviousAudio(supabase, topicId);
+  // Manifestte olmayan sesler için Storage'da arama yalnızca yarıda kalmış bir üretimin kaldığı yeri
+  // bulmak içindir: üretim sıralı olduğundan ilk eksik seste aramayı bırakırız (sonrası zaten yok).
+  let probeStorage = true;
   const sections: NarrationSection[] = [];
   let made = 0;
   let reused = 0;
@@ -88,7 +108,11 @@ export async function generateTopicNarration(
     const screens: NarrationSection['screens'] = [];
     for (const sc of sec.screens) {
       const hash = sha(`${engine.provider}|${engine.model}|${engine.voice}|${sc.speech}`);
-      let audio = force ? null : await findCachedAudio(supabase, hash);
+      let audio = force ? null : previous.get(hash.slice(0, 16)) ?? null;
+      if (!audio && !force && probeStorage) {
+        audio = await findCachedAudio(supabase, hash);
+        if (!audio) probeStorage = false;
+      }
       if (audio) {
         reused++;
       } else {

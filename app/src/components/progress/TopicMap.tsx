@@ -3,7 +3,7 @@
 // Ders raporu (İlerlemem, eski "Konu haritam" kutu ızgarası — 2026-10-02 kullanıcı isteğiyle sade
 // rapora çevrildi). Her ders tek satır: öğrenilen konu sayısı + durum dağılımı çubuğu; satıra
 // dokununca ünite ünite TÜM konular açılır (2026-10-03; sorusu olmayan konu "Sorular yakında" →
-// konu anlatımına gider, sayılara katılmaz). Durum yazıyla, renk tek başına anlam taşımaz. Durum kuralı
+// konu anlatımına gider; "x / y konu" paydasında sayılır). Durum yazıyla, renk tek başına anlam taşımaz. Durum kuralı
 // lib/topicMastery.ts'te. Zorlanılan konular ayrıca "Zorlandığın konular" bölümünde listelenir.
 import Link from 'next/link';
 import { ArrowRight, ChevronDown } from 'lucide-react';
@@ -61,13 +61,12 @@ function TopicRow({ t }: { t: TopicMastery }) {
 }
 
 function UnitBlock({ unit }: { unit: UnitMastery }) {
-  const withQ = unit.topics.filter((t) => t.total > 0);
-  const learned = withQ.filter((t) => t.state === 'learned').length;
+  const learned = unit.topics.filter((t) => t.total > 0 && t.state === 'learned').length;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3 px-1">
         <h4 className="text-sm font-semibold text-default">{unit.title || 'Ünite'}</h4>
-        <span className="shrink-0 text-xs text-muted-foreground">{withQ.length ? `${learned} / ${withQ.length} öğrenildi` : 'Sorular yakında'}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{learned} / {unit.topics.length} öğrenildi</span>
       </div>
       <ul className="divide-y divide-[var(--border)] rounded-xl border border-default">
         {unit.topics.map((t) => (
@@ -79,7 +78,9 @@ function UnitBlock({ unit }: { unit: UnitMastery }) {
 }
 
 function LessonRow({ lesson }: { lesson: LessonMastery }) {
-  const total = lesson.topics.length;
+  // Payda TÜM konular (2026-10-03, kullanıcı kararı): sorusu yeni eklenen konu oranı düşürmesin,
+  // öğrenci dersin tamamına göre nerede olduğunu görsün. Sorusuz konular çubukta boş kalır.
+  const total = lesson.topics.length + lesson.upcoming;
   const summary = [
     ...ORDER.filter((s) => lesson.counts[s] > 0).map((s) => `${lesson.counts[s]} ${COUNT_LABEL[s]}`),
     ...(lesson.upcoming ? [`${lesson.upcoming} konunun soruları yakında`] : []),
@@ -93,7 +94,7 @@ function LessonRow({ lesson }: { lesson: LessonMastery }) {
             <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <span className="font-semibold text-default">{lesson.name}</span>
               <span className="text-sm font-semibold text-default">
-                {total ? `${lesson.counts.learned} / ${total} konu öğrenildi` : 'Sorular yakında'}
+                {lesson.counts.learned} / {total} konu öğrenildi
               </span>
             </span>
             <span className="flex h-2 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
@@ -111,7 +112,7 @@ function LessonRow({ lesson }: { lesson: LessonMastery }) {
             <UnitBlock key={u.key} unit={u} />
           ))}
         </div>
-        {lesson.href && total > 0 && (
+        {lesson.href && lesson.topics.length > 0 && (
           <Link href={lesson.href} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
             {lesson.name} Soru Bankası <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>

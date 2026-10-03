@@ -2,48 +2,70 @@
 // ~/İndirilenler/ders_takip_anasayfa_v4_sade.html). Renkli bantlar kaldırıldı: beyaz kart, ince
 // çerçeve, ders rengi yalnız küçük nokta/ikonda, "Yeni" ve "3. hafta" açık mor küçük etiket.
 import Link from 'next/link';
+import { CalendarDays, ChevronRight } from 'lucide-react';
 import type { RecentTopicItem, ThisWeekTopicItem } from '@/app/src/lib/homeHighlights';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
 import { SubjectIcon } from './SubjectIcon';
 
-function RowLink({ href, children }: { href: string | null; children: React.ReactNode }) {
-  const cls = 'group flex items-center gap-3 py-3';
-  return (
-    <li>
-      {href ? (
-        <Link href={href} className={cls}>
-          {children}
-        </Link>
-      ) : (
-        <div className={cls}>{children}</div>
-      )}
-    </li>
-  );
-}
-
 const titleCls = 'block font-medium leading-snug text-default transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400';
 
+// 2026-10-03: mobilde sade beyaz kart gözden kaçıyordu (kullanıcı isteği) → açık indigo zemin,
+// dolgulu takvim ikonu, dolgulu hafta etiketi; konular ders ikonlu beyaz satır kartları.
 export function SchoolThisWeekCard({ gradeName, week, topics }: { gradeName: string; week: number; topics: ThisWeekTopicItem[] }) {
   if (!topics.length) return null;
   return (
-    <section aria-labelledby="okulda-bu-hafta" className="rounded-[20px] border border-default bg-background p-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id="okulda-bu-hafta" className="font-semibold text-default">
-          Okulda bu hafta
-        </h2>
-        <span className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{week}. hafta</span>
+    <section
+      aria-labelledby="okulda-bu-hafta"
+      className="rounded-[20px] border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 shadow-[0_10px_28px_-18px_rgba(79,70,229,0.55)] sm:p-5 dark:border-indigo-500/30 dark:from-indigo-500/15 dark:to-violet-500/10"
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white" aria-hidden="true">
+          <CalendarDays className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="okulda-bu-hafta" className="font-bold text-default">
+              Okulda bu hafta
+            </h2>
+            <span className="shrink-0 rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-bold text-white">{week}. hafta</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{gradeName} · müfredat takvimine göre</p>
+        </div>
       </div>
-      <p className="mb-1 text-sm text-muted-foreground">{gradeName} · müfredat takvimine göre</p>
-      <ul className="divide-y divide-[var(--border)]">
-        {topics.map((t) => (
-          <RowLink key={t.id} href={t.href}>
-            <span className={`h-2 w-2 shrink-0 rounded-full ${subjectStyle(t.lessonName).bar}`} aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className={`${titleCls} text-[15px]`}>{t.title}</span>
-              <span className="text-xs text-muted-foreground">{t.lessonName}</span>
-            </span>
-          </RowLink>
-        ))}
+      <ul className="mt-4 flex flex-col gap-2">
+        {topics.map((t) => {
+          const body = (
+            <>
+              {t.imageUrl ? (
+                // Konu görseli varsa ikon yerine o (2026-10-03, kullanıcı isteği). Ekranın üstünde değil → lazy.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={t.imageUrl} alt="" loading="lazy" decoding="async" className="h-12 w-16 shrink-0 rounded-lg bg-surface-elevated object-cover" />
+              ) : (
+                // Görselsiz konu: aynı boyutta ders renginde kutu — başlıklar hizalı kalsın.
+                <span className={`flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border ${subjectStyle(t.lessonName).tint}`} aria-hidden="true">
+                  <SubjectIcon lessonName={t.lessonName} size="sm" variant="solid" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className={`${titleCls} text-[15px]`}>{t.title}</span>
+                <span className="text-xs text-muted-foreground">{t.lessonName}</span>
+              </span>
+              {t.href && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+            </>
+          );
+          const cls = 'group flex items-center gap-3 rounded-xl border border-indigo-100 bg-background px-3 py-2.5 shadow-sm dark:border-indigo-500/20';
+          return (
+            <li key={t.id}>
+              {t.href ? (
+                <Link href={t.href} className={`${cls} transition-colors hover:border-indigo-300 dark:hover:border-indigo-400/50`}>
+                  {body}
+                </Link>
+              ) : (
+                <div className={cls}>{body}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
