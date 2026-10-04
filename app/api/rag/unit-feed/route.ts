@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { CHAT_MODEL } from '@/app/src/lib/rag/gemini';
+import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 // Yayınlanmış soru-cevaplar — herkese açık, tıpkı yorum gibi (kim sormuşsa görünür,
 // sadece soran değil). İki farklı kapsamda çalışır:
@@ -89,5 +90,5 @@ export async function GET(request: NextRequest) {
     }));
   }
 
-  return NextResponse.json({ items: [...queuedItems, ...answered] });
+  return NextResponse.json({ items: [...queuedItems, ...answered] }, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
 }

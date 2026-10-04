@@ -31,11 +31,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const result = await generateSlideDeck(supabase, topicId);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  // Her konu sayfası açılışında tarayıcıdan çağrılıyor — CDN'de 1 saat önbelleklenir, sonra arka
-  // planda yenilenirken bayat kopya sunulur (2026-10-02, Vercel aktif CPU: önbelleksizken her
-  // sayfa görüntülemesi fonksiyonu çalıştırıyordu). Hata yanıtları önbelleklenmez.
+  // Her konu sayfası açılışında tarayıcıdan çağrılıyor — CDN'de 7 gün önbelleklenir, sonra arka
+  // planda yenilenirken bayat kopya sunulur (2026-10-02'de 1 saat, 2026-10-04'te Vercel Fluid Active
+  // CPU sınırı aşılınca 7 gün). Bedeli: içerik elle düzenlenirse slaytlar en geç 7 gün eski kalabilir
+  // (CDN'deki API yanıtı revalidatePath ile temizlenmez). Hata yanıtları önbelleklenmez.
   return NextResponse.json(
     { deck: result.deck },
-    { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' } },
+    { headers: { 'Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=86400' } },
   );
 }

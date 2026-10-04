@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { runScheduledCacheRefresh } from '@/app/src/lib/scheduledCacheRefresh';
 
 // Vercel Cron her gün bu route'u tetikler (bkz. vercel.json). CRON_SECRET Vercel proje
 // ayarlarında env var olarak tanımlıysa, Vercel isteğe otomatik olarak
@@ -11,9 +12,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 });
   }
 
+  // Günlük/haftalık önbellek yenilemesi bu cron'a bağlı (bkz. scheduledCacheRefresh.ts) — bildirim
+  // RPC'si hata verse bile çalışsın diye önce.
+  const cacheRefresh = runScheduledCacheRefresh();
+
   const supabase = createServiceClient();
   const { data, error } = await supabase.rpc('notify_due_srs_reviews');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message, cacheRefresh }, { status: 500 });
 
-  return NextResponse.json({ notified: data });
+  return NextResponse.json({ notified: data, cacheRefresh });
 }

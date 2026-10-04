@@ -14,6 +14,7 @@ import { buildBlocks } from './SectionContent';
 import type { TopicHighlight } from './dersHelpers';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { withPublicFlag } from '@/app/src/lib/clientSession';
 
 export type StudyMode = 'highlights' | 'details' | 'slides' | 'summary' | 'test';
 
@@ -256,7 +257,8 @@ export function useTopicTest({
       setStatus(null);
       return;
     }
-    fetch(`/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`)
+    withPublicFlag(`/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`)
+      .then((url) => fetch(url))
       .then((res) => (res.ok ? res.json() : null))
       .then((data: SoruBankasiTestStatus | null) => setStatus(data))
       .catch(() => setStatus(null));

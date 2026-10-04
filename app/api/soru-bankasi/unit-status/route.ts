@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getUnitQuestionPoolIds } from '@/app/src/lib/quizQuestions';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getSoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
+import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 export async function GET(request: NextRequest) {
   const unitId = request.nextUrl.searchParams.get('unitId');
@@ -26,5 +27,5 @@ export async function GET(request: NextRequest) {
     questionIds,
   });
 
-  return NextResponse.json(status);
+  return NextResponse.json(status, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
 }

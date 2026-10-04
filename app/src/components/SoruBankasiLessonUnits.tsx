@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { withPublicFlag } from '@/app/src/lib/clientSession';
 
 interface UnitForList {
   id: number;
@@ -47,7 +48,8 @@ export default function SoruBankasiLessonUnits({
     let cancelled = false;
     Promise.all(
       units.map((unit) =>
-        fetch(`/api/soru-bankasi/unit-status?unitId=${unit.id}`)
+        withPublicFlag(`/api/soru-bankasi/unit-status?unitId=${unit.id}`)
+          .then((url) => fetch(url))
           .then((res) => (res.ok ? res.json() : null))
           .then((data: UnitStatus | null) => (data ? ([unit.id, data] as const) : null))
           .catch(() => null)

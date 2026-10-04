@@ -8,10 +8,12 @@ import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/home
 import { getSiteStats, getHomeGradeSections, getPublishedUnitContent, getPublicMemberCount, type HomeGradeSection } from './src/lib/homeStats';
 import { getDailyQuestion, getRecentlyPublishedTopics, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
 
-// ISR: taze veri gerektiren admin ayrımı yok (tamamen public), bu yüzden 1 saatlik
-// fallback yeterli — içerik yayınlandığında/soru eklendiğinde zaten admin endpoint'leri
-// revalidateHomepage() ile bu sayfayı anında tazeliyor (bkz. topicPageRevalidation.ts).
-export const revalidate = 3600;
+// ISR (tamamen public). 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı; eskiden 1 saat):
+// içerik yayınlandığında/soru eklendiğinde admin endpoint'leri revalidateHomepage() ile sayfayı
+// anında tazeliyor (bkz. topicPageRevalidation.ts). Günün Sorusu ve "YENİ" rozeti güne bağlı olduğu
+// için anasayfa her sabah, haftaya bağlı "Okulda bu hafta" için tüm sayfalar pazartesi sabahı
+// yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts (günlük cron'dan çağrılır).
+export const revalidate = 604800;
 
 type GradeRow = { id: number; name: string; order_no: number; is_active: boolean; slug: string | null };
 

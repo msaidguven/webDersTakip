@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { hasClientSession } from '@/app/src/lib/clientSession';
 
 interface TopicForList {
   id: number;
@@ -50,8 +51,11 @@ export default function SoruBankasiUnitTopicAnalytics({
   useEffect(() => {
     let cancelled = false;
     const topicIds = topics.map((t) => t.id).join(',');
-    fetch(`/api/soru-bankasi/unit-topic-status?unitId=${unitId}&topicIds=${topicIds}`)
-      .then((res) => (res.ok ? res.json() : null))
+    // Yalnız girişli kullanıcıya kişisel istatistik gösteriliyor (misafir yanıtı kullanılmıyordu) —
+    // misafirde hiç istek atılmaz (2026-10-04, Vercel CPU).
+    hasClientSession()
+      .then((loggedIn) => (loggedIn ? fetch(`/api/soru-bankasi/unit-topic-status?unitId=${unitId}&topicIds=${topicIds}`) : null))
+      .then((res) => (res?.ok ? res.json() : null))
       .then((data: { loggedIn?: boolean; topics?: TopicStatEntry[] } | null) => {
         if (cancelled || !data?.loggedIn || !data.topics) return;
         const map: Record<number, TopicStatEntry> = {};

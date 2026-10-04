@@ -19,11 +19,14 @@ import DersHighlight from '../../../../ders/DersHighlight';
 // sayede ISR ile cache'lenebiliyor: saatlik fallback + admin bir konuyu düzenlediğinde
 // ilgili sayfanın anında güncellenmesi için revalidateTopicPage/revalidateUnitPages
 // (bkz. app/src/lib/topicPageRevalidation.ts) admin kayıt endpoint'lerinden çağrılıyor.
-// Günlük fallback (2026-10-02, Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
+// 2026-10-02 günlük fallback'a inmişti (Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
 // dolaştıkça aynı sayfayı günde 24 kez baştan üretiyordu). İçerik/soru değişince sayfa zaten
 // anında yenileniyor (bkz. app/src/lib/topicPageRevalidation.ts); bu süre yalnızca tarihe bağlı
 // bilgiler (ör. müfredat haftası) için üst sınır. Segment config literal olmak zorunda.
-export const revalidate = 86400;
+// 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı): içerik yayını/soru onayı ilgili sayfayı
+// zaten anında yeniler (revalidatePath); haftaya bağlı bölümler (Okulda bu hafta) pazartesi sabahı
+// toplu yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts.
+export const revalidate = 604800;
 
 interface Params {
   gradeSlug: string;

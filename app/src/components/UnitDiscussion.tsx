@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sparkles, AlertTriangle, Flag, ChevronDown, MessageCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { withPublicFlag } from '@/app/src/lib/clientSession';
 
 const MAX_LENGTH = 300;
 const HOCAM_TAG = '@hocam'; // ders notuna bağlı, sıkı cevap
@@ -544,7 +545,7 @@ export default function UnitDiscussion({
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/rag/status?gradeId=${gradeId}&lessonId=${lessonId}`);
+      const res = await fetch(await withPublicFlag(`/api/rag/status?gradeId=${gradeId}&lessonId=${lessonId}`));
       const data = await res.json().catch(() => null);
       setAvailability(res.ok && data?.available ? 'available' : 'unavailable');
       if (res.ok && typeof data?.dailyRemaining === 'number') setDailyRemaining(data.dailyRemaining);
@@ -572,7 +573,7 @@ export default function UnitDiscussion({
         : topicId != null
           ? `/api/comments/feed?topicId=${topicId}`
           : `/api/comments/feed?unitId=${unitId}`;
-    const res = await fetch(url);
+    const res = await fetch(await withPublicFlag(url));
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
       setComments((data.items as CommentEntry[]).map((c) => ({ ...c, kind: 'comment' as const })));
@@ -586,7 +587,7 @@ export default function UnitDiscussion({
         : topicId != null
           ? `/api/rag/unit-feed?topicId=${topicId}`
           : `/api/rag/unit-feed?unitId=${unitId}`;
-    const res = await fetch(url);
+    const res = await fetch(await withPublicFlag(url));
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
       setAiEntries(

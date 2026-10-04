@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getDailyLimitFor, countTodayQuestions } from '@/app/src/lib/rag/dailyLimit';
+import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 // Öğrenci sayfasındaki "Soru Sor" formunun gösterilip gösterilmeyeceğine karar
 // vermek için: bu sınıf/ders için en az bir işlenmiş (ready) ders notu var mı?
@@ -37,5 +38,5 @@ export async function GET(request: NextRequest) {
     dailyRemaining = Math.max(0, dailyLimit - askedToday);
   }
 
-  return NextResponse.json({ available: (count ?? 0) > 0, dailyRemaining });
+  return NextResponse.json({ available: (count ?? 0) > 0, dailyRemaining }, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
 }

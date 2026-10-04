@@ -27,6 +27,7 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
+import { withPublicFlag } from '@/app/src/lib/clientSession';
 
 interface TestData {
   gradeId: number;
@@ -133,7 +134,8 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         scope === 'topic'
           ? `/api/soru-bankasi/topic-status?topicId=${topicId}&unitId=${unitId}`
           : `/api/soru-bankasi/unit-status?unitId=${unitId}`;
-      fetch(url)
+      withPublicFlag(url)
+        .then((u) => fetch(u))
         .then((res) => (res.ok ? res.json() : null))
         .then(onDone)
         .catch(() => onDone(null));

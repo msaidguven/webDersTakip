@@ -10,7 +10,10 @@ import { BookOpen } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getFarkliKonularData } from '@/app/src/lib/farkliKonularPageData';
 
-export const revalidate = 3600;
+// 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı): içerik yayını/soru onayı ilgili sayfayı
+// zaten anında yeniler (revalidatePath); haftaya bağlı bölümler (Okulda bu hafta) pazartesi sabahı
+// toplu yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts.
+export const revalidate = 604800;
 
 const canonicalPath = '/farkli-konular';
 

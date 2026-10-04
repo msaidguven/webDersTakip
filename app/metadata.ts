@@ -4,7 +4,7 @@ import { SITE_URL } from "./src/lib/site";
 import { formatGradeRange } from "./src/lib/homeMapping";
 import { createAnonClient } from "@/utils/supabase/server-anon";
 
-// Aktif sınıf seviyeleri (1 gün önbellekli) — site başlığı/açıklaması sınıf eklendikçe kendiliğinden
+// Aktif sınıf seviyeleri (7 gün önbellekli) — site başlığı/açıklaması sınıf eklendikçe kendiliğinden
 // güncellensin (2026-09-27: sınıflar her hafta ekleniyor, hedef 5-12; eskiden elle "5-8. Sınıf"
 // yazıyordu ama 8. sınıf yoktu). Hata olursa boş liste → metinler sınıf aralığı olmadan kurulur.
 const getActiveGradeLevels = unstable_cache(
@@ -21,7 +21,7 @@ const getActiveGradeLevels = unstable_cache(
   // (Next en kısa süreyi esas alır). 3600 iken sayfalardaki revalidate=86400 etkisizdi ve her
   // sayfa saatte bir yeniden üretiliyordu (2026-10-02, Vercel aktif CPU sınırı). Sınıflar haftada
   // bir eklendiği için 1 gün yeterli.
-  { revalidate: 86400 }
+  { revalidate: 604800 }
 );
 
 export async function buildSiteMetadata(): Promise<Metadata> {

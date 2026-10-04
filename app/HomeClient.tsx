@@ -17,6 +17,7 @@ import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionCard } from './src/components/home/DailyQuestionCard';
 import { TopStudents } from './src/components/home/TopStudents';
 import type { TopStudentEntry } from './src/lib/leaderboard';
+import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
 
 interface GradeRow {
   id: number;
@@ -90,8 +91,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    fetch('/api/profile/update')
-      .then((res) => (res.ok ? res.json() : null))
+    fetchMyProfile(user.id)
       .then((data: { profile: { grade_id: number | null } | null } | null) => {
         if (cancelled || hasManualSelectionRef.current) return;
         const gradeId = data?.profile?.grade_id;

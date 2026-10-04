@@ -14,6 +14,7 @@ import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE, normalizeUsernameInput } from '@/app/src/lib/username';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
 import { SettingsCard } from './SettingsCard';
+import { clearMyProfileCache } from '@/app/src/lib/myProfileClient';
 
 interface ProfileRow {
   full_name: string | null;
@@ -273,6 +274,7 @@ export default function ProfilClient() {
         .getPublicUrl(filePath);
       const publicUrl = `${baseUrl}?v=${Date.now()}`;
 
+      clearMyProfileCache(); // profil değişiyor — 30 dk'lık istemci kopyası bayatlamasın (myProfileClient.ts)
       await Promise.all([
         supabase.auth.updateUser({ data: { avatar_url: publicUrl } }),
         fetch('/api/profile/update', {
@@ -513,6 +515,7 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
     }
     setSaving(true);
     try {
+      clearMyProfileCache(); // profil değişiyor — 30 dk'lık istemci kopyası bayatlamasın (myProfileClient.ts)
       const res = await fetch('/api/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -654,6 +657,7 @@ function PersonalInfoCard({
     }
     setSaving(true);
     const supabase = createClient();
+    clearMyProfileCache(); // profil değişiyor — 30 dk'lık istemci kopyası bayatlamasın (myProfileClient.ts)
     const [res] = await Promise.all([
       fetch('/api/profile/update', {
         method: 'PATCH',
@@ -912,6 +916,7 @@ function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null 
 
   async function handleSave() {
     setSaving(true);
+    clearMyProfileCache(); // profil değişiyor — 30 dk'lık istemci kopyası bayatlamasın (myProfileClient.ts)
     const res = await fetch('/api/profile/update', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

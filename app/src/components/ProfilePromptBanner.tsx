@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserRoundPen, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { clearMyProfileCache, fetchMyProfile } from '@/app/src/lib/myProfileClient';
 
 type PromptProfile = { username: string | null; profile_prompt_pending?: boolean };
 
@@ -30,8 +31,7 @@ export function ProfilePromptBanner() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    fetch('/api/profile/update')
-      .then((res) => (res.ok ? res.json() : null))
+    fetchMyProfile(userId)
       .then((data: { profile?: PromptProfile | null } | null) => {
         if (!cancelled) setProfile(data?.profile ?? null);
       })
@@ -46,6 +46,7 @@ export function ProfilePromptBanner() {
 
   function dismiss() {
     setProfile((p) => (p ? { ...p, profile_prompt_pending: false } : p));
+    clearMyProfileCache();
     fetch('/api/profile/update', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

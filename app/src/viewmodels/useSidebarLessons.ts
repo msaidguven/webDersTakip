@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { clearMyProfileCache, fetchMyProfile } from '@/app/src/lib/myProfileClient';
 
 export interface SidebarLesson {
   id: string;
@@ -76,8 +77,7 @@ export function useSidebarLessons() {
     let cancelled = false;
     setStatus('loading');
 
-    fetch('/api/profile/update')
-      .then((res) => (res.ok ? res.json() : null))
+    fetchMyProfile(user.id)
       .then(async (data: { profile: { grade_id: number | null } | null } | null) => {
         if (cancelled) return;
         const gradeId = data?.profile?.grade_id ?? null;
@@ -112,6 +112,7 @@ export function useSidebarLessons() {
         body: JSON.stringify({ patch: { grade_id: selectedGradeId } }),
       });
       if (!res.ok) return;
+      clearMyProfileCache();
       const gradeLessons = await loadLessonsForGrade(selectedGradeId);
       setLessons(gradeLessons);
       setStatus('ready');

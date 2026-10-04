@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getUnitTopicStats } from '@/app/src/lib/soruBankasiStatus';
+import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 export async function GET(request: NextRequest) {
   const unitId = request.nextUrl.searchParams.get('unitId');
@@ -30,5 +31,5 @@ export async function GET(request: NextRequest) {
   const serviceClient = createServiceClient();
   const topics = await getUnitTopicStats(serviceClient, user?.id ?? null, topicIds);
 
-  return NextResponse.json({ loggedIn: !!user, topics });
+  return NextResponse.json({ loggedIn: !!user, topics }, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
 }

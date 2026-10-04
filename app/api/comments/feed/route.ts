@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 type Profile = { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 type CommentRow = {
@@ -83,5 +84,5 @@ export async function GET(request: NextRequest) {
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items }, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
 }
