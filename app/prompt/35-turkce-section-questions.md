@@ -5,7 +5,8 @@ Aşağıdaki alt başlığın kazanımlarını ölçen TOPLAM 3-6 soru hazırla.
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Tema: {unit} | Konu: {topic}
 Alt başlık: {heading}
-Kazanımlar: {section_outcomes}
+Resmî kazanımlar (MEB): {section_outcomes}
+Konunun içerik hedefleri (sorular bu alt başlığa denk gelen hedefi ölçsün): {topic_goals}
 Bu konunun diğer alt başlıkları (bunlar AYRI sorulacak — sadece "{heading}" ile ilgili sor): {other_headings}
 {existing_questions}
 
@@ -18,7 +19,7 @@ SORU YAZIM KURALLARI:
 - "Hangisinde yanlış kullanılmıştır" sorusunda TAM OLARAK BİR şık yanlış, diğer üçü KUSURSUZ doğru olmalı; "hangisinde doğru" sorusunda tersi. Diğer şıklarda sorulan kuralın dışında da hiçbir yazım/noktalama hatası olmamalı.
 - Numaralı yer soruları: cümlede yerleri (I), (II), (III), (IV) diye işaretle; şıklar "I", "II"... olsun.
 - blank tipini yalnız tek bir doğru cevabı olan durumlarda kullan (ör. bir terimin adı); noktalama/yazım boşluk sorusu YAZMA (birden fazla doğru çıkabiliyor).
-- Kitaptaki örnek cümleleri ve kısa alıntıları soruda kullanabilirsin (kitapla tutarlılık önceliklidir); okuma metinlerinin uzun bölümlerini aktarma. Yeni cümle yazarsan {grade} öğrencisine uygun, "{unit}" temasına yakın olsun.
+- Soru cümlelerini ve paragrafları kendin, serbestçe yaz; bir cümlenin kitaptakiyle aynı çıkması sorun değil, ama kitabın örnek listelerini ya da okuma metinlerini aktarma. Cümleler {grade} öğrencisine uygun, "{unit}" temasına yakın ve kitaptaki bir hikâyeyi bilmeyi gerektirmeyen, tek başına anlaşılır olsun.
 - solution_text: doğru şıkkın neden doğru olduğunu ve en güçlü çeldiricinin neden yanlış olduğunu 1-3 cümlede kuralı adıyla açıkla.
 - Öğrenciye "sen" diye hitap etme; "sence" sorusu yok.
 

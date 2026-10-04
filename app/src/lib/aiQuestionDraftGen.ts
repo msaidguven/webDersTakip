@@ -14,7 +14,7 @@ import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
 import { prettyModelName } from '@/app/src/lib/geminiWorkerProfile';
 import { QUESTION_WORKER_PROFILES, type QuestionWorkerProfile } from '@/app/src/lib/questionWorkerProfiles';
 import { parseQuestions } from '@/app/src/lib/parseMixedQuestions';
-import { extractTopicBookSection, fetchUnitBookRawText } from '@/app/src/lib/topicBookSection';
+import { extractTopicBookSection, fetchTopicContentGoals, fetchUnitBookRawText, formatContentGoals } from '@/app/src/lib/topicBookSection';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -247,6 +247,8 @@ async function generateQuestionDraftForSection(
     buildExistingQuestionsText(supabase, eligible.section_id),
   ]);
 
+  const topicGoalsText = lessonTemplate ? formatContentGoals(await fetchTopicContentGoals(supabase, eligible.topic_id)) : '';
+
   const svgQuestionInstructions = await readFile(path.join(process.cwd(), 'app', 'prompt', '_svg-question-fragment.md'), 'utf8');
   const svgBlock = svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(eligible.lesson_name));
 
@@ -259,6 +261,7 @@ async function generateQuestionDraftForSection(
     .replaceAll('{topic}', eligible.topic_title)
     .replaceAll('{heading}', eligible.section_heading)
     .replaceAll('{section_outcomes}', sectionOutcomesText)
+    .replaceAll('{topic_goals}', topicGoalsText)
     .replaceAll('{other_headings}', otherHeadingsText)
     .replaceAll('{existing_questions}', existingQuestionsText)
     .replaceAll('{book_content}', bookContent)
@@ -288,6 +291,7 @@ async function generateQuestionDraftForSection(
       .replaceAll('{topic}', eligible.topic_title)
       .replaceAll('{heading}', eligible.section_heading)
       .replaceAll('{section_outcomes}', sectionOutcomesText)
+      .replaceAll('{topic_goals}', topicGoalsText)
       .replaceAll('{book_content}', bookContent)
       .replaceAll('{draft_json}', JSON.stringify((raw as { questions: unknown[] }).questions, null, 1));
     let reviewRaw: unknown;

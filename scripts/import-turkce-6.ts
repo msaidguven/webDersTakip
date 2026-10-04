@@ -5,9 +5,14 @@
 // konular ise ders kitabının öğrettiği bilgi başlıkları — eşleme elle yapıldı (2026-10-03, kaynak ve
 // gerekçeler: ~/Masaüstü/turkce-arastirma/6-sinif-konu-listesi.md).
 //
-// Tekrar çalıştırılabilir: ünite slug'ı, konu (unit_id, slug), öğrenme çıktısı kodu ve kazanım sırası
-// (order_index) üzerinden günceller; kopya kayıt açmaz. Listeden çıkan kazanımlar silinmez,
-// is_current=false yapılır (sorular/ilerleme kayıtları onlara bağlı olabilir).
+// Tekrar çalıştırılabilir: ünite slug'ı, konu (unit_id, slug), öğrenme çıktısı kodu ve kazanım
+// (öğrenme çıktısı + harf + resmî metin) üzerinden günceller; kopya kayıt açmaz.
+//
+// KAZANIMLAR = RESMÎ METİN (2026-10-04, kullanıcı kararı): outcomes tablosuna yalnız MEB yıllık
+// planındaki a/b/c süreç bileşenleri birebir yazılır (TYMM sitesi Türkçe'de bunları yayımlamıyor).
+// Konuya özgü hedefler (content_goals) topics.content_goals'a gider; kazanım olarak hiçbir yerde
+// gösterilmez, yalnız içerik/soru üretimine girer. Resmî olmayan eski kazanım satırları silinir;
+// içeriği olan konuların bölüm–kazanım bağları konunun resmî kazanımlarına taşınır.
 //
 // Ders (lessons.is_active) kapalıyken öğrenci hiçbir şey görmez ve içerik/soru/anlatım worker'ları
 // bu konulara dokunmaz — betik ders açıksa durur.
@@ -19,12 +24,11 @@
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
-type LearningOutcome = { code: string; title: string };
-type TopicData = { order_no: number; title: string; slug: string; learning_outcomes: LearningOutcome[]; outcomes: string[] };
+type LearningOutcome = { code: string; title: string; components: { letter: string | null; text: string }[] };
+type TopicData = { order_no: number; title: string; slug: string; learning_outcomes: LearningOutcome[]; content_goals: string[]; weeks?: { start: number; end: number } };
 type UnitData = { order_no: number; title: string; slug: string; tymm_url: string; duration_hours: number; key_concepts: string[]; topics: TopicData[] };
 type ImportData = { lesson_id: number; grade_id: number; curriculum_year: string; weekly_hours: number; tymm_page_url: string; units: UnitData[] };
 
-const LETTERS = 'abcçdefgğhıijklmnoöprsştuüvyz';
 const dryRun = process.argv.includes('--dry-run');
 
 function loadEnv(): Record<string, string> {
@@ -81,7 +85,7 @@ async function main() {
     }
     log(`${existingUnit ? 'Güncelle' : 'Ekle'} ünite ${unit.order_no}. ${unit.title}`);
     if (dryRun) {
-      for (const t of unit.topics) log(`   konu ${t.order_no}. ${t.title} — ${t.learning_outcomes.map((l) => l.code).join(', ')} — ${t.outcomes.length} kazanım`);
+      for (const t of unit.topics) log(`   konu ${t.order_no}. ${t.title} — ${t.learning_outcomes.map((l) => l.code).join(', ')} — ${t.learning_outcomes.reduce((n, l) => n + l.components.length, 0)} resmî kazanım, ${t.content_goals.length} içerik hedefi${t.weeks ? ` — hafta ${t.weeks.start}-${t.weeks.end}` : ''}`);
       continue;
     }
 
@@ -110,6 +114,7 @@ async function main() {
         order_no: topic.order_no,
         order_status: 'approved',
         learning_outcome: `${primary.code}. ${primary.title}`,
+        content_goals: topic.content_goals,
         is_active: true,
       };
       const existingTopic = must(
@@ -142,26 +147,68 @@ async function main() {
       const staleLos = existingLos.filter((e) => !loIds.includes(e.id)).map((e) => e.id);
       if (staleLos.length) must(await supabase.from('topic_learning_outcomes').delete().in('id', staleLos), 'Eski öğrenme çıktısı silinemedi');
 
-      // Kazanımlar (konunun ölçülebilir hedefleri): sıraya göre eşle; listeden çıkanlar is_current=false.
+      // Resmî kazanımlar: (öğrenme çıktısı, harf, metin) birebir eşleşen satır korunur, eksik olan
+      // eklenir. Harfsiz tek bileşenli çıktılarda (ör. T.K.6.24) code null kalır — MEB harf vermiyor.
       const existingOutcomes = must(
-        await supabase.from('outcomes').select('id, order_index').eq('topic_id', topicRow.id),
+        await supabase.from('outcomes').select('id, code, description, learning_outcome_id').eq('topic_id', topicRow.id),
         'Kazanımlar okunamadı',
-      ) as { id: number; order_index: number }[];
-      for (const [i, description] of topic.outcomes.entries()) {
-        const fields = {
-          description,
-          code: LETTERS[i],
-          order_index: i + 1,
-          curriculum_year: data.curriculum_year,
-          learning_outcome_id: loIds[0],
-          is_current: true,
-        };
-        const found = existingOutcomes.find((o) => o.order_index === i + 1);
-        if (found) must(await supabase.from('outcomes').update(fields).eq('id', found.id), 'Kazanım güncellenemedi');
-        else must(await supabase.from('outcomes').insert({ topic_id: topicRow.id, ...fields }), 'Kazanım eklenemedi');
+      ) as { id: number; code: string | null; description: string; learning_outcome_id: number | null }[];
+      const officialIds: number[] = [];
+      let orderIndex = 0;
+      for (const [loIndex, lo] of topic.learning_outcomes.entries()) {
+        for (const comp of lo.components) {
+          orderIndex++;
+          const fields = {
+            description: comp.text,
+            code: comp.letter,
+            order_index: orderIndex,
+            curriculum_year: data.curriculum_year,
+            learning_outcome_id: loIds[loIndex],
+            is_current: true,
+          };
+          const found = existingOutcomes.find(
+            (o) => o.learning_outcome_id === loIds[loIndex] && o.code === comp.letter && o.description === comp.text,
+          );
+          if (found) {
+            must(await supabase.from('outcomes').update(fields).eq('id', found.id), 'Kazanım güncellenemedi');
+            officialIds.push(found.id);
+          } else {
+            const row = mustOne(await supabase.from('outcomes').insert({ topic_id: topicRow.id, ...fields }).select('id').single(), 'Kazanım eklenemedi');
+            officialIds.push(row.id);
+          }
+        }
       }
-      const staleOutcomes = existingOutcomes.filter((o) => o.order_index > topic.outcomes.length).map((o) => o.id);
-      if (staleOutcomes.length) must(await supabase.from('outcomes').update({ is_current: false }).in('id', staleOutcomes), 'Eski kazanım kapatılamadı');
+
+      // İçeriği olan konuda bölümler resmî kazanımlara bağlanır. Konular (Türkçe) resmî maddelerle
+      // bire bir örtüşmediği için bağ konu düzeyinde: her bölüm konunun tüm resmî kazanımlarına.
+      const nonOfficial = existingOutcomes.filter((o) => !officialIds.includes(o.id)).map((o) => o.id);
+      const content = must(await supabase.from('topic_contents').select('id').eq('topic_id', topicRow.id).maybeSingle(), 'İçerik okunamadı');
+      if (content) {
+        const sections = must(await supabase.from('topic_content_sections').select('id').eq('topic_content_id', content.id), 'Bölümler okunamadı') as { id: number }[];
+        const sectionIds = sections.map((x) => x.id);
+        if (sectionIds.length) {
+          must(await supabase.from('topic_content_section_outcomes').delete().in('section_id', sectionIds), 'Eski bölüm bağları silinemedi');
+          must(
+            await supabase.from('topic_content_section_outcomes').insert(sectionIds.flatMap((sid) => officialIds.map((oid) => ({ section_id: sid, outcome_id: oid })))),
+            'Bölüm bağları yazılamadı',
+          );
+        }
+      }
+      if (nonOfficial.length) {
+        must(await supabase.from('topic_content_section_outcomes').delete().in('outcome_id', nonOfficial), 'Eski kazanım bağları silinemedi');
+        must(await supabase.from('outcome_weeks').delete().in('outcome_id', nonOfficial), 'Eski kazanım haftaları silinemedi');
+        must(await supabase.from('outcomes').delete().in('id', nonOfficial), 'Resmî olmayan kazanımlar silinemedi');
+      }
+
+      // Haftalar: MEB yıllık planında konunun kitapta işlendiği metnin haftaları (veride hazır).
+      // apply_yearly_plan_weeks RPC'siyle aynı desen: kazanım başına tek aralık, önce silinip yazılır.
+      if (topic.weeks) {
+        must(await supabase.from('outcome_weeks').delete().in('outcome_id', officialIds), 'Eski haftalar silinemedi');
+        must(
+          await supabase.from('outcome_weeks').insert(officialIds.map((id) => ({ outcome_id: id, start_week: topic.weeks!.start, end_week: topic.weeks!.end }))),
+          'Haftalar yazılamadı',
+        );
+      }
 
       log(`   konu ${topic.order_no}. ${topic.title} (id ${topicRow.id})`);
     }

@@ -43,3 +43,17 @@ export function extractTopicBookSection(fullText: string, topicTitle: string): {
 
   return { text: [fullText.slice(start, end).trim(), ...general].join('\n\n'), matched: true };
 }
+
+// Konuya özgü içerik hedefleri (topics.content_goals — bkz. supabase/migrations/topics_content_goals.sql).
+// Yalnız derse özel şablonlarda (Türkçe) kullanılır; resmî kazanım DEĞİLDİR, kullanıcıya gösterilmez.
+// Ayrı sorgu: sütun henüz yoksa (migration çalıştırılmamışsa) diğer derslerin üretimi etkilenmesin.
+export async function fetchTopicContentGoals(supabase: Supabase, topicId: number): Promise<string[]> {
+  const { data, error } = await supabase.from('topics').select('content_goals').eq('id', topicId).maybeSingle();
+  if (error) return [];
+  const goals = (data as { content_goals: string[] | null } | null)?.content_goals;
+  return Array.isArray(goals) ? goals.filter((g) => typeof g === 'string' && g.trim()) : [];
+}
+
+export function formatContentGoals(goals: string[]): string {
+  return goals.map((g, i) => `${i + 1}. ${g}`).join('\n');
+}

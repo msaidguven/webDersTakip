@@ -7,19 +7,23 @@ Taslağı aşağıdaki listeye göre baştan sona, alan alan (heading, explanati
 3. ÖRNEK CÜMLELER: "Doğru:" ve etiketsiz örneklerin her birini harf harf kontrol et — yazım, noktalama, büyük harf, ek yazımı (ör. "baş üstüne" ayrı yazılır; kurum adlarına gelen ekler kesmeyle ayrılmaz: "Türk Dil Kurumunun"). "Yanlış:" örneklerinde yalnız anlatılan hata olmalı.
 4. ETKİNLİKLER: Her etkinlik kendi alt başlığının kuralını mı yokluyor? "Örneğe Bak" cevabı o kuralı ve konunun DİĞER kurallarını da doğru uyguluyor mu (ör. alıntı cümlesinden sonra "dedi" geliyorsa virgül şart)? Cevap, sorunun istediğiyle birebir uyumlu mu?
 5. TERİMLER: Yalnız kitapta veya kazanımlarda geçen dil bilgisi terimleri mi kullanılmış? Uydurma terim (ör. "özne belirteci", "litre denklemi") varsa kitaptaki karşılığıyla değiştir. Kavram başlıklarında (cover.highlights.title, summary_markdown terimleri) yazım hatası var mı ("red" değil "ret")?
-6. KİTAPLA TUTARLILIK: Kural cümleleri, tanımlar ve terimler kitaptakiyle uyumlu mu? Kitaptaki örnek cümleleri kullanmak SERBESTTİR (kitapla tutarlılık önceliklidir); yalnız okuma metinlerinin tamamı ya da uzun bölümleri aktarılmışsa kısalt. Gerçek kişi/tarih hakkında uydurma ayrıntı varsa çıkar.
+6. KİTAPLA TUTARLILIK VE UYDURMA: Kural cümleleri, tanımlar ve terimler kitaptakiyle uyumlu mu (terimler kitaptaki adlarıyla mı)? Kitapla birebir aynı tek tük örnek cümle sorun değildir; yalnız kitabın bölümleri, örnek listeleri ya da okuma metinleri topluca aktarılmışsa kendi cümlelerinle yeniden yaz. Gerçek kişi/tarih hakkında ya da kitaptaki bir hikâye hakkında uydurma/çarpıtılmış ayrıntı varsa düzelt. Hikâyeyi bilmeyen öğrencinin anlayamayacağı örnek varsa tek başına anlaşılır bir örnekle değiştir.
 7. TUTARLILIK: review_summary, summary_markdown ve cover.highlights anlatımla çelişiyor mu?
 
 Kurallar:
 - Hata yoksa metne DOKUNMA; üslup/akış zevkine göre yeniden yazma. Sadece gerçek hataları düzelt ve eksik kuralı ekle.
 - YENİ HATA EKLEME: Değiştirdiğin ya da eklediğin her cümleyi de yukarıdaki 7 maddeyle yeniden kontrol et. review_summary ve summary_markdown'a anlatımda olmayan YENİ bir kural cümlesi yazma (ör. "virgülden sonra büyük harfle başlanır" gibi yanlış bir genelleme eklemek, hiç eklememekten kötüdür).
-- Yeni örnek gerekirse önce kitaptaki uygun örneği kullan; yoksa yeni ve kusursuz bir cümle kur.
+- Yeni örnek gerekirse kısa, kusursuz ve tek başına anlaşılır bir cümle kur.
+- "Doğru:"/"Yanlış:" etiketi bir açıklama cümlesinin önünde yanlış kullanılmışsa düzelt; anlatım ile etkinlik/Dikkat notları birbiriyle çelişiyorsa uyumlu hâle getir.
 - JSON şemasını, alan adlarını, alt başlık sayısını/sırasını ve matched_outcome_codes değerlerini KORU. Eksik kural eklemek için yeni alt başlık gerekiyorsa en uygun mevcut alt başlığın içine ekle.
 - Biçim kuralları taslaktakiyle aynı: örnekler madde listesi, "Doğru:/Yanlış:" sözcükleri (simge yok), incelenen öge **kalın**.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Tema {unit} | Konu {topic}
-Kazanımlar:
+Resmî kazanımlar (MEB):
 {outcomes listesi, kod + metin}
+
+İçerik hedefleri (alt başlıklar bunlara göre kurulmuştur; kapsam kontrolünde bunları da esas al):
+{topic_goals}
 
 Ders kitabının bu temaya ait bölümü (kuralların ve kapsamın kaynağı):
 {book_content}

@@ -1,9 +1,12 @@
 // Anasayfanın "canlı" bölümleri (2026-09-27 sade tasarım): Günün Sorusu, Okulda bu hafta,
 // Yeni eklenenler. Hepsi anon client ile okunur ki sayfa ISR ile önbelleklenebilsin.
+// Üçü de YALNIZ yayındaki ders-sınıfın konularını gösterir: ders kapalıysa (lessons.is_active)
+// sorguda, o sınıfta kapalıysa (lesson_grades) getPublishedLessonGradeKeys ile elenir.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getQuestionsByIds, type MultipleChoiceQuestion } from '@/app/src/lib/quizQuestions';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
+import { getPublishedLessonGradeKeys, lessonGradeKey } from '@/app/src/lib/publicGradeLesson';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -46,7 +49,7 @@ export interface DailyQuestion {
 export async function getDailyQuestion(supabase: AnySupabaseClient): Promise<DailyQuestion | null> {
   const { data: rows } = await supabase
     .from('questions')
-    .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, grades(name, slug), lessons(name, slug)))')
+    .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
     .eq('is_active', true)
     .is('svg_content', null)
     .neq('question_type_id', 4)
@@ -54,17 +57,22 @@ export async function getDailyQuestion(supabase: AnySupabaseClient): Promise<Dai
     .eq('topics.is_archived', false)
     .eq('topics.topic_contents.is_published', true)
     .eq('topics.units.is_active', true)
+    .eq('topics.units.lessons.is_active', true)
     .order('id', { ascending: true });
+  const published = await getPublishedLessonGradeKeys(supabase);
 
   type Row = {
     id: number;
     topics: Rel<{
       title: string;
       slug: string | null;
-      units: Rel<{ slug: string | null; grades: Rel<{ name: string; slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
+      units: Rel<{ slug: string | null; lesson_id: number; grade_id: number; grades: Rel<{ name: string; slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
     }>;
   };
-  const candidates = (rows as Row[] | null) || [];
+  const candidates = ((rows as Row[] | null) || []).filter((r) => {
+    const unit = one(one(r.topics)?.units ?? null);
+    return !!unit && published.has(lessonGradeKey(unit.lesson_id, unit.grade_id));
+  });
   if (!candidates.length) return null;
 
   const { data: choiceRows } = await supabase
@@ -111,13 +119,14 @@ export interface RecentTopicItem {
 export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, limit = 5, gradeId?: number): Promise<RecentTopicItem[]> {
   let query = supabase
     .from('topic_contents')
-    .select('created_at, hero_image_url, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, grade_id, grades(name, slug, is_active), lessons(name, slug)))')
+    .select('created_at, hero_image_url, topics!inner(id, title, slug, is_active, is_archived, units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug, is_active), lessons!inner(name, slug, is_active)))')
     .eq('is_published', true)
     .eq('topics.is_active', true)
     .eq('topics.is_archived', false)
-    .eq('topics.units.is_active', true);
+    .eq('topics.units.is_active', true)
+    .eq('topics.units.lessons.is_active', true);
   if (gradeId != null) query = query.eq('topics.units.grade_id', gradeId);
-  const { data } = await query.order('created_at', { ascending: false }).limit(limit * 3);
+  const [{ data }, published] = await Promise.all([query.order('created_at', { ascending: false }).limit(limit * 3), getPublishedLessonGradeKeys(supabase)]);
 
   type Row = {
     created_at: string;
@@ -126,7 +135,7 @@ export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, li
       id: number;
       title: string;
       slug: string | null;
-      units: Rel<{ slug: string | null; grades: Rel<{ name: string; slug: string | null; is_active: boolean }>; lessons: Rel<{ name: string; slug: string | null }> }>;
+      units: Rel<{ slug: string | null; lesson_id: number; grade_id: number; grades: Rel<{ name: string; slug: string | null; is_active: boolean }>; lessons: Rel<{ name: string; slug: string | null }> }>;
     }>;
   };
   const seen = new Set<number>();
@@ -136,7 +145,8 @@ export async function getRecentlyPublishedTopics(supabase: AnySupabaseClient, li
     const unit = one(topic?.units ?? null);
     const grade = one(unit?.grades ?? null);
     const lesson = one(unit?.lessons ?? null);
-    if (!topic || !grade?.is_active || seen.has(topic.id)) continue;
+    if (!topic || !unit || !grade?.is_active || seen.has(topic.id)) continue;
+    if (!published.has(lessonGradeKey(unit.lesson_id, unit.grade_id))) continue;
     seen.add(topic.id);
     items.push({
       id: topic.id,
@@ -179,15 +189,19 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
   const calendar = await getCurriculumCalendar(supabase);
   const week = getCurrentCurriculumWeek(38, calendar.termStartDate, calendar.breaks);
 
-  const { data } = await supabase
-    .from('outcome_weeks')
-    .select('start_week, end_week, outcomes!inner(is_current, topics!inner(id, title, slug, is_active, is_archived, topic_contents!inner(is_published, hero_image_url), units!inner(grade_id, slug, is_active, grades(slug), lessons(name, slug))))')
-    .lte('start_week', week)
-    .eq('outcomes.is_current', true)
-    .eq('outcomes.topics.is_active', true)
-    .eq('outcomes.topics.is_archived', false)
-    .eq('outcomes.topics.topic_contents.is_published', true)
-    .eq('outcomes.topics.units.is_active', true);
+  const [{ data }, published] = await Promise.all([
+    supabase
+      .from('outcome_weeks')
+      .select('start_week, end_week, outcomes!inner(is_current, topics!inner(id, title, slug, is_active, is_archived, topic_contents!inner(is_published, hero_image_url), units!inner(lesson_id, grade_id, slug, is_active, grades(slug), lessons!inner(name, slug, is_active))))')
+      .lte('start_week', week)
+      .eq('outcomes.is_current', true)
+      .eq('outcomes.topics.is_active', true)
+      .eq('outcomes.topics.is_archived', false)
+      .eq('outcomes.topics.topic_contents.is_published', true)
+      .eq('outcomes.topics.units.is_active', true)
+      .eq('outcomes.topics.units.lessons.is_active', true),
+    getPublishedLessonGradeKeys(supabase),
+  ]);
 
   type Row = {
     start_week: number;
@@ -198,7 +212,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
         title: string;
         slug: string | null;
         topic_contents: Rel<{ hero_image_url: string | null }>;
-        units: Rel<{ grade_id: number; slug: string | null; grades: Rel<{ slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
+        units: Rel<{ lesson_id: number; grade_id: number; slug: string | null; grades: Rel<{ slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
       }>;
     }>;
   };
@@ -210,6 +224,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
     const topic = one(one(row.outcomes)?.topics ?? null);
     const unit = one(topic?.units ?? null);
     if (!topic || !unit || seen.has(topic.id)) continue;
+    if (!published.has(lessonGradeKey(unit.lesson_id, unit.grade_id))) continue;
     seen.add(topic.id);
     const lesson = one(unit.lessons);
     const grade = one(unit.grades);

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { MatchSuccess, OutcomeMatch, WeekRange } from '@/app/src/lib/yillikPlan/matchMaarifPlan';
 
-type Props = { file: File; gradeId: number | null; lessonId: number | null };
+type Props = { file: File; gradeId: number | null; lessonId: number | null; onCommitted?: () => void };
 type Written = { links: number; weeks: number };
 
 const fmt = (w: WeekRange | null) => (!w ? '—' : w.start === w.end ? `${w.start}` : `${w.start}-${w.end}`);
@@ -14,7 +14,7 @@ const isNew = (o: OutcomeMatch) => !!o.proposed && !o.current;
 // atar (bkz. app/api/admin/yillik-plan/maarif-weeks). Önizleme = onay ekranı; kaydetme
 // sunucuda eşleştirmeyi yeniden yapıp tek transaction'da yazar. Dosya/sınıf/ders değişince
 // üst bileşen `key` ile yeniden monte eder (eski önizleme kalmasın).
-export default function MaarifWeeksAssign({ file, gradeId, lessonId }: Props) {
+export default function MaarifWeeksAssign({ file, gradeId, lessonId, onCommitted }: Props) {
   const [busy, setBusy] = useState<'preview' | 'commit' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MatchSuccess | null>(null);
@@ -39,7 +39,10 @@ export default function MaarifWeeksAssign({ file, gradeId, lessonId }: Props) {
         return;
       }
       setPreview(data.result as MatchSuccess);
-      if (commit) setWritten(data.written as Written);
+      if (commit) {
+        setWritten(data.written as Written);
+        onCommitted?.();
+      }
     } catch {
       setError('İstek başarısız (ağ hatası)');
     } finally {

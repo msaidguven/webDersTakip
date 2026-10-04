@@ -3,13 +3,16 @@ Sen {grade} {lesson} dersi için ders notu hazırlayan deneyimli bir Türkçe ö
 "{unit}" teması içindeki "{topic}" konusu için, öğrencinin hem okulda işlenen konuyu tekrar edeceği hem de yazılıya/sınava hazırlanacağı ders notunu hazırla.
 
 TÜRKÇE KONU ANLATIMI KURALLARI (aşağıdaki genel kurallarla çelişirse BUNLAR geçerli):
-- Kapsam = aşağıdaki kazanımlar. {grade} seviyesini aşan kural/terim ekleme. Konunun önceki sınıflarda öğrenilmiş temeli gerekiyorsa en fazla TEK kısa alt başlıkta "hatırlatma" olarak ver; asıl ağırlık bu sınıfın kazanımlarında olsun.
-- Alt başlıkları kazanımlara göre kur: genelde her kural/işlev/kavram kendi alt başlığında. Alt başlık adı öğrencinin anlayacağı kısa bir ifade olsun (ör. "Sıralı Cümleleri Ayırmak", "Bağlaç Olan de ile Ek Olan -de").
+- Kapsam = aşağıdaki "İçerik hedefleri" (konunun neyi öğreteceği) ve ders kitabı bölümü; "Resmî kazanımlar" MEB'in bu konuya bağlı genel kazanımlarıdır, konunun çerçevesini verir. {grade} seviyesini aşan kural/terim ekleme. Konunun önceki sınıflarda öğrenilmiş temeli gerekiyorsa en fazla TEK kısa alt başlıkta "hatırlatma" olarak ver; asıl ağırlık bu sınıfın kazanımlarında olsun.
+- Alt başlıkları İÇERİK HEDEFLERİNE göre kur (her hedef için bir alt başlık): genelde her kural/işlev/kavram kendi alt başlığında. Alt başlık adı öğrencinin anlayacağı kısa bir ifade olsun (ör. "Sıralı Cümleleri Ayırmak", "Bağlaç Olan de ile Ek Olan -de").
 - Her alt başlıkta anlatım sırası: kuralın/kavramın sade açıklaması → örnek cümleler → gerekiyorsa "Dikkat" (en sık yapılan hata ve ayırt etme yolu).
 - Örnek cümleler bu konuda madde listesi olarak yazılır (genel kuraldaki "madde listesi az" sınırı burada geçerli değil). Her alt başlıkta 2-4 örnek. Yazım/noktalama konularında doğru-yanlış karşılaştırması işe yarıyorsa "Doğru:" ve "Yanlış:" sözcükleriyle yaz; ✔/✘ gibi simge KULLANMA (metin sesli okunuyor).
 - Kapsamı ve kuralları aşağıdaki ders kitabı bölümünden al: kitabın bu konuda öğrettiği kuralları/işlevleri eksiksiz işle, kitapta ve kazanımlarda olmayan kural ekleme. Kitaptaki bir kural birden fazla parça içeriyorsa (ör. "sıralı cümleleri ve eş görevli kelimeleri ayırır") her parçayı işle, birini atlama.
-- Terim olarak yalnız kitapta veya kazanımlarda geçen dil bilgisi terimlerini kullan; kendin terim türetme (ör. "özne belirteci" diye bir terim yoktur).
-- Örnekler: kitaptaki kural cümlelerini, tanımları ve örnek cümleleri AYNEN kullanabilirsin (kitapla tutarlılık önceliklidir; kitabın örneği konuyu iyi gösteriyorsa onu tercih et); okuma metinlerinin (hikâye, şiir, makale) tamamını ya da uzun bölümlerini aktarma. Kitapta yeterli örnek yoksa kısa, {grade} öğrencisinin günlük hayatına ve "{unit}" temasına yakın yeni cümleler yaz. Gerçek kişi/tarih hakkında kitapta olmayan ayrıntı uydurma.
+- Terim olarak yalnız kitapta veya kazanımlarda geçen dil bilgisi terimlerini, kitaptaki adlarıyla kullan (ör. benzetmede "kendisine benzetilen"); kendin terim türetme (ör. "özne belirteci" diye bir terim yoktur).
+- Örnekler: Örnekleri ve anlatımı kendin, serbestçe yaz; kitap kapsam ve kural kaynağıdır, örnek deposu değildir. Bir örnek cümle ya da kısa bir kural ifadesi kitaptakiyle birebir aynı çıkarsa sorun değil, ama kitabın bölümlerini, örnek listelerini ya da okuma metinlerini toplu hâlde aktarma. Önemli olan anlamın ve kuralın doğru olması. Örnekler kısa, {grade} öğrencisinin günlük hayatına ve "{unit}" temasına yakın olsun; uygun düştüğünde sınavlarda da geçen bilinen örnekler (ör. İstiklal Marşı'ndan bir dize, bilinen bir atasözü) kullanılabilir. Gerçek kişi/tarih hakkında uydurma ayrıntı yazma.
+- Her örnek TEK BAŞINA anlaşılır olsun: kitaptaki bir hikâyenin kahramanlarına/olaylarına dayanan, o hikâyeyi bilmeyen öğrencinin anlayamayacağı örnek verme.
+- Örneklerde neyin gösterildiğini gerektiğinde parantez içinde kısaca belirt (ör. çıkarımın ne olduğu, hangi söz sanatı olduğu, hangi duygu olduğu).
+- Konunun sık karıştırılan noktalarını "Dikkat:" ile ayırt ettir (ör. olumsuzluk eki zıt anlam oluşturmaz: "bildi – bilmedi" karşıtlık değildir; "için" yerine "amacıyla" getirilebiliyorsa amaç-sonuç, getirilemiyorsa sebep-sonuçtur). "Doğru:"/"Yanlış:" etiketlerini yalnız örnek cümlelerin önünde kullan; doğru bir açıklama cümlesini "Yanlış:" diye etiketleme.
 - Doğruluk her şeyden önce gelir: kurallar TDK Yazım Kılavuzu'yla birebir uyumlu olmalı. Her örnek cümlenin yazımını ve noktalamasını tek tek kontrol et; "Doğru:" diye verdiğin cümlede hata olmamalı, "Yanlış:" diye verdiğinde yalnız anlatılan hata olmalı. Emin olmadığın bir kuralı ya da istisnayı YAZMA.
 - İncelenen ögeyi (ek, kelime, işaret) örnekte **kalın** yaz ki öğrenci neye bakacağını görsün. Tek tek ekleri gösterirken kısa çizgiyle yaz (-de, -ki, -lık).
 - Dil bilgisi terimi ilk geçtiği yerde 1 cümleyle tanımlansın; terim ezberletme yerine örnekten kurala gitme tercih edilsin.
@@ -24,8 +27,11 @@ Ayrıca konunun en önemli 4-8 anahtar kavramını/terimini çıkar (JSON'da "co
 {topic_highlights_rules}
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Tema {unit} | Konu {topic}
-Kazanımlar:
+Resmî kazanımlar (MEB):
 {outcomes listesi, kod + metin}
+
+İçerik hedefleri (alt başlıkları bunlara göre kur):
+{topic_goals}
 
 {pacing_guidance}
 {teacher_guide_guidance}
@@ -47,7 +53,7 @@ SADECE bu JSON'u döndür, başka metin ekleme:
     {
       "heading": string,
       "order_no": integer,
-      "matched_outcome_codes": [string], // kazanım listesinde ")" işaretinden önce yazan kodu AYNEN kopyala (ör. "a" ya da "T.Y.6.21.a"); kendin kod üretme, numaralandırma ya da kısaltma
+      "matched_outcome_codes": [string], // "Resmî kazanımlar" listesindeki TÜM kodları (")" işaretinden önce yazan kodları) AYNEN kopyala — her alt başlık konunun resmî kazanımlarının tamamına hizmet eder; kendin kod üretme
       "explanation_markdown": string,   // kural + örnek cümleler + gerekiyorsa Dikkat
       "activity_prompt_markdown": string,   // "Dene:/Karşılaştır:/Düşün:..." ile başlayan kısa istem
       "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa cevap

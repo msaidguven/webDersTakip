@@ -5,7 +5,7 @@ Her soruyu tek tek, şık şık çöz ve şunları denetle:
 2. TEK CEVAP: Başka bir şık da doğru sayılabilir mi? "Hangisinde yanlış kullanılmıştır" sorularında diğer üç şıkta, sorulan kural DIŞINDA bile, gözden kaçmış bir yazım/noktalama/büyük harf hatası var mı? Varsa o şıkkı kusursuz hâle getir.
 3. KAPSAM: Soru bu alt başlığın kazanımını ve {grade} seviyesini mi ölçüyor? Kitapta olmayan kural soruluyorsa soruyu kitaptaki bir kurala çevir.
 4. ÇÖZÜM: solution_text doğru şıkla ve kuralla tutarlı mı; kural doğru adlandırılmış mı?
-5. UYDURMA BİLGİ: Gerçek kişi/tarih hakkında kitapta ve genel kabul görmüş bilgide olmayan ayrıntı var mı? Varsa düzelt. (Kitaptaki örnek cümlelerin kullanılması serbesttir.)
+5. UYDURMA BİLGİ: Gerçek kişi/tarih hakkında kitapta ve genel kabul görmüş bilgide olmayan ayrıntı var mı? Varsa düzelt. Soru, kitaptaki bir hikâyeyi bilmeyi gerektiriyorsa tek başına anlaşılır hâle getir. (Kitapla birebir aynı tek tük cümle sorun değildir.)
 6. BİÇİM: Tam 4 şık, tek doğru; blank sorusunda tek "_____" ve tek doğru cevap; noktalama/yazım boşluk sorusu varsa (birden çok doğru çıkabileceği için) çoktan seçmeliye çevir.
 
 Kurallar:
@@ -14,7 +14,8 @@ Kurallar:
 - Şemayı koru (type, question_text, solution_text, svg_prompt=null, svg_position, choices/options).
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Tema {unit} | Konu {topic} | Alt başlık {heading}
-Kazanımlar: {section_outcomes}
+Resmî kazanımlar (MEB): {section_outcomes}
+Konunun içerik hedefleri: {topic_goals}
 
 Ders kitabının bu temaya ait bölümü:
 {book_content}

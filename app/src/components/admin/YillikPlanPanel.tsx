@@ -9,6 +9,7 @@ import { createClient } from '@/utils/supabase/client';
 import type { TymmUnit, TymmRawSections, TymmLearningOutcome } from '@/app/src/lib/tymm/tymmParser';
 import { norm as tymmNorm } from '@/app/src/lib/tymm/compareUnits';
 import MaarifWeeksAssign from '@/app/src/components/admin/MaarifWeeksAssign';
+import { CalendarCheck, CalendarX } from 'lucide-react';
 
 type ParsedRow = {
   week_no: number | null;
@@ -232,6 +233,11 @@ export default function YillikPlanPanel() {
   const verifiedLessonIds = new Set(
     gradeId == null ? [] : lessonGrades.filter((lg) => lg.grade_id === gradeId && lg.tymm_verified).map((lg) => lg.lesson_id)
   );
+  // Seçili sınıfta her dersin kaç güncel kazanımına hafta atanmış (lesson_week_coverage RPC) —
+  // Ders PickList'inde takvim ikonu: hepsi atanmışsa yeşil, eksik varsa kırmızı. Hafta
+  // kaydedildikten sonra weekCoverageVersion artırılarak yeniden çekilir.
+  const [weekCoverage, setWeekCoverage] = useState<{ gradeId: number; byLesson: Map<number, { total: number; withWeeks: number }> } | null>(null);
+  const [weekCoverageVersion, setWeekCoverageVersion] = useState(0);
 
   const [fileName, setFileName] = useState('');
   const [xlsxSheets, setXlsxSheets] = useState<XlsxSheetResult[] | null>(null);
@@ -534,6 +540,23 @@ export default function YillikPlanPanel() {
       cancelled = true;
     };
   }, [gradeId, lessonId]);
+
+  useEffect(() => {
+    if (gradeId == null) return;
+    let cancelled = false;
+    createClient()
+      .rpc('lesson_week_coverage', { p_grade_id: gradeId })
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const byLesson = new Map(
+          (data as { lesson_id: number; outcome_count: number; with_weeks: number }[]).map((r) => [r.lesson_id, { total: r.outcome_count, withWeeks: r.with_weeks }])
+        );
+        setWeekCoverage({ gradeId, byLesson });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gradeId, weekCoverageVersion]);
 
   // Kontrol Et VE TYMM'den toplu aktarım sekmelerinde daha önce bu ders/sınıf için
   // kaydedilmiş bir TYMM sayfa URL'i varsa otomatik doldur — admin her seferinde linki
@@ -877,6 +900,7 @@ export default function YillikPlanPanel() {
         return;
       }
       setWeekCommitResult(data as CommitWeeksResponse);
+      setWeekCoverageVersion((v) => v + 1);
     } catch {
       setWeekCommitErr('İstek başarısız (ağ hatası)');
     } finally {
@@ -1054,6 +1078,19 @@ export default function YillikPlanPanel() {
             disabled={gradeId == null}
             emptyMessage={gradeId == null ? 'Önce sınıf seçin' : 'Bu sınıfta ders bulunamadı'}
             verifiedIds={verifiedLessonIds}
+            renderBadge={(lesson) => {
+              const cov = weekCoverage?.gradeId === gradeId ? weekCoverage.byLesson.get(lesson.id) : undefined;
+              if (!cov || cov.total === 0) return null;
+              const done = cov.withWeeks === cov.total;
+              const label = done ? `Hafta atanmış (${cov.total} kazanım)` : `Hafta eksik: ${cov.withWeeks}/${cov.total} kazanımda hafta var`;
+              const Icon = done ? CalendarCheck : CalendarX;
+              return (
+                <span title={label} className={`flex-shrink-0 ${done ? 'text-emerald-500' : 'text-red-500'}`}>
+                  <Icon className="w-4 h-4" aria-hidden="true" />
+                  <span className="sr-only">{label}</span>
+                </span>
+              );
+            }}
           />
         </div>
       </Card>
@@ -1430,6 +1467,7 @@ export default function YillikPlanPanel() {
           📄 {fileName}: {maarifPlan.learningOutcomes} öğrenme çıktısı, {maarifPlan.components} süreç bileşeni, {maarifPlan.weeks} hafta
         </p>
         <MaarifWeeksAssign
+          onCommitted={() => setWeekCoverageVersion((v) => v + 1)}
           key={`${maarifPlan.uploadedAt}:${gradeId}:${lessonId}`}
           file={maarifPlan.file} gradeId={gradeId} lessonId={lessonId} />
       </Card>
@@ -3985,6 +4023,7 @@ function PickList<T extends { id: number; name: string }>({
   disabled = false,
   emptyMessage = 'Yükleniyor…',
   verifiedIds,
+  renderBadge,
 }: {
   label: string;
   items: T[];
@@ -3995,6 +4034,8 @@ function PickList<T extends { id: number; name: string }>({
   // TYMM ile karşılaştırıldığında tam eşleşen (veya elle "doğru" işaretlenen) öğelerin
   // yanında yeşil tik göstermek için — bkz. YillikPlanPanel'deki Ders PickList kullanımı.
   verifiedIds?: Set<number>;
+  // Tikin yanına ek durum ikonu (ör. Ders listesindeki hafta durumu takvimi).
+  renderBadge?: (item: T) => React.ReactNode;
 }) {
   return (
     <div className={disabled ? 'opacity-50 pointer-events-none' : undefined}>
@@ -4016,6 +4057,7 @@ function PickList<T extends { id: number; name: string }>({
             {verifiedIds?.has(item.id) && (
               <span className="text-emerald-500 flex-shrink-0" title="TYMM ile doğrulandı">✅</span>
             )}
+            {renderBadge?.(item)}
             <span className="text-[10px] font-mono text-muted-foreground">#{item.id}</span>
           </button>
         ))}

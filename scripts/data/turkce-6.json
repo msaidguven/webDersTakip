@@ -36,14 +36,46 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.5",
-              "title": "Metinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme"
+              "title": "Metinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin bağlamından söz varlığı unsurlarının anlamıyla ilgili ipuçlarını belirleyip ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "Söz varlığı unsurlarının anlamına ilişkin mantıklı tahminde bulunur."
+                },
+                {
+                  "letter": "c",
+                  "text": "Tahminin doğruluğunu kaynaklardan (sözlük, başvuru kitapları), ebeveyn veya öğretmenden yardım alarak kontrol edip yargıya ulaşır."
+                }
+              ]
             },
             {
               "code": "T.D.6.4",
-              "title": "Dinlediğinde/izlediğinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme"
+              "title": "Dinlediğinde/izlediğinde geçen anlamını bilmediği söz varlığı unsurlarının anlamını tahmin edebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinin/izlediğinin bağlamından söz varlığı unsurlarının anlamıyla ilgili ipuçlarını belirleyip ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "Söz varlığı unsurlarının anlamına ilişkin mantıklı tahminde bulunur."
+                },
+                {
+                  "letter": "c",
+                  "text": "Tahminin doğruluğunu kaynaklardan (sözlük, başvuru kitapları vb.), ebeveyn veya öğretmenden yardım alarak kontrol edip yargıya ulaşır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 1,
+            "end": 6
+          },
+          "content_goals": [
             "Kelimelerin gerçek, mecaz ve terim anlamlarını ayırt eder.",
             "Eş anlamlı ve zıt anlamlı kelimeleri belirler.",
             "Anlamını bilmediği kelimelerin anlamını cümleden ve metinden yola çıkarak tahmin eder."
@@ -56,14 +88,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.21",
-              "title": "Metinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme"
+              "title": "Metinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin anahtar söz varlığı unsurlarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen söz varlığı unsurlarının anlam ilişkilerini inceler."
+                }
+              ]
             },
             {
               "code": "T.D.6.19",
-              "title": "Dinlediğinden/izlediğinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme"
+              "title": "Dinlediğinden/izlediğinden hareketle söz varlığını geliştirmeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinin/izlediğinin anahtar söz varlığı unsurlarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen söz varlığı unsurlarının anlam ilişkilerini inceler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 1,
+            "end": 6
+          },
+          "content_goals": [
             "Deyim ile atasözü arasındaki farkı açıklar.",
             "Deyim ve atasözlerinin metindeki anlamını belirler.",
             "Günlük hayatta kullanılan kalıp sözleri ve iyi dilek ifadelerini yerinde kullanır."
@@ -76,18 +132,64 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.6",
-              "title": "Metnin yüzey anlamını belirleyebilme"
+              "title": "Metnin yüzey anlamını belirleyebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metin ve varsa ona eşlik eden görsellerden hareketle bağlama/konuya dair ipuçlarını bulup ön bilgileriyle bağlantı kurar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metinde doğrudan verilen bilgileri (tanımı verilen kavram, düşünce, yönerge, iletilmek istenen mesaj, açıkça ifade edilen ana fikir vb.) belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Gerektiğinde iletilen mesajın gerektirdiği tepkiyi verir."
+                }
+              ]
             },
             {
               "code": "T.D.6.5",
-              "title": "Dinlediğinin/izlediğinin yüzey anlamını belirleyebilme"
+              "title": "Dinlediğinin/izlediğinin yüzey anlamını belirleyebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediği/izlediği ve varsa ona eşlik eden görsellerden hareketle bağlama/konuya dair ipuçlarını bulup ön bilgileriyle bağlantı kurar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Dinlediğinde/izlediğinde doğrudan verilen bilgileri (tanımı verilen kavram, düşünce, yönerge, iletilmek istenen mesaj, açıkça ifade edilen ana fikir vb.) belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Uygun durumlarda, iletilen mesajın gerektirdiği tepkiyi verir."
+                }
+              ]
             },
             {
               "code": "T.O.6.4",
-              "title": "Okuyacağı metnin içeriğine yönelik tahminde bulunabilme"
+              "title": "Okuyacağı metnin içeriğine yönelik tahminde bulunabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Okuyacağı metnin başlık, görsel ve/veya belirli bir bölümünden hareketle içerikle ilgili ipuçlarını belirleyip ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metnin içeriği veya sonraki bölümleriyle ilgili mantıklı tahminde bulunur."
+                },
+                {
+                  "letter": "c",
+                  "text": "Tahmininin doğruluğunu kontrol edip yargıya ulaşır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 1,
+            "end": 6
+          },
+          "content_goals": [
             "Metnin konusunu belirler.",
             "Metnin ana fikrini (ana düşüncesini) belirler.",
             "Metindeki anahtar kelimelerden yola çıkarak konuyu bulur.",
@@ -101,14 +203,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.16",
-              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin içeriğini yansıtan anahtar kelimeleri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Anahtar kelimelerin metinle ilişkisini ortaya koyar."
+                }
+              ]
             },
             {
               "code": "T.D.6.15",
-              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinde anahtar kelimeleri belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin içeriğini yansıtan anahtar kelimeleri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Anahtar kelimelerin dinlediğiyle/izlediğiyle ilişkisini ortaya koyar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 3,
+            "end": 6
+          },
+          "content_goals": [
             "Bilgilendirici metnin özelliklerini açıklar.",
             "Bilgilendirici metinde giriş, gelişme ve sonuç bölümlerini belirler.",
             "Bilgilendirici metindeki anahtar kelimeleri belirler."
@@ -121,10 +247,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 1,
+            "end": 4
+          },
+          "content_goals": [
             "Özne olarak kullanılan \"bu, şu, o\" kelimelerinden sonra virgül kullanır.",
             "Sıralı cümleleri ayırmak için virgül kullanır.",
             "Tırnak içinde olmayan alıntı cümlelerini ve konuşma çizgisinden sonra gelen alıntıları virgülle belirtir.",
@@ -139,10 +279,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 3,
+            "end": 6
+          },
+          "content_goals": [
             "Bağlaç olan \"de/da\"yı ayrı, bulunma hâl eki olan \"-de/-da\"yı bitişik yazar.",
             "Bağlaç olan \"ki\"yi ayrı, ek olan \"-ki\"yi bitişik yazar.",
             "Soru eki \"mi\"yi kendinden önceki kelimeden ayrı yazar."
@@ -178,10 +332,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 6,
+            "end": 12
+          },
+          "content_goals": [
             "Kelimenin kökünü ve eklerini ayırır.",
             "İsim kökü ile fiil kökünü ayırt eder.",
             "Yapım eki ile çekim ekini ayırt eder.",
@@ -195,14 +363,46 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.14",
-              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Şahıs/varlık kadrosunu, mekânı, zamanı ve olay örgüsünü belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Hikâye unsurlarının birbirleriyle bağlantısını belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Hikâye unsurları arasındaki etkileşimleri (zamanın kahramanla, mekânın olayla vb.) belirler."
+                }
+              ]
             },
             {
               "code": "T.D.6.13",
-              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Öyküleyici metinlerdeki hikâye unsurlarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Şahıs/varlık kadrosunu, mekânı, zamanı ve olay örgüsünü belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Hikâye unsurlarının birbirleriyle bağlantısını belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Hikâye unsurları arasındaki etkileşimleri (zamanın kahramanla, mekânın olayla vb.) belirler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 6,
+            "end": 12
+          },
+          "content_goals": [
             "Hikâyedeki kişi ve varlık kadrosunu belirler.",
             "Hikâyenin geçtiği yeri ve zamanı belirler.",
             "Hikâyedeki olayları oluş sırasına göre sıralar."
@@ -215,14 +415,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.20",
-              "title": "Metindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Metindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Okuduklarındaki söz sanatlarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Söz sanatlarının metnin anlatımıyla ilişkisini ortaya koyar."
+                }
+              ]
             },
             {
               "code": "T.D.6.18",
-              "title": "Dinlediğindeki/izlediğindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Dinlediğindeki/izlediğindeki söz sanatlarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğindeki/izlediğindeki söz sanatlarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Dinlediğinin/izlediğinin anlatımıyla söz sanatlarının ilişkisini ortaya koyar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 6,
+            "end": 12
+          },
+          "content_goals": [
             "Benzetme sanatını tanır ve benzetmenin ögelerini belirler.",
             "Kişileştirme ve konuşturma sanatlarını ayırt eder.",
             "Karşıtlık ve abartma sanatlarını örnekler üzerinde belirler."
@@ -235,22 +459,82 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.8",
-              "title": "Metnin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme"
+              "title": "Metnin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin sınırlı bir bölümünden ve görselden kanıt toplayıp ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "İlişkilendirmeden hareketle çıkarım yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "Bir yargıya vararak gerektiğinde tepki verir."
+                }
+              ]
             },
             {
               "code": "T.O.6.9",
-              "title": "Metnin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme"
+              "title": "Metnin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin bütününden ve görsellerden kanıt toplayıp ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "İlişkilendirmeden hareketle çıkarım yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "Bir yargıya vararak gerektiğinde tepki verir."
+                }
+              ]
             },
             {
               "code": "T.D.6.7",
-              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme"
+              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik basit çıkarımlar yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinin/izlediğinin sınırlı bir bölümünden kanıt toplayıp ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "İlişkilendirmeden hareketle çıkarım yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "Bir yargıya vararak gerektiğinde tepki verir."
+                }
+              ]
             },
             {
               "code": "T.D.6.8",
-              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme"
+              "title": "Dinlediğinin/izlediğinin derin anlamını belirlemeye yönelik üst düzey çıkarımlar yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinin/izlediğinin bütününden kanıt toplayıp ön bilgileriyle ilişkilendirir."
+                },
+                {
+                  "letter": "b",
+                  "text": "İlişkilendirmeden hareketle çıkarım yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "Bir yargıya vararak gerektiğinde tepki verir."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 6,
+            "end": 9
+          },
+          "content_goals": [
             "Metinde doğrudan söylenmeyen bilgilere ipuçlarından yola çıkarak ulaşır.",
             "Metindeki kişilerin duygularını ve duygu değişimlerini belirler.",
             "Metindeki sebep-sonuç ilişkilerini belirler.",
@@ -264,18 +548,64 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.10",
-              "title": "Metin içi karşılaştırma yapabilme"
+              "title": "Metin içi karşılaştırma yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin farklı bölümlerindeki karşılaştırılabilir unsurlara (duygu, düşünce, görüş, kahraman, dil kullanımı vb.) ilişkin özellikleri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen özelliklerden hareketle benzerlikleri listeler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Belirlenen özelliklerden hareketle farklılıkları listeler."
+                }
+              ]
             },
             {
               "code": "T.O.6.11",
-              "title": "Metinler arası karşılaştırma yapabilme"
+              "title": "Metinler arası karşılaştırma yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metinlerdeki karşılaştırılabilir unsurlara ilişkin özellikleri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen özelliklerden hareketle benzerlikleri listeler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Belirlenen özelliklerden hareketle farklılıkları listeler."
+                }
+              ]
             },
             {
               "code": "T.D.6.9",
-              "title": "Dinlediğini/izlediğini kendi içinde karşılaştırabilme"
+              "title": "Dinlediğini/izlediğini kendi içinde karşılaştırabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "İçeriğin farklı bölümlerindeki karşılaştırılabilir unsurlara (duygu, düşünce, görüş, kahraman, dil kullanımı vb.) ilişkin özellikleri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen özelliklerden hareketle benzerlikleri listeler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Belirlenen özelliklerden hareketle farklılıkları listeler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 11,
+            "end": 13
+          },
+          "content_goals": [
             "Bir metindeki kişi, olay ve durumları karşılaştırır.",
             "Aynı konudaki iki metni içerik, dil ve anlatım bakımından karşılaştırır.",
             "Karşılaştırma bildiren ifadeleri (daha, -e göre, ise, kadar) tanır."
@@ -288,18 +618,72 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.12",
-              "title": "Metindeki unsurları sınıflandırabilme"
+              "title": "Metindeki unsurları sınıflandırabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Sınıflandırma ölçütlerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metindeki unsurları belirlediği ölçütlere göre ayrıştırır."
+                },
+                {
+                  "letter": "c",
+                  "text": "Ayrıştırılan unsurları ayırt edici özelliklerden hareketle tasnif eder."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Tasniflerini ölçütlerden hareketle adlandırır/etiketler."
+                }
+              ]
             },
             {
               "code": "T.O.6.23",
-              "title": "Okuduğunu özetleyebilme"
+              "title": "Okuduğunu özetleyebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metinde sunulan bilgileri çözümler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Çözümlemeden hareketle önemli ve önemsiz bilgileri sınıflandırır."
+                },
+                {
+                  "letter": "c",
+                  "text": "Metindeki önemli bilgileri kronolojik akışa/düşünce akışına uygun olarak kendi cümleleriyle ifade eder."
+                }
+              ]
             },
             {
               "code": "T.D.6.11",
-              "title": "Dinlediğindeki/izlediğindeki unsurları sınıflandırabilme"
+              "title": "Dinlediğindeki/izlediğindeki unsurları sınıflandırabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Sınıflandırma ölçütlerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Dinlediğindeki/izlediğindeki unsurları belirlediği ölçütlere göre ayrıştırır."
+                },
+                {
+                  "letter": "c",
+                  "text": "Ayrıştırılan unsurları ayırt edici özelliklerden hareketle tasnif eder."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Tasniflerini ölçütlerden hareketle adlandırır/etiketler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 6,
+            "end": 13
+          },
+          "content_goals": [
             "Metindeki önemli ve önemsiz bilgileri ayırt eder.",
             "Olayları oluş sırasına göre sıralar.",
             "Metni kendi cümleleriyle özetler."
@@ -342,10 +726,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 14,
+            "end": 19
+          },
+          "content_goals": [
             "Ünlü düşmesini (ağız-ağzı) örnekler üzerinde açıklar.",
             "Ünlü daralmasını (başla-başlıyor) örnekler üzerinde açıklar.",
             "Ünlü türemesini (dar-daracık) örnekler üzerinde açıklar."
@@ -358,10 +756,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 14,
+            "end": 19
+          },
+          "content_goals": [
             "Ünsüz yumuşamasını (kitap-kitabı) örnekler üzerinde açıklar.",
             "Ünsüz benzeşmesini (kitap-çı → kitapçı) örnekler üzerinde açıklar.",
             "Ünsüz türemesini (his-hissetmek) örnekler üzerinde açıklar.",
@@ -375,10 +787,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 15,
+            "end": 16
+          },
+          "content_goals": [
             "Örnek verilecek sözlerden önce iki nokta kullanır.",
             "Açıklama yapılacak sözlerden önce iki nokta kullanır.",
             "Karşılıklı konuşmalarda konuşan kişiyi belirten sözlerden sonra iki nokta kullanır."
@@ -391,10 +817,24 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.18",
-              "title": "Şiirin biçim özelliklerini belirlemeye yönelik çözümleme yapabilme"
+              "title": "Şiirin biçim özelliklerini belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Okuduğu şiirin biçim özelliklerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Şiirin biçim özelliklerinin birbirleriyle ve metinle ilişkisini ortaya koyar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 14,
+            "end": 15
+          },
+          "content_goals": [
             "Şiirde dize ve dörtlüğü tanır.",
             "Şiirde ahengi sağlayan tekrarları belirler.",
             "Şiir ile düzyazı arasındaki farkları açıklar."
@@ -407,14 +847,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.19",
-              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazarın başvurduğu düşünceyi geliştirme yollarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlediği düşünceyi geliştirme yollarının birbirleriyle ve metinle ilişkisini ortaya koyar."
+                }
+              ]
             },
             {
               "code": "T.D.6.17",
-              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinde düşünceyi geliştirme yollarını belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinde/izlediğinde başvurulan düşünceyi geliştirme yollarını belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlediği düşünceyi geliştirme yollarının birbirleriyle ve dinledikleriyle/izledikleriyle ilişkisini ortaya koyar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 14,
+            "end": 18
+          },
+          "content_goals": [
             "Tanımlama ve örneklendirme yollarını tanır.",
             "Karşılaştırma ve benzetme yollarını tanır.",
             "Sayısal verilerden yararlanma ve tanık gösterme yollarını tanır.",
@@ -428,14 +892,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.17",
-              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin türüne uygun olarak giriş, gelişme, sonuç veya serim, düğüm, çözüm bölümlerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metnin bölümlerinin birbirleriyle bağlantısını belirler."
+                }
+              ]
             },
             {
               "code": "T.D.6.16",
-              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin türüne uygun olarak giriş, gelişme, sonuç veya serim, düğüm, çözüm bölümlerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metnin bölümlerinin birbirleriyle bağlantısını belirler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 18,
+            "end": 19
+          },
+          "content_goals": [
             "Olay yazılarında serim, düğüm ve çözüm bölümlerini belirler.",
             "Bu bölümlerin metindeki işlevini açıklar."
           ]
@@ -447,18 +935,60 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.7",
-              "title": "Görselle iletilen anlamı belirleyebilme"
+              "title": "Görselle iletilen anlamı belirleyebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Görseldeki unsurlardan hareketle anlama ilişkin ipuçlarını bulup ön bilgileriyle bağlantı kurar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Görselde doğrudan ve/veya örtük olarak iletilen mesajı belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Gerektiğinde görselle iletilen mesaja uygun tepkiyi verir."
+                }
+              ]
             },
             {
               "code": "T.D.6.20",
-              "title": "Çoklu ortam ögelerine yönelik çözümleme yapabilme"
+              "title": "Çoklu ortam ögelerine yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Çoklu ortam ögelerinin işlevlerini (eş anlam oluşturma, anlamı destekleme veya tek başına anlam oluşturma) belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Ögeler arasındaki bağlantıları belirler."
+                }
+              ]
             },
             {
               "code": "T.D.6.6",
-              "title": "Görselle iletilen anlamı belirleyebilme"
+              "title": "Görselle iletilen anlamı belirleyebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Görseldeki unsurlardan hareketle anlama ilişkin ipuçlarını bulup ön bilgileriyle bağlantı kurar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Görselde doğrudan ve/veya örtük olarak iletilen mesajı belirler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Gerektiğinde görselle iletilen mesaja uygun tepkiyi verir."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 15,
+            "end": 16
+          },
+          "content_goals": [
             "Görsellerle iletilen anlamı belirler.",
             "Tablo, grafik ve ikon gibi ögeleri yorumlar.",
             "Görsel ve yazılı ögelerin anlama katkısını açıklar."
@@ -498,14 +1028,46 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.13",
-              "title": "Metni yorumlayabilme"
+              "title": "Metni yorumlayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metindeki olay, konu, durum vb.ni inceler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metindeki olay, konu, durum vb.ni yazarın, okurun veya bunların dışında bir başkasının bakış açısını dikkate alıp genişleterek veya daraltarak dönüştürür."
+                },
+                {
+                  "letter": "c",
+                  "text": "Metindeki olay, konu, durum vb.ni seçilen bakış açısıyla kendine özgü bir biçimde yeniden ifade eder."
+                }
+              ]
             },
             {
               "code": "T.D.6.12",
-              "title": "Dinlediğini/izlediğini yorumlayabilme"
+              "title": "Dinlediğini/izlediğini yorumlayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğindeki/izlediğindeki olay, konu, durum vb.ni inceler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Dinlediğindeki/izlediğindeki olay, konu, durum vb.ni yazarın, dinleyicinin/izleyicinin veya bunların dışında bir başkasının bakış açısını dikkate alıp genişleterek veya daraltarak dönüştürür."
+                },
+                {
+                  "letter": "c",
+                  "text": "Dinlediğindeki/izlediğindeki olay, konu, durumu vb.ni seçilen bakış açısıyla kendine özgü bir biçimde yeniden ifade eder."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 22,
+            "end": 29
+          },
+          "content_goals": [
             "Öznel ve nesnel yargıları ayırt eder.",
             "Kişisel yorum içeren ifadeleri belirler."
           ]
@@ -517,14 +1079,38 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.15",
-              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metin yapısından hareketle önemli bilgileri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen bilgilerin birbiriyle ilişkisini ortaya koyar."
+                }
+              ]
             },
             {
               "code": "T.D.6.14",
-              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme"
+              "title": "Bilgilendirici metinlerde metin yapılarından hareketle önemli bilgileri belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metin yapısından hareketle önemli bilgileri belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlenen bilgilerin birbirleriyle ilişkisini ortaya koyar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 22,
+            "end": 29
+          },
+          "content_goals": [
             "Karşılaştırma-zıtlık metin yapısını tanır.",
             "Problem-çözüm metin yapısını tanır.",
             "Metin yapısından yola çıkarak önemli bilgileri belirler."
@@ -537,14 +1123,30 @@
           "learning_outcomes": [
             {
               "code": "T.K.6.24",
-              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme"
+              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme",
+              "components": [
+                {
+                  "letter": null,
+                  "text": "Konuşmasında bağdaşıklık ögelerini işlevlerine uygun kullanır."
+                }
+              ]
             },
             {
               "code": "T.Y.6.20",
-              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme"
+              "title": "Uygun geçiş ve bağlantı ifadelerini kullanabilme",
+              "components": [
+                {
+                  "letter": null,
+                  "text": "Yazısında bağdaşıklık ögelerini işlevlerine uygun kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 22,
+            "end": 29
+          },
+          "content_goals": [
             "Zıtlık bildiren geçiş ifadelerini (ama, fakat, oysaki) tanır.",
             "Sebep ve sonuç bildiren ifadeleri (çünkü, bu yüzden, dolayısıyla) tanır.",
             "Amaç ve şart bildiren ifadeleri (için, eğer, -se) tanır.",
@@ -558,14 +1160,38 @@
           "learning_outcomes": [
             {
               "code": "T.K.6.23",
-              "title": "Konuşmasında açık ve örtük ifadeleri kullanabilme"
+              "title": "Konuşmasında açık ve örtük ifadeleri kullanabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "İletileri açık ve anlaşılır şekilde ifade eder."
+                },
+                {
+                  "letter": "b",
+                  "text": "Örtük iletilerini destekleyecek unsurları (söz sanatları, mecaz, deyim, atasözü ve diğer söz varlığı unsurları) kullanır."
+                }
+              ]
             },
             {
               "code": "T.Y.6.19",
-              "title": "Yazısında açık ve örtük ifade etmeye yönelik yapıları kullanabilme"
+              "title": "Yazısında açık ve örtük ifade etmeye yönelik yapıları kullanabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "İletileri açık ve anlaşılır şekilde ifade eder."
+                },
+                {
+                  "letter": "b",
+                  "text": "Örtük iletilerini destekleyecek unsurları (söz sanatları, mecaz, deyim, atasözü ve diğer söz varlığı unsurları) kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 25,
+            "end": 25
+          },
+          "content_goals": [
             "Açıkça söylenen anlam ile ima edilen anlamı ayırt eder.",
             "Örtük anlatımda deyim ve mecazların rolünü açıklar."
           ]
@@ -604,10 +1230,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 30,
+            "end": 30
+          },
+          "content_goals": [
             "Büyük harfle yapılan kısaltmalara gelen ekleri doğru yazar.",
             "Küçük harfle yapılan kısaltmalara gelen ekleri doğru yazar."
           ]
@@ -619,10 +1259,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 29,
+            "end": 34
+          },
+          "content_goals": [
             "Kökleri, gövdeleri ve ekleri ayırmak için kısa çizgi kullanır.",
             "Eklerin başına ve sonuna kısa çizgi koyar.",
             "Yan yana yazılan dizeleri ayırmak için eğik çizgi kullanır."
@@ -635,10 +1289,24 @@
           "learning_outcomes": [
             {
               "code": "T.Y.6.21",
-              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme"
+              "title": "Yazım kuralları ve noktalama işaretlerini uygulayabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Yazım kurallarını uygular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Noktalama işaretlerini uygun biçimde kullanır."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 33,
+            "end": 34
+          },
+          "content_goals": [
             "Cümlede özneyi ve yüklemi bulur.",
             "Yüklemin özneye uygun kişi eki alması gerektiğini açıklar.",
             "Özne-yüklem uyumsuzluğundan kaynaklanan hataları düzeltir."
@@ -682,30 +1350,146 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.24",
-              "title": "Okuduğunu değerlendirebilme"
+              "title": "Okuduğunu değerlendirebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin içeriğiyle ilgili bir norm belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Okuduklarında belirlediği norma ilişkin inceleme yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "İnceleme sonuçlarını belirdiği normla karşılaştırır."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Karşılaştırma sonucundan hareketle bir yargıya ulaşır."
+                }
+              ]
             },
             {
               "code": "T.O.6.25",
-              "title": "Metni eleştirebilme"
+              "title": "Metni eleştirebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Okuduğunu belirlenen bir özellik açısından sorgular."
+                },
+                {
+                  "letter": "b",
+                  "text": "Sorgulanan özellikle ilgili akıl yürüterek olumlu/olumsuz yargıya ulaşır."
+                },
+                {
+                  "letter": "c",
+                  "text": "Olumsuz yargıya yönelik gerekçeli alternatif üretir."
+                }
+              ]
             },
             {
               "code": "T.O.6.26",
-              "title": "Metindeki probleme çözüm üretebilme"
+              "title": "Metindeki probleme çözüm üretebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metinde yer alan olay ya da durumu problem biçiminde tanımlar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Olay ya da durumun problemli yönünü özetler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Ön bilgilerini kullanarak problemin olası çözümlerine yönelik alternatif tahminler oluşturur."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Alternatif çözümler arasından akıl yürüterek en uygun çözümü belirler."
+                },
+                {
+                  "letter": "d",
+                  "text": "Ürettiği çözüme ilişkin yansıtma ve değerlendirme yapar."
+                }
+              ]
             },
             {
               "code": "T.D.6.22",
-              "title": "Dinlediğini/izlediğini değerlendirebilme"
+              "title": "Dinlediğini/izlediğini değerlendirebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediği/izlediği ile ilgili bir norm belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Dinlediğinde/izlediğinde belirlediği norma ilişkin inceleme yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "İnceleme sonuçlarını belirlediği normla karşılaştırır."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Karşılaştırma sonucundan hareketle bir yargıya ulaşır."
+                }
+              ]
             },
             {
               "code": "T.D.6.23",
-              "title": "Dinlediğini/izlediğini eleştirebilme"
+              "title": "Dinlediğini/izlediğini eleştirebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Medya içeriğiyle ilgili bir norm belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Belirlediği norma göre medya içeriğinde inceleme yapar."
+                },
+                {
+                  "letter": "c",
+                  "text": "İnceleme sonuçlarını belirlediği normla karşılaştırır."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Karşılaştırma sonucundan hareketle bir yargıya ulaşır."
+                }
+              ]
             },
             {
               "code": "T.D.6.24",
-              "title": "Dinlediğindeki/izlediğindeki probleme çözüm üretebilme"
+              "title": "Dinlediğindeki/izlediğindeki probleme çözüm üretebilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Dinlediğinde/izlediğinde yer alan olay ya da durumu problem biçiminde tanımlar."
+                },
+                {
+                  "letter": "b",
+                  "text": "Olay ya da durumun problemli yönünü özetler."
+                },
+                {
+                  "letter": "c",
+                  "text": "Ön bilgilerini kullanarak problemin olası çözümlerine yönelik alternatif tahminler oluşturur."
+                },
+                {
+                  "letter": "ç",
+                  "text": "Alternatif çözümler arasından akıl yürüterek en uygun çözümü belirler."
+                },
+                {
+                  "letter": "d",
+                  "text": "Ürettiği çözüme ilişkin yansıtma ve değerlendirme yapar."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 34,
+            "end": 40
+          },
+          "content_goals": [
             "Metnin güçlü ve zayıf yönlerini değerlendirir.",
             "Yazarın bakış açısını ve amacını belirler.",
             "Metindeki probleme uygun çözüm önerir."
@@ -718,10 +1502,24 @@
           "learning_outcomes": [
             {
               "code": "T.O.6.17",
-              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme"
+              "title": "Metnin bölümlerini belirlemeye yönelik çözümleme yapabilme",
+              "components": [
+                {
+                  "letter": "a",
+                  "text": "Metnin türüne uygun olarak giriş, gelişme, sonuç veya serim, düğüm, çözüm bölümlerini belirler."
+                },
+                {
+                  "letter": "b",
+                  "text": "Metnin bölümlerinin birbirleriyle bağlantısını belirler."
+                }
+              ]
             }
           ],
-          "outcomes": [
+          "weeks": {
+            "start": 34,
+            "end": 40
+          },
+          "content_goals": [
             "Biyografi ve otobiyografinin özelliklerini açıklar.",
             "Biyografi ile otobiyografi arasındaki farkları belirler.",
             "Yaşam öykülerinde olayların kronolojik sırasını belirler."
@@ -729,5 +1527,7 @@
         }
       ]
     }
-  ]
+  ],
+  "yearly_plan_source": "6. Sınıf-Türkçe (MEB).docx — haftalar, konunun kitapta işlendiği metnin haftalarından (2026-10-03)",
+  "official_outcomes_source": "MEB 6. Sınıf Türkçe yıllık planı (süreç bileşenleri a/b/c), 2026-10-04 — TYMM sitesi bu maddeleri yayımlamıyor"
 }

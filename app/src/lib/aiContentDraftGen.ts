@@ -8,7 +8,7 @@ import { generateTopicContentJson } from '@/app/src/lib/geminiContentGen';
 import { contentModelLabel, type ContentWorkerProfile } from '@/app/src/lib/contentWorkerProfiles';
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
-import { extractTopicBookSection, fetchUnitBookRawText } from '@/app/src/lib/topicBookSection';
+import { extractTopicBookSection, fetchTopicContentGoals, fetchUnitBookRawText, formatContentGoals } from '@/app/src/lib/topicBookSection';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -202,12 +202,15 @@ async function generateContentDraftForTopic(
   const lessonTemplate = LESSON_CONTENT_TEMPLATES[(lessonRow as { slug: string | null }).slug ?? ''];
 
   let sourceText = '';
+  let topicGoals: string[] = [];
   if (lessonTemplate) {
     // Kitap yüklenmeden üretim YOK (kullanıcının 2026-10-03 kararı): model kendi bilgisinden
     // konu anlatımı yazmasın, kapsam ve seviye her zaman temanın ders kitabından gelsin.
     const bookText = (await fetchUnitBookRawText(supabase, eligible.unit_id)) || (await fetchUnitBookContent(supabase, eligible.unit_id)) || '';
     if (!bookText) return { generated: false, reason: `Ünite ${eligible.unit_id} için RAG'e ders kitabı yüklenmemiş — içerik üretilmedi` };
     sourceText = extractTopicBookSection(bookText, topicRow.title).text;
+    topicGoals = await fetchTopicContentGoals(supabase, topicRow.id);
+    if (!topicGoals.length) return { generated: false, reason: `Konu ${topicRow.id} için içerik hedefi (topics.content_goals) yok — içerik üretilmedi` };
   } else if (eligible.source_kind === 'synthesis') {
     const { data: synthesisDoc } = await supabase
       .from('rag_documents')
@@ -277,6 +280,7 @@ async function generateContentDraftForTopic(
     .replaceAll('{pacing_guidance}', pacingGuidance)
     .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance)
     .replaceAll('{existing_headings}', '')
+    .replaceAll('{topic_goals}', formatContentGoals(topicGoals))
     .replaceAll(sourcePlaceholder, sourceValue);
 
   if (opts.dryRun) return { generated: false, reason: 'dry-run', topicId: eligible.topic_id, prompt };
@@ -302,6 +306,7 @@ async function generateContentDraftForTopic(
       .replaceAll('{topic}', topicRow.title)
       .replaceAll('{outcomes listesi, kod + metin}', outcomesText)
       .replaceAll('{book_content}', sourceText)
+      .replaceAll('{topic_goals}', formatContentGoals(topicGoals))
       .replaceAll('{draft_json}', JSON.stringify(parsed, null, 1));
     let reviewRaw: unknown;
     try {

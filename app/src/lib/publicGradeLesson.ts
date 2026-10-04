@@ -31,3 +31,22 @@ export async function resolvePublicGradeLesson(
   const lesson = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
   return grade && lesson ? { grade, lesson } : null;
 }
+
+// Yayındaki tüm ders-sınıf eşleşmeleri ("lessonId:gradeId") — dersten bağımsız, karışık listeler
+// (anasayfa: günün sorusu, son eklenenler, okulda bu hafta) kapalı ders/sınıfın konusunu
+// göstermesin diye (2026-10-04: kapalı 6. sınıf Türkçe konuları anasayfada çıkıyordu — bu sorgular
+// yalnız konu/ünite/sınıf açıklığına bakıyordu). Tek küçük sorgu.
+export async function getPublishedLessonGradeKeys(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('lesson_grades')
+    .select('lesson_id, grade_id, lessons!inner(is_active), grades!inner(is_active)')
+    .eq('is_active', true)
+    .eq('lessons.is_active', true)
+    .eq('grades.is_active', true);
+  return new Set(((data as { lesson_id: number; grade_id: number }[] | null) || []).map((r) => `${r.lesson_id}:${r.grade_id}`));
+}
+
+export const lessonGradeKey = (lessonId: number, gradeId: number) => `${lessonId}:${gradeId}`;
