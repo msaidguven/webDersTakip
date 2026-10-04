@@ -21,7 +21,7 @@ import { subjectStyle } from '@/app/src/lib/subjectStyle';
 // anında yenileniyor (bkz. app/src/lib/topicPageRevalidation.ts); bu süre yalnızca tarihe bağlı
 // bilgiler (ör. müfredat haftası) için üst sınır. Segment config literal olmak zorunda.
 // 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı): içerik yayını/soru onayı ilgili sayfayı
-// zaten anında yeniler (revalidatePath); haftaya bağlı bölümler (Okulda bu hafta) pazartesi sabahı
+// zaten anında yeniler (revalidatePath); tüm sayfalar pazar 10:00 TR'de (yeni müfredat haftası)
 // toplu yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts.
 export const revalidate = 604800;
 

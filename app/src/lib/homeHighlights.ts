@@ -100,6 +100,83 @@ export async function getDailyQuestion(supabase: AnySupabaseClient): Promise<Dai
   };
 }
 
+// Haftalık Günün Sorusu seti (2026-10-04, Vercel CPU): anasayfa 7 gün önbellekte ve pazar yenileniyor;
+// günlük yenileme olmasın diye sunucu sayfa üretilirken 7 soru seçer, tarayıcı bugünün tarihine göre
+// birini gösterir (bkz. DailyQuestionCard.tsx → DailyQuestionOfTheDay). Seçim, getDailyQuestion ile
+// aynı havuzdan ve aynı kurallarla (yayındaki konu, görselsiz, çoktan seçmeli); tohum seçim günüdür.
+// getDailyQuestion silinmedi — önbellek eski düzene dönerse tekrar kullanılabilir.
+export interface DailyQuestionSet {
+  // Setin seçildiği gün (İstanbul, YYYY-MM-DD) — tarayıcı bugünle arasındaki gün farkından soru seçer.
+  startKey: string;
+  items: DailyQuestion[];
+}
+
+export async function getDailyQuestionSet(supabase: AnySupabaseClient, count = 7): Promise<DailyQuestionSet | null> {
+  const { data: rows } = await supabase
+    .from('questions')
+    .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
+    .eq('is_active', true)
+    .is('svg_content', null)
+    .neq('question_type_id', 4)
+    .eq('topics.is_active', true)
+    .eq('topics.is_archived', false)
+    .eq('topics.topic_contents.is_published', true)
+    .eq('topics.units.is_active', true)
+    .eq('topics.units.lessons.is_active', true)
+    .order('id', { ascending: true });
+  const published = await getPublishedLessonGradeKeys(supabase);
+
+  type Row = {
+    id: number;
+    topics: Rel<{
+      title: string;
+      slug: string | null;
+      units: Rel<{ slug: string | null; lesson_id: number; grade_id: number; grades: Rel<{ name: string; slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
+    }>;
+  };
+  const candidates = ((rows as Row[] | null) || []).filter((r) => {
+    const unit = one(one(r.topics)?.units ?? null);
+    return !!unit && published.has(lessonGradeKey(unit.lesson_id, unit.grade_id));
+  });
+  if (!candidates.length) return null;
+
+  const { data: choiceRows } = await supabase
+    .from('question_choices')
+    .select('question_id')
+    .in('question_id', candidates.map((c) => c.id));
+  const withChoices = new Set(((choiceRows as { question_id: number }[] | null) || []).map((c) => c.question_id));
+  const pool = candidates.filter((c) => withChoices.has(c.id));
+  if (!pool.length) return null;
+
+  const startKey = istanbulDateKey();
+  const pickedIdx: number[] = [];
+  for (let i = 0; pickedIdx.length < Math.min(count, pool.length) && i < count * 20; i++) {
+    const idx = hashString(`${startKey}#${i}`) % pool.length;
+    if (!pickedIdx.includes(idx)) pickedIdx.push(idx);
+  }
+  const picked = pickedIdx.map((i) => pool[i]);
+  const questions = await getQuestionsByIds(picked.map((p) => p.id));
+  const byId = new Map(questions.map((q) => [q.id, q]));
+
+  const items: DailyQuestion[] = [];
+  for (const row of picked) {
+    const question = byId.get(row.id);
+    if (!question || question.type !== 'multiple_choice') continue;
+    const topic = one(row.topics);
+    const unit = one(topic?.units ?? null);
+    const grade = one(unit?.grades ?? null);
+    const lesson = one(unit?.lessons ?? null);
+    items.push({
+      question,
+      gradeName: grade?.name ?? '',
+      lessonName: lesson?.name ?? '',
+      topicTitle: topic?.title ?? '',
+      topicHref: topicHref(grade?.slug, lesson?.slug, unit?.slug, topic?.slug),
+    });
+  }
+  return items.length ? { startKey, items } : null;
+}
+
 // ---------------------------------------------------------------------------------------
 // Yeni eklenenler: en son yayınlanan konu anlatımları (tüm sınıflar).
 // ---------------------------------------------------------------------------------------
@@ -110,7 +187,8 @@ export interface RecentTopicItem {
   lessonName: string;
   href: string | null;
   publishedAt: string;
-  // Son 3 günde yayınlandı → anasayfada "YENİ" rozeti (sunucuda hesaplanır; sayfa ISR 1 saat).
+  // Son 3 günde yayınlandı → "YENİ" rozeti. Sunucu değeri yalnız ilk render içindir; istemci
+  // publishedAt'ten yeniden hesaplar (HomeHighlightCards NewBadge — sayfa haftalık önbellekte).
   isNew: boolean;
   // Konu kapak görseli (topic_contents.hero_image_url); yoksa kartta ders renginde ikon.
   imageUrl: string | null;

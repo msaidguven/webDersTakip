@@ -84,6 +84,32 @@ function computeWeekStart(termStart: Date, week: number, breaks: CurriculumBreak
   return start;
 }
 
+// "Şimdi"nin müfredat haftası hesabında kullanılacak hâli (2026-10-04, kullanıcı kararı): sayfalar 7 gün
+// önbellekte ve pazar 10:00 TR'de yenileniyor; yeni hafta PAZAR 09:00 TR'den itibaren gösterilir
+// (öğrenci pazartesiye hazırlansın, pazar yenilemesi zaten yeni haftayı üretsin). Hafta başları
+// `new Date('YYYY-MM-DDT00:00:00')` ile çalışma ortamının YEREL saatinde kuruluyor (Vercel'de UTC,
+// tarayıcıda TR) — bu yüzden İstanbul duvar saatini yerel Date olarak kurup 15 saat ileri alıyoruz
+// (pazar 09:00 + 15 sa = pazartesi 00:00); her ortamda aynı sonuç çıkar.
+const WEEK_PREVIEW_HOURS = 15;
+
+function curriculumNow(): Date {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(new Date())
+      .map((p) => [p.type, p.value]),
+  );
+  const istanbulWallClock = new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+  return new Date(istanbulWallClock.getTime() + WEEK_PREVIEW_HOURS * 3600 * 1000);
+}
+
 /**
  * MEB müfredat takviminde bugün kaçıncı öğretim haftasına denk geliyor. termStartDate
  * verilirse (admin /admin/takvim'de ayarlanan "1. hafta başlangıcı") o tarih baz alınır;
@@ -93,7 +119,7 @@ function computeWeekStart(termStart: Date, week: number, breaks: CurriculumBreak
  * 1. haftaya, yıl sonunda son haftaya sabitlenir.
  */
 export function getCurrentCurriculumWeek(totalWeeks: number = 38, termStartDate?: string | null, breaks: CurriculumBreak[] = []): number {
-  const now = new Date();
+  const now = curriculumNow();
   const termStart = resolveTermStart(now, termStartDate);
   const clampedTotal = Math.max(1, totalWeeks);
 

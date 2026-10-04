@@ -6,13 +6,13 @@ import { getPublicWeeklyTopStudents, stripIsReal } from './src/lib/leaderboard';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import { getSiteStats, getHomeGradeSections, getPublishedUnitContent, getPublicMemberCount, type HomeGradeSection } from './src/lib/homeStats';
-import { getDailyQuestion, getRecentlyPublishedTopics, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
+import { getDailyQuestionSet, getRecentlyPublishedTopics, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
 
 // ISR (tamamen public). 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı; eskiden 1 saat):
 // içerik yayınlandığında/soru eklendiğinde admin endpoint'leri revalidateHomepage() ile sayfayı
-// anında tazeliyor (bkz. topicPageRevalidation.ts). Günün Sorusu ve "YENİ" rozeti güne bağlı olduğu
-// için anasayfa her sabah, haftaya bağlı "Okulda bu hafta" için tüm sayfalar pazartesi sabahı
-// yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts (günlük cron'dan çağrılır).
+// anında tazeliyor (bkz. topicPageRevalidation.ts). Günün Sorusu (haftanın 7 sorusundan) ve "YENİ"
+// rozeti tarayıcıda hesaplandığı için günlük yenileme yok; tüm sayfalar pazar 10:00 TR'de yenilenir
+// — bkz. app/src/lib/scheduledCacheRefresh.ts.
 export const revalidate = 604800;
 
 type GradeRow = { id: number; name: string; order_no: number; is_active: boolean; slug: string | null };
@@ -56,11 +56,11 @@ export default async function HomePage() {
 
   // Anasayfanın "canlı" bölümleri (Günün Sorusu, Okulda bu hafta, Yeni eklenenler — bkz.
   // homeHighlights.ts) diğer sorgularla paralel; hepsi anon client, sayfa ISR'da kalır.
-  const [gradeSectionsMap, memberCount, topStudents, dailyQuestion, recentTopics, recentByGrade, thisWeek] = await Promise.all([
+  const [gradeSectionsMap, memberCount, topStudents, dailyQuestionSet, recentTopics, recentByGrade, thisWeek] = await Promise.all([
     getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
     getPublicMemberCount(supabase),
     getPublicWeeklyTopStudents(supabase),
-    getDailyQuestion(supabase),
+    getDailyQuestionSet(supabase),
     getRecentlyPublishedTopics(supabase),
     // Girişli öğrenci sadece kendi sınıfının son 5 konusunu görür (2026-10-02).
     getRecentlyPublishedTopicsByGrade(supabase, gradeIds),
@@ -72,5 +72,5 @@ export default async function HomePage() {
   const gradeSections: Record<string, HomeGradeSection> = {};
   for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;
 
-  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestion={dailyQuestion} recentTopics={recentTopics} recentByGrade={recentByGrade} thisWeek={thisWeek} />;
+  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestionSet={dailyQuestionSet} recentTopics={recentTopics} recentByGrade={recentByGrade} thisWeek={thisWeek} />;
 }

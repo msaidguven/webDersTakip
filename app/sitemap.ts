@@ -3,7 +3,9 @@ import { createPublicClient } from '@/utils/supabase/public';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
-export const revalidate = 3600;
+// 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazar 10:00 TR yenilemesi
+// (scheduledCacheRefresh.ts, revalidatePath layout) sitemap'i de tazeler.
+export const revalidate = 604800;
 
 type GradeRow = { id: number; slug: string | null };
 type LessonRow = { id: number; slug: string | null };

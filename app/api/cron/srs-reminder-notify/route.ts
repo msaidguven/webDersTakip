@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 });
   }
 
-  // Günlük/haftalık önbellek yenilemesi bu cron'a bağlı (bkz. scheduledCacheRefresh.ts) — bildirim
+  // Pazar günleri tüm sayfaların önbellek yenilemesi bu cron'a bağlı (bkz. scheduledCacheRefresh.ts) — bildirim
   // RPC'si hata verse bile çalışsın diye önce.
   const cacheRefresh = runScheduledCacheRefresh();
 

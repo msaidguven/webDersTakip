@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { formatGradeRange } from '@/app/src/lib/homeMapping';
 import type { SiteStats } from '@/app/src/lib/homeStats';
-import type { DailyQuestion } from '@/app/src/lib/homeHighlights';
-import { DailyQuestionCard } from './DailyQuestionCard';
+import type { DailyQuestionSet } from '@/app/src/lib/homeHighlights';
+import { DailyQuestionOfTheDay } from './DailyQuestionCard';
 
 // Misafir giriş bölümü (anasayfa v4 sade tasarım, 2026-10-02 — kullanıcı onaylı prototip
 // ~/İndirilenler/ders_takip_anasayfa_v4_sade.html): solda net vaat + iki eylem + gerçek rakamlar,
@@ -11,12 +11,12 @@ import { DailyQuestionCard } from './DailyQuestionCard';
 export function HomeHero({
   gradeLevels,
   stats,
-  dailyQuestion,
+  dailyQuestionSet,
 }: {
   isAuthenticated?: boolean;
   gradeLevels: number[];
   stats: SiteStats;
-  dailyQuestion: DailyQuestion | null;
+  dailyQuestionSet: DailyQuestionSet | null;
 }) {
   const gradeRange = formatGradeRange(gradeLevels);
   const figures = [
@@ -63,7 +63,7 @@ export function HomeHero({
         </dl>
       </div>
 
-      {dailyQuestion && <DailyQuestionCard data={dailyQuestion} />}
+      {dailyQuestionSet && <DailyQuestionOfTheDay set={dailyQuestionSet} />}
     </section>
   );
 }

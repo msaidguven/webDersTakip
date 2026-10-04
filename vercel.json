@@ -5,7 +5,7 @@
   "crons": [
     {
       "path": "/api/cron/srs-reminder-notify",
-      "schedule": "0 6 * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/push-reminders",

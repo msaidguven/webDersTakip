@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sparkles, AlertTriangle, Flag, ChevronDown, MessageCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
+import { commentScopeKey, forgetOwnComment, ownPendingComments, rememberOwnComment, updateOwnComment } from '@/app/src/lib/pendingCommentsStore';
 
 const MAX_LENGTH = 300;
 const HOCAM_TAG = '@hocam'; // ders notuna bağlı, sıkı cevap
@@ -543,20 +544,46 @@ export default function UnitDiscussion({
   const [editText, setEditText] = useState('');
   const [commentBusyId, setCommentBusyId] = useState<number | null>(null);
 
+  // Tembel yükleme (2026-10-04, CPU 2. tur): bölüm ekrana yaklaşmadan (400px) hiçbir istek
+  // atılmaz — konu sayfasını açıp aşağı inmeyen ziyaretçi için durum/akış çağrısı olmaz.
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
   useEffect(() => {
+    if (inView) return;
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setInView(true);
+      },
+      { rootMargin: '400px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inView]);
+
+  const scope = commentScopeKey(quizQuestionId, topicId, unitId);
+
+  useEffect(() => {
+    if (!inView) return;
     (async () => {
       const res = await fetch(await withPublicFlag(`/api/rag/status?gradeId=${gradeId}&lessonId=${lessonId}`));
       const data = await res.json().catch(() => null);
       setAvailability(res.ok && data?.available ? 'available' : 'unavailable');
       if (res.ok && typeof data?.dailyRemaining === 'number') setDailyRemaining(data.dailyRemaining);
     })();
-  }, [gradeId, lessonId]);
+  }, [gradeId, lessonId, inView]);
 
   useEffect(() => {
+    // getSession: çerezden okur, Supabase'e istek atmaz (2026-10-04, Supabase log hacmi). userId yalnız
+    // arayüz için ("benim yorumum" düğmeleri); her yazma işlemi sunucuda/RLS'te ayrıca doğrulanır.
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setAuthState(user ? 'in' : 'out');
-      setUserId(user?.id ?? null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthState(session ? 'in' : 'out');
+      setUserId(session?.user.id ?? null);
     });
   }, []);
 
@@ -566,28 +593,39 @@ export default function UnitDiscussion({
   // tarayıcıdan hep null dönüyordu, giriş yapmış olsun olmasın kimse göremiyordu
   // (kullanıcı raporu, 2026-09-12: "giriş yapmamış kullanıcılar da yorumcunun
   // kullanıcı adını/PP'sini görsün"). loadAiFeed zaten aynı deseni kullanıyordu.
+  //
+  // 2026-10-04 (CPU 2. tur, kullanıcı kararı): girişli kullanıcı da herkese açık, CDN'de pazar
+  // 10:00 TR'ye kadar önbellekli akışı (public=1) okur — onaylanan yorumlar herkese pazar sabahı
+  // görünür. Kullanıcının kendi onay bekleyen/henüz akışa girmemiş yorumları sunucuya gitmeden
+  // tarayıcıdan eklenir (pendingCommentsStore.ts).
   const loadComments = React.useCallback(async () => {
     const url =
       quizQuestionId != null
-        ? `/api/comments/feed?questionId=${quizQuestionId}`
+        ? `/api/comments/feed?questionId=${quizQuestionId}&public=1`
         : topicId != null
-          ? `/api/comments/feed?topicId=${topicId}`
-          : `/api/comments/feed?unitId=${unitId}`;
-    const res = await fetch(await withPublicFlag(url));
+          ? `/api/comments/feed?topicId=${topicId}&public=1`
+          : `/api/comments/feed?unitId=${unitId}&public=1`;
+    const [res, { data: sessionData }] = await Promise.all([fetch(url), createClient().auth.getSession()]);
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
-      setComments((data.items as CommentEntry[]).map((c) => ({ ...c, kind: 'comment' as const })));
+      const items = (data.items as CommentEntry[]).map((c) => ({ ...c, kind: 'comment' as const }));
+      // Kendi yerel yorumları (oturum çerezden okunur, ağa gitmez); akışta görünenler yerelden düşer.
+      const ownId = sessionData.session?.user.id;
+      const ids = new Set(items.map((c) => c.id));
+      const own = ownId ? ownPendingComments(scope, ownId, ids) : [];
+      setComments([...items, ...own.map((c) => ({ ...(c as Omit<CommentEntry, 'kind'>), kind: 'comment' as const }))]);
     }
-  }, [unitId, topicId, quizQuestionId]);
+  }, [unitId, topicId, quizQuestionId, scope]);
 
-  const loadAiFeed = React.useCallback(async () => {
+  // Herkese açık (önbellekli) akış; yalnız kendi bekleyen sorusu varken (polling) kişisel akış.
+  const loadAiFeed = React.useCallback(async (personal = false) => {
     const url =
       quizQuestionId != null
         ? `/api/rag/unit-feed?questionId=${quizQuestionId}`
         : topicId != null
           ? `/api/rag/unit-feed?topicId=${topicId}`
           : `/api/rag/unit-feed?unitId=${unitId}`;
-    const res = await fetch(await withPublicFlag(url));
+    const res = await fetch(personal ? url : `${url}&public=1`);
     const data = await res.json().catch(() => null);
     if (res.ok && Array.isArray(data?.items)) {
       setAiEntries(
@@ -616,10 +654,11 @@ export default function UnitDiscussion({
   }, [unitId, topicId, quizQuestionId]);
 
   useEffect(() => {
+    if (!inView) return;
     loadComments();
     loadAiFeed();
     setVisibleFeedCount(7);
-  }, [loadComments, loadAiFeed]);
+  }, [loadComments, loadAiFeed, inView]);
 
   // Sorular artık senkron cevaplanmıyor (bkz. /api/rag/process-queue, 5 dakikada bir
   // Supabase pg_cron+pg_net'ten tetiklenen worker) — kendi kuyrukta/işlenmekte olan bir sorum
@@ -627,7 +666,7 @@ export default function UnitDiscussion({
   const hasPendingAi = aiEntries.some((a) => a.status === 'queued' || a.status === 'processing');
   useEffect(() => {
     if (!hasPendingAi) return;
-    const timer = window.setInterval(loadAiFeed, 15000);
+    const timer = window.setInterval(() => loadAiFeed(true), 15000);
     return () => window.clearInterval(timer);
   }, [hasPendingAi, loadAiFeed]);
 
@@ -685,6 +724,7 @@ export default function UnitDiscussion({
         return false;
       }
       setComments((prev) => [...prev, { ...(data as CommentEntry), kind: 'comment' }]);
+      rememberOwnComment(scope, { ...(data as Omit<CommentEntry, 'kind'>), profiles: null });
       // Yanıtlanan kişiye bildirim — ana akışı bloklamasın diye fire-and-forget
       // (bkz. /api/comments/[id]/notify'daki not, kullanıcı isteği 2026-09-04).
       if (parentCommentId != null || parentAiAnswerId != null) {
@@ -723,13 +763,11 @@ export default function UnitDiscussion({
         setError(data?.error || 'Silinemedi');
         return;
       }
-      // Üst yorumsa hem yorum hem AI yanıtları kaldı — sadeliği korumak için
-      // her iki akışı da yeniden yüklüyoruz.
-      if (comment.parent_comment_id == null) {
-        await Promise.all([loadComments(), loadAiFeed()]);
-      } else {
-        setComments((prev) => prev.filter((c) => c.id !== comment.id));
-      }
+      // Herkese açık akış haftalık önbellekte olduğundan yeniden çekmek silinen yorumu geri
+      // getirirdi — yorum ve (üst yorumsa) ona bağlı yanıtlar yerelde kaldırılır.
+      forgetOwnComment(comment.id);
+      setComments((prev) => prev.filter((c) => c.id !== comment.id && c.parent_comment_id !== comment.id));
+      setAiEntries((prev) => prev.filter((a) => a.parent_comment_id !== comment.id));
     } catch {
       setError('Silinemedi, lütfen tekrar deneyin');
     } finally {
@@ -754,7 +792,8 @@ export default function UnitDiscussion({
         setError(data?.error || 'Silinemedi');
         return;
       }
-      await Promise.all([loadComments(), loadAiFeed()]);
+      setAiEntries((prev) => prev.filter((a) => a.id !== item.id && a.parent_rag_answer_id !== item.id));
+      setComments((prev) => prev.filter((c) => c.parent_ai_answer_id !== item.id));
     } catch {
       setError('Silinemedi, lütfen tekrar deneyin');
     } finally {
@@ -785,6 +824,7 @@ export default function UnitDiscussion({
       setComments((prev) =>
         prev.map((c) => (c.id === comment.id ? { ...c, body: trimmed, status: data.status || c.status } : c))
       );
+      updateOwnComment(comment.id, { body: trimmed, status: data.status || comment.status });
       setEditingId(null);
       setEditText('');
     } catch {
@@ -834,20 +874,19 @@ export default function UnitDiscussion({
       // bu yoruma yanıt olarak yazılınca yerini alacak).
       const nowIso = new Date().toISOString();
       const commentBody = `${tag} ${question}`;
-      setComments((prev) => [
-        ...prev,
-        {
-          kind: 'comment',
-          id: data.commentId,
-          parent_comment_id: parentCommentId,
-          parent_ai_answer_id: parentRagAnswerId,
-          body: commentBody,
-          status: 'published',
-          created_at: nowIso,
-          student_id: userId || '',
-          profiles: data.profile || null,
-        },
-      ]);
+      const questionComment: Omit<CommentEntry, 'kind'> = {
+        id: data.commentId,
+        parent_comment_id: parentCommentId,
+        parent_ai_answer_id: parentRagAnswerId,
+        body: commentBody,
+        status: 'published',
+        created_at: nowIso,
+        student_id: userId || '',
+        profiles: data.profile || null,
+      };
+      setComments((prev) => [...prev, { ...questionComment, kind: 'comment' }]);
+      // Hemen yayınlanan soru yorumu da herkese açık akışa ancak pazar yenilemesinde girer.
+      if (userId && data.commentId != null) rememberOwnComment(scope, questionComment);
       if (data.queueId != null) {
         setAiEntries((prev) => [
           {
@@ -936,7 +975,8 @@ export default function UnitDiscussion({
     }
   }
 
-  if (availability === 'loading') return null;
+  // Yükleme sırasında boş bir işaretçi: tembel yükleme gözlemcisi ona bağlanır.
+  if (availability === 'loading') return <div ref={rootRef} aria-hidden="true" className="h-px" />;
 
   const topLevelComments = comments.filter((c) => !c.parent_comment_id && !c.parent_ai_answer_id);
   const topLevelAi = aiEntries.filter((a) => !a.parent_comment_id && !a.parent_rag_answer_id);
@@ -993,7 +1033,7 @@ export default function UnitDiscussion({
   };
 
   return (
-    <div className={hideToggle ? '' : 'bg-white dark:bg-card rounded-2xl border border-slate-200/70 dark:border-white/10 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
+    <div ref={rootRef} className={hideToggle ? '' : 'bg-white dark:bg-card rounded-2xl border border-slate-200/70 dark:border-white/10 shadow-sm p-4 sm:p-7 mb-4 sm:mb-7'}>
       {!hideToggle && (
         <button
           type="button"

@@ -12,7 +12,7 @@ import useSWR from 'swr';
 import { CheckCircle2, Sun, Users, XCircle } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
 import { useAuth } from '@/app/src/context/AuthContext';
-import type { DailyQuestion } from '@/app/src/lib/homeHighlights';
+import type { DailyQuestion, DailyQuestionSet } from '@/app/src/lib/homeHighlights';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 // Bu sayının altında yüzde gösterilmez — tek kişilik "%100" yanıltıcı.
@@ -166,4 +166,17 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
       )}
     </section>
   );
+}
+
+// Haftanın 7 sorusundan bugününki (2026-10-04, Vercel CPU): anasayfa 7 gün önbellekte, günlük
+// yenilenmiyor — set sunucuda seçilir (homeHighlights.getDailyQuestionSet), gün tarayıcıda belirlenir.
+// Sunucu HTML'i setin ilk sorusuyla çizilir; tarayıcı bugünün İstanbul tarihini okuyunca (hydration
+// sonrası, uyuşmazlık yok) setin başlangıcından bu yana geçen gün kadar ilerler. Set 7 günden uzun
+// önbellekte kalırsa başa döner — her gün yine bir soru görünür.
+export function DailyQuestionOfTheDay({ set }: { set: DailyQuestionSet }) {
+  const todayKey = useSyncExternalStore(noopSubscribe, istanbulDateKey, () => set.startKey);
+  const dayOffset = Math.round((Date.parse(`${todayKey}T00:00:00Z`) - Date.parse(`${set.startKey}T00:00:00Z`)) / 86_400_000);
+  const count = set.items.length;
+  const item = set.items[(((Number.isFinite(dayOffset) ? dayOffset : 0) % count) + count) % count];
+  return <DailyQuestionCard key={item.question.id} data={item} />;
 }

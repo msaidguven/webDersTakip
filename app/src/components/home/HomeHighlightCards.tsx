@@ -2,6 +2,7 @@
 // ~/İndirilenler/ders_takip_anasayfa_v4_sade.html). Renkli bantlar kaldırıldı: beyaz kart, ince
 // çerçeve, ders rengi yalnız küçük nokta/ikonda, "Yeni" ve "3. hafta" açık mor küçük etiket.
 import Link from 'next/link';
+import { useSyncExternalStore } from 'react';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import type { RecentTopicItem, ThisWeekTopicItem } from '@/app/src/lib/homeHighlights';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
@@ -73,6 +74,24 @@ export function SchoolThisWeekCard({ gradeName, week, topics }: { gradeName: str
 
 // Yeni eklenenler (2026-10-02, referans tasarımın kapak görselli konu kartları): görsel varsa kapak,
 // yoksa dersin açık renginde zemin + dolgulu ikon. Görseller sayfanın aşağısında → lazy, hızı etkilemez.
+const NEW_BADGE_MS = 3 * 86_400_000;
+const noopSubscribe = () => () => {};
+
+// "Yeni" rozeti istemcide hesaplanır (2026-10-04): sayfa haftada bir üretildiği için sunucudaki
+// isNew bir hafta boyunca donuk kalırdı. Sunucu/ilk render snapshot'ı t.isNew → hydration uyumlu.
+function useIsNew(publishedAt: string, serverValue: boolean): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => Date.now() - Date.parse(publishedAt) < NEW_BADGE_MS,
+    () => serverValue,
+  );
+}
+
+function NewBadge({ publishedAt, serverValue }: { publishedAt: string; serverValue: boolean }) {
+  if (!useIsNew(publishedAt, serverValue)) return null;
+  return <span className="absolute left-2 top-2 rounded-md bg-background/95 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 shadow-sm dark:text-indigo-300">Yeni</span>;
+}
+
 export function RecentTopicsCard({ topics, gradeName }: { topics: RecentTopicItem[]; gradeName?: string | null }) {
   if (!topics.length) return null;
   return (
@@ -102,9 +121,7 @@ export function RecentTopicsCard({ topics, gradeName }: { topics: RecentTopicIte
                 ) : (
                   <SubjectIcon lessonName={t.lessonName} variant="solid" size="lg" />
                 )}
-                {t.isNew && (
-                  <span className="absolute left-2 top-2 rounded-md bg-background/95 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 shadow-sm dark:text-indigo-300">Yeni</span>
-                )}
+                <NewBadge publishedAt={t.publishedAt} serverValue={t.isNew} />
               </span>
               <span className="flex flex-1 flex-col gap-1 p-3">
                 <span className="line-clamp-2 text-[15px] font-semibold leading-snug text-default transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">

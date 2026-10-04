@@ -8,13 +8,13 @@ import { useAuth } from './src/context/AuthContext';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import type { HomeGradeSection, SiteStats } from './src/lib/homeStats';
-import type { DailyQuestion, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
+import type { DailyQuestionSet, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
 import { HomeHero } from './src/components/home/HomeHero';
 import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
 import { RecentTopicsCard, SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
 import { AboutSite } from './src/components/home/AboutSite';
 import { StudentToday } from './src/components/home/StudentToday';
-import { DailyQuestionCard } from './src/components/home/DailyQuestionCard';
+import { DailyQuestionOfTheDay } from './src/components/home/DailyQuestionCard';
 import { TopStudents } from './src/components/home/TopStudents';
 import type { TopStudentEntry } from './src/lib/leaderboard';
 import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
@@ -58,14 +58,14 @@ interface HomeClientProps {
   initialGrades: Grade[];
   stats: SiteStats;
   gradeSections: Record<string, HomeGradeSection>;
-  dailyQuestion: DailyQuestion | null;
+  dailyQuestionSet: DailyQuestionSet | null;
   recentTopics: RecentTopicItem[];
   recentByGrade: Record<string, RecentTopicItem[]>;
   thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   topStudents: TopStudentEntry[];
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestion, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSet, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -137,7 +137,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
               isAuthenticated={false}
               gradeLevels={resolvedGrades.map((g) => g.level)}
               stats={stats}
-              dailyQuestion={dailyQuestion}
+              dailyQuestionSet={dailyQuestionSet}
             />
           )}
 
@@ -156,9 +156,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
           {/* Son satır: misafirde "Ders Takip nedir?" (+üyelik), girişlide Günün Sorusu — yanında sıralama. */}
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
             {isAuthenticated ? (
-              dailyQuestion && (
+              dailyQuestionSet && (
                 <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
-                  <DailyQuestionCard data={dailyQuestion} />
+                  <DailyQuestionOfTheDay set={dailyQuestionSet} />
                 </div>
               )
             ) : (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { publicCacheHeaders } from '@/app/src/lib/publicApiCache';
+import { isPublicRequest, publicApiCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 type Profile = { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 type CommentRow = {
@@ -55,6 +55,13 @@ export async function GET(request: NextRequest) {
   const { data: publishedData, error: publishedError } = await publishedQuery.order('created_at', { ascending: true });
   if (publishedError) return NextResponse.json({ error: publishedError.message }, { status: 500 });
 
+  // public=1: herkes için aynı, CDN'de pazar 10:00 TR'ye kadar önbellekli yanıt — oturuma hiç
+  // bakılmaz (girişli kullanıcı da bunu çağırır; kendi onay bekleyen yorumu istemcide yerelde
+  // tutulur, bkz. pendingCommentsStore.ts). public=1 olmayan eski davranış aşağıda korunuyor.
+  if (isPublicRequest(request.nextUrl.searchParams)) {
+    return NextResponse.json({ items: (publishedData as CommentRow[] | null) || [] }, { headers: publicApiCacheHeaders() });
+  }
+
   // Giriş yapmışsa: kendi yorumunu (henüz onaylanmamış/reddedilmiş olsa bile) de ekle —
   // question_comments_own_read policy'sinin eşdeğeri, "onay bekliyor" durumunu kendi
   // ekranında görebilsin diye. Silinmiş (status='deleted') olanlar hiç kimseye gösterilmez.
@@ -84,5 +91,5 @@ export async function GET(request: NextRequest) {
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
-  return NextResponse.json({ items }, { headers: publicCacheHeaders(request.nextUrl.searchParams, !!user) });
+  return NextResponse.json({ items });
 }
