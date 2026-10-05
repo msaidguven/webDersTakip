@@ -13,6 +13,7 @@ import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import TopicDesignSwitch from '../../../../ders/TopicDesignSwitch';
 import { getTopicPageDesign } from '@/app/src/lib/topicPageDesign';
 import DersHighlight from '../../../../ders/DersHighlight';
+import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 
 // Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
 // üzerinden yapılıyor) — yani her zaman herkese aynı, tamamen public içerik döner. Bu
@@ -415,6 +416,7 @@ export default async function TopicPage({ params }: PageProps) {
           __html: JSON.stringify(buildBreadcrumbJsonLd(data)).replace(/</g, '\\u003c'),
         }}
       />
+      <ReadingProgressBar />
       <TopicDesignSwitch
         publishedDesign={publishedDesign}
         initialData={data}

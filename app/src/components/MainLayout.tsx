@@ -9,6 +9,7 @@ import { useDisplayName } from '../hooks/useDisplayName';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { Icon } from './icons';
 import { NotificationBell } from './NotificationBell';
+import { AdminPageRefresh } from './AdminPageRefresh';
 import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
@@ -223,6 +224,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {!hideFooter && <LegalFooter />}
       {showTabBar && <MobileTabBar items={navItems} />}
+      <AdminPageRefresh />
     </div>
   );
 }

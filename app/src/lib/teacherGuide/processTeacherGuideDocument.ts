@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { extractPdfTextByUnit, type PdfUnitInput } from '../rag/pdfExtract';
-import { structureTeacherGuideUnitText } from './structureTeacherGuide';
+import { structureTeacherGuideUnitText, type TeacherGuideTopicNote } from './structureTeacherGuide';
 
 const BUCKET = 'teacher-guide-documents';
 
@@ -42,11 +42,12 @@ async function fetchUnitsWithTopics(
   return { units, topicsByUnitId };
 }
 
-// upsert (onConflict: topic_id) — aynı konu için kılavuz tekrar yüklenirse eskiyi değiştirir.
+// upsert (onConflict: topic_id) — aynı konu için kılavuz tekrar yüklenirse eskiyi TAMAMEN
+// değiştirir (yeni kaynakta olmayan alan null'a döner, eski kılavuzdan artık kalmaz).
 export async function saveTeacherGuideNotes(
   supabase: SupabaseClient,
   documentId: number,
-  notes: { topicId: number; recommendedHours: number | null; emphasisNotes: string | null }[]
+  notes: TeacherGuideTopicNote[]
 ): Promise<number> {
   if (!notes.length) return 0;
   const rows = notes.map((n) => ({
@@ -54,6 +55,15 @@ export async function saveTeacherGuideNotes(
     document_id: documentId,
     recommended_hours: n.recommendedHours,
     emphasis_notes: n.emphasisNotes,
+    content_points: n.contentPoints,
+    key_terms: n.keyTerms,
+    examples: n.examples,
+    scope_notes: n.scopeNotes,
+    misconceptions: n.misconceptions,
+    prerequisites: n.prerequisites,
+    assessment_notes: n.assessmentNotes,
+    source_text: n.sourceText ?? null,
+    source_pages: n.sourcePages ?? null,
     updated_at: new Date().toISOString(),
   }));
   const { error } = await supabase.from('topic_teacher_guide_notes').upsert(rows, { onConflict: 'topic_id' });

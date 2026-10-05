@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   const keyConcepts = (unit.key_concepts as string[] | null) || [];
   const keyConceptsBlock = keyConcepts.length
-    ? `Ünitenin anahtar kavramları (uygun yerlerde kullan): ${keyConcepts.join(', ')}`
+    ? `Ünitenin anahtar kavramları (ünitenin TÜM konularına ait — yalnız bu konuyla doğrudan ilgili olanları kullan, diğer konuların kavramlarına girme): ${keyConcepts.join(', ')}`
     : '';
 
   const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicId);

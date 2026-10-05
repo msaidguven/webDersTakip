@@ -12,7 +12,7 @@ type UnitRow = { id: number; title: string; order_no: number };
 type DocumentRow = {
   id: number;
   title: string;
-  source: 'pdf_upload' | 'notebooklm_json';
+  source: 'pdf_upload' | 'notebooklm_json' | 'pdf_text_import';
   unit_id: number | null;
   page_count: number | null;
   topic_count: number;
@@ -21,7 +21,15 @@ type DocumentRow = {
   created_at: string;
   units: { title: string } | { title: string }[] | null;
 };
-type TopicNoteRow = { topicId: number; topicTitle: string; recommendedHours: number | null; emphasisNotes: string | null; updatedAt: string | null };
+type TopicNoteRow = {
+  topicId: number;
+  topicTitle: string;
+  recommendedHours: number | null;
+  emphasisNotes: string | null;
+  sourcePages: string | null;
+  guidance: string | null;
+  updatedAt: string | null;
+};
 
 const STATUS_LABEL: Record<DocumentRow['status'], string> = {
   processing: 'İşleniyor',
@@ -36,6 +44,7 @@ const STATUS_COLOR: Record<DocumentRow['status'], string> = {
 const SOURCE_LABEL: Record<DocumentRow['source'], string> = {
   pdf_upload: 'PDF',
   notebooklm_json: 'NotebookLM',
+  pdf_text_import: 'PDF (konu bazlı)',
 };
 
 function unitTitleOf(doc: DocumentRow): string | null {
@@ -148,10 +157,30 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
     loadTopicNotes();
   }, [loadTopicNotes]);
 
-  const importedUnitIds = React.useMemo(
-    () => new Set(documents.filter((d) => d.status === 'ready' && d.unit_id != null).map((d) => d.unit_id as number)),
-    [documents]
-  );
+  // Ünite ✅/⬜ ilerlemesi (ders kitabı panelindeki gibi): tüm konularında kılavuzun ayrıntılı
+  // bilgisi kayıtlı olan ünite tamam sayılır — bkz. unit-progress route'u.
+  const [unitProgress, setUnitProgress] = useState<Map<number, { topicCount: number; detailedCount: number }>>(new Map());
+
+  const loadUnitProgress = React.useCallback(async () => {
+    if (gradeId == null || lessonId == null) {
+      setUnitProgress(new Map());
+      return;
+    }
+    const res = await fetch(`/api/admin/teacher-guide/unit-progress?gradeId=${gradeId}&lessonId=${lessonId}`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return;
+    const items = (data?.items as { unitId: number; topicCount: number; detailedCount: number }[] | null) || [];
+    setUnitProgress(new Map(items.map((i) => [i.unitId, { topicCount: i.topicCount, detailedCount: i.detailedCount }])));
+  }, [gradeId, lessonId]);
+
+  useEffect(() => {
+    loadUnitProgress();
+  }, [loadUnitProgress]);
+
+  function isUnitDone(id: number): boolean {
+    const p = unitProgress.get(id);
+    return !!p && p.topicCount > 0 && p.detailedCount === p.topicCount;
+  }
 
   async function handleUpload(file: File) {
     if (gradeId == null || lessonId == null) return;
@@ -188,6 +217,7 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
       showNotice('success', 'Kılavuz kitap işlendi ve konu notları kaydedildi');
       loadDocuments();
       loadTopicNotes();
+      loadUnitProgress();
     } catch {
       showNotice('error', 'Yükleme sırasında hata oluştu');
     } finally {
@@ -206,6 +236,7 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
     showNotice('success', 'Belge silindi');
     loadDocuments();
     loadTopicNotes();
+    loadUnitProgress();
   }
 
   return (
@@ -228,10 +259,38 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
             label="Ünite (notlara bakmak/NotebookLM için)"
             value={unitId}
             onChange={setUnitId}
-            options={units.map((u) => ({ id: u.id, label: importedUnitIds.has(u.id) ? `✅ ${u.title}` : u.title }))}
+            options={units.map((u) => ({ id: u.id, label: isUnitDone(u.id) ? `✅ ${u.title}` : u.title }))}
             disabled={lessonId == null}
           />
         </div>
+
+        {units.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">Ünite ilerlemesi — tüm konularına kılavuzun ayrıntılı bilgisi eklenen üniteler ✅ (eski kısa vurgu notları sayılmaz):</p>
+            <div className="flex flex-wrap gap-2">
+              {units.map((u) => {
+                const done = isUnitDone(u.id);
+                const p = unitProgress.get(u.id);
+                const partial = !done && !!p?.detailedCount;
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setUnitId(u.id)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      done
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                        : 'bg-muted border-border text-muted-foreground hover:border-muted-foreground/30'
+                    } ${unitId === u.id ? 'ring-1 ring-indigo-400' : ''}`}
+                  >
+                    {done ? '✅' : '⬜'} {u.title}
+                    {partial && p && <span className="text-[10px] opacity-80">({p.detailedCount}/{p.topicCount})</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {gradeId != null && lessonId != null && (
@@ -263,10 +322,13 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
         <NotebookLmLessonJsonUploader
           gradeId={gradeId}
           lessonId={lessonId}
+          unitId={unitId}
+          unitTitle={units.find((u) => u.id === unitId)?.title ?? null}
           onSaved={(count) => {
             showNotice('success', `${count} konu için kılavuz notu kaydedildi`);
             loadDocuments();
             loadTopicNotes();
+            loadUnitProgress();
           }}
           onError={(msg) => showNotice('error', msg)}
         />
@@ -294,6 +356,16 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
                   <p className="text-muted-foreground text-xs mt-1 whitespace-pre-line">
                     {n.emphasisNotes || 'Vurgu notu yok'}
                   </p>
+                  {n.guidance && (
+                    <details className="mt-2">
+                      <summary className="text-[11px] text-indigo-300 cursor-pointer select-none">
+                        AI&apos;lara giden kılavuz bilgisi{n.sourcePages ? ` (kılavuz s. ${n.sourcePages})` : ''}
+                      </summary>
+                      <pre className="mt-2 max-h-96 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-[11px] leading-relaxed text-foreground font-sans">
+                        {n.guidance}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
@@ -339,10 +411,12 @@ export default function TeacherGuideDocumentsPanel({ initialGradeId, initialLess
 }
 
 function NotebookLmLessonJsonUploader({
-  gradeId, lessonId, onSaved, onError,
+  gradeId, lessonId, unitId, unitTitle, onSaved, onError,
 }: {
   gradeId: number;
   lessonId: number;
+  unitId: number | null;
+  unitTitle: string | null;
   onSaved: (count: number) => void;
   onError: (message: string) => void;
 }) {
@@ -357,14 +431,15 @@ function NotebookLmLessonJsonUploader({
     setPrompt('');
     setPasted('');
     (async () => {
-      const res = await fetch(`/api/admin/teacher-guide/lesson-prompt?gradeId=${gradeId}&lessonId=${lessonId}`);
+      const unitQuery = unitId != null ? `&unitId=${unitId}` : '';
+      const res = await fetch(`/api/admin/teacher-guide/lesson-prompt?gradeId=${gradeId}&lessonId=${lessonId}${unitQuery}`);
       const data = await res.json();
       if (res.ok) setPrompt(data.prompt);
       else onError(data.error || 'Prompt oluşturulamadı');
       setLoadingPrompt(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradeId, lessonId]);
+  }, [gradeId, lessonId, unitId]);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(prompt);
@@ -398,9 +473,12 @@ function NotebookLmLessonJsonUploader({
 
   return (
     <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
-      <h3 className="text-foreground font-semibold mb-1">NotebookLM ile Dersin Tamamını Ekle (50MB üstü kılavuz kitaplar için)</h3>
+      <h3 className="text-foreground font-semibold mb-1">
+        NotebookLM ile Ekle — {unitTitle ? `Ünite: ${unitTitle}` : 'Dersin tamamı'}
+      </h3>
       <p className="text-xs text-muted-foreground mb-4">
-        Kılavuz kitaplar kısa olduğundan tüm üniteler tek promptta isteniyor. Bu prompt&apos;u, kaynak olarak kılavuz kitabın PDF&apos;ini yüklediğin NotebookLM notebook&apos;unda sor; dönen JSON&apos;u aşağıya yapıştırıp kaydet.
+        Bu prompt&apos;u, kaynak olarak kılavuz kitabın PDF&apos;ini yüklediğin NotebookLM notebook&apos;unda sor; dönen JSON&apos;u aşağıya yapıştırıp kaydet.
+        Konu başına ayrıntılı bilgi istendiği için yukarıdan ünite seçip ünite ünite yapman önerilir — dersin tamamının JSON&apos;u NotebookLM&apos;in tek cevabına sığmayabilir.
       </p>
 
       <div className="mb-4">

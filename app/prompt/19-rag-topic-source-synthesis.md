@@ -6,6 +6,7 @@ Nasıl karar vereceksin:
 - Bir kaynakta olup diğerlerinde OLMAYAN ama kazanımlarla tutarlı, mantıklı bir bilgi varsa (çelişki yaratmıyorsa) dahil edebilirsin — sadece o kaynakta geçmesi tek başına onu yanlış yapmaz. Bir bilgiyi dahil edip etmeme ve NE KADAR AYRINTILI işleme kararını kaç kaynakta geçtiğine göre DEĞİL, o konunun yukarıdaki kazanımlarıyla ne kadar doğrudan ilgili olduğuna göre ver — kazanımlardan birinin doğrudan kapsamına giren bir bilgiyi, sadece azınlıkta (hatta tek bir kaynakta) geçiyor diye kısaltma veya atma; kazanımların dışına taşan, sadece "ekstra örnek" niteliğindeki bir bilgide ise azınlıkta olması onu gereksiz ayrıntı/öncelik almaktan alıkoyabilir.
 - Kaynaklar arasında kelimesi kelimesine veya anlamca aynı olan cümleleri TEKRAR ETME — her bilgi nihai metinde sadece bir kez, en açık/en eksiksiz haliyle yer alsın.
 - Hiçbir kaynağın kapsamadığı yeni bir bilgi UYDURMA; sadece elindeki kaynaklardan sentezle.
+- Aşağıda MEB öğretmen kılavuzundan çıkarılmış bilgiler verildiyse bunlar resmî referanstır: kaynaklar bir tanım/bilgide çelişirse kılavuza uyanı seç, kılavuzla çelişen bilgiyi at; kılavuzun öğrettiği bir bilgi kaynakların hiçbirinde yoksa kılavuzdaki haliyle ekle (bu "uydurma" sayılmaz); kılavuzun belirttiği kapsam ve derinliğe uy.
 
 Biçim kuralları (nihai metin aynı sisteme kaydedilecek, bu yüzden 18. promptla AYNI kurallar geçerli):
 - SADECE düz metin döndür. JSON, markdown başlık işareti (#), kod bloğu, madde işareti (- veya *) kullanma.
@@ -13,9 +14,12 @@ Biçim kuralları (nihai metin aynı sisteme kaydedilecek, bu yüzden 18. prompt
 - Başına veya sonuna "İşte metin:", "Umarım yardımcı olur" gibi hiçbir ekleme yapma, hangi bilgiyi hangi kaynaktan aldığını da belirtme (kaynak numarası, "1. metne göre" gibi ifadeler kullanma) — çıktı doğrudan bu konunun TEK kaynak metni gibi okunmalı.
 - Matematiksel ifadeleri okunabilir düz metin notasyonuyla yaz (ör. "x^2 + 3x - 4 = 0", "1/2", "karekök(16)") — LaTeX işareti kullanma.
 
-İşin sonunda, nihai metinden SONRA ayrı bir paragrafta "---" ile ayırıp kısa bir "Tutarsızlık Notu" ekle: kaynaklar arasında gerçek bir çelişki bulduysan (hangi bilgide, hangi yönde) tek tek listele; hiç çelişki yoksa "Kaynaklar arasında önemli bir tutarsızlık bulunmadı." yaz. Bu not sisteme kaydedilmeyecek, sadece admin'in gözden geçirmesi için.
+İşin sonunda, nihai metinden SONRA ayrı bir paragrafta "---" ile ayırıp kısa bir "Tutarsızlık Notu" ekle: kaynaklar arasında gerçek bir çelişki bulduysan (hangi bilgide, hangi yönde) tek tek listele; öğretmen kılavuzu bilgisi verildiyse kılavuzla çelişip attığın bilgileri de yaz; hiç çelişki yoksa "Kaynaklar arasında önemli bir tutarsızlık bulunmadı." yaz. Bu not sisteme kaydedilmeyecek, sadece admin'in gözden geçirmesi için.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
+
+Konunun resmî kazanımları:
+{outcomes}
 
 {teacher_guide_guidance}
 {sources_block}

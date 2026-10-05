@@ -95,6 +95,9 @@ export function NotificationBell() {
     );
   }
 
+  // Misafirde zil gizli (2026-10-04, kullanıcı isteği): bildirimler yalnız üyelere gelir.
+  if (!isAuthenticated) return null;
+
   return (
     <div className="relative" ref={menuRef}>
       <button

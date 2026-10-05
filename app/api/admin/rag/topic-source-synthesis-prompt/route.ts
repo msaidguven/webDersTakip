@@ -25,9 +25,12 @@ export async function GET(request: NextRequest) {
   const { data: unit } = await supabase.from('units').select('id, title, grade_id, lesson_id').eq('id', topic.unit_id).maybeSingle();
   if (!unit) return NextResponse.json({ error: 'Ünite bulunamadı' }, { status: 404 });
 
-  const [{ data: grade }, { data: lesson }, { data: draftsData }] = await Promise.all([
+  const [{ data: grade }, { data: lesson }, { data: outcomesData }, { data: draftsData }] = await Promise.all([
     supabase.from('grades').select('name').eq('id', unit.grade_id).maybeSingle(),
     supabase.from('lessons').select('name').eq('id', unit.lesson_id).maybeSingle(),
+    // Şablon "kazanımlarla ne kadar ilgili olduğuna göre karar ver" diyor — kazanımlar
+    // 2026-10-04'e kadar prompta hiç girmiyordu.
+    supabase.from('outcomes').select('code, description').eq('topic_id', topicId).eq('is_current', true).order('id', { ascending: true }),
     supabase
       .from('rag_documents')
       .select('id, title, raw_text, created_at, ai_model')
@@ -54,6 +57,11 @@ export async function GET(request: NextRequest) {
     .map((d, i) => `KAYNAK METİN ${i + 1}:\n${d.raw_text!.trim()}`)
     .join('\n\n');
 
+  const outcomesText =
+    ((outcomesData as { code: string | null; description: string }[] | null) || [])
+      .map((o) => (o.code ? `- ${o.code}. ${o.description}` : `- ${o.description}`))
+      .join('\n') || 'Bu konu için tanımlı kazanım bulunamadı.';
+
   const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicId);
 
   const templatePath = path.join(process.cwd(), 'app', 'prompt', '19-rag-topic-source-synthesis.md');
@@ -64,6 +72,7 @@ export async function GET(request: NextRequest) {
     .replaceAll('{lesson}', lesson?.name || '')
     .replaceAll('{unit}', unit.title)
     .replaceAll('{topic}', topic.title)
+    .replaceAll('{outcomes}', outcomesText)
     .replaceAll('{sources_block}', sourcesBlock)
     .replaceAll('{teacher_guide_guidance}', teacherGuideGuidance);
 

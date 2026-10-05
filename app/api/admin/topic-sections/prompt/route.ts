@@ -229,7 +229,9 @@ export async function GET(request: NextRequest) {
     // Öğretmen kılavuz kitabından (varsa) bu konu için çıkarılmış "vurgulanacak noktalar" —
     // bkz. app/src/lib/teacherGuide/. Aynı fonksiyon RAG taslak/sentez/tekilleştirme
     // promptlarında da kullanılıyor (kullanıcının 2026-09-19 kararı).
-    const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id);
+    // NotebookLM'e yapıştırılan şablonlar (03, 24) tek mesaj sınırına takılmasın diye kısa hali.
+    const isNotebookTemplate = type === 'full' || type === 'content_refresh_notebooklm';
+    const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id, isNotebookTemplate ? 'compact' : 'full');
 
     const prompt = template
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)

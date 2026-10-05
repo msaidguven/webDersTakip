@@ -309,7 +309,7 @@ export default function RagTopicBuilderPanel({ initialTopicId = null }: { initia
       )}
 
       {ragSourceModalOpen && topicId && (
-        <RagTopicSourceModal topicId={topicId} onClose={() => setRagSourceModalOpen(false)} onSaved={() => { setRagSourceModalOpen(false); setReloadKey((k) => k + 1); }} />
+        <RagTopicSourceModal topicId={topicId} onClose={() => setRagSourceModalOpen(false)} onSaved={() => setReloadKey((k) => k + 1)} />
       )}
       {ragSourceSynthesisModalOpen && topicId && (
         <RagTopicSourceSynthesisModal topicId={topicId} onClose={() => setRagSourceSynthesisModalOpen(false)} onSaved={() => { setRagSourceSynthesisModalOpen(false); setReloadKey((k) => k + 1); }} />

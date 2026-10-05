@@ -9,13 +9,17 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 // /api/admin/teacher-guide/documents/from-json ile sisteme kaydeder. Ünite bazlı değil DERS
 // bazlı — kılavuz kitaplar ders kitabının aksine kısa olduğundan (kullanıcının 2026-09-18
 // gözlemi) tüm üniteleri tek promptta isteyip admin'in ünite ünite tekrar etmesini
-// gerektirmiyoruz.
+// gerektirmiyoruz. unitId verilirse yalnız o ünite: 2026-10-04'ten beri konu başına ayrıntılı
+// bilgi (tanım, örnek, kapsam...) isteniyor ve tüm dersin JSON'u NotebookLM'in tek cevabına
+// sığmıyor.
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
   const gradeId = Number(request.nextUrl.searchParams.get('gradeId'));
   const lessonId = Number(request.nextUrl.searchParams.get('lessonId'));
+  const unitIdParam = request.nextUrl.searchParams.get('unitId');
+  const unitId = unitIdParam ? Number(unitIdParam) : null;
   if (!Number.isFinite(gradeId) || !Number.isFinite(lessonId)) {
     return NextResponse.json({ error: 'gradeId ve lessonId gerekli' }, { status: 400 });
   }
@@ -28,7 +32,9 @@ export async function GET(request: NextRequest) {
     supabase.from('units').select('id, title, order_no').eq('grade_id', gradeId).eq('lesson_id', lessonId).eq('is_active', true).order('order_no', { ascending: true }),
   ]);
 
-  const units = (unitsData as { id: number; title: string; order_no: number | null }[] | null) || [];
+  const units = ((unitsData as { id: number; title: string; order_no: number | null }[] | null) || []).filter(
+    (u) => unitId == null || u.id === unitId
+  );
   if (!units.length) return NextResponse.json({ error: 'Bu sınıf/derste aktif ünite yok' }, { status: 400 });
 
   const unitIds = units.map((u) => u.id);

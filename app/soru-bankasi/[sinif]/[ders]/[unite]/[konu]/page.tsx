@@ -35,6 +35,7 @@ import { BookOpen, ClipboardList } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
 import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
+import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 
 // Taslak/admin önizlemesi göstermiyor (getTopicTestPageData artık her zaman public +
 // soru>0 filtreli), bu yüzden ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki
@@ -115,6 +116,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
         <noscript>
           <style>{`.cevap-aciklama{grid-template-rows:1fr!important;opacity:1!important;margin-top:0.625rem!important}.cevap-marker{max-width:none!important;opacity:1!important}.question-bank-item{display:block!important}`}</style>
         </noscript>
+        <ReadingProgressBar />
         <Suspense fallback={null}>
           <QuestionBankHighlight />
         </Suspense>

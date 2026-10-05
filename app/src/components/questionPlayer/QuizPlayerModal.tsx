@@ -29,13 +29,37 @@ import {
 
 const QUESTIONS_PER_TEST = 10;
 
-function pickRandom<T>(items: T[], count: number): T[] {
-  const copy = items.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+// Sıradaki 10 soru (2026-10-04, kullanıcı isteği): misafirde rastgele seçim aynı soruları tekrar
+// getirip bazılarını hiç göstermiyordu. Havuz müfredat (id) sırasında gelir; tarayıcı konu başına
+// nerede kaldığını hatırlar, her bitirilen testte sıradaki 10 soruya geçer, sona gelince başa
+// döner (son parti eksikse baştan tamamlanır). Sunucuya hiçbir şey yazılmaz.
+const CURSOR_KEY = 'guestTestCursor:v1';
+
+function readCursors(): Record<string, number> {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CURSOR_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
   }
-  return copy.slice(0, count);
+}
+
+function readCursor(topicId: number, poolSize: number): number {
+  const value = Number(readCursors()[topicId]);
+  return Number.isInteger(value) && value >= 0 && value < poolSize ? value : 0;
+}
+
+function writeCursor(topicId: number, value: number) {
+  try {
+    window.localStorage.setItem(CURSOR_KEY, JSON.stringify({ ...readCursors(), [topicId]: value }));
+  } catch {
+    // depolama kapalı — her açılışta ilk 10 soru gelir
+  }
+}
+
+function batchFrom<T>(items: T[], start: number, count: number): T[] {
+  if (items.length <= count) return items.slice();
+  return Array.from({ length: count }, (_, i) => items[(start + i) % items.length]);
 }
 
 export default function QuizPlayerModal({
@@ -53,6 +77,8 @@ export default function QuizPlayerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(containerRef);
   const [pool, setPool] = useState<QuizQuestion[] | null>(null);
+  // Bu testin havuzdaki başlangıç sırası — bitirince sıradakine geçilir.
+  const [batchStart, setBatchStart] = useState(0);
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -63,13 +89,16 @@ export default function QuizPlayerModal({
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/topics/${topicId}/all-questions`)
+    // public=1: misafire herkesle aynı, CDN'de önbellekli havuz (bkz. all-questions route).
+    fetch(`/api/topics/${topicId}/all-questions?public=1`)
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: { questions?: QuizQuestion[] }) => {
         if (cancelled) return;
         const all = data.questions || [];
+        const start = readCursor(topicId, all.length);
         setPool(all);
-        setQuestions(pickRandom(all, QUESTIONS_PER_TEST));
+        setBatchStart(start);
+        setQuestions(batchFrom(all, start, QUESTIONS_PER_TEST));
         restart();
       })
       .catch(() => {
@@ -82,10 +111,12 @@ export default function QuizPlayerModal({
 
   const newAttempt = useCallback(() => {
     if (!pool) return;
-    setQuestions(pickRandom(pool, QUESTIONS_PER_TEST));
+    const start = readCursor(topicId, pool.length);
+    setBatchStart(start);
+    setQuestions(batchFrom(pool, start, QUESTIONS_PER_TEST));
     setShowResult(false);
     restart();
-  }, [pool, restart]);
+  }, [pool, restart, topicId]);
 
   const total = questions?.length ?? 0;
   const currentAnswered = !!questions && answeredMap[questions[qIndex]?.id] != null;
@@ -97,8 +128,12 @@ export default function QuizPlayerModal({
   const goNext = useCallback(() => {
     if (showResult || !questions) return;
     if (!isLast) goTo(qIndex + 1);
-    else if (currentAnswered) setShowResult(true);
-  }, [showResult, questions, isLast, qIndex, goTo, currentAnswered]);
+    else if (currentAnswered) {
+      // Test bitti → bu konuda bir sonraki açılış/deneme sıradaki partiden başlar.
+      if (pool && pool.length > 0) writeCursor(topicId, (batchStart + QUESTIONS_PER_TEST) % pool.length);
+      setShowResult(true);
+    }
+  }, [showResult, questions, isLast, qIndex, goTo, currentAnswered, pool, batchStart, topicId]);
 
   const swipe = useSwipe(goNext, goPrev);
 
@@ -174,6 +209,8 @@ export default function QuizPlayerModal({
           loginHref={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
           canRetry={(pool?.length ?? 0) > 0}
           onRetry={newAttempt}
+          poolSize={pool?.length ?? 0}
+          seenUpTo={Math.min(pool?.length ?? 0, batchStart + total)}
           onClose={onClose}
         />
       ) : (
@@ -235,6 +272,8 @@ function GuestResult({
   loginHref,
   canRetry,
   onRetry,
+  poolSize,
+  seenUpTo,
   onClose,
 }: {
   correct: number;
@@ -245,8 +284,11 @@ function GuestResult({
   loginHref: string;
   canRetry: boolean;
   onRetry: () => void;
+  poolSize: number;
+  seenUpTo: number;
   onClose: () => void;
 }) {
+  const hasMore = poolSize > total;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
   const headline = pct >= 80 ? 'Harika iş! 🎉' : pct >= 50 ? 'İyi gidiyorsun! 💪' : 'Öğrenmenin bir parçası! 🌱';
   return (
@@ -263,6 +305,11 @@ function GuestResult({
           {correct}/{total} <span className="text-lg sm:text-xl text-slate-400">doğru</span>
         </p>
         <p className="mt-1 text-xs font-bold text-slate-400">{topicTitle} · %{pct} başarı</p>
+        {hasMore && (
+          <p className="mt-2 text-xs font-bold text-indigo-600">
+            {seenUpTo >= poolSize ? `${poolSize} sorunun hepsini gördün, sıradaki test baştan başlar.` : `${poolSize} sorunun ${seenUpTo} tanesini gördün, sıradaki 10 soru hazır.`}
+          </p>
+        )}
       </div>
 
       <div className="w-full max-w-sm rounded-2xl border border-indigo-200 bg-white/80 p-4 shadow-sm">
@@ -288,7 +335,7 @@ function GuestResult({
             onClick={onRetry}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> Yeni 10 Soru
+            <RotateCcw className="h-3.5 w-3.5" /> {hasMore ? 'Sıradaki 10 Soru' : 'Tekrar Çöz'}
           </button>
         )}
         <button

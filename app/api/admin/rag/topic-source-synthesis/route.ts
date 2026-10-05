@@ -37,6 +37,17 @@ export async function POST(request: NextRequest) {
     .eq('is_synthesis', false);
   const draftIds = ((draftsData as { id: number }[] | null) || []).map((d) => d.id);
 
+  // Konu yeniden sentezleniyorsa (ör. 2026-10-04: öğretmen kılavuzu eklendikten sonra) eski
+  // sentez de kalkmalı — iki sentez satırı hem RAG aramasında çelişki yaratıyor hem de sentezi
+  // .maybeSingle() ile okuyan içerik üretimini "sentez bulunamadı"ya düşürüyor.
+  const { data: oldSynthesisData } = await supabase
+    .from('rag_documents')
+    .select('id')
+    .eq('topic_id', topicId)
+    .eq('source', 'ai_generated')
+    .eq('is_synthesis', true);
+  const oldSynthesisIds = ((oldSynthesisData as { id: number }[] | null) || []).map((d) => d.id);
+
   const { data: document, error: insertError } = await supabase
     .from('rag_documents')
     .insert({
@@ -65,9 +76,13 @@ export async function POST(request: NextRequest) {
     console.error('RAG sentez işleme hatası', message);
   }
 
-  if (draftIds.length) {
-    await supabase.from('rag_document_chunks').delete().in('document_id', draftIds);
-    await supabase.from('rag_documents').delete().in('id', draftIds);
+  // Yeni sentez işlenemediyse eskisi silinmez — konu RAG'sız kalmasın.
+  const { data: processed } = await supabase.from('rag_documents').select('status').eq('id', document.id).maybeSingle();
+  const replacedIds = (processed as { status: string } | null)?.status === 'ready' ? oldSynthesisIds : [];
+  const idsToDelete = [...draftIds, ...replacedIds];
+  if (idsToDelete.length) {
+    await supabase.from('rag_document_chunks').delete().in('document_id', idsToDelete);
+    await supabase.from('rag_documents').delete().in('id', idsToDelete);
   }
 
   // "Tutarsızlık Notu" (19. promptun ---'dan sonraki kısmı, bkz. RagTopicSourceSynthesisModal) —
@@ -83,5 +98,5 @@ export async function POST(request: NextRequest) {
   }
   await supabase.from('topics').update({ rag_last_checked_at: new Date().toISOString() }).eq('id', topicId);
 
-  return NextResponse.json({ id: document.id, deletedDrafts: draftIds.length });
+  return NextResponse.json({ id: document.id, deletedDrafts: draftIds.length, replacedSyntheses: replacedIds.length });
 }

@@ -2,8 +2,10 @@
 
 // Soru bankası konu sayfasındaki soru LİSTESİ (2026-10-03 yenilemesi; eskiden tek soru modu +
 // optik panel). Sorular alt alta kart; her kart QuestionAnswerKeyItem ile tıklanarak çözülür
-// (şık seç → doğru/yanlış + açıklama, ya da "Cevabı Göster"). İlk INITIAL_VISIBLE soru açık,
-// gerisi "Kalan N soruyu göster" ile açılır; soru türü filtresi var.
+// (şık seç → doğru/yanlış + açıklama, ya da "Cevabı Göster"). İlk PAGE_SIZE soru açık, gerisi
+// "Sonraki 10 soru" ile onar onar (ya da "Tümünü göster" ile) açılır; soru türü filtresi var.
+// Optik soru haritası (QuestionBankOptik, 2026-10-04): masaüstünde listenin solunda kaydırmayı
+// takip eden tek sütun (OptikRail), mobilde yüzen düğme.
 //
 // SEO: TÜM sorular her zaman render edilir — gizli olanlar yalnız display:none (bot ve kullanıcı
 // AYNI HTML'i alır, cloaking değil); JS kapalıyken <noscript> override'ı (.question-bank-item,
@@ -21,6 +23,7 @@ import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
 import { useQuestionBankViewer, type QuestionStat } from '@/app/src/hooks/useQuestionBankViewer';
+import QuestionBankOptik, { OptikRail, type OptikStatus } from '@/app/src/components/QuestionBankOptik';
 
 // Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
 // (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
@@ -73,7 +76,7 @@ type AnswerStatus = 'correct' | 'incorrect' | 'revealed';
 type TypeFilter = 'all' | QuizQuestion['type'];
 
 const SCOREABLE_TYPES = new Set<QuizQuestion['type']>(['multiple_choice', 'blank', 'matching']);
-const INITIAL_VISIBLE = 10;
+const PAGE_SIZE = 10;
 const FONT_SCALE_KEY = 'soru-bankasi-font-scale';
 const MIN_SCALE = 1;
 const MAX_SCALE = 2.2;
@@ -169,8 +172,10 @@ export default function QuestionBankBoard({
   const [answers, setAnswers] = useState<Record<number, AnswerStatus>>({});
   const scale = useSyncExternalStore(subscribeScale, readScale, () => MIN_SCALE);
   const [filter, setFilter] = useState<TypeFilter>('all');
-  const [expanded, setExpanded] = useState(false);
-  const [focusedId, setFocusedId] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // n: aynı soruya tekrar tıklanınca da (optik) yeniden kaydırılsın diye.
+  const [focus, setFocus] = useState<{ id: number; n: number } | null>(null);
+  const focusedId = focus?.id ?? null;
   // Yorumlar modalde; UnitDiscussion yalnız modal açılınca monte edilir (soru başına sorgu olmasın).
   const [commentsForId, setCommentsForId] = useState<number | null>(null);
   // Profildeki "Yorumlarım" linkleri vurgulanacak kaydı da taşır (ör. "c88" yorum, "a56" AI cevabı).
@@ -195,9 +200,10 @@ export default function QuestionBankBoard({
       const found = shownRef.current.some((q) => q.id === questionId);
       setLockedSharedQuestion(!found);
       if (!found) return;
+      const index = shownRef.current.findIndex((q) => q.id === questionId);
       setFilter('all');
-      setExpanded(true);
-      setFocusedId(questionId);
+      setVisibleCount((prev) => Math.max(prev, index + 1));
+      setFocus((prev) => ({ id: questionId, n: (prev?.n ?? 0) + 1 }));
     };
     window.addEventListener(FOCUS_QUESTION_EVENT, handler);
     return () => window.removeEventListener(FOCUS_QUESTION_EVENT, handler);
@@ -207,7 +213,8 @@ export default function QuestionBankBoard({
   // (test kartı vb.) yüksekliği değiştirip yumuşak kaydırmayı yarıda kesiyor — anında kaydır,
   // sayfa oturunca hedef hâlâ yerinde değilse bir kez daha düzelt.
   useEffect(() => {
-    if (focusedId == null) return;
+    if (focus == null) return;
+    const focusedId = focus.id;
     const scrollToTarget = () => {
       const el = document.getElementById(`soru-${focusedId}`);
       if (!el) return;
@@ -217,7 +224,7 @@ export default function QuestionBankBoard({
     scrollToTarget();
     const timer = window.setTimeout(scrollToTarget, 600);
     return () => window.clearTimeout(timer);
-  }, [focusedId]);
+  }, [focus]);
 
 
   const typeCounts = useMemo(() => {
@@ -227,7 +234,8 @@ export default function QuestionBankBoard({
   }, [shownQuestions]);
 
   const matching = filter === 'all' ? shownQuestions : shownQuestions.filter((q) => q.type === filter);
-  const limit = expanded || filter !== 'all' ? matching.length : INITIAL_VISIBLE;
+  // Filtreli görünümde de onar onar (kullanıcı isteği, 2026-10-04); filtre değişince ilk 10'a döner.
+  const limit = Math.min(visibleCount, matching.length);
   const visibleIds = new Set(matching.slice(0, limit).map((q) => q.id));
   const hiddenCount = matching.length - visibleIds.size;
 
@@ -244,6 +252,30 @@ export default function QuestionBankBoard({
   const handleAnswered = useCallback((questionId: number, status: AnswerStatus) => {
     setAnswers((prev) => (questionId in prev ? prev : { ...prev, [questionId]: status }));
   }, []);
+
+  const selectFilter = (next: TypeFilter) => {
+    setFilter(next);
+    setVisibleCount(PAGE_SIZE);
+  };
+
+  // Optik: gizli soruya atlanırsa filtre kalkar ve liste o soruya kadar açılır.
+  const jumpTo = useCallback((questionId: number) => {
+    const index = shownRef.current.findIndex((q) => q.id === questionId);
+    if (index === -1) return;
+    setFilter('all');
+    setVisibleCount((prev) => Math.max(prev, index + 1));
+    setFocus((prev) => ({ id: questionId, n: (prev?.n ?? 0) + 1 }));
+  }, []);
+
+  const optikStatus = (id: number): OptikStatus => {
+    if (!studentMode) return answers[id];
+    const last = viewer.stats.get(id)?.last_answer_correct;
+    return last == null ? undefined : last ? 'correct' : 'incorrect';
+  };
+  // Optik yalnız listede görünen soruları gösterir (kullanıcı isteği, 2026-10-04): ilk 10 soru açıksa
+  // 10 kutu, "Sonraki 10 soru" ile liste uzadıkça optik de uzar. Numara listedeki sırayla aynı.
+  const optikItems = shownQuestions.flatMap((q, i) => (visibleIds.has(q.id) ? [{ id: q.id, number: i + 1 }] : []));
+  const optikAnswered = studentMode ? shownQuestions.length : Object.keys(answers).length;
 
   const handleDeleted = useCallback((questionId: number) => {
     setQuestions((prev) => prev.filter((q) => q.id !== questionId));
@@ -300,11 +332,11 @@ export default function QuestionBankBoard({
           </div>
           {typeCounts.length > 1 && (
             <div role="group" aria-label="Soru türü" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
-              <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')} className={chipCls(filter === 'all')}>
+              <button type="button" aria-pressed={filter === 'all'} onClick={() => selectFilter('all')} className={chipCls(filter === 'all')}>
                 Tümü <span className="opacity-60">{shownQuestions.length}</span>
               </button>
               {typeCounts.map(([type, count]) => (
-                <button key={type} type="button" aria-pressed={filter === type} onClick={() => setFilter(type)} className={chipCls(filter === type)}>
+                <button key={type} type="button" aria-pressed={filter === type} onClick={() => selectFilter(type)} className={chipCls(filter === type)}>
                   {TYPE_LABELS[type]} <span className="opacity-60">{count}</span>
                 </button>
               ))}
@@ -313,7 +345,11 @@ export default function QuestionBankBoard({
         </div>
       )}
 
-      <ol className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+      <div className="hidden w-12 shrink-0 self-stretch lg:block">
+        <OptikRail items={optikItems} statusOf={optikStatus} onJump={jumpTo} />
+      </div>
+      <ol className="flex min-w-0 flex-1 flex-col gap-3">
         {shownQuestions.map((q, i) => {
           const stat = studentMode ? viewer.stats.get(q.id) : undefined;
           return (
@@ -348,16 +384,35 @@ export default function QuestionBankBoard({
           );
         })}
       </ol>
+      </div>
 
       {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-default bg-background font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
-        >
-          Kalan {hiddenCount} soruyu göster <ChevronDown className="h-4 w-4" aria-hidden="true" />
-        </button>
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-default bg-background font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+          >
+            Sonraki {Math.min(PAGE_SIZE, hiddenCount)} soru <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {hiddenCount > PAGE_SIZE && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(matching.length)}
+              className="min-h-9 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-default hover:underline"
+            >
+              Kalan {hiddenCount} sorunun tümünü göster
+            </button>
+          )}
+        </div>
       )}
+
+      <QuestionBankOptik
+        items={optikItems}
+        statusOf={optikStatus}
+        onJump={jumpTo}
+        answeredCount={optikAnswered}
+      />
 
       {commentsForId != null && (() => {
         const commentQuestionIndex = questions.findIndex((q) => q.id === commentsForId);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllTopicQuestions, getTopicTestQuestions } from '@/app/src/lib/quizQuestions';
 import { createClient } from '@/utils/supabase/server';
+import { isPublicRequest, publicApiCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 // Sunum modunun "soru çöz" adımı (SlidePlayer) için. Giriş yapmışsa (öğrenci evde kendi
 // başına çalışıyor, kullanıcının 2026-09-22 isteği): getTopicTestQuestions ile AYNI
@@ -9,11 +10,19 @@ import { createClient } from '@/utils/supabase/server';
 // partiyi alır. Misafirde (akıllı tahtadaki tipik kullanım — öğretmen giriş yapmadan tüm
 // sınıfa sırayla çözdürüyor) kişiselleştirme/limit YOK, konunun tüm aktif soruları id
 // sırasıyla döner (eski davranış).
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ topicId: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ topicId: string }> }) {
   const { topicId: topicIdParam } = await params;
   const topicId = Number(topicIdParam);
   if (!topicId || !Number.isInteger(topicId)) {
     return NextResponse.json({ error: 'Geçersiz konu' }, { status: 400 });
+  }
+
+  // public=1 (soru bankası misafir testi, 2026-10-04): oturuma bakmadan tüm havuz, CDN'de bir
+  // sonraki pazar 10:00 TR'ye kadar önbellekli (bkz. publicApiCache.ts) — her açılış fonksiyon
+  // çalıştırmasın. Hangi 10 sorunun gösterileceğini istemci seçer (QuizPlayerModal).
+  if (isPublicRequest(request.nextUrl.searchParams)) {
+    const questions = await getAllTopicQuestions(topicId);
+    return NextResponse.json({ questions, allCaughtUp: false, personalized: false }, { headers: publicApiCacheHeaders() });
   }
 
   const supabase = await createClient();

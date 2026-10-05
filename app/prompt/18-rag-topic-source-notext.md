@@ -7,6 +7,9 @@ Bu konunun kapsaması gereken kazanımlar:
 
 {key_concepts_block}
 
+{teacher_guide_guidance}
+Öğretmen kılavuzu bilgisi verildiyse metnin omurgası odur: kılavuzun öğrettiği bilgilerin hepsini kapsa, tanımları kılavuzun ifadelerine sadık kalarak ver, örnekleri öncelikle kılavuzun örneklerinden seç ve kılavuzun belirttiği kapsam/derinliğe uy. Kılavuz kazanımları açıklar, yerine geçmez.
+
 Biçim kuralları:
 - SADECE düz metin döndür. JSON, markdown başlık işareti (#), kod bloğu, madde işareti (- veya *) kullanma.
 - Paragraflar arasında bir boş satır bırak.
@@ -17,9 +20,8 @@ Biçim kuralları:
 Doğruluk kuralları (ÖNEMLİ — bunlar ihlal edilirse metin öğrenciye yanlış bilgi verir):
 - Sadece kesin doğru olduğundan emin olduğun bilgiyi yaz; emin olmadığın bir tarih, sayı veya istatistiği UYDURMA — o cümleyi ya atla ya da genel/kesin ifadeyle yaz.
 - {grade} seviyesine uygun dilde ve derinlikte yaz — ne daha basit ne daha karmaşık.
-- Yukarıdaki kazanım listesinde OLMAYAN bir alt konuya girme, kapsam dışına çıkma.
+- Yukarıdaki kazanım listesinde OLMAYAN bir alt konuya girme, kapsam dışına çıkma. Öğretmen kılavuzundan verilen bilgiler ve örnekler kapsam İÇİNDEDİR.
 
 Bağlam: Sınıf {grade} | Ders {lesson} | Ünite {unit} | Konu {topic}
 
-{teacher_guide_guidance}
 Kaynak metni tamamladıktan SONRA, ayrı bir satırda tek başına "---" yaz; onun altına SADECE kendi tam model adını yaz (ör. "GPT-5.1", "Gemini 3 Pro", "Claude Sonnet 5") — başka hiçbir kelime ekleme. Bu son satır kaynak metnin bir parçası DEĞİLDİR, hangi AI'ın yazdığını kaydetmek için ayrıca okunacak.
