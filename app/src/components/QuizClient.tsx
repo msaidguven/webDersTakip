@@ -1,12 +1,12 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { submitAnswers, startSessionWithRetry, flushAnswerOutbox } from '@/app/src/lib/answerSync';
+import { submitAnswers, startSessionWithRetry, flushAnswerOutbox, type AnswerDetail } from '@/app/src/lib/answerSync';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
-import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestionTypes';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
@@ -420,7 +420,9 @@ function QuestionAnswerKeyItemImpl({
   // veya arama motoru her şeyi ilk yanıtta görür (bkz. .cevap-aciklama / .cevap-marker için
   // <noscript> override, app/soru-bankasi/.../page.tsx).
   interactive?: boolean;
-  onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed', optionId?: number) => void;
+  // optionId: seçilen seçenek (çoktan seçmeli/boşluk); match: eşleştirme ataması (sol → sağ çift id).
+  // Kayıt yapan çağıranlar bunları sunucuya gönderir — doğruluk sunucuda hesaplanır (answerSync.ts).
+  onAnswered?: (questionId: number, status: 'correct' | 'incorrect' | 'revealed', optionId?: number, match?: Record<number, number>) => void;
   // Akıllı tahta metin büyütme (bkz. SlidePlayer +/- kontrolü) — SADECE yazı boyutunu
   // büyütür, buton dolgusu/genişliği rem cinsinden sabit kaldığı için layout taşmaz.
   // rem yerine inline stil kullanılıyor çünkü Tailwind'in text-sm/text-xs'i rem tabanlı
@@ -587,7 +589,7 @@ function QuestionAnswerKeyItemImpl({
     const allCorrect = q.pairs.every((p) => assignment[p.id] === p.id);
     if (controlledRevealed === undefined) setInternalRevealed(true);
     onCheckMatch?.();
-    onAnswered?.(q.id, allCorrect ? 'correct' : 'incorrect');
+    onAnswered?.(q.id, allCorrect ? 'correct' : 'incorrect', undefined, assignment);
   };
 
   const revealClassical = () => {
@@ -1007,7 +1009,7 @@ export default function QuizClient({
   // Oturum açma RPC'si henüz dönmemişken kullanıcı çok hızlı cevap verirse buraya
   // birikir; sessionId gelince aşağıdaki efekt hepsini tek seferde gönderir — hiçbir
   // cevap sessizce kaybolmaz.
-  const pendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
+  const pendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number; answer: AnswerDetail }[]>([]);
 
   // clientIdRef'i HER durumda (resume dahil) mount'ta oluşturur. Önceden sadece yeni oturum
   // açan efektin içinde set ediliyordu — resume ile devam edilen bir oturumda o efekt hiç
@@ -1148,6 +1150,8 @@ export default function QuizClient({
             client_id: clientIdRef.current,
             is_correct: a.isCorrect,
             duration_seconds: a.durationSeconds,
+            selected_option_id: a.answer.optionId ?? null,
+            match: a.answer.match ?? null,
           }))
         );
       }
@@ -1182,7 +1186,8 @@ export default function QuizClient({
   // üst üste gelen çağrılar çift test_session_answers satırı (ve istatistikte çift sayım) üretmesin.
   const recordedAnswersRef = useRef<Set<string>>(new Set());
 
-  function recordAnswer(questionId: number, isCorrect: boolean) {
+  // answer: cevabın kendisi — sunucu doğruluğu bundan hesaplar (is_correct yalnız ekran içindir).
+  function recordAnswer(questionId: number, isCorrect: boolean, answer: AnswerDetail = {}) {
     if (!user) return;
     const recordKey = `${reloadKey}:${questionId}`;
     if (recordedAnswersRef.current.has(recordKey)) return;
@@ -1194,7 +1199,7 @@ export default function QuizClient({
     // Oturum RPC'si henüz dönmediyse (nadir, çok hızlı cevaplama) kaybetmeden kuyruğa
     // al — sessionId gelince yukarıdaki efekt bunu gönderecek.
     if (sessionId == null) {
-      pendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds });
+      pendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds, answer });
       return;
     }
     void submitAnswers(supabase, [{
@@ -1204,6 +1209,8 @@ export default function QuizClient({
       client_id: clientIdRef.current,
       is_correct: isCorrect,
       duration_seconds: durationSeconds,
+      selected_option_id: answer.optionId ?? null,
+      match: answer.match ?? null,
     }]);
   }
 
@@ -1231,7 +1238,7 @@ export default function QuizClient({
     setLocked((prev) => ({ ...prev, [current.id]: true }));
     setCorrect((prev) => ({ ...prev, [current.id]: !!chosen?.is_correct }));
     setFeedback((prev) => ({ ...prev, [current.id]: randomOf(chosen?.is_correct ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
-    recordAnswer(current.id, !!chosen?.is_correct);
+    recordAnswer(current.id, !!chosen?.is_correct, { optionId });
   };
 
   // Eşleştirmede tek bir çift atandığında ANINDA doğru/yanlış göstermiyoruz — kullanıcı
@@ -1258,7 +1265,7 @@ export default function QuizClient({
     setLocked((prev) => ({ ...prev, [current.id]: true }));
     setCorrect((prev) => ({ ...prev, [current.id]: allCorrect }));
     setFeedback((prev) => ({ ...prev, [current.id]: randomOf(allCorrect ? CORRECT_MESSAGES : INCORRECT_MESSAGES) }));
-    recordAnswer(current.id, allCorrect);
+    recordAnswer(current.id, allCorrect, { match: assignment });
   };
 
   const setClassicalText = (text: string) => {

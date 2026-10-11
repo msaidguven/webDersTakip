@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import QuizClient, { type QuizClientProps } from './QuizClient';
 import UnitDiscussion from './UnitDiscussion';
-import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 
 export type QuizWithAskProps = Omit<QuizClientProps, 'onCurrentQuestionChange'> & {
   gradeId: number;

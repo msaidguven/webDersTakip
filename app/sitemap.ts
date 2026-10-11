@@ -3,7 +3,7 @@ import { createPublicClient } from '@/utils/supabase/public';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 
-// 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazar 10:00 TR yenilemesi
+// 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazartesi 03:00 TR yenilemesi
 // (scheduledCacheRefresh.ts, revalidatePath layout) sitemap'i de tazeler.
 export const revalidate = 604800;
 

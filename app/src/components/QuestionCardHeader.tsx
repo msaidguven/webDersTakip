@@ -7,7 +7,7 @@
 // kartın kendi paylaş/silme durumu olması gerektiğinden) ayrı bir component olarak taşındı.
 import { useState } from 'react';
 import { ListChecks, MessageSquare, Minus, PenLine, Pencil, Plus, Share2, Shuffle, Trash2 } from 'lucide-react';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { TYPE_LABELS } from '@/app/src/components/QuizClient';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
 

@@ -25,7 +25,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
 

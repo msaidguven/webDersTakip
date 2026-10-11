@@ -8,7 +8,8 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type TouchEvent } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Maximize2, Minimize2, Minus, Plus, X } from 'lucide-react';
 import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
+import type { AnswerDetail } from '@/app/src/lib/answerSync';
 
 // Her "section" slaydına / soruya sırayla değişen renk teması — aynı içerik tek düze
 // hissetmesin diye. Marka rengi (#6C63FF) chrome/navigasyonda sabit.
@@ -50,7 +51,7 @@ export function useQuestionRunner({
 }: {
   questions: QuizQuestion[] | null;
   active: boolean;
-  onAnswer?: (questionId: number, status: AnswerStatus) => void;
+  onAnswer?: (questionId: number, status: AnswerStatus, answer: AnswerDetail) => void;
 }) {
   const [qIndex, setQIndex] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -67,9 +68,10 @@ export function useQuestionRunner({
     onAnswerRef.current = onAnswer;
   });
 
-  const handleAnswered = useCallback((id: number, status: AnswerStatus) => {
+  // optionId/match: cevabın kendisi — kayıt yapan çağıran sunucuya gönderir (doğruluk sunucuda).
+  const handleAnswered = useCallback((id: number, status: AnswerStatus, optionId?: number, match?: Record<number, number>) => {
     setAnsweredMap((m) => (id in m ? m : { ...m, [id]: status }));
-    onAnswerRef.current?.(id, status);
+    onAnswerRef.current?.(id, status, { optionId: optionId ?? null, match: match ?? null });
   }, []);
 
   const total = questions?.length ?? 0;
@@ -370,7 +372,7 @@ export const QuestionStack = memo(function QuestionStack({
   timedOutIds: Set<number>;
   timeLeft: number;
   fontScale: number;
-  onAnswered: (id: number, status: AnswerStatus) => void;
+  onAnswered: (id: number, status: AnswerStatus, optionId?: number, match?: Record<number, number>) => void;
 }) {
   // Kaydırma kutusu tüm sorular için ORTAK (sorular unmount edilmiyor) — yeni soruya geçince
   // başa dön, yoksa uzun bir soruda aşağı inip "Sonraki"ye basan öğrenci yeni soruyu ortasından görür.

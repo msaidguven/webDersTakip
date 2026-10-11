@@ -6,7 +6,7 @@
 // hedefi değişiyor (bkz. kullanıcının 2026-09-05 isteği: soru bankası ve panel aynı test
 // motorunu, farklı giriş noktalarından modal olarak açsın).
 import { notFound } from 'next/navigation';
-import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestionTypes';
 import {
   getTopicTestPageData,
   getUnitTestPageData,

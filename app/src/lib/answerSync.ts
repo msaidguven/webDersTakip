@@ -6,9 +6,17 @@
 //     sekme kapanır/ağ kopar/hata olursa bir sonraki ziyarette (AnswerOutboxFlusher) gönderilir.
 //   * Yeniden deneme: geçici hatalarda artan aralıklarla tekrar dener.
 //   * İdempotent: (test_session_id, question_id) benzersiz (bkz. supabase/migrations/
-//     test_session_answers_dedupe_and_unique.sql) + ignoreDuplicates — aynı cevap iki kez
-//     gönderilse de (yeniden deneme, iki sekme, sayfa kapanışı) tek satır oluşur.
+//     test_session_answers_dedupe_and_unique.sql) — aynı cevap iki kez gönderilse de (yeniden
+//     deneme, iki sekme, sayfa kapanışı) tek satır oluşur.
+//   * Güvenlik (2026-10-08, Sınav Hazırlık'taki düzeltmenin aynısı): tablo doğrudan yazılmaz;
+//     submit_test_answers RPC'si oturum sahipliğini ve cevabın soruya aitliğini denetler,
+//     doğruluğu SUNUCUDA hesaplar (bkz. supabase/migrations/secure_test_answers_2_lockdown.sql). Bunun için
+//     cevabın kendisi gider: çoktan seçmeli/boşluk doldurmada seçilen seçenek, eşleştirmede
+//     atama. is_correct yalnız ekrandaki anlık geri bildirim için istemcide tutulur.
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Kayıt çağıranlarının ilettiği cevap ayrıntısı (AnswerRow'a selected_option_id / match olarak geçer).
+export type AnswerDetail = { optionId?: number | null; match?: Record<number, number> | null };
 
 export type AnswerRow = {
   test_session_id: number;
@@ -17,6 +25,11 @@ export type AnswerRow = {
   client_id: string;
   is_correct: boolean;
   duration_seconds: number;
+  // Seçilen seçenek: çoktan seçmelide question_choices.id, boşluk doldurmada
+  // question_blank_options.id. Süre dolduysa null (yanlış sayılır).
+  selected_option_id?: number | null;
+  // Eşleştirme: sol çift id → seçilen sağ çift id (doğru = her çift kendisiyle eşleşmiş).
+  match?: Record<string, number> | null;
 };
 
 const OUTBOX_KEY = 'answer-outbox-v1';
@@ -24,10 +37,6 @@ const RETRY_DELAYS_MS = [1000, 3000, 8000, 20000];
 // Tekrar denemekle düzelmeyecek hatalar — kutuda sonsuza kadar dönmesinler:
 // 23503 oturum/soru silinmiş (FK), 42501 RLS (başka kullanıcının satırı), 22P02 geçersiz veri.
 const PERMANENT_ERROR_CODES = new Set(['23503', '42501', '22P02', '23502']);
-// Benzersiz indeks henüz yoksa (migration çalıştırılmadan deploy) on_conflict reddedilir —
-// o durumda düz insert'e düşülür, hiçbir cevap bu yüzden kaybolmaz.
-const NO_UNIQUE_INDEX_CODE = '42P10';
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
 type DbError = { code?: string; message: string } | null;
@@ -73,14 +82,23 @@ function removeSent(sent: AnswerRow[]) {
   saveAll(loadAll().filter((r) => !sentKeys.has(rowKey(r))));
 }
 
+// Sunucuya giden alanlar: doğruluk (is_correct) ve kullanıcı (user_id) sunucuda belirlenir.
+const toPayload = (rows: AnswerRow[]) =>
+  rows.map((r) => ({
+    test_session_id: r.test_session_id,
+    question_id: r.question_id,
+    client_id: r.client_id,
+    selected_option_id: r.selected_option_id ?? null,
+    match: r.match ?? null,
+    duration_seconds: r.duration_seconds,
+  }));
+
+// Geçersiz satırlar (oturum yok, seçenek soruya ait değil…) RPC'de atlanır, parti bozulmaz; kutudan
+// yine çıkarılır — tekrar göndermek sonucu değiştirmez.
 async function sendRows(supabase: Supabase, rows: AnswerRow[]): Promise<DbError> {
-  const { error } = await supabase
-    .from('test_session_answers')
-    .upsert(rows, { onConflict: 'test_session_id,question_id', ignoreDuplicates: true });
-  if ((error as DbError)?.code === NO_UNIQUE_INDEX_CODE) {
-    const fallback = await supabase.from('test_session_answers').insert(rows);
-    return fallback.error as DbError;
-  }
+  const { data, error } = await supabase.rpc('submit_test_answers', { p_rows: toPayload(rows) });
+  const skipped = (data as { skipped?: { reason: string }[] } | null)?.skipped;
+  if (skipped?.length) console.warn('Bazı cevaplar sunucuda reddedildi:', skipped);
   return error as DbError;
 }
 
@@ -91,32 +109,36 @@ let inFlight: Promise<void> | null = null;
 // satırları RLS'e takılır — onlar kendi sahibi giriş yapınca gider). Aynı anda tek gönderim.
 export function flushAnswerOutbox(supabase: Supabase, userId: string): Promise<void> {
   if (inFlight) return inFlight;
-  inFlight = (async () => {
-    try {
-      for (let attempt = 0; ; attempt++) {
-        const rows = loadAll().filter((r) => r.user_id === userId);
-        if (!rows.length) return;
-        const error = await sendRows(supabase, rows);
-        if (!error) {
-          removeSent(rows);
-          return;
-        }
-        if (error.code && PERMANENT_ERROR_CODES.has(error.code)) {
-          console.error('Cevap kalıcı hatayla reddedildi, kutudan çıkarıldı:', error.message);
-          removeSent(rows);
-          return;
-        }
-        if (attempt >= RETRY_DELAYS_MS.length) {
-          console.warn('Cevaplar gönderilemedi, sonraki ziyarette tekrar denenecek:', error.message);
-          return;
-        }
-        await sleep(RETRY_DELAYS_MS[attempt]);
+  // Temizlik .finally'de: async gövde beklemeden biterse (kutu boş) eski try/finally içindeki
+  // `inFlight = null` atamadan ÖNCE çalışıyor, ardından çözülmüş söz inFlight'a yazılıp hiç
+  // temizlenmiyordu → o sekmede sonraki tüm gönderimler sessizce atlanıyor, cevaplar ancak bir
+  // sonraki sayfa açılışında gidiyordu (2026-10-08).
+  const run = async () => {
+    for (let attempt = 0; ; attempt++) {
+      const rows = loadAll().filter((r) => r.user_id === userId);
+      if (!rows.length) return;
+      const error = await sendRows(supabase, rows);
+      if (!error) {
+        removeSent(rows);
+        return;
       }
-    } finally {
-      inFlight = null;
+      if (error.code && PERMANENT_ERROR_CODES.has(error.code)) {
+        console.error('Cevap kalıcı hatayla reddedildi, kutudan çıkarıldı:', error.message);
+        removeSent(rows);
+        return;
+      }
+      if (attempt >= RETRY_DELAYS_MS.length) {
+        console.warn('Cevaplar gönderilemedi, sonraki ziyarette tekrar denenecek:', error.message);
+        return;
+      }
+      await sleep(RETRY_DELAYS_MS[attempt]);
     }
-  })();
-  return inFlight;
+  };
+  const current = run().finally(() => {
+    if (inFlight === current) inFlight = null;
+  });
+  inFlight = current;
+  return current;
 }
 
 export function submitAnswers(supabase: Supabase, rows: AnswerRow[]): Promise<void> {
@@ -138,16 +160,15 @@ export function beaconAnswerOutbox(userId: string, accessToken: string) {
   const apiKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!rows.length || !url || !apiKey) return;
   try {
-    void fetch(`${url}/rest/v1/test_session_answers?on_conflict=test_session_id,question_id`, {
+    void fetch(`${url}/rest/v1/rpc/submit_test_answers`, {
       method: 'POST',
       keepalive: true,
       headers: {
         apikey: apiKey,
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=ignore-duplicates,return=minimal',
       },
-      body: JSON.stringify(rows),
+      body: JSON.stringify({ p_rows: toPayload(rows) }),
     });
   } catch {
     // keepalive gövde sınırı (64 KB) vb. — kutu zaten duruyor, sonraki ziyarette gider.

@@ -1,7 +1,7 @@
 'use client';
 
 // Yalnız admin'e görünen "Bu sayfayı yenile" düğmesi (2026-10-04). Sayfalar haftalık önbellekte
-// (pazar 10:00 TR); hafta içi bir düzeltmenin hemen görünmesi gerekirse admin o sayfayı açıp
+// (pazartesi 03:00 TR); hafta içi bir düzeltmenin hemen görünmesi gerekirse admin o sayfayı açıp
 // buna basar → /api/admin/revalidate-page (konu/soru bankası konu sayfasında bağlı 4 sayfa
 // birlikte). İsteğe bağlı anasayfa da (kapak resmi "Yeni eklenenler"de görünür). Yetki
 // sunucuda (requireAdmin); burada yalnız göster/gizle.

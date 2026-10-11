@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   const { data: publishedData, error: publishedError } = await publishedQuery.order('created_at', { ascending: true });
   if (publishedError) return NextResponse.json({ error: publishedError.message }, { status: 500 });
 
-  // public=1: herkes için aynı, CDN'de pazar 10:00 TR'ye kadar önbellekli yanıt — oturuma hiç
+  // public=1: herkes için aynı, CDN'de pazartesi 03:00 TR'ye kadar önbellekli yanıt — oturuma hiç
   // bakılmaz (girişli kullanıcı da bunu çağırır; kendi onay bekleyen yorumu istemcide yerelde
   // tutulur, bkz. pendingCommentsStore.ts). public=1 olmayan eski davranış aşağıda korunuyor.
   if (isPublicRequest(request.nextUrl.searchParams)) {

@@ -594,8 +594,8 @@ export default function UnitDiscussion({
   // (kullanıcı raporu, 2026-09-12: "giriş yapmamış kullanıcılar da yorumcunun
   // kullanıcı adını/PP'sini görsün"). loadAiFeed zaten aynı deseni kullanıyordu.
   //
-  // 2026-10-04 (CPU 2. tur, kullanıcı kararı): girişli kullanıcı da herkese açık, CDN'de pazar
-  // 10:00 TR'ye kadar önbellekli akışı (public=1) okur — onaylanan yorumlar herkese pazar sabahı
+  // 2026-10-04 (CPU 2. tur, kullanıcı kararı): girişli kullanıcı da herkese açık, CDN'de pazartesi
+  // 03:00 TR'ye kadar önbellekli akışı (public=1) okur — onaylanan yorumlar herkese pazartesi
   // görünür. Kullanıcının kendi onay bekleyen/henüz akışa girmemiş yorumları sunucuya gitmeden
   // tarayıcıdan eklenir (pendingCommentsStore.ts).
   const loadComments = React.useCallback(async () => {
@@ -885,7 +885,7 @@ export default function UnitDiscussion({
         profiles: data.profile || null,
       };
       setComments((prev) => [...prev, { ...questionComment, kind: 'comment' }]);
-      // Hemen yayınlanan soru yorumu da herkese açık akışa ancak pazar yenilemesinde girer.
+      // Hemen yayınlanan soru yorumu da herkese açık akışa ancak pazartesi yenilemesinde girer.
       if (userId && data.commentId != null) rememberOwnComment(scope, questionComment);
       if (data.queueId != null) {
         setAiEntries((prev) => [

@@ -16,7 +16,7 @@
 // açık (bkz. useQuestionBankViewer); misafir, öğretmen ve admin tüm listeyi.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Award, CheckCircle2, ChevronDown, MessageCircle, Minus, Plus, RotateCcw, X, XCircle } from 'lucide-react';
-import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { QuestionAnswerKeyItem, TYPE_LABELS } from '@/app/src/components/QuizClient';
 import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';

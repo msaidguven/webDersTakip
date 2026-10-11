@@ -10,13 +10,13 @@
 //    yalnız yayındaki kayıtları döndürür; istemci bunları girişli kullanıcı için de bu şekilde
 //    çağırır, kendi onay bekleyen yorumunu yerelde tutar (pendingCommentsStore.ts).
 //
-// Süre (2026-10-04, CPU 2. tur): sabit değil, bir sonraki PAZAR 10:00 TR'ye (07:00 UTC) kadar —
-// sayfaların haftalık yenilendiği an (bkz. scheduledCacheRefresh.ts). Böylece hafta içinde
-// onaylanan yorum herkese pazar sabahı, sayfalarla birlikte görünür. Haftalık mantığa dönmek
+// Süre (2026-10-04, CPU 2. tur): sabit değil, bir sonraki PAZARTESİ 03:00 TR'ye (00:00 UTC) kadar —
+// sayfaların haftalık yenilendiği an (bkz. scheduledCacheRefresh.ts; 2026-10-10'a kadar pazar 10:00).
+// Böylece hafta içinde onaylanan yorum herkese pazartesi, sayfalarla birlikte görünür. Haftalık mantığa dönmek
 // istenirse (ör. 1 gün) yalnız nextPublicRefreshSeconds değiştirilir.
 
-const REFRESH_UTC_DAY = 0; // pazar
-const REFRESH_UTC_HOUR = 7; // 10:00 Europe/Istanbul (UTC+3, yaz saati yok)
+const REFRESH_UTC_DAY = 1; // pazartesi
+const REFRESH_UTC_HOUR = 0; // 03:00 Europe/Istanbul (UTC+3, yaz saati yok)
 const MIN_TTL_SECONDS = 300;
 
 export function nextPublicRefreshSeconds(now = new Date()): number {

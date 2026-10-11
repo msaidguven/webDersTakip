@@ -100,7 +100,7 @@ export async function getDailyQuestion(supabase: AnySupabaseClient): Promise<Dai
   };
 }
 
-// Haftalık Günün Sorusu seti (2026-10-04, Vercel CPU): anasayfa 7 gün önbellekte ve pazar yenileniyor;
+// Haftalık Günün Sorusu seti (2026-10-04, Vercel CPU): anasayfa 7 gün önbellekte ve pazartesi 03:00 TR yenileniyor;
 // günlük yenileme olmasın diye sunucu sayfa üretilirken 7 soru seçer, tarayıcı bugünün tarihine göre
 // birini gösterir (bkz. DailyQuestionCard.tsx → DailyQuestionOfTheDay). Seçim, getDailyQuestion ile
 // aynı havuzdan ve aynı kurallarla (yayındaki konu, görselsiz, çoktan seçmeli); tohum seçim günüdür.

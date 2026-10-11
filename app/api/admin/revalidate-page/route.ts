@@ -1,7 +1,7 @@
 // app/api/admin/revalidate-page/route.ts
 // Admin'in "Bu sayfayı yenile" düğmesi (AdminPageRefresh, 2026-10-04). Sayfalar haftalık
-// önbellekte (pazar 10:00 TR yenilenir); hafta içinde düzeltilen/eklenen içerik (kapak resmi,
-// hatalı soru) pazarı beklemeden görünsün diye yalnız istenen sayfaları revalidate eder. Sayfa
+// önbellekte (pazartesi 03:00 TR yenilenir); hafta içinde düzeltilen/eklenen içerik (kapak resmi,
+// hatalı soru) haftalık yenilemeyi beklemeden görünsün diye yalnız istenen sayfaları revalidate eder. Sayfa
 // hemen üretilmez — bir sonraki ziyarette bir kez üretilir (sayfa başına ~1 sn CPU).
 // Düğme hangi sitede açıksa onu yeniler (canlıda canlıyı); yerel geliştirme sunucusu zaten
 // önbellek tutmadığı için orada etkisizdir.

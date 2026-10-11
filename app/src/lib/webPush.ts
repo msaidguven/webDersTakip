@@ -1,6 +1,7 @@
 // SADECE sunucu (API route'ları) — VAPID özel anahtarı kullanır, client bileşenlerden import edilmez.
 // Web Push gönderimi (yol haritası 3c, 2026-09-27). VAPID anahtarları env'den:
 // NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (https://… ya da mailto:).
+import 'server-only';
 import webpush, { type PushSubscription } from 'web-push';
 
 export interface PushPayload {

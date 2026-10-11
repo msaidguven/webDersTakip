@@ -166,7 +166,8 @@ export async function loadTopicQuizState(data: TopicTestPageData, options?: { fo
         return { resumable: null, conflict, initialQuestions: [] as QuizQuestion[], remainingQuestionIds: [] as number[], allCaughtUp: false };
       }
       if (conflict && options?.forceNew) {
-        await supabase.from('test_sessions').update({ completed_at: new Date().toISOString() }).eq('id', conflict.sessionId).is('completed_at', null);
+        // Doğrudan UPDATE kapalı (secure_test_answers_2_lockdown.sql): sahiplik RPC'de denetlenir.
+        await supabase.rpc('finish_test_session', { p_session_id: conflict.sessionId });
       }
     }
   }
@@ -311,7 +312,8 @@ export async function loadUnitQuizState(data: UnitTestPageData, options?: { forc
         return { resumable: null, conflict, initialQuestions: [] as QuizQuestion[], remainingQuestionIds: [] as number[], allCaughtUp: false };
       }
       if (conflict && options?.forceNew) {
-        await supabase.from('test_sessions').update({ completed_at: new Date().toISOString() }).eq('id', conflict.sessionId).is('completed_at', null);
+        // Doğrudan UPDATE kapalı (secure_test_answers_2_lockdown.sql): sahiplik RPC'de denetlenir.
+        await supabase.rpc('finish_test_session', { p_session_id: conflict.sessionId });
       }
     }
   }

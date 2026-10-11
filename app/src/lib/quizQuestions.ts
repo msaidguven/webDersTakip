@@ -1,40 +1,11 @@
+import 'server-only';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 
-export type Option = { id: number; text: string; is_correct: boolean };
-export type Pair = { id: number; left_text: string; right_text: string };
-
-export type SvgPosition = 'above' | 'below';
-export type MultipleChoiceQuestion = { id: number; type: 'multiple_choice'; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition; choices: Option[] };
-export type BlankQuestion = { id: number; type: 'blank'; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition; options: Option[] };
-export type MatchingQuestion = { id: number; type: 'matching'; question_text: string; pairs: Pair[] };
-export type ClassicalQuestion = { id: number; type: 'classical'; question_text: string; svg_content: string | null; svg_position: SvgPosition; modelAnswer: string | null };
-export type QuizQuestion = MultipleChoiceQuestion | BlankQuestion | MatchingQuestion | ClassicalQuestion;
-
-// Test sayfasındaki "AI'ye Sor" widget'ı, öğrenci "neden A" gibi kısa bir şey yazınca
-// hangi sorudan bahsettiğini bilsin diye aktif sorunun düz metin özetini üretir —
-// doğru cevap da dahil, çünkü amaç Gemini'nin "neden X doğru" diye açıklayabilmesi.
-export function formatQuestionContext(q: QuizQuestion): string {
-  const letter = (i: number) => String.fromCharCode(65 + i);
-  switch (q.type) {
-    case 'multiple_choice':
-      return `Öğrencinin şu anda baktığı çoktan seçmeli soru: ${q.question_text}\nŞıklar:\n${q.choices
-        .map((c, i) => `${letter(i)}) ${c.text}${c.is_correct ? ' — doğru cevap bu' : ''}`)
-        .join('\n')}`;
-    case 'blank':
-      return `Öğrencinin şu anda baktığı boşluk doldurma sorusu: ${q.question_text}\nSeçenekler:\n${q.options
-        .map((o, i) => `${letter(i)}) ${o.text}${o.is_correct ? ' — doğru cevap bu' : ''}`)
-        .join('\n')}`;
-    case 'matching':
-      return `Öğrencinin şu anda baktığı eşleştirme sorusu: ${q.question_text}\nDoğru çiftler:\n${q.pairs
-        .map((p) => `${p.left_text} — ${p.right_text}`)
-        .join('\n')}`;
-    case 'classical':
-      return `Öğrencinin şu anda baktığı açık uçlu soru: ${q.question_text}${
-        q.modelAnswer ? `\nÖrnek/model cevap: ${q.modelAnswer}` : ''
-      }`;
-  }
-}
+import type { Option, Pair, QuizQuestion, SvgPosition } from '@/app/src/lib/quizQuestionTypes';
+import { MAX_QUESTIONS_PER_TEST } from '@/app/src/lib/quizQuestionTypes';
+// Tipler/saf yardımcılar/sabitler istemciye güvenli modülde; mevcut sunucu içe aktarmaları bozulmasın diye yeniden dışa aktarılıyor.
+export * from '@/app/src/lib/quizQuestionTypes';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -125,10 +96,6 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
   return shuffle(all);
 }
 
-// Bir testte gösterilecek soru sayısı sabitlendi: hem tekrar çözmeyi (havuz büyükse
-// her seferinde farklı 10 soru) hem soru sayısına göre süre hesaplamayı basitleştiriyor.
-export const MAX_QUESTIONS_PER_TEST = 10;
-export const SECONDS_PER_QUESTION = 60;
 
 export interface PersonalizedQuestionSet {
   questions: QuizQuestion[];

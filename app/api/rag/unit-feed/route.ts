@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   // yer tutucusu — comment_id sayesinde o yoruma YANIT olarak nest ediliyor (tıpkı
   // gerçek cevap gelince rag_answers'ta olacağı gibi). comment_id'si olmayan (eski,
   // bu alan eklenmeden önce kuyruğa girmiş) satırlar atlanıyor.
-  // public=1: yalnız yayındaki cevaplar, oturuma bakmadan, CDN'de pazar 10:00 TR'ye kadar
+  // public=1: yalnız yayındaki cevaplar, oturuma bakmadan, CDN'de pazartesi 03:00 TR'ye kadar
   // (bkz. publicApiCache.ts). Kendi bekleyen sorusunu görmesi gereken kullanıcı işaretsiz çağırır.
   if (isPublicRequest(request.nextUrl.searchParams)) {
     return NextResponse.json({ items: answered }, { headers: publicApiCacheHeaders() });

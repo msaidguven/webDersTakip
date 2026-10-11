@@ -13,7 +13,7 @@ import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
 import { buildBlocks } from './SectionContent';
 import type { TopicHighlight } from './dersHelpers';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
 
 export type StudyMode = 'highlights' | 'details' | 'slides' | 'summary' | 'test';

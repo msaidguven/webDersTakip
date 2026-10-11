@@ -11,7 +11,7 @@ import { getDailyQuestionSet, getRecentlyPublishedTopics, getRecentlyPublishedTo
 // ISR (tamamen public). 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı; eskiden 1 saat):
 // içerik yayınlandığında/soru eklendiğinde admin endpoint'leri revalidateHomepage() ile sayfayı
 // anında tazeliyor (bkz. topicPageRevalidation.ts). Günün Sorusu (haftanın 7 sorusundan) ve "YENİ"
-// rozeti tarayıcıda hesaplandığı için günlük yenileme yok; tüm sayfalar pazar 10:00 TR'de yenilenir
+// rozeti tarayıcıda hesaplandığı için günlük yenileme yok; tüm sayfalar pazartesi 03:00 TR'de yenilenir
 // — bkz. app/src/lib/scheduledCacheRefresh.ts.
 export const revalidate = 604800;
 

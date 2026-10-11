@@ -84,13 +84,14 @@ function computeWeekStart(termStart: Date, week: number, breaks: CurriculumBreak
   return start;
 }
 
-// "Şimdi"nin müfredat haftası hesabında kullanılacak hâli (2026-10-04, kullanıcı kararı): sayfalar 7 gün
-// önbellekte ve pazar 10:00 TR'de yenileniyor; yeni hafta PAZAR 09:00 TR'den itibaren gösterilir
-// (öğrenci pazartesiye hazırlansın, pazar yenilemesi zaten yeni haftayı üretsin). Hafta başları
+// "Şimdi"nin müfredat haftası hesabında kullanılacak hâli. Sayfalar 7 gün önbellekte ve PAZARTESİ 03:00
+// TR'de yenileniyor (2026-10-10; önceden pazar 10:00 ve yeni hafta pazar 09:00'dan itibaren
+// gösteriliyordu). Önizleme 0: yeni hafta pazartesi 00:00 TR'de başlar — önizleme kalsaydı pazar
+// günü önbellekte olmayan sayfalar yeni haftayı, önbellektekiler eskisini gösterirdi. Hafta başları
 // `new Date('YYYY-MM-DDT00:00:00')` ile çalışma ortamının YEREL saatinde kuruluyor (Vercel'de UTC,
-// tarayıcıda TR) — bu yüzden İstanbul duvar saatini yerel Date olarak kurup 15 saat ileri alıyoruz
-// (pazar 09:00 + 15 sa = pazartesi 00:00); her ortamda aynı sonuç çıkar.
-const WEEK_PREVIEW_HOURS = 15;
+// tarayıcıda TR) — bu yüzden İstanbul duvar saatini yerel Date olarak kurup WEEK_PREVIEW_HOURS ileri
+// alıyoruz; her ortamda aynı sonuç çıkar.
+const WEEK_PREVIEW_HOURS = 0;
 
 function curriculumNow(): Date {
   const parts = Object.fromEntries(

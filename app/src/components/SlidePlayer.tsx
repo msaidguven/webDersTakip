@@ -6,9 +6,9 @@ import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { ClassroomSlideView, revealStepsLeft } from '@/app/src/components/SlideKindViews';
 import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
-import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestions';
+import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { useAuth } from '@/app/src/context/AuthContext';
-import { submitAnswers, startSessionWithRetry } from '@/app/src/lib/answerSync';
+import { submitAnswers, startSessionWithRetry, type AnswerDetail } from '@/app/src/lib/answerSync';
 import {
   SLIDE_ACCENTS as ACCENTS,
   NAV_BTN_CLASS,
@@ -139,11 +139,11 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   const runner = useQuestionRunner({
     questions,
     active: phase === 'questions' && !inBatchResult,
-    onAnswer: (id, status) => onRunnerAnswerRef.current(id, status),
+    onAnswer: (id, status, answer) => onRunnerAnswerRef.current(id, status, answer),
   });
   const { qIndex, attempt: questionsAttempt, answeredMap, restart: runnerRestart, goTo: goToQuestion } = runner;
   // onRunnerAnswer aşağıda (kayıt fonksiyonlarından sonra) tanımlanıyor — ref ile bağlanıyor.
-  const onRunnerAnswerRef = useRef<(id: number, status: AnswerStatus) => void>(() => {});
+  const onRunnerAnswerRef = useRef<(id: number, status: AnswerStatus, answer: AnswerDetail) => void>(() => {});
   // Giriş yapmış öğrenci evde tek başına slayttan soru çözüyorsa bu da istatistiğe (SRS,
   // panel, liderlik tablosu) yansımalı — aksi halde emeği boşa gider (kullanıcının 2026-09-22
   // isteği). QuizClient'taki AYNI test_sessions/test_session_answers akışının daha sade bir
@@ -156,7 +156,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   const [hasAnsweredOnceInSlides, setHasAnsweredOnceInSlides] = useState(false);
   const quizClientIdRef = useRef<string>('');
   const quizSessionQuestionsKeyRef = useRef<string | null>(null);
-  const quizPendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number }[]>([]);
+  const quizPendingAnswersRef = useRef<{ questionId: number; isCorrect: boolean; durationSeconds: number; answer: AnswerDetail }[]>([]);
   const questionStartRef = useRef<number>(0);
   // Deck/konu değişince (embedded SlidePlayer sayfada sabit kalıp deck prop'u değiştiği için)
   // her şeyi baştan başlat — aksi halde önceki konunun ortasında/sorularında kalınırdı.
@@ -246,6 +246,8 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
         client_id: quizClientIdRef.current,
         is_correct: a.isCorrect,
         duration_seconds: a.durationSeconds,
+        selected_option_id: a.answer.optionId ?? null,
+        match: a.answer.match ?? null,
       }))
     );
     // user (nesne) yerine user?.id: Supabase TOKEN_REFRESHED gibi olaylarda user nesnesi aynı
@@ -271,12 +273,12 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   }, [qIndex, questionsAttempt]);
 
   const recordSlideQuizAnswer = useCallback(
-    (questionId: number, isCorrect: boolean) => {
+    (questionId: number, isCorrect: boolean, answer: AnswerDetail) => {
       if (!isAuthenticated || !user) return;
       if (!hasAnsweredOnceInSlides) setHasAnsweredOnceInSlides(true);
       const durationSeconds = Math.max(0, Math.round((Date.now() - questionStartRef.current) / 1000));
       if (quizSessionId == null) {
-        quizPendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds });
+        quizPendingAnswersRef.current.push({ questionId, isCorrect, durationSeconds, answer });
         return;
       }
       void submitAnswers(supabase, [{
@@ -286,6 +288,8 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
         client_id: quizClientIdRef.current,
         is_correct: isCorrect,
         duration_seconds: durationSeconds,
+        selected_option_id: answer.optionId ?? null,
+        match: answer.match ?? null,
       }]);
     },
     // user (nesne) yerine user?.id — bkz. yukarıdaki flush efektindeki aynı gerekçe. Bu
@@ -299,8 +303,8 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
   // QuestionPlayerParts. Klasik (açık uçlu) soru bu havuzda yok; yine de sadece
   // correct/incorrect istatistiğe yazılır.
   const onRunnerAnswer = useCallback(
-    (id: number, status: AnswerStatus) => {
-      if (status === 'correct' || status === 'incorrect') recordSlideQuizAnswer(id, status === 'correct');
+    (id: number, status: AnswerStatus, answer: AnswerDetail) => {
+      if (status === 'correct' || status === 'incorrect') recordSlideQuizAnswer(id, status === 'correct', answer);
     },
     [recordSlideQuizAnswer]
   );

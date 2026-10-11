@@ -1,6 +1,7 @@
 // Gemini API'ye düz fetch ile erişim: embedding (belge parçaları + soru) ve
 // "sadece verilen metne dayan" talimatlı cevap üretimi. Ek bir SDK'ya gerek
 // yok, tek ihtiyacımız bu iki REST çağrısı.
+import 'server-only';
 
 const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_DIMENSIONS = 768; // supabase/migrations/add_rag_document_qa.sql içindeki vector(768) ile eşleşmeli

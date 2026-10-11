@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   // public=1 (soru bankası misafir testi, 2026-10-04): oturuma bakmadan tüm havuz, CDN'de bir
-  // sonraki pazar 10:00 TR'ye kadar önbellekli (bkz. publicApiCache.ts) — her açılış fonksiyon
+  // sonraki pazartesi 03:00 TR'ye kadar önbellekli (bkz. publicApiCache.ts) — her açılış fonksiyon
   // çalıştırmasın. Hangi 10 sorunun gösterileceğini istemci seçer (QuizPlayerModal).
   if (isPublicRequest(request.nextUrl.searchParams)) {
     const questions = await getAllTopicQuestions(topicId);

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2, RotateCcw, Trophy } from 'lucide-react';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
+import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import {
   SLIDE_ACCENTS,
   NAV_BTN_CLASS,
