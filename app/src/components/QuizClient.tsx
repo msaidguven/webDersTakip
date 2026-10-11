@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { submitAnswers, startSessionWithRetry, flushAnswerOutbox, type AnswerDetail } from '@/app/src/lib/answerSync';
 import { createPortal } from 'react-dom';
+import { ReportQuestionButton } from '@/app/src/components/ReportQuestionButton';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
@@ -802,6 +803,7 @@ function QuestionAnswerKeyItemImpl({
                   </div>
                 )}
               </div>
+              {answered && <ReportQuestionButton questionId={q.id} />}
             </div>
           </div>
         );

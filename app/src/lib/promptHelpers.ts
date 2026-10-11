@@ -11,6 +11,9 @@
 // ileride eklenebilecek dersler (Geometri, Fizik, Kimya, Biyoloji, Coğrafya) de otomatik
 // yakalansın.
 const VISUAL_HEAVY_LESSON_KEYWORDS = ['matematik', 'geometri', 'fen', 'fizik', 'kimya', 'biyoloji', 'cografya'];
+// Görselli soru (SVG) sık gereken dersler: matematik/fen listesine ek olarak sosyal bilgiler (harita,
+// grafik, tablo). Ayrı liste — LaTeX notasyon kuralı sosyal derslere gitmesin (2026-10-12).
+const SVG_HEAVY_LESSON_KEYWORDS = [...VISUAL_HEAVY_LESSON_KEYWORDS, 'sosyal'];
 
 function normalizeForMatch(s: string): string {
   return s
@@ -25,7 +28,7 @@ function normalizeForMatch(s: string): string {
 
 export function buildSvgLessonGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
-  const isVisualHeavy = VISUAL_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
+  const isVisualHeavy = SVG_HEAVY_LESSON_KEYWORDS.some((k) => normalized.includes(k));
   return isVisualHeavy
     ? `${lessonName} dersinde görsel sık gerekir; her soruda gerçekten gerekip gerekmediğine bak.`
     : `${lessonName} dersinde görsel genelde gerekmez; sadece istisnai durumda doldur.`;

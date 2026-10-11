@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { AdminAlerts } from '@/app/src/components/admin/AdminAlerts';
 import { createClient } from '@/utils/supabase/client';
 import { type EntityKey } from '@/app/src/components/admin/ManagementTab';
 import ManagementShell from '@/app/src/components/admin/ManagementShell';
@@ -178,6 +179,13 @@ export default function AdminPanel() {
             <span className="font-medium truncate">SVG Soruları</span>
           </Link>
           <Link
+            href="/admin/soru-bildirimleri"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span className="text-base sm:text-lg">🚩</span>
+            <span className="font-medium truncate">Soru Bildirimleri</span>
+          </Link>
+          <Link
             href="/ogretmen"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
@@ -204,6 +212,7 @@ export default function AdminPanel() {
 
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-10 px-4 sm:px-6 lg:px-8">
+        {activeTab === 'dashboard' && <AdminAlerts />}
         {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} onGoSchools={() => setActiveTab('schools')} />}
         {activeTab === 'manage' && <ManagementShell />}
         {activeTab === 'members' && <MembersTab />}

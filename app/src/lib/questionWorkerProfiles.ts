@@ -23,14 +23,15 @@ export interface QuestionWorkerProfile extends GeminiWorkerProfile {
 }
 
 export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerProfile> = {
-  // GEMINI_API_KEY (öğrenci sohbeti) sadece 429'da son çare olarak devreye giriyor.
+  // GEMINI_API_KEY (öğrenci sohbeti) toplu işte yedek OLMAZ (2026-10-04 kotası tükenmişti; 2026-10-12
+  // otomatik partiyle kaldırıldı) — 429'da worker bu turu atlar, sonraki saatte dener.
   primary: {
     id: 'primary',
     label: 'Soru AI 1',
     model: 'gemini-3.6-flash',
     fallbackModels: ['gemini-3.8-flash'],
     cronMinute: 37,
-    apiKeyEnvs: ['GEMINI_API_KEY_QUESTIONS', 'GEMINI_API_KEY'],
+    apiKeyEnvs: ['GEMINI_API_KEY_QUESTIONS'],
   },
   secondary: {
     id: 'secondary',

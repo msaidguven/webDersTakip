@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { generateNextAiQuestionDraft } from '@/app/src/lib/aiQuestionDraftGen';
+import { runTopicBatchStep } from '@/app/src/lib/topicQuestionBatch';
 import { QUESTION_WORKER_PROFILES, isQuestionWorkerId } from '@/app/src/lib/questionWorkerProfiles';
 
 // RAG kuyruğu boşken (@kanka/@hocam sorusu yoksa) boşa giden 5 dakikalık döngülerin
@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
   const profile = QUESTION_WORKER_PROFILES[body.worker ?? 'primary'];
 
   const supabase = createServiceClient();
-  const result = await generateNextAiQuestionDraft(supabase, profile);
+  // 2026-10-12: alt başlık başına admin onaylı taslak yerine konu bazlı otomatik parti
+  // (bkz. topicQuestionBatch.ts). Eski akış generateNextAiQuestionDraft olarak duruyor.
+  const result = await runTopicBatchStep(supabase, profile);
 
   // net.http_post (pg_cron) bu yanıtı beklemiyor — sonucu admin panelinde görünür
   // kılmak için burada logluyoruz (bkz. supabase/migrations/ai_question_draft_worker_runs.sql).

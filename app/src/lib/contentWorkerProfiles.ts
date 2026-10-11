@@ -23,7 +23,7 @@ export const CONTENT_WORKER_PROFILES: Record<ContentWorkerId, ContentWorkerProfi
     model: 'gemini-3.6-flash',
     fallbackModels: ['gemini-3.8-flash'],
     cronMinute: 23,
-    apiKeyEnvs: ['GEMINI_API_KEY_CONTENT', 'GEMINI_API_KEY'],
+    apiKeyEnvs: ['GEMINI_API_KEY_CONTENT'], // öğrenci anahtarı (GEMINI_API_KEY) toplu işte yedek olmaz
   },
   // Yalnızca kendi key'i — başka worker'ların kotasını yemesin. 2026-09-28'den beri pg_cron
   // job'u (ai-content-draft-worker-2) PASİF, key'i soru worker'ına verildi (bkz.

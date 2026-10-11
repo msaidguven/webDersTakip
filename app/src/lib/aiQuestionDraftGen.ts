@@ -71,6 +71,10 @@ export interface DraftGenerationResult {
 const LESSON_QUESTION_TEMPLATES: Record<string, { questions: string; review: string }> = {
   turkce: { questions: '35-turkce-section-questions.md', review: '36-turkce-questions-review.md' },
 };
+// Diğer dersler için AI kontrol şablonu — otomatik yayın (konu partisi) her taslağı bundan geçirir.
+const GENERIC_REVIEW_TEMPLATE = '37-questions-review.md';
+const TOPIC_GENERAL_TEMPLATE = '38-topic-general-questions-rag.md';
+const TOPIC_GENERAL_MAX_QUESTIONS = 15;
 
 // Kardeş alt başlıklarla örtüşen soru üretilmesin diye (kullanıcının 2026-09-08 bulduğu
 // sorun) — manuel "Soru Ekle (NotebookLM)" akışındaki AYNI {other_headings} deseni
@@ -113,7 +117,8 @@ ${list}
 `;
 }
 
-async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sectionId: number): Promise<string> {
+// sectionId null: konu geneli — konunun tüm güncel kazanımları.
+async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sectionId: number | null): Promise<string> {
   const { data: outcomesData } = await supabase
     .from('outcomes')
     .select('id, description, order_index, code')
@@ -130,6 +135,7 @@ async function buildSectionOutcomesText(supabase: Supabase, topicId: number, sec
   }
   const outcomes = sortOutcomesByWeek(outcomeRows.map((o) => ({ ...o, startWeek: weekByOutcomeId.get(o.id) ?? null })));
 
+  if (sectionId == null) return outcomes.length ? outcomes.map((o) => `${o.code || '?'}) ${o.description}`).join('\n') : 'Bu konu için tanımlı kazanım bulunamadı.';
   const { data: linksData } = await supabase.from('topic_content_section_outcomes').select('outcome_id').eq('section_id', sectionId);
   const linkedOutcomeIds = ((linksData as { outcome_id: number }[] | null) || []).map((l) => l.outcome_id);
   const matchedOutcomes = linkedOutcomeIds.length ? outcomes.filter((o) => linkedOutcomeIds.includes(o.id)) : outcomes;
@@ -189,7 +195,7 @@ export async function generateQuestionDraftForSectionId(
   supabase: Supabase,
   sectionId: number,
   profile: QuestionWorkerProfile,
-  opts: { dryRun?: boolean } = {}
+  opts: SectionDraftOpts = {}
 ): Promise<DraftGenerationResult> {
   const { data } = await supabase
     .from('topic_content_sections')
@@ -222,11 +228,18 @@ export async function generateQuestionDraftForSectionId(
   );
 }
 
+// Parti modu (batchDraftId): konu partisinin kaptığı 'generating' satırı 'batched' olarak doldurulur,
+// AI kontrolü HER derste zorunlu (admin onayı yok — bkz. topicQuestionBatch.ts).
+interface SectionDraftOpts {
+  dryRun?: boolean;
+  batchDraftId?: number;
+}
+
 async function generateQuestionDraftForSection(
   supabase: Supabase,
   eligible: EligibleSectionRow,
   profile: QuestionWorkerProfile,
-  opts: { dryRun?: boolean } = {}
+  opts: SectionDraftOpts = {}
 ): Promise<DraftGenerationResult> {
   const { data: lessonRow } = await supabase.from('lessons').select('slug').eq('id', eligible.lesson_id).maybeSingle();
   const lessonTemplate = LESSON_QUESTION_TEMPLATES[(lessonRow as { slug: string | null } | null)?.slug ?? ''];
@@ -282,8 +295,9 @@ async function generateQuestionDraftForSection(
   if (!parsed) return { generated: false, reason: 'Gemini çıktısı beklenen JSON şemasına uymadı' };
 
   let reviewCorrections: DraftGenerationResult['reviewCorrections'];
-  if (lessonTemplate) {
-    const reviewTemplate = await readFile(path.join(promptDir, lessonTemplate.review), 'utf8');
+  const reviewFile = lessonTemplate?.review ?? (opts.batchDraftId != null ? GENERIC_REVIEW_TEMPLATE : null);
+  if (reviewFile) {
+    const reviewTemplate = await readFile(path.join(promptDir, reviewFile), 'utf8');
     const reviewPrompt = reviewTemplate
       .replaceAll('{grade}', eligible.grade_name)
       .replaceAll('{lesson}', eligible.lesson_name)
@@ -317,6 +331,12 @@ async function generateQuestionDraftForSection(
   const aiModel = prettyModelName(usedModel);
   const questionsPayload = (raw as { questions: unknown[] }).questions;
 
+  if (opts.batchDraftId != null) {
+    const saved = await saveBatchDraft(supabase, opts.batchDraftId, aiModel, questionsPayload);
+    if (!saved.ok) return { generated: false, reason: saved.reason };
+    return { generated: true, draftId: opts.batchDraftId, sectionId: eligible.section_id, reviewCorrections };
+  }
+
   const { data: draftRow, error: insertError } = await supabase
     .from('ai_question_drafts')
     .insert({
@@ -340,4 +360,114 @@ async function generateQuestionDraftForSection(
   if (insertError || !draftRow) return { generated: false, reason: `Taslak kaydedilemedi: ${insertError?.message}` };
 
   return { generated: true, draftId: (draftRow as { id: number }).id, sectionId: eligible.section_id, reviewCorrections };
+}
+
+// Konu partisinin kaptığı satırı doldurur. Yalnız hâlâ 'generating' ise — zaman aşımıyla 'failed'
+// sayılmış bir satıra geç gelen sonuç yazılmasın.
+async function saveBatchDraft(supabase: Supabase, draftId: number, aiModel: string, questions: unknown[]): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const { data, error } = await supabase
+    .from('ai_question_drafts')
+    .update({ status: 'batched', ai_model: aiModel, questions, fail_reason: null })
+    .eq('id', draftId)
+    .eq('status', 'generating')
+    .select('id');
+  if (error) return { ok: false, reason: `Parti taslağı kaydedilemedi: ${error.message}` };
+  if (!data?.length) return { ok: false, reason: `Parti taslağı ${draftId} artık 'generating' değil (zaman aşımı)` };
+  return { ok: true };
+}
+
+// Parti modunda bir alt başlık: kapılan taslak satırına üretir (AI kontrolü dahil).
+export async function generateBatchSectionDraft(supabase: Supabase, sectionId: number, draftId: number, profile: QuestionWorkerProfile): Promise<DraftGenerationResult> {
+  return generateQuestionDraftForSectionId(supabase, sectionId, profile, { batchDraftId: draftId });
+}
+
+// Parti modunda konu geneli 10-15 sentez sorusu (38-topic-general-questions-rag.md) + AI kontrolü.
+// Aynı partide henüz yayınlanmamış alt başlık taslaklarının soruları da "mevcut sorular"a eklenir
+// ki konu geneli onları tekrar etmesin.
+export async function generateBatchTopicDraft(supabase: Supabase, topicId: number, draftId: number, profile: QuestionWorkerProfile): Promise<DraftGenerationResult> {
+  const one = <T,>(v: T | T[]): T => (Array.isArray(v) ? v[0] : v);
+  const { data: topicData } = await supabase
+    .from('topics')
+    .select('id, title, unit_id, units!inner(id, title, lesson_id, grade_id, lessons!inner(name, slug), grades!inner(name))')
+    .eq('id', topicId)
+    .maybeSingle();
+  type TopicRow = { id: number; title: string; units: { id: number; title: string; lesson_id: number; grade_id: number; lessons: { name: string; slug: string | null }; grades: { name: string } } };
+  const topic = topicData as unknown as TopicRow | null;
+  if (!topic) return { generated: false, reason: `Konu ${topicId} bulunamadı` };
+  const unit = one(topic.units);
+  const lesson = one(unit.lessons);
+  const gradeName = one(unit.grades).name;
+  const lessonTemplate = LESSON_QUESTION_TEMPLATES[lesson.slug ?? ''];
+
+  let bookContent: string | null;
+  try {
+    const rawBook = lessonTemplate ? await fetchUnitBookRawText(supabase, unit.id) : null;
+    bookContent = rawBook ? extractTopicBookSection(rawBook, topic.title).text : await fetchUnitBookContent(supabase, unit.id);
+  } catch (e) {
+    return { generated: false, reason: `Ünite ${unit.id} kitap içeriği sorgusu hata verdi: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!bookContent) return { generated: false, reason: `Ünite ${unit.id} için RAG kitap içeriği bulunamadı` };
+
+  const [{ data: sectionRows }, { data: topicQuestionRows }, { data: batchDraftRows }, topicOutcomesText] = await Promise.all([
+    supabase.from('topic_content_sections').select('heading, order_no, topic_contents!inner(topic_id)').eq('topic_contents.topic_id', topicId).order('order_no', { ascending: true }),
+    supabase.from('questions').select('question_text').eq('topic_id', topicId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT),
+    supabase.from('ai_question_drafts').select('questions').eq('batch_topic_id', topicId).eq('status', 'batched'),
+    buildSectionOutcomesText(supabase, topicId, null),
+  ]);
+  const headings = ((sectionRows as { heading: string }[] | null) || []).map((r) => r.heading);
+  const batchTexts = ((batchDraftRows as { questions: { question_text?: unknown }[] }[] | null) || []).flatMap((d) =>
+    (Array.isArray(d.questions) ? d.questions : []).map((q) => (typeof q?.question_text === 'string' ? q.question_text : ''))
+  );
+  const existingTexts = [...((topicQuestionRows as { question_text: string | null }[] | null) || []).map((q) => q.question_text || ''), ...batchTexts]
+    .map((t) => t.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const existingQuestionsText = existingTexts.length
+    ? `\nBu konu için ZATEN şu ${existingTexts.length} soru var (alt başlık soruları). Bunları ve aynı bilgiyi farklı kelimelerle soran varyasyonlarını TEKRAR ÜRETME:\n${existingTexts
+        .map((t, i) => `${i + 1}. ${t.length > EXISTING_QUESTION_MAX_CHARS ? `${t.slice(0, EXISTING_QUESTION_MAX_CHARS)}…` : t}`)
+        .join('\n')}\n`
+    : '';
+
+  const promptDir = path.join(process.cwd(), 'app', 'prompt');
+  const svgFragment = await readFile(path.join(promptDir, '_svg-question-fragment.md'), 'utf8');
+  const svgBlock = svgFragment.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lesson.name));
+  const fill = (tpl: string) =>
+    tpl
+      .replaceAll('{grade}', gradeName)
+      .replaceAll('{lesson}', lesson.name)
+      .replaceAll('{unit}', unit.title)
+      .replaceAll('{topic}', topic.title)
+      .replaceAll('{section_headings}', headings.length ? headings.join(', ') : 'Yok')
+      .replaceAll('{topic_outcomes}', topicOutcomesText)
+      .replaceAll('{existing_questions}', existingQuestionsText)
+      .replaceAll('{book_content}', bookContent!)
+      .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lesson.name))
+      .replaceAll('{svg_question_instructions}', svgBlock);
+  const prompt = fill(await readFile(path.join(promptDir, TOPIC_GENERAL_TEMPLATE), 'utf8'));
+
+  let raw: unknown;
+  let usedModel: string;
+  try {
+    ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
+  } catch (e) {
+    return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!parseQuestions(raw, TOPIC_GENERAL_MAX_QUESTIONS)) return { generated: false, reason: 'Konu geneli çıktısı beklenen JSON şemasına uymadı' };
+
+  const reviewTemplate = await readFile(path.join(promptDir, lessonTemplate?.review ?? GENERIC_REVIEW_TEMPLATE), 'utf8');
+  const reviewPrompt = fill(reviewTemplate)
+    .replaceAll('{heading}', 'Konu geneli (tüm alt başlıklar)')
+    .replaceAll('{section_outcomes}', topicOutcomesText)
+    .replaceAll('{topic_goals}', '')
+    .replaceAll('{draft_json}', JSON.stringify((raw as { questions: unknown[] }).questions, null, 1));
+  let reviewRaw: unknown;
+  try {
+    ({ data: reviewRaw } = await generateQuestionsJson(reviewPrompt, profile));
+  } catch (e) {
+    return { generated: false, reason: `Konu geneli doğrulama çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!parseQuestions(reviewRaw, TOPIC_GENERAL_MAX_QUESTIONS)) return { generated: false, reason: 'Konu geneli doğrulama çıktısı şemaya uymadı (ya da tüm sorular elendi)' };
+
+  const saved = await saveBatchDraft(supabase, draftId, prettyModelName(usedModel), (reviewRaw as { questions: unknown[] }).questions);
+  if (!saved.ok) return { generated: false, reason: saved.reason };
+  return { generated: true, draftId };
 }
