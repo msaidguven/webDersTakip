@@ -36,6 +36,8 @@ export function ReviewCalendar() {
   );
 
   if (error) return null;
+  // Boş takvim yer kaplamasın (2026-10-11 sadeleştirme): tekrar yoksa bölüm hiç yok.
+  if (data && data.every((d) => d.due_count === 0)) return null;
 
   const max = Math.max(1, ...(data ?? []).map((d) => d.due_count));
   const today = data?.[0];

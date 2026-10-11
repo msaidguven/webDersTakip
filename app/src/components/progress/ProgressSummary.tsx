@@ -66,7 +66,7 @@ export function ProgressSummary() {
       </div>
       <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:contents">
         <Tile
-          label="Doğruluk"
+          label="Doğru"
           value={last7.accuracy == null ? '—' : `%${last7.accuracy}`}
           note={prev7.accuracy == null ? 'son 7 günde' : `önceki: %${prev7.accuracy}`}
         />
@@ -75,8 +75,8 @@ export function ProgressSummary() {
           value={`${summary.currentStreak} gün`}
           note={`en uzun: ${summary.longestStreak} gün`}
         />
-        {/* Sınıf/konu verisi varsa taslaktaki "öğrenilen konu"; yoksa toplam soru. */}
-        {learned ? (
+        {/* En az bir konu öğrenildiyse "öğrenilen konu"; yoksa toplam soru ("0/90" cesaret kırıyordu, 2026-10-11). */}
+        {learned && learned.done > 0 ? (
           <Tile label="Öğrenilen" value={`${learned.done}/${learned.total}`} note="konu" />
         ) : (
           <Tile label="Toplam" value={String(summary.totalAnswered)} note="çözülen soru" />

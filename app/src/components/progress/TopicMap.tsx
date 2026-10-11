@@ -26,7 +26,7 @@ const COUNT_LABEL: Record<MasteryState, string> = {
   learned: 'öğrenildi',
   building: 'pekişiyor',
   weak: 'zorlanıyor',
-  new: 'başlanmadı',
+  new: 'konu seni bekliyor',
 };
 const ORDER: MasteryState[] = ['learned', 'building', 'weak', 'new'];
 
@@ -129,7 +129,7 @@ export function TopicMap() {
     <section aria-labelledby="ders-raporu" className="flex flex-col gap-2 rounded-3xl border border-default bg-background p-4 sm:p-7">
       <div className="flex flex-col gap-1">
         <h2 id="ders-raporu" className="text-lg font-extrabold text-default sm:text-xl">
-          Ders raporu
+          Derslerim
         </h2>
         <p className="text-sm text-muted-foreground">Her derste kaç konuyu öğrendin. Konuları görmek için derse dokun.</p>
       </div>

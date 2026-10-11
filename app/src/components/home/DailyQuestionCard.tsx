@@ -169,7 +169,7 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
 }
 
 // Haftanın 7 sorusundan bugününki (2026-10-04, Vercel CPU): anasayfa 7 gün önbellekte, günlük
-// yenilenmiyor — set sunucuda seçilir (homeHighlights.getDailyQuestionSet), gün tarayıcıda belirlenir.
+// yenilenmiyor — set sunucuda seçilir (homeHighlights.getDailyQuestionSetsByGrade, sınıf başına), gün tarayıcıda belirlenir.
 // Sunucu HTML'i setin ilk sorusuyla çizilir; tarayıcı bugünün İstanbul tarihini okuyunca (hydration
 // sonrası, uyuşmazlık yok) setin başlangıcından bu yana geçen gün kadar ilerler. Set 7 günden uzun
 // önbellekte kalırsa başa döner — her gün yine bir soru görünür.

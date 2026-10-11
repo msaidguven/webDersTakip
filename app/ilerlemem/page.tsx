@@ -11,7 +11,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { useMyProfileBasics } from '../src/hooks/useMyGradeSlug';
 import { onQuizModalClosed } from '../src/lib/panelRefreshBridge';
@@ -59,18 +59,13 @@ export default function IlerlememPage() {
           <>
             <ProgressSummary />
 
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-              <WeakTopics />
-              <ReviewCalendar />
-            </div>
+            {/* Sadeleştirme (2026-10-11): öğrencinin her gün bakacağı kısım üstte — zorlandığı konular
+                (yalnız varsa), derslerdeki konu durumu, rozetler. Tekrar takvimi, haftalık tablo ve test
+                geçmişi "Ayrıntılar"da kapalı; boş bölümler kendini gizler. */}
+            <WeakTopics />
 
             <div id="derslerim" className="scroll-mt-24">
               <TopicMap />
-            </div>
-
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-              <WeeksTable />
-              <MyTests />
             </div>
 
             <Badges />
@@ -84,6 +79,23 @@ export default function IlerlememPage() {
                 Sıralamayı gör <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </span>
             </Link>
+
+            <details className="group rounded-3xl border border-default bg-background">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-3xl px-5 py-4 [&::-webkit-details-marker]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:px-7">
+                <span className="flex flex-col">
+                  <span className="text-base font-extrabold text-default">Ayrıntılar</span>
+                  <span className="text-sm text-muted-foreground">Tekrar takvimi, son 4 hafta, testlerim</span>
+                </span>
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <div className="flex flex-col gap-6 px-3 pb-3 sm:px-4 sm:pb-4">
+                <ReviewCalendar />
+                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+                  <WeeksTable />
+                  <MyTests />
+                </div>
+              </div>
+            </details>
           </>
         )}
       </main>

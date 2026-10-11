@@ -111,19 +111,32 @@ export interface DailyQuestionSet {
   items: DailyQuestion[];
 }
 
-export async function getDailyQuestionSet(supabase: AnySupabaseClient, count = 7): Promise<DailyQuestionSet | null> {
-  const { data: rows } = await supabase
-    .from('questions')
-    .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
-    .eq('is_active', true)
-    .is('svg_content', null)
-    .neq('question_type_id', 4)
-    .eq('topics.is_active', true)
-    .eq('topics.is_archived', false)
-    .eq('topics.topic_contents.is_published', true)
-    .eq('topics.units.is_active', true)
-    .eq('topics.units.lessons.is_active', true)
-    .order('id', { ascending: true });
+// Sınıf bazında (2026-10-11): tek ortak set 5. sınıf öğrencisine 6. sınıf sorusu gösteriyordu. Havuz
+// tek sorguyla çekilir, sınıfa göre gruplanır, her sınıfa ayrı 7 soru seçilir (tohum: gün + sınıf).
+// Dönüş: grade_id (string) → set. Girişli öğrenci kendi sınıfını, misafir seçili sınıf sekmesini görür.
+export async function getDailyQuestionSetsByGrade(supabase: AnySupabaseClient, count = 7): Promise<Record<string, DailyQuestionSet>> {
+  // Sayfalı okuma: PostgREST tek yanıtta en fazla 1000 satır veriyor — önceden yalnız ilk 1000 soru
+  // (hepsi 6. sınıf) havuza giriyordu, diğer sınıflar hiç seçilmiyordu (2026-10-11).
+  const PAGE = 1000;
+  const rows: unknown[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
+      .eq('is_active', true)
+      .is('svg_content', null)
+      .eq('question_type_id', 1)
+      .eq('topics.is_active', true)
+      .eq('topics.is_archived', false)
+      .eq('topics.topic_contents.is_published', true)
+      .eq('topics.units.is_active', true)
+      .eq('topics.units.lessons.is_active', true)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error || !data?.length) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
   const published = await getPublishedLessonGradeKeys(supabase);
 
   type Row = {
@@ -134,47 +147,60 @@ export async function getDailyQuestionSet(supabase: AnySupabaseClient, count = 7
       units: Rel<{ slug: string | null; lesson_id: number; grade_id: number; grades: Rel<{ name: string; slug: string | null }>; lessons: Rel<{ name: string; slug: string | null }> }>;
     }>;
   };
-  const candidates = ((rows as Row[] | null) || []).filter((r) => {
-    const unit = one(one(r.topics)?.units ?? null);
+  const unitOf = (r: Row) => one(one(r.topics)?.units ?? null);
+  const candidates = (rows as Row[]).filter((r) => {
+    const unit = unitOf(r);
     return !!unit && published.has(lessonGradeKey(unit.lesson_id, unit.grade_id));
   });
-  if (!candidates.length) return null;
+  if (!candidates.length) return {};
 
-  const { data: choiceRows } = await supabase
-    .from('question_choices')
-    .select('question_id')
-    .in('question_id', candidates.map((c) => c.id));
-  const withChoices = new Set(((choiceRows as { question_id: number }[] | null) || []).map((c) => c.question_id));
-  const pool = candidates.filter((c) => withChoices.has(c.id));
-  if (!pool.length) return null;
-
-  const startKey = istanbulDateKey();
-  const pickedIdx: number[] = [];
-  for (let i = 0; pickedIdx.length < Math.min(count, pool.length) && i < count * 20; i++) {
-    const idx = hashString(`${startKey}#${i}`) % pool.length;
-    if (!pickedIdx.includes(idx)) pickedIdx.push(idx);
+  const poolByGrade = new Map<number, Row[]>();
+  for (const c of candidates) {
+    const gradeId = unitOf(c)!.grade_id;
+    const list = poolByGrade.get(gradeId) ?? [];
+    list.push(c);
+    poolByGrade.set(gradeId, list);
   }
-  const picked = pickedIdx.map((i) => pool[i]);
-  const questions = await getQuestionsByIds(picked.map((p) => p.id));
+
+  // Şıkkı olmayan soru ancak soru yüklenince anlaşılır (binlerce id ile ayrı şık sorgusu yerine) —
+  // sınıf başına yedekli aday seçilir, şıklı ilk `count` tanesi kullanılır.
+  const want = count * 2;
+  const startKey = istanbulDateKey();
+  const pickedByGrade = new Map<number, Row[]>();
+  for (const [gradeId, pool] of poolByGrade) {
+    const pickedIdx: number[] = [];
+    for (let i = 0; pickedIdx.length < Math.min(want, pool.length) && i < want * 20; i++) {
+      const idx = hashString(`${startKey}#${gradeId}#${i}`) % pool.length;
+      if (!pickedIdx.includes(idx)) pickedIdx.push(idx);
+    }
+    pickedByGrade.set(gradeId, pickedIdx.map((i) => pool[i]));
+  }
+
+  const questions = await getQuestionsByIds([...pickedByGrade.values()].flat().map((p) => p.id));
   const byId = new Map(questions.map((q) => [q.id, q]));
 
-  const items: DailyQuestion[] = [];
-  for (const row of picked) {
-    const question = byId.get(row.id);
-    if (!question || question.type !== 'multiple_choice') continue;
-    const topic = one(row.topics);
-    const unit = one(topic?.units ?? null);
-    const grade = one(unit?.grades ?? null);
-    const lesson = one(unit?.lessons ?? null);
-    items.push({
-      question,
-      gradeName: grade?.name ?? '',
-      lessonName: lesson?.name ?? '',
-      topicTitle: topic?.title ?? '',
-      topicHref: topicHref(grade?.slug, lesson?.slug, unit?.slug, topic?.slug),
-    });
+  const result: Record<string, DailyQuestionSet> = {};
+  for (const [gradeId, picked] of pickedByGrade) {
+    const items: DailyQuestion[] = [];
+    for (const row of picked) {
+      const question = byId.get(row.id);
+      if (items.length >= count) break;
+      if (!question || question.type !== 'multiple_choice' || !question.choices.length) continue;
+      const topic = one(row.topics);
+      const unit = one(topic?.units ?? null);
+      const grade = one(unit?.grades ?? null);
+      const lesson = one(unit?.lessons ?? null);
+      items.push({
+        question,
+        gradeName: grade?.name ?? '',
+        lessonName: lesson?.name ?? '',
+        topicTitle: topic?.title ?? '',
+        topicHref: topicHref(grade?.slug, lesson?.slug, unit?.slug, topic?.slug),
+      });
+    }
+    if (items.length) result[String(gradeId)] = { startKey, items };
   }
-  return items.length ? { startKey, items } : null;
+  return result;
 }
 
 // ---------------------------------------------------------------------------------------

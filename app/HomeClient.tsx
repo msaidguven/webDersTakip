@@ -58,14 +58,15 @@ interface HomeClientProps {
   initialGrades: Grade[];
   stats: SiteStats;
   gradeSections: Record<string, HomeGradeSection>;
-  dailyQuestionSet: DailyQuestionSet | null;
+  // grade_id → haftalık 7 soruluk set (bkz. getDailyQuestionSetsByGrade).
+  dailyQuestionSets: Record<string, DailyQuestionSet>;
   recentTopics: RecentTopicItem[];
   recentByGrade: Record<string, RecentTopicItem[]>;
   thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   topStudents: TopStudentEntry[];
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSet, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -116,32 +117,46 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   // kartlar, tek vurgu rengi (indigo) butonlarda; bölümler arasında ince ayırıcı çizgi.
   //  - Misafir: giriş + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Bu
   //    haftanın en çalışkanları] → Ders Takip nedir? + üyelik kartı.
-  //  - Girişli: Bugünkü görev + günlük hedef → [Derslerim | Okulda bu hafta (kendi sınıfı)] →
-  //    [Yeni eklenenler (kendi sınıfı, son 5) | sıralama] → Günün Sorusu.
+  //  - Girişli (2026-10-11 sadeleştirme, bkz. StudentToday.tsx): görev kartı + Derslerim | Günün
+  //    sorusu → "Bir de bunlara bak" (sıralama / okulda bu hafta / yeni konular yerinde açılır).
   //  Takvim verisi olmayan sınıfta "Okulda bu hafta" kartı yok → Dersler tam genişlik.
   //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür.
-  const thisWeekCard = selectedGrade ? (
-    <SchoolThisWeekCard gradeName={selectedGrade.name} week={thisWeek.week} topics={thisWeek.byGradeId[selectedGrade.id] ?? []} />
-  ) : null;
-  const hasThisWeek = !!selectedGrade && (thisWeek.byGradeId[selectedGrade.id]?.length ?? 0) > 0;
+  const thisWeekTopics = selectedGrade ? thisWeek.byGradeId[selectedGrade.id] ?? [] : [];
+  const thisWeekCard = selectedGrade ? <SchoolThisWeekCard gradeName={selectedGrade.name} week={thisWeek.week} topics={thisWeekTopics} /> : null;
+  const hasThisWeek = thisWeekTopics.length > 0;
+  // Günün sorusu seçili sınıftan (girişlide profildeki sınıf); o sınıfın seti yoksa ilk mevcut set.
+  const dailyQuestionSet = (selectedGrade && dailyQuestionSets[selectedGrade.id]) || Object.values(dailyQuestionSets)[0] || null;
   const recent = isAuthenticated && selectedGrade ? recentByGrade[selectedGrade.id] ?? [] : recentTopics;
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FAFAF8] dark:bg-background">
+        <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
+          <div className="mx-auto max-w-5xl">
+            <StudentToday
+              dailyQuestion={
+                dailyQuestionSet && (
+                  <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
+                    <DailyQuestionOfTheDay set={dailyQuestionSet} />
+                  </div>
+                )
+              }
+              thisWeek={hasThisWeek ? { label: `${thisWeek.week}. hafta`, panel: thisWeekCard } : undefined}
+              recent={recent.length > 0 ? { label: `${recent.length} yeni`, panel: <RecentTopicsCard topics={recent} gradeName={selectedGrade?.name} /> } : undefined}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] dark:bg-background">
       <main className="px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
         <div className="mx-auto flex max-w-5xl flex-col gap-12 sm:gap-14 [&>*+*]:border-t [&>*+*]:border-default [&>*+*]:pt-12 sm:[&>*+*]:pt-14">
-          {isAuthenticated ? (
-            <StudentToday lessonsAside={hasThisWeek ? thisWeekCard : undefined} />
-          ) : (
-            <HomeHero
-              isAuthenticated={false}
-              gradeLevels={resolvedGrades.map((g) => g.level)}
-              stats={stats}
-              dailyQuestionSet={dailyQuestionSet}
-            />
-          )}
+          <HomeHero isAuthenticated={false} gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} dailyQuestionSet={dailyQuestionSet} />
 
-          {!isAuthenticated && selectedGrade && (
+          {selectedGrade && (
             <GradeLessonPicker
               grades={resolvedGrades}
               selectedGrade={selectedGrade}
@@ -151,20 +166,12 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
             />
           )}
 
-          {recent.length > 0 && <RecentTopicsCard topics={recent} gradeName={isAuthenticated ? selectedGrade?.name : null} />}
+          {recent.length > 0 && <RecentTopicsCard topics={recent} gradeName={null} />}
 
-          {/* Son satır: misafirde "Ders Takip nedir?" (+üyelik), girişlide Günün Sorusu — yanında sıralama. */}
+          {/* Son satır: "Ders Takip nedir?" (+üyelik), yanında sıralama. */}
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
-            {isAuthenticated ? (
-              dailyQuestionSet && (
-                <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
-                  <DailyQuestionOfTheDay set={dailyQuestionSet} />
-                </div>
-              )
-            ) : (
-              <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />
-            )}
-            <TopStudents students={topStudents} isAuthenticated={isAuthenticated} />
+            <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />
+            <TopStudents students={topStudents} isAuthenticated={false} />
           </div>
         </div>
       </main>
