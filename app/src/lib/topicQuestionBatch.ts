@@ -36,6 +36,15 @@ async function markDraftFailed(supabase: Supabase, draftId: number, reason: stri
   await supabase.from('ai_question_drafts').update({ status: 'failed', fail_reason: reason.slice(0, 500) }).eq('id', draftId).eq('status', 'generating');
 }
 
+// Geçici hata (kota 429, yoğunluk 503/500, ağ, zaman aşımı): içerikle ilgisi yok, adım deneme hakkı
+// YAKMAZ — kapılan satır silinir, sonraki çalışmada aynı adım yeniden denenir. 2026-10-12 gecesi 3 konu
+// yalnız Gemini 429/503 yüzünden 2 hakkını yakıp turu 0 soruyla "başarısız" kapatmıştı.
+const TRANSIENT_ERROR = /\b(429|500|502|503|504)\b|fetch failed|ECONNRESET|ETIMEDOUT|timed? ?out|zaman aşımı|boş cevap/i;
+
+async function releaseDraft(supabase: Supabase, draftId: number) {
+  await supabase.from('ai_question_drafts').delete().eq('id', draftId).eq('status', 'generating');
+}
+
 export async function runTopicBatchStep(supabase: Supabase, profile: QuestionWorkerProfile): Promise<BatchStepResult> {
   const { data, error } = await supabase.rpc('claim_next_topic_batch_step');
   if (error) return { generated: false, reason: `Parti adımı alınamadı: ${error.message}` };
@@ -52,7 +61,11 @@ export async function runTopicBatchStep(supabase: Supabase, profile: QuestionWor
         step.kind === 'section'
           ? await generateBatchSectionDraft(supabase, step.section_id, step.draft_id, profile)
           : await generateBatchTopicDraft(supabase, step.topic_id, step.draft_id, profile);
-      if (!result.generated) await markDraftFailed(supabase, step.draft_id, result.reason ?? 'bilinmeyen hata');
+      if (!result.generated) {
+        const reason = result.reason ?? 'bilinmeyen hata';
+        if (TRANSIENT_ERROR.test(reason)) await releaseDraft(supabase, step.draft_id);
+        else await markDraftFailed(supabase, step.draft_id, reason);
+      }
       const label = step.kind === 'section' ? `Konu ${step.topic_id} (${step.round_no}. tur) / alt başlık ${step.section_id}` : `Konu ${step.topic_id} (${step.round_no}. tur) / konu geneli`;
       return { generated: result.generated, draftId: step.draft_id, reason: result.generated ? `${label}: taslak hazır (yayın bekliyor)` : `${label}: ${result.reason}` };
     }
