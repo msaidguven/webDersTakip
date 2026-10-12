@@ -1,7 +1,15 @@
 import type { Config } from "tailwindcss";
 
+// Tema değişkenine bağlı renk; saydamlık eki (bg-card/60, dark:bg-surface/95) çalışsın diye color-mix ile.
+// Düz "var(--x)" iken Tailwind bu ekleri sessizce ÜRETMİYORDU (2026-10-12: karanlık temada üst/alt menü beyaz kalıyordu).
+const tokenColor = (cssVar: string) => `color-mix(in srgb, var(${cssVar}) calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
-  darkMode: ["class"],
+  // .dark (html) altında karanlık; AMA .light ile işaretli bölgelerde (her zaman açık kalan soru/slayt
+  // sahnesi, admin'in açık tema seçimi) dark: varyantları uygulanmaz — tema değişkenleri .light'ta zaten
+  // açık değerlere dönüyor (globals.css), sınıflar da onlarla tutarlı kalsın (2026-10-12: karanlık temada
+  // beyaz soru sahnesindeki yazılar okunmuyordu).
+  darkMode: ["variant", "&:is(.dark *):not(:is(.light, .light *))"],
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -11,55 +19,60 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        // Tema yüzeyleri (globals.css --surface*) — önceden Tailwind'de tanımsızdı, bg-surface/95 üretilmiyordu.
+        surface: {
+          DEFAULT: tokenColor('--surface'),
+          elevated: tokenColor('--surface-elevated'),
+        },
+        background: tokenColor('--background'),
+        foreground: tokenColor('--foreground'),
         card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT: tokenColor('--card'),
+          foreground: tokenColor('--card-foreground'),
         },
         popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT: tokenColor('--popover'),
+          foreground: tokenColor('--popover-foreground'),
         },
         primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT: tokenColor('--primary'),
+          foreground: tokenColor('--primary-foreground'),
         },
         secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT: tokenColor('--secondary'),
+          foreground: tokenColor('--secondary-foreground'),
         },
         muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT: tokenColor('--muted'),
+          foreground: tokenColor('--muted-foreground'),
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT: tokenColor('--accent'),
+          foreground: tokenColor('--accent-foreground'),
         },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT: tokenColor('--destructive'),
+          foreground: tokenColor('--destructive-foreground'),
         },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        border: tokenColor('--border'),
+        input: tokenColor('--input'),
+        ring: tokenColor('--ring'),
         chart: {
-          "1": "var(--chart-1)",
-          "2": "var(--chart-2)",
-          "3": "var(--chart-3)",
-          "4": "var(--chart-4)",
-          "5": "var(--chart-5)",
+          "1": tokenColor('--chart-1'),
+          "2": tokenColor('--chart-2'),
+          "3": tokenColor('--chart-3'),
+          "4": tokenColor('--chart-4'),
+          "5": tokenColor('--chart-5'),
         },
         sidebar: {
-          DEFAULT: "var(--sidebar)",
-          foreground: "var(--sidebar-foreground)",
-          primary: "var(--sidebar-primary)",
-          "primary-foreground": "var(--sidebar-primary-foreground)",
-          accent: "var(--sidebar-accent)",
-          "accent-foreground": "var(--sidebar-accent-foreground)",
-          border: "var(--sidebar-border)",
-          ring: "var(--sidebar-ring)",
+          DEFAULT: tokenColor('--sidebar'),
+          foreground: tokenColor('--sidebar-foreground'),
+          primary: tokenColor('--sidebar-primary'),
+          "primary-foreground": tokenColor('--sidebar-primary-foreground'),
+          accent: tokenColor('--sidebar-accent'),
+          "accent-foreground": tokenColor('--sidebar-accent-foreground'),
+          border: tokenColor('--sidebar-border'),
+          ring: tokenColor('--sidebar-ring'),
         },
       },
       borderRadius: {

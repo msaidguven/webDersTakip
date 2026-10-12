@@ -74,7 +74,24 @@ export async function runTopicBatchStep(supabase: Supabase, profile: QuestionWor
   }
 }
 
-async function publishTopicBatch(supabase: Supabase, topicId: number, roundNo: number): Promise<BatchStepResult> {
+// Yayından önce Claude incelemesi bekleyen dersler (2026-10-12, kullanıcı kararı: Türkçe'de uzman
+// yok, AI kontrolü tek başına yetmedi). Parti 'awaiting_review' olur; admin "Yayınla" → force.
+const REVIEW_HOLD_LESSON_SLUGS = new Set(['turkce']);
+
+type Embed<T> = T | T[] | null | undefined;
+const first = <T,>(v: Embed<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+
+async function topicLessonSlug(supabase: Supabase, topicId: number): Promise<string | null> {
+  const { data } = await supabase.from('topics').select('units!inner(lessons!inner(slug))').eq('id', topicId).maybeSingle();
+  const row = data as { units: Embed<{ lessons: Embed<{ slug: string | null }> }> } | null;
+  return first(first(row?.units)?.lessons)?.slug ?? null;
+}
+
+export async function publishTopicBatch(supabase: Supabase, topicId: number, roundNo: number, opts: { force?: boolean } = {}): Promise<BatchStepResult> {
+  if (!opts.force && REVIEW_HOLD_LESSON_SLUGS.has((await topicLessonSlug(supabase, topicId)) ?? '')) {
+    await supabase.from('ai_topic_question_batches').update({ status: 'awaiting_review', claimed_at: null }).eq('topic_id', topicId).eq('round_no', roundNo);
+    return { generated: false, reason: `Konu ${topicId} (${roundNo}. tur): taslaklar hazır, yayından önce inceleme bekliyor` };
+  }
   const { data: draftRows, error } = await supabase
     .from('ai_question_drafts')
     .select('id, section_id, ai_model, questions')

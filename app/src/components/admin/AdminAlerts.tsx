@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Alerts = { svgPending: number; openReports: number; autoHidden: number; failedBatches: number };
+type Alerts = { svgPending: number; openReports: number; autoHidden: number; failedBatches: number; awaitingReview: number };
 
 export function AdminAlerts() {
   const [alerts, setAlerts] = useState<Alerts | null>(null);
@@ -28,6 +28,7 @@ export function AdminAlerts() {
     alerts.openReports > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.openReports} soru için öğrenci "hatalı soru" bildirimi var` },
     alerts.autoHidden > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.autoHidden} soru 3+ "cevap yanlış" bildirimiyle otomatik gizlendi` },
     alerts.svgPending > 0 && { href: '/admin/svg-sorulari', text: `${alerts.svgPending} soru çizim (SVG) bekliyor — çizim eklenene kadar yayında değil` },
+    alerts.awaitingReview > 0 && { href: '/admin/soru-bildirimleri#partiler', text: `${alerts.awaitingReview} Türkçe konusunun soruları inceleme bekliyor — Claude'a "Türkçe sorularını kontrol et" de, sonra Yayınla` },
     alerts.failedBatches > 0 && { href: '/admin/soru-bildirimleri#partiler', text: `${alerts.failedBatches} konuda otomatik soru üretimi başarısız oldu` },
   ].filter((x): x is { href: string; text: string } => !!x);
   if (!items.length) return null;

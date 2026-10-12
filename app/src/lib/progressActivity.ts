@@ -52,61 +52,6 @@ function windowTotals(byDay: Map<string, DailyActivity>, endDay: string, length:
   return { answered, accuracy: answered ? Math.round((correct / answered) * 100) : null };
 }
 
-export type DayState = 'done' | 'missed' | 'future';
-
-export interface WeekRow {
-  start: string; // o haftanın pazartesisi
-  label: string;
-  days: { day: string; state: DayState }[]; // Pazartesi → Pazar
-  answered: number;
-  accuracy: number | null;
-}
-
-const SHORT_MONTH = new Intl.DateTimeFormat('tr-TR', { month: 'short', timeZone: 'UTC' });
-
-function dayParts(day: string): { date: number; month: string } {
-  const [y, m, d] = day.split('-').map(Number);
-  return { date: d, month: SHORT_MONTH.format(new Date(Date.UTC(y, m - 1, d))) };
-}
-
-function weekLabel(start: string, end: string): string {
-  const a = dayParts(start);
-  const b = dayParts(end);
-  return a.month === b.month ? `${a.date}–${b.date} ${b.month}` : `${a.date} ${a.month} – ${b.date} ${b.month}`;
-}
-
-// Takvim haftaları (Pazartesi başlangıç), en yenisi önce. Bu hafta yarım: bugünden sonraki
-// günler "future" — boş ama ceza değil.
-export function lastWeeks(rows: DailyActivity[], count = 4, today: string = istanbulToday()): WeekRow[] {
-  const byDay = new Map(rows.map((r) => [r.day, r]));
-  const [y, m, d] = today.split('-').map(Number);
-  const mondayOffset = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
-  const thisMonday = addDays(today, -mondayOffset);
-
-  return Array.from({ length: count }, (_, w) => {
-    const start = addDays(thisMonday, -7 * w);
-    let answered = 0;
-    let correct = 0;
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(start, i);
-      const row = day > today ? undefined : byDay.get(day);
-      if (row) {
-        answered += row.answered;
-        correct += row.correct;
-      }
-      const state: DayState = day > today ? 'future' : row ? 'done' : 'missed';
-      return { day, state };
-    });
-    return {
-      start,
-      label: w === 0 ? 'Bu hafta' : weekLabel(start, addDays(start, 6)),
-      days,
-      answered,
-      accuracy: answered ? Math.round((correct / answered) * 100) : null,
-    };
-  });
-}
-
 export function summarizeActivity(rows: DailyActivity[], today: string = istanbulToday()): ProgressSummary {
   const byDay = new Map(rows.map((r) => [r.day, r]));
 

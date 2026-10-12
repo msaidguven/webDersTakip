@@ -233,12 +233,14 @@ export function PlayerFrame({
           ref={cardRef}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
+          // light: sahne her zaman açık renk (slayt/kâğıt gibi) — karanlık temada da tema değişkenleri ve
+          // dark: sınıfları burada açık değerde kalır (bkz. tailwind.config.ts darkMode).
           className={
             isOverlay
               ? // Mobilde GERÇEK tam ekran (eskiden 100dvh-4.5rem'di: üstte site başlığı, altta sayfa
                 // metni görünüp "sayfa içinde küçük pencere" hissi veriyordu — 2026-09-26 geri bildirimi).
-                'animate-slide-pop-in relative flex w-full h-[100dvh] sm:h-[92dvh] sm:w-[92vw] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
-              : 'animate-slide-pop-in relative flex w-full aspect-[16/10] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
+                'light animate-slide-pop-in relative flex w-full h-[100dvh] sm:h-[92dvh] sm:w-[92vw] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+              : 'light animate-slide-pop-in relative flex w-full aspect-[16/10] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
           }
         >
           <div

@@ -19,12 +19,6 @@ export const MASTERY_RULES = {
 
 export type MasteryState = 'new' | 'weak' | 'building' | 'learned';
 
-export const MASTERY_LABEL: Record<MasteryState, string> = {
-  new: 'Başlanmadı',
-  weak: 'Zorlanıyorsun',
-  building: 'Pekişiyor',
-  learned: 'Öğrenildi',
-};
 
 export interface TopicMastery {
   id: number;
@@ -49,6 +43,8 @@ export interface UnitMastery {
 export interface LessonMastery {
   id: number;
   name: string;
+  /** Ders raporu sayfası /ilerlemem/[slug] için. */
+  slug: string | null;
   href: string | null;
   // Yalnız sorusu olan konular — durum sayıları, zorlandığın konular ve özet bunlardan.
   topics: TopicMastery[];
@@ -96,6 +92,7 @@ export function groupMastery(rows: Row[]): LessonMastery[] {
       lesson = {
         id: r.lesson_id,
         name: r.lesson_name,
+        slug: r.lesson_slug,
         href: r.grade_slug && r.lesson_slug ? buildSoruBankasiLessonPath(r.grade_slug, r.lesson_slug) : null,
         topics: [],
         counts: { new: 0, weak: 0, building: 0, learned: 0 },
@@ -153,15 +150,6 @@ export function weakestTopics(lessons: LessonMastery[], limit = 5): WeakTopic[] 
     .slice(0, limit);
 }
 
-// Listenin altındaki bilgi satırları: değerlendirmeye yetecek kadar soru çözülmemiş (1–9) ve
-// hiç başlanmamış konu sayıları. "Öğrenildi" olanlar veri az sayılmaz (kapsam şartı zaten var).
-export function masteryCoverage(lessons: LessonMastery[]): { tooFewSolved: number; notStarted: number } {
-  const topics = lessons.flatMap((l) => l.topics);
-  return {
-    tooFewSolved: topics.filter((t) => t.state === 'building' && t.solved < MASTERY_RULES.minSolvedToJudge).length,
-    notStarted: topics.filter((t) => t.state === 'new').length,
-  };
-}
 
 // Profildeki sınıf; yoksa (nadir) en son çözülen testin sınıfı — getDashboardLessons ile aynı.
 async function resolveGradeId(

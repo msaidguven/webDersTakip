@@ -25,7 +25,8 @@ if (!Number.isInteger(topicId) || topicId <= 0) {
   process.exit(1);
 }
 const dryRun = process.argv.includes('--dry-run');
-const ALL_GEMINI_KEY_ENVS = ['GEMINI_API_KEY_CONTENT', 'NEW_GEMINI_API_KEY_CONTENT', 'GEMINI_API_KEY_QUESTIONS', 'GEMINI_API_KEY'];
+// Öğrenci sohbet anahtarı (GEMINI_API_KEY) bilerek yok — toplu işte kullanılmaz.
+const ALL_GEMINI_KEY_ENVS = ['GEMINI_API_KEY_CONTENT', 'NEW_GEMINI_API_KEY_CONTENT', 'GEMINI_API_KEY_QUESTIONS'];
 const modelsArg = process.argv.find((a) => a.startsWith('--models='))?.slice('--models='.length).split(',').filter(Boolean);
 const profile = {
   ...CONTENT_WORKER_PROFILES.primary,

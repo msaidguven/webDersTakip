@@ -5,28 +5,28 @@
 // yanıtlar; burası "nasıl gidiyorum, nerede eksiğim". Anasayfadaki kutular (günlük hedef,
 // bugünkü görev) burada TEKRAR ETMEZ.
 //
-// Sıra: Son 7 gün → zorlandığın konular + tekrar takvimi → konu haritası → son 4 hafta +
-// testlerim → rozetler → sıralama; günlük hedef seçimi başlıkta. Her bölüm kendi verisini SWR ile çeker; aynı veriyi
-// kullananlar önbelleği paylaşır (ör. konu haritası + zorlandığın konular + özet).
+// Sıra (2026-10-12, Sınav Hazırlık projesindeki tasarımdan — taslak https://claude.ai/artifact/BhprJ2kq1N4gouA6tRTmkH):
+// Son 7 gün → yarım kalan testler (yalnız varsa; bitenler /ilerlemem/aktiviteler'de) → bu hafta önceliğin |
+// ders raporları (her ders /ilerlemem/[ders]: ünite başarı grafiği, zorlandığın konular, tüm konular) →
+// rozetler → tüm testler / sıralama; günlük hedef seçimi başlıkta. Her bölüm kendi verisini SWR ile çeker;
+// aynı veriyi kullananlar önbelleği paylaşır (konu ustalığı: öncelikler + ders listesi + özet).
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { useMyProfileBasics } from '../src/hooks/useMyGradeSlug';
 import { onQuizModalClosed } from '../src/lib/panelRefreshBridge';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { ProgressSummary } from '../src/components/progress/ProgressSummary';
-import { TopicMap } from '../src/components/progress/TopicMap';
-import { WeeksTable } from '../src/components/progress/WeeksTable';
-import { WeakTopics } from '../src/components/progress/WeakTopics';
-import { ReviewCalendar } from '../src/components/progress/ReviewCalendar';
+import { WeeklyPriorities } from '../src/components/progress/WeeklyPriorities';
+import { LessonList } from '../src/components/progress/LessonList';
 import { MyTests } from '../src/components/progress/MyTests';
 import { Badges } from '../src/components/progress/Badges';
 import { DailyGoalPicker } from '../src/components/progress/DailyGoalPicker';
 
 // Test penceresi (bu rotadaki @modal) kapanınca tazelenecek bölüm verileri.
-const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-calendar', 'my-tests']);
+const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-due', 'my-tests']);
 
 export default function IlerlememPage() {
   const { user, loading } = useAuth();
@@ -59,43 +59,34 @@ export default function IlerlememPage() {
           <>
             <ProgressSummary />
 
-            {/* Sadeleştirme (2026-10-11): öğrencinin her gün bakacağı kısım üstte — zorlandığı konular
-                (yalnız varsa), derslerdeki konu durumu, rozetler. Tekrar takvimi, haftalık tablo ve test
-                geçmişi "Ayrıntılar"da kapalı; boş bölümler kendini gizler. */}
-            <WeakTopics />
+            <MyTests />
 
-            <div id="derslerim" className="scroll-mt-24">
-              <TopicMap />
+            <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+              <WeeklyPriorities />
+              <div id="derslerim" className="scroll-mt-24">
+                <LessonList />
+              </div>
             </div>
 
             <Badges />
 
-            <Link
-              href="/ilerlemem/siralama"
-              className="flex items-center justify-between gap-4 rounded-2xl border border-default bg-background px-5 py-4 text-default transition-colors hover:border-indigo-400 sm:px-7 sm:py-5"
-            >
-              <span className="text-base font-bold">Haftalık sıralama</span>
-              <span className="flex items-center gap-1.5 text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
-                Sıralamayı gör <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </span>
-            </Link>
-
-            <details className="group rounded-3xl border border-default bg-background">
-              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-3xl px-5 py-4 [&::-webkit-details-marker]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:px-7">
-                <span className="flex flex-col">
-                  <span className="text-base font-extrabold text-default">Ayrıntılar</span>
-                  <span className="text-sm text-muted-foreground">Tekrar takvimi, son 4 hafta, testlerim</span>
-                </span>
-                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
-              </summary>
-              <div className="flex flex-col gap-6 px-3 pb-3 sm:px-4 sm:pb-4">
-                <ReviewCalendar />
-                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-                  <WeeksTable />
-                  <MyTests />
-                </div>
-              </div>
-            </details>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                { href: '/ilerlemem/aktiviteler', label: 'Tüm testlerim', cta: 'Testleri gör' },
+                { href: '/ilerlemem/siralama', label: 'Haftalık sıralama', cta: 'Sıralamayı gör' },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-default bg-background px-5 py-4 text-default transition-colors hover:border-indigo-400 sm:px-7 sm:py-5"
+                >
+                  <span className="text-base font-bold">{l.label}</span>
+                  <span className="flex items-center gap-1.5 text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
+                    {l.cta} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </Link>
+              ))}
+            </div>
           </>
         )}
       </main>
