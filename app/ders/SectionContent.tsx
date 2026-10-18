@@ -494,7 +494,7 @@ export default function SectionContent({
             title="Büyütmek için tıkla"
             role="img"
             aria-label={caption || 'Konu anlatım diyagramı'}
-            className="block w-full cursor-zoom-in rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-slate-200 hover:shadow-md [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md"
+            className="light block w-full cursor-zoom-in rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-slate-200 hover:shadow-md [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md"
             dangerouslySetInnerHTML={{ __html: cleanSvg }}
           />
           {diagramZoomed && typeof document !== 'undefined' && createPortal(
@@ -503,7 +503,7 @@ export default function SectionContent({
               onClick={() => setDiagramZoomed(false)}
             >
               <div
-                className="relative max-h-full w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full"
+                className="light relative max-h-full w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button

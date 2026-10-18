@@ -202,7 +202,7 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
           setZoomed(true);
         }}
         title="Büyütmek için tıkla"
-        className="mb-4 flex w-full cursor-zoom-in justify-center rounded-xl border border-default bg-white p-3 transition hover:border-indigo-300 hover:shadow-sm [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-56 [&_svg]:max-w-full sm:[&_svg]:max-h-64"
+        className="light mb-4 flex w-full cursor-zoom-in justify-center rounded-xl border border-default bg-white p-3 transition hover:border-indigo-300 hover:shadow-sm [&_svg]:h-auto [&_svg]:w-auto [&_svg]:max-h-56 [&_svg]:max-w-full sm:[&_svg]:max-h-64"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
       {zoomed && typeof document !== 'undefined' && createPortal(
@@ -211,7 +211,7 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
           onClick={() => setZoomed(false)}
         >
           <div
-            className="relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="light relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-end gap-1.5 border-b border-default p-2">

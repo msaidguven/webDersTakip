@@ -861,7 +861,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
                     <button
                       type="button"
                       onClick={() => setLightbox({ kind: 'image', src: visualSrc })}
-                      className="group relative h-full w-full flex items-center justify-center rounded-xl bg-white p-3 cursor-zoom-in overflow-hidden"
+                      className="light group relative h-full w-full flex items-center justify-center rounded-xl bg-white p-3 cursor-zoom-in overflow-hidden"
                     >
                       <img src={visualSrc} alt={slide.heading} className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105" />
                       <ZoomIn className="absolute bottom-2 right-2 h-5 w-5 rounded-md bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100" />
@@ -975,7 +975,7 @@ export default function SlidePlayer({ deck, topicId, gradeId = null, lessonId = 
             <img src={lightbox.src} alt="" className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
           ) : (
             <div
-              className="max-h-[85vh] w-[min(90vw,42rem)] overflow-auto rounded-lg bg-white p-6 shadow-2xl [&_svg]:h-auto [&_svg]:w-full"
+              className="light max-h-[85vh] w-[min(90vw,42rem)] overflow-auto rounded-lg bg-white p-6 shadow-2xl [&_svg]:h-auto [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: lightbox.html }}
             />
           )}

@@ -1,7 +1,7 @@
 /* Konu sayfası v2 (bkz. app/src/lib/topicPageDesign.ts). Tasarım tokenları bu sayfaya
    özel ve .root altında kapsamlı; site genelindeki Tailwind temasını etkilemez.
-   Şimdilik yalnız açık tema: gövdedeki SectionContent/QuizWithAsk renkleri açık temaya
-   sabit (v1'de de içerik her zaman beyaz kutuda) — koyu tema o bileşenlerle birlikte gelir. */
+   Karanlık tema (2026-10-12): aşağıdaki :global(.dark) .root token'ları; gövdedeki SectionContent/QuizWithAsk
+   sabit açık renk sınıfları globals.css'teki karanlık eşlemeyle döner. */
 .root {
   --bg: #F7F8FC;
   --surface: #FFFFFF;
@@ -40,6 +40,31 @@
   min-height: 100vh;
   padding-bottom: 32px;
 }
+:global(.dark) .root {
+  --bg: #171a21;
+  --surface: #1f232b;
+  --surface-2: #282d37;
+  --ink: #e7e9ee;
+  --ink-2: #c9cdd6;
+  --muted: #a4abb8;
+  --line: #363c48;
+  --accent: #6366f1;
+  --accent-2: #818cf8;
+  --accent-ink: #FFFFFF;
+  --accent-soft: rgba(99, 102, 241, .18);
+  --lesson: #3ec8d8;
+  --lesson-soft: rgba(62, 200, 216, .16);
+  --mark: rgba(250, 204, 21, .32);
+  --ok: #22c55e;
+  --stage: #1d2130;
+  --dot: rgba(129, 140, 248, .18);
+  --glass: rgba(31, 35, 43, .8);
+  --feature-bg: #262a45;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -8px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+:global(.dark) .archived, :global(.dark) .slideNote { background: rgba(245, 158, 11, .12); color: #fcd34d; }
 @media (min-width: 640px) { .root { --header-h: 72px; } }
 .root :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 .root h1, .root h2, .root h3 { text-wrap: balance; margin: 0; }
@@ -84,7 +109,7 @@
 .pillRow { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; text-decoration: none; color: var(--ink-2); }
 .pill:hover { border-color: var(--ink-2); }
-.pillActive { composes: pill; background: var(--ink); border-color: var(--ink); color: #fff; }
+.pillActive { composes: pill; background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .unitList { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .unitLink { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; color: var(--ink-2); }
 .unitLink:hover { background: var(--surface-2); }
@@ -249,7 +274,7 @@ button.pillActive { background: var(--ink); }
 .chips { display: none; }
 /* Uzun başlıklar şeritten taşıp kesilmesin — üç noktayla kısalır, tam başlık title'da. */
 .chip { flex: none; max-width: 72vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); text-decoration: none; color: var(--muted); }
-.chipActive { composes: chip; background: var(--ink); border-color: var(--ink); color: #fff; }
+.chipActive { composes: chip; background: var(--ink); border-color: var(--ink); color: var(--surface); }
 @media (max-width: 980px) {
   .stageGrid, .stageGridNoArt { grid-template-columns: 1fr; padding: 28px; gap: 26px; }
   .art { order: -1; }

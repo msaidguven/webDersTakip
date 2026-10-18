@@ -4,8 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 
 type Row = { id: number; label: string };
+type GradeRow = Row & { isActive: boolean };
 type LessonRow = { lessonId: number; name: string; isActive: boolean };
-type UnitRow = { id: number; title: string; order_no: number; is_active: boolean };
+type UnitRow = {
+  id: number;
+  title: string;
+  order_no: number;
+  is_active: boolean;
+};
 
 type LessonGradeJoin = {
   lesson_id: number;
@@ -14,7 +20,11 @@ type LessonGradeJoin = {
 };
 
 export default function PublishManagementPanel() {
-  const [grades, setGrades] = useState<Row[]>([]);
+  const [grades, setGrades] = useState<GradeRow[]>([]);
+  const [savingGradeId, setSavingGradeId] = useState<number | null>(null);
+  const [allLessons, setAllLessons] = useState<Row[]>([]);
+  const [lessonsReloadKey, setLessonsReloadKey] = useState(0);
+  const [removingLessonId, setRemovingLessonId] = useState<number | null>(null);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
@@ -27,7 +37,10 @@ export default function PublishManagementPanel() {
   const [savingUnitIds, setSavingUnitIds] = useState<Set<number>>(new Set());
   const [selectedUnitIds, setSelectedUnitIds] = useState<Set<number>>(new Set());
 
-  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{
+    kind: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   function showNotice(kind: 'success' | 'error', text: string) {
     setNotice({ kind, text });
@@ -37,34 +50,58 @@ export default function PublishManagementPanel() {
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase.from('grades').select('id, name').eq('is_active', true).order('order_no');
-      setGrades(((data as { id: number; name: string }[] | null) || []).map((g) => ({ id: g.id, label: g.name })));
+      const { data } = await supabase.from('grades').select('id, name, is_active').order('order_no');
+      setGrades(
+        ((data as { id: number; name: string; is_active: boolean }[] | null) || []).map((g) => ({
+          id: g.id,
+          label: g.name,
+          isActive: g.is_active,
+        }))
+      );
     })();
   }, []);
 
   useEffect(() => {
-    setLessonId(null);
+    const supabase = createClient();
+    (async () => {
+      const { data } = await supabase.from('lessons').select('id, name').order('order_no');
+      setAllLessons(
+        ((data as { id: number; name: string }[] | null) || []).map((l) => ({
+          id: l.id,
+          label: l.name,
+        }))
+      );
+    })();
+  }, [lessonsReloadKey]);
+
+  useEffect(() => {
     setLessons([]);
     setUnits([]);
     if (gradeId == null) return;
     setLoadingLessons(true);
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase
-        .from('lesson_grades')
-        .select('lesson_id, is_active, lessons(id, name)')
-        .eq('grade_id', gradeId);
+      const { data } = await supabase.from('lesson_grades').select('lesson_id, is_active, lessons(id, name)').eq('grade_id', gradeId);
       const rows = ((data as LessonGradeJoin[] | null) || [])
         .map((r) => {
           const lesson = Array.isArray(r.lessons) ? r.lessons[0] : r.lessons;
           if (!lesson) return null;
-          return { lessonId: lesson.id, name: lesson.name, isActive: r.is_active };
+          return {
+            lessonId: lesson.id,
+            name: lesson.name,
+            isActive: r.is_active,
+          };
         })
         .filter((l): l is LessonRow => !!l)
         .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       setLessons(rows);
       setLoadingLessons(false);
     })();
+  }, [gradeId, lessonsReloadKey]);
+
+  // Sınıf değişince seçili ders sıfırlanır; ders ekle/kaldır sonrası yeniden yüklemede değil.
+  useEffect(() => {
+    setLessonId(null);
   }, [gradeId]);
 
   const loadUnits = React.useCallback(async () => {
@@ -90,6 +127,29 @@ export default function PublishManagementPanel() {
   const selectedGrade = grades.find((g) => g.id === gradeId) ?? null;
   const selectedLesson = lessons.find((l) => l.lessonId === lessonId) ?? null;
 
+  async function toggleGrade(grade: GradeRow) {
+    if (grade.isActive && !window.confirm(`"${grade.label}" sitede gizlensin mi? Bu sınıfın tüm sayfaları ziyaretçilere kapanır.`)) return;
+    setSavingGradeId(grade.id);
+    try {
+      const res = await fetch('/api/admin/manage/grades', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gradeId: grade.id, isActive: !grade.isActive }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice('error', data.error || 'Güncellenemedi');
+        return;
+      }
+      setGrades((prev) => prev.map((g) => (g.id === grade.id ? { ...g, isActive: !grade.isActive } : g)));
+      showNotice('success', `"${grade.label}" ${!grade.isActive ? 'sitede açıldı' : 'sitede gizlendi'}`);
+    } catch {
+      showNotice('error', 'Güncellenirken hata oluştu');
+    } finally {
+      setSavingGradeId(null);
+    }
+  }
+
   async function toggleLesson(lesson: LessonRow) {
     if (gradeId == null) return;
     setSavingLessonId(lesson.lessonId);
@@ -97,7 +157,11 @@ export default function PublishManagementPanel() {
       const res = await fetch('/api/admin/manage/lesson-grades', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonId: lesson.lessonId, gradeId, isActive: !lesson.isActive }),
+        body: JSON.stringify({
+          lessonId: lesson.lessonId,
+          gradeId,
+          isActive: !lesson.isActive,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -141,6 +205,50 @@ export default function PublishManagementPanel() {
     }
   }
 
+  async function addLesson(input: { lessonId: number } | { newLessonName: string }): Promise<boolean> {
+    if (gradeId == null) return false;
+    try {
+      const res = await fetch('/api/admin/manage/lesson-grades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gradeId, ...input }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice('error', data.error || 'Ders eklenemedi');
+        return false;
+      }
+      setLessonsReloadKey((k) => k + 1);
+      setLessonId(data.lessonId as number);
+      showNotice('success', `Ders ${selectedGrade?.label ?? 'sınıfa'} eklendi (taslak olarak)`);
+      return true;
+    } catch {
+      showNotice('error', 'Ders eklenirken hata oluştu');
+      return false;
+    }
+  }
+
+  async function removeLesson(lesson: LessonRow) {
+    if (gradeId == null) return;
+    if (!window.confirm(`"${lesson.name}" dersi ${selectedGrade?.label ?? 'bu sınıf'} listesinden kaldırılsın mı?`)) return;
+    setRemovingLessonId(lesson.lessonId);
+    try {
+      const res = await fetch(`/api/admin/manage/lesson-grades?lessonId=${lesson.lessonId}&gradeId=${gradeId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice('error', data.error || 'Ders kaldırılamadı');
+        return;
+      }
+      if (lessonId === lesson.lessonId) setLessonId(null);
+      setLessons((prev) => prev.filter((l) => l.lessonId !== lesson.lessonId));
+      showNotice('success', `"${lesson.name}" sınıftan kaldırıldı`);
+    } catch {
+      showNotice('error', 'Ders kaldırılırken hata oluştu');
+    } finally {
+      setRemovingLessonId(null);
+    }
+  }
+
   function toggleUnitSelection(id: number) {
     setSelectedUnitIds((prev) => {
       const next = new Set(prev);
@@ -163,7 +271,9 @@ export default function PublishManagementPanel() {
       {notice && (
         <div
           className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-xl text-sm border ${
-            notice.kind === 'success' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-red-500/10 text-red-300 border-red-500/30'
+            notice.kind === 'success'
+              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              : 'bg-red-500/10 text-red-300 border-red-500/30'
           }`}
         >
           <span>{notice.kind === 'success' ? '✓' : '✕'}</span>
@@ -174,10 +284,22 @@ export default function PublishManagementPanel() {
       <div className="flex rounded-2xl border border-border bg-card overflow-hidden min-h-[600px] shadow-xl shadow-black/20">
         {/* Kolon 1: Sınıflar */}
         <div className="w-52 shrink-0 border-r border-border flex flex-col bg-foreground/[0.015]">
-          <ColumnHeader icon="🎓" label="Sınıflar" count={grades.length} />
+          <ColumnHeader
+            icon="🎓"
+            label="Sınıflar"
+            sub={grades.length ? `${grades.filter((g) => g.isActive).length}/${grades.length} açık` : undefined}
+          />
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {grades.map((g) => (
-              <NavRow key={g.id} active={gradeId === g.id} label={g.label} onClick={() => setGradeId(g.id)} />
+              <ToggleNavRow
+                key={g.id}
+                active={gradeId === g.id}
+                label={g.label}
+                isActive={g.isActive}
+                saving={savingGradeId === g.id}
+                onSelect={() => setGradeId(g.id)}
+                onToggle={() => toggleGrade(g)}
+              />
             ))}
             {!grades.length && <EmptyColumnHint text="Sınıf yok" />}
           </nav>
@@ -200,18 +322,27 @@ export default function PublishManagementPanel() {
               <EmptyColumnHint text="Bu sınıfta ders yok" />
             ) : (
               lessons.map((l) => (
-                <LessonNavRow
+                <ToggleNavRow
                   key={l.lessonId}
                   active={lessonId === l.lessonId}
                   label={l.name}
                   isActive={l.isActive}
                   saving={savingLessonId === l.lessonId}
+                  removing={removingLessonId === l.lessonId}
                   onSelect={() => setLessonId(l.lessonId)}
                   onToggle={() => toggleLesson(l)}
+                  onRemove={() => removeLesson(l)}
                 />
               ))
             )}
           </div>
+          {gradeId != null && !loadingLessons && (
+            <AddLessonForm
+              key={gradeId}
+              available={allLessons.filter((a) => !lessons.some((l) => l.lessonId === a.id))}
+              onAdd={addLesson}
+            />
+          )}
         </div>
 
         {/* Kolon 3: Üniteler */}
@@ -278,7 +409,10 @@ export default function PublishManagementPanel() {
                 </div>
                 <ul className="divide-y divide-border">
                   {units.map((u) => (
-                    <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-foreground/[0.025] transition-colors">
+                    <li
+                      key={u.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-foreground/[0.025] transition-colors"
+                    >
                       <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                         <input
                           type="checkbox"
@@ -320,35 +454,25 @@ function ColumnHeader({ icon, label, count, sub }: { icon: string; label: string
   );
 }
 
-function NavRow({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm truncate transition-colors border-l-2 ${
-        active
-          ? 'bg-indigo-500/15 text-indigo-300 border-indigo-400 font-medium'
-          : 'text-muted-foreground hover:bg-accent border-transparent'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function LessonNavRow({
+// Seçilebilir satır + yayın anahtarı; onRemove verilirse (dersler) kaldır düğmesi de çıkar.
+function ToggleNavRow({
   active,
   label,
   isActive,
   saving,
+  removing,
   onSelect,
   onToggle,
+  onRemove,
 }: {
   active: boolean;
   label: string;
   isActive: boolean;
   saving: boolean;
+  removing?: boolean;
   onSelect: () => void;
   onToggle: () => void;
+  onRemove?: () => void;
 }) {
   return (
     <div
@@ -370,7 +494,87 @@ function LessonNavRow({
           onToggle();
         }}
       />
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={removing}
+          title="Dersi bu sınıftan kaldır"
+          aria-label={`${label} dersini sınıftan kaldır`}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+        >
+          {removing ? '…' : '✕'}
+        </button>
+      )}
     </div>
+  );
+}
+
+const NEW_LESSON_VALUE = '__new__';
+
+function AddLessonForm({
+  available,
+  onAdd,
+}: {
+  available: Row[];
+  onAdd: (input: { lessonId: number } | { newLessonName: string }) => Promise<boolean>;
+}) {
+  const [choice, setChoice] = useState('');
+  const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const isNew = choice === NEW_LESSON_VALUE;
+  const canSubmit = !busy && (isNew ? newName.trim().length >= 2 : choice !== '');
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setBusy(true);
+    const ok = await onAdd(isNew ? { newLessonName: newName.trim() } : { lessonId: Number(choice) });
+    setBusy(false);
+    if (ok) {
+      setChoice('');
+      setNewName('');
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="border-t border-border p-2.5 space-y-2">
+      <label className="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground" htmlFor="add-lesson-select">
+        Ders ekle
+      </label>
+      <select
+        id="add-lesson-select"
+        value={choice}
+        onChange={(e) => setChoice(e.target.value)}
+        className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm text-foreground"
+      >
+        <option value="">Ders seçin…</option>
+        {available.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.label}
+          </option>
+        ))}
+        <option value={NEW_LESSON_VALUE}>＋ Yeni ders oluştur…</option>
+      </select>
+      {isNew && (
+        <input
+          autoFocus
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          maxLength={80}
+          placeholder="Ders adı (ör. Görsel Sanatlar)"
+          aria-label="Yeni ders adı"
+          className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm text-foreground"
+        />
+      )}
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        className="w-full rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-40 transition-colors"
+      >
+        {busy ? 'Ekleniyor…' : 'Ekle'}
+      </button>
+    </form>
   );
 }
 
