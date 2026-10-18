@@ -30,6 +30,7 @@ Kurallar (MUTLAKA uygula):
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (5 alt çizgi; "..." YASAK); doğru cevap 1-3 kelime
 - matching: sol kısa terimler FARKLI alt başlıklardan, sağ tanım/örnek; solution_text/choices/options alanı YOK
 - Her soru farklı bir bilgiyi ölçsün, tekrar YOK; solution_text 1-2 cümle, yeni bilgi ekleme; {grade} seviyesine sade dil; öğrenciye doğrudan hitap etme ("sence" vb.)
+- Kitaptaki okuma parçası, hikâye ya da örnek olayda geçen kişi adlarını, olay ayrıntılarını ve sayıları SORMA (ör. "…olan kişi hangisidir?", şıkları isim). Soru, o metni okumamış ama konuyu bilen öğrencinin de çözebileceği şekilde kazanımı ölçsün; kitap örneğinden yararlanacaksan gereken bilgiyi soru kökünde ver.
 {math_notation_guidance}
 
 {svg_question_instructions}

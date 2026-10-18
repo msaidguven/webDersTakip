@@ -8,7 +8,8 @@ Her soruyu tek tek, şık şık kendin çöz ve şunları denetle:
 5. ANLAŞILIRLIK: Soru kökü tek başına anlaşılır mı, {grade} öğrencisinin anlayacağı sade dilde mi? Belirsiz ifadeyi netleştir.
 6. ÇÖZÜM: solution_text doğru şıkla tutarlı mı, yeni/yanlış bilgi içeriyor mu?
 7. GÖRSEL: svg_prompt doluysa soru gerçekten görselsiz çözülemiyor mu? Süs için istenmişse null yap; gerekliyse dokunma.
-8. BİÇİM: multiple_choice/blank'te tam 4 şık, tek doğru, "Hepsi/Hiçbiri" yok; blank'te tek "_____" ve 1-3 kelimelik tek doğru cevap; matching'de 3-5 çift, sol terimler birbirinden farklı.
+8. METNE BAĞIMLILIK: Soru, kitaptaki bir okuma parçasının/hikâyenin/örnek olayın kişi adını, olay ayrıntısını ya da sayısını mı soruyor (ör. "…olan kişi hangisidir?", şıklar isim)? O metni okumamış ama konuyu bilen öğrenci çözemiyorsa soruyu kazanımı ölçen bir soruya çevir (gereken bilgiyi kökte ver) ya da çıkar.
+9. BİÇİM: multiple_choice/blank'te tam 4 şık, tek doğru, "Hepsi/Hiçbiri" yok; blank'te tek "_____" ve 1-3 kelimelik tek doğru cevap; matching'de 3-5 çift, sol terimler birbirinden farklı.
 
 Kurallar:
 - Hatasız soruya DOKUNMA. Düzeltilemeyecek kadar sorunlu soruyu "questions" listesinden ÇIKAR ve corrections'a nedenini yaz.

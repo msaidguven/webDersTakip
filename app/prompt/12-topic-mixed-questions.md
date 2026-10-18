@@ -54,6 +54,7 @@ Kurallar (MUTLAKA uygula):
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - matching: left_text kısa terim, right_text tanımı/örneği; çiftler birbirinden açıkça farklı, solution_text/choices/options alanı OLMASIN
 - SADECE yukarıdaki ders notlarında geçen bilgiden sor, notta olmayan bilgi UYDURMA; her soru farklı bir bilgiyi ölçsün, tekrar YOK; solution_text 1-2 cümle, yeni bilgi ekleme; {grade} seviyesine sade dil; öğrenciye doğrudan hitap etme ("sence" vb.)
+- Kitaptaki okuma parçası, hikâye ya da örnek olayda geçen kişi adlarını, olay ayrıntılarını ve sayıları SORMA (ör. "…olan kişi hangisidir?", şıkları isim). Soru, o metni okumamış ama konuyu bilen öğrencinin de çözebileceği şekilde kazanımı ölçsün; kitap örneğinden yararlanacaksan gereken bilgiyi soru kökünde ver.
 {math_notation_guidance}
 
 {svg_question_instructions}

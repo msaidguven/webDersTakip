@@ -62,6 +62,7 @@ KESİNLİKLE YASAK:
 - Öğrenciye doğrudan hitap etmek ("sence", "senin fikrin" gibi)
 - Şıkların/seçeneklerin hepsini doğru ya da hepsini yanlış yazmak
 - blank sorularında "_____" dışında bir boşluk işareti kullanmak (örn. "..." veya "(...)")
+- Kitaptaki okuma parçası, hikâye ya da örnek olayda geçen kişi adlarını, olay ayrıntılarını ve sayıları SORMA (ör. "…olan kişi hangisidir?", şıkları isim). Soru, o metni okumamış ama konuyu bilen öğrencinin de çözebileceği şekilde kazanımı ölçsün; kitap örneğinden yararlanacaksan gereken bilgiyi soru kökünde ver.
 {math_notation_guidance}
 
 {svg_question_instructions}

@@ -50,6 +50,7 @@ Kurallar (MUTLAKA uygula):
 - multiple_choice/blank: tam 4 şık/seçenek, SADECE 1 doğru; "Hepsi doğru"/"Hiçbiri" gibi seçenek YOK
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____" (başka boşluk işareti "..." vb. YASAK); doğru cevap 1-3 kelime
 - SADECE kitapta bu alt başlıkla ilgili geçen bilgiden sor; her soru farklı bir bilgiyi ölçsün, tekrar YOK; solution_text 1-2 cümle, yeni bilgi ekleme; {grade} seviyesine sade dil; öğrenciye doğrudan hitap etme ("sence" vb.)
+- Kitaptaki okuma parçası, hikâye ya da örnek olayda geçen kişi adlarını, olay ayrıntılarını ve sayıları SORMA (ör. "…olan kişi hangisidir?", şıkları isim). Soru, o metni okumamış ama konuyu bilen öğrencinin de çözebileceği şekilde kazanımı ölçsün; kitap örneğinden yararlanacaksan gereken bilgiyi soru kökünde ver.
 {math_notation_guidance}
 
 {svg_question_instructions}

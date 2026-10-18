@@ -21,6 +21,7 @@ Kurallar (MUTLAKA uygula):
 - Her soru farklı bir bilgi/kavramı ölçsün, aynı şeyi farklı cümlelerle tekrar sorma
 - {grade} seviyesine uygun, basit ve net kelimeler kullan — o yaş grubunun gerçekçi olarak birkaç kelime ile tek cümle arasında yazabileceği bir beklenti kur
 - Öğrenciye doğrudan hitap etme ("sence", "senin fikrin" gibi)
+- Kitaptaki okuma parçası, hikâye ya da örnek olayda geçen kişi adlarını, olay ayrıntılarını ve sayıları SORMA (ör. "…olan kişi hangisidir?", şıkları isim). Soru, o metni okumamış ama konuyu bilen öğrencinin de çözebileceği şekilde kazanımı ölçsün; kitap örneğinden yararlanacaksan gereken bilgiyi soru kökünde ver.
 {math_notation_guidance}
 
 {svg_question_instructions}
