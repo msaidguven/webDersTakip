@@ -25,6 +25,17 @@ export function AboutSite({ gradeLevels, stats }: { gradeLevels: number[]; stats
           yanlış yaptığın sorular tekrar zamanı gelince yeniden karşına çıkar; serini ve hangi konularda zorlandığını Ders Takip
           senin için takip eder. Yeni sınıflar ve dersler her hafta ekleniyor.
         </p>
+        <p className="leading-relaxed text-muted-foreground">
+          Soru çözüm çizelgeni kağıda yazmak ya da yazdırmak istersen{' '}
+          <Link href="/ders-takip-cizelgesi" className="font-semibold text-indigo-700 underline dark:text-indigo-300">
+            ders takip çizelgesine
+          </Link>{' '}
+          göz at. Karnende takdir mi teşekkür mü alacağını önceden görmek istersen{' '}
+          <Link href="/takdir-tesekkur-hesaplama" className="font-semibold text-indigo-700 underline dark:text-indigo-300">
+            takdir/teşekkür hesaplama
+          </Link>{' '}
+          aracını dene.
+        </p>
       </div>
       <div className="flex flex-col gap-3 rounded-[20px] border border-indigo-100 bg-indigo-50 p-6 dark:border-indigo-500/20 dark:bg-indigo-500/10">
         <h3 className="text-lg font-bold text-default">Çözdüğün her soru kaydedilsin</h3>

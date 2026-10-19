@@ -53,25 +53,42 @@ export default async function SoruBankasiIndexPage() {
         <section aria-labelledby="sinifini-sec" className="mt-10">
           <h2 id="sinifini-sec" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Sınıfını seç</h2>
           {data.grades.length ? (
-            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {data.grades.map((grade) => (
-                <li key={grade.slug}>
-                  <Link
-                    href={buildSoruBankasiGradePath(grade.slug)}
-                    className="group flex h-full items-center gap-4 rounded-2xl border border-default bg-background p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)]"
-                  >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white" aria-hidden="true">
-                      {grade.level}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-default group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{grade.name}</span>
-                      <span className="text-sm text-muted-foreground">{grade.questionCount > 0 ? `${grade.questionCount} soru` : getGradeDescription(grade.level)}</span>
-                    </span>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-4 flex flex-col gap-8">
+              {[
+                { label: 'Ortaokul', items: data.grades.filter((g) => g.level <= 8) },
+                { label: 'Lise', items: data.grades.filter((g) => g.level > 8) },
+              ].map(({ label, items }) =>
+                items.length === 0 ? null : (
+                  <div key={label} className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="shrink-0 rounded-full border border-[#7A2634]/25 bg-background/80 px-3 py-1 text-xs font-bold tracking-wide text-[#7A2634]">
+                        {label}
+                      </h3>
+                      <span className="h-px flex-1 bg-[#7A2634]/15" aria-hidden="true" />
+                    </div>
+                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {items.map((grade) => (
+                        <li key={grade.slug}>
+                          <Link
+                            href={buildSoruBankasiGradePath(grade.slug)}
+                            className="group flex h-full items-center gap-4 rounded-2xl border border-default bg-background p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)]"
+                          >
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#7A2634] text-lg font-bold text-white" aria-hidden="true">
+                              {grade.level}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-semibold text-default group-hover:text-[#7A2634]">{grade.name}</span>
+                              <span className="text-sm text-muted-foreground">{grade.questionCount > 0 ? `${grade.questionCount} soru` : getGradeDescription(grade.level)}</span>
+                            </span>
+                            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ),
+              )}
+            </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">Henüz sınıf eklenmemiş.</p>
           )}

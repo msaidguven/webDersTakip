@@ -74,6 +74,7 @@ export default function IlerlememPage() {
               {[
                 { href: '/ilerlemem/aktiviteler', label: 'Tüm testlerim', cta: 'Testleri gör' },
                 { href: '/ilerlemem/siralama', label: 'Haftalık sıralama', cta: 'Sıralamayı gör' },
+                { href: '/ders-takip-cizelgesi', label: 'Ders takip çizelgesi', cta: 'Çizelgeyi gör' },
               ].map((l) => (
                 <Link
                   key={l.href}

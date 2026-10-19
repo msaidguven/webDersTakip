@@ -5,10 +5,10 @@
 // linkleri, mobilde altta sabit sekme çubuğu. Her hedefin HER YERDE tek adı var
 // (bilgi mimarisi kuralı): Anasayfa, Dersler, Soru Bankası, İlerlemem.
 import Link from 'next/link';
-import { BookOpen, ChartNoAxesColumn, Home, PencilLine, type LucideIcon } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumn, Home, PencilLine, Table2, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
-  id: 'home' | 'lessons' | 'questions' | 'progress';
+  id: 'home' | 'lessons' | 'questions' | 'progress' | 'chart';
   label: string;
   href: string;
   icon: LucideIcon;
@@ -46,6 +46,14 @@ export function buildNavItems({
       active: first === 'soru-bankasi',
     },
   ];
+  // Ders takip çizelgesi (herkese açık): yalnız masaüstü header'ında; alt sekme çubuğunda yer yok.
+  items.push({
+    id: 'chart',
+    label: 'Ders Takip Çizelgesi',
+    href: '/ders-takip-cizelgesi',
+    icon: Table2,
+    active: pathname.startsWith('/ders-takip-cizelgesi'),
+  });
   if (isAuthenticated) {
     items.push({ id: 'progress', label: 'İlerlemem', href: '/ilerlemem', icon: ChartNoAxesColumn, active: first === 'ilerlemem' });
   }
@@ -56,11 +64,12 @@ export function DesktopNav({ items }: { items: NavItem[] }) {
   return (
     <ul className="hidden items-center gap-1 md:flex">
       {items.map((item) => (
-        <li key={item.id}>
+        // Uzun etiket (çizelge) orta genişlikte header'ı sıkıştırmasın diye yalnız geniş ekranda.
+        <li key={item.id} className={item.id === 'chart' ? 'hidden lg:block' : undefined}>
           <Link
             href={item.href}
             aria-current={item.active ? 'page' : undefined}
-            className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors lg:px-3.5 ${
+            className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition-colors lg:px-3.5 ${
               item.active
                 ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
                 : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-muted-foreground dark:hover:bg-surface-elevated dark:hover:text-default'
@@ -81,7 +90,7 @@ export function MobileTabBar({ items }: { items: NavItem[] }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-default dark:bg-surface/95 md:hidden"
     >
       <ul className="mx-auto flex max-w-lg">
-        {items.map(({ id, label, href, icon: Icon, active }) => (
+        {items.filter((item) => item.id !== 'chart').map(({ id, label, href, icon: Icon, active }) => (
           <li key={id} className="flex-1">
             <Link
               href={href}

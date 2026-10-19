@@ -28,7 +28,7 @@ export interface SoruBankasiNavItem {
 function Visual({ item }: { item: SoruBankasiNavItem }) {
   if (item.badge) {
     return (
-      <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-base font-bold text-white" aria-hidden="true">
+      <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-[#7A2634] text-base font-bold text-white" aria-hidden="true">
         {item.badge}
       </span>
     );
@@ -56,13 +56,13 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
               <Visual item={item} />
               <span className="min-w-0">
                 {(item.eyebrow || item.current) && (
-                  <span className={`block text-xs font-semibold ${item.current ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
+                  <span className={`block text-xs font-semibold ${item.current ? 'text-[#7A2634]' : 'text-muted-foreground'}`}>
                     {[item.eyebrow, item.current ? 'buradasın' : null].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 <span
                   className={`block text-sm font-semibold leading-snug ${
-                    item.current ? 'text-indigo-900 dark:text-indigo-100' : 'text-default group-hover:text-indigo-700 dark:group-hover:text-indigo-300'
+                    item.current ? 'text-default' : 'text-default group-hover:text-[#7A2634]'
                   }`}
                 >
                   {item.label}
@@ -72,7 +72,7 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
             </>
           );
           const base = 'flex items-center gap-3 rounded-xl border p-2';
-          const currentCls = 'border-indigo-300 bg-indigo-50 dark:border-indigo-500/40 dark:bg-indigo-500/15';
+          const currentCls = 'border-[#7A2634]/30 bg-[#7A2634]/5';
           return (
             <li key={item.key}>
               {item.current && item.isPage ? (
@@ -83,7 +83,7 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
                 <Link
                   href={item.href}
                   aria-current={item.current ? 'location' : undefined}
-                  className={`group ${base} transition-colors ${item.current ? currentCls : 'border-default hover:border-indigo-300'}`}
+                  className={`group ${base} transition-colors ${item.current ? currentCls : 'border-default hover:border-[#7A2634]/40'}`}
                 >
                   {body}
                 </Link>

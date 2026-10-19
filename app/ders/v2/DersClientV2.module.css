@@ -139,8 +139,17 @@ button.pillActive { background: var(--ink); }
 .kicker b { color: var(--ink-2); font-weight: 600; }
 .h1 { composes: display; font-weight: 700; font-size: clamp(32px, 5vw, 58px); line-height: 1.05; letter-spacing: -.035em; }
 .lead { margin: 18px 0 0; max-width: 56ch; font-size: 16px; color: var(--ink-2); }
-.outcomes { margin: 18px 0 0; display: grid; gap: 14px; max-width: 60ch; }
+.outcomes { margin: 18px 0 0; display: grid; gap: 14px; max-width: 60ch; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); }
+.outcomeHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; }
 .outcomesTitle { composes: mono; margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.weekNav { display: flex; align-items: center; gap: 8px; }
+.weekNavBtn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); cursor: pointer; transition: border-color .2s; }
+.weekNavBtn:hover:not(:disabled) { border-color: var(--ink-2); }
+.weekNavBtn:disabled { opacity: .35; cursor: default; }
+.weekLabel { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; min-width: 0; }
+.weekTitle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.weekDate { font-size: 12px; font-weight: 500; color: var(--muted); }
+.weekBadge { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
 .outcomeGroup { display: grid; gap: 8px; }
 .learningOutcome { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.45; }
 .learningOutcomeCode { composes: mono; margin-right: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }

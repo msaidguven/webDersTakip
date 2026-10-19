@@ -9,15 +9,12 @@ import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import type { HomeGradeSection, SiteStats } from './src/lib/homeStats';
 import type { DailyQuestionSet, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
-import { HomeHero } from './src/components/home/HomeHero';
-import { GradeLessonPicker } from './src/components/home/GradeLessonPicker';
 import { RecentTopicsCard, SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
-import { AboutSite } from './src/components/home/AboutSite';
 import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionOfTheDay } from './src/components/home/DailyQuestionCard';
-import { TopStudents } from './src/components/home/TopStudents';
 import type { TopStudentEntry } from './src/lib/leaderboard';
 import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
+import { GuestHomeV5 } from './src/components/home/GuestHomeV5';
 
 interface GradeRow {
   id: number;
@@ -107,18 +104,13 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const handleSelectGrade = (gradeId: string) => {
-    hasManualSelectionRef.current = true;
-    setSelectedGradeId(gradeId);
-  };
-
   // Anasayfa düzeni (v4 sade tasarım, 2026-10-02 — kullanıcı onaylı prototip
   // ~/İndirilenler/ders_takip_anasayfa_v4_sade.html). Kırık beyaz zemin, beyaz ince çerçeveli
   // kartlar, tek vurgu rengi (indigo) butonlarda; bölümler arasında ince ayırıcı çizgi.
   //  - Misafir: giriş + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Bu
   //    haftanın en çalışkanları] → Ders Takip nedir? + üyelik kartı.
-  //  - Girişli (2026-10-11 sadeleştirme, bkz. StudentToday.tsx): görev kartı + Derslerim | Günün
-  //    sorusu → "Bir de bunlara bak" (sıralama / okulda bu hafta / yeni konular yerinde açılır).
+  //  - Girişli (2026-10-18 referans düzeni, bkz. StudentToday.tsx): karşılama + hızlı erişim →
+  //    görev kartı ve sekmeler (Derslerim | Günün sorusu | Okulda bu hafta | Yeni konular) + durum özeti.
   //  Takvim verisi olmayan sınıfta "Okulda bu hafta" kartı yok → Dersler tam genişlik.
   //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür.
   const thisWeekTopics = selectedGrade ? thisWeek.byGradeId[selectedGrade.id] ?? [] : [];
@@ -130,7 +122,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] dark:bg-background">
+      <div className="min-h-screen bg-[#F7F4FB] dark:bg-background">
         <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
           <div className="mx-auto max-w-5xl">
             <StudentToday
@@ -141,8 +133,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
                   </div>
                 )
               }
-              thisWeek={hasThisWeek ? { label: `${thisWeek.week}. hafta`, panel: thisWeekCard } : undefined}
-              recent={recent.length > 0 ? { label: `${recent.length} yeni`, panel: <RecentTopicsCard topics={recent} gradeName={selectedGrade?.name} /> } : undefined}
+              thisWeek={hasThisWeek ? thisWeekCard : undefined}
+              recent={recent.length > 0 ? <RecentTopicsCard topics={recent} gradeName={selectedGrade?.name} /> : undefined}
             />
           </div>
         </main>
@@ -150,31 +142,16 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     );
   }
 
+  // Misafir anasayfası: v5 (2026-10-19'da varsayılan oldu; v4 kodu bu dosyada değil, gerekirse git geçmişinde).
   return (
-    <div className="min-h-screen bg-[#FAFAF8] dark:bg-background">
-      <main className="px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
-        <div className="mx-auto flex max-w-5xl flex-col gap-12 sm:gap-14 [&>*+*]:border-t [&>*+*]:border-default [&>*+*]:pt-12 sm:[&>*+*]:pt-14">
-          <HomeHero isAuthenticated={false} gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} dailyQuestionSet={dailyQuestionSet} />
-
-          {selectedGrade && (
-            <GradeLessonPicker
-              grades={resolvedGrades}
-              selectedGrade={selectedGrade}
-              section={gradeSections[selectedGrade.id]}
-              onSelect={handleSelectGrade}
-              aside={hasThisWeek ? thisWeekCard : undefined}
-            />
-          )}
-
-          {recent.length > 0 && <RecentTopicsCard topics={recent} gradeName={null} />}
-
-          {/* Son satır: "Ders Takip nedir?" (+üyelik), yanında sıralama. */}
-          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
-            <AboutSite gradeLevels={resolvedGrades.map((g) => g.level)} stats={stats} />
-            <TopStudents students={topStudents} isAuthenticated={false} />
-          </div>
-        </div>
-      </main>
-    </div>
+    <GuestHomeV5
+      grades={resolvedGrades}
+      gradeSections={gradeSections}
+      stats={stats}
+      topStudents={topStudents}
+      thisWeek={thisWeek}
+      recentByGrade={recentByGrade}
+      dailyQuestionSets={dailyQuestionSets}
+    />
   );
 }

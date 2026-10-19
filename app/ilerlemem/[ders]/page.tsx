@@ -7,7 +7,7 @@
 // kaydırılabilir sekmeler. Veri İlerlemem ile aynı SWR önbelleklerinden — derse geçişte istek yok.
 import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../../src/context/AuthContext';
@@ -126,9 +126,8 @@ export default function LessonReportPage() {
   if (mErr) {
     return shell(<>{back}<p role="alert" className="text-sm text-muted-foreground">Ders raporun şu an yüklenemedi. Sayfayı yenilemeyi dene.</p></>);
   }
-  if (!lesson || !totals) {
-    return shell(<>{back}<p className="text-sm text-muted-foreground">Bu ders senin sınıfında yok ya da henüz sorusu eklenmedi.</p></>);
-  }
+  // Sınıfta olmayan ders slug'ı (ör. /ilerlemem/aylik) gerçek bir sayfa değil.
+  if (!lesson || !totals) notFound();
 
   const learned = lesson.counts.learned;
   const topicTotal = lesson.topics.length + lesson.upcoming;

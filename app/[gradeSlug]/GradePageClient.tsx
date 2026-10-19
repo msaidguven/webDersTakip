@@ -134,18 +134,15 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
   if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden py-8 sm:py-14">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-radial" />
-      <div className="relative">
-        <LessonSelector
-          grade={grade}
-          lessons={lessons}
-          isLoading={loading}
-          error={error}
-          onSelect={() => {}}
-          onBack={() => router.push('/')}
-        />
-      </div>
+    <div className="min-h-screen bg-[#F7F4FB] dark:bg-background py-8 sm:py-14">
+      <LessonSelector
+        grade={grade}
+        lessons={lessons}
+        isLoading={loading}
+        error={error}
+        onSelect={() => {}}
+        onBack={() => router.push('/')}
+      />
     </div>
   );
 }

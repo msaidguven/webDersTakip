@@ -12,11 +12,12 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Onest, Unbounded } from 'next/font/google';
-import { Sparkles, ChevronDown, X, ListTree, ArrowUp, Headphones } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronLeft, ChevronRight, X, ListTree, ArrowUp, Headphones } from 'lucide-react';
 import SectionContent from '../SectionContent';
 import { TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
 import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type Outcome, type Unit } from '../dersHelpers';
 import type { DersClientProps } from '../DersClient';
+import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import AdminTopicToolsHost, { preloadAdminTopicTools, ADMIN_TOOLS_MENU, SECTION_ADMIN_TOOLS_MENU, type AdminToolRequest } from '../AdminTopicToolsHost';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
@@ -30,6 +31,7 @@ import s from './DersClientV2.module.css';
 
 // Sesli anlatım oynatıcısı sadece açılınca yüklenir — sayfanın ilk yüküne eklenmez.
 const NarrationPlayer = dynamic(() => import('@/app/src/components/narration/NarrationPlayer'), { ssr: false });
+const InteractiveLessonPlayer = dynamic(() => import('@/app/src/components/interactive/InteractiveLessonPlayer'), { ssr: false });
 
 const displayFont = Unbounded({ subsets: ['latin', 'latin-ext'], weight: ['500', '700'], variable: '--font-v2-display', display: 'swap' });
 const bodyFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--font-v2-body', display: 'swap' });
@@ -65,11 +67,94 @@ function groupOutcomes(outcomes: Outcome[]): OutcomeGroup[] {
   return groups;
 }
 
+// En yakın hafta: target bu listede yoksa en az uzaklıktaki (eşitlikte önceki) haftanın indeksi.
+function nearestWeekIndex(weeks: number[], target: number): number {
+  let best = 0;
+  for (let i = 1; i < weeks.length; i++) {
+    if (Math.abs(weeks[i] - target) < Math.abs(weeks[best] - target)) best = i;
+  }
+  return best;
+}
+
+// Kazanımlar kartı: her kazanım yalnızca işleneceği hafta(lar)da görünür. Açılışta bugünkü
+// öğretim haftası seçilir (konu o haftada yoksa en yakın konu haftası); ‹ › ile konunun diğer
+// haftalarına geçilir. Haftası atanmamış kazanım varsa konunun tüm kazanımları haftasız listelenir.
+function OutcomeWeekCard({ outcomes, currentWeek, totalWeeks, termStartDate, breaks }: {
+  outcomes: Outcome[];
+  currentWeek: number;
+  totalWeeks: number;
+  termStartDate: string | null;
+  breaks: CurriculumBreak[];
+}) {
+  // Konunun kazanımlarının işlendiği haftalar (ör. 3, 4, 9), sıralı ve tekil.
+  const weeks = useMemo(() => {
+    if (outcomes.some((o) => !o.weekRanges?.length)) return [];
+    const set = new Set<number>();
+    for (const o of outcomes) {
+      for (const r of o.weekRanges ?? []) {
+        for (let w = r.start; w <= r.end; w++) set.add(w);
+      }
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [outcomes]);
+  const [index, setIndex] = useState(() => nearestWeekIndex(weeks, currentWeek));
+  const week = weeks.length ? weeks[index] : null;
+  const dateLabel = week != null && termStartDate ? formatWeekDateRangeLabel(week, week, totalWeeks, termStartDate, breaks) : null;
+
+  const groups = useMemo(
+    () => groupOutcomes(week == null ? outcomes : outcomes.filter((o) => (o.weekRanges ?? []).some((r) => week >= r.start && week <= r.end))),
+    [outcomes, week]
+  );
+
+  return (
+    <section className={s.outcomes} aria-labelledby="kazanimlar-baslik">
+      <div className={s.outcomeHead}>
+        <h2 id="kazanimlar-baslik" className={s.outcomesTitle}>Kazanımlar</h2>
+        {week != null && (
+          <div className={s.weekNav}>
+            <button type="button" className={s.weekNavBtn} onClick={() => setIndex((i) => i - 1)} disabled={index === 0} aria-label="Önceki hafta">
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+            <span className={s.weekLabel} aria-live="polite">
+              <span className={s.weekTitle}>
+                {week}. Hafta
+                {week === currentWeek && <span className={s.weekBadge}>Bu hafta</span>}
+              </span>
+              {dateLabel && <span className={s.weekDate}>{dateLabel}</span>}
+            </span>
+            <button type="button" className={s.weekNavBtn} onClick={() => setIndex((i) => i + 1)} disabled={index === weeks.length - 1} aria-label="Sonraki hafta">
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </div>
+      {groups.map((g) => (
+        <div key={g.key} className={s.outcomeGroup}>
+          {g.learningOutcome && (
+            <p className={s.learningOutcome}>
+              {g.learningOutcome.code && <span className={s.learningOutcomeCode}>{g.learningOutcome.code}</span>}
+              {g.learningOutcome.title}
+            </p>
+          )}
+          <ol className={s.outcomeList}>
+            {g.items.map((o) => (
+              <li key={o.key} className={s.outcome}>
+                <span className={s.outcomeTag}>{o.letter})</span>
+                <span>{o.description}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function cx(...names: (string | false | null | undefined)[]) {
   return names.filter(Boolean).join(' ');
 }
 
-export default function DersClientV2({ initialData, gradeId, lessonId }: DersClientProps) {
+export default function DersClientV2({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const router = useRouter();
   const isAdmin = useIsAdmin();
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
@@ -83,7 +168,7 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const sections = topic?.sections ?? NO_SECTIONS;
   const sectionSlugs = useMemo(() => buildSectionSlugs(sections), [sections]);
   const highlights = topic?.highlights ?? [];
-  const outcomeGroups = groupOutcomes(initialData.outcomes.filter((o) => topic && String(o.topicId) === String(topic.id)));
+  const topicOutcomes = initialData.outcomes.filter((o) => topic && String(o.topicId) === String(topic.id));
 
   // Konu sınırında bir önceki/sonraki üniteye geçilir (ünite sayfasına, o ünitenin
   // konuları burada yüklü değil).
@@ -119,6 +204,7 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
   const [slidesExpanded, setSlidesExpanded] = useState(false);
   const [slidesReloadKey, setSlidesReloadKey] = useState(0);
   const [narrationOpen, setNarrationOpen] = useState(false);
+  const [interactiveOpen, setInteractiveOpen] = useState(false);
   const hasNarration = !!topic?.hasNarration;
   const topicId = topic?.id;
   useEffect(() => {
@@ -257,6 +343,11 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
             <ListTree size={15} aria-hidden="true" /> Konu değiştir
           </button>
           {isAdmin && (
+            <button type="button" className={s.iconBtn} onClick={() => setInteractiveOpen(true)}>
+              🎬 Etkileşimli video (önizleme)
+            </button>
+          )}
+          {isAdmin && (
             <div className={s.menuWrap}>
               <button type="button" className={s.adminBtn} onClick={() => setAdminMenuOpen((v) => !v)} aria-expanded={adminMenuOpen}>
                 <Sparkles size={15} aria-hidden="true" /> İçerik
@@ -289,25 +380,15 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
               </p>
               <h1 className={s.h1}>{topic.title}</h1>
               {topic.subtitle && <p className={s.lead}>{topic.subtitle}</p>}
-              {outcomeGroups.length > 0 && (
-                <section className={s.outcomes} aria-labelledby="kazanimlar-baslik">
-                  <h2 id="kazanimlar-baslik" className={s.outcomesTitle}>Kazanımlar</h2>
-                  {outcomeGroups.map((g) => (
-                    <div key={g.key} className={s.outcomeGroup}>
-                      {g.learningOutcome && (
-                        <p className={s.learningOutcome}>
-                          {g.learningOutcome.code && <span className={s.learningOutcomeCode}>{g.learningOutcome.code}</span>}
-                          {g.learningOutcome.title}
-                        </p>
-                      )}
-                      <ol className={s.outcomeList}>
-                        {g.items.map((o) => (
-                          <li key={o.key} className={s.outcome}><span className={s.outcomeTag}>{o.letter})</span><span>{o.description}</span></li>
-                        ))}
-                      </ol>
-                    </div>
-                  ))}
-                </section>
+              {topicOutcomes.length > 0 && (
+                <OutcomeWeekCard
+                  key={topic.id}
+                  outcomes={topicOutcomes}
+                  currentWeek={week}
+                  totalWeeks={initialData.totalWeeks}
+                  termStartDate={initialData.termStartDate ?? null}
+                  breaks={initialData.breaks ?? []}
+                />
               )}
               {topic.isArchived && <p className={s.archived}>Bu konu güncel müfredatta yer almıyor; içerik arşiv olarak duruyor.</p>}
               <div className={s.heroActions}>
@@ -675,6 +756,10 @@ export default function DersClientV2({ initialData, gradeId, lessonId }: DersCli
           unitId={unit ? Number(unit.id) : null}
           onClose={() => setSlidesExpanded(false)}
         />,
+        document.body
+      )}
+      {interactiveOpen && isAdmin && createPortal(
+        <InteractiveLessonPlayer topicId={Number(topic.id)} onClose={() => setInteractiveOpen(false)} />,
         document.body
       )}
       {narrationOpen && hasNarration && createPortal(

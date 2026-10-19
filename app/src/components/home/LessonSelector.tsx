@@ -4,9 +4,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowLeft, BookOpen, CheckCircle2, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle2, Layers, Sparkles, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
+import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
 
 interface LessonSelectorProps {
   grade: Grade;
@@ -54,68 +55,123 @@ function useLessonUnits() {
   return { byLessonId, loadingLessonIds, ensureLoaded };
 }
 
-function GradeHeader({ grade, onBack }: { grade: Grade; onBack: () => void }) {
+// Ortak sınıflar: çerçeve, nötr ikon kutusu (ikon bordo), bordo düğme. Ana sayfayla aynı dil.
+const FRAME = 'rounded-2xl border border-[#7A2634]/20 bg-background';
+const ICON_BOX = 'bg-zinc-100 text-[#7A2634]';
+const BUTTON = 'bg-[#7A2634] text-white hover:bg-[#5C1B27]';
+
+function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-3 mb-6 sm:mb-8">
-      <button
-        onClick={onBack}
-        className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-surface-elevated border border-default flex items-center justify-center text-muted-foreground hover:text-default hover:border-indigo-500/30 transition-all"
-        aria-label="Sınıflara dön"
-      >
-        <ArrowLeft className="h-4 w-4" />
+    <nav aria-label="Konum" className="mb-4 flex items-center gap-1.5 text-xs font-bold text-muted-foreground sm:text-sm">
+      <button onClick={onBack} className="transition-colors hover:text-[#7A2634]">
+        Anasayfa
       </button>
-      <nav className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-muted-foreground min-w-0">
-        <button onClick={onBack} className="hover:text-default transition-colors shrink-0">
-          Anasayfa
-        </button>
-        <span className="shrink-0">/</span>
-        <span className="inline-flex items-center gap-1.5 text-default truncate">
-          <span className="text-base leading-none">{grade.icon}</span>
-          {grade.name}
-        </span>
-      </nav>
-    </div>
+      <span>/</span>
+      <span className="inline-flex items-center gap-1.5 text-default">
+        <span className="leading-none">{grade.icon}</span>
+        {grade.name}
+      </span>
+    </nav>
   );
 }
 
-const STAT_COLOR_CLASSES = {
-  indigo: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300',
-  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-} as const;
-
-function HeroStat({
-  icon: Icon,
-  value,
-  label,
-  color,
-}: {
-  icon: LucideIcon;
-  value: number;
-  label: string;
-  color: keyof typeof STAT_COLOR_CLASSES;
-}) {
+function StatTile({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
   return (
-    <div className="relative rounded-2xl border border-default bg-surface/70 backdrop-blur-sm p-3 sm:p-4 text-center sm:text-left">
-      <div className={`inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl mb-1.5 sm:mb-2 ${STAT_COLOR_CLASSES[color]}`}>
-        <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-      </div>
-      <p className="text-xl sm:text-2xl font-black text-default leading-none">{value}</p>
-      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground mt-1">{label}</p>
+    <div className="flex flex-col gap-2 rounded-xl border border-[#7A2634]/15 bg-surface/40 p-3">
+      <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${ICON_BOX}`}>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+      <span className="text-lg font-black leading-none text-default">{value}</span>
+      <span className="text-[11px] font-bold text-muted-foreground">{label}</span>
     </div>
   );
 }
 
 function LessonCardSkeleton() {
   return (
-    <div className="rounded-2xl bg-surface-elevated border border-default p-4 sm:p-6 animate-pulse">
+    <div className={`${FRAME} animate-pulse p-4 sm:p-6`}>
       <div className="flex items-center gap-4 sm:gap-5">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-surface shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="h-5 sm:h-6 bg-surface rounded mb-2 w-24 sm:w-32" />
-          <div className="h-3 sm:h-4 bg-surface rounded w-32 sm:w-48" />
+        <div className="h-12 w-12 shrink-0 rounded-2xl bg-zinc-100 sm:h-14 sm:w-14" />
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 h-5 w-24 rounded bg-zinc-100 sm:h-6 sm:w-32" />
+          <div className="h-3 w-32 rounded bg-zinc-100 sm:h-4 sm:w-48" />
         </div>
       </div>
+    </div>
+  );
+}
+
+function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; lesson: Lesson; units: LessonUnit[] | undefined; isLoadingUnits: boolean }) {
+  return (
+    <div className="p-1.5 sm:p-3">
+                      {isLoadingUnits ? (
+                        <div className="space-y-1.5 sm:space-y-2">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="h-9 w-full animate-pulse rounded-lg bg-zinc-200/70 sm:h-11 sm:rounded-xl" />
+                          ))}
+                        </div>
+                      ) : !units || units.length === 0 ? (
+                        <p className="py-3 text-center text-[10px] text-muted-foreground sm:text-sm">Bu derste henüz ünite bulunmuyor.</p>
+                      ) : (
+                        <div className="space-y-1 sm:space-y-2">
+                          {units.map((unit, unitIndex) => {
+                            const isDraftUnit = unit.isActive === false;
+                            return unit.firstTopicSlug && unit.slug ? (
+                              <Link
+                                key={unit.id}
+                                href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
+                                className={`group/unit flex items-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
+                                  isDraftUnit
+                                    ? 'border-amber-300 bg-amber-50/60 hover:border-amber-400 dark:bg-amber-500/10'
+                                    : 'border-transparent bg-background hover:border-[#7A2634]/30 hover:bg-[#7A2634]/5'
+                                }`}
+                              >
+                                <span
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black sm:h-7 sm:w-7 sm:text-[11px] ${
+                                    isDraftUnit ? 'bg-amber-500 text-white' : ICON_BOX
+                                  }`}
+                                >
+                                  {unitIndex + 1}
+                                </span>
+                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-default'}`}>
+                                  {unit.title}
+                                </span>
+                                {isDraftUnit && (
+                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700 sm:text-[9px] dark:bg-amber-500/20 dark:text-amber-300">
+                                    Taslak
+                                  </span>
+                                )}
+                                <ArrowRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-[#7A2634] sm:block" />
+                              </Link>
+                            ) : (
+                              <div
+                                key={unit.id}
+                                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
+                                  isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : 'border-transparent bg-background opacity-50'
+                                }`}
+                              >
+                                <span
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black sm:h-7 sm:w-7 sm:text-[11px] ${
+                                    isDraftUnit ? 'bg-amber-500 text-white' : 'bg-zinc-100 text-zinc-400'
+                                  }`}
+                                >
+                                  {unitIndex + 1}
+                                </span>
+                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                                  {unit.title}
+                                </span>
+                                {isDraftUnit ? (
+                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700 sm:text-[9px] dark:bg-amber-500/20 dark:text-amber-300">
+                                    Taslak
+                                  </span>
+                                ) : (
+                                  <span className="hidden shrink-0 text-[10px] text-muted-foreground sm:inline">Konu yok</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
     </div>
   );
 }
@@ -124,6 +180,17 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
   const totalUnits = lessons.reduce((sum, l) => sum + (l.unitCount || 0), 0);
   const totalQuestions = lessons.reduce((sum, l) => sum + (l.questionCount || 0), 0);
   const { byLessonId, loadingLessonIds, ensureLoaded } = useLessonUnits();
+  // Ünitelər ayrı bir pencerede (modal) açılır; hangi ders açık olduğunu burada tutuyoruz.
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const activeLesson = lessons.find((l) => l.id === activeLessonId) ?? null;
+  useEffect(() => {
+    if (!activeLesson) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveLessonId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeLesson]);
 
   // Üniteler açılır pencere/tıklama beklemeden, sayfa açılır açılmaz her ders
   // için paralel olarak yüklenir.
@@ -137,8 +204,8 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-0">
-        <GradeHeader grade={grade} onBack={onBack} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <Breadcrumb grade={grade} onBack={onBack} />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <LessonCardSkeleton key={i} />
           ))}
@@ -150,13 +217,13 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
   if (error) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-0">
-        <GradeHeader grade={grade} onBack={onBack} />
-        <div className="text-center p-6 sm:p-8 rounded-2xl bg-red-500/10 border border-red-500/20">
-          <p className="text-red-500 font-bold mb-3 sm:mb-4 text-sm sm:text-base">Dersler yüklenirken bir hata oluştu</p>
-          <p className="text-muted-foreground text-sm sm:text-base">{error}</p>
+        <Breadcrumb grade={grade} onBack={onBack} />
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center sm:p-8">
+          <p className="mb-3 text-sm font-bold text-red-500 sm:mb-4 sm:text-base">Dersler yüklenirken bir hata oluştu</p>
+          <p className="text-sm text-muted-foreground sm:text-base">{error}</p>
           <button
             onClick={onBack}
-            className="mt-4 sm:mt-6 px-5 sm:px-6 py-2.5 sm:py-3 bg-surface text-default border border-default rounded-xl hover:bg-surface-elevated transition-all text-sm sm:text-base font-bold"
+            className="mt-4 rounded-xl border border-default bg-surface px-5 py-2.5 text-sm font-bold text-default transition-all hover:bg-surface-elevated sm:mt-6 sm:px-6 sm:py-3 sm:text-base"
           >
             Geri Dön
           </button>
@@ -167,211 +234,115 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-0">
-      <GradeHeader grade={grade} onBack={onBack} />
-
-      <div className="relative overflow-hidden rounded-3xl border border-default bg-surface-elevated mb-8 sm:mb-10">
-        {/* İnce noktalı doku, sol üstten sağ alta doğru soluklaşarak */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.15]"
-          style={{
-            backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
-            backgroundSize: '18px 18px',
-            color: 'rgb(99 102 241)',
-            maskImage: 'radial-gradient(ellipse 70% 60% at 15% 10%, black 0%, transparent 70%)',
-            WebkitMaskImage: 'radial-gradient(ellipse 70% 60% at 15% 10%, black 0%, transparent 70%)',
-          }}
-        />
-        <div className="pointer-events-none absolute -top-20 -right-16 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 via-purple-500/20 to-pink-500/10 blur-3xl" />
-        <div
-          className={`pointer-events-none absolute -bottom-24 -left-12 h-56 w-56 rounded-full bg-gradient-to-br ${grade.color} opacity-10 blur-3xl`}
-        />
-        {/* Üstte ince, parlak bir vurgu çizgisi */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
-
-        <div className="relative flex flex-col lg:flex-row items-start lg:items-center gap-6 sm:gap-8 p-6 sm:p-10">
-          <div className="flex-1 min-w-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1.5 text-[11px] sm:text-xs font-bold text-muted-foreground mb-4">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse" />
-              {grade.icon} {grade.name} · Derslerini Seç
-            </span>
-            <h1 className="text-2xl sm:text-4xl font-black text-default mb-2.5 sm:mb-3 tracking-tight leading-tight">
-              Hangi <span className="gradient-text">Derse</span> Çalışmak İstiyorsun?
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base max-w-lg mb-5 sm:mb-6">
-              Dersini seç, ünitesini bul, konuyu aç — haftalık müfredata uygun sırayla ilerle.
-            </p>
-
-            {lessons.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-sm">
-                <HeroStat icon={BookOpen} value={lessons.length} label="Ders" color="indigo" />
-                <HeroStat icon={Layers} value={totalUnits} label="Ünite" color="amber" />
-                <HeroStat icon={CheckCircle2} value={totalQuestions} label="Soru" color="emerald" />
-              </div>
-            )}
-          </div>
-
-          <div className="hidden lg:flex relative shrink-0 items-center justify-center h-44 w-44">
-            <div
-              className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-br ${grade.color} opacity-20 blur-2xl animate-pulse`}
-              style={{ animationDuration: '4s' }}
-            />
-            <div
-              className={`relative h-28 w-28 rounded-[2rem] bg-gradient-to-br ${grade.color} flex items-center justify-center text-5xl shadow-2xl animate-float-slow ring-4 ring-white/40 dark:ring-white/10`}
-            >
-              {grade.icon}
-            </div>
-            {lessons.slice(0, 4).map((lesson, i) => (
-              <div
-                key={lesson.id}
-                className={`absolute h-10 w-10 rounded-xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-lg shadow-lg animate-float-slow ring-2 ring-white/50 dark:ring-white/10`}
-                style={{
-                  animationDelay: `${i * 0.6}s`,
-                  top: i === 0 ? '-8px' : i === 1 ? '60%' : i === 3 ? '78%' : '6%',
-                  left: i === 0 ? '72%' : i === 1 ? '-14px' : i === 3 ? '58%' : undefined,
-                  right: i === 2 ? '-14px' : undefined,
-                }}
-              >
-                {lesson.icon}
-              </div>
-            ))}
-          </div>
+      <section className={`${FRAME} mb-6 flex flex-col gap-5 p-5 sm:mb-8 sm:p-7`}>
+        <Breadcrumb grade={grade} onBack={onBack} />
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="mb-1.5 text-2xl font-black tracking-tight text-default sm:text-3xl">Bugün ne çalışıyorsun?</h1>
+          <p className="max-w-md text-sm text-muted-foreground sm:text-base">Bir ders seç, ünitesini bul, konuyu aç.</p>
         </div>
-      </div>
+
+        {lessons.length > 0 && (
+          <div className="grid w-full grid-cols-3 gap-2 sm:gap-3 md:w-auto md:min-w-[340px]">
+            <StatTile icon={BookOpen} value={lessons.length} label="Ders" />
+            <StatTile icon={Layers} value={totalUnits} label="Ünite" />
+            <StatTile icon={CheckCircle2} value={totalQuestions} label="Soru" />
+          </div>
+        )}
+        </div>
+      </section>
 
       {lessons.length === 0 ? (
-        <div className="text-center p-6 sm:p-8 rounded-2xl bg-surface-elevated border border-default">
-          <p className="text-muted-foreground text-sm sm:text-base font-bold">Bu sınıf için henüz ders bulunmamaktadır.</p>
+        <div className={`${FRAME} p-6 text-center sm:p-8`}>
+          <p className="text-sm font-bold text-muted-foreground sm:text-base">Bu sınıf için henüz ders bulunmamaktadır.</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-5">
-            {lessons.map((lesson, index) => {
-              const units = byLessonId[lesson.id];
-              const isLoadingUnits = loadingLessonIds.has(lesson.id);
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {lessons.map((lesson) => {
+              const lessonPath = `/${grade.slug || grade.id}/${lesson.slug || lesson.id}`;
 
               return (
-                <div
-                  key={lesson.id}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-default/70 bg-surface-elevated shadow-sm animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-transparent"
-                  style={{ animationDelay: `${index * 70}ms` }}
-                >
-                  {/* Üst renk şeridi, dersin kendi rengiyle */}
-                  <div className={`h-1.5 w-full shrink-0 bg-gradient-to-r ${lesson.color}`} />
-
-                  <div className="relative overflow-hidden p-2.5 sm:p-6 pb-2.5 sm:pb-5">
-                    {/* Kartın arkasında dersin rengiyle uyumlu yumuşak bir parıltı */}
-                    <div
-                      className={`pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gradient-to-br ${lesson.color} opacity-10 blur-2xl transition-opacity duration-300 group-hover:opacity-20`}
-                    />
-
-                    <div className="relative flex items-start gap-2 sm:gap-4">
-                      <div className="relative shrink-0">
-                        <div
-                          className={`absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br ${lesson.color} opacity-40 blur-lg transition-opacity duration-300 group-hover:opacity-70`}
-                        />
-                        <div
-                          className={`relative w-9 h-9 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br ${lesson.color} flex items-center justify-center text-lg sm:text-3xl shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
-                        >
-                          {lesson.icon}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <h3 title={lesson.name} className="text-[13px] sm:text-lg font-black text-default leading-tight truncate">
+                <div key={lesson.id} className={`flex flex-col overflow-hidden ${FRAME} transition-colors hover:border-[#7A2634]/50`}>
+                  <div className="flex flex-col gap-3 p-4 sm:p-5">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl sm:h-12 sm:w-12 sm:text-2xl ${ICON_BOX}`}>{lesson.icon}</div>
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-black leading-tight text-default sm:text-lg">
+                        <Link href={lessonPath} title={lesson.name} className="hover:underline">
                           {lesson.name}
-                        </h3>
-                        <p className="hidden sm:block text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">{lesson.description}</p>
-                      </div>
+                        </Link>
+                      </h3>
                     </div>
 
-                    <div className="relative flex flex-wrap gap-1 sm:gap-2 mt-2 sm:mt-4">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                        <BookOpen className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
-                        {lesson.unitCount} Ünite
-                      </span>
-                      <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {lesson.questionCount} Soru
-                      </span>
+                    <p className="text-xs text-muted-foreground">
+                      {lesson.unitCount} Ünite · {lesson.questionCount} Soru
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <Link href={lessonPath} className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-colors ${BUTTON}`}>
+                        Konu anlatımı
+                        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Link>
+                      {grade.slug && lesson.slug && lesson.questionCount > 0 && (
+                        <Link
+                          href={buildSoruBankasiLessonPath(grade.slug, lesson.slug)}
+                          className="inline-flex items-center justify-center rounded-lg border border-[#7A2634]/30 px-3.5 py-2 text-xs font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5"
+                        >
+                          Soru bankası
+                        </Link>
+                      )}
                     </div>
                   </div>
 
-                  <div className="relative flex-1 border-t border-default/70 bg-surface/40 p-1.5 sm:p-4">
-                    {isLoadingUnits ? (
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="h-9 sm:h-11 w-full rounded-lg sm:rounded-xl bg-surface animate-pulse" />
-                        ))}
-                      </div>
-                    ) : !units || units.length === 0 ? (
-                      <p className="text-center text-[10px] sm:text-sm text-muted-foreground py-3">
-                        Bu derste henüz ünite bulunmuyor.
-                      </p>
-                    ) : (
-                      <div className="space-y-1 sm:space-y-2">
-                        {units.map((unit, unitIndex) => {
-                          const isDraftUnit = unit.isActive === false;
-                          return unit.firstTopicSlug && unit.slug ? (
-                            <Link
-                              key={unit.id}
-                              href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
-                              className={`group/unit flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2.5 transition-all duration-200 hover:shadow-md animate-fade-in-up ${
-                                isDraftUnit
-                                  ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10 hover:border-amber-400'
-                                  : 'border-transparent bg-surface hover:border-default hover:bg-surface-elevated'
-                              }`}
-                              style={{ animationDelay: `${index * 70 + unitIndex * 40}ms` }}
-                            >
-                              <span
-                                className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full text-white flex items-center justify-center text-[9px] sm:text-[11px] font-black shadow-sm ${
-                                  isDraftUnit ? 'bg-amber-500' : `bg-gradient-to-br ${lesson.color}`
-                                }`}
-                              >
-                                {unitIndex + 1}
-                              </span>
-                              <span className={`flex-1 min-w-0 text-[11px] sm:text-sm font-bold truncate ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-default'}`}>{unit.title}</span>
-                              {isDraftUnit && (
-                                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-500/20 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                                  Taslak
-                                </span>
-                              )}
-                              <ArrowRight className="hidden sm:block h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-indigo-500" />
-                            </Link>
-                          ) : (
-                            <div
-                              key={unit.id}
-                              className={`flex items-center gap-1.5 sm:gap-2.5 rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2.5 ${
-                                isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : 'border-transparent bg-surface opacity-50'
-                              }`}
-                            >
-                              <span className={`h-5 w-5 sm:h-7 sm:w-7 shrink-0 rounded-full flex items-center justify-center text-[9px] sm:text-[11px] font-black ${
-                                isDraftUnit ? 'bg-amber-500 text-white' : 'bg-slate-500/10 text-slate-400'
-                              }`}>
-                                {unitIndex + 1}
-                              </span>
-                              <span className={`flex-1 min-w-0 text-[11px] sm:text-sm font-bold truncate ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>{unit.title}</span>
-                              {isDraftUnit ? (
-                                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-500/20 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                                  Taslak
-                                </span>
-                              ) : (
-                                <span className="hidden sm:inline text-[10px] text-muted-foreground shrink-0">Konu yok</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLessonId(lesson.id)}
+                    aria-haspopup="dialog"
+                    className="w-full border-t border-[#7A2634]/15 px-4 py-2.5 text-left text-xs font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5 sm:text-sm"
+                  >
+                    Üniteleri göster ({lesson.unitCount})
+                  </button>
+
                 </div>
               );
             })}
           </div>
 
-          <div className="relative mt-8 sm:mt-10 overflow-hidden flex items-center justify-center gap-2.5 rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 px-4 sm:px-6 py-3.5 sm:py-4 text-center">
-            <div className="pointer-events-none absolute -top-8 left-1/2 h-24 w-48 -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 blur-2xl" />
-            <Sparkles className="relative h-4 w-4 text-indigo-500 shrink-0" />
-            <p className="relative text-xs sm:text-sm text-muted-foreground">
+          {activeLesson && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={() => setActiveLessonId(null)}>
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="unite-pencere-baslik"
+                className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border border-[#7A2634]/20 bg-background sm:max-w-xl sm:rounded-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-[#7A2634]/15 px-5 py-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-muted-foreground">{grade.name}</p>
+                    <h2 id="unite-pencere-baslik" className="truncate text-lg font-black text-default">
+                      {activeLesson.icon} {activeLesson.name}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLessonId(null)}
+                    aria-label="Kapat"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#7A2634]/20 text-[#7A2634] transition-colors hover:bg-[#7A2634]/5"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="overflow-y-auto">
+                  <UnitPanel grade={grade} lesson={activeLesson} units={byLessonId[activeLesson.id]} isLoadingUnits={loadingLessonIds.has(activeLesson.id)} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={`${FRAME} mt-8 flex items-center justify-center gap-2.5 px-4 py-3.5 text-center sm:mt-10 sm:px-6 sm:py-4`}>
+            <Sparkles className="h-4 w-4 shrink-0 text-[#7A2634]" />
+            <p className="text-xs text-muted-foreground sm:text-sm">
               <span className="font-black text-default">Unutma:</span> Her gün küçük bir adım, büyük bir değişimdir!
             </p>
           </div>

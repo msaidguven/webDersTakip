@@ -94,7 +94,7 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
                     >
                       <SubjectIcon lessonName={lesson.name} variant="solid" size="lg" />
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold leading-snug text-default group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{lesson.name}</span>
+                        <span className="block font-semibold leading-snug text-default group-hover:text-[#7A2634]">{lesson.name}</span>
                         <span className="text-sm text-muted-foreground">{lesson.questionCount} soru</span>
                       </span>
                       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />

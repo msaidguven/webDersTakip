@@ -6,7 +6,7 @@
 // supabase/migrations/daily_question_answers.sql). Doğruluk SUNUCUDA hesaplanır, istemci sadece
 // seçilen şıkkı yollar. İstatistik isteği başarısızsa (ör. migration yok) satır sessizce gizlenir.
 // Hafif tutuldu: anasayfa bundle'ına ağır soru bileşenlerini (QuizClient) çekmiyor.
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { CheckCircle2, Sun, Users, XCircle } from 'lucide-react';
@@ -51,7 +51,7 @@ function getAnonKey(): string | null {
 
 const noopSubscribe = () => () => {};
 
-export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
+export function DailyQuestionCard({ data, tabs }: { data: DailyQuestion; tabs?: ReactNode }) {
   const { question } = data;
   const { user, supabase } = useAuth();
   const storageKey = `dt-daily-${istanbulDateKey()}-${question.id}`;
@@ -95,12 +95,15 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
   };
 
   return (
-    // Sade kart (anasayfa v4, 2026-10-02): beyaz zemin, ince çerçeve, renkli bant yok.
-    <section aria-labelledby="gunun-sorusu" className="flex flex-col gap-4 rounded-[20px] border border-default bg-background p-5 sm:p-6">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id="gunun-sorusu" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-          <Sun className="h-3.5 w-3.5" aria-hidden="true" /> Günün sorusu
-        </h2>
+    // v5 anasayfa diliyle uyumlu: yumuşak amber zemin + bordo çerçeve (2026-10-19).
+    <section aria-labelledby="gunun-sorusu" className="flex flex-col gap-4 rounded-[20px] border border-[#7A2634]/15 bg-gradient-to-br from-amber-50 via-amber-50/30 to-background p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="gunun-sorusu" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            <Sun className="h-3.5 w-3.5" aria-hidden="true" /> Günün sorusu
+          </h2>
+          {tabs}
+        </div>
         <span className="min-w-0 truncate text-xs text-muted-foreground">
           {data.gradeName} · {data.lessonName}
         </span>
@@ -119,7 +122,7 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
                 ? 'border-rose-500 bg-rose-500/10 text-default'
                 : state === 'muted'
                   ? 'border-default bg-surface text-muted-foreground'
-                  : 'border-default bg-background text-default hover:border-indigo-400 hover:bg-indigo-500/5';
+                  : 'border-default bg-background/70 text-default hover:border-indigo-400 hover:bg-indigo-500/5';
           return (
             <button
               key={choice.id}
@@ -141,7 +144,7 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
       </div>
 
       {answered ? (
-        <div aria-live="polite" className="flex flex-col gap-2 rounded-xl bg-surface p-4 text-sm">
+        <div aria-live="polite" className="flex flex-col gap-2 rounded-xl bg-background/70 p-4 text-sm">
           <p className={`font-black ${pickedCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
             {pickedCorrect ? 'Doğru! Yarın yeni bir soru seni bekliyor.' : 'Olmadı — doğru cevap işaretlendi.'}
           </p>
@@ -173,10 +176,10 @@ export function DailyQuestionCard({ data }: { data: DailyQuestion }) {
 // Sunucu HTML'i setin ilk sorusuyla çizilir; tarayıcı bugünün İstanbul tarihini okuyunca (hydration
 // sonrası, uyuşmazlık yok) setin başlangıcından bu yana geçen gün kadar ilerler. Set 7 günden uzun
 // önbellekte kalırsa başa döner — her gün yine bir soru görünür.
-export function DailyQuestionOfTheDay({ set }: { set: DailyQuestionSet }) {
+export function DailyQuestionOfTheDay({ set, tabs }: { set: DailyQuestionSet; tabs?: ReactNode }) {
   const todayKey = useSyncExternalStore(noopSubscribe, istanbulDateKey, () => set.startKey);
   const dayOffset = Math.round((Date.parse(`${todayKey}T00:00:00Z`) - Date.parse(`${set.startKey}T00:00:00Z`)) / 86_400_000);
   const count = set.items.length;
   const item = set.items[(((Number.isFinite(dayOffset) ? dayOffset : 0) % count) + count) % count];
-  return <DailyQuestionCard key={item.question.id} data={item} />;
+  return <DailyQuestionCard key={item.question.id} data={item} tabs={tabs} />;
 }

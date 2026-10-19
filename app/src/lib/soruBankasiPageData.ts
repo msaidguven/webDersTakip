@@ -73,7 +73,10 @@ export const getSoruBankasiGradesIndexData = cache(async function getSoruBankasi
       questionCount: questionCountByGrade.get(g.id) ?? 0,
     }));
 
-  return { grades: gradeList, hasQuestions: gradeList.some((g) => g.questionCount > 0) };
+  return {
+    grades: gradeList,
+    hasQuestions: gradeList.some((g) => g.questionCount > 0),
+  };
 });
 
 export type SoruBankasiGradesIndexData = Awaited<ReturnType<typeof getSoruBankasiGradesIndexData>>;
@@ -190,7 +193,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
     const list = topicsByUnit.get(t.unit_id) ?? [];
     const number = (topicIdsByUnit.get(t.unit_id) ?? []).indexOf(t.id) + 1;
     const questionCount = questionCountByTopic.get(t.id) ?? 0;
-    if (t.slug && questionCount > 0) list.push({ id: t.id, number, title: t.title, slug: t.slug, questionCount });
+    if (t.slug) list.push({ id: t.id, number, title: t.title, slug: t.slug, questionCount });
     topicsByUnit.set(t.unit_id, list);
   }
   const heroImageByTopic = new Map<number, string | null>();
@@ -199,7 +202,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
   }
 
   const unitList = units
-    // number: dersteki gerçek sıra (sorusuz üniteler aşağıda elense de "3. ünite" doğru kalsın).
+    // Sorusuz üniteler de listelenir (sayfada "Yakında eklenecek" olarak gösterilir).
     .map((u, i) => ({ ...u, number: i + 1 }))
     .filter((u) => u.slug)
     .map((u) => ({
@@ -211,8 +214,7 @@ export const getSoruBankasiLessonData = cache(async function getSoruBankasiLesso
       questionCount: questionCountByUnit.get(u.id) ?? 0,
       imageUrl: (topicIdsByUnit.get(u.id) ?? []).map((topicId) => heroImageByTopic.get(topicId)).find((url) => !!url) ?? null,
       topics: topicsByUnit.get(u.id) ?? [],
-    }))
-    .filter((u) => u.questionCount > 0);
+    }));
 
   return { ...base, units: unitList, hasQuestions: unitList.some((u) => u.questionCount > 0) };
 });
@@ -276,7 +278,7 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
   }
 
   const topicList = topics
-    // number: ünitedeki gerçek sıra (sorusuz konular aşağıda elense de "3. konu" doğru kalsın).
+    // Sorusuz konular da listelenir (sayfada "Yakında eklenecek" olarak gösterilir).
     .map((t, i) => ({ ...t, number: i + 1 }))
     .filter((t) => t.slug)
     .map((t) => ({
@@ -286,11 +288,10 @@ export const getSoruBankasiUnitData = cache(async function getSoruBankasiUnitDat
       slug: t.slug as string,
       questionCount: questionCountByTopic.get(t.id) ?? 0,
       heroImageUrl: heroImageByTopic.get(t.id) ?? null,
-    }))
-    .filter((t) => t.questionCount > 0);
+    }));
 
-  // topics zaten order_no'ya göre sıralı çekildi — ilk konu (sorusu olan) ünitenin banner'ı.
-  const bannerImageUrl = topicList[0]?.heroImageUrl ?? null;
+  // topics zaten order_no'ya göre sıralı çekildi — ilk sorulu konu ünitenin banner'ı.
+  const bannerImageUrl = topicList.find((t) => t.questionCount > 0)?.heroImageUrl ?? null;
 
   return { ...base, topics: topicList, bannerImageUrl, hasQuestions: topicList.some((t) => t.questionCount > 0) };
 });

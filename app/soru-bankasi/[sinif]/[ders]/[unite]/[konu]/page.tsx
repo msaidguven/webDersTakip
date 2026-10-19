@@ -137,7 +137,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
         >
           {/* Kazanım: her soru bankası sayfasını kendine özgü kılan metin (SEO). */}
           {data.learningOutcome && (
-            <p className="mt-4 rounded-r-xl border-l-[3px] border-indigo-400/70 bg-background px-4 py-2.5 text-sm text-muted-foreground">
+            <p className="mt-4 rounded-r-xl border-l-[3px] border-[#7A2634]/50 bg-background px-4 py-2.5 text-sm text-muted-foreground">
               <span className="font-semibold text-default">Kazanım:</span> {data.learningOutcome}
             </p>
           )}
@@ -145,7 +145,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
           {data.hasPublishedContent && (
             <Link
               href={buildTopicPath(data)}
-              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
             >
               <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımını oku
             </Link>
@@ -235,7 +235,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
                   current: lesson.slug === unitData.lessonSlug,
                 }))}
                 footer={
-                  <Link href={buildSoruBankasiGradePath(unitData.gradeSlug)} className="text-muted-foreground transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">
+                  <Link href={buildSoruBankasiGradePath(unitData.gradeSlug)} className="text-muted-foreground transition-colors hover:text-[#7A2634]">
                     Tüm {unitData.gradeName} soru bankaları →
                   </Link>
                 }
@@ -354,25 +354,25 @@ function EmptyTopicQuestionBank({
       <nav aria-label="Konum" className="mb-3 sm:mb-4">
         <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-semibold text-muted-foreground">
           <li>
-            <Link href={buildSoruBankasiGradePath(sinif)} className="transition-colors hover:text-indigo-500">{data.gradeName}</Link>
+            <Link href={buildSoruBankasiGradePath(sinif)} className="transition-colors hover:text-[#7A2634]">{data.gradeName}</Link>
           </li>
           <li aria-hidden className="opacity-50">/</li>
           <li>
-            <Link href={buildSoruBankasiLessonPath(sinif, ders)} className="transition-colors hover:text-indigo-500">{data.lessonName}</Link>
+            <Link href={buildSoruBankasiLessonPath(sinif, ders)} className="transition-colors hover:text-[#7A2634]">{data.lessonName}</Link>
           </li>
           <li aria-hidden className="opacity-50">/</li>
           <li className="min-w-0">
-            <Link href={unitPath} className="transition-colors hover:text-indigo-500">{data.unitTitle}</Link>
+            <Link href={unitPath} className="transition-colors hover:text-[#7A2634]">{data.unitTitle}</Link>
           </li>
         </ol>
       </nav>
 
       <h1 className="text-2xl font-black leading-tight tracking-tight text-default sm:text-3xl">
-        {data.topicTitle} <span className="text-indigo-500">Soru Bankası</span>
+        {data.topicTitle} <span className="text-[#7A2634]">Soru Bankası</span>
       </h1>
 
       <div className="mt-5 rounded-2xl border border-default bg-surface-elevated p-5 text-center sm:p-8">
-        <ClipboardList className="mx-auto h-10 w-10 text-indigo-500/70" aria-hidden="true" />
+        <ClipboardList className="mx-auto h-10 w-10 text-[#7A2634]/70" aria-hidden="true" />
         <p className="mt-3 text-base font-black text-default">Bu konuya henüz soru eklenmedi</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Sorular hazırlanıyor.{data.hasPublishedContent ? ' O zamana kadar konu anlatımını inceleyebilirsin.' : ''}
@@ -381,14 +381,14 @@ function EmptyTopicQuestionBank({
           {data.hasPublishedContent && (
             <Link
               href={buildTopicPath(data)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-indigo-600"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#7A2634] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#5C1B27]"
             >
               <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımına git
             </Link>
           )}
           <Link
             href={fallbackHref}
-            className="inline-flex items-center rounded-xl border border-default px-4 py-2.5 text-sm font-bold text-default transition-colors hover:border-indigo-400/60 hover:text-indigo-500"
+            className="inline-flex items-center rounded-xl border border-default px-4 py-2.5 text-sm font-bold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
           >
             {fallbackLabel}
           </Link>
@@ -403,7 +403,7 @@ function EmptyTopicQuestionBank({
               <li key={t.id}>
                 <Link
                   href={`${unitPath}/${t.slug}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-default bg-surface px-3 py-2 text-sm font-bold text-default transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/5"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-default bg-surface px-3 py-2 text-sm font-bold text-default transition-colors hover:border-[#7A2634]/40 hover:bg-[#7A2634]/5"
                 >
                   <span className="min-w-0 truncate">{t.title}</span>
                   <span className="shrink-0 text-xs font-semibold text-muted-foreground">{t.questionCount} soru</span>

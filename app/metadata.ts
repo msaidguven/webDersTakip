@@ -108,6 +108,10 @@ export const metadata: Metadata = {
   classification: "Education",
   // "Ana ekrana ekle" + iPhone bildirimleri için (bkz. app/manifest.ts, public/sw.js — 2026-09-27).
   icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
   appleWebApp: {

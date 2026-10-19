@@ -27,7 +27,7 @@ export function TopStudents({ students, isAuthenticated }: { students: TopStuden
         Bu haftanın en çalışkanları
       </h2>
       <p className="mb-4 text-sm text-muted-foreground">En çok soru çözenler · her pazartesi yeniden başlar</p>
-      <ol className="flex-1 divide-y divide-[var(--border)] rounded-[20px] border border-default bg-background px-4 sm:px-5">
+      <ol className="flex-1 divide-y divide-[var(--border)] rounded-[20px] border border-default bg-background/70 px-4 sm:px-5">
         {list.map((s) => (
           <li key={s.rank} className="flex items-center gap-3 py-3">
             <span

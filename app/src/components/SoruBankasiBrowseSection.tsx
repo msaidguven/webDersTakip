@@ -36,7 +36,7 @@ export default function SoruBankasiBrowseSection({ questionCount, questionIds, c
           : `${questionCount} soru. Önce kendin çöz, sonra cevabı ve açıklamayı gör.`}
       </p>
       {user && viewer.status === 'staff' && (
-        <p className="mb-4 flex items-start gap-2 rounded-xl bg-indigo-500/10 px-3 py-2 text-sm text-indigo-700 dark:text-indigo-300">
+        <p className="mb-4 flex items-start gap-2 rounded-xl bg-[#7A2634]/10 px-3 py-2 text-sm text-[#7A2634]">
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           Öğretmen/admin görünümü: tüm sorular. Öğrenciler burada yalnız testte çözdükleri soruları görür.
         </p>

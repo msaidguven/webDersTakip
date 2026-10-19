@@ -48,9 +48,11 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
   const gradeData = await getSoruBankasiGradeData(sinif);
   const topicCount = data.units.reduce((n, u) => n + u.topics.length, 0);
   const questionCount = data.units.reduce((n, u) => n + u.questionCount, 0);
-  const intro = data.units.length
-    ? `${data.gradeName} ${data.lessonName} soru bankasında ${data.units.length} ünite, ${topicCount} konu ve ${questionCount} soru var: ` +
-      `${joinTr(data.units.map((u) => `${u.title} (${u.questionCount} soru)`))}. Bir ünite ya da konu seçip soruları cevap anahtarı ve açıklamalarıyla inceleyebilirsin.`
+  // Giriş metni yalnız soruları olan üniteleri anar; sorusuz olanlar sayfada "Yakında eklenecek".
+  const answerableUnits = data.units.filter((u) => u.questionCount > 0);
+  const intro = answerableUnits.length
+    ? `${data.gradeName} ${data.lessonName} soru bankasında ${answerableUnits.length} ünite, ${topicCount} konu ve ${questionCount} soru var: ` +
+      `${joinTr(answerableUnits.map((u) => `${u.title} (${u.questionCount} soru)`))}. Bir ünite ya da konu seçip soruları cevap anahtarı ve açıklamalarıyla inceleyebilirsin.`
     : undefined;
 
   // 2026-10-03 yenilemesi (konu/ünite sayfalarıyla aynı dil): üniteler konularıyla birlikte
@@ -83,7 +85,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
         >
           <Link
             href={`/${data.gradeSlug}/${data.lessonSlug}`}
-            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
           >
             <BookOpen className="h-4 w-4" aria-hidden="true" /> {data.lessonName} konu anlatımları
           </Link>
@@ -91,7 +93,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
 
         {!data.hasQuestions && (
           <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-800 dark:text-amber-300">
-            Taslak — bu derste henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
+            Bu derste henüz soru yok, sorular yakında eklenecek.
           </p>
         )}
 
@@ -116,7 +118,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
                 isPage: true,
               }))}
               footer={
-                <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">
+                <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-[#7A2634]">
                   Tüm {data.gradeName} soru bankaları →
                 </Link>
               }
@@ -135,7 +137,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
   const path = buildSoruBankasiLessonPath(data.gradeSlug, data.lessonSlug);
   const canonicalUrl = `${SITE_URL}${path}`;
-  const unitNames = data.units.map((u) => u.title).join(', ');
+  const unitNames = data.units.filter((u) => u.questionCount > 0).map((u) => u.title).join(', ');
   const title = `${data.lessonName} Soru Bankası - ${data.gradeName}`;
   const description = unitNames
     ? `${data.gradeName} ${data.lessonName} dersinde ${unitNames} ünitelerinde cevap anahtarlı, ücretsiz soru bankaları.`

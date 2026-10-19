@@ -49,7 +49,8 @@ export async function generateStaticParams(): Promise<Params[]> {
 export default async function SoruBankasiUnitPage({ params }: { params: Promise<Params> }) {
   const { sinif, ders, unite } = await params;
   const data = await getSoruBankasiUnitData(sinif, ders, unite);
-  if (!data) notFound();
+  // Sorusu olmayan ünite yayında değil (link de verilmiyor); ISR'ı korumak için admin istisnası yok.
+  if (!data || !data.hasQuestions) notFound();
 
   const gradePath = buildSoruBankasiGradePath(data.gradeSlug);
   const lessonPath = buildSoruBankasiLessonPath(data.gradeSlug, data.lessonSlug);
@@ -59,7 +60,7 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
   const lessonData = await getSoruBankasiLessonData(sinif, ders);
   // Sağ sütunda dersin TÜM üniteleri + sınıfın TÜM dersleri (2026-10-03, kullanıcı isteği):
   // içindekiler gibi, bulunulan yer vurgulu (bkz. SoruBankasiNavList).
-  const lessonUnits = lessonData?.units ?? [];
+  const lessonUnits = (lessonData?.units ?? []).filter((unit) => unit.questionCount > 0);
   const gradeData = await getSoruBankasiGradeData(sinif);
 
   const totalQuestions = data.topics.reduce((n, t) => n + t.questionCount, 0);
@@ -93,23 +94,17 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
           eyebrow={`${data.gradeName} · ${data.lessonName} · Ünite`}
           title={`${data.unitTitle} Soru Bankası`}
           pills={[`${data.topics.length} konu`, `${totalQuestions} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro={data.topics.length > 0 ? buildUnitIntro(data, totalQuestions) : undefined}
+          intro={totalQuestions > 0 ? buildUnitIntro(data, totalQuestions) : undefined}
           imageUrl={data.bannerImageUrl}
           imageAlt={`${data.unitTitle} ünitesi görseli`}
         >
           <Link
             href={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}`}
-            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
           >
             <BookOpen className="h-4 w-4" aria-hidden="true" /> Ünitenin konu anlatımları
           </Link>
         </SoruBankasiHeader>
-
-        {!data.hasQuestions && (
-          <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-800 dark:text-amber-300">
-            Taslak — bu ünitede henüz soru yok, sayfa şu anda yayında değil, sadece adminler görebiliyor.
-          </p>
-        )}
 
         {/* lg:grid-rows-[auto_1fr]: uzun konu listesi iki satıra yayılırken boşluk ilk satıra
             (test kartı) değil ikinciye gitsin — yoksa sağ alttaki kart sayfanın dibine düşüyor. */}
@@ -175,7 +170,7 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
                 current: lesson.slug === data.lessonSlug,
               }))}
               footer={
-                <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">
+                <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-[#7A2634]">
                   Tüm {data.gradeName} soru bankaları →
                 </Link>
               }
@@ -189,10 +184,11 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
 
 // Her ünite sayfasına özgün giriş metni (SEO; veriden türetilir): konular ve soru sayıları.
 function buildUnitIntro(data: SoruBankasiUnitData, totalQuestions: number): string {
-  const parts = data.topics.map((t) => `${t.title} (${t.questionCount} soru)`);
+  const answerableTopics = data.topics.filter((t) => t.questionCount > 0);
+  const parts = answerableTopics.map((t) => `${t.title} (${t.questionCount} soru)`);
   const list = joinTr(parts);
   return (
-    `${data.gradeName} ${data.lessonName} dersinin ${data.unitTitle} ünitesinde ${data.topics.length} konu ve ${totalQuestions} soru var: ${list}. ` +
+    `${data.gradeName} ${data.lessonName} dersinin ${data.unitTitle} ünitesinde ${answerableTopics.length} konu ve ${totalQuestions} soru var: ${list}. ` +
     'Bir konuyu seçip sorularını cevap anahtarıyla inceleyebilir ya da tüm üniteden karışık bir test çözebilirsin.'
   );
 }
@@ -204,7 +200,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
   const path = buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, data.unitSlug);
   const canonicalUrl = `${SITE_URL}${path}`;
-  const topicNames = data.topics.map((t) => t.title).join(', ');
+  const topicNames = data.topics.filter((t) => t.questionCount > 0).map((t) => t.title).join(', ');
   const title = `${data.unitTitle} Soru Bankası - ${data.gradeName} ${data.lessonName}`;
   const description = topicNames
     ? `${data.gradeName} ${data.lessonName} ${data.unitTitle} ünitesinde ${topicNames} konularında cevap anahtarlı, ücretsiz soru bankaları.`

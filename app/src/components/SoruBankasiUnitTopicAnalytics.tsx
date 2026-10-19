@@ -75,11 +75,30 @@ export default function SoruBankasiUnitTopicAnalytics({
         const stat = statsByTopic?.[topic.id];
         const total = stat?.poolSize || topic.questionCount;
         const pct = stat && total ? Math.min(100, Math.round((stat.solved / total) * 100)) : 0;
+        if (topic.questionCount === 0) {
+          return (
+            <li key={topic.id} className="flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 opacity-70 sm:p-4">
+              {topic.heroImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={topic.heroImageUrl} alt="" loading="lazy" decoding="async" className="h-16 w-24 shrink-0 rounded-xl bg-surface-elevated object-cover sm:h-20 sm:w-32" />
+              ) : (
+                <span className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-xl border sm:h-20 sm:w-32 ${tint}`} aria-hidden="true">
+                  <SubjectIcon lessonName={lessonName} variant="solid" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="text-xs font-semibold text-[#7A2634]">{topic.number}. konu</span>
+                <span className="mt-0.5 block font-semibold leading-snug text-default">{topic.title}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">Sorular yakında eklenecek</span>
+              </span>
+            </li>
+          );
+        }
         return (
           <li key={topic.id}>
             <Link
               href={`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}/${topic.slug}`}
-              className="group flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 transition-all hover:border-indigo-300 hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] sm:p-4"
+              className="group flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 transition-all hover:border-[#7A2634]/40 hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] sm:p-4"
             >
               {topic.heroImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -90,8 +109,8 @@ export default function SoruBankasiUnitTopicAnalytics({
                 </span>
               )}
               <span className="min-w-0 flex-1">
-                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{topic.number}. konu</span>
-                <span className="mt-0.5 block font-semibold leading-snug text-default transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{topic.title}</span>
+                <span className="text-xs font-semibold text-[#7A2634]">{topic.number}. konu</span>
+                <span className="mt-0.5 block font-semibold leading-snug text-default transition-colors group-hover:text-[#7A2634]">{topic.title}</span>
                 {stat && stat.solved > 0 ? (
                   <span className="mt-2 block">
                     <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -101,7 +120,7 @@ export default function SoruBankasiUnitTopicAnalytics({
                       <span>%{Math.round((stat.correct / stat.solved) * 100)} başarı</span>
                     </span>
                     <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
-                      <span className="block h-full rounded-full bg-indigo-600" style={{ width: `${pct}%` }} />
+                      <span className="block h-full rounded-full bg-[#7A2634]" style={{ width: `${pct}%` }} />
                     </span>
                   </span>
                 ) : (

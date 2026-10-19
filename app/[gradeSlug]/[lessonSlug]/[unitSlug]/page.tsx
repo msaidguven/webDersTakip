@@ -105,7 +105,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
             {firstTopic && (
               <Link
                 href={`${unitPath}/${firstTopic.slug}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#7A2634] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#5C1B27]"
               >
                 Konu anlatımına başla <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
@@ -113,7 +113,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
             {unitQuestionCount > 0 && (
               <Link
                 href={buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, data.unitSlug)}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
               >
                 <ListChecks className="h-4 w-4" aria-hidden="true" /> Ünite soru bankası
               </Link>
@@ -139,8 +139,8 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
                   );
                   const body = (
                     <span className="min-w-0 flex-1">
-                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{i + 1}. konu</span>
-                      <span className="mt-0.5 block font-semibold leading-snug text-default transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{topic.title}</span>
+                      <span className="text-xs font-semibold text-[#7A2634]">{i + 1}. konu</span>
+                      <span className="mt-0.5 block font-semibold leading-snug text-default transition-colors group-hover:text-[#7A2634]">{topic.title}</span>
                       {topic.subtitle && <span className="mt-1 line-clamp-2 block text-sm text-muted-foreground">{topic.subtitle}</span>}
                       <span className="mt-1.5 block text-xs font-medium text-muted-foreground">
                         {topic.hasContent ? (questions ? `Konu anlatımı · ${questions} soru` : 'Konu anlatımı') : 'Yakında'}
@@ -152,7 +152,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
                       {topic.hasContent ? (
                         <Link
                           href={`${unitPath}/${topic.slug}`}
-                          className="group flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 transition-all hover:border-indigo-300 hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] sm:p-4"
+                          className="group flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 transition-all hover:border-[#7A2634]/40 hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] sm:p-4"
                         >
                           {visual}
                           {body}

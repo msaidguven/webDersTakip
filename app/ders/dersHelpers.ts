@@ -5,6 +5,7 @@
 
 import { slugifyHeading } from '@/app/src/lib/site';
 import type { CurriculumBreak } from '@/app/src/lib/routeParsing';
+import type { WeekRange } from '@/app/src/lib/kazanimPlan';
 
 export type Outcome = {
   id?: string | number;
@@ -13,6 +14,8 @@ export type Outcome = {
   code?: string | null;
   learningOutcomeId?: number | null;
   learningOutcome?: { id: number; code: string | null; title: string } | null;
+  // Kazanımın işleneceği öğretim haftaları (outcome_weeks); atanmamışsa boş/yok.
+  weekRanges?: WeekRange[];
 };
 export type WeekedOutcome = Outcome & {
   startWeek: number | null;

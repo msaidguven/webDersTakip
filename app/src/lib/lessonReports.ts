@@ -55,11 +55,10 @@ export interface UnitReport {
   topics: TopicMastery[];
 }
 
-// Ünite ünite tamamlama ve başarı, müfredat sırasıyla (sorusu olmayan ünite yok sayılır).
+// Ünite ünite tamamlama ve başarı, müfredat sırasıyla. Sorusu olmayan ünite ve konular da listede kalır
+// (raporda "yakında" yazar); başarı yalnız sorusu olan konulardan hesaplanır.
 export function unitReports(lesson: LessonMastery): UnitReport[] {
-  return lesson.units
-    .map((u) => ({ key: u.key, title: u.title, totals: totalsOf(u.topics.filter((t) => t.total > 0)), topics: u.topics }))
-    .filter((u) => u.totals.total > 0);
+  return lesson.units.map((u) => ({ key: u.key, title: u.title, totals: totalsOf(u.topics.filter((t) => t.total > 0)), topics: u.topics }));
 }
 
 // Renk tek başına anlam taşımaz (yanında yüzde yazar); eşikler topicMastery ile aynı.

@@ -9,6 +9,7 @@ import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/route
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
 import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
+import { fetchTopicOutcomeSchedule, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
 import TopicDesignSwitch from '../../../../ders/TopicDesignSwitch';
 import { getTopicPageDesign } from '@/app/src/lib/topicPageDesign';
@@ -390,6 +391,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
     // frozen_unit_slug'la çözüldüyse ÜNİTE segmenti canlı (ör. "arsiv") ünitenin slug'ı
     // DEĞİL, URL'de zaten gelen ESKİ slug olarak kalır — indekslenmiş URL asla değişmez.
     unitSlug: usingFrozenUnit ? decodedUnitSlug : contentUnit.slug,
+    topicId: activeTopic.id,
     topicTitle: activeTopic.title,
     topicSlug: activeTopic.slug,
   };
@@ -407,6 +409,16 @@ export default async function TopicPage({ params }: PageProps) {
     notFound();
   }
 
+  // Kazanımların haftaları: alınamazsa sayfa yine açılır, kazanım kartı tüm kazanımları hafta seçmeden gösterir.
+  const schedule = await fetchTopicOutcomeSchedule(createAnonClient(), data.topicId).catch((error): Record<number, WeekRange[]> => {
+    console.error('[konu] kazanım takvimi alınamadı:', error);
+    return {};
+  });
+  const pageData = {
+    ...data,
+    outcomes: data.outcomes.map((o) => ({ ...o, weekRanges: (o.id != null && schedule[Number(o.id)]) || [] })),
+  };
+
   return (
     <>
       <script
@@ -419,7 +431,7 @@ export default async function TopicPage({ params }: PageProps) {
       <ReadingProgressBar />
       <TopicDesignSwitch
         publishedDesign={publishedDesign}
-        initialData={data}
+        initialData={pageData}
         gradeId={data.gradeId}
         lessonId={data.lessonId}
         week={data.week}

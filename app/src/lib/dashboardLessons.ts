@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { LessonProgress } from '@/app/src/models/types';
 import { buildSoruBankasiLessonPath, buildSoruBankasiUnitPath } from './soruBankasiPaths';
+import { lessonHref as reportLessonHref } from './lessonReports';
 
 export interface DashboardLessonsResult {
   gradeId: number;
@@ -76,6 +77,7 @@ export async function getDashboardLessons(
       progress: row.total_questions > 0 ? Math.min(100, Math.round((row.solved_questions / row.total_questions) * 100)) : 0,
       soruBankasiHref: canLink ? buildSoruBankasiLessonPath(row.grade_slug!, row.lesson_slug!) : undefined,
       lessonHref: canLink ? `/${row.grade_slug}/${row.lesson_slug}` : undefined,
+      reportHref: canLink ? reportLessonHref(row.lesson_slug!) : undefined,
       weakTopic:
         row.weak_topic_title && weakTopicHref
           ? { title: row.weak_topic_title, wrongCount: row.weak_topic_wrong ?? 0, accuracy: row.weak_topic_accuracy ?? null, href: weakTopicHref }

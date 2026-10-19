@@ -95,26 +95,26 @@
   .dark {
     /* 2026-10-12: saf siyaha yakın zemin + saf beyaz yazı uzun okumada göz yoruyordu → koyu lacivert-gri
        "dimmed" palet; kontrast WCAG AA üstünde (ana yazı ~15:1, ikincil ~7:1). */
-    --background: #171a21;
-    --surface: #1f232b;
-    --surface-elevated: #282d37;
+    --background: #23262d;
+    --surface: #2b2f38;
+    --surface-elevated: #353a45;
     --border: oklch(1 0 0 / 10%);
     --border-subtle: #363c48;
     --text: #e7e9ee;
-    --muted: #282d37;
+    --muted: #353a45;
     --primary: oklch(0.922 0 0);
     --primary-light: #818cf8;
     --primary-dark: #4f46e5;
     --foreground: #e7e9ee;
-    --card: #1f232b;
+    --card: #2b2f38;
     --card-foreground: #e7e9ee;
-    --popover: #1f232b;
+    --popover: #2b2f38;
     --popover-foreground: #e7e9ee;
     --primary-foreground: oklch(0.205 0 0);
-    --secondary: #282d37;
+    --secondary: #353a45;
     --secondary-foreground: #e7e9ee;
     --muted-foreground: #a4abb8;
-    --accent: #282d37;
+    --accent: #353a45;
     --accent-foreground: #e7e9ee;
     --destructive: oklch(0.704 0.191 22.216);
     --destructive-foreground: oklch(0.985 0 0);
@@ -125,11 +125,11 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: #1f232b;
+    --sidebar: #2b2f38;
     --sidebar-foreground: #e7e9ee;
     --sidebar-primary: oklch(0.488 0.243 264.376);
     --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: #282d37;
+    --sidebar-accent: #353a45;
     --sidebar-accent-foreground: #e7e9ee;
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
@@ -288,7 +288,7 @@
   --scrollbar-thumb-hover: #64748b;
 }
 .dark {
-  --scrollbar-track: #1f232b;
+  --scrollbar-track: #2b2f38;
   --scrollbar-thumb: #4b5263;
   --scrollbar-thumb-hover: #6b7385;
 }

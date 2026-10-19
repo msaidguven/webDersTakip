@@ -18,6 +18,10 @@ type UnitContentRow = {
   hasPublishedContent: boolean;
   topicCount: number;
   questionCount: number;
+  // Yayın durumundan bağımsız gerçek sayılar — sınıf kartında ders/ünite/konu her zaman
+  // sayılsın isteniyor (2026-10-19), içerik/soru olmasa da.
+  totalTopicCount: number;
+  totalQuestionCount: number;
 };
 
 export async function getPublishedUnitContent(supabase: AnySupabaseClient, gradeIds: number[]): Promise<UnitContentRow[]> {
@@ -59,7 +63,11 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
 
   const publishedTopicCountByUnit = new Map<number, number>();
   const questionCountByUnit = new Map<number, number>();
+  const totalTopicCountByUnit = new Map<number, number>();
+  const totalQuestionCountByUnit = new Map<number, number>();
   for (const t of topics) {
+    totalTopicCountByUnit.set(t.unit_id, (totalTopicCountByUnit.get(t.unit_id) ?? 0) + 1);
+    totalQuestionCountByUnit.set(t.unit_id, (totalQuestionCountByUnit.get(t.unit_id) ?? 0) + (questionCountByTopic.get(t.id) ?? 0));
     if (!publishedTopicIds.has(t.id)) continue;
     publishedTopicCountByUnit.set(t.unit_id, (publishedTopicCountByUnit.get(t.unit_id) ?? 0) + 1);
     questionCountByUnit.set(t.unit_id, (questionCountByUnit.get(t.unit_id) ?? 0) + (questionCountByTopic.get(t.id) ?? 0));
@@ -72,6 +80,8 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
     hasPublishedContent: (publishedTopicCountByUnit.get(u.id) ?? 0) > 0,
     topicCount: publishedTopicCountByUnit.get(u.id) ?? 0,
     questionCount: questionCountByUnit.get(u.id) ?? 0,
+    totalTopicCount: totalTopicCountByUnit.get(u.id) ?? 0,
+    totalQuestionCount: totalQuestionCountByUnit.get(u.id) ?? 0,
   }));
 }
 
@@ -106,7 +116,7 @@ export async function getPublicMemberCount(supabase: AnySupabaseClient): Promise
 export function getSiteStats(gradeIds: number[], publishedUnitsAll: UnitContentRow[], memberCount: number): SiteStats {
   const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
 
-  const lessonKeys = new Set(publishedUnits.map((u) => `${u.grade_id}:${u.lesson_id}`));
+  const lessonKeys = new Set(publishedUnitsAll.map((u) => `${u.grade_id}:${u.lesson_id}`));
   const topicCount = publishedUnits.reduce((sum, u) => sum + u.topicCount, 0);
   const questionCount = publishedUnits.reduce((sum, u) => sum + u.questionCount, 0);
 
@@ -153,22 +163,22 @@ export async function getHomeGradeSections(
 
   const { data: lessonGradeRows } = await supabase.from('lesson_grades').select('lesson_id, grade_id, is_active').in('grade_id', gradeIds);
 
-  const publishedUnits = publishedUnitsAll.filter((u) => u.hasPublishedContent);
-
-  // grade+lesson -> aggregate (yalnızca yayınlanmış anlatımı olan üniteler)
+  // grade+lesson -> aggregate — içerik/soru yayında olmasa da ders/ünite/konu her zaman
+  // sayılır (2026-10-19 kullanıcı isteği); bu yüzden publishedUnitsAll (yayın durumundan
+  // bağımsız, tüm aktif üniteler) kullanılıyor, hasPublishedContent filtresi YOK.
   type Agg = { unitCount: number; topicCount: number; questionCount: number };
   const aggByGradeLesson = new Map<string, Agg>();
-  for (const u of publishedUnits) {
+  for (const u of publishedUnitsAll) {
     const key = `${u.grade_id}:${u.lesson_id}`;
     const agg = aggByGradeLesson.get(key) ?? { unitCount: 0, topicCount: 0, questionCount: 0 };
     agg.unitCount += 1;
-    agg.topicCount += u.topicCount;
-    agg.questionCount += u.questionCount;
+    agg.topicCount += u.totalTopicCount;
+    agg.questionCount += u.totalQuestionCount;
     aggByGradeLesson.set(key, agg);
   }
 
-  // Bir ders, o sınıfta yayınlanmış sayılması için: lesson_grades.is_active VE en az bir
-  // gerçek (yayınlanmış anlatımı olan) ünitesi olmalı.
+  // Bir ders, o sınıfta sayılması için: lesson_grades.is_active VE en az bir aktif ünitesi
+  // olmalı (içeriği/sorusu henüz olmasa da).
   const activeLessonIdsByGrade = new Map<number, Set<number>>();
   for (const row of ((lessonGradeRows as LessonGradeRow[] | null) || [])) {
     if (!row.is_active) continue;
