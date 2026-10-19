@@ -19,6 +19,7 @@ import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import r from '../../src/components/robotic/robotic.module.css';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -82,7 +83,7 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
 
         <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
           <section aria-labelledby="dersler" className="min-w-0">
-            <h2 id="dersler" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Dersler</h2>
+            <h2 id="dersler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Dersler</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir ders seç; üniteleri ve konuları gör.</p>
             {data.lessons.length ? (
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -94,7 +95,7 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
                     >
                       <SubjectIcon lessonName={lesson.name} variant="solid" size="lg" />
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold leading-snug text-default group-hover:text-[#7A2634]">{lesson.name}</span>
+                        <span className={`block font-semibold leading-snug text-default ${r.groupHoverAccent}`}>{lesson.name}</span>
                         <span className="text-sm text-muted-foreground">{lesson.questionCount} soru</span>
                       </span>
                       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />

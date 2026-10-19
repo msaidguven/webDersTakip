@@ -28,6 +28,7 @@ import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
+import r from './robotic/robotic.module.css';
 
 interface TestData {
   gradeId: number;
@@ -74,7 +75,8 @@ interface TestStatusCardProps {
 }
 
 const COLOR_CLASSES = {
-  indigo: { button: 'bg-indigo-600 hover:bg-indigo-700', bar: 'bg-indigo-500' },
+  // indigo: soru bankasında robotik tema neon düğmesi/çubuğu (2026-10-19).
+  indigo: { button: r.btnNeon, bar: r.fill },
   emerald: { button: 'bg-emerald-600 hover:bg-emerald-700', bar: 'bg-emerald-500' },
 } as const;
 
@@ -214,9 +216,9 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   const resumable = status?.resumable ?? null;
 
   return (
-    // 2026-10-03 soru bankası yenilemesi: açık indigo panel, sola hizalı, düz (geçişsiz) buton.
-    <div className="flex flex-col gap-4 rounded-[20px] border border-indigo-200 bg-indigo-50/70 p-5 dark:border-indigo-500/25 dark:bg-indigo-500/10">
-      <p className="text-lg font-bold text-default">{title}</p>
+    // Robotik tema (2026-10-19): metal panel + teknik başlık.
+    <div className={`flex flex-col gap-4 p-5 ${r.panel}`}>
+      <p className={`text-lg font-bold uppercase text-default ${r.display}`}>{title}</p>
 
       {!status ? (
         // Metin yerine iskelet (skeleton) — "Durum yükleniyor…" gibi teknik bir cümle SSR
@@ -347,13 +349,13 @@ function GuestTestCta({ questionCount }: { questionCount: number }) {
       <div className="flex w-full flex-col gap-2">
         <Link
           href="/register"
-          className="flex min-h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+          className={`flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold ${r.btnNeon} ${r.btnText}`}
         >
           Ücretsiz üye ol
         </Link>
         <Link
           href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
-          className="flex min-h-11 items-center justify-center rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-indigo-300"
+          className={`flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold ${r.btnGhost} ${r.btnText}`}
         >
           Giriş yap
         </Link>

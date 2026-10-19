@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { LessonSelector } from '../src/components/home/LessonSelector';
 import { Grade, Lesson } from '../src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
+import { roboticFontVars } from '../src/components/robotic/fonts';
+import r from '../src/components/robotic/robotic.module.css';
 
 function getLessonColor(orderNo: number): string {
   const colors = [
@@ -134,7 +136,7 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
   if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;
 
   return (
-    <div className="min-h-screen bg-[#F7F4FB] dark:bg-background py-8 sm:py-14">
+    <div className={`${roboticFontVars} ${r.root} py-8 antialiased sm:py-14`}>
       <LessonSelector
         grade={grade}
         lessons={lessons}

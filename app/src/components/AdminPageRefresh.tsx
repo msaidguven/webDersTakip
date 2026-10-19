@@ -40,7 +40,7 @@ export function AdminPageRefresh() {
   }
 
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-40 md:bottom-20">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-40 lg:bottom-20">
       {open ? (
         <div role="dialog" aria-label="Sayfayı yenile" className="w-72 rounded-2xl border border-default bg-background p-4 shadow-lg">
           <div className="mb-2 flex items-start justify-between gap-2">

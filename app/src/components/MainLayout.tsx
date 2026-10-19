@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useIsAdmin } from '../hooks/useIsAdmin';
@@ -14,6 +15,8 @@ import ThemeToggle from './ThemeToggle';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
 import { DesktopNav, MobileTabBar, buildNavItems } from './SiteNav';
+import { roboticFontVars } from './robotic/fonts';
+import r from './robotic/robotic.module.css';
 import { useMyGradeSlug } from '../hooks/useMyGradeSlug';
 
 interface MainLayoutProps {
@@ -60,7 +63,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   // olduğu için ikisi de eşleşmeli.
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
   const isTopicContentRoute = pathSegments.length === 4;
-  const isDersRoute = pathname === '/ders' || isTopicContentRoute;
+  const isDersRoute = isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
   const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
   // Test çözme sayfalarında (kavrama-testi/ünite-testi) header kalır ama footer'ın hukuki
@@ -74,15 +77,12 @@ export function MainLayout({ children }: MainLayoutProps) {
   const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, gradeSlug });
 
   return (
-    <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : ''}`}>
+    <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
       {/* Header — her zaman sabit, scroll yönüne göre gizlenmez */}
       {!hideHeader && (
       <nav
-        className="fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px]
-          bg-white/80 dark:bg-surface/95
-          backdrop-blur-xl
-          border-b border-zinc-200 dark:border-default
-          shadow-sm dark:shadow-none"
+        // Robotik tema (2026-10-19): metal cam çubuk + alt neon çizgi (bkz. robotic.module.css .siteBar).
+        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] ${roboticFontVars} ${r.siteBar}`}
       >
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           
@@ -90,24 +90,18 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
             <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
               {/* Logo */}
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl 
-                bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 
-                flex items-center justify-center 
-                shadow-lg shadow-indigo-500/25 dark:shadow-indigo-500/25 
-                group-hover:shadow-indigo-500/40 
-                transition-all group-hover:scale-105">
-                <span className="text-lg sm:text-xl">🎓</span>
+              {/* Gerçek Ders Takip logosu (favicon/PWA ikonuyla aynı), neon çerçeveli yuvarlak çipte. */}
+              <div className={`w-9 h-9 sm:w-11 sm:h-11 !rounded-full p-0.5 ${r.brandChip}`} aria-label="Ders Takip anasayfa">
+                <Image src="/icons/icon-192.png" alt="" width={40} height={40} priority className="h-full w-full rounded-full" />
               </div>
               
               {/* Site Adı */}
-              <div className="flex items-baseline gap-0.5 whitespace-nowrap">
-                <span className="text-base sm:text-xl font-black tracking-tight 
-                  bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 
-                  dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 
-                  bg-clip-text text-transparent">
+              {/* 430px altında yalnız logo: sağdaki düğmeler (Giriş/Kayıt ya da seri+profil) sığsın. */}
+              <div className={`flex items-baseline gap-0.5 whitespace-nowrap ${r.brandText}`}>
+                <span className={`text-base sm:text-xl ${r.brandName}`}>
                   Ders Takip
                 </span>
-                <span className="hidden min-[400px]:inline text-xs sm:text-sm font-bold text-indigo-500/70 dark:text-indigo-400/80">
+                <span className={`text-xs sm:text-sm ${r.brandTld}`}>
                   .net
                 </span>
               </div>
@@ -118,10 +112,10 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* Sağ Menü */}
           <div className="flex items-center gap-2 sm:gap-4">
             {isAuthenticated && streak != null && (
-              <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/20 rounded-xl">
+              <div className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`}>
                 <span className="text-lg sm:text-xl">🔥</span>
                 <div>
-                  <span className="text-orange-400 font-bold text-sm sm:text-base">{streak}</span>
+                  <span className={`text-orange-500 text-sm sm:text-base ${r.statValue}`}>{streak}</span>
                   <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
                 </div>
               </div>
@@ -135,31 +129,27 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="relative" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen((open) => !open)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
+                  className={`w-9 h-9 sm:w-10 sm:h-10 ${r.iconBtn}`}
                 >
-                  <Icon name="user" className="text-muted-foreground" size={18} />
+                  <Icon name="user" size={18} />
                 </button>
 
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden">
-                    <div className="px-4 py-3 border-b border-zinc-200 dark:border-default text-sm text-zinc-500 dark:text-muted-foreground truncate">
+                  <div className={`absolute right-0 mt-2 w-56 overflow-hidden ${r.menu}`}>
+                    <div className={`px-4 py-3 border-b text-sm truncate ${r.divider} ${r.muted}`}>
                       👋 {displayName || user?.email?.split('@')[0]}
                     </div>
                     <Link
                       href="/ilerlemem"
                       onClick={() => setIsProfileMenuOpen(false)}
-                      className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
-                        transition-colors text-sm px-4 py-2.5
-                        hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                      className={r.menuItem}
                     >
                       İlerlemem
                     </Link>
                     <Link
                       href="/profil"
                       onClick={() => setIsProfileMenuOpen(false)}
-                      className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
-                        transition-colors text-sm px-4 py-2.5
-                        hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                      className={r.menuItem}
                     >
                       Profil
                     </Link>
@@ -167,9 +157,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                       <Link
                         href="/admin"
                         onClick={() => setIsProfileMenuOpen(false)}
-                        className="block text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default
-                          transition-colors text-sm px-4 py-2.5
-                          hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                        className={r.menuItem}
                       >
                         Admin
                       </Link>
@@ -179,9 +167,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         setIsProfileMenuOpen(false);
                         signOut();
                       }}
-                      className="w-full text-left text-zinc-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400
-                        transition-colors text-sm px-4 py-2.5
-                        hover:bg-red-50 dark:hover:bg-red-500/10"
+                      className={`${r.menuItem} hover:!text-red-500`}
                     >
                       Çıkış
                     </button>
@@ -192,19 +178,13 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="flex items-center gap-2">
                 <Link 
                   href="/login" 
-                  className="text-zinc-600 dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-default 
-                    transition-colors text-xs sm:text-sm px-2 sm:px-3 py-2 rounded-xl whitespace-nowrap 
-                    hover:bg-zinc-100 dark:hover:bg-surface-elevated"
+                  className={`text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 rounded-xl whitespace-nowrap ${r.btnGhost} ${r.btnText}`}
                 >
                   Giriş Yap
                 </Link>
                 <Link 
                   href="/register"
-                  className="px-3 sm:px-4 py-2 
-                    bg-gradient-to-r from-indigo-500 to-purple-600 
-                    text-white font-medium rounded-xl 
-                    hover:shadow-lg hover:shadow-indigo-500/30 
-                    transition-all text-xs sm:text-sm"
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm ${r.btnNeon} ${r.btnText}`}
                 >
                   <span className="sm:hidden">Kayıt</span>
                   <span className="hidden sm:inline">Kayıt Ol</span>

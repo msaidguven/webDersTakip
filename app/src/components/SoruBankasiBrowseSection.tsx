@@ -12,6 +12,7 @@ import { Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useQuestionBankViewer } from '../hooks/useQuestionBankViewer';
 import { OPEN_QUESTION_LIST_EVENT } from '../lib/soruBankasiEvents';
+import r from './robotic/robotic.module.css';
 
 export default function SoruBankasiBrowseSection({ questionCount, questionIds, children }: { questionCount: number; questionIds: number[]; children: React.ReactNode }) {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export default function SoruBankasiBrowseSection({ questionCount, questionIds, c
 
   return (
     <section aria-labelledby="sorular" className="flex flex-col">
-      <h2 id="sorular" className="scroll-mt-24 text-xl font-bold tracking-tight text-default sm:text-2xl">
+      <h2 id="sorular" className={`scroll-mt-24 text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>
         {studentMode ? 'Çözdüğün sorular' : 'Sorular ve cevap anahtarı'}
       </h2>
       <p className="mb-4 mt-1 text-sm text-muted-foreground">
@@ -36,7 +37,7 @@ export default function SoruBankasiBrowseSection({ questionCount, questionIds, c
           : `${questionCount} soru. Önce kendin çöz, sonra cevabı ve açıklamayı gör.`}
       </p>
       {user && viewer.status === 'staff' && (
-        <p className="mb-4 flex items-start gap-2 rounded-xl bg-[#7A2634]/10 px-3 py-2 text-sm text-[#7A2634]">
+        <p className={`mb-4 flex items-start gap-2 rounded-xl ${r.tint} px-3 py-2 text-sm ${r.accent}`}>
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           Öğretmen/admin görünümü: tüm sorular. Öğrenciler burada yalnız testte çözdükleri soruları görür.
         </p>

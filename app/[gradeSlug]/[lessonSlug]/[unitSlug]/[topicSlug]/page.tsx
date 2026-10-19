@@ -11,12 +11,11 @@ import { getLessonWeekData } from '@/app/src/lib/lessonWeekData';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { fetchTopicOutcomeSchedule, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import { SITE_URL, stripHtml } from '@/app/src/lib/site';
-import TopicDesignSwitch from '../../../../ders/TopicDesignSwitch';
-import { getTopicPageDesign } from '@/app/src/lib/topicPageDesign';
+import DersClientV1 from '../../../../ders/v1/DersClientV1';
 import DersHighlight from '../../../../ders/DersHighlight';
 import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 
-// Bu sayfa artık taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli
+// Bu sayfa taslak/admin önizlemesi göstermiyor (o iş admin paneli /admin/konu-icerik
 // üzerinden yapılıyor) — yani her zaman herkese aynı, tamamen public içerik döner. Bu
 // sayede ISR ile cache'lenebiliyor: saatlik fallback + admin bir konuyu düzenlediğinde
 // ilgili sayfanın anında güncellenmesi için revalidateTopicPage/revalidateUnitPages
@@ -265,7 +264,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
   const lId = lesson.id;
 
   // Bu sayfa artık taslak göstermiyor: is_active/is_published filtreleri koşulsuz
-  // uygulanır (admin dahil kimse taslağı buradan göremez — önizleme /ders?... üzerinden).
+  // uygulanır (admin dahil kimse taslağı buradan göremez — önizleme admin panelinde).
   const unitsQuery = supabase
     .from('units')
     .select('id, title, slug, order_no, start_week, end_week, is_active')
@@ -400,10 +399,7 @@ const getTopicPageData = cache(async function getTopicPageData(gradeSlug: string
 export default async function TopicPage({ params }: PageProps) {
   const { gradeSlug, lessonSlug, unitSlug, topicSlug } = await params;
 
-  const [data, publishedDesign] = await Promise.all([
-    getTopicPageData(gradeSlug, lessonSlug, unitSlug, topicSlug),
-    getTopicPageDesign(createAnonClient()),
-  ]);
+  const data = await getTopicPageData(gradeSlug, lessonSlug, unitSlug, topicSlug);
 
   if (!data) {
     notFound();
@@ -429,8 +425,7 @@ export default async function TopicPage({ params }: PageProps) {
         }}
       />
       <ReadingProgressBar />
-      <TopicDesignSwitch
-        publishedDesign={publishedDesign}
+      <DersClientV1
         initialData={pageData}
         gradeId={data.gradeId}
         lessonId={data.lessonId}

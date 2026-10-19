@@ -14,7 +14,9 @@ import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionOfTheDay } from './src/components/home/DailyQuestionCard';
 import type { TopStudentEntry } from './src/lib/leaderboard';
 import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
-import { GuestHomeV5 } from './src/components/home/GuestHomeV5';
+import { GuestHomeV1 } from './src/components/home/GuestHomeV1';
+import { roboticFontVars } from './src/components/robotic/fonts';
+import r from './src/components/robotic/robotic.module.css';
 
 interface GradeRow {
   id: number;
@@ -109,8 +111,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   // kartlar, tek vurgu rengi (indigo) butonlarda; bölümler arasında ince ayırıcı çizgi.
   //  - Misafir: giriş + Günün Sorusu → [Dersler | Okulda bu hafta] → [Yeni eklenenler | Bu
   //    haftanın en çalışkanları] → Ders Takip nedir? + üyelik kartı.
-  //  - Girişli (2026-10-18 referans düzeni, bkz. StudentToday.tsx): karşılama + hızlı erişim →
-  //    görev kartı ve sekmeler (Derslerim | Günün sorusu | Okulda bu hafta | Yeni konular) + durum özeti.
+  //  - Girişli (bkz. StudentToday.tsx): karşılama + hızlı erişim → görev + Derslerim + durum özeti →
+  //    Günün sorusu, Okulda bu hafta, Yeni konular (her biri ayrı kart, sekme yok — 2026-10-19).
   //  Takvim verisi olmayan sınıfta "Okulda bu hafta" kartı yok → Dersler tam genişlik.
   //  Sunucu HTML'i (ISR) her zaman misafir hali — Google onu görür.
   const thisWeekTopics = selectedGrade ? thisWeek.byGradeId[selectedGrade.id] ?? [] : [];
@@ -122,7 +124,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#F7F4FB] dark:bg-background">
+      <div className={`${roboticFontVars} ${r.root}`}>
         <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
           <div className="mx-auto max-w-5xl">
             <StudentToday
@@ -142,9 +144,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     );
   }
 
-  // Misafir anasayfası: v5 (2026-10-19'da varsayılan oldu; v4 kodu bu dosyada değil, gerekirse git geçmişinde).
+  // Misafir anasayfası: v1 (2026-10-19 — tek misafir tasarımı; eski sürümler git geçmişinde).
   return (
-    <GuestHomeV5
+    <GuestHomeV1
       grades={resolvedGrades}
       gradeSections={gradeSections}
       stats={stats}

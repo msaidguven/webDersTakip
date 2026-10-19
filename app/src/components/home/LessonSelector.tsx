@@ -8,6 +8,7 @@ import { ArrowRight, BookOpen, CheckCircle2, Layers, Sparkles, X } from 'lucide-
 import type { LucideIcon } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
 import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
+import r from '@/app/src/components/robotic/robotic.module.css';
 
 interface LessonSelectorProps {
   grade: Grade;
@@ -55,19 +56,24 @@ function useLessonUnits() {
   return { byLessonId, loadingLessonIds, ensureLoaded };
 }
 
-// Ortak sınıflar: çerçeve, nötr ikon kutusu (ikon bordo), bordo düğme. Ana sayfayla aynı dil.
-const FRAME = 'rounded-2xl border border-[#7A2634]/20 bg-background';
-const ICON_BOX = 'bg-zinc-100 text-[#7A2634]';
-const BUTTON = 'bg-[#7A2634] text-white hover:bg-[#5C1B27]';
+// Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfayla aynı; bkz. robotic). Kök tema
+// sınıfı GradePageClient'ta.
+const FRAME = `rounded-[22px] ${r.panel}`;
+const BUTTON = `${r.btnNeon} ${r.btnText}`;
+const GHOST = `${r.btnGhost} ${r.btnText}`;
+// Sütun sayısı sabit kırılım noktalarına değil kart genişliğine bağlı: telefonda 1, tablette 2-3,
+// masaüstünde 4, akıllı tahta / dev ekranda 5-6 sütun kendiliğinden oluşur (ad kesilmesin diye ≥17rem).
+const GRID = 'grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))]';
+const CONTAINER = 'mx-auto max-w-6xl px-4 sm:px-6 2xl:max-w-[1600px]';
 
 function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
   return (
-    <nav aria-label="Konum" className="mb-4 flex items-center gap-1.5 text-xs font-bold text-muted-foreground sm:text-sm">
-      <button onClick={onBack} className="transition-colors hover:text-[#7A2634]">
+    <nav aria-label="Konum" className={`mb-4 flex items-center gap-1.5 text-xs font-semibold ${r.mono} ${r.muted}`}>
+      <button onClick={onBack} className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400">
         Anasayfa
       </button>
       <span>/</span>
-      <span className="inline-flex items-center gap-1.5 text-default">
+      <span className={`inline-flex items-center gap-1.5 ${r.accent}`}>
         <span className="leading-none">{grade.icon}</span>
         {grade.name}
       </span>
@@ -77,12 +83,10 @@ function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
 
 function StatTile({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-[#7A2634]/15 bg-surface/40 p-3">
-      <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${ICON_BOX}`}>
-        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      </span>
-      <span className="text-lg font-black leading-none text-default">{value}</span>
-      <span className="text-[11px] font-bold text-muted-foreground">{label}</span>
+    <div className={`flex flex-col items-center gap-1 p-3 ${r.stat}`}>
+      <Icon className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
+      <span className={`text-xl leading-none ${r.statValue}`}>{value}</span>
+      <span className={`${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.muted}`}>{label}</span>
     </div>
   );
 }
@@ -91,10 +95,10 @@ function LessonCardSkeleton() {
   return (
     <div className={`${FRAME} animate-pulse p-4 sm:p-6`}>
       <div className="flex items-center gap-4 sm:gap-5">
-        <div className="h-12 w-12 shrink-0 rounded-2xl bg-zinc-100 sm:h-14 sm:w-14" />
+        <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-500/10 sm:h-14 sm:w-14" />
         <div className="min-w-0 flex-1">
-          <div className="mb-2 h-5 w-24 rounded bg-zinc-100 sm:h-6 sm:w-32" />
-          <div className="h-3 w-32 rounded bg-zinc-100 sm:h-4 sm:w-48" />
+          <div className="mb-2 h-5 w-24 rounded bg-slate-500/10 sm:h-6 sm:w-32" />
+          <div className="h-3 w-32 rounded bg-slate-500/10 sm:h-4 sm:w-48" />
         </div>
       </div>
     </div>
@@ -107,7 +111,7 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
                       {isLoadingUnits ? (
                         <div className="space-y-1.5 sm:space-y-2">
                           {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="h-9 w-full animate-pulse rounded-lg bg-zinc-200/70 sm:h-11 sm:rounded-xl" />
+                            <div key={i} className="h-9 w-full animate-pulse rounded-lg bg-slate-500/10 sm:h-11 sm:rounded-xl" />
                           ))}
                         </div>
                       ) : !units || units.length === 0 ? (
@@ -123,17 +127,17 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
                                 className={`group/unit flex items-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
                                   isDraftUnit
                                     ? 'border-amber-300 bg-amber-50/60 hover:border-amber-400 dark:bg-amber-500/10'
-                                    : 'border-transparent bg-background hover:border-[#7A2634]/30 hover:bg-[#7A2634]/5'
+                                    : r.item
                                 }`}
                               >
                                 <span
-                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black sm:h-7 sm:w-7 sm:text-[11px] ${
-                                    isDraftUnit ? 'bg-amber-500 text-white' : ICON_BOX
+                                  className={`h-5 w-5 shrink-0 text-[9px] sm:h-7 sm:w-7 sm:text-[11px] ${
+                                    isDraftUnit ? 'flex items-center justify-center rounded-full bg-amber-500 font-black text-white' : r.chipBox
                                   }`}
                                 >
                                   {unitIndex + 1}
                                 </span>
-                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-default'}`}>
+                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : r.ink}`}>
                                   {unit.title}
                                 </span>
                                 {isDraftUnit && (
@@ -141,18 +145,18 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
                                     Taslak
                                   </span>
                                 )}
-                                <ArrowRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-[#7A2634] sm:block" />
+                                <ArrowRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-cyan-500 sm:block" />
                               </Link>
                             ) : (
                               <div
                                 key={unit.id}
                                 className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
-                                  isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : 'border-transparent bg-background opacity-50'
+                                  isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : `${r.item} opacity-50`
                                 }`}
                               >
                                 <span
                                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black sm:h-7 sm:w-7 sm:text-[11px] ${
-                                    isDraftUnit ? 'bg-amber-500 text-white' : 'bg-zinc-100 text-zinc-400'
+                                    isDraftUnit ? 'bg-amber-500 text-white' : 'bg-slate-500/10 text-slate-400'
                                   }`}
                                 >
                                   {unitIndex + 1}
@@ -203,9 +207,9 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-0">
+      <div className={CONTAINER}>
         <Breadcrumb grade={grade} onBack={onBack} />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 sm:gap-4">
+        <div className={`grid gap-3 sm:gap-4 ${GRID}`}>
           {[1, 2, 3, 4].map((i) => (
             <LessonCardSkeleton key={i} />
           ))}
@@ -216,7 +220,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
 
   if (error) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-0">
+      <div className={CONTAINER}>
         <Breadcrumb grade={grade} onBack={onBack} />
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center sm:p-8">
           <p className="mb-3 text-sm font-bold text-red-500 sm:mb-4 sm:text-base">Dersler yüklenirken bir hata oluştu</p>
@@ -233,13 +237,15 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-0">
-      <section className={`${FRAME} mb-6 flex flex-col gap-5 p-5 sm:mb-8 sm:p-7`}>
+    <div className={CONTAINER}>
+      <section className={`${FRAME} ${r.hero} mb-6 flex flex-col gap-5 p-5 sm:mb-8 sm:p-7`}>
+        <span className={r.scan} aria-hidden="true" />
         <Breadcrumb grade={grade} onBack={onBack} />
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <h1 className="mb-1.5 text-2xl font-black tracking-tight text-default sm:text-3xl">Bugün ne çalışıyorsun?</h1>
-          <p className="max-w-md text-sm text-muted-foreground sm:text-base">Bir ders seç, ünitesini bul, konuyu aç.</p>
+          <p className={`mb-2 inline-flex items-center gap-2 ${r.label}`}><span className={r.led} aria-hidden="true" /> {grade.name} dersleri</p>
+          <h1 className={`mb-1.5 text-2xl leading-tight sm:text-3xl ${r.chrome}`}>Bugün ne çalışıyorsun?</h1>
+          <p className={`max-w-md text-sm sm:text-base ${r.muted}`}>Bir ders seç, ünitesini bul, konuyu aç.</p>
         </div>
 
         {lessons.length > 0 && (
@@ -254,28 +260,28 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
 
       {lessons.length === 0 ? (
         <div className={`${FRAME} p-6 text-center sm:p-8`}>
-          <p className="text-sm font-bold text-muted-foreground sm:text-base">Bu sınıf için henüz ders bulunmamaktadır.</p>
+          <p className={`text-sm font-bold sm:text-base ${r.muted}`}>Bu sınıf için henüz ders bulunmamaktadır.</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className={`grid gap-3 sm:gap-5 ${GRID}`}>
             {lessons.map((lesson) => {
               const lessonPath = `/${grade.slug || grade.id}/${lesson.slug || lesson.id}`;
 
               return (
-                <div key={lesson.id} className={`flex flex-col overflow-hidden ${FRAME} transition-colors hover:border-[#7A2634]/50`}>
+                <div key={lesson.id} className={`group flex flex-col ${FRAME} ${r.itemHover} transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5`}>
                   <div className="flex flex-col gap-3 p-4 sm:p-5">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl sm:h-12 sm:w-12 sm:text-2xl ${ICON_BOX}`}>{lesson.icon}</div>
-                      <h3 className="min-w-0 flex-1 truncate text-sm font-black leading-tight text-default sm:text-lg">
+                      <div className={`h-10 w-10 shrink-0 text-xl sm:h-12 sm:w-12 sm:text-2xl ${r.chipBox}`}>{lesson.icon}</div>
+                      <h3 className={`min-w-0 flex-1 text-balance text-sm font-bold leading-tight sm:text-lg ${r.display} ${r.ink}`}>
                         <Link href={lessonPath} title={lesson.name} className="hover:underline">
                           {lesson.name}
                         </Link>
                       </h3>
                     </div>
 
-                    <p className="text-xs text-muted-foreground">
-                      {lesson.unitCount} Ünite · {lesson.questionCount} Soru
+                    <p className={`text-xs ${r.mono} ${r.muted}`}>
+                      {lesson.unitCount} ünite · {lesson.questionCount} soru
                     </p>
 
                     <div className="grid grid-cols-1 gap-2">
@@ -286,7 +292,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
                       {grade.slug && lesson.slug && lesson.questionCount > 0 && (
                         <Link
                           href={buildSoruBankasiLessonPath(grade.slug, lesson.slug)}
-                          className="inline-flex items-center justify-center rounded-lg border border-[#7A2634]/30 px-3.5 py-2 text-xs font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5"
+                          className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-bold ${GHOST}`}
                         >
                           Soru bankası
                         </Link>
@@ -298,7 +304,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
                     type="button"
                     onClick={() => setActiveLessonId(lesson.id)}
                     aria-haspopup="dialog"
-                    className="w-full border-t border-[#7A2634]/15 px-4 py-2.5 text-left text-xs font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5 sm:text-sm"
+                    className={`w-full rounded-b-[22px] border-t px-4 py-2.5 text-left text-xs font-semibold transition-colors hover:bg-cyan-500/10 ${r.mono} ${r.divider} ${r.accent}`}
                   >
                     Üniteleri göster ({lesson.unitCount})
                   </button>
@@ -314,13 +320,13 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="unite-pencere-baslik"
-                className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border border-[#7A2634]/20 bg-background sm:max-w-xl sm:rounded-2xl"
+                className={`${r.themeVars} flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl sm:max-w-xl sm:rounded-2xl ${r.menu}`}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between gap-3 border-b border-[#7A2634]/15 px-5 py-4">
+                <div className={`flex items-center justify-between gap-3 border-b px-5 py-4 ${r.divider}`}>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-muted-foreground">{grade.name}</p>
-                    <h2 id="unite-pencere-baslik" className="truncate text-lg font-black text-default">
+                    <p className={r.label}>{grade.name}</p>
+                    <h2 id="unite-pencere-baslik" className={`truncate text-lg font-bold ${r.display} ${r.ink}`}>
                       {activeLesson.icon} {activeLesson.name}
                     </h2>
                   </div>
@@ -328,7 +334,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
                     type="button"
                     onClick={() => setActiveLessonId(null)}
                     aria-label="Kapat"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#7A2634]/20 text-[#7A2634] transition-colors hover:bg-[#7A2634]/5"
+                    className={`h-9 w-9 shrink-0 ${r.iconBtn}`}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -341,9 +347,9 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
           )}
 
           <div className={`${FRAME} mt-8 flex items-center justify-center gap-2.5 px-4 py-3.5 text-center sm:mt-10 sm:px-6 sm:py-4`}>
-            <Sparkles className="h-4 w-4 shrink-0 text-[#7A2634]" />
-            <p className="text-xs text-muted-foreground sm:text-sm">
-              <span className="font-black text-default">Unutma:</span> Her gün küçük bir adım, büyük bir değişimdir!
+            <Sparkles className={`h-4 w-4 shrink-0 ${r.accent}`} />
+            <p className={`text-xs sm:text-sm ${r.muted}`}>
+              <span className={`font-bold ${r.ink}`}>Unutma:</span> Her gün küçük bir adım, büyük bir değişimdir!
             </p>
           </div>
         </>

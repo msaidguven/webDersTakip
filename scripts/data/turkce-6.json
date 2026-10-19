@@ -72,8 +72,8 @@
             }
           ],
           "weeks": {
-            "start": 1,
-            "end": 6
+            "start": 3,
+            "end": 4
           },
           "content_goals": [
             "Kelimelerin gerçek, mecaz ve terim anlamlarını ayırt eder.",
@@ -116,8 +116,8 @@
             }
           ],
           "weeks": {
-            "start": 1,
-            "end": 6
+            "start": 5,
+            "end": 5
           },
           "content_goals": [
             "Deyim ile atasözü arasındaki farkı açıklar.",
@@ -187,7 +187,7 @@
           ],
           "weeks": {
             "start": 1,
-            "end": 6
+            "end": 1
           },
           "content_goals": [
             "Metnin konusunu belirler.",
@@ -232,7 +232,7 @@
           ],
           "weeks": {
             "start": 3,
-            "end": 6
+            "end": 4
           },
           "content_goals": [
             "Bilgilendirici metnin özelliklerini açıklar.",
@@ -261,8 +261,8 @@
             }
           ],
           "weeks": {
-            "start": 1,
-            "end": 4
+            "start": 2,
+            "end": 2
           },
           "content_goals": [
             "Özne olarak kullanılan \"bu, şu, o\" kelimelerinden sonra virgül kullanır.",
@@ -293,7 +293,7 @@
             }
           ],
           "weeks": {
-            "start": 3,
+            "start": 5,
             "end": 6
           },
           "content_goals": [
@@ -346,8 +346,8 @@
             }
           ],
           "weeks": {
-            "start": 6,
-            "end": 12
+            "start": 8,
+            "end": 9
           },
           "content_goals": [
             "Kelimenin kökünü ve eklerini ayırır.",
@@ -399,8 +399,8 @@
             }
           ],
           "weeks": {
-            "start": 6,
-            "end": 12
+            "start": 7,
+            "end": 7
           },
           "content_goals": [
             "Hikâyedeki kişi ve varlık kadrosunu belirler.",
@@ -443,8 +443,8 @@
             }
           ],
           "weeks": {
-            "start": 6,
-            "end": 12
+            "start": 8,
+            "end": 8
           },
           "content_goals": [
             "Benzetme sanatını tanır ve benzetmenin ögelerini belirler.",
@@ -531,8 +531,8 @@
             }
           ],
           "weeks": {
-            "start": 6,
-            "end": 9
+            "start": 7,
+            "end": 7
           },
           "content_goals": [
             "Metinde doğrudan söylenmeyen bilgilere ipuçlarından yola çıkarak ulaşır.",
@@ -602,8 +602,8 @@
             }
           ],
           "weeks": {
-            "start": 11,
-            "end": 13
+            "start": 12,
+            "end": 12
           },
           "content_goals": [
             "Bir metindeki kişi, olay ve durumları karşılaştırır.",
@@ -680,7 +680,7 @@
             }
           ],
           "weeks": {
-            "start": 6,
+            "start": 13,
             "end": 13
           },
           "content_goals": [
@@ -740,8 +740,8 @@
             }
           ],
           "weeks": {
-            "start": 14,
-            "end": 19
+            "start": 15,
+            "end": 15
           },
           "content_goals": [
             "Ünlü düşmesini (ağız-ağzı) örnekler üzerinde açıklar.",
@@ -770,8 +770,8 @@
             }
           ],
           "weeks": {
-            "start": 14,
-            "end": 19
+            "start": 17,
+            "end": 17
           },
           "content_goals": [
             "Ünsüz yumuşamasını (kitap-kitabı) örnekler üzerinde açıklar.",
@@ -801,7 +801,7 @@
             }
           ],
           "weeks": {
-            "start": 15,
+            "start": 16,
             "end": 16
           },
           "content_goals": [
@@ -832,7 +832,7 @@
           ],
           "weeks": {
             "start": 14,
-            "end": 15
+            "end": 14
           },
           "content_goals": [
             "Şiirde dize ve dörtlüğü tanır.",
@@ -875,7 +875,7 @@
             }
           ],
           "weeks": {
-            "start": 14,
+            "start": 18,
             "end": 18
           },
           "content_goals": [
@@ -920,7 +920,7 @@
             }
           ],
           "weeks": {
-            "start": 18,
+            "start": 19,
             "end": 19
           },
           "content_goals": [
@@ -986,43 +986,16 @@
           ],
           "weeks": {
             "start": 15,
-            "end": 16
+            "end": 15
           },
           "content_goals": [
             "Görsellerle iletilen anlamı belirler.",
             "Tablo, grafik ve ikon gibi ögeleri yorumlar.",
             "Görsel ve yazılı ögelerin anlama katkısını açıklar."
           ]
-        }
-      ]
-    },
-    {
-      "order_no": 4,
-      "title": "İletişim ve Sosyal İlişkiler",
-      "slug": "iletisim-ve-sosyal-iliskiler",
-      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/270",
-      "duration_hours": 34,
-      "key_concepts": [
-        "iletişim",
-        "etkili iletişim",
-        "kitle iletişim araçları",
-        "metin yapıları",
-        "yorumlama",
-        "önemli bilgileri belirleyebilme",
-        "özetleme",
-        "geçiş ve bağlantı ifadeleri",
-        "hazırlıklı konuşma",
-        "çoklu ortam ögeleri",
-        "yazım kuralları",
-        "noktalama işaretleri",
-        "empati",
-        "sorumluluk",
-        "güven",
-        "girişkenlik"
-      ],
-      "topics": [
+        },
         {
-          "order_no": 1,
+          "order_no": 8,
           "title": "Öznel ve Nesnel Yargı",
           "slug": "oznel-ve-nesnel-yargi",
           "learning_outcomes": [
@@ -1064,16 +1037,43 @@
             }
           ],
           "weeks": {
-            "start": 22,
-            "end": 29
+            "start": 16,
+            "end": 16
           },
           "content_goals": [
             "Öznel ve nesnel yargıları ayırt eder.",
             "Kişisel yorum içeren ifadeleri belirler."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "order_no": 4,
+      "title": "İletişim ve Sosyal İlişkiler",
+      "slug": "iletisim-ve-sosyal-iliskiler",
+      "tymm_url": "https://tymm.meb.gov.tr/ortaokul-turkce-dersi/unite/270",
+      "duration_hours": 34,
+      "key_concepts": [
+        "iletişim",
+        "etkili iletişim",
+        "kitle iletişim araçları",
+        "metin yapıları",
+        "yorumlama",
+        "önemli bilgileri belirleyebilme",
+        "özetleme",
+        "geçiş ve bağlantı ifadeleri",
+        "hazırlıklı konuşma",
+        "çoklu ortam ögeleri",
+        "yazım kuralları",
+        "noktalama işaretleri",
+        "empati",
+        "sorumluluk",
+        "güven",
+        "girişkenlik"
+      ],
+      "topics": [
         {
-          "order_no": 2,
+          "order_no": 1,
           "title": "Metin Yapıları: Karşılaştırma ve Problem-Çözüm",
           "slug": "metin-yapilari-karsilastirma-ve-problem-cozum",
           "learning_outcomes": [
@@ -1107,8 +1107,8 @@
             }
           ],
           "weeks": {
-            "start": 22,
-            "end": 29
+            "start": 23,
+            "end": 23
           },
           "content_goals": [
             "Karşılaştırma-zıtlık metin yapısını tanır.",
@@ -1117,7 +1117,7 @@
           ]
         },
         {
-          "order_no": 3,
+          "order_no": 2,
           "title": "Geçiş ve Bağlantı İfadeleri",
           "slug": "gecis-ve-baglanti-ifadeleri",
           "learning_outcomes": [
@@ -1144,7 +1144,7 @@
           ],
           "weeks": {
             "start": 22,
-            "end": 29
+            "end": 22
           },
           "content_goals": [
             "Zıtlık bildiren geçiş ifadelerini (ama, fakat, oysaki) tanır.",
@@ -1154,7 +1154,7 @@
           ]
         },
         {
-          "order_no": 4,
+          "order_no": 3,
           "title": "Açık ve Örtük Anlam",
           "slug": "acik-ve-ortuk-anlam",
           "learning_outcomes": [
@@ -1273,8 +1273,8 @@
             }
           ],
           "weeks": {
-            "start": 29,
-            "end": 34
+            "start": 31,
+            "end": 31
           },
           "content_goals": [
             "Kökleri, gövdeleri ve ekleri ayırmak için kısa çizgi kullanır.",
@@ -1304,7 +1304,7 @@
           ],
           "weeks": {
             "start": 33,
-            "end": 34
+            "end": 33
           },
           "content_goals": [
             "Cümlede özneyi ve yüklemi bulur.",
@@ -1486,8 +1486,8 @@
             }
           ],
           "weeks": {
-            "start": 34,
-            "end": 40
+            "start": 35,
+            "end": 35
           },
           "content_goals": [
             "Metnin güçlü ve zayıf yönlerini değerlendirir.",
@@ -1516,8 +1516,8 @@
             }
           ],
           "weeks": {
-            "start": 34,
-            "end": 40
+            "start": 37,
+            "end": 37
           },
           "content_goals": [
             "Biyografi ve otobiyografinin özelliklerini açıklar.",

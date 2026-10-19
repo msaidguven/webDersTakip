@@ -1,12 +1,12 @@
 'use client';
 
-// Misafir anasayfası v5 (deneme sürümü, /?v=5). v4 (varsayılan) olduğu gibi kalır; bu dosya yalnızca
-// ?v=5 ile açılır. Sınıflar ana seçim: her sınıf kendi kartı, tıklayınca o sınıfın ders sayfasına gider.
-// Sağ sütun (gerçek veri): "Okulda bu hafta" — her derste bir konu; "Yeni eklenen konular" — sınıf sekmeli.
+// Misafir anasayfası v1 (2026-10-19 — tek misafir tasarımı; eski sürümler git geçmişinde).
+// Düzen: sınıflar ana seçim (her sınıf kendi kartı → o sınıfın ders sayfası); sağ sütun (gerçek veri):
+// "Okulda bu hafta" — her derste bir konu; "Yeni eklenen konular" — sınıf sekmeli.
+// Görünüm: robotik kontrol paneli teması (metal paneller, HUD köşebentleri, neon, krom başlık).
 import { useState } from 'react';
-import { Plus_Jakarta_Sans } from 'next/font/google';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import type { Grade } from '@/app/src/models/homeTypes';
 import type {
   HomeGradeSection,
@@ -23,24 +23,17 @@ import { AboutSite } from './AboutSite';
 import { TopStudents } from './TopStudents';
 import { SubjectIcon } from './SubjectIcon';
 import { DailyQuestionOfTheDay } from './DailyQuestionCard';
+import { roboticFontVars } from '../robotic/fonts';
+import r from '../robotic/robotic.module.css';
 
-const bodyFont = Plus_Jakarta_Sans({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-guest-v5',
-  display: 'swap',
-});
-
-// Kullanıcının 2026-10-19 isteği: kartlara yumuşak amber zemin (yeşil ve mor denendi,
-// beğenilmedi — amber bordoyla split-complementary, sıcak/akademik bir ton veriyor).
-const GREEN_FRAME =
-  'rounded-2xl border border-[#7A2634]/15 bg-gradient-to-br from-amber-50 via-amber-50/30 to-background';
-const ICON_BOX = 'bg-zinc-100 text-[#7A2634]';
+// Görünüm: "robotik kontrol paneli" teması (2026-10-19, ders raporuyla aynı; bkz. ../robotic).
+const ACCENT = r.accent;
+const FRAME = r.panel;
+const ITEM = r.item;
 const HERO_BUTTON =
-  'inline-flex h-11 items-center justify-center gap-1.5 rounded-lg px-5 text-sm font-bold transition-colors';
-const OUTLINE =
-  'border border-[#7A2634]/30 bg-background/70 text-[#7A2634] hover:bg-[#7A2634]/5';
-const BUTTON = 'bg-[#7A2634] text-white hover:bg-[#5C1B27]';
+  `inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-5 text-sm font-bold ${r.btnText}`;
+const BUTTON = r.btnNeon;
+const OUTLINE = r.btnGhost;
 const RECENT_SHOW = 3;
 
 // Konu satırı: gerçek konu görseli varsa o, yoksa ders ikonu. Bağlantısı varsa tıklanabilir.
@@ -71,7 +64,7 @@ function TopicRow({
         />
       ) : (
         <span
-          className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg bg-zinc-100"
+          className={`flex h-12 w-16 shrink-0 items-center justify-center rounded-lg ${r.tint}`}
           aria-hidden="true"
         >
           <SubjectIcon lessonName={lessonName} variant="solid" size="sm" />
@@ -87,28 +80,24 @@ function TopicRow({
       </span>
       {href && (
         <ArrowRight
-          className="h-4 w-4 shrink-0 text-[#7A2634]"
+          className={`h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 ${ACCENT}`}
           aria-hidden="true"
         />
       )}
     </>
   );
-  const cls =
-    'flex items-center gap-3 rounded-xl border border-[#7A2634]/15 bg-background/70 p-2.5';
+  const cls = `group flex items-center gap-3 rounded-xl p-2.5 ${ITEM}`;
   if (!href) return <li className={cls}>{body}</li>;
   return (
     <li>
-      <Link
-        href={href}
-        className={`${cls} transition-colors hover:border-[#7A2634]/40 hover:bg-[#7A2634]/5`}
-      >
+      <Link href={href} className={`${cls} hover:translate-x-0.5`}>
         {body}
       </Link>
     </li>
   );
 }
 
-// Sınıf sekmeleri: yalnızca içeriği olan sınıflar.
+// Sınıf sekmeleri (segment kontrol): yalnızca içeriği olan sınıflar.
 function GradeTabs({
   grades,
   activeId,
@@ -122,7 +111,11 @@ function GradeTabs({
 }) {
   if (grades.length < 2) return null;
   return (
-    <div role="tablist" aria-label={label} className="flex flex-wrap gap-1.5">
+    <div
+      role="tablist"
+      aria-label={label}
+      className={`w-fit ${r.tabs}`}
+    >
       {grades.map((g) => (
         <button
           key={g.id}
@@ -130,11 +123,7 @@ function GradeTabs({
           role="tab"
           aria-selected={g.id === activeId}
           onClick={() => onSelect(g.id)}
-          className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
-            g.id === activeId
-              ? BUTTON
-              : 'border border-[#7A2634]/20 text-muted-foreground hover:text-[#7A2634]'
-          }`}
+          className={`${r.tab} ${g.id === activeId ? r.tabActive : ''}`}
         >
           {g.level}. Sınıf
         </button>
@@ -154,13 +143,13 @@ function QuickLessonRow({
   const lessonPath =
     gradeSlug && lesson.slug ? `/${gradeSlug}/${lesson.slug}` : null;
   return (
-    <li className="flex items-center gap-2.5 rounded-xl border border-[#7A2634]/15 bg-background/70 p-2.5 transition-colors hover:border-[#7A2634]/40">
+    <li className={`flex items-center gap-2.5 rounded-xl p-2.5 ${ITEM} ${r.itemHover}`}>
       <SubjectIcon lessonName={lesson.name} variant="solid" size="sm" />
       <div className="min-w-0 flex-1">
         {lessonPath ? (
           <Link
             href={lessonPath}
-            className="block truncate text-sm font-bold text-default hover:text-[#7A2634]"
+            className="block truncate text-sm font-bold text-default hover:underline"
           >
             {lesson.name}
           </Link>
@@ -176,14 +165,14 @@ function QuickLessonRow({
       {lesson.questionCount > 0 && lessonPath ? (
         <Link
           href={`/soru-bankasi${lessonPath}`}
-          className="shrink-0 rounded-md border border-[#7A2634]/20 px-2 py-1 text-[11px] font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5"
+          className={`shrink-0 ${r.badge}`}
         >
           {lesson.questionCount} soru
         </Link>
       ) : (
         <span
           aria-disabled="true"
-          className="shrink-0 rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-bold text-zinc-400"
+          className={`shrink-0 ${r.badge} ${r.muted}`}
         >
           {lesson.questionCount} soru
         </span>
@@ -199,7 +188,7 @@ function firstPerLesson(items: ThisWeekTopicItem[]): ThisWeekTopicItem[] {
   );
 }
 
-export function GuestHomeV5({
+export function GuestHomeV1({
   grades,
   gradeSections,
   stats,
@@ -259,18 +248,27 @@ export function GuestHomeV5({
     ? (recentByGrade[activeRecentGrade.id] ?? []).slice(0, RECENT_SHOW)
     : [];
 
+  const heroStats = [
+    { label: 'Konu', value: stats.topicCount },
+    { label: 'Soru', value: stats.questionCount },
+    { label: 'Ders', value: stats.lessonCount },
+  ];
+
   return (
     <div
-      className={`${bodyFont.variable} min-h-screen bg-[#F7F4FB] dark:bg-background font-[family-name:var(--font-guest-v5)]`}
+      className={`${roboticFontVars} ${r.root}`}
     >
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-16 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
-        <section className={`${GREEN_FRAME} flex flex-col gap-8 p-6 sm:p-10`}>
+        {/* KOKPİT (hero) — metal panel + tarama ışığı */}
+        <section className={`${r.panel} ${r.hero} flex flex-col gap-8 p-6 sm:p-10`}>
+          <span className={r.scan} aria-hidden="true" />
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div className="flex max-w-2xl flex-col gap-4">
-              <span className="inline-flex w-fit rounded-full border border-[#7A2634]/20 bg-background/70 px-3 py-1 text-xs font-bold text-[#7A2634]">
+              <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
+                <i className={r.led} aria-hidden="true" />
                 {gradeRange ? `${gradeRange} · ` : ''}MEB müfredatı
               </span>
-              <h1 className="text-3xl font-black leading-tight tracking-tight text-default sm:text-4xl">
+              <h1 className={`text-3xl leading-[1.05] sm:text-[2.75rem] ${r.chrome}`}>
                 Konuyu öğren, soruyla pekiştir.
               </h1>
               <p className="text-base text-muted-foreground sm:text-lg">
@@ -278,14 +276,15 @@ export function GuestHomeV5({
                 tek yerde.
               </p>
               <div className="flex flex-wrap gap-3 pt-1">
-                <Link href="/register" className={`${HERO_BUTTON} ${BUTTON}`}>
+                <Link href="/register" className={`group ${HERO_BUTTON} ${BUTTON}`}>
                   Ücretsiz kayıt ol
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                 </Link>
                 <Link
                   href="#gunun-sorusu-bolumu"
                   className={`${HERO_BUTTON} ${OUTLINE}`}
                 >
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
                   Günün sorusunu dene
                 </Link>
                 <Link href="/login" className={`${HERO_BUTTON} ${OUTLINE}`}>
@@ -295,30 +294,19 @@ export function GuestHomeV5({
             </div>
 
             <dl className="grid grid-cols-3 gap-2 md:w-auto">
-              <div className="flex flex-col gap-0.5 rounded-xl border border-[#7A2634]/15 bg-background/70 px-3 py-2.5">
-                <dt className="text-[11px] font-bold text-muted-foreground">
-                  Konu
-                </dt>
-                <dd className="text-base font-black text-default">
-                  {stats.topicCount}
-                </dd>
-              </div>
-              <div className="flex flex-col gap-0.5 rounded-xl border border-[#7A2634]/15 bg-background/70 px-3 py-2.5">
-                <dt className="text-[11px] font-bold text-muted-foreground">
-                  Soru
-                </dt>
-                <dd className="text-base font-black text-default">
-                  {stats.questionCount}
-                </dd>
-              </div>
-              <div className="flex flex-col gap-0.5 rounded-xl border border-[#7A2634]/15 bg-background/70 px-3 py-2.5">
-                <dt className="text-[11px] font-bold text-muted-foreground">
-                  Ders
-                </dt>
-                <dd className="text-base font-black text-default">
-                  {stats.lessonCount}
-                </dd>
-              </div>
+              {heroStats.map((st) => (
+                <div
+                  key={st.label}
+                  className={`flex min-w-[88px] flex-col gap-1 px-3.5 py-3 ${r.stat}`}
+                >
+                  <dt className={r.label}>
+                    {st.label}
+                  </dt>
+                  <dd className={`text-2xl ${r.statValue}`}>
+                    {st.value.toLocaleString('tr-TR')}
+                  </dd>
+                </div>
+              ))}
             </dl>
           </div>
         </section>
@@ -327,7 +315,7 @@ export function GuestHomeV5({
           <div className="flex min-w-0 flex-col gap-6">
             <section
               aria-labelledby="sinif-baslik"
-              className={`${GREEN_FRAME} flex min-w-0 flex-col gap-5 p-5 sm:p-7`}
+              className={`${FRAME} flex min-w-0 flex-col gap-5 p-5 sm:p-7`}
             >
               <div>
                 <h2
@@ -346,56 +334,58 @@ export function GuestHomeV5({
                 { label: 'Lise', items: grades.filter((g) => g.level > 8) },
               ].map(({ label, items }) =>
                 items.length === 0 ? null : (
-              <div key={label} className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="shrink-0 rounded-full border border-[#7A2634]/25 bg-background/80 px-3 py-1 text-xs font-bold tracking-wide text-[#7A2634]">
-                    {label}
-                  </h3>
-                  <span className="h-px flex-1 bg-[#7A2634]/15" aria-hidden="true" />
-                </div>
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-                {items.map((grade) => {
-                  const lessons = gradeSections[grade.id]?.lessons ?? [];
-                  const unitCount = lessons.reduce(
-                    (sum, l) => sum + l.unitCount,
-                    0,
-                  );
-                  const questionCount = lessons.reduce(
-                    (sum, l) => sum + l.questionCount,
-                    0,
-                  );
-                  return (
-                    <li key={grade.id}>
-                      <Link
-                        href={`/${grade.slug}`}
-                        className="group flex h-full flex-col gap-5 rounded-2xl border border-[#7A2634]/15 bg-background/70 p-5 transition-colors hover:border-[#7A2634]/50 hover:bg-[#7A2634]/5"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span
-                            className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-black ${ICON_BOX}`}
-                          >
-                            {grade.level}
-                          </span>
-                          <ArrowRight
-                            className="h-5 w-5 text-[#7A2634] transition-transform group-hover:translate-x-1"
-                            aria-hidden="true"
-                          />
-                        </div>
-                        <div>
-                          <p className="text-lg font-black text-default">
-                            {grade.level}. Sınıf
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-muted-foreground">
-                            {lessons.length} ders · {unitCount} ünite ·{' '}
-                            {questionCount} soru
-                          </p>
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              </div>
+                  <div key={label} className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className={`shrink-0 ${r.label}`}>
+                        {label}
+                      </h3>
+                      <span className={`h-px flex-1 border-t ${r.divider}`} aria-hidden="true" />
+                    </div>
+                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                      {items.map((grade) => {
+                        const lessons = gradeSections[grade.id]?.lessons ?? [];
+                        const unitCount = lessons.reduce(
+                          (sum, l) => sum + l.unitCount,
+                          0,
+                        );
+                        const questionCount = lessons.reduce(
+                          (sum, l) => sum + l.questionCount,
+                          0,
+                        );
+                        return (
+                          <li key={grade.id}>
+                            <Link
+                              href={`/${grade.slug}`}
+                              className={`group relative flex h-full flex-col gap-5 overflow-hidden rounded-2xl p-5 hover:-translate-y-[3px] ${ITEM}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span
+                                  className={`h-14 w-14 text-2xl ${r.chipBox}`}
+                                >
+                                  {grade.level}
+                                </span>
+                                <ArrowRight
+                                  className={`h-5 w-5 transition-transform duration-200 group-hover:translate-x-1 ${ACCENT}`}
+                                  aria-hidden="true"
+                                />
+                              </div>
+                              <div>
+                                <p className={`text-lg font-bold text-default ${r.display}`}>
+                                  {grade.level}. Sınıf
+                                </p>
+                                <p className="mt-1 text-xs font-bold text-muted-foreground">
+                                  {lessons.length} ders · {unitCount} ünite
+                                </p>
+                                <p className={`mt-0.5 text-xs font-bold ${ACCENT}`}>
+                                  {questionCount.toLocaleString('tr-TR')} soru
+                                </p>
+                              </div>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 ),
               )}
             </section>
@@ -403,7 +393,7 @@ export function GuestHomeV5({
             {activeQuickGrade && quickSection && (
               <section
                 aria-labelledby="hizli-erisim"
-                className={`${GREEN_FRAME} flex flex-col gap-4 p-5 sm:p-6`}
+                className={`${FRAME} flex flex-col gap-4 p-5 sm:p-6`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3
@@ -454,7 +444,7 @@ export function GuestHomeV5({
             {activeWeekGrade && (
               <section
                 aria-labelledby="okulda-bu-hafta"
-                className={`${GREEN_FRAME} flex flex-col gap-4 p-5`}
+                className={`${FRAME} flex flex-col gap-4 p-5`}
               >
                 <div>
                   <h2
@@ -491,7 +481,7 @@ export function GuestHomeV5({
             {activeRecentGrade && (
               <section
                 aria-labelledby="yeni-konular"
-                className={`${GREEN_FRAME} flex flex-col gap-4 p-5`}
+                className={`${FRAME} flex flex-col gap-4 p-5`}
               >
                 <h2
                   id="yeni-konular"
@@ -523,10 +513,10 @@ export function GuestHomeV5({
         </div>
 
         <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-          <section className={`${GREEN_FRAME} p-5 sm:p-7`}>
+          <section className={`${FRAME} p-5 sm:p-7`}>
             <AboutSite gradeLevels={grades.map((g) => g.level)} stats={stats} />
           </section>
-          <section className={`${GREEN_FRAME} p-5 sm:p-7`}>
+          <section className={`${FRAME} p-5 sm:p-7`}>
             <TopStudents students={topStudents} isAuthenticated={false} />
           </section>
         </div>

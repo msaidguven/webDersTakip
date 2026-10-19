@@ -5,7 +5,7 @@
 // isterse kaydedilir (bkz. takdirTesekkurStorage.ts, save_takdir_tesekkur_calculation RPC'si).
 // Dersler burada SERBEST METİN — lessons tablosuna dokunulmaz, Resim/Beden/Müzik/seçmeli
 // dersler de aynı şekilde eklenebilir.
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Flag, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
@@ -26,6 +26,11 @@ import {
   loadTakdirTesekkurCalculation,
   saveTakdirTesekkurCalculation,
 } from '@/app/src/lib/takdirTesekkurStorage';
+import r from '../robotic/robotic.module.css';
+
+const card = `rounded-[22px] ${r.panel}`;
+const inputCls = `rounded-xl px-3 py-2 text-sm font-semibold ${r.item}`;
+const labelCls = 'flex flex-col gap-1 text-xs font-semibold text-muted-foreground';
 
 function yeniDers(dersAdi = ''): DersSatiri {
   return {
@@ -71,7 +76,7 @@ function NotAlani({
   vurgulu?: boolean;
 }) {
   return (
-    <label className="flex w-[4.5rem] flex-col gap-0.5 text-[11px] font-bold text-muted-foreground">
+    <label className="flex w-24 shrink-0 flex-col gap-1 whitespace-nowrap text-xs font-semibold text-muted-foreground">
       {label}
       <input
         type="number"
@@ -80,7 +85,7 @@ function NotAlani({
         value={value ?? ''}
         onChange={(e) => onChange(sayiYaDaBos(e.target.value))}
         aria-label={ariaLabel}
-        className={`rounded-xl border bg-background px-2 py-2 text-sm font-bold text-default ${vurgulu ? 'border-indigo-400' : 'border-default'}`}
+        className={`w-full rounded-xl px-2 py-2 text-sm font-bold ${r.item} ${vurgulu ? r.itemHover : ''}`}
       />
     </label>
   );
@@ -111,6 +116,18 @@ export function TakdirTesekkurHesaplama() {
   const [kayitDurumu, setKayitDurumu] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const kademe = kademeBelirle(sinifSeviyesi);
+
+  // Mobilde sonuç kartı ders listesinin altında kalıyor; kart ekranda değilken altta küçük bir
+  // sonuç şeridi gösterilir (dokununca karta iner). lg ve üstünde kart zaten sağda yapışkan.
+  const sonucRef = useRef<HTMLElement>(null);
+  const [sonucGorunur, setSonucGorunur] = useState(false);
+  useEffect(() => {
+    const el = sonucRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setSonucGorunur(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Sınıf veya dönem değişince, render sırasında (effect içinde değil — React'in önerdiği "prop
   // değişince state ayarlama" deseni) resmi çizelgenin varsayılanlarına sıfırla.
@@ -170,197 +187,208 @@ export function TakdirTesekkurHesaplama() {
   const oneriler = dersOnerileri(sinifSeviyesi).filter((ad) => !dersler.some((d) => d.dersAdi.toLowerCase() === ad.toLowerCase()));
 
   return (
-    <section aria-labelledby="hesaplama-baslik" className="flex flex-col gap-6">
-      <h2 id="hesaplama-baslik" className="text-2xl font-black tracking-tight text-default sm:text-3xl">
-        Notlarını gir
-      </h2>
-
-      <div className="flex flex-wrap gap-4">
-        <label className="flex flex-col gap-1 text-sm font-bold text-default">
-          Sınıf
-          <select
-            value={sinifSeviyesi}
-            onChange={(e) => setSinifSeviyesi(Number(e.target.value))}
-            className="rounded-xl border border-default bg-background px-3 py-2 font-medium"
-          >
-            {SINIF_SEVIYELERI.map((s) => (
-              <option key={s} value={s}>
-                {s}. Sınıf
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-bold text-default">
-          Dönem
-          <select
-            value={donem}
-            onChange={(e) => setDonem(Number(e.target.value) as 1 | 2)}
-            className="rounded-xl border border-default bg-background px-3 py-2 font-medium"
-          >
-            <option value={1}>1. Dönem</option>
-            <option value={2}>2. Dönem</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-2xl border border-default bg-background p-5 sm:p-6">
-        <label className="flex flex-col gap-1 text-sm font-bold text-default sm:max-w-sm">
-          Haftada toplam kaç saat dersin var? (Rehberlik hariç)
-          <input
-            type="number"
-            min={1}
-            max={60}
-            value={toplamSaatHedefi}
-            onChange={(e) => {
-              const saat = haftalikSaatSinirla(e.target.value);
-              if (saat !== null) setToplamSaatHedefi(saat);
-            }}
-            className="rounded-xl border border-default bg-background px-3 py-2 font-medium"
-          />
-        </label>
-        <p className="text-sm text-muted-foreground">
-          Bu, bir <strong className="text-default">sağlama</strong>: aşağıya girdiğin derslerin haftalık saatleri toplamı bu
-          sayıyla eşleşmeli. Resmi çizelgede {kademe === 'ortaokul' ? '5-8. sınıflarda bu sayı her sınıfta 34 saattir' : '9-12. sınıflarda bu sayı her sınıfta 39 saattir'}{' '}
-          (Rehberlik ve Yönlendirme dersi 1 saat ayrıca var ama notla değerlendirilmediği için bu hesaba ve ağırlıklı ortalamaya
-          dahil edilmez). Okulunda farklıysa bu sayıyı değiştirebilirsin.
-        </p>
-        {saglamaUyusmuyor && (
-          <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-            Girdiğin derslerin toplam haftalık saati {girilenToplamSaat}, hedefin {toplamSaatHedefi}. Fark: {Math.abs(girilenToplamSaat - toplamSaatHedefi)}{' '}
-            saat — bir dersin haftalık saatini kontrol et ki ortalama doğru çıksın.
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-2xl border border-default bg-background p-5 sm:p-6">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-extrabold text-default">Dersler ve dönem notları</h3>
-          <p className="text-sm text-muted-foreground">
-            Sınıfını seçtiğinde resmi haftalık ders çizelgesindeki dersler ve saatleri otomatik dolar — kendi karnene göre
-            düzenleyebilir, sistemde olmayan Resim, Beden Eğitimi, Müzik ve seçmeli dersleri de ekleyebilirsin.{' '}
-            {kademe === 'ortaokul'
-              ? 'Her dersten dönemde 2 yazılı sınav yapılır; ayrıca haftalık ders saati 2 ve altı olan derslerde 2, 2’den fazla olanlarda 3 tane "ders etkinliklerine katılım" puanı (halk arasında bilinen adıyla sözlü notu) verilir — bu, yazılılarla birlikte dönem notunu belirler. Dersten varsa bir de proje puanın olabilir.'
-              : 'Her dersten dönemde 2 yazılı sınav yapılır; haftalık ders saati 6 ve üzeri olan derste zümre kararıyla 3. yazılı da yapılabilir.'}
-          </p>
-        </div>
-
-        {dersler.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {dersler.map((ders) => (
-              <DersKarti
-                key={ders.id}
-                ders={ders}
-                kademe={kademe}
-                barajAltinda={sonuc.barajAltindaKalanlar.includes(ders.dersAdi)}
-                onGuncelle={(patch) => dersGuncelle(ders.id, patch)}
-                onSil={() => dersSil(ders.id)}
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <section aria-labelledby="hesaplama-baslik" className="flex min-w-0 flex-col gap-6">
+        <div className={`${card} flex flex-col gap-4 p-5 sm:p-7`}>
+          <h2 id="hesaplama-baslik" className="text-lg font-extrabold text-default">
+            Sınıf ve dönem
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <label className={labelCls}>
+              Sınıf
+              <select value={sinifSeviyesi} onChange={(e) => setSinifSeviyesi(Number(e.target.value))} className={inputCls}>
+                {SINIF_SEVIYELERI.map((s) => (
+                  <option key={s} value={s}>
+                    {s}. Sınıf
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={labelCls}>
+              Dönem
+              <select value={donem} onChange={(e) => setDonem(Number(e.target.value) as 1 | 2)} className={inputCls}>
+                <option value={1}>1. Dönem</option>
+                <option value={2}>2. Dönem</option>
+              </select>
+            </label>
+            <label className={`${labelCls} col-span-2 sm:col-span-1`}>
+              Haftalık toplam saat
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={toplamSaatHedefi}
+                onChange={(e) => {
+                  const saat = haftalikSaatSinirla(e.target.value);
+                  if (saat !== null) setToplamSaatHedefi(saat);
+                }}
+                className={inputCls}
               />
-            ))}
+            </label>
           </div>
-        )}
-
-        {oneriler.length > 0 && (
-          <div className="flex flex-wrap gap-1.5" aria-label="Hızlı ders ekle">
-            {oneriler.map((ad) => (
-              <button
-                key={ad}
-                type="button"
-                onClick={() => dersEkle(ad)}
-                className="inline-flex items-center gap-1 rounded-full border border-default bg-surface-elevated px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-indigo-400 hover:text-default"
-              >
-                <Plus className="h-3 w-3" aria-hidden="true" /> {ad}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            dersEkle(ozelDersAdi);
-            setOzelDersAdi('');
-          }}
-          className="flex gap-2"
-        >
-          <label htmlFor={`${formId}-ozel`} className="sr-only">
-            Başka ders ekle
-          </label>
-          <input
-            id={`${formId}-ozel`}
-            value={ozelDersAdi}
-            onChange={(e) => setOzelDersAdi(e.target.value)}
-            placeholder="Başka bir ders adı yaz (ör. Satranç, Seçmeli Yabancı Dil…)"
-            className="flex-1 rounded-xl border border-default bg-background px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={!ozelDersAdi.trim()}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-default bg-surface-elevated px-4 py-2 text-sm font-bold text-default hover:border-indigo-400 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" /> Ekle
-          </button>
-        </form>
-      </div>
-
-      {kademe === 'lise' && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-default bg-background p-5 sm:p-6">
-          <h3 className="text-lg font-extrabold text-default">Diğer şartlar</h3>
-          <Toggle
-            label="Davranış puanım 100"
-            checked={davranisPuaniTam}
-            onChange={setDavranisPuaniTam}
-          />
-          <Toggle
-            label="Tüm derslerden başarılıyım (sınıfımı geçtim)"
-            checked={tumDerslerdenBasarili}
-            onChange={setTumDerslerdenBasarili}
-          />
-        </div>
-      )}
-
-      <div role="status" className={`flex flex-col gap-1 rounded-2xl border p-5 sm:p-6 ${belgeStil[sonuc.belge]}`}>
-        <p className="text-sm font-bold uppercase tracking-wide opacity-80">Ağırlıklı ortalama: {sonuc.agirlikliOrtalama.toFixed(2)}</p>
-        <p className="text-2xl font-black">{belgeBaslik[sonuc.belge]}</p>
-        <p className="text-sm leading-relaxed">{sonuc.mesaj}</p>
-        {notGirilenDersSayisi > 0 && notGirilenDersSayisi < dersler.length && (
-          <p className="text-sm leading-relaxed opacity-80">
-            {dersler.length - notGirilenDersSayisi}/{dersler.length} ders için not girildi — kalanları da girince ortalama değişir.
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Haftalık toplam saat bir <strong className="text-default">sağlamadır</strong>: derslerin saatleri toplamı bununla
+            eşleşmeli. Resmi çizelgede {kademe === 'ortaokul' ? '5-8. sınıflarda 34' : '9-12. sınıflarda 39'} saattir (notla
+            değerlendirilmeyen Rehberlik hariç). Okulunda farklıysa değiştir.
           </p>
+          {saglamaUyusmuyor && (
+            <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              Derslerin toplam haftalık saati {girilenToplamSaat}, hedef {toplamSaatHedefi}. Fark: {Math.abs(girilenToplamSaat - toplamSaatHedefi)}{' '}
+              saat — bir dersin saatini kontrol et ki ortalama doğru çıksın.
+            </p>
+          )}
+        </div>
+
+        <div className={`${card} flex flex-col gap-4 p-5 sm:p-7`}>
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-extrabold text-default">Dersler ve notlar</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Dersler ve saatleri resmi çizelgeden otomatik dolar; karnene göre düzenleyebilir, Resim, Beden Eğitimi, Müzik ve
+              seçmeli dersleri ekleyebilirsin.{' '}
+              {kademe === 'ortaokul'
+                ? 'Dönemde 2 yazılı yapılır; haftalık saati 2 ve altı olan derste 2, fazlasında 3 "ders etkinliklerine katılım" (sözlü) puanı verilir. Varsa proje puanını da gir.'
+                : 'Dönemde 2 yazılı yapılır; haftalık saati 6 ve üzeri olan derste zümre kararıyla 3. yazılı da yapılabilir.'}
+            </p>
+          </div>
+
+          {dersler.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {dersler.map((ders) => (
+                <DersKarti
+                  key={ders.id}
+                  ders={ders}
+                  kademe={kademe}
+                  barajAltinda={sonuc.barajAltindaKalanlar.includes(ders.dersAdi)}
+                  onGuncelle={(patch) => dersGuncelle(ders.id, patch)}
+                  onSil={() => dersSil(ders.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {oneriler.length > 0 && (
+            <div className="flex flex-wrap gap-1.5" aria-label="Hızlı ders ekle">
+              {oneriler.map((ad) => (
+                <button
+                  key={ad}
+                  type="button"
+                  onClick={() => dersEkle(ad)}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold ${r.btnGhost}`}
+                >
+                  <Plus className="h-3 w-3" aria-hidden="true" /> {ad}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              dersEkle(ozelDersAdi);
+              setOzelDersAdi('');
+            }}
+            className="flex gap-2"
+          >
+            <label htmlFor={`${formId}-ozel`} className="sr-only">
+              Başka ders ekle
+            </label>
+            <input
+              id={`${formId}-ozel`}
+              value={ozelDersAdi}
+              onChange={(e) => setOzelDersAdi(e.target.value)}
+              placeholder="Başka bir ders adı yaz (ör. Satranç)"
+              className={`min-w-0 flex-1 ${inputCls}`}
+            />
+            <button
+              type="submit"
+              disabled={!ozelDersAdi.trim()}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 ${r.btnGhost}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" /> Ekle
+            </button>
+          </form>
+        </div>
+
+        {kademe === 'lise' && (
+          <div className={`${card} flex flex-col gap-3 p-5 sm:p-7`}>
+            <h3 className="text-lg font-extrabold text-default">Diğer şartlar</h3>
+            <Toggle label="Davranış puanım 100" checked={davranisPuaniTam} onChange={setDavranisPuaniTam} />
+            <Toggle label="Tüm derslerden başarılıyım (sınıfımı geçtim)" checked={tumDerslerdenBasarili} onChange={setTumDerslerdenBasarili} />
+          </div>
         )}
-      </div>
+      </section>
 
-      <GeriBildirimFormu
-        sinifSeviyesi={sinifSeviyesi}
-        donem={donem}
-        kademe={kademe}
-        dersler={dersler}
-        belge={sonuc.belge}
-        agirlikliOrtalama={sonuc.agirlikliOrtalama}
-      />
-
-      {user ? (
-        <div className="flex flex-wrap items-center gap-3">
+      {/* .panel position: relative verdiği için fixed konum dış kapsayıcıda. */}
+      {!sonucGorunur && notGirilenDersSayisi < dersler.length && (
+        <div className="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
           <button
             type="button"
-            onClick={kaydet}
-            disabled={kayitDurumu === 'saving' || dersler.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-white hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-60"
+            onClick={() => sonucRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left ${r.panel}`}
           >
-            {kayitDurumu === 'saving' ? 'Kaydediliyor…' : 'Kaydet'}
+            <span className="flex flex-col">
+              <span className="text-[11px] font-semibold text-muted-foreground">Ağırlıklı ortalama</span>
+              <span className={`text-xl ${r.statValue}`}>{sonuc.agirlikliOrtalama.toFixed(2)}</span>
+            </span>
+            <span className={`rounded-xl border px-3 py-1.5 text-sm font-extrabold ${belgeStil[sonuc.belge]}`}>{belgeBaslik[sonuc.belge]}</span>
           </button>
-          {kayitDurumu === 'saved' && <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Kaydedildi.</p>}
-          {kayitDurumu === 'error' && <p role="alert" className="text-sm font-semibold text-rose-600 dark:text-rose-400">Kaydedilemedi, tekrar dener misin?</p>}
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Notlarını kaydetmek için{' '}
-          <Link href="/login?redirectTo=/takdir-tesekkur-hesaplama" className="font-semibold text-indigo-700 underline dark:text-indigo-300">
-            giriş yap
-          </Link>
-          .
-        </p>
       )}
-    </section>
+
+      <aside ref={sonucRef} aria-label="Sonuç" className={`${card} ${r.hero} flex flex-col gap-4 p-5 sm:p-6 scroll-mt-24 lg:sticky lg:top-24`}>
+        <span className={r.scan} aria-hidden="true" />
+        <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
+          <i className={r.led} aria-hidden="true" />
+          Sonuç
+        </span>
+        <div role="status" className="flex flex-col gap-3">
+          <div className={`flex flex-col gap-1 p-4 ${r.stat}`}>
+            <span className="text-xs font-semibold text-muted-foreground">Ağırlıklı ortalama</span>
+            <span className={`text-4xl ${r.statValue}`}>{sonuc.agirlikliOrtalama.toFixed(2)}</span>
+          </div>
+          <p className={`rounded-xl border px-3 py-2 text-lg font-extrabold ${belgeStil[sonuc.belge]}`}>{belgeBaslik[sonuc.belge]}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{sonuc.mesaj}</p>
+          {notGirilenDersSayisi > 0 && notGirilenDersSayisi < dersler.length && (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {dersler.length - notGirilenDersSayisi}/{dersler.length} ders için not girildi — kalanları da girince ortalama değişir.
+            </p>
+          )}
+        </div>
+
+        <div className={`flex flex-col gap-3 border-t pt-4 ${r.divider}`}>
+          {user ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={kaydet}
+                disabled={kayitDurumu === 'saving' || dersler.length === 0}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold disabled:opacity-60 ${r.btnNeon} ${r.btnText}`}
+              >
+                {kayitDurumu === 'saving' ? 'Kaydediliyor…' : 'Kaydet'}
+              </button>
+              {kayitDurumu === 'saved' && <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Kaydedildi.</p>}
+              {kayitDurumu === 'error' && <p role="alert" className="text-sm font-semibold text-rose-600 dark:text-rose-400">Kaydedilemedi, tekrar dener misin?</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Notlarını kaydetmek için{' '}
+              <Link href="/login?redirectTo=/takdir-tesekkur-hesaplama" className={`font-semibold underline ${r.accent}`}>
+                giriş yap
+              </Link>
+              .
+            </p>
+          )}
+          <GeriBildirimFormu
+            sinifSeviyesi={sinifSeviyesi}
+            donem={donem}
+            kademe={kademe}
+            dersler={dersler}
+            belge={sonuc.belge}
+            agirlikliOrtalama={sonuc.agirlikliOrtalama}
+          />
+        </div>
+      </aside>
+    </div>
   );
 }
 
@@ -449,7 +477,7 @@ function GeriBildirimFormu({
         e.preventDefault();
         if (gecerli) void gonder();
       }}
-      className="flex flex-col gap-3 rounded-2xl border border-default bg-background p-5 sm:p-6"
+      className="flex flex-col gap-3"
     >
       <label htmlFor={`${formId}-mesaj`} className="text-sm font-bold text-default">
         Neyin yanlış olduğunu yaz
@@ -461,7 +489,7 @@ function GeriBildirimFormu({
         maxLength={GERI_BILDIRIM_MAX}
         rows={4}
         placeholder="Örn: Türkçe 2. yazılı notum 90, ama hesaplama farklı bir ortalama gösteriyor."
-        className="rounded-xl border border-default bg-background px-3 py-2 text-sm"
+        className={`rounded-xl px-3 py-2 text-sm ${r.item}`}
       />
       <p className="text-xs text-muted-foreground">
         {kirpilmis.length}/{GERI_BILDIRIM_MAX} — en az {GERI_BILDIRIM_MIN} karakter. Ad-soyad yazmana gerek yok; girdiğin notlar
@@ -476,14 +504,14 @@ function GeriBildirimFormu({
         <button
           type="submit"
           disabled={!gecerli || durum === 'saving'}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-60 ${r.btnNeon}`}
         >
           {durum === 'saving' ? 'Gönderiliyor…' : 'Gönder'}
         </button>
         <button
           type="button"
           onClick={() => setAcik(false)}
-          className="rounded-xl border border-default px-4 py-2.5 text-sm font-bold text-muted-foreground hover:text-default"
+          className={`rounded-xl px-4 py-2 text-sm font-bold text-muted-foreground ${r.item}`}
         >
           Vazgeç
         </button>
@@ -519,14 +547,14 @@ function DersKarti({
   );
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-default bg-background p-4 sm:p-5">
+    <div className={`flex flex-col gap-3 rounded-2xl p-4 sm:p-5 ${r.item}`}>
       <div className="flex items-start gap-2">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
           <input
             value={ders.dersAdi}
             onChange={(e) => onGuncelle({ dersAdi: e.target.value })}
             placeholder="Ders adı"
-            className="flex-1 rounded-xl border border-default bg-background px-3 py-2 text-sm font-semibold"
+            className={`flex-1 ${inputCls}`}
           />
           <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
             Haftalık saat
@@ -540,7 +568,7 @@ function DersKarti({
                 if (saat !== null) onGuncelle({ haftalikSaat: saat });
               }}
               aria-label={`${ad} haftalık saat`}
-              className="w-20 rounded-xl border border-default bg-background px-2 py-2 text-sm"
+              className={`w-20 rounded-xl px-2 py-2 text-sm ${r.item}`}
             />
           </label>
         </div>
@@ -554,7 +582,7 @@ function DersKarti({
         </button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-end gap-3">
         {notAlani('yazili1', '1. yazılı')}
         {notAlani('yazili2', '2. yazılı')}
         {kademe === 'lise' && notAlani('yazili3', '3. yazılı (ops.)')}
@@ -565,17 +593,17 @@ function DersKarti({
           KATILIM_ANAHTARLARI.slice(0, katilimAdedi).map((anahtar, i) => (
             <NotAlani
               key={anahtar}
-              label={`${i + 1}. katılım (sözlü)`}
+              label={`Sözlü ${i + 1}`}
               value={ders[anahtar]}
               onChange={(v) => onGuncelle({ [anahtar]: v })}
-              ariaLabel={`${ad} ${i + 1}. katılım (sözlü)`}
+              ariaLabel={`${ad} sözlü ${i + 1}`}
             />
           ))}
         {notAlani('proje', 'Proje (ops.)')}
         <div className="ml-auto flex flex-col items-end gap-0.5">
           <span className="text-[11px] font-bold text-muted-foreground">Dönem notu</span>
           <span
-            className={`min-w-[4.5rem] rounded-xl px-3 py-2 text-center text-sm font-extrabold ${
+            className={`min-w-[4.5rem] rounded-xl px-3 py-2 text-center text-lg font-bold tabular-nums ${r.display} ${
               notu === null ? 'text-muted-foreground' : barajAltinda ? 'text-rose-600 dark:text-rose-400' : 'text-default'
             }`}
           >
@@ -597,7 +625,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
         aria-checked={checked}
         aria-label={label}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-cyan-600' : 'bg-slate-300 dark:bg-slate-600'}`}
       >
         <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
       </button>

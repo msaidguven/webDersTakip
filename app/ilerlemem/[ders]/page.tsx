@@ -1,77 +1,155 @@
 'use client';
 
-// Ders raporu (İlerlemem altında, 2026-10-12 — Sınav Hazırlık tasarımının ortaokul uyarlaması:
-// https://claude.ai/artifact/BhprJ2kq1N4gouA6tRTmkH). Tek dersin: başarı oranı / çözülen / öğrenilen konu,
-// ünite ünite tamamlama ve başarı grafiği (üniteye dokununca konuları), zorlandığın konular, tekrar. Sınava özel
-// bölüm / çıkmış soru kısımları yok. Derslere geçiş: geniş ekranda solda kenar çubuğu, dar ekranda üstte
-// kaydırılabilir sekmeler. Veri İlerlemem ile aynı SWR önbelleklerinden — derse geçişte istek yok.
+// Ders raporu (İlerlemem altında). Tek dersin: başarı oranı / çözülen / öğrenilen konu, ünite ünite konular
+// (doğru/yanlış çubuğu + öğretim haftası), zorlandığın konular, tekrar. Derslere geçiş: geniş ekranda solda
+// kenar çubuğu, dar ekranda üstte kaydırılabilir sekmeler. Veri İlerlemem ile aynı SWR önbelleklerinden.
+// Görünüm (2026-10-19, kullanıcı isteği): "robotik kontrol paneli" — metal paneller, HUD köşebentleri,
+// reaktör göstergesi, LED segmentli çubuklar, neon vurgular (bkz. LessonReport.module.css).
 import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
+import { Chakra_Petch, Inter, JetBrains_Mono } from 'next/font/google';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTopicMastery } from '../../src/hooks/useTopicMastery';
 import { useReviewDue } from '../../src/hooks/useReviewDue';
+import { useTopicWeekSpans } from '../../src/hooks/useTopicWeekSpans';
 import { onQuizModalClosed } from '../../src/lib/panelRefreshBridge';
 import { AuthPrompt } from '../../src/components/AuthPrompt';
-import { UnitProgressChart } from '../../src/components/progress/UnitProgressChart';
-import { TONE_TEXT } from '../../src/components/progress/LessonList';
-import { accuracyTone, lessonHref, totalsOf, unitReports } from '../../src/lib/lessonReports';
-import { MASTERY_RULES, weakestTopics, type LessonMastery } from '../../src/lib/topicMastery';
+import { accuracyTone, lessonHref, totalsOf, unitReports, type Totals, type UnitReport } from '../../src/lib/lessonReports';
+import { mergeWeekSpans, weekLabel, type WeekRange } from '../../src/lib/kazanimPlan';
+import { MASTERY_RULES, weakestTopics, type LessonMastery, type TopicMastery } from '../../src/lib/topicMastery';
+import s from './LessonReport.module.css';
+
+const displayFont = Chakra_Petch({ subsets: ['latin', 'latin-ext'], weight: ['500', '600', '700'], variable: '--font-r-display', display: 'swap' });
+const bodyFont = Inter({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--font-r-body', display: 'swap' });
+const monoFont = JetBrains_Mono({ subsets: ['latin', 'latin-ext'], weight: ['500', '600'], variable: '--font-r-mono', display: 'swap' });
 
 const REFRESH_KEYS = new Set(['topic-mastery', 'review-due']);
+const SEGMENTS = 20;
+const TONE_CLASS = { good: s.tGood, mid: s.tMid, bad: s.tBad, none: s.tNone } as const;
+// Göstergenin renkleri başarı tonuna göre (renk tek başına anlam taşımaz: yüzde yazıyla da var).
+const TONE_COLOR = { good: 'var(--good)', mid: 'var(--mid)', bad: 'var(--bad)', none: 'var(--neon)' } as const;
 
-function Stat({ value, label }: { value: React.ReactNode; label: string }) {
+function cx(...names: (string | false | null | undefined)[]) {
+  return names.filter(Boolean).join(' ');
+}
+
+function SectionHead({ id, kicker, title, note }: { id: string; kicker: string; title: string; note?: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-2xl bg-surface p-3 sm:p-4">
-      <span className="whitespace-nowrap text-xl font-black tabular-nums text-default sm:text-2xl">{value}</span>
-      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+    <div className={s.sectionHead}>
+      <div>
+        <p className={s.label}>{kicker}</p>
+        <h2 id={id} className={s.h2}>{title}</h2>
+      </div>
+      {note && <span className={s.note}>{note}</span>}
     </div>
   );
 }
 
-function SectionTitle({ id, title, note }: { id: string; title: string; note?: string }) {
+// LED segmentli ilerleme çubuğu (oran 0–1).
+function Segments({ ratio, label }: { ratio: number; label: string }) {
+  const on = Math.round(Math.min(1, Math.max(0, ratio)) * SEGMENTS);
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <h2 id={id} className="text-lg font-extrabold text-default">
-        {title}
-      </h2>
-      {note && <span className="text-xs font-semibold text-muted-foreground">{note}</span>}
+    <div className={s.segments} role="img" aria-label={label}>
+      {Array.from({ length: SEGMENTS }, (_, i) => (
+        <span key={i} className={cx(s.seg, i < on && s.segOn)} />
+      ))}
     </div>
   );
 }
 
-// Geniş ekran: solda dersler, her birinde başarı oranı. Sorusu olmayan ders listede soluk ve tıklanamaz.
+function StatusChip({ totals }: { totals: Totals }) {
+  const { solved, accuracy, total } = totals;
+  if (total === 0) return <span className={cx(s.chip, s.tNone)}>yakında</span>;
+  return (
+    <span className={cx(s.chip, TONE_CLASS[accuracyTone(accuracy)])}>
+      {solved === 0 ? 'başlanmadı' : accuracy == null ? 'veri az' : `%${accuracy} başarı`}
+    </span>
+  );
+}
+
+function WeekTag({ range }: { range: WeekRange | null | undefined }) {
+  if (!range) return null;
+  return <span className={s.week}>{weekLabel(range)}</span>;
+}
+
+function TopicBar({ totals }: { totals: Totals }) {
+  const { total, solved, correct } = totals;
+  const wrong = solved - correct;
+  return (
+    <span className={s.bar} role="img" aria-label={total === 0 ? 'Henüz soru yok' : `${total} sorunun ${correct} doğru, ${wrong} yanlış, ${total - solved} çözülmedi`}>
+      {total > 0 && (
+        <>
+          <span className={s.barGood} style={{ width: `${(correct / total) * 100}%` }} />
+          <span className={s.barBad} style={{ width: `${(wrong / total) * 100}%` }} />
+        </>
+      )}
+    </span>
+  );
+}
+
+function TopicRow({ t, week }: { t: TopicMastery; week: WeekRange | null | undefined }) {
+  const totals = totalsOf([t]);
+  const { total, solved, correct } = totals;
+  const body = (
+    <>
+      <span className={s.topicName}>{t.title}<WeekTag range={week} /></span>
+      <span className={s.topicData}>
+        <TopicBar totals={totals} />
+        <span className={s.topicStats}>{total === 0 ? 'Yakında' : `${solved}/${total} çözüldü · ${correct} doğru · ${solved - correct} yanlış`}</span>
+      </span>
+    </>
+  );
+  if (!t.href) return <li className={s.topic}>{body}</li>;
+  return <li><Link href={t.href} className={s.topic}>{body}</Link></li>;
+}
+
+function UnitPanels({ units, weekSpans }: { units: UnitReport[]; weekSpans?: Record<number, WeekRange | null> }) {
+  return (
+    <div className={s.units}>
+      {units.map((u, i) => (
+        <section key={u.key} aria-label={u.title} className={cx(s.panel, s.unit)}>
+          <header className={s.unitHead}>
+            <h3 className={s.unitTitle}>
+              <span className={s.unitIdx}>{String(i + 1).padStart(2, '0')}</span>
+              {u.title}
+              <WeekTag range={mergeWeekSpans(u.topics.map((t) => weekSpans?.[t.id]))} />
+            </h3>
+            <StatusChip totals={u.totals} />
+          </header>
+          <ul className={s.topics}>
+            {u.topics.map((t) => <TopicRow key={t.id} t={t} week={weekSpans?.[t.id]} />)}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+// Geniş ekran: solda dersler, her birinde başarı oranı. Sorusu olmayan ders soluk ve tıklanamaz.
 function LessonSidebar({ lessons, current }: { lessons: LessonMastery[]; current: string }) {
   return (
-    <nav aria-label="Dersler" className="sticky top-24 hidden lg:block">
-      <h2 className="mb-2 px-3 text-xs font-black uppercase tracking-wider text-muted-foreground">Dersler</h2>
-      <ul className="flex flex-col gap-0.5">
+    <nav aria-label="Dersler" className={cx(s.panel, s.side)}>
+      <p className={cx(s.label, s.sideLabel)}>Dersler</p>
+      <ul className={s.sideList}>
         {lessons.map((l) => {
           const t = totalsOf(l.topics);
           const active = l.slug === current;
           if (!l.slug || t.total === 0) {
             return (
-              <li key={l.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-muted-foreground">
-                <span className="min-w-0">{l.name}</span>
-                <span className="shrink-0 text-xs">hazırlanıyor</span>
+              <li key={l.id} className={cx(s.sideItem, s.sideOff)}>
+                <span>{l.name}</span>
+                <span className={s.sidePct}>hazırlanıyor</span>
               </li>
             );
           }
           return (
             <li key={l.id}>
-              <Link
-                href={lessonHref(l.slug)}
-                aria-current={active ? 'page' : undefined}
-                className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
-                  active ? 'bg-indigo-600 font-bold text-white' : 'font-semibold text-default hover:bg-surface'
-                }`}
-              >
-                <span className="min-w-0">{l.name}</span>
-                <span className={`shrink-0 text-xs font-black tabular-nums ${active ? 'text-white' : TONE_TEXT[accuracyTone(t.accuracy)]}`}>
-                  {t.accuracy == null ? '—' : `%${t.accuracy}`}
-                </span>
+              <Link href={lessonHref(l.slug)} aria-current={active ? 'page' : undefined} className={cx(s.sideItem, active && s.sideActive)}>
+                <span>{l.name}</span>
+                <span className={cx(s.sidePct, TONE_CLASS[accuracyTone(t.accuracy)])}>{t.accuracy == null ? '—' : `%${t.accuracy}`}</span>
               </Link>
             </li>
           );
@@ -97,6 +175,8 @@ export default function LessonReportPage() {
   const totals = useMemo(() => (lesson ? totalsOf(lesson.topics) : null), [lesson]);
   const units = useMemo(() => (lesson ? unitReports(lesson) : []), [lesson]);
   const weak = useMemo(() => (lesson ? weakestTopics([lesson], 5) : []), [lesson]);
+  const topicIds = useMemo(() => units.flatMap((u) => u.topics.map((t) => t.id)), [units]);
+  const { data: weekSpans } = useTopicWeekSpans(topicIds);
   const tabs = mastery?.lessons.filter((l) => l.slug && l.topics.length > 0) ?? [];
   // Seçili ders sekmesi dar ekranda kaydırma alanının dışında kalmasın.
   const activeTab = useRef<HTMLAnchorElement>(null);
@@ -106,25 +186,25 @@ export default function LessonReportPage() {
   }, [ders, tabsReady]);
 
   const back = (
-    <Link href="/ilerlemem" className="inline-flex w-fit items-center gap-1 text-sm font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+    <Link href="/ilerlemem" className={s.back}>
       <ChevronLeft className="h-4 w-4" aria-hidden="true" /> İlerlemem
     </Link>
   );
   const shell = (body: React.ReactNode) => (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 pb-16 pt-6 sm:px-6 sm:pt-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-8">
-        {mastery ? <LessonSidebar lessons={mastery.lessons} current={ders} /> : <div className="hidden lg:block" />}
-        <main className="flex min-w-0 flex-col gap-6 sm:gap-8">{body}</main>
+    <div className={cx(s.root, displayFont.variable, bodyFont.variable, monoFont.variable)}>
+      <div className={s.shell}>
+        {mastery ? <LessonSidebar lessons={mastery.lessons} current={ders} /> : <div className={s.side} />}
+        <main className={s.main}>{body}</main>
       </div>
     </div>
   );
 
   if (loading || (user && mastery === undefined && !mErr)) {
-    return shell(<div aria-busy="true" aria-label="Ders raporu yükleniyor" className="h-96 animate-pulse rounded-2xl bg-surface-elevated" />);
+    return shell(<div aria-busy="true" aria-label="Ders raporu yükleniyor" className={s.skeleton} />);
   }
   if (!user) return shell(<>{back}<AuthPrompt message="Ders raporunu görmek için giriş yap." /></>);
   if (mErr) {
-    return shell(<>{back}<p role="alert" className="text-sm text-muted-foreground">Ders raporun şu an yüklenemedi. Sayfayı yenilemeyi dene.</p></>);
+    return shell(<>{back}<p role="alert" className={s.muted}>Ders raporun şu an yüklenemedi. Sayfayı yenilemeyi dene.</p></>);
   }
   // Sınıfta olmayan ders slug'ı (ör. /ilerlemem/aylik) gerçek bir sayfa değil.
   if (!lesson || !totals) notFound();
@@ -132,26 +212,47 @@ export default function LessonReportPage() {
   const learned = lesson.counts.learned;
   const topicTotal = lesson.topics.length + lesson.upcoming;
   const tone = accuracyTone(totals.accuracy);
+  const pct = totals.accuracy ?? 0;
 
   return shell(
     <>
-      <header className="flex flex-col gap-2">
-        {back}
-        <h1 className="text-3xl font-black tracking-tight text-default sm:text-4xl">{lesson.name}</h1>
+      {back}
+
+      {/* KOKPİT: ders adı + reaktör göstergesi */}
+      <header className={cx(s.panel, s.hero)}>
+        <span className={s.scan} aria-hidden="true" />
+        <div>
+          <p className={cx(s.label, s.status)}><i className={s.led} aria-hidden="true" />Sistem · Ders raporu</p>
+          <h1 className={s.title}>{lesson.name}</h1>
+          <p className={s.heroSub}>{units.length} ünite · {topicTotal} konu · {totals.total} soru</p>
+        </div>
+        <div className={s.gauge}>
+          <span className={s.gaugeTicks} aria-hidden="true" />
+          <span
+            className={s.gaugeRing}
+            aria-hidden="true"
+            style={{ background: `conic-gradient(${TONE_COLOR[tone]} 0 ${pct}%, var(--track) 0 100%)` }}
+          />
+          <div className={s.gaugeCore}>
+            <div>
+              <div className={cx(s.gaugeValue, TONE_CLASS[tone])}>{totals.accuracy == null ? '—' : `%${totals.accuracy}`}</div>
+              <div className={s.gaugeLabel}>Başarı oranı</div>
+              {totals.accuracy == null && <div className={s.gaugeNote}>en az {MASTERY_RULES.minSolvedToJudge} soru çöz</div>}
+            </div>
+          </div>
+        </div>
       </header>
 
       {tabs.length > 1 && (
-        <nav aria-label="Ders değiştir" className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:hidden">
-          <ul className="flex w-max gap-2">
+        <nav aria-label="Ders değiştir" className={s.tabs}>
+          <ul className={s.tabList}>
             {tabs.map((l) => (
               <li key={l.id}>
                 <Link
                   href={lessonHref(l.slug!)}
                   ref={l.slug === ders ? activeTab : undefined}
                   aria-current={l.slug === ders ? 'page' : undefined}
-                  className={`block whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-bold transition-colors ${
-                    l.slug === ders ? 'bg-indigo-600 text-white' : 'bg-surface text-muted-foreground hover:text-default'
-                  }`}
+                  className={cx(s.tab, l.slug === ders && s.tabActive)}
                 >
                   {l.name}
                 </Link>
@@ -161,35 +262,53 @@ export default function LessonReportPage() {
         </nav>
       )}
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat
-          value={<span className={TONE_TEXT[tone]}>{totals.accuracy == null ? '—' : `%${totals.accuracy}`}</span>}
-          label={totals.accuracy == null ? `başarı oranı (en az ${MASTERY_RULES.minSolvedToJudge} soru)` : 'başarı oranı'}
-        />
-        <Stat value={<>{totals.solved}<span className="text-sm text-muted-foreground">/{totals.total}</span></>} label="soru çözüldü" />
-        <Stat value={<>{learned}<span className="text-sm text-muted-foreground">/{topicTotal}</span></>} label="konu öğrenildi" />
+      <div className={s.modules}>
+        <div className={cx(s.panel, s.module)}>
+          <div className={s.moduleTop}>
+            <span className={s.label}>Soru çözüldü</span>
+            <span className={s.moduleValue}>{totals.solved}<small>/{totals.total}</small></span>
+          </div>
+          <Segments ratio={totals.total ? totals.solved / totals.total : 0} label={`${totals.total} sorunun ${totals.solved} tanesi çözüldü`} />
+        </div>
+        <div className={cx(s.panel, s.module)}>
+          <div className={s.moduleTop}>
+            <span className={s.label}>Konu öğrenildi</span>
+            <span className={s.moduleValue}>{learned}<small>/{topicTotal}</small></span>
+          </div>
+          <Segments ratio={topicTotal ? learned / topicTotal : 0} label={`${topicTotal} konunun ${learned} tanesi öğrenildi`} />
+        </div>
       </div>
 
       {units.length > 0 && (
-        <section aria-labelledby="unite-basari" className="flex flex-col gap-3">
-          <SectionTitle id="unite-basari" title="Ünitelere göre başarı oranı" />
-          <UnitProgressChart units={units} />
+        <section aria-labelledby="unite-basari" className={s.main}>
+          <SectionHead id="unite-basari" kicker="Modüller" title="Ünitelere göre başarı oranı" />
+          <div className={s.legend}>
+            <span><i className={s.dot} style={{ background: '#10B981' }} aria-hidden="true" />Doğru</span>
+            <span><i className={s.dot} style={{ background: '#E11D48' }} aria-hidden="true" />Yanlış</span>
+            <span><i className={s.dot} style={{ background: 'var(--track)' }} aria-hidden="true" />Çözülmedi</span>
+          </div>
+          <UnitPanels units={units} weekSpans={weekSpans} />
         </section>
       )}
 
       {weak.length > 0 && (
-        <section aria-labelledby="zorlandigin" className="flex flex-col gap-3">
-          <SectionTitle id="zorlandigin" title="Zorlandığın konular" note={`en az ${MASTERY_RULES.minSolvedToJudge} soru, başarı oranı %${MASTERY_RULES.weakAccuracy * 100} altı`} />
-          <ol className="flex flex-col gap-2">
+        <section aria-labelledby="zorlandigin" className={cx(s.panel, s.alert)}>
+          <SectionHead
+            id="zorlandigin"
+            kicker="Uyarı"
+            title="Zorlandığın konular"
+            note={`en az ${MASTERY_RULES.minSolvedToJudge} soru, başarı oranı %${MASTERY_RULES.weakAccuracy * 100} altı`}
+          />
+          <ol className={s.topics}>
             {weak.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 rounded-2xl border border-default p-3 sm:px-4">
-                <span className="w-11 shrink-0 text-center text-sm font-black tabular-nums text-rose-700 dark:text-rose-400">%{t.accuracy}</span>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-[15px] font-extrabold leading-snug text-default">{t.title}</span>
-                  <span className="text-[13px] text-muted-foreground">{t.solved} soru çözdün · {t.wrong} yanlış</span>
+              <li key={t.id} className={s.alertRow}>
+                <span className={s.alertPct}>%{t.accuracy}</span>
+                <span className={s.alertText}>
+                  <b>{t.title}</b>
+                  <small>{t.solved} soru çözdün · {t.wrong} yanlış</small>
                 </span>
                 {t.href && (
-                  <Link href={t.href} aria-label={`${t.title} sorularını çöz`} className="flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 text-sm font-extrabold text-white transition-colors hover:bg-indigo-700">
+                  <Link href={t.href} aria-label={`${t.title} sorularını çöz`} className={cx(s.btn, s.btnNeon)}>
                     Çöz
                   </Link>
                 )}
@@ -200,20 +319,15 @@ export default function LessonReportPage() {
       )}
 
       {reviewDue > 0 && (
-        <section aria-labelledby="tekrar" className="flex flex-col gap-3">
-          <SectionTitle id="tekrar" title="Tekrar" />
-          <div className="flex items-center gap-3 rounded-2xl border border-default p-3 sm:px-4">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-[15px] font-extrabold text-default">Tekrar zamanı gelen {reviewDue} soru</span>
-              <span className="text-[13px] text-muted-foreground">Tekrar testi tüm derslerin zamanı gelen sorularını birlikte açar.</span>
-            </span>
-            <Link href="/tekrar" className="flex min-h-11 shrink-0 items-center rounded-xl border border-indigo-600 px-4 text-sm font-extrabold text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10">
-              Tekrar et
-            </Link>
-          </div>
+        <section aria-labelledby="tekrar" className={cx(s.panel, s.review)}>
+          <span className={s.alertText}>
+            <span className={s.label} id="tekrar">Tekrar</span>
+            <b>Tekrar zamanı gelen {reviewDue} soru</b>
+            <small>Tekrar testi tüm derslerin zamanı gelen sorularını birlikte açar.</small>
+          </span>
+          <Link href="/tekrar" className={cx(s.btn, s.btnGhost)}>Tekrar et</Link>
         </section>
       )}
-
     </>
   );
 }

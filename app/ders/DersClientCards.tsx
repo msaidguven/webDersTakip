@@ -6,149 +6,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CheckCircle2, ChevronRight, Loader2, MessageCircle, Pencil, Trophy } from 'lucide-react';
+import { CheckCircle2, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { fetchTopicContentProgress, touchTopicContentView, markTopicContentCompleted } from '@/app/src/lib/topicContentProgress';
 import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
 import { buildBlocks } from './SectionContent';
-import type { TopicHighlight } from './dersHelpers';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
-
-export type StudyMode = 'highlights' | 'details' | 'slides' | 'summary' | 'test';
-
-export interface StudyModeOption {
-  id: StudyMode;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  iconClass: string;
-  // Kart artık SADECE seçiliyken değil, her zaman kendi pastel zeminini taşıyor
-  // (kullanıcının 2026-09-25 kararı) — restClass o sakin hâli, activeClass seçili hâli.
-  restClass: string;
-  activeClass: string;
-  railClass: string;
-  available: boolean;
-  // "Konu Kavrama Testi" kartı artık aradaki CTA ekranını atlayıp tıklanır tıklanmaz test
-  // verisini çekip direkt soru modalını açıyor (kullanıcının 2026-09-24 isteği) — fetch
-  // sürerken kartın kendi sağ ikonunda dönen bir spinner gösteriyoruz.
-  loading?: boolean;
-}
-
-export function StudyModeSelector({
-  options,
-  selectedMode,
-  onSelect,
-}: {
-  options: StudyModeOption[];
-  selectedMode: StudyMode | null;
-  onSelect: (mode: StudyMode) => void;
-}) {
-  const availableOptions = options.filter((item) => item.available);
-
-  return (
-    <div className="space-y-4">
-      {/* Orantılı ve Dengeli Grid Yapısı */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {availableOptions.map((item, idx) => {
-          const active = selectedMode === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSelect(item.id)}
-              disabled={item.loading}
-              aria-pressed={active}
-              className={`group relative flex items-center gap-3.5 overflow-hidden rounded-xl border p-4 text-left transition-all duration-200 disabled:cursor-wait ${active
-                  ? `${item.activeClass} shadow-sm ring-1 ring-slate-900/10`
-                  : `${item.restClass} hover:shadow-sm`
-                }`}
-            >
-              {/* Sol Vurgu Şeridi — seçiliyken dolu, boştayken soluk ama yine de o kartın rengi */}
-              <span className={`absolute inset-y-0 left-0 w-1 ${active ? item.railClass : `${item.railClass} opacity-40`}`} />
-
-              {/* İkon Kapsülü */}
-              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm ${item.iconClass}`}>
-                {item.icon}
-              </span>
-
-              {/* Metin — rozet kaldırıldı (başlığın tekrarıydı: "Anahtar Kavramlar" -> "Kavram"),
-                  böylece başlık tek satıra sığıyor ve sarmıyor. */}
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
-                  {item.title}
-                </span>
-                <p className="mt-0.5 text-xs font-normal leading-snug text-slate-600 line-clamp-2">
-                  {item.description}
-                </p>
-              </div>
-
-              {/* Sağ ikon — 01-04 sıra numarası kaldırıldı: kartlar 2 sütunlu gridde
-                  duruyor, numaralar olmayan bir okuma sırası ima ediyordu. */}
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-white/70 text-slate-500 group-hover:bg-slate-900 group-hover:text-white'}`}>
-                {item.loading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : active ? (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-export function CurriculumWeekCard({ weekRangeLabel, dateRangeLabel }: { weekRangeLabel: string; dateRangeLabel: string }) {
-  return (
-    <div className="group relative overflow-hidden rounded-xl border border-indigo-100 bg-white p-4.5 text-center shadow-sm transition-all hover:shadow">
-      <div className="mb-2 flex items-center justify-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
-          <Calendar className="h-3.5 w-3.5" />
-        </span>
-        MEB Müfredat Takvimi
-      </div>
-      <p className="text-sm font-bold text-slate-900">{weekRangeLabel}</p>
-      <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-slate-600 font-medium">
-        <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-pulse" />
-        {dateRangeLabel} tarihleri arasında işlenir
-      </p>
-      <p className="text-[11px] text-slate-400 font-normal mt-2.5 leading-relaxed border-t border-slate-100 pt-2">
-        Tarihler MEB takvimine göre tahminidir, okula göre değişiklik gösterebilir.
-      </p>
-    </div>
-  );
-}
-
-export function HighlightCard({ highlight, onEdit }: { highlight: TopicHighlight; onEdit?: () => void }) {
-  return (
-    <div className={`group relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow flex items-center gap-3.5 ${onEdit ? 'pr-9' : ''}`}>
-      {highlight.icon && (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-lg border border-indigo-100/50">
-          {highlight.icon}
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-slate-900 leading-tight">{highlight.title}</p>
-        <p className="text-xs text-slate-600 font-normal leading-relaxed mt-1">{highlight.description}</p>
-      </div>
-      {onEdit && (
-        <button
-          type="button"
-          onClick={onEdit}
-          title="Anahtar kavramı düzenle"
-          className="absolute top-3 right-3 h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors"
-        >
-          <Pencil className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  );
-}
 
 export function TopicCompleteButton({ topicId }: { topicId: string | number }) {
   const { user, supabase } = useAuth();
@@ -391,32 +256,6 @@ export function TopicSummaryBox({ topicTitle, summaryHtml }: { topicTitle: strin
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-export function DiscussionPromptBox({ discussionPromptHtml }: { discussionPromptHtml: string }) {
-  const mathHtml = useMemo(() => renderLatexInHtml(discussionPromptHtml), [discussionPromptHtml]);
-
-  return (
-    <div className="not-prose mt-4 flex flex-col items-start gap-3 rounded-xl border border-violet-200 bg-violet-50/60 p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
-      <div className="flex items-start gap-3 min-w-0">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white shadow-sm">
-          <MessageCircle className="h-4 w-4" />
-        </span>
-        <div
-          className="min-w-0 text-sm text-slate-800 leading-relaxed font-medium [&_p]:m-0 [&_strong]:font-bold [&_strong]:text-violet-900"
-          dangerouslySetInnerHTML={{ __html: mathHtml }}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={() => document.getElementById('konu-tartisma')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        className="group flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-violet-800 active:scale-95"
-      >
-        <span>Görüşünü Paylaş</span>
-        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-      </button>
     </div>
   );
 }

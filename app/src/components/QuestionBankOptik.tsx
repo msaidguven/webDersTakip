@@ -162,7 +162,7 @@ export default function QuestionBankOptik({
         type="button"
         onClick={() => setSheetOpen(true)}
         aria-label="Optik formu aç"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-zinc-900 px-4 text-sm font-semibold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900 md:bottom-6 lg:hidden"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-zinc-900 px-4 text-sm font-semibold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900 lg:hidden"
       >
         <Grid3x3 className="h-4 w-4" aria-hidden="true" /> {answeredCount}/{items.length}
       </button>

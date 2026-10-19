@@ -57,17 +57,26 @@ export async function runTopicBatchStep(supabase: Supabase, profile: QuestionWor
       return { generated: false, reason: `Konu ${step.topic_id} (${step.round_no}. tur): başka bir worker üretiyor, bekleniyor` };
     case 'section':
     case 'topic': {
-      const result =
-        step.kind === 'section'
-          ? await generateBatchSectionDraft(supabase, step.section_id, step.draft_id, profile)
-          : await generateBatchTopicDraft(supabase, step.topic_id, step.draft_id, profile);
-      if (!result.generated) {
-        const reason = result.reason ?? 'bilinmeyen hata';
-        if (TRANSIENT_ERROR.test(reason)) await releaseDraft(supabase, step.draft_id);
-        else await markDraftFailed(supabase, step.draft_id, reason);
-      }
       const label = step.kind === 'section' ? `Konu ${step.topic_id} (${step.round_no}. tur) / alt başlık ${step.section_id}` : `Konu ${step.topic_id} (${step.round_no}. tur) / konu geneli`;
-      return { generated: result.generated, draftId: step.draft_id, reason: result.generated ? `${label}: taslak hazır (yayın bekliyor)` : `${label}: ${result.reason}` };
+      let reason: string;
+      try {
+        const result =
+          step.kind === 'section'
+            ? await generateBatchSectionDraft(supabase, step.section_id, step.draft_id, profile)
+            : await generateBatchTopicDraft(supabase, step.topic_id, step.draft_id, profile);
+        if (result.generated) return { generated: true, draftId: step.draft_id, reason: `${label}: taslak hazır (yayın bekliyor)` };
+        reason = result.reason ?? 'bilinmeyen hata';
+      } catch (e) {
+        // Beklenmeyen istisna da taslağı 'generating' bırakmasın — aşağıdaki sınıflandırma uygulanır.
+        reason = e instanceof Error ? e.message : String(e);
+      }
+      // Geçici hata: satır silinir, deneme hakkı yakılmaz → draftId dönmez (log'a silinmiş id yazılmasın).
+      if (TRANSIENT_ERROR.test(reason)) {
+        await releaseDraft(supabase, step.draft_id);
+        return { generated: false, reason: `${label}: ${reason}` };
+      }
+      await markDraftFailed(supabase, step.draft_id, reason);
+      return { generated: false, draftId: step.draft_id, reason: `${label}: ${reason}` };
     }
     case 'publish':
       return publishTopicBatch(supabase, step.topic_id, step.round_no);

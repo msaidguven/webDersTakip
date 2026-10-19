@@ -4,7 +4,8 @@
 
 import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { unitAccent } from '@/app/src/lib/unitAccents';
+import { roboticFontVars } from '@/app/src/components/robotic/fonts';
+import r from '@/app/src/components/robotic/robotic.module.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -76,14 +77,11 @@ interface MufredatOverviewClientProps {
   allGrades?: GradeOption[];
 }
 
-// Ortak sınıflar: çerçeve, nötr ikon kutusu (ikon bordo). Anasayfa v5 ve LessonSelector
-// ile aynı dil (bkz. LessonSelector.tsx) — bu sayfa artık o diline kopuk kalmasın diye.
-const FRAME = 'rounded-2xl border border-[#7A2634]/20 bg-background';
-const ICON_BOX = 'bg-zinc-100 text-[#7A2634]';
-const OUTLINE_BUTTON =
-  'inline-flex items-center gap-1 rounded-full border border-[#7A2634]/30 px-3 py-1.5 text-xs font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5';
-const SORU_BADGE =
-  'relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md border border-[#7A2634]/20 px-2 py-0.5 text-[11px] font-bold text-[#7A2634] transition-colors hover:bg-[#7A2634]/5';
+// Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfa/İlerlemem ile aynı; bkz. robotic).
+const FRAME = `rounded-[22px] ${r.panel}`;
+const OUTLINE_BUTTON = `inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${r.btnGhost} ${r.btnText}`;
+const SORU_BADGE = `relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${r.btnGhost}`;
+const SELECT = `appearance-none rounded-lg py-1.5 pl-3 pr-7 text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 ${r.iconBtn} ${r.ink}`;
 
 function academicYearLabel(): string {
   const now = new Date();
@@ -171,7 +169,7 @@ export default function MufredatOverviewClient({
   const totalQuestions = units.reduce((sum, u) => sum + (u.questionCount ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#F7F4FB] dark:bg-background text-default font-sans antialiased">
+    <div className={`${roboticFontVars} ${r.root} antialiased`}>
       <Suspense fallback={null}>
         <SearchParamsSync onChange={setSearchParams} />
       </Suspense>
@@ -181,7 +179,7 @@ export default function MufredatOverviewClient({
         <div className="flex items-center justify-between gap-3 mb-6 lg:hidden">
           <Link
             href={changeLessonsHref}
-            className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-[#7A2634] transition-colors"
+            className={`flex items-center gap-2 text-sm font-bold transition-colors hover:text-cyan-600 dark:hover:text-cyan-400 ${r.muted}`}
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Dersler</span>
@@ -193,7 +191,7 @@ export default function MufredatOverviewClient({
                   value={gradeSlug ?? ''}
                   onChange={handleGradeChange}
                   aria-label="Sınıf değiştir"
-                  className="appearance-none pl-3 pr-7 py-1.5 rounded-lg bg-background border border-[#7A2634]/20 text-sm font-bold text-default focus:outline-none focus:ring-2 focus:ring-[#7A2634]/30 focus:border-[#7A2634] cursor-pointer"
+                  className={SELECT}
                 >
                   {allGrades.filter((g) => g.slug).map((g) => (
                     <option key={g.id} value={g.slug ?? ''}>{g.name}</option>
@@ -208,7 +206,7 @@ export default function MufredatOverviewClient({
                   value={lessonSlug ?? ''}
                   onChange={handleLessonChange}
                   aria-label="Ders değiştir"
-                  className="appearance-none max-w-[140px] sm:max-w-[200px] pl-3 pr-7 py-1.5 rounded-lg bg-background border border-[#7A2634]/20 text-sm font-bold text-default focus:outline-none focus:ring-2 focus:ring-[#7A2634]/30 focus:border-[#7A2634] cursor-pointer"
+                  className={`max-w-[140px] sm:max-w-[200px] ${SELECT}`}
                 >
                   {gradeLessons.filter((l) => l.slug).map((l) => (
                     <option key={l.id} value={l.slug ?? ''}>
@@ -221,7 +219,7 @@ export default function MufredatOverviewClient({
             ) : (
               <Link
                 href={changeLessonsHref}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-[#7A2634]/20 text-sm font-bold text-muted-foreground hover:bg-[#7A2634]/5 hover:border-[#7A2634]/40 transition-colors"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold ${r.iconBtn}`}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span>Dersleri Değiştir</span>
@@ -235,61 +233,47 @@ export default function MufredatOverviewClient({
           {/* Ana İçerik */}
           <div className="min-w-0">
 
-            {/* Ders Başlığı — anasayfa v5 bordo vurgusu + eski tasarımdaki yumuşak yeşil
-                (emerald/teal) zemin birlikte: kullanıcının 2026-10-19 isteği "arkaplanı
-                beyaz yerine eski versiyondaki yeşil tonu, bordo+yeşil ağırlıklı". */}
-            <div className="rounded-2xl border border-[#7A2634]/15 bg-gradient-to-br from-amber-50 via-amber-50/30 to-background p-6 sm:p-8 mb-7">
-              <div className="flex items-center gap-5">
-                <div className={`flex h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem] shrink-0 items-center justify-center rounded-2xl text-3xl sm:text-4xl ${ICON_BOX}`}>
+            {/* Ders başlığı — anasayfadaki kokpit kartı: tarama ışığı, LED etiket, krom başlık. */}
+            <div className={`${FRAME} ${r.hero} mb-7 p-6 sm:p-8`}>
+              <span className={r.scan} aria-hidden="true" />
+              <div className="relative flex items-center gap-5">
+                <div className={`h-16 w-16 shrink-0 text-3xl sm:h-[4.5rem] sm:w-[4.5rem] sm:text-4xl ${r.chipBox}`}>
                   {lessonIcon || '📘'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-600/20 bg-background/70 px-2.5 py-1 text-xs font-bold text-amber-800 dark:text-amber-300">
-                      <GraduationCap className="h-3 w-3" />
-                      {gradeName}
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center gap-2 ${r.label}`}>
+                      <span className={r.led} aria-hidden="true" /> {gradeName}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-600/20 bg-background/70 px-2.5 py-1 text-xs font-bold text-amber-800 dark:text-amber-300">
-                      <Calendar className="h-3 w-3" />
-                      {academicYearLabel()}
-                    </span>
+                    <span className={`${r.badge}`}>{academicYearLabel()}</span>
                   </div>
                   {/* H1'de sınıf+ders+"Yeni Müfredat" birlikte — kullanıcının 2026-09-06
                       isteği: "her sınıf her ders için bunu yazacağız, SEO için" (insanların
                       arattığı "6. sınıf sosyal bilgiler yeni müfredat" gibi sorgularla
                       birebir eşleşsin diye), dinamik olarak HER sınıf/ders kombinasyonunda
                       aynı şablon. */}
-                  <h1 className="text-xl sm:text-2xl font-black leading-snug text-default">
-                    {gradeName} {lessonName} <span className="text-[#7A2634]">Yeni Müfredat</span>
+                  <h1 className="text-2xl leading-tight sm:text-3xl">
+                    <span className={r.chrome}>{gradeName} {lessonName}</span>{' '}
+                    <span className={`${r.display} font-bold uppercase ${r.accent}`}>Yeni Müfredat</span>
                   </h1>
-                  <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                  <p className={`mt-1 text-xs sm:text-sm ${r.muted}`}>
                     {lessonName} dersi Türkiye Yüzyılı Maarif Modeli&apos;ne (TYMM) uygun konu anlatımları, testler ve sorularla burada.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3">
-                <div className="flex flex-col items-center gap-1 rounded-xl border border-amber-600/15 bg-background/70 py-3">
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full ${ICON_BOX}`}>
-                    <Layers className="h-4 w-4" />
-                  </span>
-                  <span className="text-lg font-black text-default">{units.length}</span>
-                  <span className="text-[11px] font-bold text-muted-foreground">Ünite</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 rounded-xl border border-amber-600/15 bg-background/70 py-3">
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full ${ICON_BOX}`}>
-                    <BookOpen className="h-4 w-4" />
-                  </span>
-                  <span className="text-lg font-black text-default">{totalTopics}</span>
-                  <span className="text-[11px] font-bold text-muted-foreground">Konu</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 rounded-xl border border-amber-600/15 bg-background/70 py-3">
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full ${ICON_BOX}`}>
-                    <ListChecks className="h-4 w-4" />
-                  </span>
-                  <span className="text-lg font-black text-default">{totalQuestions}</span>
-                  <span className="text-[11px] font-bold text-muted-foreground">Soru</span>
-                </div>
+              <div className="relative mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
+                {[
+                  { icon: Layers, value: units.length, label: 'Ünite' },
+                  { icon: BookOpen, value: totalTopics, label: 'Konu' },
+                  { icon: ListChecks, value: totalQuestions, label: 'Soru' },
+                ].map(({ icon: Icon, value, label }) => (
+                  <div key={label} className={`flex flex-col items-center gap-1 py-3 ${r.stat}`}>
+                    <Icon className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
+                    <span className={`text-xl ${r.statValue}`}>{value}</span>
+                    <span className={`${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.muted}`}>{label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -298,7 +282,6 @@ export default function MufredatOverviewClient({
               {units.map((unit, unitIdx) => {
                 const displayNo = unitIdx + 1;
                 const topics = unit.topics ?? [];
-                const accent = unitAccent(unitIdx);
                 const start = unit.start_week;
                 const end = unit.end_week;
                 const isDraftUnit = unit.is_active === false;
@@ -307,35 +290,21 @@ export default function MufredatOverviewClient({
                   <div
                     key={unit.id}
                     id={unit.slug ?? undefined}
-                    className={`scroll-mt-4 rounded-2xl border bg-background overflow-hidden transition-colors ${
-                      isDraftUnit
-                        ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10'
-                        : `border-[#7A2634]/15 ${accent.border}`
-                    }`}
+                    className={`scroll-mt-24 ${FRAME} ${isDraftUnit ? '!border-amber-400' : ''}`}
                   >
                     {/* Ünite Başlığı — konu satırlarından AÇIKÇA baskın olmalı: daha büyük
                         punto, versal harf aralığı ve renkli şerit. Başlık ARTIK KESİLMİYOR
                         (eski truncate mobilde "Güneş Sistemi ..." gibi ünite adını yarıda
                         bırakıp konu adlarını tam gösteriyordu — hiyerarşi tersine dönüyordu);
                         "Üniteye Git" dar ekranda kendi satırına iniyor. */}
-                    <div className={`px-4 sm:px-5 py-4 ${
-                      isDraftUnit ? 'bg-amber-50/50' : accent.headerBg
-                    }`}>
+                    <div className="px-4 py-4 sm:px-5">
                       <div className="flex flex-wrap items-start gap-x-3 gap-y-3 sm:gap-x-4">
-                        <span className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 shadow-sm ${
-                          isDraftUnit ? 'bg-amber-100 text-amber-700' : accent.badge
-                        }`}>
-                          {displayNo}
+                        <span className={`h-10 w-10 shrink-0 text-base ${r.chipBox}`}>
+                          {String(displayNo).padStart(2, '0')}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${
-                            isDraftUnit ? 'text-amber-600' : 'text-muted-foreground'
-                          }`}>
-                            {displayNo}. Ünite
-                          </p>
-                          <h3 className={`text-lg sm:text-xl font-black leading-snug text-balance ${
-                            isDraftUnit ? 'text-amber-900 dark:text-amber-300' : 'text-default'
-                          }`}>
+                          <p className={r.label}>{displayNo}. Ünite</p>
+                          <h3 className={`text-lg sm:text-xl font-bold leading-snug text-balance ${r.display} ${r.ink}`}>
                             {unit.title}
                           </h3>
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -345,15 +314,12 @@ export default function MufredatOverviewClient({
                               </span>
                             )}
                             {start != null && end != null && (
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-muted-foreground bg-surface/40 px-2 py-0.5 rounded-full border border-[#7A2634]/15">
+                              <span className={`gap-1 ${r.badge}`}>
                                 <Calendar className="h-3 w-3" /> Hafta {start}–{end}
                               </span>
                             )}
-                            <span className="text-xs font-bold text-muted-foreground">
-                              {topics.length} konu
-                            </span>
-                            <span className="text-xs font-bold text-muted-foreground">
-                              {unit.questionCount ?? 0} soru
+                            <span className={`${r.mono} text-xs font-semibold ${r.muted}`}>
+                              {topics.length} konu · {unit.questionCount ?? 0} soru
                             </span>
                           </div>
                         </div>
@@ -385,12 +351,12 @@ export default function MufredatOverviewClient({
                         Girinti + sol dikey ray, "bunlar bu ünitenin içindeki konular"ı
                         tipografiden bağımsız olarak anlatıyor. */}
                     {topics.length === 0 ? (
-                      <div className="border-t border-[#7A2634]/10 px-5 py-4 text-center text-sm text-muted-foreground">
+                      <div className={`border-t px-5 py-4 text-center text-sm ${r.divider} ${r.muted}`}>
                         Henüz konu eklenmemiş.
                       </div>
                     ) : (
-                      <div className="border-t border-[#7A2634]/10 bg-surface/30 py-1.5 pl-4 pr-2 sm:pl-6 sm:pr-3">
-                        <div className="border-l-2 border-[#7A2634]/15 pl-2 sm:pl-3">
+                      <div className={`border-t py-2 pl-4 pr-2 sm:pl-6 sm:pr-3 ${r.divider}`}>
+                        <div className={`border-l-2 pl-2 sm:pl-3 ${r.divider}`}>
                         {topics.map((topic, idx) => {
                           const hasContent = topic.hasContent !== false;
                           const questionCount = topic.questionCount ?? 0;
@@ -406,7 +372,7 @@ export default function MufredatOverviewClient({
                           // kurmadan iki hedefi aynı satıra sığdırmanın standart yolu.
                           const rowInner = (
                             <>
-                              <span className="w-7 shrink-0 text-[11px] font-mono font-bold text-muted-foreground">
+                              <span className={`w-7 shrink-0 text-[11px] font-semibold ${r.mono} ${r.accent}`}>
                                 {displayNo}.{idx + 1}
                               </span>
                               {/* Küçük konu görseli (kullanıcının 2026-09-06 isteği: "bu
@@ -431,8 +397,8 @@ export default function MufredatOverviewClient({
                                 className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5"
                               >
                                 {rowInner}
-                                <span className="min-w-0 flex-1 text-sm text-muted-foreground line-clamp-2">{topic.title}</span>
-                                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                <span className={`min-w-0 flex-1 text-sm line-clamp-2 ${r.muted}`}>{topic.title}</span>
+                                <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase ${r.mono} ${r.divider} ${r.muted}`}>
                                   Yakında
                                 </span>
                               </div>
@@ -442,13 +408,13 @@ export default function MufredatOverviewClient({
                           return (
                             <div
                               key={topic.id}
-                              className="group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-background"
+                              className={`group relative my-1 flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 ${r.item} ${r.itemHover}`}
                             >
                               {rowInner}
                               {topicHref ? (
                                 <Link
                                   href={topicHref}
-                                  className="min-w-0 flex-1 text-sm font-bold text-default line-clamp-2 after:absolute after:inset-0 group-hover:text-[#7A2634]"
+                                  className="min-w-0 flex-1 text-sm font-bold line-clamp-2 after:absolute after:inset-0"
                                 >
                                   {topic.title}
                                 </Link>
@@ -456,7 +422,7 @@ export default function MufredatOverviewClient({
                                 <button
                                   type="button"
                                   onClick={() => goToWeek(start ?? effectiveWeek)}
-                                  className="min-w-0 flex-1 text-left text-sm font-bold text-default line-clamp-2 after:absolute after:inset-0 group-hover:text-[#7A2634]"
+                                  className="min-w-0 flex-1 text-left text-sm font-bold line-clamp-2 after:absolute after:inset-0"
                                 >
                                   {topic.title}
                                 </button>
@@ -466,7 +432,7 @@ export default function MufredatOverviewClient({
                                   <ListChecks className="h-3 w-3" /> {questionCount} soru
                                 </Link>
                               )}
-                              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-[#7A2634]" />
+                              <ChevronRight className={`h-4 w-4 shrink-0 ${r.accent}`} />
                             </div>
                           );
                         })}
@@ -479,13 +445,13 @@ export default function MufredatOverviewClient({
 
               {units.length === 0 && (
                 <div className={`${FRAME} text-center py-12`}>
-                  <Sparkles className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Bu ders için henüz ünite bulunamadı.</p>
+                  <Sparkles className={`h-8 w-8 mx-auto mb-3 ${r.accent}`} />
+                  <p className={`text-sm ${r.muted}`}>Bu ders için henüz ünite bulunamadı.</p>
                 </div>
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground mt-8 text-center">
+            <p className={`mt-8 text-center text-xs ${r.muted}`}>
               Hafta aralıkları MEB takvimine göredir ve değişiklik gösterebilir.
             </p>
 
@@ -495,7 +461,7 @@ export default function MufredatOverviewClient({
               sonra — soru bankası ve ünite sayfalarıyla aynı yer. */}
           <aside className="hidden lg:flex lg:flex-col lg:gap-4 sticky top-24 self-start" aria-label="Ders gezinmesi">
             <div className={`${FRAME} p-3`}>
-              <h2 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground px-2 mb-2">
+              <h2 className={`mb-2 flex items-center gap-2 px-2 ${r.label}`}>
                 <BookOpen className="h-4 w-4" /> Dersler
               </h2>
               <nav className="space-y-0.5">
@@ -505,11 +471,7 @@ export default function MufredatOverviewClient({
                     <Link
                       key={l.id}
                       href={`/${gradeSlug}/${l.slug}`}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
-                        active
-                          ? 'bg-[#7A2634]/10 text-[#7A2634]'
-                          : 'text-muted-foreground hover:bg-[#7A2634]/5 hover:text-default'
-                      }`}
+                      className={`!flex items-center gap-2.5 px-3 py-2 text-sm font-bold ${r.navLink} !normal-case !tracking-normal !whitespace-normal ${active ? r.navActive : ''}`}
                     >
                       <span className="text-base leading-none shrink-0">{l.icon || '📘'}</span>
                       <span className="truncate">{l.name}</span>
@@ -519,7 +481,7 @@ export default function MufredatOverviewClient({
               </nav>
             </div>
             <div className={`${FRAME} p-3`}>
-              <h2 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground px-2 mb-2">
+              <h2 className={`mb-2 flex items-center gap-2 px-2 ${r.label}`}>
                 <GraduationCap className="h-4 w-4" /> Sınıflar
               </h2>
               <nav className="space-y-0.5">
@@ -530,11 +492,7 @@ export default function MufredatOverviewClient({
                     <Link
                       key={g.id}
                       href={targetLessonSlug ? `/${g.slug}/${targetLessonSlug}` : `/${g.slug}`}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
-                        active
-                          ? 'bg-[#7A2634]/10 text-[#7A2634]'
-                          : 'text-muted-foreground hover:bg-[#7A2634]/5 hover:text-default'
-                      }`}
+                      className={`!flex items-center gap-2.5 px-3 py-2 text-sm font-bold ${r.navLink} !normal-case !tracking-normal !whitespace-normal ${active ? r.navActive : ''}`}
                     >
                       <span className="text-base leading-none shrink-0">{g.icon || '📘'}</span>
                       <span className="truncate">{g.name}</span>

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Check, Play } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import r from '../robotic/robotic.module.css';
 
 // Modal (soru bileşenleri, KaTeX vb.) sadece "Teste başla"ya basılınca yüklenir — sayfanın
 // ilk JS'i (ve dolayısıyla Core Web Vitals / SEO) büyümesin.
@@ -37,7 +38,7 @@ export default function GuestTestCover({
       <ul className="flex flex-col gap-1.5 text-sm text-default">
         {FEATURES.map((text) => (
           <li key={text} className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" aria-hidden="true" /> {text}
+            <Check className={`h-4 w-4 shrink-0 ${r.accent}`} aria-hidden="true" /> {text}
           </li>
         ))}
       </ul>
@@ -45,14 +46,14 @@ export default function GuestTestCover({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 font-semibold text-white transition-colors hover:bg-indigo-700"
+        className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-semibold ${r.btnNeon} ${r.btnText}`}
       >
         <Play className="h-4 w-4 fill-current" aria-hidden="true" /> Teste başla
       </button>
 
       <p className="text-sm text-muted-foreground">
         Üye misin?{' '}
-        <Link href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`} className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">
+        <Link href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`} className={`font-semibold hover:underline ${r.accent}`}>
           Giriş yap
         </Link>
         , sonuçların kaydedilsin.

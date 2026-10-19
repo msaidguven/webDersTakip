@@ -4,6 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 import { getClientIp, checkAuthRateLimit, recordAuthAttempt, verifyBotChallenge } from '@/app/src/lib/authSecurity';
 import { MIN_PASSWORD_LENGTH } from '@/app/src/lib/password';
+import { ACQUISITION_COOKIE, parseAcquisition } from '@/app/src/lib/acquisition';
 
 // Öğrenci VE öğretmen kaydı — ayrı bir "Öğretmen Girişi" sayfası kaldırıldı (kullanıcı
 // isteği, 2026-09-12), tek form role'e göre dallanıyor. Bot koruması ve rate limit sadece
@@ -107,10 +108,12 @@ export async function POST(request: NextRequest) {
   // app/src/lib/teacherAuth.ts'teki aynı yorum). onboarding_completed:true — bu formu
   // dolduran zaten öğrenci/öğretmen seçimini burada tamamlamış oluyor (bkz. OAuth akışında
   // AYNI sütunun false başlayıp /profil'de tamamlanması, app/auth/callback/route.ts).
+  // Kayıt kaynağı (ilk temas çerezi, bkz. lib/acquisition.ts): yoksa ya da bozuksa null kalır.
+  const acquisition = { signup_method: 'email', acquisition: parseAcquisition(request.cookies.get(ACQUISITION_COOKIE)?.value) };
   const { error: profileError } = await service.from('profiles').insert(
     role === 'teacher'
-      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt }
-      : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt }
+      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt, ...acquisition }
+      : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt, ...acquisition }
   );
 
   if (profileError) {

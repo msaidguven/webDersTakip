@@ -17,22 +17,6 @@ export type Outcome = {
   // Kazanımın işleneceği öğretim haftaları (outcome_weeks); atanmamışsa boş/yok.
   weekRanges?: WeekRange[];
 };
-export type WeekedOutcome = Outcome & {
-  startWeek: number | null;
-  endWeek: number | null;
-  code: string | null;
-  previewCode: string;
-};
-export type SpecialWeekEvent = {
-  id: number;
-  eventType: 'break' | 'special_content' | 'social_activity';
-  title: string;
-  subtitle: string | null;
-  contentHtml: string | null;
-  curriculumWeek: number | null;
-  startDate: string | null;
-  endDate: string | null;
-};
 export type TopicSection = {
   id: string | number;
   heading: string;
@@ -81,11 +65,6 @@ export type Unit = { id: number; title: string; slug: string | null; order_no: n
 export type ProfileRoleRow = { role: string | null };
 export type GradeLesson = { id: number; name: string; slug: string | null; icon: string | null };
 export type GradeOption = { id: number; name: string; slug: string | null };
-// Hiyerarşi barındaki Ünite dropdown'u, sınıf/ders değişimi bekleyen (henüz commit
-// edilmemiş) bir seçimken /api/lesson-units'ten gelen üniteleri gösterir — bu yüzden
-// Unit'e ek olarak, o ünitenin ilk konusunun slug'ını da taşır (farklı derse/sınıfa
-// geçiş linkini kurmak için, bkz. DersClient.tsx: handleUnitDropdownSelect).
-export type PendingUnit = Unit & { firstTopicSlug?: string | null };
 
 export type { CurriculumBreak };
 
@@ -103,54 +82,9 @@ export function buildSectionSlugs(sections: TopicSection[]): Map<string | number
   return bySectionId;
 }
 
-// Genel amaçlı, TTL'li localStorage önbelleği. Herhangi bir veri için (sadece
-// ünite konuları değil) sayfa açılışını yavaşlatmadan arkaplanda önceden
-// yükleyip birkaç gün boyunca saklamak istediğimizde tekrar kullanılabilir.
-export function readPersistentCache<T>(key: string, ttlMs: number): T | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { data: T; savedAt: number };
-    if (!parsed || typeof parsed.savedAt !== 'number' || Date.now() - parsed.savedAt > ttlMs) return null;
-    return parsed.data;
-  } catch {
-    return null;
-  }
-}
-
-export function writePersistentCache<T>(key: string, data: T) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }));
-  } catch {
-    // localStorage dolu/erişilemez olabilir; sessizce yoksay, sadece bellek içi önbellek kullanılır
-  }
-}
-
-export const UNIT_TOPICS_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 gün
-
-export function unitTopicsCacheKey(gradeId: string, lessonId: string, unitId: number | string) {
-  return `ders-unit-topics:${gradeId}:${lessonId}:${unitId}`;
-}
-
 export function buildTopicHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
   if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
   return `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
-}
-
-export function buildTopicTestHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
-  const topicHref = buildTopicHref(gradeSlug, lessonSlug, unitSlug, topicSlug);
-  if (!topicHref) return null;
-  return `${topicHref}/kavrama-testi`;
-}
-
-// Konu sayfasından Soru Bankası'na ters yön link — önceden sadece ders/ünite özet
-// sayfasından (Mufredatoverviewclient.tsx) erişilebiliyordu, konu sayfasında hiç yoktu
-// (bkz. [[feedback_information_architecture_discipline]], kullanıcının 2026-09-05 isteği).
-export function buildTopicQuestionBankHref(gradeSlug: string | null, lessonSlug: string | null, unitSlug: string | null, topicSlug: string | null) {
-  if (!gradeSlug || !lessonSlug || !unitSlug || !topicSlug) return null;
-  return `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}`;
 }
 
 // Kısa ve SEO'ya uygun tutmak için ünite adını (en az ayırt edici, en tekrarcı kısım)
@@ -167,34 +101,3 @@ export function buildSectionImageAlt(sectionHeading: string, topicTitle: string,
   if (customAlt?.trim()) return `${gradeName} ${lessonName} ${customAlt.trim()}`;
   return `${gradeName} ${lessonName} ${topicTitle}: ${sectionHeading} görseli`;
 }
-
-// Kazanımlar müfredat yılı içinde neredeyse hiç değişmiyor; 10 günde bir tazelemek yeterli.
-export const KAZANIMLAR_CACHE_TTL_MS = 10 * 24 * 60 * 60 * 1000; // 10 gün
-
-export function kazanimlarCacheKey(gradeId: string, lessonId: string) {
-  return `ders-kazanimlar-all:${gradeId}:${lessonId}`;
-}
-
-export const SPECIAL_WEEK_META: Record<SpecialWeekEvent['eventType'], { icon: string; card: string }> = {
-  break: { icon: '🏖️', card: 'bg-amber-50 border-amber-200 text-amber-800' },
-  special_content: { icon: '✨', card: 'bg-indigo-50 border-indigo-200 text-indigo-800' },
-  social_activity: { icon: '🎉', card: 'bg-violet-50 border-violet-200 text-violet-800' },
-};
-
-export const STUDY_TIPS = [
-  'Bir konuyu okuduktan sonra kendi cümlelerinle özetlemek, kalıcılığı artırır.',
-  'Kısa aralıklarla tekrar etmek, tek seferde uzun çalışmaktan daha etkilidir.',
-  'Öğrendiğin bir konuyu birine anlatmayı dene, eksiklerin hemen ortaya çıkar.',
-  'Not alarak okumak, sadece okumaktan daha kalıcı öğrenme sağlar.',
-  'Zor gelen kısımları atlamak yerine üzerinde durup anlamaya çalış.',
-  'Öğrendiklerini küçük şemalar veya kutucuklarla görselleştirmek, hatırlamayı kolaylaştırır.',
-  'Bir konuyu bitirince kendine sorular sorup cevaplamaya çalış, bu en iyi tekrar yöntemidir.',
-  'Yeni öğrendiğin bir bilgiyi daha önce bildiğin bir şeyle ilişkilendirmek, akılda kalıcılığı artırır.',
-  'Uykudan hemen önce kısa bir tekrar yapmak, bilgilerin kalıcı hafızaya geçmesine yardımcı olur.',
-  'Çalışırken telefonunu uzak tutmak, dikkatini konuya vermeni kolaylaştırır.',
-  'Bir konuyu anlamadan ezberlemeye çalışmak yerine, önce mantığını kavramaya odaklan.',
-  'Düzenli kısa molalar vermek, uzun süre aralıksız çalışmaktan daha verimlidir.',
-  'Bir günde çok fazla konuya yüzeysel değil, az konuya derinlemesine çalışmak daha kalıcıdır.',
-  'Örnek sorular çözmek, konuyu gerçekten anlayıp anlamadığını en iyi gösteren yöntemdir.',
-  'Kendi kelimelerinle bir özet çıkarmak, konuyu pasif okumaktan çok daha etkilidir.',
-];

@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import r from './robotic/robotic.module.css';
 
 export interface SoruBankasiNavItem {
   key: string | number;
@@ -28,7 +29,7 @@ export interface SoruBankasiNavItem {
 function Visual({ item }: { item: SoruBankasiNavItem }) {
   if (item.badge) {
     return (
-      <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-[#7A2634] text-base font-bold text-white" aria-hidden="true">
+      <span className={`h-10 w-14 shrink-0 text-base ${r.chipBox}`} aria-hidden="true">
         {item.badge}
       </span>
     );
@@ -47,8 +48,8 @@ function Visual({ item }: { item: SoruBankasiNavItem }) {
 export function SoruBankasiNavList({ id, title, items, footer }: { id: string; title: string; items: SoruBankasiNavItem[]; footer?: React.ReactNode }) {
   if (!items.length) return null;
   return (
-    <section aria-labelledby={id} className="rounded-[20px] border border-default bg-background p-5">
-      <h2 id={id} className="font-semibold text-default">{title}</h2>
+    <section aria-labelledby={id} className={`p-5 ${r.panel}`}>
+      <h2 id={id} className={r.label}>{title}</h2>
       <ol className="mt-3 flex flex-col gap-2">
         {items.map((item) => {
           const body = (
@@ -56,13 +57,13 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
               <Visual item={item} />
               <span className="min-w-0">
                 {(item.eyebrow || item.current) && (
-                  <span className={`block text-xs font-semibold ${item.current ? 'text-[#7A2634]' : 'text-muted-foreground'}`}>
+                  <span className={`block text-xs font-semibold ${item.current ? r.accent : 'text-muted-foreground'}`}>
                     {[item.eyebrow, item.current ? 'buradasın' : null].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 <span
                   className={`block text-sm font-semibold leading-snug ${
-                    item.current ? 'text-default' : 'text-default group-hover:text-[#7A2634]'
+                    item.current ? 'text-default' : `text-default ${r.groupHoverAccent}`
                   }`}
                 >
                   {item.label}
@@ -71,8 +72,8 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
               </span>
             </>
           );
-          const base = 'flex items-center gap-3 rounded-xl border p-2';
-          const currentCls = 'border-[#7A2634]/30 bg-[#7A2634]/5';
+          const base = `flex items-center gap-3 rounded-xl p-2 ${r.item}`;
+          const currentCls = `${r.neonBorder} ${r.tint}`;
           return (
             <li key={item.key}>
               {item.current && item.isPage ? (
@@ -83,7 +84,7 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
                 <Link
                   href={item.href}
                   aria-current={item.current ? 'location' : undefined}
-                  className={`group ${base} transition-colors ${item.current ? currentCls : 'border-default hover:border-[#7A2634]/40'}`}
+                  className={`group ${base} transition-colors ${item.current ? currentCls : r.itemHover}`}
                 >
                   {body}
                 </Link>
@@ -92,7 +93,7 @@ export function SoruBankasiNavList({ id, title, items, footer }: { id: string; t
           );
         })}
       </ol>
-      {footer && <div className="mt-4 flex flex-col gap-1.5 border-t border-default pt-3 text-sm">{footer}</div>}
+      {footer && <div className={`mt-4 flex flex-col gap-1.5 border-t pt-3 text-sm ${r.divider}`}>{footer}</div>}
     </section>
   );
 }

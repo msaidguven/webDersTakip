@@ -3,12 +3,11 @@
 // Girişli öğrencinin anasayfası "Bugün" (yol haritası 3a, 2026-09-27): "Şimdi ne yapmalıyım?"
 // sorusunu tek bir görevle yanıtlar. Derin analiz (ustalık haritası, geçmiş, günlük hedef takvimi,
 // konu ilerlemesi) BURADA DEĞİL, "İlerlemem" sayfasında.
-// Düzen (2026-10-18, referans ekran görüntüsüne göre): karşılama kartı + hızlı erişim kutuları;
-// altta sekmeli ana kart (Derslerim | Günün sorusu | Okulda bu hafta | Yeni konular) ve sağda
-// bugünkü durum özeti. Görev metni ana kartın üstünde kalır; sekmeler mevcut panelleri değiştirir.
-// Derslerim sekmesi İlerlemem'deki ders çubuklarıyla aynı görünür (doğru / yanlış / kalan); satıra
-// dokunmak dersin müfredat sayfasına (/<sınıf>/<ders>) götürür.
-import { useState, type MouseEvent, type ReactNode } from 'react';
+// Düzen: karşılama kartı + hızlı erişim kutuları; altta görev kartı ve Derslerim kartı (sol) ile
+// sağda bugünkü durum özeti ve Okulda bu hafta kartı; en altta Günün sorusu ve Yeni konular — her biri
+// kendi kartında, sekme yok (2026-10-19, kullanıcı isteği). Derslerim İlerlemem'deki ders çubuklarıyla
+// aynı görünür (doğru / yanlış / kalan); satıra dokunmak dersin müfredat sayfasına (/<sınıf>/<ders>) götürür.
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Onest } from 'next/font/google';
 import { BookOpen, ChartColumn, ChevronRight, Flame, RotateCcw, Trophy, TrendingUp } from 'lucide-react';
@@ -18,6 +17,7 @@ import type { Totals } from '@/app/src/lib/lessonReports';
 import type { LessonProgress } from '@/app/src/models/types';
 import { useStudentToday, type OpenTest, type StudentToday as StudentTodayData, type TodayTask } from '@/app/src/hooks/useStudentToday';
 import { PushReminderOptIn } from './PushReminderOptIn';
+import r from '../robotic/robotic.module.css';
 
 // Derslerim listesinin yazı tipi: referans ekrandaki gibi (İlerlemem'in ders raporlarıyla aynı Onest).
 const lessonFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--font-home-lessons', display: 'swap' });
@@ -71,7 +71,10 @@ function Skeleton() {
   );
 }
 
-const card = 'rounded-[24px] border border-[#7A2634]/20 bg-background dark:border-default';
+// Görünüm: "robotik kontrol paneli" teması (2026-10-19, misafir anasayfası ve ders raporuyla aynı; bkz.
+// ../robotic). Kök tema sınıfı HomeClient'ta.
+const DIVIDER = r.divider;
+const card = `rounded-[22px] ${r.panel}`;
 
 // İlerlemem'deki ders raporuyla aynı hesap: başarı yalnız yeterli soru çözülünce (minSolvedToJudge).
 function lessonTotals(lesson: LessonProgress): Totals {
@@ -99,12 +102,12 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
   const { solved, correct, total } = totals;
   const remaining = total - solved;
   const header = (
-    <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-      <span className="min-w-0 text-[15px] font-bold leading-snug text-default">{lesson.name}</span>
-      <span className="flex shrink-0 items-center gap-1.5">
-        <Pill totals={totals} />
-        {lesson.lessonHref && <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+      <span className="flex items-center gap-1 text-[15px] font-bold leading-snug text-default">
+        {lesson.name}
+        {lesson.lessonHref && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
       </span>
+      <Pill totals={totals} />
     </span>
   );
   const body = (
@@ -129,7 +132,7 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
   );
   // Kartın tamamı müfredata gider (ayrı bağlantı, after: ile kartı kaplar); "Raporu göster" düğmesi
   // onun üstünde kalır, böylece iç içe bağlantı olmaz.
-  const cls = 'relative flex flex-col gap-2.5 rounded-2xl border border-[#7A2634]/20 bg-background p-4 transition-colors hover:border-[#7A2634]/60 dark:border-default dark:hover:border-[#B5606D]/60';
+  const cls = `relative flex flex-col gap-2.5 rounded-2xl p-4 hover:-translate-y-0.5 ${r.item} ${r.itemHover}`;
   return (
     <div className={cls}>
       <div className="flex items-center gap-3">
@@ -143,12 +146,13 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
         {lesson.reportHref && (
           <Link
             href={lesson.reportHref}
-            className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-zinc-100 py-1 pl-1 pr-2.5 text-xs font-bold text-[#5C1B27] transition-colors hover:bg-zinc-200 dark:bg-emerald-500/15 dark:text-[#E0939E] dark:hover:bg-emerald-500/25"
+            className={`relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-lg py-1 pl-1 pr-2.5 text-xs font-bold ${r.btnGhost}`}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-[#7A2634] dark:bg-surface dark:text-[#E0939E]">
+            <span className={`flex h-5 w-5 items-center justify-center rounded-md ${r.tint}`}>
               <ChartColumn className="h-3 w-3" aria-hidden="true" />
             </span>
-            Raporu göster
+            {/* Tek kapsayıcı: inline-flex gap'i "Rapor" ile "u göster" arasına boşluk koymasın. */}
+            <span>Rapor<span className="hidden sm:inline">u göster</span></span>
           </Link>
         )}
       </div>
@@ -178,7 +182,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   return (
     <div className="flex items-center gap-3">
       <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-surface-elevated" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="İlerleme">
-        <div className="h-full rounded-full bg-[#1c2b4a] dark:bg-[#8fa6d6]" style={{ width: `${Math.max(pct, 3)}%` }} />
+        <div className={r.fill} style={{ width: `${Math.max(pct, 3)}%` }} />
       </div>
       <span className="shrink-0 text-sm font-semibold text-default">
         {Math.min(done, total)} / {total} soru
@@ -194,50 +198,33 @@ const quickLinks = [
   { href: '/ilerlemem/siralama', label: 'Sıralama', Icon: Trophy },
 ];
 
-type TabKey = 'lessons' | 'question' | 'week' | 'recent';
-
 export function StudentToday({
   dailyQuestion,
   thisWeek,
   recent,
 }: {
-  // Sekme panelleri (verilmeyen sekme gösterilmez).
+  // Bölüm kartları (verilmeyen bölüm gösterilmez).
   dailyQuestion?: ReactNode;
   thisWeek?: ReactNode;
   recent?: ReactNode;
 }) {
   const { data } = useStudentToday();
-  const [tab, setTab] = useState<TabKey>('lessons');
   if (!data) return <Skeleton />;
 
   const copy = taskCopy(data.tasks[0], data);
   const pct = copy.progress && copy.progress.total > 0 ? Math.min(100, Math.round((copy.progress.done / copy.progress.total) * 100)) : null;
 
-  const tabs: { key: TabKey; label: string; panel: ReactNode }[] = [{ key: 'lessons', label: 'Derslerim', panel: <LessonList data={data} /> }];
-  if (dailyQuestion) tabs.push({ key: 'question', label: 'Günün sorusu', panel: dailyQuestion });
-  if (thisWeek) tabs.push({ key: 'week', label: 'Okulda bu hafta', panel: thisWeek });
-  if (recent) tabs.push({ key: 'recent', label: 'Yeni konular', panel: recent });
-  const active = tabs.find((t) => t.key === tab) ?? tabs[0];
-
-  // "Tamamladın" durumunun bağlantısı sayfa içi çapa (#gunun-sorusu-bolumu); sekme gizli olduğu için
-  // önce sekmeyi açıyoruz, sonra çapaya kaydırıyoruz.
-  const onTaskCta = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (!copy.href.startsWith('#')) return;
-    e.preventDefault();
-    setTab('question');
-    // Sekmenin DOM'a girmesi için bir tur bekliyoruz.
-    setTimeout(() => document.getElementById('gunun-sorusu-bolumu')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-  };
-
   return (
     <section aria-labelledby="bugun-baslik" className="flex flex-col gap-6">
-      <div className={`${card} flex flex-col gap-5 p-5 sm:p-7`}>
+      {/* Karşılama kartı — kokpit: metal panel + tarama ışığı */}
+      <div className={`flex flex-col gap-5 rounded-[22px] p-5 sm:p-7 ${r.panel} ${r.hero}`}>
+        <span className={r.scan} aria-hidden="true" />
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xl font-extrabold text-[#7A2634] dark:bg-surface-elevated dark:text-[#E0939E]" aria-hidden="true">
+          <span className={`h-14 w-14 shrink-0 rounded-full text-xl ${r.chipBox}`} aria-hidden="true">
             {data.firstName.charAt(0).toLocaleUpperCase('tr-TR')}
           </span>
           <div className="min-w-0">
-            <h1 id="bugun-baslik" className="text-[26px] font-extrabold leading-tight tracking-tight text-default sm:text-3xl">
+            <h1 id="bugun-baslik" className={`text-[26px] leading-tight sm:text-3xl ${r.chrome}`}>
               Merhaba, {data.firstName}
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -246,14 +233,14 @@ export function StudentToday({
             </p>
           </div>
         </div>
-        <nav aria-label="Hızlı erişim" className="grid grid-cols-2 gap-2.5 border-t border-[#7A2634]/20 pt-5 sm:grid-cols-4 dark:border-default">
+        <nav aria-label="Hızlı erişim" className={`grid grid-cols-2 gap-2.5 border-t pt-5 sm:grid-cols-4 ${DIVIDER}`}>
           {quickLinks.map(({ href, label, Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 rounded-2xl border border-[#7A2634]/20 px-3 py-2.5 text-sm font-bold text-default transition-colors hover:border-[#7A2634]/60 hover:bg-[#7A2634]/5 dark:border-default dark:hover:bg-emerald-500/10"
+              className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold hover:-translate-y-0.5 ${r.item}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-[#7A2634] dark:bg-surface-elevated dark:text-[#E0939E]">
+              <span className={`h-9 w-9 shrink-0 ${r.chipBox}`}>
                 <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
               </span>
               {label}
@@ -263,9 +250,9 @@ export function StudentToday({
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <section aria-label="Bugünkü görev ve dersler" className={`${card} flex min-w-0 flex-col overflow-hidden`}>
-          <div className="flex flex-col gap-3 p-4 sm:p-5">
-            <span className="w-fit rounded-full bg-[#7A2634] px-2.5 py-0.5 text-[11px] font-bold text-white">Bugünkü görevin</span>
+        <div className="flex min-w-0 flex-col gap-6">
+          <section aria-label="Bugünkü görev" className={`${card} flex flex-col gap-3 p-5 sm:p-7`}>
+            <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}><i className={r.led} aria-hidden="true" />Bugünkü görevin</span>
             <div className="flex flex-col gap-1.5">
               <h2 className="text-lg font-extrabold leading-tight text-default sm:text-xl">{copy.title}</h2>
               <p className="text-sm leading-relaxed text-muted-foreground">{copy.detail}</p>
@@ -274,63 +261,52 @@ export function StudentToday({
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={copy.href}
-                onClick={onTaskCta}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition-colors ${copy.done ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-[#1c2b4a] hover:bg-[#15213a] dark:bg-[#4a6cb0] dark:hover:bg-[#5b7cc0]'}`}
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition duration-200 ${copy.done ? 'bg-emerald-700 hover:bg-emerald-800' : `${r.btnNeon} ${r.btnText}`}`}
               >
                 {copy.cta}
                 <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
               </Link>
             </div>
-          </div>
+          </section>
 
-          <div role="tablist" aria-label="Anasayfa sekmeleri" className="flex gap-6 overflow-x-auto border-y border-[#7A2634]/20 px-5 sm:px-7 dark:border-default">
-            {tabs.map((t) => {
-              const selected = t.key === active.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  id={`sekme-${t.key}`}
-                  aria-selected={selected}
-                  aria-controls="anasayfa-sekme-panel"
-                  onClick={() => setTab(t.key)}
-                  className={`-mb-px shrink-0 border-b-2 py-3.5 text-sm font-bold transition-colors ${selected ? 'border-[#7A2634] text-[#7A2634] dark:border-[#E0939E] dark:text-[#E0939E]' : 'border-transparent text-muted-foreground hover:text-default'}`}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <div id="anasayfa-sekme-panel" role="tabpanel" aria-labelledby={`sekme-${active.key}`} className="p-5 sm:p-7">
-            {active.panel}
-          </div>
-        </section>
+          <section aria-labelledby="dersler-baslik" className={`${card} flex min-w-0 flex-col gap-4 p-5 sm:p-7`}>
+            <h2 id="dersler-baslik" className="text-lg font-extrabold text-default">
+              Derslerim
+            </h2>
+            <LessonList data={data} />
+          </section>
 
-        <aside aria-labelledby="bugun-durum" className={`${card} flex flex-col gap-5 p-5 sm:p-6`}>
-          <h2 id="bugun-durum" className="text-base font-extrabold text-default">
-            Bugünkü durumun
-          </h2>
-          <dl className="flex flex-col gap-4 text-sm">
-            <div className="flex flex-col gap-2">
-              <dt className="text-muted-foreground">Günlük hedef</dt>
-              <dd>
-                <ProgressBar done={data.dailyProgress} total={data.dailyGoal} />
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[#7A2634]/20 pt-4 dark:border-default">
-              <dt className="text-muted-foreground">Günlük seri</dt>
-              <dd className="flex items-center gap-1.5 font-bold text-default">
-                <Flame className="h-4 w-4 text-amber-500" aria-hidden="true" />
-                {data.streak} gün
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[#7A2634]/20 pt-4 dark:border-default">
-              <dt className="text-muted-foreground">Sıralama</dt>
-              <dd className="font-bold text-default">{data.rank ? `${data.rank.position}. sıradasın` : 'Henüz yok'}</dd>
-            </div>
-          </dl>
-        </aside>
+          {dailyQuestion}
+          {recent && <section className={`${card} p-5 sm:p-7`}>{recent}</section>}
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <aside aria-labelledby="bugun-durum" className={`${card} flex flex-col gap-5 p-5 sm:p-6`}>
+            <h2 id="bugun-durum" className="text-base font-extrabold text-default">
+              Bugünkü durumun
+            </h2>
+            <dl className="flex flex-col gap-4 text-sm">
+              <div className="flex flex-col gap-2">
+                <dt className="text-muted-foreground">Günlük hedef</dt>
+                <dd>
+                  <ProgressBar done={data.dailyProgress} total={data.dailyGoal} />
+                </dd>
+              </div>
+              <div className={`flex items-center justify-between gap-3 border-t pt-4 ${DIVIDER}`}>
+                <dt className="text-muted-foreground">Günlük seri</dt>
+                <dd className="flex items-center gap-1.5 font-bold text-default">
+                  <Flame className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  {data.streak} gün
+                </dd>
+              </div>
+              <div className={`flex items-center justify-between gap-3 border-t pt-4 ${DIVIDER}`}>
+                <dt className="text-muted-foreground">Sıralama</dt>
+                <dd className="font-bold text-default">{data.rank ? `${data.rank.position}. sıradasın` : 'Henüz yok'}</dd>
+              </div>
+            </dl>
+          </aside>
+          {thisWeek}
+        </div>
       </div>
 
       {data.streak >= PUSH_OPT_IN_MIN_STREAK && <PushReminderOptIn />}

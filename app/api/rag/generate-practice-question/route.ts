@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
 
   // net.http_post (pg_cron) bu yanıtı beklemiyor — sonucu admin panelinde görünür
   // kılmak için burada logluyoruz (bkz. supabase/migrations/ai_question_draft_worker_runs.sql).
-  await supabase.from('ai_question_draft_worker_runs').insert({
+  const { error: logError } = await supabase.from('ai_question_draft_worker_runs').insert({
     generated: result.generated,
     reason: result.reason ?? null,
     draft_id: result.draftId ?? null,
     worker: profile.id,
   });
+  if (logError) console.error('ai_question_draft_worker_runs log yazılamadı:', logError.message);
 
   return NextResponse.json(result);
 }

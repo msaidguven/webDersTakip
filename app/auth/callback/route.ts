@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
+import { ACQUISITION_COOKIE, parseAcquisition } from '@/app/src/lib/acquisition';
+import type { User } from '@supabase/supabase-js';
+
+// Kayıt kaynağı yalnızca birkaç dakika önce açılmış hesaba yazılır: profil auth.users tetikleyicisiyle
+// zaten oluşuyor, eski bir hesaba bugünkü ziyaret çerezi yazılırsa yanlış kaynak kaydı olur.
+const NEW_ACCOUNT_WINDOW_MS = 10 * 60 * 1000;
+
+async function recordNewUserAcquisition(user: User, cookieValue: string | undefined) {
+  if (Date.now() - Date.parse(user.created_at) > NEW_ACCOUNT_WINDOW_MS) return;
+  const provider = user.app_metadata?.provider;
+  const signupMethod = provider === 'google' || provider === 'email' ? provider : null;
+  const acquisition = parseAcquisition(cookieValue);
+  if (!signupMethod && !acquisition) return;
+  const service = createServiceClient();
+  // Tek seferlik: alanlar zaten doluysa (ör. yeniden giriş) dokunulmaz.
+  const { error } = await service
+    .from('profiles')
+    .update({ signup_method: signupMethod, acquisition })
+    .eq('id', user.id)
+    .is('acquisition', null)
+    .is('signup_method', null);
+  if (error) console.error('OAuth kayıt kaynağı yazılamadı:', error, { userId: user.id });
+}
 
 // Google (ve ileride eklenebilecek başka OAuth sağlayıcıların) giriş akışının
 // döndüğü yer: Supabase bize bir "code" verir, bunu oturuma çeviriyoruz. İlk kez
@@ -36,6 +59,8 @@ export async function GET(request: NextRequest) {
         .select('id, onboarding_completed')
         .eq('id', data.user.id)
         .maybeSingle();
+
+      await recordNewUserAcquisition(data.user, request.cookies.get(ACQUISITION_COOKIE)?.value);
 
       let needsOnboarding = false;
 

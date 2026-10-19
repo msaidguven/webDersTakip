@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, X } from 'lucide-react';
 import { buildTopicHref, type Content, type GradeLesson, type GradeOption, type Unit } from '../dersHelpers';
-import s from './DersClientV2.module.css';
+import s from './TopicSwitcher.module.css';
 
-// v2 "Konu değiştir" penceresi (kullanıcı isteği, 2026-09-27): sınıf ve ders seçimi artık
+// "Konu değiştir" penceresi (kullanıcı isteği, 2026-09-27): sınıf ve ders seçimi artık
 // başka sayfaya götürmüyor, pencere içinde sırayla sınıf → ders → ünite → konu açılıyor;
 // sayfa sadece bir konuya tıklanınca değişiyor. Bulunulan
 // sınıf/ders/ünite sayfa verisinden hazır gelir; diğerleri ilk seçildiğinde çekilip

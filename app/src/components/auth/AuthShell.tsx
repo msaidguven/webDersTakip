@@ -1,17 +1,19 @@
 import type { ReactNode } from 'react';
 import s from './Auth.module.css';
+import { roboticFontVars } from '../robotic/fonts';
 
 // Giriş, kayıt, şifremi unuttum ve yeni şifre ekranlarının ortak iskeleti: solda form, masaüstünde
 // sağda sitenin ne işe yaradığını anlatan sakin sütun (mobilde gizli). Logo yok — sitenin üst menüsü
 // bu sayfalarda da görünüyor.
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className={s.page}>
+    <div className={`${roboticFontVars} ${s.page}`}>
       <div className={s.card}>
         <div className={s.main}>
           {children}
         </div>
         <aside className={s.aside} aria-label="Ders Takip hakkında">
+          <div className={s.asideInner}>
           <h2 className={s.asideTitle}>Okulda işlenen konular, aynı hafta burada.</h2>
           <ul className={s.points}>
             <li><span className={s.num} aria-hidden="true">1</span><div><b>Konu anlatımı ve sesli anlatım</b><span>MEB müfredatına uygun, sınıfına göre.</span></div></li>
@@ -19,6 +21,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             <li><span className={s.num} aria-hidden="true">3</span><div><b>İlerlemen kayıtlı</b><span>Serin, günlük hedefin ve zorlandığın konular.</span></div></li>
           </ul>
           <p className={s.asideFoot}>Ücretsiz. Telefonda, bilgisayarda ve akıllı tahtada çalışır.</p>
+          </div>
         </aside>
       </div>
     </div>
@@ -27,7 +30,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
 export function AuthLoading({ text = 'Yükleniyor…' }: { text?: string }) {
   return (
-    <div className={s.page}>
+    <div className={`${roboticFontVars} ${s.page}`}>
       <p className={s.center} role="status">{text}</p>
     </div>
   );

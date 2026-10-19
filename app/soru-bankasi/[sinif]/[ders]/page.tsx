@@ -16,6 +16,7 @@ import {
 import SoruBankasiLessonUnits from '@/app/src/components/SoruBankasiLessonUnits';
 import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
+import r from '../../../src/components/robotic/robotic.module.css';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
 // ISR ile cache'lenebiliyor — bkz. [gradeSlug]/page.tsx'teki aynı desen.
@@ -85,7 +86,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
         >
           <Link
             href={`/${data.gradeSlug}/${data.lessonSlug}`}
-            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
+            className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
           >
             <BookOpen className="h-4 w-4" aria-hidden="true" /> {data.lessonName} konu anlatımları
           </Link>
@@ -99,7 +100,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
 
         <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
           <section aria-labelledby="uniteler" className="min-w-0">
-            <h2 id="uniteler" className="text-xl font-bold tracking-tight text-default sm:text-2xl">Üniteler ve konular</h2>
+            <h2 id="uniteler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Üniteler ve konular</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Ünitenin tamamından test çözmek için üniteyi, tek bir konu için konuyu seç.</p>
             <SoruBankasiLessonUnits units={data.units} lessonName={data.lessonName} gradeSlug={data.gradeSlug} lessonSlug={data.lessonSlug} />
           </section>
@@ -118,7 +119,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
                 isPage: true,
               }))}
               footer={
-                <Link href={gradePath} className="text-muted-foreground transition-colors hover:text-[#7A2634]">
+                <Link href={gradePath} className={`text-muted-foreground transition-colors ${r.hoverAccent}`}>
                   Tüm {data.gradeName} soru bankaları →
                 </Link>
               }

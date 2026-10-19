@@ -1,0 +1,140 @@
+/* "Robotik kontrol paneli" teması (2026-10-19; ilk uygulama: ders raporu, sonra anasayfa).
+   Kökte .root + roboticFontVars (fonts.ts). Açık tema parlak krom, koyu tema uzay kokpiti.
+   Yardımcı sınıflar Tailwind ile birlikte kullanılır (yerleşim Tailwind'de, görünüm burada). */
+.themeVars {
+  --bg: #EEF2F7;
+  --panel: linear-gradient(160deg, #FFFFFF 0%, #F3F6FA 55%, #E6ECF3 100%);
+  --panel-solid: #F8FAFC;
+  --edge: #C9D3E0;
+  --ink: #0B1324;
+  --muted: #64748B;
+  --neon: #0891B2;
+  --neon-2: #3B5BFD;
+  --glow: rgba(8, 145, 178, .35);
+  --track: #DCE3EC;
+  --grid: rgba(15, 23, 42, .05);
+  --chrome: linear-gradient(180deg, #0B1324 0%, #3A4A63 45%, #0B1324 52%, #46597A 100%);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 12px 30px -16px rgba(15, 23, 42, .35);
+}
+/* Sayfa kökü: tokenlar + zemin + ızgara. Yalnız tokenlar gerekirse (ör. site header'ı) .themeVars. */
+.root {
+  composes: themeVars;
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(59, 91, 253, .12), transparent 60%),
+    radial-gradient(700px 400px at -10% 30%, rgba(8, 145, 178, .1), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-r-body), system-ui, sans-serif;
+}
+:global(.dark) .themeVars {
+  --bg: #0A0F1A;
+  --panel: linear-gradient(160deg, #141C2B 0%, #101725 60%, #0C121E 100%);
+  --panel-solid: #121A28;
+  --edge: #263248;
+  --ink: #E6EDF8;
+  --muted: #7D8AA3;
+  --neon: #22D3EE;
+  --neon-2: #7C93FF;
+  --glow: rgba(34, 211, 238, .45);
+  --track: #1C2638;
+  --grid: rgba(148, 197, 255, .05);
+  --chrome: linear-gradient(180deg, #FFFFFF 0%, #B9C6DC 45%, #FFFFFF 52%, #8FA3C4 100%);
+  --shadow: 0 1px 0 rgba(148, 197, 255, .08) inset, 0 16px 40px -18px rgba(0, 0, 0, .8);
+}
+.root::before { content: ""; position: fixed; inset: 0; pointer-events: none; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+.root > * { position: relative; }
+
+.display { font-family: var(--font-r-display), system-ui, sans-serif; }
+.mono { font-family: var(--font-r-mono), ui-monospace, monospace; }
+.label { font-family: var(--font-r-mono), ui-monospace, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--neon); }
+.accent { color: var(--neon); }
+.muted { color: var(--muted); }
+.ink { color: var(--ink); }
+
+/* Metal panel + HUD köşebentleri */
+.panel { position: relative; border-radius: 18px; background: var(--panel); border: 1px solid var(--edge); box-shadow: var(--shadow); }
+.panel::before, .panel::after { content: ""; position: absolute; width: 14px; height: 14px; border-color: var(--neon); border-style: solid; opacity: .8; pointer-events: none; }
+.panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-top-left-radius: 18px; }
+.panel::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-bottom-right-radius: 18px; }
+
+/* Panel içindeki satır/kart: hover'da neon çerçeve */
+.item { border: 1px solid var(--edge); background: var(--panel-solid); color: var(--ink); transition: border-color .2s, box-shadow .2s, transform .2s; }
+a.item:hover, .itemHover:hover { border-color: var(--neon); box-shadow: 0 0 0 1px var(--neon), 0 0 18px -4px var(--glow); }
+
+/* Kokpit (hero) — tarama ışığı */
+.hero { overflow: hidden; }
+/* İçerik tarama ışığının ÜSTÜNDE kalsın (yoksa ışık bandı geçerken yazıları soldurur). */
+.hero > :not(.scan) { position: relative; z-index: 1; }
+.scan { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; }
+.scan::after { content: ""; position: absolute; left: 0; right: 0; height: 40%; background: linear-gradient(180deg, transparent, var(--glow), transparent); opacity: .18; animation: scan 5s linear infinite; }
+@keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(260%); } }
+.led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 0 3px var(--glow), 0 0 12px var(--neon); animation: blink 2.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+.chrome { font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; letter-spacing: -.01em; text-transform: uppercase; background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Gösterge kutusu (sayaç) */
+.stat { border-radius: 12px; border: 1px solid var(--edge); background: var(--panel-solid); box-shadow: inset 0 0 18px -8px var(--glow); }
+.statValue { font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* Numara/ikon "çipi": hover'da neon dolgu (üst öğe .item / .group) */
+.chipBox { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid var(--edge); background: color-mix(in srgb, var(--neon) 10%, transparent); color: var(--neon); font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; transition: background .2s, color .2s, box-shadow .2s; }
+.item:hover .chipBox, .itemHover:hover .chipBox { background: linear-gradient(135deg, var(--neon-2), var(--neon)); color: #fff; box-shadow: 0 0 16px -2px var(--glow); }
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; border: 1px solid currentColor; font-family: var(--font-r-mono), monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--neon); }
+.tint { background: color-mix(in srgb, var(--neon) 12%, transparent); color: var(--neon); }
+
+/* Düğmeler */
+.btnNeon { color: #fff !important; background: linear-gradient(120deg, #3B5BFD, #06B6D4); box-shadow: 0 0 0 1px rgba(255, 255, 255, .25) inset, 0 8px 24px -8px rgba(6, 182, 212, .8); transition: box-shadow .2s, transform .2s; }
+.btnNeon:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35) inset, 0 0 26px rgba(6, 182, 212, .7); }
+.btnGhost { color: var(--neon) !important; border: 1px solid var(--neon); background: color-mix(in srgb, var(--neon) 8%, transparent); transition: box-shadow .2s; }
+.btnGhost:hover { box-shadow: 0 0 18px -2px var(--glow); }
+.btnText { font-family: var(--font-r-display), system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+
+/* Segment sekmeler */
+.tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 10px; border: 1px solid var(--edge); background: var(--panel-solid); }
+.tab { padding: 4px 10px; border-radius: 7px; border: 1px solid transparent; font-family: var(--font-r-mono), monospace; font-size: 11px; font-weight: 600; color: var(--muted); transition: color .2s, border-color .2s, box-shadow .2s; }
+.tab:hover { color: var(--ink); }
+.tabActive { color: var(--neon); border-color: var(--neon); box-shadow: 0 0 12px -4px var(--glow); }
+
+/* LED ilerleme çubuğu (dolgu genişliği inline style ile) */
+.track { height: 8px; overflow: hidden; border-radius: 99px; background: var(--track); }
+.fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--neon-2), var(--neon)); box-shadow: 0 0 10px var(--glow); }
+.divider { border-color: var(--edge) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scan::after, .led { animation: none; }
+  .root * { transition: none !important; }
+}
+
+/* Site header'ı (MainLayout) — metal cam çubuk + alt neon çizgi */
+.siteBar { composes: themeVars; background: var(--panel-solid); border-bottom: 1px solid var(--edge); font-family: var(--font-r-body), system-ui, sans-serif; }
+.siteBar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--neon-2) 25%, var(--neon) 60%, transparent); box-shadow: 0 0 10px var(--glow); pointer-events: none; }
+.brandChip { display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid var(--neon); background: linear-gradient(160deg, color-mix(in srgb, var(--neon) 18%, var(--panel-solid)), var(--panel-solid)); box-shadow: inset 0 0 14px -4px var(--glow), 0 0 16px -6px var(--glow); transition: box-shadow .2s, transform .2s; }
+a:hover > .brandChip { transform: scale(1.05); box-shadow: inset 0 0 16px -2px var(--glow), 0 0 22px -4px var(--glow); }
+.brandName { font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brandTld { font-family: var(--font-r-mono), monospace; font-weight: 600; color: var(--neon); }
+.navLink { display: block; white-space: nowrap; padding: 7px 12px; border-radius: 10px; border: 1px solid transparent; font-family: var(--font-r-display), system-ui, sans-serif; font-size: 13.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); transition: color .2s, border-color .2s, box-shadow .2s, background .2s; }
+.navLink:hover { color: var(--neon); }
+.navActive { color: var(--neon); border-color: var(--neon); background: color-mix(in srgb, var(--neon) 10%, transparent); box-shadow: 0 0 14px -4px var(--glow); }
+.metalChip { border-radius: 12px; border: 1px solid var(--edge); background: var(--panel); box-shadow: var(--shadow); }
+.iconBtn { display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid var(--edge); background: var(--panel-solid); color: var(--muted); transition: color .2s, border-color .2s, box-shadow .2s; }
+.iconBtn:hover { color: var(--neon); border-color: var(--neon); box-shadow: 0 0 14px -4px var(--glow); }
+.menu { border-radius: 14px; border: 1px solid var(--edge); background: var(--panel-solid); box-shadow: var(--shadow); }
+.menuItem { display: block; width: 100%; text-align: left; padding: 10px 16px; font-size: 14px; color: var(--ink); transition: background .2s, color .2s; }
+.menuItem:hover { background: color-mix(in srgb, var(--neon) 10%, transparent); color: var(--neon); }
+.tabBar { composes: themeVars; background: var(--panel-solid); border-top: 1px solid var(--edge); }
+.tabItem { color: var(--muted); font-family: var(--font-r-display), system-ui, sans-serif; letter-spacing: .03em; }
+.tabItemActive { color: var(--neon); }
+.tabPill { border-radius: 999px; transition: background .2s, box-shadow .2s; }
+.tabItemActive .tabPill { background: color-mix(in srgb, var(--neon) 14%, transparent); box-shadow: 0 0 14px -4px var(--glow); }
+
+/* Eski tek renkli vurguların karşılıkları (soru bankası geçişi, 2026-10-19) */
+.hoverAccent { transition: color .2s; }
+.hoverAccent:hover { color: var(--neon) !important; }
+.groupHoverAccent { transition: color .2s; }
+:global(.group):hover .groupHoverAccent { color: var(--neon) !important; }
+.neonBorder { border-color: var(--neon) !important; }
+/* Header'daki site adı: 430px altında gizli (sağdaki düğmeler sığsın). Tailwind'in min-[430px]
+   varyantı bu projede üretilmediği için düz medya sorgusu. */
+@media (max-width: 429px) { .brandText { display: none !important; } }

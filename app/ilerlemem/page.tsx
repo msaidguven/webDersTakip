@@ -6,27 +6,38 @@
 // bugünkü görev) burada TEKRAR ETMEZ.
 //
 // Sıra (2026-10-12, Sınav Hazırlık projesindeki tasarımdan — taslak https://claude.ai/artifact/BhprJ2kq1N4gouA6tRTmkH):
-// Son 7 gün → yarım kalan testler (yalnız varsa; bitenler /ilerlemem/aktiviteler'de) → bu hafta önceliğin |
+// Son 7 gün → yarım kalan testler (yalnız varsa; bitenler /ilerlemem/aktiviteler'de) → son 7 gün çizelgesi
+// (2026-10-20, "bu hafta önceliğin"in yerine) |
 // ders raporları (her ders /ilerlemem/[ders]: ünite başarı grafiği, zorlandığın konular, tüm konular) →
 // rozetler → tüm testler / sıralama; günlük hedef seçimi başlıkta. Her bölüm kendi verisini SWR ile çeker;
 // aynı veriyi kullananlar önbelleği paylaşır (konu ustalığı: öncelikler + ders listesi + özet).
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ListChecks, Trophy, CalendarDays } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { useMyProfileBasics } from '../src/hooks/useMyGradeSlug';
 import { onQuizModalClosed } from '../src/lib/panelRefreshBridge';
 import { AuthPrompt } from '../src/components/AuthPrompt';
 import { ProgressSummary } from '../src/components/progress/ProgressSummary';
-import { WeeklyPriorities } from '../src/components/progress/WeeklyPriorities';
+import { WeeklyChart } from '../src/components/progress/WeeklyChart';
 import { LessonList } from '../src/components/progress/LessonList';
 import { MyTests } from '../src/components/progress/MyTests';
 import { Badges } from '../src/components/progress/Badges';
 import { DailyGoalPicker } from '../src/components/progress/DailyGoalPicker';
+import { roboticFontVars } from '../src/components/robotic/fonts';
+import r from '../src/components/robotic/robotic.module.css';
+
+// Görünüm: "robotik kontrol paneli" teması (2026-10-19, ders raporu/anasayfa ile aynı; bkz. robotic).
 
 // Test penceresi (bu rotadaki @modal) kapanınca tazelenecek bölüm verileri.
-const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-due', 'my-tests']);
+const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-due', 'my-tests', 'monthly-activity']);
+
+const SHORTCUTS = [
+  { href: '/ilerlemem/aktiviteler', label: 'Tüm testlerim', hint: 'Çözdüğün bütün testler', Icon: ListChecks },
+  { href: '/ilerlemem/siralama', label: 'Haftalık sıralama', hint: 'Bu hafta kim önde?', Icon: Trophy },
+  { href: '/ders-takip-cizelgesi', label: 'Ders takip çizelgesi', hint: 'Ay ay doğru ve yanlışların', Icon: CalendarDays },
+];
 
 export default function IlerlememPage() {
   const { user, loading } = useAuth();
@@ -38,21 +49,37 @@ export default function IlerlememPage() {
     [mutate]
   );
 
-  const meta = [profile?.gradeName, profile?.fullName].filter(Boolean).join(' · ');
+  const firstName = profile?.fullName?.trim().split(/\s+/)[0];
+  const meta = profile?.gradeName ?? null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-1">
-            {user && meta && <p className="text-sm font-bold text-muted-foreground">{meta}</p>}
-            <h1 className="text-3xl font-black tracking-tight text-default sm:text-5xl">İlerlemem</h1>
+    <div className={`${roboticFontVars} ${r.root}`}>
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-20 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
+        <header className={`flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7 ${r.panel} ${r.hero}`}>
+          <span className={r.scan} aria-hidden="true" />
+          <div className="flex flex-col gap-2">
+            {user && meta && (
+              <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
+                <i className={r.led} aria-hidden="true" />
+                {meta}
+              </span>
+            )}
+            <h1 className={`text-3xl leading-tight sm:text-4xl ${r.chrome}`}>
+              {user && firstName ? (
+                <>
+                  Merhaba, {firstName}
+                </>
+              ) : (
+                'İlerlemem'
+              )}
+            </h1>
+            {user && <p className="text-base text-muted-foreground">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
           </div>
           {user && <DailyGoalPicker />}
         </header>
 
         {loading ? (
-          <div className="h-56 animate-pulse rounded-2xl bg-surface-elevated" />
+          <div className="h-64 animate-pulse rounded-2xl bg-surface-elevated" />
         ) : !user ? (
           <AuthPrompt message="Son 7 gününü, serini ve hangi konularda zorlandığını görmek için giriş yap." />
         ) : (
@@ -62,7 +89,7 @@ export default function IlerlememPage() {
             <MyTests />
 
             <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
-              <WeeklyPriorities />
+              <WeeklyChart />
               <div id="derslerim" className="scroll-mt-24">
                 <LessonList />
               </div>
@@ -70,24 +97,24 @@ export default function IlerlememPage() {
 
             <Badges />
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {[
-                { href: '/ilerlemem/aktiviteler', label: 'Tüm testlerim', cta: 'Testleri gör' },
-                { href: '/ilerlemem/siralama', label: 'Haftalık sıralama', cta: 'Sıralamayı gör' },
-                { href: '/ders-takip-cizelgesi', label: 'Ders takip çizelgesi', cta: 'Çizelgeyi gör' },
-              ].map((l) => (
+            <nav aria-label="Diğer sayfalar" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {SHORTCUTS.map(({ href, label, hint, Icon }) => (
                 <Link
-                  key={l.href}
-                  href={l.href}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-default bg-background px-5 py-4 text-default transition-colors hover:border-indigo-400 sm:px-7 sm:py-5"
+                  key={href}
+                  href={href}
+                  className={`group flex items-center gap-4 rounded-2xl p-4 hover:-translate-y-0.5 ${r.item}`}
                 >
-                  <span className="text-base font-bold">{l.label}</span>
-                  <span className="flex items-center gap-1.5 text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
-                    {l.cta} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <span className={`h-10 w-10 shrink-0 ${r.chipBox}`}>
+                    <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-semibold text-default">{label}</span>
+                    <span className="text-sm text-muted-foreground">{hint}</span>
+                  </span>
+                  <ArrowRight className={`h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 ${r.accent}`} aria-hidden="true" />
                 </Link>
               ))}
-            </div>
+            </nav>
           </>
         )}
       </main>

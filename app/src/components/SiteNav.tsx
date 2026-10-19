@@ -6,6 +6,8 @@
 // (bilgi mimarisi kuralı): Anasayfa, Dersler, Soru Bankası, İlerlemem.
 import Link from 'next/link';
 import { BookOpen, ChartNoAxesColumn, Home, PencilLine, Table2, type LucideIcon } from 'lucide-react';
+import { roboticFontVars } from './robotic/fonts';
+import r from './robotic/robotic.module.css';
 
 export interface NavItem {
   id: 'home' | 'lessons' | 'questions' | 'progress' | 'chart';
@@ -62,18 +64,14 @@ export function buildNavItems({
 
 export function DesktopNav({ items }: { items: NavItem[] }) {
   return (
-    <ul className="hidden items-center gap-1 md:flex">
+    <ul className="hidden items-center gap-1 lg:flex">
       {items.map((item) => (
         // Uzun etiket (çizelge) orta genişlikte header'ı sıkıştırmasın diye yalnız geniş ekranda.
-        <li key={item.id} className={item.id === 'chart' ? 'hidden lg:block' : undefined}>
+        <li key={item.id} className={item.id === 'chart' ? 'hidden xl:block' : undefined}>
           <Link
             href={item.href}
             aria-current={item.active ? 'page' : undefined}
-            className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition-colors lg:px-3.5 ${
-              item.active
-                ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-muted-foreground dark:hover:bg-surface-elevated dark:hover:text-default'
-            }`}
+            className={`${r.navLink} ${item.active ? r.navActive : ''}`}
           >
             {item.label}
           </Link>
@@ -87,7 +85,7 @@ export function MobileTabBar({ items }: { items: NavItem[] }) {
   return (
     <nav
       aria-label="Ana menü"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-default dark:bg-surface/95 md:hidden"
+      className={`fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)] lg:hidden ${roboticFontVars} ${r.tabBar}`}
     >
       <ul className="mx-auto flex max-w-lg">
         {items.filter((item) => item.id !== 'chart').map(({ id, label, href, icon: Icon, active }) => (
@@ -95,11 +93,9 @@ export function MobileTabBar({ items }: { items: NavItem[] }) {
             <Link
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors ${
-                active ? 'text-indigo-700 dark:text-indigo-300' : 'text-zinc-500 dark:text-muted-foreground'
-              }`}
+              className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors ${r.tabItem} ${active ? r.tabItemActive : ''}`}
             >
-              <span className={`flex h-7 w-12 items-center justify-center rounded-full ${active ? 'bg-indigo-500/15' : ''}`}>
+              <span className={`flex h-7 w-12 items-center justify-center ${r.tabPill}`}>
                 <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={active ? 2.4 : 2} />
               </span>
               {label}

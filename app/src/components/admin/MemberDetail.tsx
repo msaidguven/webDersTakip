@@ -7,6 +7,7 @@ import { MonthlyTable } from '@/app/src/components/progress/MonthlyTable';
 import { istanbulToday } from '@/app/src/lib/progressActivity';
 import { monthLabel, shiftMonth, summarizeMonth, type MonthlyActivityRow } from '@/app/src/lib/monthlyActivity';
 import { formatDate, formatDateTime, memberLabel, percent, relativeTime, safeDecode } from './memberActivityFormat';
+import type { Acquisition } from '@/app/src/lib/acquisition';
 
 type ChecklistItem = { label: string; done: boolean };
 type MemberDetailData = {
@@ -20,6 +21,8 @@ type MemberDetailData = {
     onboarding_completed: boolean;
     registered_at: string | null;
     last_seen_at: string | null;
+    signup_method: 'email' | 'google' | null;
+    acquisition: Acquisition | null;
     checklist: ChecklistItem[];
   };
   period: { days: number; active_days: number; answered: number; correct: number; views: number; pages: number };
@@ -34,6 +37,31 @@ type Props = {
   periodLabel: string;
   onClose: () => void;
 };
+
+function signupLabel(method: MemberDetailData['profile']['signup_method']): string {
+  if (method === 'email') return 'E-posta ile';
+  if (method === 'google') return 'Google ile';
+  return 'Bilinmiyor (eski kayıt)';
+}
+
+function referrerLabel(acq: Acquisition | null): string {
+  if (!acq) return 'Bilinmiyor';
+  if (acq.referrer_host) return acq.referrer_host;
+  if (acq.referrer_path) return `Site içi: ${acq.referrer_path}`;
+  return 'Doğrudan giriş';
+}
+
+function deviceLabel(type: Acquisition['device_type']): string {
+  if (type === 'mobile') return 'Telefon';
+  if (type === 'tablet') return 'Tablet';
+  if (type === 'desktop') return 'Bilgisayar';
+  return 'Bilinmiyor';
+}
+
+function campaignLabel(acq: Acquisition | null): string {
+  const parts = [acq?.utm_source, acq?.utm_medium, acq?.utm_campaign].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '—';
+}
 
 // Üye Aktivitesi sağ panel: profil doluluğu, dönem özeti, aylık ders takip çizelgesi, sayfa geçmişi.
 export default function MemberDetail({ userId, days, periodLabel, onClose }: Props) {
@@ -123,6 +151,16 @@ export default function MemberDetail({ userId, days, periodLabel, onClose }: Pro
             <dd className="text-foreground" title={profile.last_seen_at ? formatDateTime(profile.last_seen_at) : undefined}>
               {profile.last_seen_at ? `${relativeTime(profile.last_seen_at)} (${formatDate(profile.last_seen_at)})` : 'hiç girmedi'}
             </dd>
+            <dt className="text-muted-foreground">Kayıt yöntemi</dt>
+            <dd className="text-foreground">{signupLabel(profile.signup_method)}</dd>
+            <dt className="text-muted-foreground">İlk sayfa</dt>
+            <dd className="break-all text-foreground">{profile.acquisition?.landing_path ?? '—'}</dd>
+            <dt className="text-muted-foreground">Geldiği yer</dt>
+            <dd className="text-foreground">{referrerLabel(profile.acquisition)}</dd>
+            <dt className="text-muted-foreground">Cihaz</dt>
+            <dd className="text-foreground">{deviceLabel(profile.acquisition?.device_type ?? null)}</dd>
+            <dt className="text-muted-foreground">Kampanya</dt>
+            <dd className="text-foreground">{campaignLabel(profile.acquisition)}</dd>
             <dt className="text-muted-foreground">Günlük hedef</dt>
             <dd className="text-foreground">{profile.daily_goal ?? '—'} soru</dd>
             <dt className="text-muted-foreground">İlk hafta</dt>

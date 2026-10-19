@@ -5,7 +5,14 @@
 // yazar ve tıklanamaz değildir (konu anlatımına gider). Renk tek başına anlam taşımaz: sayılar yazıyla verir.
 import Link from 'next/link';
 import { accuracyTone, totalsOf, type Totals, type UnitReport } from '@/app/src/lib/lessonReports';
+import { mergeWeekSpans, weekLabel, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import type { TopicMastery } from '@/app/src/lib/topicMastery';
+
+// Öğretim haftası etiketi (kaynak: outcome_weeks). Hafta yoksa hiçbir şey çizilmez.
+function WeekTag({ range }: { range: WeekRange | null | undefined }) {
+  if (!range) return null;
+  return <span className="shrink-0 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{weekLabel(range)}</span>;
+}
 
 const PILL = {
   good: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
@@ -62,12 +69,15 @@ function Bar({ totals }: { totals: Totals }) {
   );
 }
 
-function TopicRow({ t }: { t: TopicMastery }) {
+function TopicRow({ t, week }: { t: TopicMastery; week: WeekRange | null | undefined }) {
   const totals = totalsOf([t]);
   const { total, solved, correct } = totals;
   const body = (
     <>
-      <span className="min-w-0 text-sm font-bold leading-snug text-default sm:w-1/2">{t.title}</span>
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold leading-snug text-default sm:w-1/2">
+        {t.title}
+        <WeekTag range={week} />
+      </span>
       <span className="flex min-w-0 flex-col gap-1.5 sm:w-1/2">
         <Bar totals={totals} />
         <span className="text-xs tabular-nums text-muted-foreground">
@@ -87,19 +97,23 @@ function TopicRow({ t }: { t: TopicMastery }) {
   );
 }
 
-export function UnitProgressChart({ units }: { units: UnitReport[] }) {
+// weekSpans: konu kimliği → hafta aralığı (useTopicWeekSpans). Ünite aralığı konularından türetilir.
+export function UnitProgressChart({ units, weekSpans }: { units: UnitReport[]; weekSpans?: Record<number, WeekRange | null> }) {
   return (
     <div className="flex flex-col gap-5">
       <Legend />
       {units.map((u) => (
         <section key={u.key} aria-label={u.title} className="flex flex-col gap-3 rounded-2xl border border-default p-4">
-          <header className="flex items-center justify-between gap-3">
-            <h3 className="min-w-0 text-base font-extrabold leading-snug text-default">{u.title}</h3>
+          <header className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="min-w-0 text-base font-extrabold leading-snug text-default">{u.title}</h3>
+              <WeekTag range={mergeWeekSpans(u.topics.map((t) => weekSpans?.[t.id]))} />
+            </div>
             <Pill totals={u.totals} />
           </header>
           <ul className="flex flex-col gap-2">
             {u.topics.map((t) => (
-              <TopicRow key={t.id} t={t} />
+              <TopicRow key={t.id} t={t} week={weekSpans?.[t.id]} />
             ))}
           </ul>
         </section>
