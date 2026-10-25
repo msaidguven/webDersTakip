@@ -6,6 +6,7 @@ import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { roboticFontVars } from '@/app/src/components/robotic/fonts';
 import r from '@/app/src/components/robotic/robotic.module.css';
+import { mergeWeekSpans, weekLabel, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -29,6 +30,7 @@ export type UnitTopic = {
   questionCount?: number;
   hasContent?: boolean;
   heroImageUrl?: string | null;
+  weekSpan?: WeekRange | null;
 };
 
 export type Unit = {
@@ -282,8 +284,10 @@ export default function MufredatOverviewClient({
               {units.map((unit, unitIdx) => {
                 const displayNo = unitIdx + 1;
                 const topics = unit.topics ?? [];
-                const start = unit.start_week;
-                const end = unit.end_week;
+                // Ünitenin kendi haftası yoksa konularının haftaları birleştirilir (İlerlemem ders raporundaki gibi).
+                const topicWeeks = mergeWeekSpans(topics.map((t) => t.weekSpan));
+                const start = unit.start_week ?? topicWeeks?.start ?? null;
+                const end = unit.end_week ?? topicWeeks?.end ?? null;
                 const isDraftUnit = unit.is_active === false;
 
                 return (
@@ -370,6 +374,20 @@ export default function MufredatOverviewClient({
                           // Satırın TAMAMI konu anlatımına gider (after:inset-0 ile yayılan
                           // link). Soru rozeti onun ÜSTÜNDE ayrı bir link — iç içe <a>
                           // kurmadan iki hedefi aynı satıra sığdırmanın standart yolu.
+                          // Konunun öğretim haftası (İlerlemem ders raporundaki etiketle aynı). Başlık line-clamp'li
+                          // kendi span'ında; etiket dar ekranda altında, geniş ekranda yanında.
+                          const titleBody = (
+                            <>
+                              <span className="line-clamp-2">{topic.title}</span>
+                              {topic.weekSpan && (
+                                <span className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 text-[10.5px] font-semibold ${r.mono} ${r.tint}`}>
+                                  {weekLabel(topic.weekSpan)}
+                                </span>
+                              )}
+                            </>
+                          );
+                          const titleLayout = 'flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2';
+
                           const rowInner = (
                             <>
                               <span className={`w-7 shrink-0 text-[11px] font-semibold ${r.mono} ${r.accent}`}>
@@ -397,7 +415,7 @@ export default function MufredatOverviewClient({
                                 className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5"
                               >
                                 {rowInner}
-                                <span className={`min-w-0 flex-1 text-sm line-clamp-2 ${r.muted}`}>{topic.title}</span>
+                                <span className={`${titleLayout} text-sm ${r.muted}`}>{titleBody}</span>
                                 <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase ${r.mono} ${r.divider} ${r.muted}`}>
                                   Yakında
                                 </span>
@@ -414,17 +432,17 @@ export default function MufredatOverviewClient({
                               {topicHref ? (
                                 <Link
                                   href={topicHref}
-                                  className="min-w-0 flex-1 text-sm font-bold line-clamp-2 after:absolute after:inset-0"
+                                  className={`${titleLayout} text-sm font-bold after:absolute after:inset-0`}
                                 >
-                                  {topic.title}
+                                  {titleBody}
                                 </Link>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => goToWeek(start ?? effectiveWeek)}
-                                  className="min-w-0 flex-1 text-left text-sm font-bold line-clamp-2 after:absolute after:inset-0"
+                                  className={`${titleLayout} text-left text-sm font-bold after:absolute after:inset-0`}
                                 >
-                                  {topic.title}
+                                  {titleBody}
                                 </button>
                               )}
                               {bankHref && (

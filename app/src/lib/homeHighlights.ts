@@ -35,8 +35,8 @@ function hashString(str: string): number {
 // ---------------------------------------------------------------------------------------
 // Günün Sorusu: yayınlanmış bir konudaki, görselsiz, çoktan seçmeli sorulardan gün tarihine
 // göre DETERMİNİSTİK seçim — aynı gün herkes aynı soruyu görür (paylaşılabilir, "bugünün
-// sorusunu çözdün mü?" sohbeti), ertesi gün değişir. Görselli (SVG) sorular anasayfa
-// kartında dar kalacağı için dışarıda.
+// sorusunu çözdün mü?" sohbeti), ertesi gün değişir. Görselli (SVG) ve okuma metinli (passage_id)
+// sorular anasayfa kartında dar kalacağı için dışarıda.
 // ---------------------------------------------------------------------------------------
 export interface DailyQuestion {
   question: MultipleChoiceQuestion;
@@ -52,6 +52,7 @@ export async function getDailyQuestion(supabase: AnySupabaseClient): Promise<Dai
     .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
     .eq('is_active', true)
     .is('svg_content', null)
+    .is('passage_id', null)
     .neq('question_type_id', 4)
     .eq('topics.is_active', true)
     .eq('topics.is_archived', false)
@@ -125,6 +126,7 @@ export async function getDailyQuestionSetsByGrade(supabase: AnySupabaseClient, c
       .select('id, topics!inner(title, slug, is_active, is_archived, topic_contents!inner(is_published), units!inner(slug, is_active, lesson_id, grade_id, grades(name, slug), lessons!inner(name, slug, is_active)))')
       .eq('is_active', true)
       .is('svg_content', null)
+      .is('passage_id', null)
       .eq('question_type_id', 1)
       .eq('topics.is_active', true)
       .eq('topics.is_archived', false)

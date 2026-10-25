@@ -1,18 +1,21 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { submitAnswers, startSessionWithRetry, flushAnswerOutbox, type AnswerDetail } from '@/app/src/lib/answerSync';
 import { createPortal } from 'react-dom';
 import { ReportQuestionButton } from '@/app/src/components/ReportQuestionButton';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
 import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestionTypes';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useSessionActiveTime, useVisibleStopwatch } from '@/app/src/hooks/useVisibleStopwatch';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { hasInAppHistory } from '@/app/src/components/InAppNavigationTracker';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
 import MathText from '@/app/src/components/MathText';
+import { stripEmphasis } from '@/app/src/lib/latexToPlain';
 import {
   SLIDE_ACCENTS,
   NAV_BTN_CLASS,
@@ -121,50 +124,24 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return a;
 }
 
-function formatTime(seconds: number) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Soru başına geri sayım — çağıran taraf bunu her soru için `key={question.id}` ile
-// mount ediyor, böylece her yeni soruda süre kendiliğinden sıfırdan başlıyor (React'in
-// "prop değişince state'i resetle" için önerdiği key deseni), ayrı bir reset efekti
-// gerekmiyor. Soru cevaplanınca (isAnswered) bu bileşen unmount edilir, interval da
-// otomatik temizlenir.
-function QuestionTimer({ seconds, onTimeout }: { seconds: number; onTimeout: () => void }) {
-  const [timeLeft, setTimeLeft] = useState(seconds);
-  // onTimeout eskiden setTimeLeft güncelleyicisinin İÇİNDEN çağrılıyordu: React güncelleyiciyi
-  // saf kabul edip (dev'de iki kez) çalıştırabildiği için süre dolan soru iki kez kaydediliyor
-  // ve "render sırasında başka bileşeni güncelleme" hatası çıkıyordu (2026-09-27). Artık sayaç
-  // sadece sayıyor; süre dolunca onTimeout ayrı bir efektte ve TEK SEFER çağrılıyor.
-  const onTimeoutRef = useRef(onTimeout);
-  const firedRef = useRef(false);
-  useEffect(() => {
-    onTimeoutRef.current = onTimeout;
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => setTimeLeft((prev) => Math.max(0, prev - 1)), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (timeLeft > 0 || firedRef.current) return;
-    firedRef.current = true;
-    onTimeoutRef.current();
-  }, [timeLeft]);
-
-  return (
-    <span className={`flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono ${timeLeft <= 10 ? 'border-rose-400/50 text-rose-500' : 'border-default text-default'}`}>
-      <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
-    </span>
-  );
-}
-
 const MIN_IMAGE_ZOOM = 1;
 const MAX_IMAGE_ZOOM = 3;
 const IMAGE_ZOOM_STEP = 0.25;
+
+// Okuma metni (question_passages): soru kökünden önce, normal kalınlıkta ayrı bir okuma bloğu. Kökle birlikte
+// kalın basılınca uzun paragraf okunmuyordu (2026-10-23, Türkçe paragraf soruları 1. aşama). Sola yaslı: iki yana
+// yaslama dar ekranda kelime aralarını açıp uzun metni zor okutuyor.
+function PassageBlock({ text, style }: { text: string; style?: CSSProperties }) {
+  return (
+    <blockquote
+      className="mb-3 rounded-r-xl border-l-4 border-indigo-400/70 bg-indigo-500/5 px-3 py-2 text-left text-sm font-normal leading-relaxed text-default"
+      style={style}
+      aria-label="Okuma metni"
+    >
+      <MathText text={text} />
+    </blockquote>
+  );
+}
 
 export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   // sanitizeMathSvg (DOMPurify) window/DOM gerektirir; bu bileşen /soru-bankasi gibi
@@ -451,7 +428,7 @@ function QuestionAnswerKeyItemImpl({
   controlledAssignment?: Record<number, number>;
   onAssignPair?: (leftId: number, rightId: number) => void;
   onCheckMatch?: () => void;
-  // Süre doldu / resume gibi "hiçbir şık seçilmeden kilitlendi" durumları için — verilirse
+  // Resume gibi "hiçbir şık seçilmeden kilitlendi" durumları için — verilirse
   // answered hesaplamasında selectedId/revealed'in ÖNÜNE geçer.
   forcedAnswered?: boolean;
   // QuizClient'ın rastgele "Harika! 🎉" / "Olsun, öğrenmenin bir parçası! 🌱" tebrik/teselli
@@ -499,11 +476,13 @@ function QuestionAnswerKeyItemImpl({
   const explanationRevealed = explanationRevealedProp !== undefined ? explanationRevealedProp : internalExplanationRevealed;
   const svgPosition = q.type !== 'matching' ? q.svg_position : 'above';
   const svg = <QuestionSvg svgContent={q.type !== 'matching' ? q.svg_content : null} />;
+  const passage = q.type === 'multiple_choice' || q.type === 'blank' ? q.passage : null;
 
   if (!interactive) {
     return (
       <>
         {svgPosition !== 'below' && svg}
+        {passage && <PassageBlock text={passage} />}
         <div className="flex items-start gap-2">
           {index != null && (
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
@@ -624,6 +603,7 @@ function QuestionAnswerKeyItemImpl({
           {index + 1}. Soru
         </div>
       )}
+      {passage && <PassageBlock text={passage} style={textSmStyle} />}
       <div className="flex items-start gap-2">
         {index != null && numberBadge === 'dot' && (
           <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
@@ -851,9 +831,6 @@ export interface QuizClientProps {
   // questions dizisinin sonuna eklenir. Resume'da her zaman boş gelir (bkz. quizPageData.ts).
   remainingQuestionIds?: number[];
   reloadEndpoint: string;
-  // Soru başına verilen süre (saniye) — her yeni soruya geçildiğinde sıfırdan başlar,
-  // testin tamamı için tek bir toplam süre DEĞİLDİR (bkz. quizQuestions.ts SECONDS_PER_QUESTION).
-  secondsPerQuestion?: number;
   intro?: QuizIntro;
   onCurrentQuestionChange?: (question: QuizQuestion | null, isAnswered: boolean) => void;
   // Giriş yapmış kullanıcı için çözülen soruların istatistiğini (SRS, günlük
@@ -895,6 +872,11 @@ export interface QuizClientProps {
   presentation?: 'page' | 'player';
   // Oynatıcıda "Sor" panelinin içeriği (yorumlar + AI'ya sor, bkz. QuizWithAsk) — aktif soruya göre.
   renderAside?: (question: QuizQuestion) => ReactNode;
+  // Misafir testi (GuestTopicTest, 2026-10-23): "Yeni Test Çöz" reloadEndpoint yerine çağıranın
+  // sıradaki partisini açar; onFinish sonuç ekranına geçilince çağrılır; resultNote sonuç ekranına not.
+  onRetry?: () => void;
+  onFinish?: () => void;
+  resultNote?: ReactNode;
 }
 
 // exitHref'e Link ile git (varsayılan, mevcut tüm çağıranlar) ya da onExit callback'ini
@@ -926,7 +908,6 @@ export default function QuizClient({
   initialQuestions,
   remainingQuestionIds = [],
   reloadEndpoint,
-  secondsPerQuestion,
   intro,
   onCurrentQuestionChange,
   gradeId,
@@ -939,6 +920,9 @@ export default function QuizClient({
   onExit,
   presentation = 'page',
   renderAside,
+  onRetry,
+  onFinish,
+  resultNote,
 }: QuizClientProps) {
   const resumedAnsweredIds = useMemo(() => new Set(resume?.answers.map((a) => a.questionId) ?? []), [resume]);
   const resumeAllAnswered = !!resume && initialQuestions.length > 0 && resumedAnsweredIds.size >= initialQuestions.length;
@@ -1007,7 +991,8 @@ export default function QuizClient({
   const clientIdRef = useRef<string>('');
   const sessionQuestionsKeyRef = useRef<string | null>(resume ? initialQuestions.map((q) => q.id).join(',') : null);
   const finishedSessionRef = useRef<number | null>(null);
-  const questionStartRef = useRef<number>(0);
+  // Soru başına çözme süresi (duration_seconds) — yalnız sekme görünürken sayar.
+  const questionStopwatch = useVisibleStopwatch();
   // Oturum açma RPC'si henüz dönmemişken kullanıcı çok hızlı cevap verirse buraya
   // birikir; sessionId gelince aşağıdaki efekt hepsini tek seferde gönderir — hiçbir
   // cevap sessizce kaybolmaz.
@@ -1179,10 +1164,15 @@ export default function QuizClient({
   // et" özelliğiyle doğrudan çelişiyordu (her ayrılışta oturum bitmiş sayıldığı için devam
   // edilecek hiçbir şey kalmıyordu) ve kaldırıldı (kullanıcı kararı, 2026-09-02).
 
-  // Her soru değişiminde süre ölçümünü sıfırlar (duration_seconds için).
+  // Ekrandaki soru değişince süre ölçümünü sıfırlar (duration_seconds için). questions'a değil
+  // soru kimliğine bağlı: kalan sorular arka planda listeye eklenince ölçüm sıfırlanmasın.
+  const currentQuestionId = questions[index]?.id;
   useEffect(() => {
-    questionStartRef.current = Date.now();
-  }, [index, questions]);
+    questionStopwatch.reset();
+  }, [index, currentQuestionId, reloadKey, questionStopwatch]);
+
+  // Testte kalınan toplam süre (test_sessions.active_seconds) — kaydediliyor, gösterilmiyor.
+  useSessionActiveTime(supabase, sessionId);
 
   // Aynı denemede (reloadKey) bir soru yalnız bir kez kaydedilir — zaman aşımı + tıklama gibi
   // üst üste gelen çağrılar çift test_session_answers satırı (ve istatistikte çift sayım) üretmesin.
@@ -1197,7 +1187,7 @@ export default function QuizClient({
     // İLK cevap: yukarıdaki efeği (henüz hiç tetiklenmediyse) tetikleyip test oturumunu
     // açtırır — session artık soru seti yüklenir yüklenmez değil, burada açılıyor.
     if (!hasAnsweredOnce) setHasAnsweredOnce(true);
-    const durationSeconds = Math.max(0, Math.round((Date.now() - questionStartRef.current) / 1000));
+    const durationSeconds = Math.round(questionStopwatch.elapsedMs() / 1000);
     // Oturum RPC'si henüz dönmediyse (nadir, çok hızlı cevaplama) kaybetmeden kuyruğa
     // al — sessionId gelince yukarıdaki efekt bunu gönderecek.
     if (sessionId == null) {
@@ -1287,20 +1277,8 @@ export default function QuizClient({
       setIndex(nextIndex);
     } else {
       setShowResult(true);
+      onFinish?.();
     }
-  };
-
-  // Soru başına süre dolunca yanlış sayılır ve kısa bir "süre doldu" geri bildiriminin
-  // ardından otomatik olarak sıradaki soruya geçilir (kullanıcı kararı, 2026-09-02) —
-  // diğer soru tipleriyle tutarlı olsun diye "cevapsız" ayrı bir durum eklenmedi.
-  const handleTimeout = () => {
-    if (!current || locked[current.id]) return;
-    const questionId = current.id;
-    setLocked((prev) => ({ ...prev, [questionId]: true }));
-    setCorrect((prev) => ({ ...prev, [questionId]: false }));
-    setFeedback((prev) => ({ ...prev, [questionId]: 'Süre doldu! ⏰' }));
-    recordAnswer(questionId, false);
-    setTimeout(() => goNext(), 1500);
   };
 
   const goPrev = () => {
@@ -1313,7 +1291,7 @@ export default function QuizClient({
     setIndex(i);
   };
 
-  const retry = () => setReloadKey((k) => k + 1);
+  const retry = () => (onRetry ? onRetry() : setReloadKey((k) => k + 1));
   const answerKey = questions.length > 0 ? <AnswerKeySection questions={questions} /> : null;
 
   // Admin bu soruyu sayfadan çözmeden silerse, listeden çıkarıp mevcut index'i
@@ -1349,7 +1327,7 @@ export default function QuizClient({
   }
 
   function shareTextFor(q: QuizQuestion): string {
-    return q.question_text;
+    return stripEmphasis(q.question_text);
   }
 
   async function handleShare(q: QuizQuestion) {
@@ -1376,6 +1354,7 @@ export default function QuizClient({
   // ---- Oynatıcı (presentation='player') ----
   const isPlayer = presentation === 'player';
   const router = useRouter();
+  const pathname = usePathname();
   const playerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(playerRef);
   const [asideOpen, setAsideOpen] = useState(false);
@@ -1397,6 +1376,13 @@ export default function QuizClient({
     return m;
   }, [questions, locked, correct]);
   const exitQuiz = useCallback(() => (onExit ? onExit() : router.push(exitHref)), [onExit, router, exitHref]);
+  // X / Escape: ayrı test sayfasına site içinden gelindiyse (ör. anasayfadaki "Kaldığın yerden devam
+  // et") öğrenci geldiği yere döner; doğrudan açıldıysa exitHref. Adı yazan düğmeler ("Konuya Dön")
+  // exitQuiz ile yazdıkları yere gider.
+  const closeQuiz = useCallback(() => {
+    if (!onExit && hasInAppHistory()) router.back();
+    else exitQuiz();
+  }, [onExit, router, exitQuiz]);
 
   // Klavye: ← → soru, Escape kapat (tam ekrandaysa tarayıcı zaten ondan çıkar, testi kapatmayız).
   const playerNavRef = useRef({ next: () => {}, prev: () => {}, canNext: false });
@@ -1412,7 +1398,7 @@ export default function QuizClient({
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (e.key === 'Escape') {
         if (asideOpen) setAsideOpen(false);
-        else if (!document.fullscreenElement && !editOpen && !confirmDeleteOpen) exitQuiz();
+        else if (!document.fullscreenElement && !editOpen && !confirmDeleteOpen) closeQuiz();
       } else if (e.key === 'ArrowLeft') playerNavRef.current.prev();
       else if (e.key === 'ArrowRight' && playerNavRef.current.canNext) playerNavRef.current.next();
     };
@@ -1421,7 +1407,7 @@ export default function QuizClient({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [isPlayer, asideOpen, editOpen, confirmDeleteOpen, exitQuiz]);
+  }, [isPlayer, asideOpen, editOpen, confirmDeleteOpen, closeQuiz]);
 
   const adminLayers = (
     <>
@@ -1483,7 +1469,7 @@ export default function QuizClient({
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             {opts.controls}
-            <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={exitQuiz} />
+            <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={closeQuiz} />
           </div>
         </div>
       }
@@ -1642,6 +1628,7 @@ export default function QuizClient({
           </p>
           <p className="mt-2 text-sm font-bold text-slate-700">{encouragement}</p>
           {isAuthenticated && <p className="mt-1 text-xs font-bold text-emerald-600">✓ Sonuçların kaydedildi</p>}
+          {resultNote}
         </div>
 
         {/* Soruları tek tek gözden geçir — tıklayınca o soruya döner (cevabı/açıklaması açık). */}
@@ -1663,7 +1650,7 @@ export default function QuizClient({
                 >
                   {i + 1}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">{q.question_text}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">{stripEmphasis(q.question_text)}</span>
                 {!isClassical && (isCorrectQ ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />)}
               </button>
             );
@@ -1692,12 +1679,20 @@ export default function QuizClient({
           <div className="w-full max-w-sm rounded-2xl border border-indigo-200 bg-white/80 p-4">
             <p className="text-sm font-bold text-slate-700">Bu sonuç kaydedilmedi.</p>
             <p className="mt-1 text-xs text-slate-500">Üye olursan doğru/yanlışların, günlük serin ve tekrar zamanı gelen sorular senin için takip edilir.</p>
-            <Link
-              href="/register"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-xs font-black text-white"
-            >
-              <UserPlus className="h-3.5 w-3.5" /> Ücretsiz Üye Ol
-            </Link>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-xs font-black text-white"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Ücretsiz Üye Ol
+              </Link>
+              <Link
+                href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Giriş Yap
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -1756,7 +1751,7 @@ export default function QuizClient({
             {questions.map((q, i) => {
               const isClassical = q.type === 'classical';
               const isCorrectQ = !!correct[q.id];
-              const label = `${i + 1}. ${q.question_text}`;
+              const label = `${i + 1}. ${stripEmphasis(q.question_text)}`;
               return (
                 <button
                   key={q.id}
@@ -1932,11 +1927,6 @@ export default function QuizClient({
       {
         controls: (
           <>
-            {secondsPerQuestion != null && !currentIsAnswered && (
-              <span className="text-[11px] font-black text-slate-500">
-                <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
-              </span>
-            )}
             <FontScaleControl fontScale={fontScale} onChange={setFontScale} />
             <div className={`hidden sm:block ${PLAYER_BADGE_CLASS}`}>
               <span className="text-emerald-600">D:{score}</span> <span className="text-rose-500">Y:{Object.values(pillStatuses).filter((v) => v === 'incorrect').length}</span>
@@ -2009,9 +1999,6 @@ export default function QuizClient({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            {secondsPerQuestion != null && !currentIsAnswered && (
-              <QuestionTimer key={current.id} seconds={secondsPerQuestion} onTimeout={handleTimeout} />
-            )}
             <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-1 py-1 shadow-sm">
               <button
                 type="button"

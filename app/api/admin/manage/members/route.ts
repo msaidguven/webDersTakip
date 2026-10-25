@@ -133,7 +133,7 @@ export async function DELETE(request: NextRequest) {
       // is_banned kolonu, auth.users.banned_until'ın middleware'de ucuz şekilde
       // okunabilen bir aynası — banned_until yeni sign-in/refresh'i zaten engelliyor,
       // bu kolon ise hâlâ geçerli olan access token'la gezinen kullanıcıyı sayfa
-      // isteklerinde yakalamak için (bkz. middleware.ts).
+      // isteklerinde yakalamak için (bkz. proxy.ts).
       await supabase
         .from('profiles')
         .update(

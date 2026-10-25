@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import CurriculumCalendarPanel from '@/app/src/components/admin/CurriculumCalendarPanel';
 import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
+import WeekPlanIssues from '@/app/src/components/admin/WeekPlanIssues';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export default function TakvimPage() {
         <AdminThemeToggle />
       </header>
       <main className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
+        <WeekPlanIssues />
         <CurriculumCalendarPanel />
       </main>
     </div>

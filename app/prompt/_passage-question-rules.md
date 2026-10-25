@@ -1,0 +1,4 @@
+- Paragraf (okuma metni) soruları: okuma metnini "passage" alanına, YALNIZ soru kökünü "question_text" alanına yaz. Örnek: "passage": "<senin yazdığın 40-90 kelimelik özgün paragraf>", "question_text": "Bu parçada asıl anlatılmak istenen aşağıdakilerden hangisidir?". Metin öğrenciye sorunun hemen üstünde ayrı bir blokta gösterilir: metni question_text'e KOPYALAMA, kökte "Bu parçada / Bu metinde" demen yeterli.
+- Numaralanmış cümleli parça ("(I) … (II) … (III) … (IV) …") da metindir: numaralı parça passage'a, "Bu parçadaki numaralanmış cümlelerin hangisinde …" kökü question_text'e.
+- passage'ı kendin, özgün ve tek başına anlaşılır yaz; kitaptaki okuma metnini aktarma, gerçek kişi/olay hakkında uydurma ayrıntı yazma. Cevap YALNIZ metinden çıkarılabilsin ve tek olsun.
+- Paragraf gerektirmeyen sorularda (yazım, noktalama, dil bilgisi, tek cümlelik sözcük anlamı) "passage": null. Eşleştirme ve boşluk doldurma sorularında passage kullanma.

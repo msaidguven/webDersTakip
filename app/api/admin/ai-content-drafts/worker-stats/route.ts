@@ -35,6 +35,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from('ai_content_draft_worker_runs')
     .select(`id, generated, reason, worker, created_at, topic_section_content_drafts(topic_id, ${TOPIC_LINK_SELECT})`)
+    // Hap bilgi kartı geri doldurma kayıtları (kind='recap_card') içerik üretim başarısına karışmasın.
+    .eq('kind', 'content')
     .gte('created_at', statsWindowStartIso())
     .order('created_at', { ascending: false });
 

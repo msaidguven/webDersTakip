@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import { Inter, JetBrains_Mono, Onest } from 'next/font/google';
 import {
   ArrowUp,
   ChevronDown,
@@ -29,14 +29,16 @@ import {
   X,
 } from 'lucide-react';
 import SectionContent from '../SectionContent';
+import RecapCardView from './RecapCardView';
 import { TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
-import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type GradeLesson, type GradeOption, type Outcome, type Unit } from '../dersHelpers';
+import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type GradeLesson, type GradeOption, type Outcome, type TopicSection, type Unit } from '../dersHelpers';
 import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import AdminTopicToolsHost, { preloadAdminTopicTools, ADMIN_TOOLS_MENU, SECTION_ADMIN_TOOLS_MENU, type AdminToolRequest } from '../AdminTopicToolsHost';
 import SlidePlayer from '@/app/src/components/SlidePlayer';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
+import { useAuth } from '@/app/src/context/AuthContext';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
@@ -72,20 +74,22 @@ export interface DersClientProps {
 
 const NarrationPlayer = dynamic(() => import('@/app/src/components/narration/NarrationPlayer'), { ssr: false });
 const InteractiveLessonPlayer = dynamic(() => import('@/app/src/components/interactive/InteractiveLessonPlayer'), { ssr: false });
+const GuestTopicTest = dynamic(() => import('@/app/src/components/questionPlayer/GuestTopicTest'), { ssr: false });
 
-const displayFont = Space_Grotesk({ subsets: ['latin', 'latin-ext'], weight: ['500', '600', '700'], variable: '--font-v1-display', display: 'swap' });
+// Başlık yazı tipi Onest (2026-10-23): Space Grotesk'te uzun Türkçe başlıklar zor okunuyordu.
+const displayFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['500', '600', '700', '800'], variable: '--font-v1-display', display: 'swap' });
 const bodyFont = Inter({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--font-v1-body', display: 'swap' });
 const monoFont = JetBrains_Mono({ subsets: ['latin', 'latin-ext'], weight: ['500', '600'], variable: '--font-v1-mono', display: 'swap' });
 
 const NO_SECTIONS: NonNullable<Content['sections']> = [];
 
-// Öğrenme yolu yalnız okuma adımları (kullanıcı isteği 2026-10-19); slayt ve test sağdaki araç kartında.
+// Sayfanın okuma blokları — içindekilerde hangisinde olunduğunu vurgulamak için.
 type StepId = 'kavramlar' | 'bolumler' | 'ozet';
 
 type OutcomeGroup = {
   key: string;
   learningOutcome: NonNullable<Outcome['learningOutcome']> | null;
-  items: { key: string; letter: string; description: string }[];
+  items: { key: string; letter: string; description: string; weekRanges: NonNullable<Outcome['weekRanges']> }[];
 };
 
 // Kazanımlar öğrenme çıktısına göre gruplanır, MEB'in kendi harfiyle gösterilir.
@@ -102,7 +106,7 @@ function groupOutcomes(outcomes: Outcome[]): OutcomeGroup[] {
     }
     const code = o.code?.trim();
     const letter = code && code.length <= 3 ? code : outcomeLetterAt(group.items.length);
-    group.items.push({ key: String(o.id ?? `${key}-${group.items.length}`), letter, description: o.description });
+    group.items.push({ key: String(o.id ?? `${key}-${group.items.length}`), letter, description: o.description, weekRanges: o.weekRanges ?? [] });
   }
   return groups;
 }
@@ -115,8 +119,17 @@ function nearestWeekIndex(weeks: number[], target: number): number {
   return best;
 }
 
-// Kazanımlar kartı: her kazanım yalnızca işleneceği hafta(lar)da görünür.
-function OutcomeWeekCard({ outcomes, currentWeek, totalWeeks, termStartDate, breaks }: {
+// Hero'daki kazanımlar (2026-10-23, ayrı karttan taşındı): her kazanım yalnızca işleneceği hafta(lar)da
+// görünür; ilk HERO_OUTCOME_LIMIT tanesi açık, gerisi "+N kazanım daha" ile — hero uzayıp "Konuya başla"yı itmesin.
+// Tek kazanım için kısaltma yapılmaz ("+1 kazanım daha" tıklatmaya değmez).
+// Telefonda (≤640px) ilk HERO_OUTCOME_LIMIT_MOBILE tanesi, "+1" de olur (2026-10-25: bir kazanım ~90px, düğme ~30px).
+// Kısaltma CSS ile (data-hide-d / data-hide-m): sunucu HTML'i ekran genişliğinden bağımsız, hydration uyuşmazlığı yok.
+// TÜM haftaların kazanımları HTML'de, görünmeyenler `hidden` (2026-10-24): kazanım metinleri arama trafiği
+// getiriyor (ör. "…gerçek yaşam problemlerini çözebilme" aramasında MAT.7.1.4), sayfadan düşmesinler.
+const HERO_OUTCOME_LIMIT = 3;
+const HERO_OUTCOME_LIMIT_MOBILE = 2;
+
+function HeroOutcomes({ outcomes, currentWeek, totalWeeks, termStartDate, breaks }: {
   outcomes: Outcome[];
   currentWeek: number;
   totalWeeks: number;
@@ -137,18 +150,27 @@ function OutcomeWeekCard({ outcomes, currentWeek, totalWeeks, termStartDate, bre
   const week = weeks.length ? weeks[index] : null;
   const dateLabel = week != null && termStartDate ? formatWeekDateRangeLabel(week, week, totalWeeks, termStartDate, breaks) : null;
 
-  const groups = useMemo(
-    () => groupOutcomes(week == null ? outcomes : outcomes.filter((o) => (o.weekRanges ?? []).some((r) => week >= r.start && week <= r.end))),
-    [outcomes, week]
-  );
+  const groups = useMemo(() => groupOutcomes(outcomes), [outcomes]);
+  const [expanded, setExpanded] = useState(false);
+  const inWeek = groups.flatMap((g) => g.items).filter((o) => week == null || o.weekRanges.some((r) => week >= r.start && week <= r.end));
+  const total = inWeek.length;
+  const collapsible = total > HERO_OUTCOME_LIMIT + 1;
+  const collapsibleMobile = total > HERO_OUTCOME_LIMIT_MOBILE;
+  const keysOf = (list: typeof inWeek) => new Set(list.map((o) => o.key));
+  const inWeekKeys = keysOf(inWeek);
+  const shownD = keysOf(expanded || !collapsible ? inWeek : inWeek.slice(0, HERO_OUTCOME_LIMIT));
+  const shownM = keysOf(expanded || !collapsibleMobile ? inWeek : inWeek.slice(0, HERO_OUTCOME_LIMIT_MOBILE));
+  // Haftada olmayan: hidden. Haftada olup kısaltılan: yalnız o ekran boyunda CSS ile gizli.
+  const hideProps = (keys: string[]) => ({
+    hidden: !keys.some((k) => inWeekKeys.has(k)),
+    'data-hide-d': keys.some((k) => shownD.has(k)) ? undefined : '',
+    'data-hide-m': keys.some((k) => shownM.has(k)) ? undefined : '',
+  });
 
   return (
-    <section className={s.card} aria-labelledby="kazanimlar-baslik">
-      <div className={s.cardHead}>
-        <div>
-          <p className={s.label}>MEB kazanımları</p>
-          <h2 id="kazanimlar-baslik" className={s.cardTitle}>Bu konuda neler öğreneceksin?</h2>
-        </div>
+    <section className={s.heroOutcomes} aria-labelledby="kazanimlar-baslik">
+      <div className={s.hoHead}>
+        <h2 id="kazanimlar-baslik" className={s.hoTitle}>Kazanımlar</h2>
         {week != null && (
           <div className={s.weekNav}>
             <button type="button" className={s.roundBtn} onClick={() => setIndex((i) => i - 1)} disabled={index === 0} aria-label="Önceki hafta">
@@ -169,17 +191,17 @@ function OutcomeWeekCard({ outcomes, currentWeek, totalWeeks, termStartDate, bre
       </div>
       <div className={s.outcomeGroups}>
         {groups.map((g) => (
-          <div key={g.key} className={s.outcomeGroup}>
+          <div key={g.key} className={s.outcomeGroup} {...hideProps(g.items.map((o) => o.key))}>
             {g.learningOutcome && (
               <p className={s.learningOutcome}>
-                {g.learningOutcome.code && <span className={s.code}>{g.learningOutcome.code}</span>}
+                {g.learningOutcome.code && <><span className={s.code}>{g.learningOutcome.code}</span>{' '}</>}
                 {g.learningOutcome.title}
               </p>
             )}
             <ol className={s.outcomeList}>
               {g.items.map((o) => (
-                <li key={o.key} className={s.outcome}>
-                  <span className={s.outcomeTag}>{o.letter}</span>
+                <li key={o.key} className={s.outcome} {...hideProps([o.key])}>
+                  <span className={s.outcomeTag}>{o.letter}</span>{' '}
                   <span>{o.description}</span>
                 </li>
               ))}
@@ -187,8 +209,26 @@ function OutcomeWeekCard({ outcomes, currentWeek, totalWeeks, termStartDate, bre
           </div>
         ))}
       </div>
+      {collapsibleMobile && (
+        <button type="button" className={cx(s.hoMore, collapsible ? undefined : s.hoMoreMobileOnly)} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+          {expanded ? (
+            'Daha az göster'
+          ) : (
+            <>
+              <span className={s.hoMoreD}>+{total - HERO_OUTCOME_LIMIT} kazanım daha</span>
+              <span className={s.hoMoreM}>+{total - HERO_OUTCOME_LIMIT_MOBILE} kazanım daha</span>
+            </>
+          )}
+        </button>
+      )}
     </section>
   );
+}
+
+// Süs numaraları (01, 02…) metinde değil, CSS'te (.num::before → data-no): arama motoru başlığı "01Millî Kültür" diye
+// yapışık okumasın, içindekiler bağlantı metni temiz kalsın (2026-10-25).
+function pad2(i: number) {
+  return String(i + 1).padStart(2, '0');
 }
 
 function cx(...names: (string | false | null | undefined)[]) {
@@ -209,6 +249,8 @@ type Tool = {
 export default function DersClientV1({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const router = useRouter();
   const isAdmin = useIsAdmin();
+  const { user } = useAuth();
+  const [pdfGateOpen, setPdfGateOpen] = useState(false);
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
 
   const topicIndex = Math.max(0, contents.findIndex((c) => c.slug === initialData.topicSlug));
@@ -219,7 +261,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
   const sections = topic?.sections ?? NO_SECTIONS;
   const sectionSlugs = useMemo(() => buildSectionSlugs(sections), [sections]);
-  const highlights = topic?.highlights ?? [];
+  // Hap bilgi düzeni yalnız anlatımı olan her bölümün kartı varken (kart üretimi konu bazında hep-ya-da-hiç).
+  const recapMode = sections.some((sec) => sec.recapCard) && sections.every((sec) => sec.recapCard || !sec.html);
+  // Kartlı konuda "Anahtar kavramlar" yok (2026-10-24, kullanıcı): aynı kavramlar kartlarda kalın ve Özet'te tanımlı —
+  // tekrar sayfayı uzatıyor, telefonda hap bilgileri aşağı itiyordu.
+  const highlights = recapMode ? [] : topic?.highlights ?? [];
   const topicOutcomes = initialData.outcomes.filter((o) => topic && String(o.topicId) === String(topic.id));
 
   // Konu sınırında bir önceki/sonraki üniteye geçilir.
@@ -247,6 +293,8 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   });
   const hasTest = !!topic?.slug && topicTest.status?.poolSize !== 0;
   const testSize = topicTest.status?.testSize ?? null;
+  // Misafir testi soru bankasındakiyle aynı (sıradaki 10 soru, bkz. GuestTopicTest).
+  const [guestTestOpen, setGuestTestOpen] = useState(false);
 
   // ---- Slaytlar ---- (sayfada gömülü değil; yalnız araçlardaki "Slaytlar" ile tam ekran açılır)
   const [slideDeck, setSlideDeck] = useState<SlideDeck | null>(null);
@@ -293,7 +341,6 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
   // ---- Okuma takibi ----
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [seen, setSeen] = useState<Set<string>>(() => new Set());
   const [activeStep, setActiveStep] = useState<StepId>('kavramlar');
   useEffect(() => {
     if (!('IntersectionObserver' in window)) return;
@@ -302,7 +349,6 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         if (!e.isIntersecting) continue;
         const slug = (e.target as HTMLElement).id;
         setActiveSlug(slug);
-        setSeen((prev) => (prev.has(slug) ? prev : new Set(prev).add(slug)));
       }
     }, { rootMargin: '-30% 0px -60% 0px' });
     const stepObserver = new IntersectionObserver((entries) => {
@@ -319,9 +365,6 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     if (chip) chipsRef.current.scrollTo({ left: chip.offsetLeft - 8, behavior: 'smooth' });
   }, [activeSlug]);
 
-  const activeIndex = sections.findIndex((sec) => sectionSlugs.get(sec.id) === activeSlug);
-  const readCount = seen.size;
-  const readPct = sections.length ? Math.round((readCount / sections.length) * 100) : 0;
 
   // ---- Diğer UI durumları ----
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -370,18 +413,50 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     }
   };
 
-  const startTest = () => { void topicTest.startTest(false); };
+  const startTest = () => {
+    if (topicTest.status && !topicTest.status.loggedIn) setGuestTestOpen(true);
+    else void topicTest.startTest(false);
+  };
+  // Slayttan teste geçince slaytlar kapanır: iki tam ekran oynatıcının klavye kısayolları (Escape, oklar) çakışmasın.
+  const startTestFromSlides = () => {
+    setSlidesExpanded(false);
+    startTest();
+  };
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const renderSectionAdmin = (sec: TopicSection) =>
+    isAdmin && (
+      <div className={s.menuWrap}>
+        <button
+          type="button"
+          className={s.adminBtn}
+          aria-label={`${sec.heading} için içerik araçları`}
+          onClick={() => setSectionMenuId((id) => (id === sec.id ? null : sec.id))}
+        >
+          <Sparkles size={14} aria-hidden="true" /><ChevronDown size={14} aria-hidden="true" />
+        </button>
+        {sectionMenuId === sec.id && (
+          <>
+            <div className={s.backdrop} onClick={() => setSectionMenuId(null)} />
+            <div className={s.menu} role="menu">
+              {SECTION_ADMIN_TOOLS_MENU.map((item) => (
+                <button
+                  key={item.panel}
+                  type="button"
+                  className={s.menuItem}
+                  onClick={() => { setSectionMenuId(null); setAdminTool({ panel: item.panel, sectionId: Number(sec.id) }); }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
 
   if (!topic) return null;
 
-  const steps: { id: StepId; title: string; meta: string; enabled: boolean }[] = [
-    { id: 'kavramlar', title: 'Anahtar kavramlar', meta: highlights.length ? `${highlights.length} kavram` : 'Hazırlanıyor', enabled: highlights.length > 0 },
-    { id: 'bolumler', title: 'Konu anlatımı', meta: sections.length ? `${sections.length} bölüm` : 'Oku', enabled: true },
-    { id: 'ozet', title: 'Özet', meta: 'Kısa tekrar', enabled: !!(topic.summaryHtml || topic.discussionPromptHtml) },
-  ];
-  const activeStepIdx = steps.findIndex((x) => x.id === activeStep);
-  const goStep = (id: StepId) => scrollTo(id);
+  const hasSummary = !!(topic.summaryHtml || topic.discussionPromptHtml);
 
   // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
   const tools: Tool[] = [
@@ -390,7 +465,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
     unit && { key: 'discuss', label: 'Yorumlar', hint: 'Sor, tartış', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: () => scrollTo('konu-tartisma') },
     unitQuestionsHref && { key: 'bank', label: 'Ünite soruları', hint: `${unit?.test_question_count ?? 0} soru`, icon: <Library size={18} aria-hidden="true" />, href: unitQuestionsHref },
-    { key: 'pdf', label: 'PDF indir', hint: 'Yazdır, sakla', icon: <Download size={18} aria-hidden="true" />, href: `/api/topic-pdf/${topic.id}`, external: true },
+    { key: 'pdf', label: 'PDF indir', hint: 'Yazdır, sakla', icon: <Download size={18} aria-hidden="true" />, href: user ? `/api/topic-pdf/${topic.id}` : undefined, external: true, onClick: user ? undefined : () => setPdfGateOpen(true) },
     { key: 'share', label: shareCopied ? 'Kopyalandı' : 'Paylaş', hint: 'Bağlantı', icon: <Share2 size={18} aria-hidden="true" />, onClick: () => void share() },
   ].filter(Boolean) as Tool[];
 
@@ -451,142 +526,113 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
         {/* HERO */}
         <header className={s.hero}>
-          <div className={topic.heroImageUrl ? s.heroGrid : s.heroGridSolo}>
-            <div className={s.heroMain}>
-              <div className={s.heroTags}>
-                <span className={s.pulseTag}><i className={s.pulse} aria-hidden="true" />{lessonName}</span>
-                <span className={s.heroTag}>{gradeName}</span>
-                <span className={s.heroTag}>Konu anlatımı</span>
-              </div>
-              <p className={s.kicker}>
-                {unitIndex >= 0 && <b>Ünite {String(unitIndex + 1).padStart(2, '0')}</b>}
-                <span>{unitName}</span>
-                {contents.length > 1 && <span className={s.kickerCount}>Konu {topicIndex + 1}/{contents.length}</span>}
-              </p>
-              <h1 className={s.h1}>{topic.title}</h1>
-              {topic.subtitle && <p className={s.lead}>{topic.subtitle}</p>}
-              {topic.isArchived && <p className={s.archived}>Bu konu güncel müfredatta yer almıyor; içerik arşiv olarak duruyor.</p>}
-              {/* Sesli anlatım / test / diğer araçlar hemen alttaki araç çubuğunda — burada tekrar edilmiyor. */}
-              <div className={s.heroActions}>
-                <button type="button" className={s.btnPrimary} onClick={() => scrollTo(highlights.length ? 'kavramlar' : 'bolumler')}>
-                  Konuya başla <span className={s.arr} aria-hidden="true">→</span>
-                </button>
-              </div>
+          <div className={s.heroInner}>
+            {/* Başlık tam genişlikte (2026-10-23): yarım sütunda 4 satıra bölünüyordu. */}
+            <div className={s.heroTags}>
+              <span className={s.pulseTag}><i className={s.pulse} aria-hidden="true" />{lessonName}</span>{' '}
+              <span className={s.heroTag}>{gradeName}</span>{' '}
+              <span className={s.heroTag}>Konu anlatımı</span>
             </div>
-
-            {topic.heroImageUrl && (
-              <div className={s.heroSide}>
-                <figure className={s.art}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={topic.heroImageUrl}
-                    alt={buildTopicImageAlt(topic.title, lessonName, gradeName, topic.heroImageAlt)}
-                    className={s.artImg}
-                    onClick={() => setHeroZoomed(true)}
+            <p className={s.kicker}>
+              {unitIndex >= 0 && <><b>Ünite {pad2(unitIndex)}</b>{' '}</>}
+              <span>{unitName}</span>
+              {contents.length > 1 && <>{' '}<span className={s.kickerCount}>Konu {topicIndex + 1}/{contents.length}</span></>}
+            </p>
+            <h1 className={s.h1}>{topic.title}</h1>
+            <div className={topic.heroImageUrl ? s.heroGrid : s.heroGridSolo}>
+              <div className={s.heroMain}>
+                {topic.subtitle && <p className={s.lead}>{topic.subtitle}</p>}
+                {topic.isArchived && <p className={s.archived}>Bu konu güncel müfredatta yer almıyor; içerik arşiv olarak duruyor.</p>}
+                {topicOutcomes.length > 0 && (
+                  <HeroOutcomes
+                    key={topic.id}
+                    outcomes={topicOutcomes}
+                    currentWeek={week}
+                    totalWeeks={initialData.totalWeeks}
+                    termStartDate={initialData.termStartDate ?? null}
+                    breaks={initialData.breaks ?? []}
                   />
-                </figure>
+                )}
               </div>
-            )}
+
+              {topic.heroImageUrl && (
+                <div className={s.heroSide}>
+                  <figure className={s.art}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={topic.heroImageUrl}
+                      alt={buildTopicImageAlt(topic.title, lessonName, gradeName, topic.heroImageAlt)}
+                      className={s.artImg}
+                      onClick={() => setHeroZoomed(true)}
+                    />
+                  </figure>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Araç çubuğu: tüm araçlar hero'nun hemen altında, her ekranda ilk bakışta görünür. */}
-        <div className={s.toolbar} role="toolbar" aria-label="Konu araçları">{tools.map(renderTool)}</div>
-
-        {/* Mobil: öğrenme yolu yatay şeritte (masaüstünde Çalışma Paneli'nde) */}
-        <div className={s.mobileSteps}>
-          <ol className={s.stepStrip} aria-label="Öğrenme yolu">
-            {steps.map((step, i) => {
-              const now = step.id === activeStep;
-              const done = !now && i < activeStepIdx && step.enabled;
-              return (
-                <li key={step.id}>
-                  <button type="button" className={cx(s.stepPill, now && s.stepPillNow, done && s.stepPillDone)} disabled={!step.enabled} onClick={() => goStep(step.id)} aria-current={now ? 'step' : undefined}>
-                    <span className={s.stepNo}>{done ? '✓' : i + 1}</span>{step.title}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+        {/* Mobil/tablet araç paneli — sitenin robotik kontrol paneli dili (2026-10-25). Geniş ekranda sağdaki kart. */}
+        <div className={s.toolDock}>
+          <p className={s.toolDockHead}>
+            <i className={s.dockLed} aria-hidden="true" />
+            Konu araçları
+            <span>{tools.length} araç</span>
+          </p>
+          <div className={s.toolbar} role="toolbar" aria-label="Konu araçları">{tools.map(renderTool)}</div>
         </div>
 
         <div className={s.layout}>
           {/* ÇALIŞMA PANELİ (masaüstü, sabit) */}
           <aside className={s.panel} aria-label="Çalışma paneli">
             <div className={s.panelCard}>
-              <div className={s.progress}>
-                <span className={s.ring} style={{ background: `conic-gradient(var(--accent-2) 0 ${readPct}%, var(--line) 0 100%)` }} aria-hidden="true">
-                  <span>{readPct}%</span>
-                </span>
-                <div>
-                  <b>{readCount} / {sections.length || 0} bölüm</b>
-                  <small>okundu</small>
-                </div>
-              </div>
-
-              <p className={s.panelLabel}>Öğrenme yolu</p>
-              <ol className={s.steps}>
-                {steps.map((step, i) => {
-                  const now = step.id === activeStep;
-                  const done = !now && i < activeStepIdx && step.enabled;
+              {/* Mini içindekiler (2026-10-23): öğrenme yolu, okundu halkası ve ✓ işaretleri kaldırıldı. */}
+              <p className={s.panelLabel}>İçindekiler</p>
+              <ol className={s.toc}>
+                {highlights.length > 0 && (
+                  <li>
+                    <a href="#kavramlar" className={cx(s.tocLink, activeStep === 'kavramlar' && s.tocActive)} aria-current={activeStep === 'kavramlar' ? 'location' : undefined}>
+                      <span className={s.tocNo} aria-hidden="true" />
+                      <span>Anahtar kavramlar</span>
+                    </a>
+                  </li>
+                )}
+                {sections.map((sec, i) => {
+                  const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                  const active = activeStep === 'bolumler' && slug === activeSlug;
                   return (
-                    <li key={step.id}>
-                      <button type="button" className={cx(s.step, now && s.stepNow, done && s.stepDone)} disabled={!step.enabled} onClick={() => goStep(step.id)} aria-current={now ? 'step' : undefined}>
-                        <span className={s.stepNode}>{done ? '✓' : i + 1}</span>
-                        <span className={s.stepText}><b>{step.title}</b><small>{now ? 'Buradasın' : step.meta}</small></span>
-                      </button>
+                    <li key={sec.id}>
+                      <a href={`#${slug}`} className={cx(s.tocLink, active && s.tocActive)} aria-current={active ? 'location' : undefined}>
+                        <span className={cx(s.tocNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
+                        <span>{sec.heading}</span>
+                      </a>
                     </li>
                   );
                 })}
+                {hasSummary && (
+                  <li>
+                    <a href="#ozet" className={cx(s.tocLink, activeStep === 'ozet' && s.tocActive)} aria-current={activeStep === 'ozet' ? 'location' : undefined}>
+                      <span className={s.tocNo} aria-hidden="true" />
+                      <span>Özet</span>
+                    </a>
+                  </li>
+                )}
               </ol>
-
-              {sections.length > 0 && (
-                <>
-                  <p className={s.panelLabel}>Bölümler</p>
-                  <ol className={s.toc}>
-                    {sections.map((sec, i) => {
-                      const slug = sectionSlugs.get(sec.id) || String(sec.id);
-                      const active = slug === activeSlug;
-                      const read = !active && seen.has(slug) && i < activeIndex;
-                      return (
-                        <li key={sec.id}>
-                          <a href={`#${slug}`} className={cx(s.tocLink, active && s.tocActive, read && s.tocRead)} aria-current={active ? 'location' : undefined}>
-                            <span className={s.tocNo}>{read ? '✓' : String(i + 1).padStart(2, '0')}</span>
-                            <span>{sec.heading}</span>
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              )}
             </div>
           </aside>
 
           <main className={s.main}>
-            {topicOutcomes.length > 0 && (
-              <OutcomeWeekCard
-                key={topic.id}
-                outcomes={topicOutcomes}
-                currentWeek={week}
-                totalWeeks={initialData.totalWeeks}
-                termStartDate={initialData.termStartDate ?? null}
-                breaks={initialData.breaks ?? []}
-              />
-            )}
-
             {/* Kavramlar */}
             {highlights.length > 0 && (
               <section className={s.block} id="kavramlar" data-step="kavramlar">
                 <div className={s.blockHead}>
-                  <p className={s.label}>Adım 1 · {highlights.length} kavram</p>
-                  <h2 className={s.h2}>Önce kavramları tanı</h2>
-                  <p className={s.blockText}>Konu boyunca bu kavramlar sık geçecek. Metinde kalın yazılan terimler işaretli.</p>
+                  <h2 className={s.h2}>Anahtar kavramlar</h2>
                 </div>
                 <dl className={s.glossary}>
                   {highlights.map((h, i) => (
                     <div key={`${h.title}-${i}`} className={s.term}>
-                      <span className={s.termNo}>{String(i + 1).padStart(2, '0')}</span>
+                      <span className={cx(s.termNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
                       <dt>{h.icon && <span aria-hidden="true">{h.icon} </span>}{h.title}</dt>
                       <dd>{h.description}</dd>
                     </div>
@@ -597,10 +643,8 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
             {/* Konu anlatımı */}
             <section className={s.block} id="bolumler" data-step="bolumler">
-              <div className={s.blockHead}>
-                <p className={s.label}>Adım 2 · {sections.length ? `${sections.length} bölüm` : 'Konu anlatımı'}</p>
-                <h2 className={s.h2}>Konuyu adım adım öğren</h2>
-              </div>
+              {/* Görünür etiket yok (2026-10-24, sade sayfa); başlık sırası h2 → bölüm h3 bozulmasın diye ekran okuyucuya açık. */}
+              <h2 className={s.srOnly}>Konu bölümleri</h2>
 
               {sections.length > 0 && (
                 <nav className={s.chips} aria-label="Bölümler" ref={chipsRef}>
@@ -615,68 +659,116 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
                 </nav>
               )}
 
-              {sections.length > 0 ? (
+              {recapMode ? (
+                <>
+                  {/* Kartlı konu (2026-10-24): bölümler ayrı kartlar değil, tek sayfada birbirinin devamı (PDF gibi).
+                      Görsel geniş ekranda kartın yanında; uzun anlatım aşağıdaki kapalı "Detaylı konu anlatımı"nda. */}
+                  <div className={s.sheet}>
+                    {sections.map((sec, i) => {
+                      const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                      const hasMedia = !!(sec.imageUrl || sec.diagramSvg || sec.videoUrl);
+                      const media = (
+                        <SectionContent
+                          only="media"
+                          html=""
+                          sectionId={sec.id}
+                          heading={sec.heading}
+                          imageUrl={sec.imageUrl}
+                          caption={sec.heading}
+                          imageAlt={buildSectionImageAlt(sec.heading, topic.title, lessonName, gradeName, sec.imageAlt)}
+                          diagramSvg={sec.diagramSvg}
+                          videoUrl={sec.videoUrl}
+                          videoType={sec.videoType}
+                        />
+                      );
+                      return (
+                        <article key={sec.id} id={slug} data-part data-section-anchor={slug} className={s.sheetPart}>
+                          <div className={s.sheetHead}>
+                            <span className={cx(s.sheetNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
+                            <h3 className={s.sheetTitle}>{sec.heading}</h3>
+                            {renderSectionAdmin(sec)}
+                          </div>
+                          <div className={hasMedia ? s.sheetGrid : undefined}>
+                            {sec.recapCard ? <RecapCardView card={sec.recapCard} /> : <p className={s.pending}>İçerik hazırlanıyor.</p>}
+                            {hasMedia && <div>{media}</div>}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <details id="detayli-anlatim" className={s.detail}>
+                    <summary>
+                      Detaylı konu anlatımı <ChevronDown size={18} aria-hidden="true" />
+                    </summary>
+                    <div className={s.detailBody}>
+                      {sections.map((sec, i) => {
+                        if (!sec.html) return null;
+                        const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                        return (
+                          <section key={sec.id} id={`${slug}-detay`} className={s.detailPart}>
+                            <h3 className={s.detailTitle}><span className={s.num} data-no={pad2(i)} aria-hidden="true" />{sec.heading}</h3>
+                            <div className={s.prose}>
+                              <SectionContent only="prose" html={sec.html} sectionId={sec.id} heading={sec.heading} />
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  </details>
+                  {/* Etkinlikler ayrı blokta (2026-10-24, kullanıcı): özet sade kalsın, metin sayfada kalsın (SEO). */}
+                  {sections.some((sec) => sec.activityPromptHtml) && (
+                    <section className={s.practice} aria-labelledby="alistirmalar-baslik">
+                      <h2 id="alistirmalar-baslik" className={s.practiceTitle}>Konuyu anlama alıştırmaları</h2>
+                      {sections.map((sec, i) =>
+                        sec.activityPromptHtml ? (
+                          <div key={sec.id} className={s.practiceItem}>
+                            <p className={s.practiceHead}><span className={s.num} data-no={pad2(i)} aria-hidden="true" />{sec.heading}</p>
+                            <SectionContent
+                              only="activity"
+                              html=""
+                              activityPromptHtml={sec.activityPromptHtml}
+                              activityExampleHtml={sec.activityExampleHtml}
+                              sectionId={sec.id}
+                              heading={sec.heading}
+                            />
+                          </div>
+                        ) : null
+                      )}
+                    </section>
+                  )}
+                </>
+              ) : sections.length > 0 ? (
                 sections.map((sec, i) => {
                   const slug = sectionSlugs.get(sec.id) || String(sec.id);
                   const hasBody = !!(sec.html || sec.imageUrl || sec.diagramSvg || sec.videoUrl);
+                  const body = hasBody ? (
+                    <div className={s.prose}>
+                      <SectionContent
+                        html={sec.html || ''}
+                        notebookHtml={sec.notebookHtml}
+                        activityPromptHtml={sec.activityPromptHtml}
+                        activityExampleHtml={sec.activityExampleHtml}
+                        sectionId={sec.id}
+                        heading={sec.heading}
+                        imageUrl={sec.imageUrl}
+                        caption={sec.heading}
+                        imageAlt={buildSectionImageAlt(sec.heading, topic.title, lessonName, gradeName, sec.imageAlt)}
+                        diagramSvg={sec.diagramSvg}
+                        videoUrl={sec.videoUrl}
+                        videoType={sec.videoType}
+                      />
+                    </div>
+                  ) : null;
                   return (
                     <article key={sec.id} id={slug} data-part data-section-anchor={slug} className={cx(s.part, slug === activeSlug && s.partActive)}>
                       <div className={s.partHead}>
-                        <span className={s.partNo} aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                        <span className={cx(s.partNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
                         <div className={s.partTitleWrap}>
-                          <p className={s.partKicker}>Bölüm {i + 1} / {sections.length}</p>
                           <h3 className={s.partTitle}>{sec.heading}</h3>
                         </div>
-                        {isAdmin && (
-                          <div className={s.menuWrap}>
-                            <button
-                              type="button"
-                              className={s.adminBtn}
-                              aria-label={`${sec.heading} için içerik araçları`}
-                              onClick={() => setSectionMenuId((id) => (id === sec.id ? null : sec.id))}
-                            >
-                              <Sparkles size={14} aria-hidden="true" /><ChevronDown size={14} aria-hidden="true" />
-                            </button>
-                            {sectionMenuId === sec.id && (
-                              <>
-                                <div className={s.backdrop} onClick={() => setSectionMenuId(null)} />
-                                <div className={s.menu} role="menu">
-                                  {SECTION_ADMIN_TOOLS_MENU.map((item) => (
-                                    <button
-                                      key={item.panel}
-                                      type="button"
-                                      className={s.menuItem}
-                                      onClick={() => { setSectionMenuId(null); setAdminTool({ panel: item.panel, sectionId: Number(sec.id) }); }}
-                                    >
-                                      {item.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        {renderSectionAdmin(sec)}
                       </div>
-                      {hasBody ? (
-                        <div className={s.prose}>
-                          <SectionContent
-                            html={sec.html || ''}
-                            notebookHtml={sec.notebookHtml}
-                            activityPromptHtml={sec.activityPromptHtml}
-                            activityExampleHtml={sec.activityExampleHtml}
-                            sectionId={sec.id}
-                            heading={sec.heading}
-                            imageUrl={sec.imageUrl}
-                            caption={sec.heading}
-                            imageAlt={buildSectionImageAlt(sec.heading, topic.title, lessonName, gradeName, sec.imageAlt)}
-                            diagramSvg={sec.diagramSvg}
-                            videoUrl={sec.videoUrl}
-                            videoType={sec.videoType}
-                          />
-                        </div>
-                      ) : (
-                        <p className={s.pending}>İçerik hazırlanıyor.</p>
-                      )}
+                      {body ?? <p className={s.pending}>İçerik hazırlanıyor.</p>}
                     </article>
                   );
                 })
@@ -692,13 +784,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
             {(topic.summaryHtml || topic.discussionPromptHtml) && (
               <section className={s.block} id="ozet" data-step="ozet">
                 <div className={s.blockHead}>
-                  <p className={s.label}>Adım 3 · Kısa tekrar</p>
-                  <h2 className={s.h2}>Özetle ve düşün</h2>
+                  <h2 className={s.h2}>{topic.summaryHtml ? 'Özet' : 'Düşün ve yorumla'}</h2>
                 </div>
                 <div className={s.wrapup}>
                   {topic.summaryHtml && (
                     <div className={s.summary}>
-                      <p className={s.label}>Özet</p>
                       <div className={s.prose} dangerouslySetInnerHTML={{ __html: topic.summaryHtml }} />
                     </div>
                   )}
@@ -820,9 +910,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         <SlidePlayer
           deck={slideDeck}
           topicId={Number(topic.id)}
-          gradeId={Number(gradeId)}
-          lessonId={Number(lessonId)}
-          unitId={unit ? Number(unit.id) : null}
+          onStartTest={hasTest ? startTestFromSlides : undefined}
           onClose={() => setSlidesExpanded(false)}
         />,
         document.body
@@ -833,6 +921,17 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
       )}
       {narrationOpen && hasNarration && createPortal(
         <NarrationPlayer topicId={Number(topic.id)} onClose={() => setNarrationOpen(false)} />,
+        document.body
+      )}
+      {guestTestOpen && unit && createPortal(
+        <GuestTopicTest
+          gradeId={Number(gradeId)}
+          lessonId={Number(lessonId)}
+          unitId={Number(unit.id)}
+          topicId={Number(topic.id)}
+          scopeLabel={`${gradeName} · ${lessonName} · ${topic.title}`}
+          onClose={() => setGuestTestOpen(false)}
+        />,
         document.body
       )}
       {topicTest.testData && !topicTest.testData.conflict && createPortal(
@@ -851,7 +950,6 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
           remainingQuestionIds={topicTest.testData.remainingQuestionIds}
           allCaughtUp={topicTest.testData.allCaughtUp}
           reloadEndpoint={topicTest.testData.reloadEndpoint}
-          secondsPerQuestion={topicTest.testData.secondsPerQuestion ?? undefined}
           resume={topicTest.testData.resume}
           questionBankPathBase={topicTest.testData.questionBankPathBase}
         />,
@@ -865,6 +963,21 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
           onClose={topicTest.closeTest}
         />,
         document.body
+      )}
+      {pdfGateOpen && createPortal(
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4" onClick={() => setPdfGateOpen(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="pdf-gate-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sky-700"><Download size={22} aria-hidden="true" /></div>
+            <h2 id="pdf-gate-title" className="text-base font-extrabold text-slate-900">PDF indirmek için üye olun</h2>
+            <p className="mt-2 text-sm text-slate-600">Konu PDF&apos;leri yalnızca üyelerimize özel. Ücretsiz üye olup hemen indirebilir, ilerlemenizi de kaydedebilirsiniz.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <Link href={`/register?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg bg-sky-600 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-sky-700">Ücretsiz üye ol</Link>
+              <Link href={`/login?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Zaten üyeyim, giriş yap</Link>
+              <button type="button" onClick={() => setPdfGateOpen(false)} className="rounded-lg bg-slate-100 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Vazgeç</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
       {topicTest.error && createPortal(<TopicTestErrorModal message={topicTest.error} onClose={topicTest.closeTest} />, document.body)}
       {isAdmin && adminTool && <AdminTopicToolsHost topicId={Number(topic.id)} request={adminTool} onClose={closeAdminTool} />}

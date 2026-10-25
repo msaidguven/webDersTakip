@@ -9,6 +9,7 @@ import { parseGradeSegment, getCurrentCurriculumWeek } from '@/app/src/lib/route
 import { getGradeIcon } from '@/app/src/lib/homeMapping';
 import { getCurriculumCalendar } from '@/app/src/lib/curriculumCalendar';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
+import { fetchTopicWeekSpans, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import MufredatOverviewClient, { Unit } from '../../ders/Mufredatoverviewclient';
 
 // Bu sayfa taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli üzerinden
@@ -145,7 +146,7 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
   const unitIds = units.map((u) => u.id);
   let topicsByUnit: Record<
     number,
-    { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null }[]
+    { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null; weekSpan: WeekRange | null }[]
   > = {};
   if (unitIds.length > 0) {
     const { data: topicsData } = await supabase
@@ -157,11 +158,14 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
 
     const topicRows = (topicsData as TopicRow[] | null) || [];
     const topicIds = topicRows.map((t) => t.id);
-    const [questionCountsByTopic, { data: contentRows }] = await Promise.all([
+    // Konu öğretim haftası (İlerlemem ders raporundaki etiketle aynı kaynak). Yalnız etiket: sorgu
+    // hata verirse sayfa etiketsiz üretilir.
+    const [questionCountsByTopic, { data: contentRows }, weekSpans] = await Promise.all([
       getQuestionCountsByTopicId(supabase, topicIds, { activeOnly: true, excludeClassical: true }),
       topicIds.length
         ? supabase.from('topic_contents').select('topic_id, hero_image_url').in('topic_id', topicIds).eq('is_published', true)
         : Promise.resolve({ data: [] as { topic_id: number; hero_image_url: string | null }[] }),
+      fetchTopicWeekSpans(supabase, topicIds).catch((): Record<number, WeekRange | null> => ({})),
     ]);
     const contentByTopicId = new Map(
       ((contentRows as { topic_id: number; hero_image_url: string | null }[] | null) || []).map((r) => [r.topic_id, r.hero_image_url])
@@ -178,12 +182,13 @@ const getMufredatOverviewData = cache(async function getMufredatOverviewData(gra
           questionCount: questionCountsByTopic.get(t.id) ?? 0,
           hasContent: contentByTopicId.has(t.id),
           heroImageUrl: contentByTopicId.get(t.id) ?? null,
+          weekSpan: weekSpans[t.id] ?? null,
         });
         return acc;
       },
       {} as Record<
         number,
-        { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null }[]
+        { id: number; title: string; slug: string | null; order_no: number; questionCount: number; hasContent: boolean; heroImageUrl: string | null; weekSpan: WeekRange | null }[]
       >
     );
   }

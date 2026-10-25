@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { attachLearningOutcomeCodes, buildOutcomeKeys, sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { buildSvgLessonGuidance, buildQuestionCountInstruction, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
+import { buildMathNotationGuidance, buildQuestionCountInstruction, buildSvgLessonGuidance, buildTestQuestionQualityRules } from '@/app/src/lib/promptHelpers';
 import { computeUnitTopicPacing, buildPacingGuidance } from '@/app/src/lib/topicPacing';
 import { fetchTeacherGuideGuidance } from '@/app/src/lib/teacherGuide/teacherGuideGuidance';
+import { buildRecapCardRules } from '@/app/src/lib/recapCardRules';
 
 type TopicRow = { id: number; title: string; unit_id: number };
 type UnitRow = { id: number; title: string; lesson_id: number; grade_id: number };
@@ -96,9 +97,11 @@ export async function GET(request: NextRequest) {
 
   let gradeName = '';
   let lessonName = '';
+  let lessonSlug: string | null = null;
   if (unitRow) {
-    const { data: lesson } = await supabase.from('lessons').select('name').eq('id', unitRow.lesson_id).maybeSingle();
+    const { data: lesson } = await supabase.from('lessons').select('name, slug').eq('id', unitRow.lesson_id).maybeSingle();
     lessonName = (lesson as { name: string } | null)?.name || '';
+    lessonSlug = (lesson as { slug: string | null } | null)?.slug ?? null;
     const { data: grade } = await supabase.from('grades').select('name').eq('id', unitRow.grade_id).maybeSingle();
     gradeName = (grade as { name: string } | null)?.name || '';
   }
@@ -233,7 +236,10 @@ export async function GET(request: NextRequest) {
     const isNotebookTemplate = type === 'full' || type === 'content_refresh_notebooklm';
     const teacherGuideGuidance = await fetchTeacherGuideGuidance(supabase, topicRow.id, isNotebookTemplate ? 'compact' : 'full');
 
+    // 20 numaralı şablon hap bilgi kartını da istiyor (diğerlerinde yer tutucu yok, replace etkisiz).
+    const recapCardRules = template.includes('{recap_card_rules}') ? await buildRecapCardRules(lessonSlug, gradeName) : '';
     const prompt = template
+      .replaceAll('{recap_card_rules}', recapCardRules)
       .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
       .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
       .replaceAll('{grade}', gradeName)
@@ -370,6 +376,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{source_text}', synthesisSourceText)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '6-10'))
       .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
+      .replaceAll('{test_question_quality_rules}', buildTestQuestionQualityRules(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
@@ -428,6 +435,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{section_outcomes}', sectionOutcomesText)
       .replaceAll('{other_headings}', otherHeadingsForQuestions)
       .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
+      .replaceAll('{test_question_quality_rules}', buildTestQuestionQualityRules(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });
@@ -458,6 +466,7 @@ export async function GET(request: NextRequest) {
       .replaceAll('{section_content}', currentSection.body_markdown)
       .replaceAll('{question_count_instruction}', buildQuestionCountInstruction(countParam, '3-6'))
       .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lessonName))
+      .replaceAll('{test_question_quality_rules}', buildTestQuestionQualityRules(lessonName))
       .replaceAll('{svg_question_instructions}', svgQuestionInstructions.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lessonName)));
 
     return NextResponse.json({ prompt });

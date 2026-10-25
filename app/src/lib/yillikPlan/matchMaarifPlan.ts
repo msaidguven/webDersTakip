@@ -215,3 +215,42 @@ export function weekRowsToWrite(result: MatchSuccess) {
     )
   );
 }
+
+// Hafta standardı (öğretim haftası; içerik en geç 36. hafta, 37 = sosyal etkinlik): önerilen haftalar
+// 1'den son haftaya ardışık olmalı. Boşluk yalnız bu ders/sınıf için tanımlı özel hafta olabilir
+// (Akademik Takvim → Özel Haftalar). Dosyada "Okul Temelli Planlama" yazan kazanımsız haftalar hata
+// değil: planningWeeks olarak döner, kaydedilince o ders/sınıf için özel hafta eklenir (route.ts).
+// Başka etiketli/etiketsiz boşluk hata — bozuk/tanınmayan kodlu bir satırı sessizce gizlememek için.
+export const MAX_CONTENT_WEEK = 36;
+export const PLANNING_WEEK_TITLE = 'OKUL TEMELLİ PLANLAMA';
+
+export type WeekSequenceCheck = { error: string | null; planningWeeks: number[] };
+
+export function checkWeekSequence(result: MatchSuccess, specialWeeks: Set<number>, nonContentWeeks: { week: number; label: string }[]): WeekSequenceCheck {
+  const covered = new Set<number>();
+  for (const o of result.units.flatMap((u) => u.topics.flatMap((t) => t.outcomes))) {
+    if (o.proposed) for (let w = o.proposed.start; w <= o.proposed.end; w++) covered.add(w);
+  }
+  if (!covered.size) return { error: null, planningWeeks: [] };
+  const maxWeek = Math.max(...covered);
+  const planningWeeks = [
+    ...new Set(
+      nonContentWeeks
+        .filter((n) => n.label.toLocaleUpperCase('tr').includes(PLANNING_WEEK_TITLE))
+        .map((n) => n.week)
+        .filter((w) => w >= 1 && w <= MAX_CONTENT_WEEK && !covered.has(w) && !specialWeeks.has(w))
+    ),
+  ].sort((a, b) => a - b);
+  const problems: string[] = [];
+  if (maxWeek > MAX_CONTENT_WEEK) problems.push(`son hafta ${maxWeek} (en fazla ${MAX_CONTENT_WEEK} olmalı)`);
+  const gaps = Array.from({ length: maxWeek }, (_, i) => i + 1).filter((w) => !covered.has(w) && !specialWeeks.has(w) && !planningWeeks.includes(w));
+  if (gaps.length) {
+    const labelOf = new Map(nonContentWeeks.map((n) => [n.week, n.label]));
+    const listed = gaps.map((w) => (labelOf.get(w) ? `${w} (dosyada: ${labelOf.get(w)})` : String(w))).join(', ');
+    problems.push(
+      `haftalar ardışık değil, boş hafta: ${listed}. Dosyada o haftanın kazanımı DB'deki kazanımlarla eşleşmemiş olabilir; ` +
+        'kazanımsız bir hafta ise Akademik Takvim → Özel Haftalar\'dan bu ders için tanımlayın (Okul Temelli Planlama otomatik eklenir)'
+    );
+  }
+  return { error: problems.length ? `Hafta ataması standarda uymuyor: ${problems.join('; ')}.` : null, planningWeeks };
+}

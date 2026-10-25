@@ -4,8 +4,7 @@
 // vurgulu öğe (ör. konu sayfasındaki ünite) kendi sayfasına link olarak kalır.
 // Sunucu bileşeni — tamamı ISR HTML'inde, iç linkleme (SEO) için.
 import Link from 'next/link';
-import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
-import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
 import r from './robotic/robotic.module.css';
 
 export interface SoruBankasiNavItem {
@@ -15,11 +14,11 @@ export interface SoruBankasiNavItem {
   /** Üst satır, ör. "2. ünite". */
   eyebrow?: string;
   meta: string;
-  /** Görsel yoksa ders renginde ikon. */
+  /** Görsel yoksa dersin ikonu (neon kutuda). */
   imageUrl?: string | null;
   /** Görsel/ikon yerine kısa metin rozeti (ör. sınıf numarası "6"). */
   badge?: string;
-  /** İkonun hangi dersin rengiyle çizileceği (badge varsa kullanılmaz). */
+  /** Hangi dersin ikonu çizilecek (badge varsa kullanılmaz). */
   lessonName: string;
   current: boolean;
   /** current öğe bu sayfanın kendisi mi (link değil) yoksa üst seviye mi (link kalır). */
@@ -38,11 +37,7 @@ function Visual({ item }: { item: SoruBankasiNavItem }) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="h-10 w-14 shrink-0 rounded-lg bg-surface-elevated object-cover" />;
   }
-  return (
-    <span className={`flex h-10 w-14 shrink-0 items-center justify-center rounded-lg border ${subjectStyle(item.lessonName).tint}`} aria-hidden="true">
-      <SubjectIcon lessonName={item.lessonName} size="sm" variant="solid" />
-    </span>
-  );
+  return <NeonSubjectIcon lessonName={item.lessonName} className="h-10 w-14" iconClassName="h-[18px] w-[18px]" />;
 }
 
 export function SoruBankasiNavList({ id, title, items, footer }: { id: string; title: string; items: SoruBankasiNavItem[]; footer?: React.ReactNode }) {

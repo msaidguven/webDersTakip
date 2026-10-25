@@ -27,6 +27,8 @@ export type MaarifPlan = {
   learningOutcomes: MaarifLearningOutcome[];
   components: MaarifComponent[];
   weekCount: number;
+  /** Kodsuz ders haftaları (öğretim haftası numarasıyla), ör. { week: 18, label: 'OKUL TEMELLİ PLANLAMA' }. */
+  nonContentWeeks: { week: number; label: string }[];
 };
 
 const LETTER_ORDER = 'abcçdefgğhıijklmnoöprsştuüvyz';
@@ -90,6 +92,12 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
   const los = new Map<string, MaarifLearningOutcome>();
   const comps = new Map<string, MaarifComponent>();
   const weeks = new Set<number>();
+  // Numaralı tatil satırları ("10. hafta | ARA TATİL"). Bazı şablonlar tatilleri de hafta sayıyor
+  // (sosyal etkinlik 41. hafta), bazıları saymıyor (37. hafta). Site öğretim haftası kullanır
+  // (tatil hafta tüketmez, 1–37): her hafta, kendinden önceki numaralı tatil sayısı kadar geri çekilir.
+  const breakWeeks: number[] = [];
+  const nonContentWeeks: { week: number; label: string }[] = [];
+  const emptyComponentRows: { week: number; codes: string[] }[] = [];
 
   const tables = doc.getElementsByTagName('w:tbl');
   for (let t = 0; t < tables.length; t++) {
@@ -107,6 +115,15 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
       const week = Number(weekMatch[1]);
 
       const weekLos = parseLearningOutcomeCell(cells[cols.lo] || '');
+      if (!weekLos.length) {
+        if (upperTr(cells.join(' ')).includes('TATİL')) breakWeeks.push(week);
+        else {
+          // Kodsuz ders haftası (Okul Temelli Planlama, sosyal etkinlik): yalnız hata mesajında etiket olarak.
+          const label = cells.slice(cols.week + 1).map((c) => c.replace(/\*/g, '').trim()).find((c) => c && !/^\d+\s*saat$/i.test(c));
+          nonContentWeeks.push({ week, label: (label ?? '').split('\n')[0].slice(0, 60) });
+        }
+        continue;
+      }
       for (const lo of weekLos) {
         const existing = los.get(lo.code);
         if (existing) {
@@ -122,6 +139,7 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
       // İLK KEZ oluşturulan bileşene eklenir (önceki haftadan gelen tekrar metni çoğaltmasın).
       let current: string | null = weekLos[0]?.code ?? null;
       let appendTo: MaarifComponent | null = null;
+      let anyComponent = false;
       const lines = (cells[cols.comp] || '').split('\n').flatMap((l) => l.split(INLINE_COMPONENT_SPLIT_RE));
       for (const rawLine of lines) {
         const line = stripQuotes(rawLine);
@@ -139,6 +157,7 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
         }
         if (m[1]) current = normCode(m, 1);
         if (!current) continue;
+        anyComponent = true;
         const letter = m[5];
         const key = `${current}|${letter}`;
         const comp = comps.get(key);
@@ -150,17 +169,33 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
           comps.set(key, appendTo);
         }
       }
+      if (!anyComponent) emptyComponentRows.push({ week, codes: weekLos.map((lo) => lo.code) });
     }
   }
 
   if (!comps.size) return null;
 
+  const toTeachingWeek = (w: number) => w - breakWeeks.filter((b) => b < w).length;
   const learningOutcomes = [...los.values()]
-    .map((lo) => ({ ...lo, weeks: [...new Set(lo.weeks)].sort((a, b) => a - b) }))
+    .map((lo) => ({ ...lo, weeks: [...new Set(lo.weeks.map(toTeachingWeek))].sort((a, b) => a - b) }))
     .sort((a, b) => compareCodes(a.code, b.code));
   const components = [...comps.values()]
-    .map((c) => ({ ...c, weeks: [...c.weeks].sort((a, b) => a - b) }))
+    .map((c) => ({ ...c, weeks: c.weeks.map(toTeachingWeek).sort((a, b) => a - b) }))
     .sort((a, b) => compareCodes(a.code, b.code) || letterIndex(a.letter) - letterIndex(b.letter));
+
+  // Bileşen sütunu TAMAMEN boş hafta ("22. Hafta | SB.6.4.1 … | (boş)", 6. Sosyal): önceki haftanın
+  // devamı — öğrenme çıktısının bir önceki (yoksa sonraki) haftasındaki bileşenlerine, o da yoksa
+  // hepsine eklenir. Sütunda başka bir çıktının bileşeni varsa (geçiş haftası, 6. Mat 18. hafta:
+  // MAT.6.5.1 + MAT.6.5.2, bileşenler yalnız 6.5.2) dosya haftayı açıkça vermiştir, dokunulmaz.
+  for (const row of emptyComponentRows) {
+    const w = toTeachingWeek(row.week);
+    for (const code of row.codes) {
+      const loComps = components.filter((c) => c.code === code);
+      if (loComps.some((c) => c.weeks.includes(w))) continue;
+      const targets = [w - 1, w + 1].map((n) => loComps.filter((c) => c.weeks.includes(n))).find((l) => l.length) ?? loComps;
+      for (const c of targets) c.weeks = [...c.weeks, w].sort((a, b) => a - b);
+    }
+  }
 
   const gradeNos = new Set([...learningOutcomes.map((l) => l.code), ...components.map((c) => c.code)].map((c) => Number(c.split('.')[1])));
 
@@ -169,5 +204,6 @@ export async function parseMaarifPlan(buffer: Buffer | ArrayBuffer): Promise<Maa
     learningOutcomes,
     components,
     weekCount: weeks.size,
+    nonContentWeeks: nonContentWeeks.map((n) => ({ ...n, week: toTeachingWeek(n.week) })),
   };
 }

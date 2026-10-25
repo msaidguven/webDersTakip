@@ -63,7 +63,7 @@ export function PushReminderOptIn() {
             )}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            İstediğin zaman <Link href="/profil#ayarlar" className="font-bold text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400">Profilim → Ayarlar</Link>’dan açıp kapatabilirsin.
+            İstediğin zaman <Link href="/profil/ayarlar?bolum=bildirimler" className="font-bold text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400">Ayarlar</Link>’dan açıp kapatabilirsin.
           </p>
         </div>
       </div>

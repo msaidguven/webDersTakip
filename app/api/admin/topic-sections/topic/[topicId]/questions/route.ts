@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const result = await insertQuestions(supabase, { topicId: (topicRow as { id: number }).id, sectionId: null, outcomeIds, questions, aiModel });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
-  const { savedCount } = result;
+  const { savedCount, skippedDuplicateCount } = result;
 
   // Konu geneli sorular da ünite testi sayacını, konunun soru bankası sayfasını (ilk soruda
   // "henüz soru yok"tan normal, indekslenebilir sayfaya dönüşüyor) ve hub'ları etkiliyor.
@@ -64,5 +64,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
     revalidateHomepage();
   }
 
-  return NextResponse.json({ ok: true, savedCount });
+  return NextResponse.json({ ok: true, savedCount, skippedDuplicateCount });
 }

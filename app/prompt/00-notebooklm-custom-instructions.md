@@ -31,3 +31,9 @@ YASAK (hepsinde): kaynak/dipnot referansı ("[2, 4]", "[7]", "¹" gibi) — kayn
    - Açık uçlu: kişisel görüş/değerlendirme/günlük hayat bağlantısı, "sence hangisi daha önemli/doğru" tarzı — kapalı/kesin cevaplı sınav sorusu DEĞİL.
    - TEK kısa soru cümlesi ("Sence.../Sen olsan..." gibi başlayabilir).
    - Konu mekanik/tartışmaya elverişsizse bile günlük hayata bağlayan bir soru bulmaya çalış — uydurma hissettirmesin.
+6. **Test soruları — multiple_choice / blank / matching (sadece şema bu türleri istediğinde).**
+   - Kaynak atfı YAPMA: kökte ve şıklarda "ders kitabına göre", "kitapta verilen", "bilgi kutusu", "etkinlikte", "okuma parçasında" gibi ifadeler olmasın; soru kitaptan bağımsız, genel geçer bilgi gibi sorulsun.
+   - Dört şık aynı türden ve konuyla ilgili, akla yatkın çeldiriciler olsun; doğru şık uzunluğuyla öbürlerinden ayrışmasın; kök cevabı ele vermesin. blank'te dört seçeneğin her biri boşluğa dil bilgisi bakımından uysun.
+   - Sayı/oran/olasılık yalnız hesaplanabiliyorsa yazılsın; gündelik olaylara uydurma kesin değer verme. matching'de her sol öğenin TEK doğru karşılığı olsun.
+   - "difficulty" (1-5): 1-2 hatırlama, 3 uygulama/yorum, 4-5 çok adımlı akıl yürütme; dengeli dağıt.
+   - Matematik dersinde blank sorularının EN AZ %80'i işlem sonucu istesin (boşluğa sayı/sonuç gelsin); terim/tanım boşluğu en fazla %20.

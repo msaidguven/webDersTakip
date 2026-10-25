@@ -2,60 +2,55 @@
 
 import { useEffect, useState } from "react";
 
-export default function ThemeToggle() {
+// Tema tercihi: kaynak <html class="dark"> (layout.tsx ilk boyamadan önce localStorage'dan kurar; site
+// varsayılan olarak açık tema açılır, koyu yalnız bilinçli seçilince). 2026-10-21: header'daki düğme ve
+// header menüsündeki tema satırı aynı anda ekranda olabildiği için durum tek yerde (DOM) tutulur ve
+// değişince "dt-theme" olayıyla diğer örneklere duyurulur.
+const THEME_EVENT = "dt-theme";
+
+export function useThemeMode(): [isDark: boolean | null, toggle: () => void] {
   const [isDark, setIsDark] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Client-side'da çalıştır
-    try {
-      // Eskiden kullanıcı hiç seçim yapmamışsa işletim sistemi/tarayıcı tercihine
-      // (prefers-color-scheme) bakılıyordu — site artık her zaman light varsayılan
-      // açılıyor (bkz. layout.tsx'teki aynı gerekçe), dark sadece burada bilinçli
-      // seçilince uygulanıyor.
-      const t = localStorage.getItem("theme");
-      const initialValue = t === "dark";
-      setIsDark(initialValue);
-
-      // DOM'u güncelle
-      if (initialValue) {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    } catch (e) { }
+    const sync = () => setIsDark(document.documentElement.classList.contains("dark"));
+    sync();
+    window.addEventListener(THEME_EVENT, sync);
+    return () => window.removeEventListener(THEME_EVENT, sync);
   }, []);
 
-  useEffect(() => {
-    // isDark değiştiğinde DOM'u güncelle
-    if (isDark === null) return;
-
+  const toggle = () => {
+    const next = !document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark", next);
     try {
-      if (isDark) {
-        document.documentElement.classList.add("dark");
-        localStorage.setItem("theme", "dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-        localStorage.setItem("theme", "light");
-      }
-    } catch (e) { }
-  }, [isDark]);
+      localStorage.setItem("theme", next ? "dark" : "light");
+    } catch {
+      // gizli pencere vb. — tercih bu oturumla sınırlı kalır
+    }
+    window.dispatchEvent(new Event(THEME_EVENT));
+  };
+
+  return [isDark, toggle];
+}
+
+export default function ThemeToggle({ className = "" }: { className?: string }) {
+  const [isDark, toggle] = useThemeMode();
 
   // Client-side render olana kadar placeholder göster
   if (isDark === null) {
     return (
       <button
-        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default"
-        aria-label="Loading theme"
+        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default ${className}`}
+        aria-label="Tema yükleniyor"
       />
     );
   }
 
   return (
     <button
-      onClick={() => setIsDark((v) => !v)}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={toggle}
+      aria-label={isDark ? "Açık temaya geç" : "Koyu temaya geç"}
       title={isDark ? "Açık tema" : "Koyu tema"}
-      className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all text-sm"
+      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all text-sm ${className}`}
     >
       {isDark ? "🌞" : "🌙"}
     </button>

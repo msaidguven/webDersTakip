@@ -76,7 +76,6 @@ export async function getDashboardLessons(
       wrongAnswers: row.wrong_answers,
       progress: row.total_questions > 0 ? Math.min(100, Math.round((row.solved_questions / row.total_questions) * 100)) : 0,
       soruBankasiHref: canLink ? buildSoruBankasiLessonPath(row.grade_slug!, row.lesson_slug!) : undefined,
-      lessonHref: canLink ? `/${row.grade_slug}/${row.lesson_slug}` : undefined,
       reportHref: canLink ? reportLessonHref(row.lesson_slug!) : undefined,
       weakTopic:
         row.weak_topic_title && weakTopicHref

@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
 
-const EDITABLE_FIELDS = ['full_name', 'username', 'nickname', 'use_nickname', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name'] as const;
+const EDITABLE_FIELDS = ['full_name', 'username', 'nickname', 'use_nickname', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name', 'public_profile'] as const;
 // Sıralamadaki takma ad (bkz. leaderboard_full_names_and_nickname.sql): harf, rakam, boşluk, . _ -
 const NICKNAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,22}[\p{L}\p{N}]$/u;
 const MAX_TEACHER_LESSONS = 10;
@@ -29,7 +29,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('full_name, username, nickname, use_nickname, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, onboarding_completed, profile_prompt_pending')
+    .select('full_name, username, nickname, use_nickname, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, is_verified, onboarding_completed, profile_prompt_pending')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -43,7 +43,19 @@ export async function GET() {
     gradeName = (gradeRow as { name: string } | null)?.name || null;
   }
 
-  return NextResponse.json({ profile: profileRow || null, gradeName });
+  // Üye profil kartı tercihi (public_profile_card.sql) AYRI okunur: migration çalışmadan önce sütun
+  // yoksa ana sorgu bozulmasın — hata olursa tercih "kapalı" sayılır.
+  // public_slug: kartın genel kimliği (public_profile_slug.sql) — "Kartımı gör" linki için.
+  let publicProfile = false;
+  let publicSlug: string | null = null;
+  if (profileRow) {
+    const { data: pubRow, error: pubError } = await service.from('profiles').select('public_profile, public_slug').eq('id', user.id).maybeSingle();
+    const pub = pubError ? null : (pubRow as { public_profile?: boolean; public_slug?: string } | null);
+    publicProfile = pub?.public_profile === true;
+    publicSlug = pub?.public_slug ?? null;
+  }
+
+  return NextResponse.json({ profile: profileRow ? { ...profileRow, public_profile: publicProfile, public_slug: publicSlug } : null, gradeName });
 }
 
 // Kullanıcının kendi profilini güncellemesi için: oturumu doğrular, sadece kendi
@@ -93,6 +105,9 @@ export async function PATCH(request: NextRequest) {
     }
   }
   if ('use_nickname' in patch && typeof patch.use_nickname !== 'boolean') {
+    return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
+  }
+  if ('public_profile' in patch && typeof patch.public_profile !== 'boolean') {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 

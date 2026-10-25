@@ -281,14 +281,16 @@ function StudentNoteField({ sectionId }: { sectionId: number }) {
 // sonra isterse "Örneğe Bak"a basıp örnek yaklaşımı görür (kullanıcının 2026-09-15 isteği —
 // bkz. konuşmadaki "İçerik Formatı Önerisi" artifact'i). Renk ailesi bilinçli olarak
 // ExplanationBox (indigo) ve eski NotebookBox'tan (amber) ayrışsın diye mor/violet.
-function ActivityBox({ promptNode, exampleNode, sectionId }: { promptNode: React.ReactNode; exampleNode: React.ReactNode; sectionId: number }) {
+function ActivityBox({ promptNode, exampleNode, sectionId, showLabel = true }: { promptNode: React.ReactNode; exampleNode: React.ReactNode; sectionId: number; showLabel?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 shadow-sm">
       <div className="space-y-3 px-5 py-5 sm:px-6 sm:py-6">
-        <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-violet-700">
-          💭 Düşün / Hayal Et / Dene
-        </p>
+        {showLabel && (
+          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-violet-700">
+            💭 Düşün / Hayal Et / Dene
+          </p>
+        )}
         <div className="text-sm leading-relaxed text-slate-700 sm:text-base [&_strong]:font-black [&_strong]:text-violet-700">
           {promptNode}
         </div>
@@ -300,11 +302,10 @@ function ActivityBox({ promptNode, exampleNode, sectionId }: { promptNode: React
           {open ? 'Örneği Gizle' : 'Örneğe Bak'}
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        {open && (
-          <div className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-sm leading-relaxed text-slate-700 [&_strong]:font-black [&_strong]:text-violet-700">
-            {exampleNode}
-          </div>
-        )}
+        {/* Kapalıyken de HTML'de (2026-10-24): örnek cevap arama motorunca okunsun, yalnız görünümde gizli. */}
+        <div hidden={!open} className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-sm leading-relaxed text-slate-700 [&_strong]:font-black [&_strong]:text-violet-700">
+          {exampleNode}
+        </div>
         <StudentNoteField sectionId={sectionId} />
       </div>
     </div>
@@ -381,6 +382,7 @@ export default function SectionContent({
   diagramSvg,
   videoUrl,
   videoType,
+  only,
 }: {
   html: string;
   notebookHtml?: string | null;
@@ -394,6 +396,9 @@ export default function SectionContent({
   diagramSvg?: string | null;
   videoUrl?: string | null;
   videoType?: 'ai_generated' | 'youtube' | null;
+  // Hap bilgi kartlı konu sayfası (2026-10-24) bölümün parçalarını ayrı yerlere koyar: görsel kartın yanına,
+  // etkinlik kartın altına (etiketsiz), anlatım sayfa sonundaki "Detaylı konu anlatımı"na. Verilmezse hepsi.
+  only?: 'media' | 'activity' | 'prose';
 }) {
   const [blocks, setBlocks] = useState<React.ReactNode[] | null>(null);
   const [notebookBlocks, setNotebookBlocks] = useState<React.ReactNode[] | null>(null);
@@ -439,9 +444,16 @@ export default function SectionContent({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [diagramZoomed, imageZoomed]);
 
+  const explanation = (
+    <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:text-sm [&_h3]:sm:text-base [&_h3]:font-black [&_h3]:text-indigo-700 [&_h3]:before:content-[''] [&_h3]:before:h-1.5 [&_h3]:before:w-1.5 [&_h3]:before:shrink-0 [&_h3]:before:rounded-full [&_h3]:before:bg-indigo-400 [&_strong]:font-black [&_strong]:text-indigo-700 [&_em]:italic [&_em]:text-sky-700">
+      {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
+    </div>
+  );
+
+  const showMedia = !only || only === 'media';
   return (
     <div className="not-prose space-y-4">
-      {imageUrl && (
+      {showMedia && imageUrl && (
         <>
           <button
             type="button"
@@ -486,7 +498,7 @@ export default function SectionContent({
           )}
         </>
       )}
-      {cleanSvg && (
+      {showMedia && cleanSvg && (
         <>
           <button
             type="button"
@@ -521,14 +533,21 @@ export default function SectionContent({
           )}
         </>
       )}
-      {videoUrl && <VideoBox videoUrl={videoUrl} videoType={videoType ?? null} caption={caption} />}
-      {notebookHtml || activityPromptHtml ? (
+      {showMedia && videoUrl && <VideoBox videoUrl={videoUrl} videoType={videoType ?? null} caption={caption} />}
+      {only === 'media' ? null : only === 'activity' ? (
+        activityPromptHtml && (
+          <ActivityBox
+            showLabel={false}
+            sectionId={Number(sectionId)}
+            promptNode={mathActivityPromptHtml ? <div dangerouslySetInnerHTML={{ __html: mathActivityPromptHtml }} /> : null}
+            exampleNode={mathActivityExampleHtml ? <div dangerouslySetInnerHTML={{ __html: mathActivityExampleHtml }} /> : null}
+          />
+        )
+      ) : only === 'prose' ? (
+        explanation
+      ) : notebookHtml || activityPromptHtml ? (
         <>
-          <ExplanationBox>
-            <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:text-sm [&_h3]:sm:text-base [&_h3]:font-black [&_h3]:text-indigo-700 [&_h3]:before:content-[''] [&_h3]:before:h-1.5 [&_h3]:before:w-1.5 [&_h3]:before:shrink-0 [&_h3]:before:rounded-full [&_h3]:before:bg-indigo-400 [&_strong]:font-black [&_strong]:text-indigo-700 [&_em]:italic [&_em]:text-sky-700">
-              {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
-            </div>
-          </ExplanationBox>
+          <ExplanationBox>{explanation}</ExplanationBox>
           {notebookHtml ? (
             <NotebookBox label="Defterine Not Al" heading={heading}>{notebookBlocks}</NotebookBox>
           ) : (

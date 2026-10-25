@@ -14,12 +14,11 @@
 // değişmesini istemiyor, özellikle ?soru=ID gibi bir konuma deep-link'lenmişken o URL'de
 // kalınmasını istiyor. Bu yüzden artık HİÇ navigasyon yok: tıklanınca /api/soru-bankasi/
 // topic-test veya unit-test'ten QuizWithAsk'ın ihtiyaç duyduğu HER ŞEY tek istekte çekilir,
-// sonuç saf React state'te tutulup QuizWithAsk (presentation="player", tam ekran) aynı sayfada (gerçek
-// kavrama-testi/unite-testi sayfasıyla AYNI motor, AYNI veri fonksiyonları) render edilir.
-// href yine de gerçek test sayfasına işaret ediyor (JS kapalıyken / orta-tık yeni sekmede
-// açmak için progressive enhancement) — düz sol tık preventDefault ile yakalanıp yukarıdaki
-// akışa yönlendiriliyor.
-import { useCallback, useEffect, useState } from 'react';
+// sonuç saf React state'te tutulup QuizWithAsk (presentation="player", tam ekran) aynı sayfada
+// render edilir. Ayrı kavrama-testi/unite-testi sayfaları 2026-10-24'te kaldırıldı; testin tek
+// yeri bu kart. href (orta-tık yeni sekme için) kartın kendi soru bankası sayfasını gösterir —
+// düz sol tık preventDefault ile yakalanıp yukarıdaki akışa yönlendiriliyor.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { QUESTION_BANK_STATS_REFRESH_EVENT } from '@/app/src/hooks/useQuestionBankViewer';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -43,7 +42,6 @@ interface TestData {
   resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
   reloadEndpoint: string;
   questionBankPathBase?: string;
-  secondsPerQuestion?: number | null;
   intro?: { subLabel: string; description: string | null; topicCount: number | null; questionCount: number | null };
 }
 
@@ -127,8 +125,8 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const classes = COLOR_CLASSES[color];
 
-  const testHref =
-    scope === 'topic' ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}/kavrama-testi` : `/${gradeSlug}/${lessonSlug}/${unitSlug}/unite-testi`;
+  // Ayrı test sayfaları kaldırıldı (2026-10-24) — yedek href artık kartın bulunduğu soru bankası sayfası.
+  const testHref = `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}${scope === 'topic' ? `/${topicSlug}` : ''}`;
 
   const fetchStatus = useCallback(
     (onDone: (data: SoruBankasiTestStatus | null) => void) => {
@@ -205,6 +203,22 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
   // "Aynı ünitede yarım kalmış testin var" uyarısındaki "Yeni Test Başlat" — eski (çakışan)
   // oturum kapatılıp bu test normal şekilde başlatılır (bkz. quizPageData.ts'teki forceNew).
   const startNewIgnoringConflict = useCallback(() => void requestTest(true), [requestTest]);
+
+  // İlerlemem'deki "devam et" linki ?devam=1 ile gelir: yarım test varsa oynatıcı hemen açılır.
+  // window.location ile okunuyor (useSearchParams ISR sayfasını dinamik yapardı); parametre bir
+  // kez kullanılıp adresten silinir ki yenilemede/geri gelişte tekrar açılmasın.
+  const resumeRequested = useRef(false);
+  useEffect(() => {
+    if (resumeRequested.current || !status) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('devam') !== '1') return;
+    resumeRequested.current = true;
+    params.delete('devam');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- adres parametresi yalnızca istemcide, tek seferlik okunur
+    if (status.loggedIn && status.resumable) void requestTest(false);
+  }, [status, requestTest]);
 
   const closeTest = useCallback(() => {
     setTestData(null);
@@ -326,7 +340,6 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
           remainingQuestionIds={testData.remainingQuestionIds}
           allCaughtUp={testData.allCaughtUp}
           reloadEndpoint={testData.reloadEndpoint}
-          secondsPerQuestion={testData.secondsPerQuestion ?? undefined}
           resume={testData.resume}
           questionBankPathBase={testData.questionBankPathBase}
           // intro BİLEREK verilmiyor: kullanıcı zaten bu karttaki "Teste Başla/Devam Et"

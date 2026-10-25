@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentStreak } from './dashboardStreak';
 import { fetchAllRows } from './fetchAllRows';
-import { getQuestionCountsByTopicId } from './questionCounts';
 
 export interface ProfileStats {
   totalTests: number;
@@ -9,17 +8,17 @@ export interface ProfileStats {
   correctAnswers: number;
   averageScore: number;
   accuracy: number;
-  coverage: number;
   mastery: number;
   streakDays: number;
 }
 
-type SessionRow = { id: number; unit_id: number | null; lesson_id: number | null; grade_id: number | null; completed_at: string | null };
+type SessionRow = { id: number; completed_at: string | null };
 type AnswerRow = { question_id: number; is_correct: boolean; test_session_id: number };
 
 // Profil sayfasının "Genel Performans" bloğu daha önce sabit bir UserStats nesnesi (15 test,
 // 230 soru, ...) gösteriyordu — her kullanıcıya aynı sahte sayılar. Burada tamamen
-// test_sessions/test_session_answers'tan (ve mastery için user_question_stats'tan) hesaplanır;
+// test_sessions/test_session_answers'tan (ve mastery için user_question_stats'tan) hesaplanır.
+// Kapsam (2026-10-20'den beri konu bazlı) burada değil, profil sayfasında konu verisinden (useTopicMastery);
 // kullanıcı henüz hiç test bitirmediyse gerçek değer olan 0'lar döner, uydurma bir sayı değil.
 export async function getProfileStats(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +28,7 @@ export async function getProfileStats(
   // Aktif bir öğrencinin cevap (ve zamanla oturum) sayısı 1000'i geçer — sayfa sayfa okunur.
   const [sessions, answers, streakDays] = await Promise.all([
     fetchAllRows<SessionRow>((from, to) =>
-      supabase.from('test_sessions').select('id, unit_id, lesson_id, grade_id, completed_at').eq('user_id', userId).order('id').range(from, to)
+      supabase.from('test_sessions').select('id, completed_at').eq('user_id', userId).order('id').range(from, to)
     ),
     fetchAllRows<AnswerRow>((from, to) =>
       supabase.from('test_session_answers').select('question_id, is_correct, test_session_id').eq('user_id', userId).order('id').range(from, to)
@@ -55,73 +54,6 @@ export async function getProfileStats(
     .map((agg) => (agg.correct / agg.total) * 100);
   const averageScore = perTestScores.length > 0 ? Math.round(perTestScores.reduce((a, b) => a + b, 0) / perTestScores.length) : 0;
 
-  // Kapsam: denenen derslerdeki (lesson_id+grade_id) toplam aktif ünite sayısına kıyasla
-  // "bitirilmiş" sayılan ünite sayısı. Bir ünite, o ünitedeki sorularının en az %80'i en az
-  // bir kez çözülmüşse bitirilmiş sayılır (kullanıcı kararı, 2026-09-02) — tek soru çözmek
-  // üniteyi kapsanmış saymaz.
-  const UNIT_FINISH_RATIO = 0.8;
-  const touchedUnitIds = new Set<number>();
-  const contextPairs = new Map<string, { lessonId: number; gradeId: number }>();
-  const sessionUnitById = new Map<number, number>();
-  for (const s of sessions) {
-    if (s.unit_id != null) {
-      touchedUnitIds.add(s.unit_id);
-      sessionUnitById.set(s.id, s.unit_id);
-    }
-    if (s.lesson_id != null && s.grade_id != null) {
-      contextPairs.set(`${s.lesson_id}:${s.grade_id}`, { lessonId: s.lesson_id, gradeId: s.grade_id });
-    }
-  }
-  let coverage = 0;
-  if (contextPairs.size > 0) {
-    const orFilter = [...contextPairs.values()].map((p) => `and(lesson_id.eq.${p.lessonId},grade_id.eq.${p.gradeId})`).join(',');
-    const { data: unitRows } = await supabase.from('units').select('id').eq('is_active', true).or(orFilter);
-    const totalUnits = (unitRows as { id: number }[] | null)?.length ?? 0;
-
-    let finishedUnitCount = 0;
-    if (touchedUnitIds.size > 0) {
-      const answeredQuestionsByUnit = new Map<number, Set<number>>();
-      for (const a of answers) {
-        const unitId = sessionUnitById.get(a.test_session_id);
-        if (unitId == null) continue;
-        const set = answeredQuestionsByUnit.get(unitId) || new Set<number>();
-        set.add(a.question_id);
-        answeredQuestionsByUnit.set(unitId, set);
-      }
-
-      const { data: topicRows } = await supabase
-        .from('topics')
-        .select('id, unit_id')
-        .eq('is_active', true)
-        .in('unit_id', [...touchedUnitIds]);
-      const unitIdByTopicId = new Map<number, number>();
-      for (const t of (topicRows as { id: number; unit_id: number }[] | null) || []) {
-        unitIdByTopicId.set(t.id, t.unit_id);
-      }
-
-      const totalQuestionsByUnit = new Map<number, number>();
-      if (unitIdByTopicId.size > 0) {
-        // question_type_id=4 ("classical") HARİÇ — otomatik değerlendirilemeyen bu sorular
-        // testlere hiç girmiyor, o yüzden "üniteyi bitirdin mi" hesabına da dahil edilmemeli.
-        const countByTopic = await getQuestionCountsByTopicId(supabase, [...unitIdByTopicId.keys()], { activeOnly: true, excludeClassical: true });
-        for (const [topicId, count] of countByTopic) {
-          const unitId = unitIdByTopicId.get(topicId);
-          if (unitId == null) continue;
-          totalQuestionsByUnit.set(unitId, (totalQuestionsByUnit.get(unitId) || 0) + count);
-        }
-      }
-
-      for (const unitId of touchedUnitIds) {
-        const totalUnitQuestions = totalQuestionsByUnit.get(unitId) || 0;
-        if (totalUnitQuestions === 0) continue;
-        const answeredCount = answeredQuestionsByUnit.get(unitId)?.size || 0;
-        if (answeredCount / totalUnitQuestions >= UNIT_FINISH_RATIO) finishedUnitCount += 1;
-      }
-    }
-
-    coverage = totalUnits > 0 ? Math.min(100, Math.round((finishedUnitCount / totalUnits) * 100)) : 0;
-  }
-
   // Ustalık: cevaplanan farklı sorulardan user_question_stats.is_mastered=true olanların oranı.
   const distinctQuestionIds = [...new Set(answers.map((a) => a.question_id))];
   let mastery = 0;
@@ -141,7 +73,6 @@ export async function getProfileStats(
     correctAnswers,
     averageScore,
     accuracy,
-    coverage,
     mastery,
     streakDays,
   };

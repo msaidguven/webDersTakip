@@ -9,14 +9,18 @@ type ProfileRoleRow = { role: string | null };
 // zaten sunucu tarafında requireAdmin() ile yapılıyor (bkz. /api/admin/manage/questions),
 // bu hook sadece butonları göster/gizle amaçlı, DersClient.tsx'teki aynı deseni tekrarlar.
 export function useIsAdmin(): boolean {
+  return useProfileRole() === 'admin';
+}
+
+// profiles.role ('admin' | 'teacher' | 'student' …) — yalnız göster/gizle için (header'daki
+// "Öğretmen Paneli" bağlantısı gibi). Oturum yoksa null.
+export function useProfileRole(): string | null {
   const { user, supabase } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Rol, okunduğu kullanıcıyla birlikte tutulur: çıkış/hesap değişince eski rol hemen geçersiz sayılır.
+  const [state, setState] = useState<{ userId: string; role: string | null } | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
+    if (!user) return;
     let cancelled = false;
     supabase
       .from('profiles')
@@ -24,7 +28,7 @@ export function useIsAdmin(): boolean {
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }: { data: ProfileRoleRow | null }) => {
-        if (!cancelled) setIsAdmin(data?.role === 'admin');
+        if (!cancelled) setState({ userId: user.id, role: data?.role ?? null });
       });
     return () => {
       cancelled = true;
@@ -32,5 +36,5 @@ export function useIsAdmin(): boolean {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, supabase]);
 
-  return isAdmin;
+  return user && state?.userId === user.id ? state.role : null;
 }

@@ -6,6 +6,7 @@
 import { slugifyHeading } from '@/app/src/lib/site';
 import type { CurriculumBreak } from '@/app/src/lib/routeParsing';
 import type { WeekRange } from '@/app/src/lib/kazanimPlan';
+import type { RecapCardHtml } from '@/app/src/lib/recapCards';
 
 export type Outcome = {
   id?: string | number;
@@ -36,6 +37,8 @@ export type TopicSection = {
   videoUrl?: string | null;
   videoPrompt?: string | null;
   videoType?: 'ai_generated' | 'youtube' | null;
+  // Hap bilgi kartı — bkz. app/ders/v1/RecapCardView.tsx.
+  recapCard?: RecapCardHtml | null;
 };
 export type TopicHighlight = { icon: string | null; title: string; description: string };
 export type Content = {

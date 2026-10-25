@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
-import { buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
+import { buildAnswerSvgPrompt, buildSvgGenerationPrompt } from '@/app/src/lib/svgPromptRules';
 import MathText from '@/app/src/components/MathText';
 
 type Choice = { id?: number; choice_text?: string; option_text?: string; is_correct: boolean };
@@ -104,11 +104,24 @@ export function QuizQuestionEditModal({
   const [blankOptions, setBlankOptions] = useState<Choice[]>([]);
   const [matchingPairs, setMatchingPairs] = useState<MatchingPair[]>([]);
   const [classicalAnswer, setClassicalAnswer] = useState('');
+  // Klasik soru: anahtar kavramlar (virgülle) + puanlama ölçütü. 2026-10-21'e kadar modal key_terms'i []
+  // gönderip her kaydedişte siliyordu; artık yüklenen değer geri gönderilir.
+  const [keyTerms, setKeyTerms] = useState('');
+  const [rubric, setRubric] = useState('');
+  // Cevap görseli (yazılı klasik soruları; plan: docs/yazili-sorulari-plani.md "Cevap görseli").
+  const [answerSvgPrompt, setAnswerSvgPrompt] = useState('');
+  const [answerSvgContent, setAnswerSvgContent] = useState('');
+  const [answerPromptCopied, setAnswerPromptCopied] = useState(false);
+  // Okuma metni (paragraf soruları; question_passages). Yalnız çoktan seçmeli/boşluk sorularında.
+  const [passage, setPassage] = useState('');
 
   useEffect(() => {
+    // Geç gelen eski yanıt (dev'de çift effect, hızlı soru değişimi) admin'in yazdığını ezmesin.
+    let cancelled = false;
     (async () => {
       const res = await fetch(`/api/admin/manage/questions?id=${questionId}`);
       const data = await res.json().catch(() => null);
+      if (cancelled) return;
       if (!res.ok || !data) {
         setError(data?.error || 'Soru yüklenemedi');
         setLoading(false);
@@ -127,8 +140,16 @@ export function QuizQuestionEditModal({
       setBlankOptions(data.blankOptions || []);
       setMatchingPairs(data.matchingPairs || []);
       setClassicalAnswer(data.classical?.model_answer || '');
+      setKeyTerms((data.classical?.key_terms || []).join(', '));
+      setRubric(data.classical?.rubric || '');
+      setAnswerSvgPrompt(data.classical?.answer_svg_prompt || '');
+      setAnswerSvgContent(data.classical?.answer_svg_content || '');
+      setPassage(data.question.passage || '');
       setLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [questionId]);
 
   async function handleSave() {
@@ -149,7 +170,15 @@ export function QuizQuestionEditModal({
     if (choices.length) body.choices = choices.map((c) => ({ choice_text: c.choice_text, is_correct: c.is_correct }));
     if (blankOptions.length) body.blankOptions = blankOptions.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct }));
     if (matchingPairs.length) body.matchingPairs = matchingPairs.map((p) => ({ left_text: p.left_text, right_text: p.right_text }));
-    if (classicalAnswer) body.classical = { model_answer: classicalAnswer, key_terms: [] };
+    if (classicalAnswer) {
+      body.classical = {
+        model_answer: classicalAnswer,
+        key_terms: keyTerms.split(',').map((t) => t.trim()).filter(Boolean),
+        rubric,
+      };
+    }
+    if (typeCode === 'multiple_choice' || typeCode === 'fill_blank') body.passage = passage;
+    if (typeCode === 'classical') body.answerSvg = { prompt: answerSvgPrompt || null, content: answerSvgContent || null };
 
     const res = await fetch('/api/admin/manage/questions', {
       method: 'PATCH',
@@ -180,6 +209,18 @@ export function QuizQuestionEditModal({
         ) : (
           <div className="space-y-4">
             {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-400">{error}</p>}
+            {(typeCode === 'multiple_choice' || typeCode === 'fill_blank') && (
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Okuma metni (paragraf sorusu; boş bırakılırsa metin kaldırılır)</label>
+                <textarea
+                  value={passage}
+                  onChange={(e) => setPassage(e.target.value)}
+                  rows={passage ? 5 : 2}
+                  placeholder="Paragraf sorusuysa okuma metni buraya; soru kökü aşağıya"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
+                />
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs text-muted-foreground sm:text-sm">Soru Metni</label>
               <textarea
@@ -238,11 +279,11 @@ export function QuizQuestionEditModal({
                   spellCheck={false}
                   className="w-full rounded-xl border border-border bg-surface px-4 py-2 font-mono text-xs text-foreground outline-none focus:border-indigo-500"
                 />
-                <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-border bg-white p-3">
+                <div className="light flex min-h-[8rem] items-center justify-center rounded-xl border border-border bg-white p-3">
                   {(() => {
                     const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
                     if (!clean) return <span className="text-xs text-gray-400">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
-                    return <div className="max-h-56 max-w-full [&_svg]:max-h-56 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
+                    return <div className="w-full [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-56 [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
                   })()}
                 </div>
               </div>
@@ -336,6 +377,70 @@ export function QuizQuestionEditModal({
                   className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
                 />
                 <LatexPreview text={classicalAnswer} />
+                <label className="mb-1 mt-3 block text-xs text-muted-foreground sm:text-sm">Puanlama Ölçütü</label>
+                <textarea
+                  value={rubric}
+                  onChange={(e) => setRubric(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
+                />
+                <label className="mb-1 mt-3 block text-xs text-muted-foreground sm:text-sm">Anahtar Kavramlar (virgülle ayır)</label>
+                <input
+                  value={keyTerms}
+                  onChange={(e) => setKeyTerms(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-indigo-500"
+                />
+              </div>
+            )}
+            {typeCode === 'classical' && (
+              <div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-xs text-muted-foreground sm:text-sm">Cevap görseli prompt&apos;u (yalnız çizim isteyen sorularda)</label>
+                  {answerSvgPrompt.trim() &&
+                    (svgPrompt.trim() && !svgContent.trim() ? (
+                      <span className="text-xs font-bold text-amber-500">Önce soru görseli</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            buildAnswerSvgPrompt({ questionText, answerSvgPrompt, modelAnswer: classicalAnswer || null, questionSvg: svgContent.trim() || null, topicTitle })
+                          );
+                          setAnswerPromptCopied(true);
+                          window.setTimeout(() => setAnswerPromptCopied(false), 2000);
+                        }}
+                        className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
+                      >
+                        {answerPromptCopied ? 'Kopyalandı ✓' : 'Kopyala'}
+                      </button>
+                    ))}
+                </div>
+                <textarea
+                  value={answerSvgPrompt}
+                  onChange={(e) => setAnswerSvgPrompt(e.target.value)}
+                  rows={3}
+                  placeholder="Ör. Soru görselindeki çizimi aynen koru, yalnız -3 ve 2 noktalarını kırmızı daireyle işaretle"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-xs text-foreground outline-none focus:border-indigo-500"
+                />
+                <label className="mb-1 mt-3 block text-xs text-muted-foreground sm:text-sm">Cevap görseli (SVG)</label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <textarea
+                    value={answerSvgContent}
+                    onChange={(e) => setAnswerSvgContent(e.target.value)}
+                    rows={6}
+                    placeholder="<svg ...>...</svg>"
+                    spellCheck={false}
+                    aria-label="Cevap görseli SVG kodu"
+                    className="w-full rounded-xl border border-border bg-surface px-4 py-2 font-mono text-xs text-foreground outline-none focus:border-indigo-500"
+                  />
+                  <div className="light flex min-h-[8rem] items-center justify-center rounded-xl border border-border bg-white p-3">
+                    {(() => {
+                      const clean = answerSvgContent.trim() ? sanitizeMathSvg(answerSvgContent) : null;
+                      if (!clean) return <span className="text-xs text-gray-400">{answerSvgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
+                      return <div className="w-full [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-56 [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
+                    })()}
+                  </div>
+                </div>
               </div>
             )}
           </div>

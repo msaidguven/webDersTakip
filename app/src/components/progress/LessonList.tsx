@@ -11,13 +11,6 @@ import { MASTERY_RULES } from '@/app/src/lib/topicMastery';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import r from '../robotic/robotic.module.css';
 
-export const TONE_BAR = {
-  good: 'bg-gradient-to-r from-emerald-400 to-teal-500',
-  mid: 'bg-gradient-to-r from-amber-400 to-orange-500',
-  bad: 'bg-gradient-to-r from-rose-400 to-pink-500',
-  none: 'bg-transparent',
-} as const;
-
 export const TONE_TEXT = {
   good: 'text-emerald-600 dark:text-emerald-400',
   mid: 'text-amber-600 dark:text-amber-400',
@@ -79,13 +72,19 @@ export function LessonList() {
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-xs text-muted-foreground">
-                      {t.solved}/{t.total} soru çözüldü
+                      {t.solved}/{t.total} soru · {t.correct} doğru · {t.solved - t.correct} yanlış
                       {t.accuracy == null && t.solved > 0 && ` · başarı oranı için en az ${MASTERY_RULES.minSolvedToJudge} soru`}
                     </span>
                     <span className={`text-xl ${r.statValue} ${TONE_TEXT[tone]}`}>{t.accuracy == null ? '—' : `%${t.accuracy}`}</span>
                   </div>
-                  <span className={`h-2.5 ${r.track}`} aria-hidden="true">
-                    <span className={`block h-full rounded-full ${TONE_BAR[tone]}`} style={{ width: `${t.accuracy ?? 0}%` }} />
+                  {/* Anasayfadaki ders çubuğuyla aynı: doğru / yanlış / çözülmedi (kalan iz). */}
+                  <span
+                    className={`flex h-2.5 ${r.track}`}
+                    role="img"
+                    aria-label={`${t.total} sorunun ${t.correct} doğru, ${t.solved - t.correct} yanlış, ${t.total - t.solved} çözülmedi`}
+                  >
+                    <span className="h-full bg-emerald-500" style={{ width: `${(t.correct / t.total) * 100}%` }} />
+                    <span className="h-full bg-rose-500" style={{ width: `${((t.solved - t.correct) / t.total) * 100}%` }} />
                   </span>
                 </Link>
               </li>

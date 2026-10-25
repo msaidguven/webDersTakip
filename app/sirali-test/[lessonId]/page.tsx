@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { getQuestionsByIds, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { getQuestionsByIds } from '@/app/src/lib/quizQuestions';
 import { findResumableSession } from '@/app/src/lib/quizResume';
 import { getNextQuestionIds, sequentialTestHref } from '@/app/src/lib/sequentialTest';
 import QuizClient from '@/app/src/components/QuizClient';
@@ -64,7 +64,6 @@ export default async function SequentialTestPage({ params }: { params: Promise<{
       exitLabel="Anasayfaya Dön"
       initialQuestions={initialQuestions}
       reloadEndpoint={`/api/next-questions?lessonId=${lessonId}`}
-      secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
       intro={{
         subLabel: 'Sıradaki 10 soru',
         description: `${lessonName} dersinin başından, konu sırasıyla henüz çözmediğin sorular. Geride kalan konuları böyle tamamlarsın.`,

@@ -3,15 +3,17 @@
 // Site geneli gezinme (2026-09-28): eskiden header'da hiç menü yoktu, öğrenci anasayfa dışında
 // bir sayfadayken derslere/soru bankasına tek tıkla dönemiyordu. Masaüstünde header'da yazı
 // linkleri, mobilde altta sabit sekme çubuğu. Her hedefin HER YERDE tek adı var
-// (bilgi mimarisi kuralı): Anasayfa, Dersler, Soru Bankası, İlerlemem.
+// (bilgi mimarisi kuralı): Anasayfa, Dersler, Soru Bankası, Yazılı Soruları, İlerlemem.
 import Link from 'next/link';
-import { BookOpen, ChartNoAxesColumn, Home, PencilLine, Table2, type LucideIcon } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumn, ClipboardList, Home, PencilLine, Table2, type LucideIcon } from 'lucide-react';
 import { roboticFontVars } from './robotic/fonts';
 import r from './robotic/robotic.module.css';
 
 export interface NavItem {
-  id: 'home' | 'lessons' | 'questions' | 'progress' | 'chart';
+  id: 'home' | 'lessons' | 'questions' | 'exams' | 'progress' | 'chart';
   label: string;
+  /** Alt sekme çubuğunda yer dar: kısa etiket (erişilebilir ad yine tam etiket). */
+  shortLabel?: string;
   href: string;
   icon: LucideIcon;
   active: boolean;
@@ -47,6 +49,8 @@ export function buildNavItems({
       icon: PencilLine,
       active: first === 'soru-bankasi',
     },
+    // Yazılı soruları (2026-10-21): sınıf bilinse de dizin — yazılılar sınıf/ders kırılımıyla orada.
+    { id: 'exams', label: 'Yazılı Soruları', shortLabel: 'Yazılı', href: '/yazili-sorulari', icon: ClipboardList, active: first === 'yazili-sorulari' },
   ];
   // Ders takip çizelgesi (herkese açık): yalnız masaüstü header'ında; alt sekme çubuğunda yer yok.
   items.push({
@@ -66,8 +70,9 @@ export function DesktopNav({ items }: { items: NavItem[] }) {
   return (
     <ul className="hidden items-center gap-1 lg:flex">
       {items.map((item) => (
-        // Uzun etiket (çizelge) orta genişlikte header'ı sıkıştırmasın diye yalnız geniş ekranda.
-        <li key={item.id} className={item.id === 'chart' ? 'hidden xl:block' : undefined}>
+        // Uzun etiket (çizelge) header'ı sıkıştırmasın diye yalnız çok geniş ekranda (Yazılı Soruları
+        // eklenince 1280px'te girişli header taşıyordu, 2026-10-21).
+        <li key={item.id} className={item.id === 'chart' ? 'hidden 2xl:block' : undefined}>
           <Link
             href={item.href}
             aria-current={item.active ? 'page' : undefined}
@@ -88,17 +93,18 @@ export function MobileTabBar({ items }: { items: NavItem[] }) {
       className={`fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)] lg:hidden ${roboticFontVars} ${r.tabBar}`}
     >
       <ul className="mx-auto flex max-w-lg">
-        {items.filter((item) => item.id !== 'chart').map(({ id, label, href, icon: Icon, active }) => (
+        {items.filter((item) => item.id !== 'chart').map(({ id, label, shortLabel, href, icon: Icon, active }) => (
           <li key={id} className="flex-1">
             <Link
               href={href}
               aria-current={active ? 'page' : undefined}
+              aria-label={shortLabel ? label : undefined}
               className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors ${r.tabItem} ${active ? r.tabItemActive : ''}`}
             >
               <span className={`flex h-7 w-12 items-center justify-center ${r.tabPill}`}>
                 <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={active ? 2.4 : 2} />
               </span>
-              {label}
+              {shortLabel ?? label}
             </Link>
           </li>
         ))}

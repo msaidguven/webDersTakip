@@ -54,6 +54,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url), 302);
   }
 
-  const destination = new URL(`/${grade.slug}/${lesson.slug}/${unit.slug}/unite-testi`, request.url);
+  const destination = new URL(`/soru-bankasi/${grade.slug}/${lesson.slug}/${unit.slug}`, request.url);
   return NextResponse.redirect(destination, 301);
 }

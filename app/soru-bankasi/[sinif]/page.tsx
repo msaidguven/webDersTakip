@@ -16,9 +16,9 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
-import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
-import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
-import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
+import { NeonCount } from '@/app/src/components/robotic/NeonCount';
+import { NeonSubjectIcon } from '@/app/src/components/robotic/NeonSubjectIcon';
 import r from '../../src/components/robotic/robotic.module.css';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active/soru>0 filtreli), bu yüzden
@@ -55,7 +55,8 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
     : undefined;
 
   // 2026-10-03 yenilemesi (konu/ünite/ders sayfalarıyla aynı dil): dersler anasayfadaki ders
-  // kartlarıyla aynı görünümde; sağ sütunda TÜM sınıflar, bu sınıf vurgulu.
+  // kartlarıyla aynı görünümde. 2026-10-23: sınıflar sağ sütun yerine başlıkta kutu (/5-sinif ile aynı)
+  // — mobilde sütun listenin en altına düşüp görünmüyordu; dersler artık tam genişlik.
   return (
     <div className={pageShellCls}>
       <div className={pageInnerCls}>
@@ -73,6 +74,13 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
           title={`${data.gradeName} Soru Bankası`}
           pills={[`${data.lessons.length} ders`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
           intro={intro}
+          aside={
+            <GradeSwitcher
+              items={gradesIndex.grades
+                .filter((g) => g.questionCount > 0 || g.slug === data.gradeSlug)
+                .map((g) => ({ level: g.level, href: buildSoruBankasiGradePath(g.slug), current: g.slug === data.gradeSlug }))}
+            />
+          }
         />
 
         {!data.hasQuestions && (
@@ -81,52 +89,37 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
           </p>
         )}
 
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
-          <section aria-labelledby="dersler" className="min-w-0">
-            <h2 id="dersler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Dersler</h2>
-            <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir ders seç; üniteleri ve konuları gör.</p>
-            {data.lessons.length ? (
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {data.lessons.map((lesson) => (
+        <section aria-labelledby="dersler" className="mt-10 min-w-0">
+          <h2 id="dersler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Dersler</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir ders seç; üniteleri ve konuları gör.</p>
+          {data.lessons.length ? (
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.lessons.map((lesson) => {
+                // Robotik kart (2026-10-25, /5-sinif ders kartlarıyla aynı dil): neon köşeli panel, ikon kutusu
+                // üzerine gelince dolar; ders rengi yerine tema neonu.
+                return (
                   <li key={lesson.slug}>
                     <Link
                       href={buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug)}
-                      className={`group flex h-full items-center gap-4 rounded-2xl border p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] ${subjectStyle(lesson.name).tint}`}
+                      className={`group flex h-full items-center gap-4 rounded-[22px] p-4 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 ${r.panel} ${r.itemHover}`}
                     >
-                      <SubjectIcon lessonName={lesson.name} variant="solid" size="lg" />
+                      <NeonSubjectIcon lessonName={lesson.name} className="h-12 w-12" iconClassName="h-6 w-6" />
                       <span className="min-w-0 flex-1">
-                        <span className={`block font-semibold leading-snug text-default ${r.groupHoverAccent}`}>{lesson.name}</span>
-                        <span className="text-sm text-muted-foreground">{lesson.questionCount} soru</span>
+                        <span className={`block font-bold leading-snug ${r.display} ${r.ink} ${r.groupHoverAccent}`}>{lesson.name}</span>
+                        <span className="mt-1.5 block">
+                          <NeonCount value={lesson.questionCount} unit="soru" />
+                        </span>
                       </span>
-                      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <ChevronRight className={`h-5 w-5 shrink-0 ${r.muted} ${r.groupHoverAccent}`} aria-hidden="true" />
                     </Link>
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">Bu sınıfta henüz ders eklenmemiş.</p>
-            )}
-          </section>
-
-          <aside className="flex flex-col gap-4" aria-label="Soru bankası gezinmesi">
-            <SoruBankasiNavList
-              id="siniflar"
-              title="Sınıflar"
-              items={gradesIndex.grades
-                .filter((g) => g.questionCount > 0 || g.slug === data.gradeSlug)
-                .map((g) => ({
-                  key: g.slug,
-                  href: buildSoruBankasiGradePath(g.slug),
-                  label: g.name,
-                  meta: `${g.questionCount} soru`,
-                  badge: String(g.level),
-                  lessonName: '',
-                  current: g.slug === data.gradeSlug,
-                  isPage: true,
-                }))}
-            />
-          </aside>
-        </div>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">Bu sınıfta henüz ders eklenmemiş.</p>
+          )}
+        </section>
       </div>
     </div>
   );

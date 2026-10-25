@@ -96,6 +96,8 @@
 .segments { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; }
 .seg { height: 10px; border-radius: 2px; background: var(--track); }
 .segOn { background: linear-gradient(180deg, var(--neon), var(--neon-2)); box-shadow: 0 0 8px var(--glow); }
+.segGood { background: #10B981; box-shadow: 0 0 8px color-mix(in srgb, #10B981 45%, transparent); }
+.segBad { background: #E11D48; box-shadow: 0 0 8px color-mix(in srgb, #E11D48 45%, transparent); }
 
 /* Bölüm başlığı */
 .sectionHead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 12px; }

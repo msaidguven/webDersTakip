@@ -2917,6 +2917,7 @@ export function QuestionsModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [skippedCount, setSkippedCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -2983,6 +2984,7 @@ export function QuestionsModal({
         return;
       }
       setSavedCount(data?.savedCount ?? obj.questions.length);
+      setSkippedCount(data?.skippedDuplicateCount ?? 0);
       setPasted('');
     } finally {
       setSaving(false);
@@ -3043,7 +3045,7 @@ export function QuestionsModal({
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
-        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
+        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.{skippedCount > 0 && ` ${skippedCount} soru konuda zaten olduğu için atlandı.`}</p>}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
@@ -4854,6 +4856,7 @@ export function TopicQuestionsModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [skippedCount, setSkippedCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -4927,6 +4930,7 @@ export function TopicQuestionsModal({
         return;
       }
       setSavedCount(data?.savedCount ?? obj.questions.length);
+      setSkippedCount(data?.skippedDuplicateCount ?? 0);
       setPasted('');
     } finally {
       setSaving(false);
@@ -4991,7 +4995,7 @@ export function TopicQuestionsModal({
         </div>
 
         {error && <p className="text-xs font-bold text-[#ff6584]">{error}</p>}
-        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.</p>}
+        {savedCount != null && <p className="text-xs font-bold text-emerald-400">{savedCount} soru kaydedildi.{skippedCount > 0 && ` ${skippedCount} soru konuda zaten olduğu için atlandı.`}</p>}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">

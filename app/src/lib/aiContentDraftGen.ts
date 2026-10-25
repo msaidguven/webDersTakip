@@ -9,6 +9,8 @@ import { contentModelLabel, type ContentWorkerProfile } from '@/app/src/lib/cont
 import { publishTopicContent } from '@/app/src/lib/publishTopicContent';
 import { normalizeHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 import { extractTopicBookSection, fetchTopicContentGoals, fetchUnitBookRawText, formatContentGoals } from '@/app/src/lib/topicBookSection';
+import { buildRecapCardRules } from '@/app/src/lib/recapCardRules';
+import { normalizeRecapCard, type RecapCard } from '@/app/src/lib/recapCards';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -18,6 +20,8 @@ type EligibleTopicRow = { topic_id: number; unit_id: number; lesson_id: number; 
 export interface ContentDraftGenerationResult {
   generated: boolean;
   reason?: string;
+  // Üretilecek konu kalmadı — worker bu saati hap bilgi kartı geri doldurmaya verir (bkz. generate-topic-content route).
+  idle?: boolean;
   draftId?: number;
   topicId?: number;
   // Yalnız dryRun'da dolu: Gemini'ye gidecek tam prompt.
@@ -36,6 +40,8 @@ type DraftSection = {
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
   review_summary: string | null;
+  // Hap bilgi kartı aynı çağrıda (2026-10-24); model atlarsa null — worker boştayken geri doldurma tamamlar.
+  recap_card: RecapCard | null;
 };
 
 type DraftPayload = {
@@ -71,6 +77,7 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
       activity_prompt_markdown: typeof row.activity_prompt_markdown === 'string' ? row.activity_prompt_markdown.trim() || null : null,
       activity_example_markdown: typeof row.activity_example_markdown === 'string' ? row.activity_example_markdown.trim() || null : null,
       review_summary: typeof row.review_summary === 'string' ? row.review_summary.trim() || null : null,
+      recap_card: normalizeRecapCard(row.recap_card),
     });
   }
 
@@ -98,7 +105,7 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
 // Soru üretme worker'ının (aiQuestionDraftGen.ts) kullandığı AYNI kaynak: kitap yüklenmiş
 // bir ünitenin TÜM chunk'ları — konu-bazlı değil ünite-bazlı, çünkü rag_document_chunks
 // konuya değil üniteye bağlı. Prompt, modele "sadece bu konuyla ilgili kısmı bul" diyor.
-async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
+export async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
   const { data: docs } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
   const documentIds = ((docs as { id: number }[] | null) || []).map((d) => d.id);
   if (!documentIds.length) return null;
@@ -123,7 +130,7 @@ export async function generateNextAiContentDraft(
   if (eligibleError) return { generated: false, reason: `Uygun konu sorgusu başarısız: ${eligibleError.message}` };
 
   const eligible = (eligibleRows as EligibleTopicRow[] | null)?.[0];
-  if (!eligible) return { generated: false, reason: 'Uygun konu yok (RAG sentezi veya kitabı hazır, alt başlığı hiç yok, kazanım kodları tam olan bir konu bulunamadı)' };
+  if (!eligible) return { generated: false, idle: true, reason: 'Uygun konu yok (RAG sentezi veya kitabı hazır, alt başlığı hiç yok, kazanım kodları tam olan bir konu bulunamadı)' };
 
   return generateContentDraftForTopic(supabase, eligible, profile);
 }
@@ -261,14 +268,16 @@ async function generateContentDraftForTopic(
     : sourceText;
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
-  const [explanationNotebookRules, topicSummaryDiscussionRules, topicHighlightsRules, template] = await Promise.all([
+  const [explanationNotebookRules, topicSummaryDiscussionRules, topicHighlightsRules, recapCardRules, template] = await Promise.all([
     readFile(path.join(promptDir, '_explanation-notebook-rules.md'), 'utf8').catch(() => ''),
     readFile(path.join(promptDir, '_topic-summary-discussion-rules.md'), 'utf8').catch(() => ''),
     readFile(path.join(promptDir, '_topic-highlights-rules.md'), 'utf8').catch(() => ''),
+    buildRecapCardRules((lessonRow as { slug: string | null }).slug, gradeRow.name),
     readFile(path.join(promptDir, templateFile), 'utf8'),
   ]);
 
   const prompt = template
+    .replaceAll('{recap_card_rules}', recapCardRules)
     .replaceAll('{explanation_notebook_rules}', explanationNotebookRules)
     .replaceAll('{topic_summary_discussion_rules}', topicSummaryDiscussionRules)
     .replaceAll('{topic_highlights_rules}', topicHighlightsRules)
@@ -321,7 +330,7 @@ async function generateContentDraftForTopic(
       return { generated: false, reason: `Doğrulama alt başlık sayısını değiştirdi (${parsed.sections.length} → ${reviewed.sections.length}), içerik yayınlanmadı` };
     }
     // Kazanım eşleşmesi taslaktan korunur — doğrulama metni düzeltir, bağları değil.
-    reviewed.sections = reviewed.sections.map((sec, i) => ({ ...sec, matched_outcome_codes: parsed!.sections[i].matched_outcome_codes }));
+    reviewed.sections = reviewed.sections.map((sec, i) => ({ ...sec, matched_outcome_codes: parsed!.sections[i].matched_outcome_codes, recap_card: sec.recap_card ?? parsed!.sections[i].recap_card }));
     if (!reviewed.cover?.highlights?.length && parsed.cover) reviewed.cover = { ...parsed.cover, ...(reviewed.cover ?? {}) };
     parsed = reviewed;
     reviewCorrections = parseReviewCorrections(reviewObj?.corrections);

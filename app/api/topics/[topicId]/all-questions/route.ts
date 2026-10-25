@@ -1,38 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAllTopicQuestions, getTopicTestQuestions } from '@/app/src/lib/quizQuestions';
-import { createClient } from '@/utils/supabase/server';
-import { isPublicRequest, publicApiCacheHeaders } from '@/app/src/lib/publicApiCache';
+import { NextResponse } from 'next/server';
+import { getAllTopicQuestions } from '@/app/src/lib/quizQuestions';
+import { publicApiCacheHeaders } from '@/app/src/lib/publicApiCache';
 
-// Sunum modunun "soru çöz" adımı (SlidePlayer) için. Giriş yapmışsa (öğrenci evde kendi
-// başına çalışıyor, kullanıcının 2026-09-22 isteği): getTopicTestQuestions ile AYNI
-// kişiselleştirilmiş/10 soruluk seçim (önce hiç çözülmemiş, sonra SRS tekrar vakti gelmiş) —
-// bitince SlidePlayer "Yeni 10 Soru Çöz" ile bu uç noktayı tekrar çağırıp bir sonraki
-// partiyi alır. Misafirde (akıllı tahtadaki tipik kullanım — öğretmen giriş yapmadan tüm
-// sınıfa sırayla çözdürüyor) kişiselleştirme/limit YOK, konunun tüm aktif soruları id
-// sırasıyla döner (eski davranış).
-export async function GET(request: NextRequest, { params }: { params: Promise<{ topicId: string }> }) {
+// Misafir konu testinin (GuestTopicTest) soru havuzu: konunun tüm aktif soruları id sırasıyla;
+// hangi 10 sorunun gösterileceğini istemci seçer. Oturuma bakmaz → herkese aynı yanıt, CDN'de bir
+// sonraki pazartesi 03:00 TR'ye kadar önbellekli (bkz. publicApiCache.ts). Üyelerin testi
+// kişiselleştirilmiş seçimle /api/soru-bankasi/topic-test üzerinden açılır (2026-10-23 birleştirme;
+// eskiden slayt oynatıcısı buradan kişiselleştirilmiş parti de istiyordu).
+export async function GET(_request: Request, { params }: { params: Promise<{ topicId: string }> }) {
   const { topicId: topicIdParam } = await params;
   const topicId = Number(topicIdParam);
   if (!topicId || !Number.isInteger(topicId)) {
     return NextResponse.json({ error: 'Geçersiz konu' }, { status: 400 });
   }
 
-  // public=1 (soru bankası misafir testi, 2026-10-04): oturuma bakmadan tüm havuz, CDN'de bir
-  // sonraki pazartesi 03:00 TR'ye kadar önbellekli (bkz. publicApiCache.ts) — her açılış fonksiyon
-  // çalıştırmasın. Hangi 10 sorunun gösterileceğini istemci seçer (QuizPlayerModal).
-  if (isPublicRequest(request.nextUrl.searchParams)) {
-    const questions = await getAllTopicQuestions(topicId);
-    return NextResponse.json({ questions, allCaughtUp: false, personalized: false }, { headers: publicApiCacheHeaders() });
-  }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    const { questions, allCaughtUp } = await getTopicTestQuestions(topicId, user.id);
-    return NextResponse.json({ questions, allCaughtUp, personalized: true });
-  }
-
   const questions = await getAllTopicQuestions(topicId);
-  return NextResponse.json({ questions, allCaughtUp: false, personalized: false });
+  return NextResponse.json({ questions }, { headers: publicApiCacheHeaders() });
 }

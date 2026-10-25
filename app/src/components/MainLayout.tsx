@@ -5,13 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { useIsAdmin } from '../hooks/useIsAdmin';
+import { useProfileRole } from '../hooks/useIsAdmin';
 import { useDisplayName } from '../hooks/useDisplayName';
 import { getCurrentStreak } from '../lib/dashboardStreak';
-import { Icon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { AdminPageRefresh } from './AdminPageRefresh';
 import ThemeToggle from './ThemeToggle';
+import { HeaderMenu } from './HeaderMenu';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
 import { DesktopNav, MobileTabBar, buildNavItems } from './SiteNav';
@@ -25,13 +25,12 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, supabase, signOut } = useAuth();
-  const isAdmin = useIsAdmin();
+  const role = useProfileRole();
+  const isAdmin = role === 'admin';
   const displayName = useDisplayName();
   const pathname = usePathname();
   const gradeSlug = useMyGradeSlug();
   const [streak, setStreak] = React.useState<number | null>(null);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
-  const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!user?.id) {
@@ -41,20 +40,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     getCurrentStreak(supabase, user.id).then(setStreak);
   }, [user?.id, supabase]);
 
-  React.useEffect(() => {
-    if (!isProfileMenuOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setIsProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfileMenuOpen]);
-
-  React.useEffect(() => {
-    setIsProfileMenuOpen(false);
-  }, [pathname]);
   // Konu okuma sayfası (DersClient) artık kendi header'ını göstermiyor; global nav
   // burada kalıyor (bkz. kullanıcının 2026-09-05 isteği). Admin paneli ise hâlâ kendi
   // sabit header/footer çerçevesini yönetir. /ders?... rotası (query tabanlı) ve
@@ -66,13 +51,11 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isDersRoute = isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
   const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
-  // Test çözme sayfalarında (kavrama-testi/ünite-testi) header kalır ama footer'ın hukuki
-  // linkleri odağı dağıtmasın diye gizlenir. Ders sayfası da kendi Geri/İleri footer'ını
-  // yönettiği için LegalFooter'ı burada gizli tutuyoruz (global header'ı gösterse bile).
-  const isTestPageRoute = pathname?.endsWith('/kavrama-testi') || pathname?.endsWith('/unite-testi');
-  const hideFooter = hideHeader || isDersRoute || isTestPageRoute;
-  // Mobil alt sekme çubuğu: konu okuma sayfasının kendi sabit Geri/İleri çubuğu ve test
-  // sayfaları varken gösterilmez (footer ile aynı kural) — üst üste iki alt çubuk olmasın.
+  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için LegalFooter'ı burada gizli
+  // tutuyoruz (global header'ı gösterse bile).
+  const hideFooter = hideHeader || isDersRoute;
+  // Mobil alt sekme çubuğu: konu okuma sayfasının kendi sabit Geri/İleri çubuğu varken
+  // gösterilmez (footer ile aynı kural) — üst üste iki alt çubuk olmasın.
   const showTabBar = !hideFooter;
   const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, gradeSlug });
 
@@ -96,7 +79,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
               
               {/* Site Adı */}
-              {/* 430px altında yalnız logo: sağdaki düğmeler (Giriş/Kayıt ya da seri+profil) sığsın. */}
+              {/* 2026-10-21: giriş/tema/araçlar menüye taşındı, mobilde de site adı görünür (yalnız <340px gizli). */}
               <div className={`flex items-baseline gap-0.5 whitespace-nowrap ${r.brandText}`}>
                 <span className={`text-base sm:text-xl ${r.brandName}`}>
                   Ders Takip
@@ -110,87 +93,48 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           {/* Sağ Menü */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-2 xl:gap-4">
+            {/* 1024–1279px'te menü bağlantılarına yer açmak için seri gizli (İlerlemem'de görünüyor). */}
             {isAuthenticated && streak != null && (
-              <div className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`}>
+              <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
                 <span className="text-lg sm:text-xl">🔥</span>
                 <div>
                   <span className={`text-orange-500 text-sm sm:text-base ${r.statValue}`}>{streak}</span>
-                  <span className="text-muted-foreground text-xs sm:text-sm ml-0.5 sm:ml-1">gün</span>
+                  <span className="hidden sm:inline text-muted-foreground text-sm ml-1">gün</span>
                 </div>
               </div>
             )}
 
             <NotificationBell />
 
-            <ThemeToggle />
+            {/* Mobilde tema menünün içinde (yer dar); masaüstünde ayrı düğme. */}
+            <ThemeToggle className="hidden lg:flex" />
 
-            {isAuthenticated ? (
-              <div className="relative" ref={profileMenuRef}>
-                <button
-                  onClick={() => setIsProfileMenuOpen((open) => !open)}
-                  className={`w-9 h-9 sm:w-10 sm:h-10 ${r.iconBtn}`}
-                >
-                  <Icon name="user" size={18} />
-                </button>
-
-                {isProfileMenuOpen && (
-                  <div className={`absolute right-0 mt-2 w-56 overflow-hidden ${r.menu}`}>
-                    <div className={`px-4 py-3 border-b text-sm truncate ${r.divider} ${r.muted}`}>
-                      👋 {displayName || user?.email?.split('@')[0]}
-                    </div>
-                    <Link
-                      href="/ilerlemem"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className={r.menuItem}
-                    >
-                      İlerlemem
-                    </Link>
-                    <Link
-                      href="/profil"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className={r.menuItem}
-                    >
-                      Profil
-                    </Link>
-                    {isAdmin && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setIsProfileMenuOpen(false)}
-                        className={r.menuItem}
-                      >
-                        Admin
-                      </Link>
-                    )}
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        signOut();
-                      }}
-                      className={`${r.menuItem} hover:!text-red-500`}
-                    >
-                      Çıkış
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link 
-                  href="/login" 
-                  className={`text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 rounded-xl whitespace-nowrap ${r.btnGhost} ${r.btnText}`}
+            {!isAuthenticated && (
+              <>
+                <Link
+                  href="/login"
+                  className={`hidden sm:inline-flex text-sm px-3.5 py-2 rounded-xl whitespace-nowrap ${r.btnGhost} ${r.btnText}`}
                 >
                   Giriş Yap
                 </Link>
-                <Link 
+                <Link
                   href="/register"
-                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm ${r.btnNeon} ${r.btnText}`}
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm whitespace-nowrap ${r.btnNeon} ${r.btnText}`}
                 >
                   <span className="sm:hidden">Kayıt</span>
                   <span className="hidden sm:inline">Kayıt Ol</span>
                 </Link>
-              </div>
+              </>
             )}
+
+            <HeaderMenu
+              isAuthenticated={isAuthenticated}
+              displayName={displayName || user?.email?.split('@')[0] || null}
+              isAdmin={isAdmin}
+              isTeacher={role === 'teacher'}
+              onSignOut={signOut}
+            />
           </div>
         </div>
       </nav>

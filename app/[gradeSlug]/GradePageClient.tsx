@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { LessonSelector } from '../src/components/home/LessonSelector';
+import { LessonSelector, type GradeLink } from '../src/components/home/LessonSelector';
 import { Grade, Lesson } from '../src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
 import { roboticFontVars } from '../src/components/robotic/fonts';
@@ -35,9 +35,10 @@ interface GradePageClientProps {
   gradeSlug: string;
   initialGrade?: Grade | null;
   initialLessons?: Lesson[];
+  gradeLinks?: GradeLink[];
 }
 
-export default function GradePageClient({ gradeSlug, initialGrade = null, initialLessons = [] }: GradePageClientProps) {
+export default function GradePageClient({ gradeSlug, initialGrade = null, initialLessons = [], gradeLinks = [] }: GradePageClientProps) {
   const router = useRouter();
   const [grade, setGrade] = useState<Grade | null>(initialGrade);
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
@@ -140,6 +141,7 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
       <LessonSelector
         grade={grade}
         lessons={lessons}
+        gradeLinks={gradeLinks}
         isLoading={loading}
         error={error}
         onSelect={() => {}}

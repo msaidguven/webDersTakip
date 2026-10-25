@@ -6,10 +6,24 @@
 export type QuestionType = 'multiple_choice' | 'blank' | 'matching' | 'classical';
 
 export type SvgPosition = 'above' | 'below';
-export type ParsedMultipleChoice = { kind: 'multiple_choice'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; choices: { text: string; is_correct: boolean }[] };
-export type ParsedBlank = { kind: 'blank'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; options: { text: string; is_correct: boolean }[] };
-export type ParsedMatching = { kind: 'matching'; pairs: { left_text: string; right_text: string }[] };
-export type ParsedClassical = { kind: 'classical'; question_text: string; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; model_answer: string; key_terms: string[] };
+// passage: okuma metni (Türkçe paragraf soruları); question_passages'a ayrı yazılır, soru ona bağlanır.
+// difficulty: AI'ın verdiği zorluk (1-5); vermediyse/geçersizse yok — DB varsayılanı (1) kalır (2026-10-24).
+export type ParsedMultipleChoice = { kind: 'multiple_choice'; question_text: string; passage: string | null; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; choices: { text: string; is_correct: boolean }[]; difficulty?: number | null };
+export type ParsedBlank = { kind: 'blank'; question_text: string; passage: string | null; solution_text: string | null; svg_prompt: string | null; svg_position: SvgPosition; options: { text: string; is_correct: boolean }[]; difficulty?: number | null };
+export type ParsedMatching = { kind: 'matching'; pairs: { left_text: string; right_text: string }[]; difficulty?: number | null };
+// rubric: puanlama ölçütü, answer_svg_prompt: cevap anahtarındaki doğru çizimin tarifi (yazılı soruları);
+// diğer klasik akışlar göndermez → null.
+export type ParsedClassical = {
+  kind: 'classical';
+  question_text: string;
+  solution_text: string | null;
+  svg_prompt: string | null;
+  svg_position: SvgPosition;
+  model_answer: string;
+  key_terms: string[];
+  rubric: string | null;
+  answer_svg_prompt: string | null;
+};
 export type ParsedQuestion = ParsedMultipleChoice | ParsedBlank | ParsedMatching | ParsedClassical;
 
 function parseChoiceList(raw: unknown, min: number, max: number): { text: string; is_correct: boolean }[] | null {
@@ -29,9 +43,26 @@ function parseSvgFields(q: Record<string, unknown>): { svg_prompt: string | null
   return { svg_prompt, svg_position };
 }
 
+function parseDifficulty(raw: unknown): number | null {
+  const d = Number(raw);
+  return Number.isInteger(d) && d >= 1 && d <= 5 ? d : null;
+}
+
 function parseKeyTerms(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((t): t is string => typeof t === 'string' && !!t.trim()).map((t) => t.trim());
+}
+
+// "rubric" metin ya da { full, partial } nesnesi gelebilir; tek metne çevrilir.
+function parseRubric(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw.trim() || null;
+  if (!raw || typeof raw !== 'object') return null;
+  const { full, partial } = raw as { full?: unknown; partial?: unknown };
+  const lines = [
+    typeof full === 'string' && full.trim() ? `Tam puan: ${full.trim()}` : '',
+    typeof partial === 'string' && partial.trim() ? `Kısmi puan: ${partial.trim()}` : '',
+  ].filter(Boolean);
+  return lines.length ? lines.join('\n') : null;
 }
 
 export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuestion[] | null {
@@ -54,12 +85,13 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
         if (typeof p.right_text !== 'string' || !p.right_text.trim()) return null;
         pairs.push({ left_text: p.left_text.trim(), right_text: p.right_text.trim() });
       }
-      parsed.push({ kind: 'matching', pairs });
+      parsed.push({ kind: 'matching', pairs, difficulty: parseDifficulty(q.difficulty) });
       continue;
     }
 
     if (typeof q.question_text !== 'string' || !q.question_text.trim()) return null;
     const solution_text = typeof q.solution_text === 'string' && q.solution_text.trim() ? q.solution_text.trim() : null;
+    const passage = typeof q.passage === 'string' && q.passage.trim() ? q.passage.trim() : null;
 
     if (type === 'blank') {
       const questionText = q.question_text.trim();
@@ -67,7 +99,7 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
       if (blankCount !== 1) return null;
       const options = parseChoiceList(q.options, 2, 6);
       if (!options) return null;
-      parsed.push({ kind: 'blank', question_text: questionText, solution_text, ...parseSvgFields(q), options });
+      parsed.push({ kind: 'blank', question_text: questionText, passage, solution_text, ...parseSvgFields(q), options, difficulty: parseDifficulty(q.difficulty) });
       continue;
     }
 
@@ -80,13 +112,15 @@ export function parseQuestions(body: unknown, maxQuestions: number): ParsedQuest
         ...parseSvgFields(q),
         model_answer: q.model_answer.trim(),
         key_terms: parseKeyTerms(q.key_terms),
+        rubric: parseRubric(q.rubric),
+        answer_svg_prompt: typeof q.answer_svg_prompt === 'string' && q.answer_svg_prompt.trim() ? q.answer_svg_prompt.trim() : null,
       });
       continue;
     }
 
     const choices = parseChoiceList(q.choices, 2, 6);
     if (!choices) return null;
-    parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), solution_text, ...parseSvgFields(q), choices });
+    parsed.push({ kind: 'multiple_choice', question_text: q.question_text.trim(), passage, solution_text, ...parseSvgFields(q), choices, difficulty: parseDifficulty(q.difficulty) });
   }
 
   return parsed;

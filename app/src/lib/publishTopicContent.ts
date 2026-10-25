@@ -3,6 +3,7 @@ import { attachLearningOutcomeCodes, buildOutcomeKeys, resolveOutcomeCode } from
 import { cleanHighlights, replaceHighlights, type IncomingHighlight } from '@/app/src/lib/topicContentHighlights';
 import { revalidateTopicPagesByContentIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 import { generateSlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { normalizeRecapCard, type RecapCard } from '@/app/src/lib/recapCards';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -17,6 +18,7 @@ export type IncomingSection = {
   activity_prompt_markdown?: unknown;
   activity_example_markdown?: unknown;
   review_summary?: unknown;
+  recap_card?: unknown;
   needs_image?: unknown;
   image_prompt?: unknown;
   needs_video?: unknown;
@@ -31,8 +33,11 @@ type CleanSection = {
   activity_prompt_markdown: string | null;
   activity_example_markdown: string | null;
   review_summary: string | null;
+  recap_card: RecapCard | null;
   image_prompt: string | null;
   video_prompt: string | null;
+  // Elle yapıştırılan eski şablonlarda kart alanı yok — o zaman mevcut kart silinmesin.
+  recapFieldProvided: boolean;
   imageFieldProvided: boolean;
   videoFieldProvided: boolean;
 };
@@ -91,6 +96,8 @@ export async function publishTopicContent(supabase: Supabase, body: PublishTopic
         activity_prompt_markdown: activityPrompt || null,
         activity_example_markdown: activityExample || null,
         review_summary: reviewSummary || null,
+        recap_card: normalizeRecapCard(s.recap_card),
+        recapFieldProvided: 'recap_card' in s,
         image_prompt: needsImage && typeof s.image_prompt === 'string' && s.image_prompt.trim() ? s.image_prompt.trim() : null,
         video_prompt: needsVideo && typeof s.video_prompt === 'string' && s.video_prompt.trim() ? s.video_prompt.trim() : null,
         imageFieldProvided: 'needs_image' in s || 'image_prompt' in s,
@@ -201,6 +208,7 @@ export async function publishTopicContent(supabase: Supabase, body: PublishTopic
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
             review_summary: s.review_summary,
+            ...(s.recapFieldProvided ? { recap_card: s.recap_card } : {}),
             ...(s.imageFieldProvided ? { image_prompt: s.image_prompt } : {}),
             ...(s.videoFieldProvided ? { video_prompt: s.video_prompt } : {}),
             status: s.body_markdown ? 'content_ready' : 'planned',
@@ -273,6 +281,7 @@ export async function publishTopicContent(supabase: Supabase, body: PublishTopic
             activity_prompt_markdown: s.activity_prompt_markdown,
             activity_example_markdown: s.activity_example_markdown,
             review_summary: s.review_summary,
+            recap_card: s.recap_card,
             image_prompt: s.image_prompt,
             video_prompt: s.video_prompt,
             status: s.body_markdown ? 'content_ready' : 'planned',

@@ -123,6 +123,13 @@ export default function AdminPanel() {
             <span className="font-medium truncate">Yıllık Plan Yükleme</span>
           </Link>
           <Link
+            href="/admin/yazili-sorulari"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span className="text-base sm:text-lg">📝</span>
+            <span className="font-medium truncate">Yazılı Soruları</span>
+          </Link>
+          <Link
             href="/admin/konu-yonetimi"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >

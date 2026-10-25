@@ -1,8 +1,8 @@
 // Soru bankası sayfalarının ortak üst bölümü (2026-10-03 yenilemesi; sınıf/ders/ünite/konu):
 // sayfa yolu, ders ikonlu üst satır, H1, özet etiketleri, veriden türetilmiş özgün giriş metni,
-// isteğe bağlı ek içerik (kazanım, düğmeler) ve masaüstünde sağda görsel.
+// isteğe bağlı ek içerik (kazanım, düğmeler) ve sağ alan: masaüstünde görsel ya da `aside` (ör. sınıf kutuları).
 import Link from 'next/link';
-import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
+import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
 import { roboticFontVars } from './robotic/fonts';
 import r from './robotic/robotic.module.css';
 
@@ -21,6 +21,7 @@ export function SoruBankasiHeader({
   imageUrl,
   imageAlt,
   children,
+  aside,
 }: {
   crumbs: Crumb[];
   /** Verilirse üst satırda o dersin ikonu. */
@@ -32,6 +33,8 @@ export function SoruBankasiHeader({
   imageUrl?: string | null;
   imageAlt?: string;
   children?: React.ReactNode;
+  /** Başlığın sağında (mobilde altında) gösterilir; görsel yoksa kullanılır. */
+  aside?: React.ReactNode;
 }) {
   return (
     <>
@@ -48,11 +51,11 @@ export function SoruBankasiHeader({
         </nav>
       )}
 
-      <header className={`relative mt-5 grid items-center gap-8 p-5 sm:p-7 ${r.panel} ${r.hero} ${imageUrl ? 'md:grid-cols-[minmax(0,1fr)_340px]' : ''}`}>
+      <header className={`relative mt-5 grid items-center gap-8 p-5 sm:p-7 ${r.panel} ${r.hero} ${imageUrl ? 'md:grid-cols-[minmax(0,1fr)_340px]' : aside ? 'md:grid-cols-[minmax(0,1fr)_auto] md:items-end' : ''}`}>
         <span className={r.scan} aria-hidden="true" />
         <div>
           <p className={`flex items-center gap-2 ${r.label}`}>
-            {lessonName && <SubjectIcon lessonName={lessonName} size="sm" variant="solid" />}
+            {lessonName && <NeonSubjectIcon lessonName={lessonName} className="h-9 w-9" iconClassName="h-[18px] w-[18px]" />}
             {eyebrow}
           </p>
           <h1 className={`mt-3 text-3xl leading-tight sm:text-4xl ${r.chrome}`}>{title}</h1>
@@ -69,6 +72,7 @@ export function SoruBankasiHeader({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt={imageAlt ?? ''} className={`hidden aspect-[16/10] w-full rounded-[16px] object-cover md:block ${r.item}`} />
         )}
+        {!imageUrl && aside}
       </header>
     </>
   );

@@ -12,14 +12,9 @@ type PromptProfile = { username: string | null; profile_prompt_pending?: boolean
 // Yeni üyeye bir kez "profilini güncelle" uyarısı (profiles.profile_prompt_pending; bkz.
 // supabase/migrations/username_auto_and_profile_prompt.sql). Kapatınca, bağlantıya
 // tıklayınca ya da profilde herhangi bir şey kaydedince (PATCH bayrağı sıfırlıyor) bir
-// daha çıkmaz. Test çözerken dikkat dağıtmasın diye test sayfalarında gösterilmez.
+// daha çıkmaz.
 function isHiddenRoute(pathname: string) {
-  return (
-    pathname.startsWith('/profil') ||
-    pathname.startsWith('/admin') ||
-    pathname.endsWith('/kavrama-testi') ||
-    pathname.endsWith('/unite-testi')
-  );
+  return pathname.startsWith('/profil') || pathname.startsWith('/admin');
 }
 
 export function ProfilePromptBanner() {

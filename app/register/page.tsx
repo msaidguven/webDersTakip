@@ -24,7 +24,8 @@ function RegisterForm() {
 
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { state, grades, isLoadingGrades, lessons, isLoadingLessons, register, clearError } = useRegisterViewModel();
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  // ?rol=ogretmen: yazılı sayfasındaki "Öğretmen misiniz?" bağlantısı formu öğretmen seçili açar.
+  const [role, setRole] = useState<'student' | 'teacher'>(searchParams?.get('rol') === 'ogretmen' ? 'teacher' : 'student');
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
   const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '', gradeId: '' });
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
@@ -93,8 +94,8 @@ function RegisterForm() {
       return;
     }
     await offerToSaveCredential(form.email.trim(), form.password, form.fullName.trim());
-    // Öğretmen hesabı yönetici onayı bekler — öğretmen paneli bunu kendisi anlatır.
-    router.replace(result.role === 'teacher' ? '/ogretmen' : redirectTo);
+    // Öğretmenin anasayfası öğretmen paneli; onay beklediğini orada görür.
+    router.replace(redirectTo);
   };
 
   if (authLoading || (isAuthenticated && !justRegistered)) return <AuthLoading text="Yönlendiriliyor…" />;

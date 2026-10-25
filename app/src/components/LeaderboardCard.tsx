@@ -17,10 +17,18 @@ function cx(...names: (string | false | null | undefined)[]) {
 }
 
 // showRealMark: sadece admin için gerçek öğrencinin yanında "(G)" (sahte kayıtlardan ayırmak için).
+// Profilini açmış üyenin adı kartına (/uye/<slug>) gider; kapalı profil ve sahte kayıtlar düz metin.
 function Name({ entry, showRealMark }: { entry: LeaderboardEntry; showRealMark: boolean }) {
+  const label = entry.isMe ? 'Sen' : entry.displayName;
   return (
     <>
-      {entry.isMe ? 'Sen' : entry.displayName}
+      {entry.publicSlug ? (
+        <Link href={`/uye/${entry.publicSlug}`} className="underline decoration-dotted underline-offset-4 hover:decoration-solid" title={entry.isMe ? 'Kartını gör' : `${entry.displayName} profilini gör`}>
+          {label}
+        </Link>
+      ) : (
+        label
+      )}
       {showRealMark && entry.isReal && <span className="ml-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">(G)</span>}
     </>
   );
@@ -28,7 +36,7 @@ function Name({ entry, showRealMark }: { entry: LeaderboardEntry; showRealMark: 
 
 const PODIUM_STYLE = { 1: s.gold, 2: s.silver, 3: s.bronze } as const;
 
-function Podium({ entries, showRealMark }: { entries: LeaderboardEntry[]; showRealMark: boolean }) {
+export function Podium({ entries, showRealMark }: { entries: LeaderboardEntry[]; showRealMark: boolean }) {
   // Görsel sıra: 2 · 1 · 3 (birinci ortada, en yüksek basamak).
   const byRank = (n: number) => entries.find((e) => e.rank === n);
   const slots = [byRank(2), byRank(1), byRank(3)];
@@ -50,7 +58,7 @@ function Podium({ entries, showRealMark }: { entries: LeaderboardEntry[]; showRe
   );
 }
 
-function Row({ entry, max, showRealMark }: { entry: LeaderboardEntry; max: number; showRealMark: boolean }) {
+export function Row({ entry, max, showRealMark }: { entry: LeaderboardEntry; max: number; showRealMark: boolean }) {
   return (
     <li className={cx(s.row, r.item, entry.isMe && s.rowMe)}>
       <span className={cx(s.rank, r.chipBox)}>{entry.rank}</span>

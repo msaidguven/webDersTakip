@@ -14,7 +14,10 @@ import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionOfTheDay } from './src/components/home/DailyQuestionCard';
 import type { TopStudentEntry } from './src/lib/leaderboard';
 import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
+import { UpcomingExamsCard, type UpcomingExam } from './src/components/yazili/UpcomingExamsCard';
 import { GuestHomeV1 } from './src/components/home/GuestHomeV1';
+import { TeacherHome } from './src/components/home/TeacherHome';
+import { AdminHome, PreviewBanner, type HomePreview } from './src/components/home/AdminHome';
 import { roboticFontVars } from './src/components/robotic/fonts';
 import r from './src/components/robotic/robotic.module.css';
 
@@ -63,9 +66,10 @@ interface HomeClientProps {
   recentByGrade: Record<string, RecentTopicItem[]>;
   thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   topStudents: TopStudentEntry[];
+  upcomingExamsByGrade: Record<string, UpcomingExam[]>;
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek }: HomeClientProps) {
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek, upcomingExamsByGrade }: HomeClientProps) {
   const { isAuthenticated, user } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
@@ -88,13 +92,20 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   // sekme seçimini SESSİZCE ona göre başlatıyoruz — kullanıcı zaten manuel bir sekmeye
   // bastıysa (hasManualSelectionRef) üzerine yazmıyoruz.
   const hasManualSelectionRef = useRef(false);
+  // Anasayfa role göre ayrılır (2026-10-22): öğrenci → StudentToday, öğretmen → öğretmen paneli, admin →
+  // yönetim anasayfası (+ öğrenci/öğretmen önizlemesi). Rol aynı profil isteğinden gelir, ek sorgu yok.
+  const [me, setMe] = useState<{ userId: string; role: string | null; firstName: string | null; isVerified: boolean } | null>(null);
+  const [preview, setPreview] = useState<HomePreview | null>(null);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     fetchMyProfile(user.id)
-      .then((data: { profile: { grade_id: number | null } | null } | null) => {
-        if (cancelled || hasManualSelectionRef.current) return;
-        const gradeId = data?.profile?.grade_id;
+      .then((data: { profile: { grade_id: number | null; role: string | null; full_name: string | null; is_verified: boolean | null } | null } | null) => {
+        if (cancelled) return;
+        const p = data?.profile;
+        setMe({ userId: user.id, role: p?.role ?? null, firstName: p?.full_name?.trim().split(/\s+/)[0] || null, isVerified: !!p?.is_verified });
+        if (hasManualSelectionRef.current) return;
+        const gradeId = p?.grade_id;
         if (gradeId != null) setSelectedGradeId(String(gradeId));
       })
       .catch(() => {});
@@ -123,10 +134,25 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   const recent = isAuthenticated && selectedGrade ? recentByGrade[selectedGrade.id] ?? [] : recentTopics;
 
   if (isAuthenticated) {
+    const profile = me && me.userId === user?.id ? me : null;
+    const view = !profile ? null : profile.role === 'admin' ? preview ?? 'admin' : profile.role === 'teacher' ? 'teacher' : 'student';
+    const allUpcoming = Object.values(upcomingExamsByGrade).flat();
     return (
       <div className={`${roboticFontVars} ${r.root}`}>
         <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
           <div className="mx-auto max-w-5xl">
+            {profile?.role === 'admin' && preview && <PreviewBanner view={preview} onExit={() => setPreview(null)} />}
+            {view === null ? (
+              <div className={`h-64 animate-pulse rounded-[22px] ${r.panel}`} aria-hidden="true" />
+            ) : view === 'admin' ? (
+              <AdminHome firstName={profile!.firstName} onPreview={setPreview} />
+            ) : view === 'teacher' ? (
+              <TeacherHome
+                firstName={profile!.firstName}
+                isVerified={profile!.role === 'admin' || profile!.isVerified}
+                upcomingExams={allUpcoming.length ? <UpcomingExamsCard exams={allUpcoming} className="rounded-[22px]" /> : undefined}
+              />
+            ) : (
             <StudentToday
               dailyQuestion={
                 dailyQuestionSet && (
@@ -137,7 +163,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
               }
               thisWeek={hasThisWeek ? thisWeekCard : undefined}
               recent={recent.length > 0 ? <RecentTopicsCard topics={recent} gradeName={selectedGrade?.name} /> : undefined}
+              upcomingExams={selectedGrade && upcomingExamsByGrade[selectedGrade.id]?.length ? <UpcomingExamsCard exams={upcomingExamsByGrade[selectedGrade.id]} className="rounded-[22px]" /> : undefined}
             />
+            )}
           </div>
         </main>
       </div>
@@ -154,6 +182,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
       thisWeek={thisWeek}
       recentByGrade={recentByGrade}
       dailyQuestionSets={dailyQuestionSets}
+      upcomingExams={<UpcomingExamsCard exams={Object.values(upcomingExamsByGrade).flat()} />}
     />
   );
 }

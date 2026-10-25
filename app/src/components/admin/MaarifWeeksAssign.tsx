@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { MatchSuccess, OutcomeMatch, WeekRange } from '@/app/src/lib/yillikPlan/matchMaarifPlan';
 
 type Props = { file: File; gradeId: number | null; lessonId: number | null; onCommitted?: () => void };
-type Written = { links: number; weeks: number };
+type Written = { links: number; weeks: number; planning?: { added: number; extended: number } };
 
 const fmt = (w: WeekRange | null) => (!w ? '—' : w.start === w.end ? `${w.start}` : `${w.start}-${w.end}`);
 const isChanged = (o: OutcomeMatch) => !!o.proposed && fmt(o.current) !== fmt(o.proposed);
@@ -19,6 +19,7 @@ export default function MaarifWeeksAssign({ file, gradeId, lessonId, onCommitted
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MatchSuccess | null>(null);
   const [written, setWritten] = useState<Written | null>(null);
+  const [planningWeeks, setPlanningWeeks] = useState<number[]>([]);
 
   async function send(commit: boolean) {
     if (gradeId == null || lessonId == null) return;
@@ -39,6 +40,7 @@ export default function MaarifWeeksAssign({ file, gradeId, lessonId, onCommitted
         return;
       }
       setPreview(data.result as MatchSuccess);
+      setPlanningWeeks((data.planningWeeks as number[] | undefined) ?? []);
       if (commit) {
         setWritten(data.written as Written);
         onCommitted?.();
@@ -97,6 +99,11 @@ export default function MaarifWeeksAssign({ file, gradeId, lessonId, onCommitted
               {s.viaLearningOutcome > 0 && ` · ${s.viaLearningOutcome} alt madde planda yazılmamış, öğrenme çıktısının haftası kullanıldı (*)`}
               {s.unmatched > 0 && <span className="text-red-600 dark:text-red-400 font-semibold"> · {s.unmatched} eşleşmedi (dokunulmayacak)</span>}
             </p>
+            {planningWeeks.length > 0 && (
+              <p className="text-indigo-600 dark:text-indigo-300">
+                🗓️ Dosyada Okul Temelli Planlama: {planningWeeks.map((w) => `${w}.`).join(', ')} hafta — kaydedince bu ders/sınıf için özel hafta olarak eklenecek.
+              </p>
+            )}
             {preview.unusedPlanCodes.length > 0 && (
               <p className="text-amber-600 dark:text-amber-400">Planda olup DB&apos;de karşılığı olmayan kodlar: {preview.unusedPlanCodes.join(', ')}</p>
             )}
@@ -162,6 +169,8 @@ export default function MaarifWeeksAssign({ file, gradeId, lessonId, onCommitted
           {written && (
             <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
               ✅ {written.weeks} hafta kaydı yazıldı{written.links > 0 && `, ${written.links} öğrenme çıktısı kodu bağlandı`}
+              {written.planning && written.planning.added + written.planning.extended > 0 &&
+                `, Okul Temelli Planlama: ${written.planning.added} yeni özel hafta, ${written.planning.extended} mevcut kayda sınıf eklendi`}
             </p>
           )}
         </div>

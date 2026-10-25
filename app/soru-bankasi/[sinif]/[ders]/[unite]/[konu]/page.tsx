@@ -168,8 +168,10 @@ export default async function QuestionBankPage({ params }: PageProps) {
               color="indigo"
               guestContent={
                 <GuestTestCover
+                  gradeId={data.gradeId}
+                  lessonId={data.lessonId}
+                  unitId={data.unitId}
                   topicId={data.topicId}
-                  topicTitle={data.topicTitle}
                   eyebrowText={`${data.gradeName} · ${data.lessonName} · ${data.topicTitle}`}
                   questionCount={questions.length}
                 />

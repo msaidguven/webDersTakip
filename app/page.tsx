@@ -6,6 +6,8 @@ import { getPublicWeeklyTopStudents, stripIsReal } from './src/lib/leaderboard';
 import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import { getSiteStats, getHomeGradeSections, getPublishedUnitContent, getPublicMemberCount, type HomeGradeSection } from './src/lib/homeStats';
+import { getYaziliIndex } from './src/lib/yazili/publicData';
+import type { UpcomingExam } from './src/components/yazili/UpcomingExamsCard';
 import { getDailyQuestionSetsByGrade, getRecentlyPublishedTopics, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
 
 // ISR (tamamen public). 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı; eskiden 1 saat):
@@ -56,7 +58,7 @@ export default async function HomePage() {
 
   // Anasayfanın "canlı" bölümleri (Günün Sorusu, Okulda bu hafta, Yeni eklenenler — bkz.
   // homeHighlights.ts) diğer sorgularla paralel; hepsi anon client, sayfa ISR'da kalır.
-  const [gradeSectionsMap, memberCount, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek] = await Promise.all([
+  const [gradeSectionsMap, memberCount, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek, yazili] = await Promise.all([
     getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
     getPublicMemberCount(supabase),
     getPublicWeeklyTopStudents(supabase),
@@ -65,12 +67,23 @@ export default async function HomePage() {
     // Girişli öğrenci sadece kendi sınıfının son 5 konusunu görür (2026-10-02).
     getRecentlyPublishedTopicsByGrade(supabase, gradeIds),
     getThisWeekTopicsByGrade(supabase),
+    getYaziliIndex(),
   ]);
+
+  // Tarihi girilmiş yayındaki yazılılar, sınıf id'sine göre (kart girişli öğrencide yalnız kendi sınıfını gösterir).
+  const upcomingExamsByGrade: Record<string, UpcomingExam[]> = {};
+  for (const g of yazili) {
+    const gradeId = rows.find((r) => r.slug === g.slug)?.id;
+    if (gradeId == null) continue;
+    upcomingExamsByGrade[String(gradeId)] = g.lessons.flatMap((l) =>
+      l.exams.filter((e) => e.examDate).map((e) => ({ id: e.id, title: `${g.name} ${l.name} · ${e.label}`, path: e.path, examDate: e.examDate! }))
+    );
+  }
 
   const stats = getSiteStats(gradeIds, publishedUnitsAll, memberCount);
 
   const gradeSections: Record<string, HomeGradeSection> = {};
   for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;
 
-  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestionSets={dailyQuestionSets} recentTopics={recentTopics} recentByGrade={recentByGrade} thisWeek={thisWeek} />;
+  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestionSets={dailyQuestionSets} recentTopics={recentTopics} recentByGrade={recentByGrade} thisWeek={thisWeek} upcomingExamsByGrade={upcomingExamsByGrade} />;
 }

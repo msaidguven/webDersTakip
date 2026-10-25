@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { legacySlugRedirects } from "./app/src/lib/legacyRedirects";
 
 const SHARP_LINUX_X64_TRACE_INCLUDES = [
   "./node_modules/@img/sharp-linux-x64/**/*",
@@ -11,6 +12,9 @@ const SHARP_LINUX_X64_TRACE_INCLUDES = [
 const RESVG_LINUX_X64_TRACE_INCLUDES = [
   "./node_modules/@resvg/resvg-js-linux-x64-gnu/**/*",
   "./node_modules/@resvg/resvg-js-linux-x64-musl/**/*",
+  // SVG yazıları için (bkz. app/src/lib/svgToDocxImage.ts) — sunucuda sistem yazı tipi yok.
+  "./public/fonts/NotoSans-Regular.ttf",
+  "./public/fonts/NotoSans-Bold.ttf",
 ];
 
 // @sparticuz/chromium, ders sayfasındaki "PDF Olarak İndir" için (bkz. app/api/
@@ -38,6 +42,11 @@ const nextConfig: NextConfig = {
     "/api/admin/topic-sections/**": SHARP_LINUX_X64_TRACE_INCLUDES,
     "/api/ogretmen/export/**": RESVG_LINUX_X64_TRACE_INCLUDES,
     "/api/topic-pdf/**": CHROMIUM_TRACE_INCLUDES,
+    "/api/yazili-pdf/**": CHROMIUM_TRACE_INCLUDES,
+    "/api/ogretmen/yazili/pdf/**": CHROMIUM_TRACE_INCLUDES,
+    // Önizleme Chromium kullanmaz ama aynı şablon KaTeX CSS'ini çalışma anında okur.
+    "/api/ogretmen/yazili/onizleme/**": ["./node_modules/katex/dist/katex.min.css"],
+    "/api/ogretmen/yazili/word/**": RESVG_LINUX_X64_TRACE_INCLUDES,
   },
   images: {
     domains: [],
@@ -60,6 +69,20 @@ const nextConfig: NextConfig = {
       // "Panel" → "İlerlemem" (2026-09-28): eski link/yer imleri ve alt sayfalar bozulmasın.
       { source: "/panel", destination: "/ilerlemem", permanent: true },
       { source: "/panel/:path*", destination: "/ilerlemem/:path*", permanent: true },
+      // Eylül 2026'da değişen ünite/konu adresleri (Search Console 404 raporu, 2026-10-24).
+      ...legacySlugRedirects,
+      // Ayrı ünite/kavrama testi sayfaları kaldırıldı (2026-10-24): testler yalnız soru bankasında
+      // açılıyor, yarım kalan test de oradan devam ediyor. Eski linkler/yer imleri oraya gider.
+      {
+        source: "/:gradeSlug((?!soru-bankasi)[^/]+)/:lessonSlug/:unitSlug/unite-testi",
+        destination: "/soru-bankasi/:gradeSlug/:lessonSlug/:unitSlug",
+        permanent: true,
+      },
+      {
+        source: "/:gradeSlug((?!soru-bankasi)[^/]+)/:lessonSlug/:unitSlug/:topicSlug/kavrama-testi/:rest*",
+        destination: "/soru-bankasi/:gradeSlug/:lessonSlug/:unitSlug/:topicSlug",
+        permanent: true,
+      },
       {
         source: "/5-sinif/fen-bilimleri/isigin-dunyasi/fb-5-4-3-tam-golgenin-olusumu",
         destination: "/5-sinif/fen-bilimleri/isigin-dunyasi/tam-golgenin-olusumu",

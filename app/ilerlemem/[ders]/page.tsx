@@ -48,13 +48,16 @@ function SectionHead({ id, kicker, title, note }: { id: string; kicker: string; 
   );
 }
 
-// LED segmentli ilerleme çubuğu (oran 0–1).
-function Segments({ ratio, label }: { ratio: number; label: string }) {
-  const on = Math.round(Math.min(1, Math.max(0, ratio)) * SEGMENTS);
+// LED segmentli ilerleme çubuğu (oran 0–1). `good` verilirse yanan segmentlerin ilk kısmı doğru, kalanı
+// yanlış renginde (anasayfadaki doğru / yanlış / çözülmedi çubuğu gibi).
+function Segments({ ratio, good, label }: { ratio: number; good?: number; label: string }) {
+  const toSeg = (x: number) => Math.round(Math.min(1, Math.max(0, x)) * SEGMENTS);
+  const on = toSeg(ratio);
+  const goodOn = good == null ? on : Math.min(on, toSeg(good));
   return (
     <div className={s.segments} role="img" aria-label={label}>
       {Array.from({ length: SEGMENTS }, (_, i) => (
-        <span key={i} className={cx(s.seg, i < on && s.segOn)} />
+        <span key={i} className={cx(s.seg, i < on && (good == null ? s.segOn : i < goodOn ? s.segGood : s.segBad))} />
       ))}
     </div>
   );
@@ -268,7 +271,11 @@ export default function LessonReportPage() {
             <span className={s.label}>Soru çözüldü</span>
             <span className={s.moduleValue}>{totals.solved}<small>/{totals.total}</small></span>
           </div>
-          <Segments ratio={totals.total ? totals.solved / totals.total : 0} label={`${totals.total} sorunun ${totals.solved} tanesi çözüldü`} />
+          <Segments
+            ratio={totals.total ? totals.solved / totals.total : 0}
+            good={totals.total ? totals.correct / totals.total : 0}
+            label={`${totals.total} sorunun ${totals.correct} doğru, ${totals.solved - totals.correct} yanlış, ${totals.total - totals.solved} çözülmedi`}
+          />
         </div>
         <div className={cx(s.panel, s.module)}>
           <div className={s.moduleTop}>

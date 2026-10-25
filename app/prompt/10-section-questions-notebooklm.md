@@ -20,6 +20,7 @@ Bu konunun diğer alt başlıkları (bunlar AYRI sorulacak — bu başlıklarla 
       "solution_text": string,
       "svg_prompt": string | null,  // SVG kuralı
       "svg_position": "above" | "below",
+      "difficulty": 1 | 2 | 3 | 4 | 5,
       "choices": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean }
@@ -32,6 +33,7 @@ Bu konunun diğer alt başlıkları (bunlar AYRI sorulacak — bu başlıklarla 
       "solution_text": string,
       "svg_prompt": string | null,  // SVG kuralı
       "svg_position": "above" | "below",
+      "difficulty": 1 | 2 | 3 | 4 | 5,
       "options": [
         { "text": string, "is_correct": boolean },
         { "text": string, "is_correct": boolean }

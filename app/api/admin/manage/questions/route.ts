@@ -3,9 +3,18 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
 import { revalidateUnitPagesForQuestionIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
+import { revalidateYaziliPages } from '@/app/src/lib/yazili/server';
 
 const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
 const MAX_SVG_LENGTH = 20_000;
+
+// Soru görseli ve cevap görseli aynı kuralla doğrulanır. Boş → null, geçerli → kırpılmış kod, geçersiz → undefined.
+function normalizeSvg(raw: unknown): string | null | undefined {
+  const svg = raw == null ? '' : String(raw).trim();
+  if (!svg) return null;
+  if (!svg.startsWith('<svg') || !svg.endsWith('</svg>') || svg.length > MAX_SVG_LENGTH) return undefined;
+  return svg;
+}
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -18,7 +27,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const { data: question, error } = await supabase
       .from('questions')
-      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, svg_prompt, svg_position, question_types(code), topics(title)')
+      .select('id, question_type_id, question_text, difficulty, score, solution_text, svg_content, svg_prompt, svg_position, question_types(code), topics(title), question_passages(body)')
       .eq('id', id)
       .maybeSingle();
 
@@ -28,14 +37,15 @@ export async function GET(request: NextRequest) {
       supabase.from('question_choices').select('id, choice_text, is_correct').eq('question_id', id),
       supabase.from('question_blank_options').select('id, option_text, is_correct, order_no').eq('question_id', id).order('order_no'),
       supabase.from('question_matching_pairs').select('id, left_text, right_text, order_no').eq('question_id', id).order('order_no'),
-      supabase.from('question_classical').select('model_answer, key_terms').eq('question_id', id).maybeSingle(),
+      supabase.from('question_classical').select('model_answer, key_terms, rubric, answer_svg_prompt, answer_svg_content').eq('question_id', id).maybeSingle(),
     ]);
 
     const topicsRel = (question as { topics?: { title: string } | { title: string }[] | null }).topics;
     const topicTitle = (Array.isArray(topicsRel) ? topicsRel[0]?.title : topicsRel?.title) || null;
+    const passage = (question as unknown as { question_passages: { body: string } | null }).question_passages?.body ?? null;
 
     return NextResponse.json({
-      question: { ...question, topicTitle },
+      question: { ...question, topicTitle, passage },
       choices: choices || [],
       blankOptions: blankOptions || [],
       matchingPairs: matchingPairs || [],
@@ -93,7 +103,7 @@ export async function GET(request: NextRequest) {
 type ChoiceInput = { choice_text: string; is_correct: boolean };
 type BlankOptionInput = { option_text: string; is_correct: boolean; order_no: number };
 type MatchingPairInput = { left_text: string; right_text: string; order_no: number };
-type ClassicalInput = { model_answer: string | null; key_terms: string[] };
+type ClassicalInput = { model_answer: string | null; key_terms: string[]; rubric?: string | null };
 
 export async function PATCH(request: NextRequest) {
   const admin = await requireAdmin();
@@ -107,6 +117,8 @@ export async function PATCH(request: NextRequest) {
     blankOptions?: unknown;
     matchingPairs?: unknown;
     classical?: unknown;
+    answerSvg?: unknown;
+    passage?: unknown;
   } | null;
 
   const supabase = createServiceClient();
@@ -121,16 +133,11 @@ export async function PATCH(request: NextRequest) {
       if (key in rawPatch) patch[key] = rawPatch[key];
     }
     if ('svg_content' in patch && patch.svg_content != null) {
-      const svg = String(patch.svg_content).trim();
-      if (!svg) {
-        patch.svg_content = null;
-      } else if (!svg.startsWith('<svg') || !svg.endsWith('</svg>') || svg.length > MAX_SVG_LENGTH) {
-        return NextResponse.json({ error: 'Geçersiz SVG kodu' }, { status: 400 });
-      } else {
-        patch.svg_content = svg;
-        // Taslak bir soruya (svg_prompt bekleyen) SVG girilip kaydedilince otomatik yayınlanır.
-        patch.is_active = true;
-      }
+      const svg = normalizeSvg(patch.svg_content);
+      if (svg === undefined) return NextResponse.json({ error: 'Geçersiz SVG kodu' }, { status: 400 });
+      patch.svg_content = svg;
+      // Taslak bir soruya (svg_prompt bekleyen) SVG girilip kaydedilince otomatik yayınlanır.
+      if (svg) patch.is_active = true;
     }
     if ('svg_prompt' in patch) {
       const prompt = patch.svg_prompt != null ? String(patch.svg_prompt).trim() : '';
@@ -181,11 +188,57 @@ export async function PATCH(request: NextRequest) {
       const classical = body.classical as ClassicalInput;
       const { error } = await supabase
         .from('question_classical')
-        .upsert({ question_id: questionId, model_answer: classical.model_answer, key_terms: classical.key_terms || [] }, { onConflict: 'question_id' });
+        .upsert(
+          {
+            question_id: questionId, model_answer: classical.model_answer, key_terms: classical.key_terms || [],
+            ...('rubric' in classical ? { rubric: classical.rubric?.trim() || null } : {}),
+          },
+          { onConflict: 'question_id' }
+        );
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Okuma metni: dolu → varsa güncellenir, yoksa oluşturulup bağlanır; boş → bağ kaldırılır (sahipsiz metni
+    // trg_questions_orphan_passage siler). Alan gönderilmezse dokunulmaz.
+    if ('passage' in (body ?? {})) {
+      const text = typeof body!.passage === 'string' ? body!.passage.trim() : '';
+      const { data: current, error: curErr } = await supabase.from('questions').select('topic_id, passage_id').eq('id', questionId).maybeSingle();
+      if (curErr || !current) return NextResponse.json({ error: curErr?.message || 'Soru bulunamadı' }, { status: 500 });
+      const { topic_id: topicId, passage_id: passageId } = current as { topic_id: number; passage_id: number | null };
+      if (text && passageId) {
+        const { error } = await supabase.from('question_passages').update({ body: text }).eq('id', passageId);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else if (text) {
+        const { data: created, error } = await supabase.from('question_passages').insert({ topic_id: topicId, body: text }).select('id').single();
+        if (error || !created) return NextResponse.json({ error: error?.message || 'Okuma metni kaydedilemedi' }, { status: 500 });
+        const { error: linkErr } = await supabase.from('questions').update({ passage_id: (created as { id: number }).id }).eq('id', questionId);
+        if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 500 });
+      } else if (passageId) {
+        const { error } = await supabase.from('questions').update({ passage_id: null }).eq('id', questionId);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    // Cevap görseli (klasik soru): yalnız bu iki alan güncellenir, model_answer/key_terms'e dokunulmaz.
+    // Yayını bekletmez — is_active'e bağlı değil (plan: docs/yazili-sorulari-plani.md "Cevap görseli").
+    if (body.answerSvg && typeof body.answerSvg === 'object') {
+      const raw = body.answerSvg as { prompt?: unknown; content?: unknown };
+      const update: { answer_svg_prompt?: string | null; answer_svg_content?: string | null } = {};
+      if ('prompt' in raw) update.answer_svg_prompt = raw.prompt == null ? null : String(raw.prompt).trim() || null;
+      if ('content' in raw) {
+        const svg = normalizeSvg(raw.content);
+        if (svg === undefined) return NextResponse.json({ error: 'Geçersiz cevap SVG kodu' }, { status: 400 });
+        update.answer_svg_content = svg;
+      }
+      if (Object.keys(update).length) {
+        const { error } = await supabase.from('question_classical').update(update).eq('question_id', questionId);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
     await revalidateUnitPagesForQuestionIds(supabase, [questionId]);
+    // Klasik soru yazılı sayfalarında da görünür (bkz. yazili/publicData).
+    revalidateYaziliPages();
     return NextResponse.json({ ok: true });
   }
 
@@ -225,6 +278,7 @@ export async function DELETE(request: NextRequest) {
   // question->topic zinciri kurulamaz.
   await revalidateUnitPagesForQuestionIds(supabase, ids);
   revalidateHomepage();
+  revalidateYaziliPages();
   const result = await deleteQuestionsCascade(supabase, ids);
   return NextResponse.json(result);
 }

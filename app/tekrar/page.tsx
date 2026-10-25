@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import { getDueSrsQuestionIds } from '@/app/src/lib/dashboardSrs';
-import { getQuestionsByIds, MAX_QUESTIONS_PER_TEST, SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
+import { getQuestionsByIds, MAX_QUESTIONS_PER_TEST } from '@/app/src/lib/quizQuestions';
 import { findResumableSession } from '@/app/src/lib/quizResume';
 import QuizClient from '@/app/src/components/QuizClient';
 
@@ -63,7 +63,6 @@ export default async function SrsReviewPage() {
       exitLabel="Anasayfaya Dön"
       initialQuestions={initialQuestions}
       reloadEndpoint="/api/srs-review-questions"
-      secondsPerQuestion={initialQuestions.length > 0 ? SECONDS_PER_QUESTION : undefined}
       intro={{
         subLabel: 'Aralıklı Tekrar',
         description: 'Bu sorular daha önce çözdüğün ve tekrar zamanı gelen sorular — hatırlamanı pekiştirmek için tam zamanı.',

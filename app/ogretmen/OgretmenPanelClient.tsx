@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { OgretmenTabs } from './OgretmenTabs';
 
 type NameOption = { id: number; name: string };
 type Topic = { id: number; title: string };
@@ -222,6 +223,7 @@ export default function OgretmenPanelClient() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+      <OgretmenTabs active="/ogretmen" />
       <div>
         <h1 className="text-2xl font-black text-default">Açık Uçlu Sorular</h1>
         <p className="text-sm text-muted-foreground mt-1">Sınıf ve ders seçtikten sonra istediğin kadar üniteden/konudan soru işaretleyip tek Word dosyasında indirebilirsin.</p>

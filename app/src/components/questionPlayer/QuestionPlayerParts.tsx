@@ -1,15 +1,12 @@
 'use client';
 
-// Slayt oynatıcısının (SlidePlayer) soru fazı ile soru bankası test modalının (QuizPlayerModal)
-// ORTAK parçaları — ikisi aynı görünüm ve davranışı paylaşsın, bir değişiklik iki yere birden
-// yansısın diye (2026-09-26). Buradaki davranış notları SlidePlayer'daki orijinal kararların
-// devamı: numara şeridi kayan pencere (2026-09-22), soru başına 60 sn (2026-09-24), görülen
-// sorular unmount edilmez (2026-09-21), zoom yerine sadece font büyütme (2026-09-21).
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type TouchEvent } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Maximize2, Minimize2, Minus, Plus, X } from 'lucide-react';
-import { QuestionAnswerKeyItem } from '@/app/src/components/QuizClient';
+// Test oynatıcısı (QuizClient, presentation='player') ile slayt oynatıcısının (SlidePlayer) ORTAK
+// parçaları — çerçeve, üst çubuk, numara şeridi, yazı büyütme — aynı görünsünler diye (2026-09-26).
+// Soru motoru 2026-10-23'ten beri TEK: QuizClient (slaytlardaki ve misafirdeki ayrı motor kaldırıldı).
+// Notlar: numara şeridi kayan pencere (2026-09-22), zoom yerine sadece font büyütme (2026-09-21).
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type TouchEvent } from 'react';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Minus, Plus, X } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
-import type { AnswerDetail } from '@/app/src/lib/answerSync';
 
 // Her "section" slaydına / soruya sırayla değişen renk teması — aynı içerik tek düze
 // hissetmesin diye. Marka rengi (#6C63FF) chrome/navigasyonda sabit.
@@ -30,110 +27,12 @@ export const FONT_SCALE_STEP = 0.25;
 const PILL_WINDOW_SIZE = 10;
 const PILL_PAGE_STEP = 5;
 
-// Soru başına süre — dolunca soru otomatik yanlış sayılır.
-export const QUESTION_TIME_LIMIT_SECONDS = 60;
-
 export type AnswerStatus = 'correct' | 'incorrect' | 'revealed';
 
 export function pillWindowFor(qIndex: number, currentStart: number, total: number): number {
   if (qIndex >= currentStart && qIndex < currentStart + PILL_WINDOW_SIZE) return currentStart;
   const maxStart = Math.max(0, total - PILL_WINDOW_SIZE);
   return Math.min(maxStart, Math.floor(qIndex / PILL_PAGE_STEP) * PILL_PAGE_STEP);
-}
-
-// Soru fazının tüm durumu: aktif soru, cevaplar, sayaç, mount edilmiş sorular, şerit penceresi.
-// `active` false iken (ör. slayt fazı, sonuç ekranı) sayaç çalışmaz. `onAnswer` her cevapta
-// (süre dolması dahil) çağrılır — kayıt (istatistik) çağıranın işi.
-export function useQuestionRunner({
-  questions,
-  active,
-  onAnswer,
-}: {
-  questions: QuizQuestion[] | null;
-  active: boolean;
-  onAnswer?: (questionId: number, status: AnswerStatus, answer: AnswerDetail) => void;
-}) {
-  const [qIndex, setQIndex] = useState(0);
-  const [attempt, setAttempt] = useState(0);
-  const [answeredMap, setAnsweredMap] = useState<Record<number, AnswerStatus>>({});
-  const [mountedQIndexes, setMountedQIndexes] = useState<Set<number>>(() => new Set());
-  const [timedOutIds, setTimedOutIds] = useState<Set<number>>(() => new Set());
-  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT_SECONDS);
-  const [pillStart, setPillStart] = useState(0);
-
-  // handleAnswered'ın referansı SABİT kalmalı (memo'lu QuestionAnswerKeyItem'lar her render'da
-  // yeniden çizilmesin) — güncel onAnswer'ı ref üzerinden okuyoruz.
-  const onAnswerRef = useRef(onAnswer);
-  useEffect(() => {
-    onAnswerRef.current = onAnswer;
-  });
-
-  // optionId/match: cevabın kendisi — kayıt yapan çağıran sunucuya gönderir (doğruluk sunucuda).
-  const handleAnswered = useCallback((id: number, status: AnswerStatus, optionId?: number, match?: Record<number, number>) => {
-    setAnsweredMap((m) => (id in m ? m : { ...m, [id]: status }));
-    onAnswerRef.current?.(id, status, { optionId: optionId ?? null, match: match ?? null });
-  }, []);
-
-  const total = questions?.length ?? 0;
-
-  const goTo = useCallback(
-    (i: number) => {
-      if (i < 0 || i >= total) return;
-      setQIndex(i);
-      setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
-      setMountedQIndexes((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
-      setPillStart((s) => pillWindowFor(i, s, total));
-    },
-    [total]
-  );
-
-  // Yeni deneme: her şeyi sıfırlar, ilk soruyu mount eder. attempt değiştiği için soru
-  // bileşenleri de (key) sıfırdan başlar.
-  const restart = useCallback(() => {
-    setQIndex(0);
-    setAttempt((a) => a + 1);
-    setAnsweredMap({});
-    setMountedQIndexes(new Set([0]));
-    setTimedOutIds(new Set());
-    setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
-    setPillStart(0);
-  }, []);
-
-  const current = questions?.[qIndex];
-  const timerRunning = active && !!current && answeredMap[current.id] == null && !timedOutIds.has(current.id);
-
-  useEffect(() => {
-    if (!timerRunning || !current) return;
-    const timer = setTimeout(() => {
-      if (timeLeft <= 1) {
-        setTimeLeft(0);
-        setTimedOutIds((prev) => new Set(prev).add(current.id));
-        handleAnswered(current.id, 'incorrect');
-      } else {
-        setTimeLeft((t) => t - 1);
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [timerRunning, current, timeLeft, handleAnswered]);
-
-  const correctCount = Object.values(answeredMap).filter((v) => v === 'correct').length;
-  const incorrectCount = Object.values(answeredMap).filter((v) => v === 'incorrect').length;
-
-  return {
-    qIndex,
-    attempt,
-    answeredMap,
-    mountedQIndexes,
-    timedOutIds,
-    timeLeft,
-    pillStart,
-    setPillStart,
-    correctCount,
-    incorrectCount,
-    handleAnswered,
-    goTo,
-    restart,
-  };
 }
 
 // Aşağı kaydırınca (mobil + masaüstü — kaydırma varsa içerik sığmıyor demektir, 2026-09-27) üst çubuğu gizler, yukarı kaydırınca / en üstteyken ya da
@@ -352,73 +251,6 @@ export function useFullscreen(containerRef: RefObject<HTMLDivElement | null>) {
   }, [containerRef]);
   return { isFullscreen, toggle };
 }
-
-// Görülen sorular hiç unmount edilmez (geri gidince seçimler kaybolmasın), henüz görülmeyenler
-// hiç render edilmez (KaTeX'li 20-30 soruyu tek seferde mount etmek ana thread'i kilitliyordu).
-export const QuestionStack = memo(function QuestionStack({
-  questions,
-  qIndex,
-  attempt,
-  mountedQIndexes,
-  answeredMap,
-  timedOutIds,
-  timeLeft,
-  fontScale,
-  onAnswered,
-}: {
-  questions: QuizQuestion[];
-  qIndex: number;
-  attempt: number;
-  mountedQIndexes: Set<number>;
-  answeredMap: Record<number, AnswerStatus>;
-  timedOutIds: Set<number>;
-  timeLeft: number;
-  fontScale: number;
-  onAnswered: (id: number, status: AnswerStatus, optionId?: number, match?: Record<number, number>) => void;
-}) {
-  // Kaydırma kutusu tüm sorular için ORTAK (sorular unmount edilmiyor) — yeni soruya geçince
-  // başa dön, yoksa uzun bir soruda aşağı inip "Sonraki"ye basan öğrenci yeni soruyu ortasından görür.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [qIndex, attempt]);
-  return (
-    <div ref={scrollRef} className="relative flex flex-1 min-h-0 flex-col px-4 sm:px-8 pt-1 pb-4 sm:pb-8 overflow-y-auto">
-      {questions.map((q, i) => {
-        if (!mountedQIndexes.has(i)) return null;
-        const isTimedOut = timedOutIds.has(q.id);
-        const isActiveUnanswered = i === qIndex && !answeredMap[q.id] && !isTimedOut;
-        return (
-          <div
-            key={`${attempt}-${q.id}`}
-            className={i === qIndex ? 'relative z-[1] my-auto w-full rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6' : 'hidden'}
-          >
-            {isActiveUnanswered && (
-              <div className={`mb-2.5 flex items-center justify-end gap-1.5 text-xs font-black tabular-nums ${timeLeft <= 10 ? 'text-rose-500' : 'text-slate-400'}`}>
-                <Clock className="h-3.5 w-3.5" />
-                0:{String(timeLeft).padStart(2, '0')}
-              </div>
-            )}
-            <QuestionAnswerKeyItem
-              question={q}
-              index={i}
-              numberBadge="label"
-              // Kendi index'ine göre SABİT renk — aktif soruya göre verilseydi her geçişte tüm
-              // mount'lu soruların prop'u değişip memo boşa çıkardı.
-              accentColor={SLIDE_ACCENTS[i % SLIDE_ACCENTS.length].bar}
-              interactive
-              fontScale={fontScale}
-              onAnswered={onAnswered}
-              forcedAnswered={isTimedOut ? true : undefined}
-              answeredCorrectly={isTimedOut ? false : undefined}
-              feedbackMessage={isTimedOut ? '⏰ Süre doldu! Bu soru yanlış sayıldı. Doğru cevap aşağıda işaretlendi.' : undefined}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-});
 
 export function QuestionPills({
   questions,

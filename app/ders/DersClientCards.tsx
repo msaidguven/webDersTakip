@@ -87,7 +87,6 @@ export interface TopicTestData {
   resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
   reloadEndpoint: string;
   questionBankPathBase?: string;
-  secondsPerQuestion?: number | null;
 }
 
 // "Konu Kavrama Testi" kartına tıklayınca artık ara bir CTA ekranı göstermeden doğrudan
@@ -134,7 +133,8 @@ export function useTopicTest({
     fetchStatus();
   }, [fetchStatus]);
 
-  const testHref = ready ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}/kavrama-testi` : '';
+  // Ayrı kavrama-testi sayfası kaldırıldı (2026-10-24) — oynatıcının yedek çıkış linki konunun kendisi.
+  const testHref = ready ? `/${gradeSlug}/${lessonSlug}/${unitSlug}/${topicSlug}` : '';
 
   const startTest = useCallback(async (forceNew: boolean) => {
     if (!ready) return;

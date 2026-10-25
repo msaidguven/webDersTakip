@@ -1445,3 +1445,7 @@
 .dark :where(.to-blue-100\/70):not(:where(.light, .light *)),
 .dark :where(.to-blue-100\/80):not(:where(.light, .light *)),
 .dark :where(.to-blue-100\/90):not(:where(.light, .light *)) { --tw-gradient-to: color-mix(in srgb, rgb(59 130 246) 18%, var(--surface)) var(--tw-gradient-to-position); }
+
+
+/* Soru metinlerindeki **vurgu** (renderPlainTextMath): kalın + altı çizili, kökü zaten kalın kartlarda da ayırt edilsin. */
+.q-em { font-weight: 900; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }

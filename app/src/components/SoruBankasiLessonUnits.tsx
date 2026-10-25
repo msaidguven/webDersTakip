@@ -8,8 +8,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
-import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
+import { NeonCount } from './robotic/NeonCount';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
 import r from './robotic/robotic.module.css';
 
@@ -43,7 +43,6 @@ export default function SoruBankasiLessonUnits({
   lessonSlug: string;
 }) {
   const [statusByUnit, setStatusByUnit] = useState<Record<number, UnitStatus>>({});
-  const tint = subjectStyle(lessonName).tint;
 
   useEffect(() => {
     let cancelled = false;
@@ -85,13 +84,11 @@ export default function SoruBankasiLessonUnits({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={unit.imageUrl} alt="" loading="lazy" decoding="async" className="h-16 w-24 shrink-0 rounded-xl bg-surface-elevated object-cover sm:h-20 sm:w-32" />
             ) : (
-              <span className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-xl border sm:h-20 sm:w-32 ${tint}`} aria-hidden="true">
-                <SubjectIcon lessonName={lessonName} variant="solid" />
-              </span>
+              <NeonSubjectIcon lessonName={lessonName} className="h-16 w-24 sm:h-20 sm:w-32" iconClassName="h-7 w-7" />
             )}
             <span className="min-w-0 flex-1">
               <span className={`text-xs font-semibold ${r.accent}`}>{unit.number}. ünite</span>
-              <span className={`mt-0.5 block text-lg font-bold leading-snug text-default transition-colors ${r.groupHoverAccent}`}>{unit.title}</span>
+              <span className={`mt-0.5 block text-lg font-bold leading-snug text-default transition-colors ${r.display} ${r.groupHoverAccent}`}>{unit.title}</span>
               {!available ? (
                 <span className="mt-1 block text-sm text-muted-foreground">Sorular yakında eklenecek</span>
               ) : showProgress ? (
@@ -107,7 +104,10 @@ export default function SoruBankasiLessonUnits({
                   </span>
                 </span>
               ) : (
-                <span className="mt-1 block text-sm text-muted-foreground">{unit.topics.length} konu · {unit.questionCount} soru</span>
+                <span className="mt-1.5 flex flex-wrap items-center gap-3">
+                  <NeonCount value={unit.topics.length} unit="konu" />
+                  <NeonCount value={unit.questionCount} unit="soru" />
+                </span>
               )}
             </span>
             {available && <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />}

@@ -1,19 +1,18 @@
 'use client';
 
-// Profilim → Ayarlar (2026-10-02): kullanıcıya sorulan tercihlerin kalıcı yeri. Şimdilik akşam
+// Ayarlar → Bildirimler ve hedef (2026-10-02; 2026-10-20'den beri /profil/ayarlar sayfasında): kullanıcıya sorulan tercihlerin kalıcı yeri. Şimdilik akşam
 // hatırlatması (cihaz başına Web Push) ve günlük soru hedefi; yeni tercihler buraya eklenir.
 // Anasayfadaki "Hatırlatma al" kartı ve İlerlemem'deki hedef seçici bu ayarlara kısayoldur —
-// aynı kodu (usePushReminder, DailyGoalPicker) kullanırlar. /profil#ayarlar ile doğrudan açılır.
+// aynı kodu (usePushReminder, DailyGoalPicker) kullanırlar. /profil/ayarlar?bolum=bildirimler ile doğrudan açılır.
 import { Bell, BellOff, Share } from 'lucide-react';
 import { usePushReminder } from '@/app/src/hooks/usePushReminder';
 import { DailyGoalPicker } from '@/app/src/components/progress/DailyGoalPicker';
+import r from '@/app/src/components/robotic/robotic.module.css';
 
 export function SettingsCard({ isStudent }: { isStudent: boolean }) {
   return (
-    <section id="ayarlar" className="scroll-mt-24 bg-surface-elevated border border-default rounded-2xl p-6 animate-fade-in-up" style={{ animationDelay: '340ms' }}>
-      <h3 className="mb-5 text-lg font-semibold text-default flex items-center gap-2">
-        <span className="text-xl">⚙️</span> Ayarlar
-      </h3>
+    <section className={`p-6 ${r.panel}`}>
+      <h2 className={`mb-5 text-lg font-bold uppercase text-default ${r.display}`}>Bildirimler ve hedef</h2>
       <div className="flex flex-col gap-5 [&>*+*]:border-t [&>*+*]:border-default [&>*+*]:pt-5">
         <ReminderSetting />
         {isStudent && (

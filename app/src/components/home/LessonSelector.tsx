@@ -4,15 +4,19 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CheckCircle2, Layers, Sparkles, X } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowRight, Sparkles, X } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
 import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
 import r from '@/app/src/components/robotic/robotic.module.css';
+import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
+
+export type GradeLink = { level: number; slug: string };
 
 interface LessonSelectorProps {
   grade: Grade;
   lessons: Lesson[];
+  // Başlıktaki sınıf sekmeleri (hızlı sınıf değiştirme, 2026-10-23).
+  gradeLinks?: GradeLink[];
   isLoading: boolean;
   error?: string | null;
   onSelect: (lesson: Lesson) => void;
@@ -66,6 +70,7 @@ const GHOST = `${r.btnGhost} ${r.btnText}`;
 const GRID = 'grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))]';
 const CONTAINER = 'mx-auto max-w-6xl px-4 sm:px-6 2xl:max-w-[1600px]';
 
+
 function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
   return (
     <nav aria-label="Konum" className={`mb-4 flex items-center gap-1.5 text-xs font-semibold ${r.mono} ${r.muted}`}>
@@ -78,16 +83,6 @@ function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
         {grade.name}
       </span>
     </nav>
-  );
-}
-
-function StatTile({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
-  return (
-    <div className={`flex flex-col items-center gap-1 p-3 ${r.stat}`}>
-      <Icon className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
-      <span className={`text-xl leading-none ${r.statValue}`}>{value}</span>
-      <span className={`${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.muted}`}>{label}</span>
-    </div>
   );
 }
 
@@ -180,9 +175,7 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
   );
 }
 
-export function LessonSelector({ grade, lessons, isLoading, error, onBack }: LessonSelectorProps) {
-  const totalUnits = lessons.reduce((sum, l) => sum + (l.unitCount || 0), 0);
-  const totalQuestions = lessons.reduce((sum, l) => sum + (l.questionCount || 0), 0);
+export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, error, onBack }: LessonSelectorProps) {
   const { byLessonId, loadingLessonIds, ensureLoaded } = useLessonUnits();
   // Ünitelər ayrı bir pencerede (modal) açılır; hangi ders açık olduğunu burada tutuyoruz.
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -248,13 +241,7 @@ export function LessonSelector({ grade, lessons, isLoading, error, onBack }: Les
           <p className={`max-w-md text-sm sm:text-base ${r.muted}`}>Bir ders seç, ünitesini bul, konuyu aç.</p>
         </div>
 
-        {lessons.length > 0 && (
-          <div className="grid w-full grid-cols-3 gap-2 sm:gap-3 md:w-auto md:min-w-[340px]">
-            <StatTile icon={BookOpen} value={lessons.length} label="Ders" />
-            <StatTile icon={Layers} value={totalUnits} label="Ünite" />
-            <StatTile icon={CheckCircle2} value={totalQuestions} label="Soru" />
-          </div>
-        )}
+        <GradeSwitcher items={gradeLinks.map((g) => ({ level: g.level, href: `/${g.slug}`, current: g.slug === grade.slug }))} />
         </div>
       </section>
 

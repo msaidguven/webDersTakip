@@ -4,7 +4,8 @@ import AdminThemeToggle from '@/app/src/components/admin/AdminThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
-export default function SvgSorulariPage() {
+export default async function SvgSorulariPage({ searchParams }: { searchParams: Promise<{ tur?: string }> }) {
+  const { tur } = await searchParams;
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center gap-4">
@@ -15,7 +16,7 @@ export default function SvgSorulariPage() {
         <AdminThemeToggle />
       </header>
       <main className="px-4 sm:px-6 py-6 sm:py-8">
-        <SvgQuestionsPanel />
+        <SvgQuestionsPanel initialClassicalOnly={tur === 'klasik'} initialMode={tur === 'cevap' ? 'answer' : tur === 'kart' ? 'card' : 'question'} />
       </main>
     </div>
   );

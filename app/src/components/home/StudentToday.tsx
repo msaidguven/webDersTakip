@@ -105,7 +105,7 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
     <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
       <span className="flex items-center gap-1 text-[15px] font-bold leading-snug text-default">
         {lesson.name}
-        {lesson.lessonHref && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+        {lesson.soruBankasiHref && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
       </span>
       <Pill totals={totals} />
     </span>
@@ -127,17 +127,21 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
           </span>
         </>
       )}
-      {open && <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Yarım testin var · {open.answered}/{open.total}</span>}
+      {open && (
+        <Link href={open.href} className="relative z-10 self-start text-xs font-semibold text-amber-700 hover:underline dark:text-amber-400">
+          Yarım testin var · {open.answered}/{open.total} · Devam et →
+        </Link>
+      )}
     </>
   );
-  // Kartın tamamı müfredata gider (ayrı bağlantı, after: ile kartı kaplar); "Raporu göster" düğmesi
-  // onun üstünde kalır, böylece iç içe bağlantı olmaz.
+  // Kartın tamamı soru bankasındaki derse gider (ayrı bağlantı, after: ile kartı kaplar); "Raporu göster"
+  // ve "Devam et" bağlantıları onun üstünde kalır, böylece iç içe bağlantı olmaz.
   const cls = `relative flex flex-col gap-2.5 rounded-2xl p-4 hover:-translate-y-0.5 ${r.item} ${r.itemHover}`;
   return (
     <div className={cls}>
       <div className="flex items-center gap-3">
-        {lesson.lessonHref ? (
-          <Link href={lesson.lessonHref} aria-label={`${lesson.name} müfredatına git`} className="flex min-w-0 flex-1 after:absolute after:inset-0 after:rounded-2xl">
+        {lesson.soruBankasiHref ? (
+          <Link href={lesson.soruBankasiHref} aria-label={`${lesson.name} soru bankasına git`} className="flex min-w-0 flex-1 after:absolute after:inset-0 after:rounded-2xl">
             {header}
           </Link>
         ) : (
@@ -202,11 +206,13 @@ export function StudentToday({
   dailyQuestion,
   thisWeek,
   recent,
+  upcomingExams,
 }: {
   // Bölüm kartları (verilmeyen bölüm gösterilmez).
   dailyQuestion?: ReactNode;
   thisWeek?: ReactNode;
   recent?: ReactNode;
+  upcomingExams?: ReactNode;
 }) {
   const { data } = useStudentToday();
   if (!data) return <Skeleton />;
@@ -305,6 +311,7 @@ export function StudentToday({
               </div>
             </dl>
           </aside>
+          {upcomingExams}
           {thisWeek}
         </div>
       </div>

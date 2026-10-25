@@ -43,7 +43,13 @@ export async function GET(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const status = request.nextUrl.searchParams.get('status') || 'pending';
+  // ?tur=klasik: yalnız klasik (yazılı) sorular — Yazılı Soruları ekranındaki uyarı buraya bağlanır.
+  // ?tur=cevap: cevap görseli işleri (question_classical.answer_svg_prompt dolu olanlar).
+  const tur = request.nextUrl.searchParams.get('tur');
+  const classicalOnly = tur === 'klasik';
   const supabase = createServiceClient();
+
+  if (tur === 'cevap') return answerSvgItems(supabase, status);
 
   const base = supabase
     .from('questions')
@@ -51,9 +57,10 @@ export async function GET(request: NextRequest) {
     .not('svg_prompt', 'is', null)
     .order('created_at', { ascending: false })
     .limit(200);
+  const filtered = classicalOnly ? base.eq('question_type_id', 4) : base;
 
   const { data, error } =
-    status === 'pending' ? await base.is('svg_content', null) : status === 'done' ? await base.not('svg_content', 'is', null) : await base;
+    status === 'pending' ? await filtered.is('svg_content', null) : status === 'done' ? await filtered.not('svg_content', 'is', null) : await filtered;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const items = ((data as Row[] | null) || []).map((row) => {
@@ -69,5 +76,52 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  return NextResponse.json({ items });
+}
+
+type AnswerRow = {
+  question_id: number;
+  model_answer: string | null;
+  answer_svg_prompt: string;
+  answer_svg_content: string | null;
+  questions: Embed<Omit<Row, 'id'> & { id: number }>;
+};
+
+// Cevap görseli işleri. Sorunun kendi görseli bekleniyorsa (svg_prompt dolu, svg_content boş) cevap görseli
+// ondan türetileceği için önce o girilmeli: questionSvgPending ile istemci "Kopyala"yı kapatır (plan kural 3).
+async function answerSvgItems(supabase: ReturnType<typeof createServiceClient>, status: string) {
+  const base = supabase
+    .from('question_classical')
+    .select(
+      'question_id, model_answer, answer_svg_prompt, answer_svg_content, questions!inner(id, question_text, svg_prompt, svg_content, svg_position, created_at, topics(title, slug, units(slug, grades(slug), lessons(slug))))'
+    )
+    .not('answer_svg_prompt', 'is', null)
+    .order('question_id', { ascending: false })
+    .limit(200);
+  const { data, error } =
+    status === 'pending' ? await base.is('answer_svg_content', null) : status === 'done' ? await base.not('answer_svg_content', 'is', null) : await base;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const items = ((data as unknown as AnswerRow[] | null) || []).flatMap((row) => {
+    const q = one(row.questions);
+    if (!q) return [];
+    const chain = resolveSlugChain(q.topics);
+    return [
+      {
+        id: q.id,
+        question_text: q.question_text,
+        svg_prompt: q.svg_prompt,
+        svg_content: q.svg_content,
+        svg_position: q.svg_position,
+        model_answer: row.model_answer,
+        answer_svg_prompt: row.answer_svg_prompt,
+        answer_svg_content: row.answer_svg_content,
+        questionSvgPending: !!q.svg_prompt && !q.svg_content,
+        topicTitle: chain?.topicTitle || null,
+        // Klasik soru tek bir herkese açık sayfaya bağlı değil (birden çok yazılı kağıdında çıkabilir).
+        href: null,
+      },
+    ];
+  });
   return NextResponse.json({ items });
 }

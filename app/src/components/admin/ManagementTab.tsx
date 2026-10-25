@@ -958,6 +958,8 @@ export function QuestionEditModal({
   const [blankOptions, setBlankOptions] = useState<BlankOption[]>([]);
   const [matchingPairs, setMatchingPairs] = useState<MatchingPair[]>([]);
   const [classicalAnswer, setClassicalAnswer] = useState('');
+  // Bu ekranda düzenlenmiyor ama kaydederken korunmalı (eskiden [] gönderip siliyordu).
+  const [classicalKeyTerms, setClassicalKeyTerms] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -981,6 +983,7 @@ export function QuestionEditModal({
       setBlankOptions(data.blankOptions || []);
       setMatchingPairs(data.matchingPairs || []);
       setClassicalAnswer(data.classical?.model_answer || '');
+      setClassicalKeyTerms(data.classical?.key_terms || []);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1003,7 +1006,7 @@ export function QuestionEditModal({
     if (choices.length) body.choices = choices.map((c) => ({ choice_text: c.choice_text, is_correct: c.is_correct }));
     if (blankOptions.length) body.blankOptions = blankOptions.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct }));
     if (matchingPairs.length) body.matchingPairs = matchingPairs.map((p) => ({ left_text: p.left_text, right_text: p.right_text }));
-    if (classicalAnswer) body.classical = { model_answer: classicalAnswer, key_terms: [] };
+    if (classicalAnswer) body.classical = { model_answer: classicalAnswer, key_terms: classicalKeyTerms };
 
     const res = await fetch('/api/admin/manage/questions', {
       method: 'PATCH',
@@ -1082,11 +1085,11 @@ export function QuestionEditModal({
                 spellCheck={false}
                 className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-xs font-mono outline-none focus:border-indigo-500"
               />
-              <div className="flex items-center justify-center rounded-xl border border-border bg-white p-3 min-h-[9rem]">
+              <div className="light flex items-center justify-center rounded-xl border border-border bg-white p-3 min-h-[9rem]">
                 {(() => {
                   const clean = svgContent.trim() ? sanitizeMathSvg(svgContent) : null;
                   if (!clean) return <span className="text-gray-500 text-xs">{svgContent.trim() ? 'Geçersiz SVG' : 'Önizleme'}</span>;
-                  return <div className="max-h-64 max-w-full [&_svg]:max-h-64 [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
+                  return <div className="w-full [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-64 [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: clean }} />;
                 })()}
               </div>
             </div>

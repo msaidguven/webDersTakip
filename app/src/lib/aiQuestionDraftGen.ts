@@ -9,7 +9,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { buildSvgLessonGuidance, buildMathNotationGuidance } from '@/app/src/lib/promptHelpers';
+import { buildMathNotationGuidance, buildSvgLessonGuidance, buildTestQuestionQualityRules } from '@/app/src/lib/promptHelpers';
 import { generateQuestionsJson } from '@/app/src/lib/geminiQuestionGen';
 import { prettyModelName } from '@/app/src/lib/geminiWorkerProfile';
 import { QUESTION_WORKER_PROFILES, type QuestionWorkerProfile } from '@/app/src/lib/questionWorkerProfiles';
@@ -68,9 +68,23 @@ export interface DraftGenerationResult {
 // dil bilgisi ve anlam bilgisi soruları; tek doğru cevaplı yazmak zor (çeldirici şıkta gözden kaçan
 // bir yazım hatası soruyu iki cevaplı yapar) — bu yüzden ikinci bir çağrı soruları kitap + TDK'ye
 // göre çözüp denetler (kullanıcının 2026-10-03 onayı). Doğrulama başarısızsa taslak kaydedilmez.
-const LESSON_QUESTION_TEMPLATES: Record<string, { questions: string; review: string }> = {
-  turkce: { questions: '35-turkce-section-questions.md', review: '36-turkce-questions-review.md' },
+// passages: okuma metinli (paragraf) sorular — metin "passage" alanına (question_passages), kök question_text'e
+// (bkz. _passage-question-rules.md; 1. aşama 2026-10-23, her metne bir soru).
+const LESSON_QUESTION_TEMPLATES: Record<string, { questions: string; review: string; passages?: boolean }> = {
+  turkce: { questions: '35-turkce-section-questions.md', review: '36-turkce-questions-review.md', passages: true },
 };
+
+async function readPassageGuidance(promptDir: string, template: { passages?: boolean } | undefined): Promise<string> {
+  return template?.passages ? readFile(path.join(promptDir, '_passage-question-rules.md'), 'utf8') : '';
+}
+
+// Tekrar önleme listesinde paragraf sorusu yalnız kökle anılırsa ("Bu parçada asıl anlatılmak istenen…") hepsi
+// aynı görünür; metnin başı da yazılır.
+function existingQuestionLine(questionText: string | null, passage: string | null | undefined): string {
+  const text = (questionText || '').replace(/\s+/g, ' ').trim();
+  const lead = passage ? passage.replace(/\s+/g, ' ').trim().slice(0, 70) : '';
+  return lead ? `[Metin: ${lead}…] ${text}` : text;
+}
 // Diğer dersler için AI kontrol şablonu — otomatik yayın (konu partisi) her taslağı bundan geçirir.
 const GENERIC_REVIEW_TEMPLATE = '37-questions-review.md';
 const TOPIC_GENERAL_TEMPLATE = '38-topic-general-questions-rag.md';
@@ -101,10 +115,10 @@ const EXISTING_QUESTION_MAX_CHARS = 220;
 
 async function buildExistingQuestionsText(supabase: Supabase, sectionId: number): Promise<string> {
   const { data } = await withRetry(() =>
-    supabase.from('questions').select('question_text').eq('section_id', sectionId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT)
+    supabase.from('questions').select('question_text, question_passages(body)').eq('section_id', sectionId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT)
   );
-  const texts = ((data as { question_text: string | null }[] | null) || [])
-    .map((q) => (q.question_text || '').replace(/\s+/g, ' ').trim())
+  const texts = ((data as unknown as { question_text: string | null; question_passages: { body: string } | null }[] | null) || [])
+    .map((q) => existingQuestionLine(q.question_text, q.question_passages?.body))
     .filter(Boolean);
   if (!texts.length) return '';
   const list = texts
@@ -267,6 +281,7 @@ async function generateQuestionDraftForSection(
 
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
   const template = await readFile(path.join(promptDir, lessonTemplate?.questions ?? '17-section-questions-rag.md'), 'utf8');
+  const passageGuidance = await readPassageGuidance(promptDir, lessonTemplate);
   const prompt = template
     .replaceAll('{grade}', eligible.grade_name)
     .replaceAll('{lesson}', eligible.lesson_name)
@@ -279,6 +294,8 @@ async function generateQuestionDraftForSection(
     .replaceAll('{existing_questions}', existingQuestionsText)
     .replaceAll('{book_content}', bookContent)
     .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(eligible.lesson_name))
+    .replaceAll('{test_question_quality_rules}', buildTestQuestionQualityRules(eligible.lesson_name))
+    .replaceAll('{passage_guidance}', passageGuidance)
     .replaceAll('{svg_question_instructions}', svgBlock);
 
   if (opts.dryRun) return { generated: false, reason: 'dry-run', sectionId: eligible.section_id, prompt };
@@ -410,17 +427,20 @@ export async function generateBatchTopicDraft(supabase: Supabase, topicId: numbe
 
   const [{ data: sectionRows }, { data: topicQuestionRows }, { data: batchDraftRows }, topicOutcomesText] = await Promise.all([
     supabase.from('topic_content_sections').select('heading, order_no, topic_contents!inner(topic_id)').eq('topic_contents.topic_id', topicId).order('order_no', { ascending: true }),
-    supabase.from('questions').select('question_text').eq('topic_id', topicId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT),
+    supabase.from('questions').select('question_text, question_passages(body)').eq('topic_id', topicId).order('id', { ascending: true }).limit(EXISTING_QUESTIONS_LIMIT),
     supabase.from('ai_question_drafts').select('questions').eq('batch_topic_id', topicId).eq('status', 'batched'),
     buildSectionOutcomesText(supabase, topicId, null),
   ]);
   const headings = ((sectionRows as { heading: string }[] | null) || []).map((r) => r.heading);
-  const batchTexts = ((batchDraftRows as { questions: { question_text?: unknown }[] }[] | null) || []).flatMap((d) =>
-    (Array.isArray(d.questions) ? d.questions : []).map((q) => (typeof q?.question_text === 'string' ? q.question_text : ''))
+  const batchTexts = ((batchDraftRows as { questions: { question_text?: unknown; passage?: unknown }[] }[] | null) || []).flatMap((d) =>
+    (Array.isArray(d.questions) ? d.questions : []).map((q) =>
+      existingQuestionLine(typeof q?.question_text === 'string' ? q.question_text : '', typeof q?.passage === 'string' ? q.passage : null)
+    )
   );
-  const existingTexts = [...((topicQuestionRows as { question_text: string | null }[] | null) || []).map((q) => q.question_text || ''), ...batchTexts]
-    .map((t) => t.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+  const topicTexts = ((topicQuestionRows as unknown as { question_text: string | null; question_passages: { body: string } | null }[] | null) || []).map((q) =>
+    existingQuestionLine(q.question_text, q.question_passages?.body)
+  );
+  const existingTexts = [...topicTexts, ...batchTexts].filter(Boolean);
   const existingQuestionsText = existingTexts.length
     ? `\nBu konu için ZATEN şu ${existingTexts.length} soru var (alt başlık soruları). Bunları ve aynı bilgiyi farklı kelimelerle soran varyasyonlarını TEKRAR ÜRETME:\n${existingTexts
         .map((t, i) => `${i + 1}. ${t.length > EXISTING_QUESTION_MAX_CHARS ? `${t.slice(0, EXISTING_QUESTION_MAX_CHARS)}…` : t}`)
@@ -430,6 +450,7 @@ export async function generateBatchTopicDraft(supabase: Supabase, topicId: numbe
   const promptDir = path.join(process.cwd(), 'app', 'prompt');
   const svgFragment = await readFile(path.join(promptDir, '_svg-question-fragment.md'), 'utf8');
   const svgBlock = svgFragment.replaceAll('{svg_lesson_guidance}', buildSvgLessonGuidance(lesson.name));
+  const passageGuidance = await readPassageGuidance(promptDir, lessonTemplate);
   const fill = (tpl: string) =>
     tpl
       .replaceAll('{grade}', gradeName)
@@ -441,6 +462,8 @@ export async function generateBatchTopicDraft(supabase: Supabase, topicId: numbe
       .replaceAll('{existing_questions}', existingQuestionsText)
       .replaceAll('{book_content}', bookContent!)
       .replaceAll('{math_notation_guidance}', buildMathNotationGuidance(lesson.name))
+      .replaceAll('{test_question_quality_rules}', buildTestQuestionQualityRules(lesson.name))
+      .replaceAll('{passage_guidance}', passageGuidance)
       .replaceAll('{svg_question_instructions}', svgBlock);
   const prompt = fill(await readFile(path.join(promptDir, TOPIC_GENERAL_TEMPLATE), 'utf8'));
 

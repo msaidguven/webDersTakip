@@ -19,7 +19,8 @@ export function AdminPageRefresh() {
   const [withHome, setWithHome] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
-  if (!isAdmin || !pathname || pathname.startsWith('/admin')) return null;
+  // Öğretmen paneli dinamik (önbellek yok); mobilde "Kağıdım" çubuğuyla da çakışıyordu.
+  if (!isAdmin || !pathname || pathname.startsWith('/admin') || pathname.startsWith('/ogretmen')) return null;
 
   async function refresh() {
     if (!pathname) return;

@@ -115,10 +115,13 @@ export async function getRecentActivities(
       const gradeSlug = gradeSlugById.get(s.grade_id);
       const topicId = s.settings?.topic_id;
       const topicSlug = topicId != null ? topicSlugById.get(topicId) : null;
+      // Testler yalnız soru bankasında (2026-10-24); ?devam=1 oradaki TestStatusCard'a yarım
+      // testi sayfa açılır açılmaz oynatıcıda açtırır (eskiden İlerlemem modalı tek tıkla açıyordu).
       if (gradeSlug) {
+        const unitPath = `/soru-bankasi/${gradeSlug}/${lesson.slug}/${unit.slug}`;
         resumeHref = topicId != null
-          ? topicSlug ? `/${gradeSlug}/${lesson.slug}/${unit.slug}/${topicSlug}/kavrama-testi` : undefined
-          : `/${gradeSlug}/${lesson.slug}/${unit.slug}/unite-testi`;
+          ? topicSlug ? `${unitPath}/${topicSlug}?devam=1` : undefined
+          : `${unitPath}?devam=1`;
       }
     }
 

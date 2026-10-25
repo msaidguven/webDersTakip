@@ -4,7 +4,7 @@
 // Düzen: sınıflar ana seçim (her sınıf kendi kartı → o sınıfın ders sayfası); sağ sütun (gerçek veri):
 // "Okulda bu hafta" — her derste bir konu; "Yeni eklenen konular" — sınıf sekmeli.
 // Görünüm: robotik kontrol paneli teması (metal paneller, HUD köşebentleri, neon, krom başlık).
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { Grade } from '@/app/src/models/homeTypes';
@@ -132,7 +132,7 @@ function GradeTabs({
   );
 }
 
-// Hızlı erişim satırı: ders adı konu anlatımına, sağdaki sayı soru bankasına gider.
+// Hızlı erişim satırı: iki rozet — konu sayısı konu anlatımına, soru sayısı soru bankasına gider.
 function QuickLessonRow({
   lesson,
   gradeSlug,
@@ -145,39 +145,36 @@ function QuickLessonRow({
   return (
     <li className={`flex items-center gap-2.5 rounded-xl p-2.5 ${ITEM} ${r.itemHover}`}>
       <SubjectIcon lessonName={lesson.name} variant="solid" size="sm" />
-      <div className="min-w-0 flex-1">
-        {lessonPath ? (
-          <Link
-            href={lessonPath}
-            className="block truncate text-sm font-bold text-default hover:underline"
-          >
-            {lesson.name}
-          </Link>
-        ) : (
-          <span className="block truncate text-sm font-bold text-default">
-            {lesson.name}
-          </span>
-        )}
-        <span className="text-[11px] text-muted-foreground">
-          {lesson.unitCount} ünite · {lesson.topicCount} konu
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex items-baseline gap-2">
+          <span className="truncate text-sm font-bold text-default">{lesson.name}</span>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{lesson.unitCount} ünite</span>
+        </span>
+        <span className="flex flex-wrap gap-1.5">
+          <QuickBadge href={lesson.topicCount > 0 ? lessonPath : null}>
+            {lesson.topicCount} konu anlatımı
+          </QuickBadge>
+          <QuickBadge href={lesson.questionCount > 0 && lessonPath ? `/soru-bankasi${lessonPath}` : null}>
+            {lesson.questionCount} soru
+          </QuickBadge>
         </span>
       </div>
-      {lesson.questionCount > 0 && lessonPath ? (
-        <Link
-          href={`/soru-bankasi${lessonPath}`}
-          className={`shrink-0 ${r.badge}`}
-        >
-          {lesson.questionCount} soru
-        </Link>
-      ) : (
-        <span
-          aria-disabled="true"
-          className={`shrink-0 ${r.badge} ${r.muted}`}
-        >
-          {lesson.questionCount} soru
-        </span>
-      )}
     </li>
+  );
+}
+
+function QuickBadge({ href, children }: { href: string | null; children: ReactNode }) {
+  if (!href) {
+    return (
+      <span aria-disabled="true" className={`${r.badge} ${r.muted}`}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={r.badge}>
+      {children}
+    </Link>
   );
 }
 
@@ -196,6 +193,7 @@ export function GuestHomeV1({
   thisWeek,
   recentByGrade,
   dailyQuestionSets,
+  upcomingExams,
 }: {
   grades: Grade[];
   gradeSections: Record<string, HomeGradeSection>;
@@ -204,6 +202,8 @@ export function GuestHomeV1({
   thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   recentByGrade: Record<string, RecentTopicItem[]>;
   dailyQuestionSets: Record<string, DailyQuestionSet>;
+  // Yaklaşan yazılılar kartı (yoksa kendini gizler) — sağ sütunun başında.
+  upcomingExams?: ReactNode;
 }) {
   // Bu hafta ve yeni konular için yalnızca içeriği olan sınıflar sekme olarak gösterilir.
   const levels = grades.map((g) => g.level);
@@ -441,6 +441,7 @@ export function GuestHomeV1({
           </div>
 
           <aside className="flex flex-col gap-4">
+            {upcomingExams}
             {activeWeekGrade && (
               <section
                 aria-labelledby="okulda-bu-hafta"

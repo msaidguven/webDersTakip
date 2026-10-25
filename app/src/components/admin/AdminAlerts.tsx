@@ -5,7 +5,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Alerts = { svgPending: number; openReports: number; autoHidden: number; failedBatches: number; awaitingReview: number };
+type Alerts = { svgPending: number; openReports: number; autoHidden: number; failedBatches: number; awaitingReview: number; recapFiguresPending: number; recapFailed: number };
+// href yoksa iş Claude'a söylenerek yapılır, gidilecek sayfa yok.
+type AlertItem = { href?: string; text: string };
 
 export function AdminAlerts() {
   const [alerts, setAlerts] = useState<Alerts | null>(null);
@@ -30,7 +32,9 @@ export function AdminAlerts() {
     alerts.svgPending > 0 && { href: '/admin/svg-sorulari', text: `${alerts.svgPending} soru çizim (SVG) bekliyor — çizim eklenene kadar yayında değil` },
     alerts.awaitingReview > 0 && { href: '/admin/soru-bildirimleri#partiler', text: `${alerts.awaitingReview} Türkçe konusunun soruları inceleme bekliyor — Claude'a "Türkçe sorularını kontrol et" de, sonra Yayınla` },
     alerts.failedBatches > 0 && { href: '/admin/soru-bildirimleri#partiler', text: `${alerts.failedBatches} konuda otomatik soru üretimi başarısız oldu` },
-  ].filter((x): x is { href: string; text: string } => !!x);
+    alerts.recapFiguresPending > 0 && { href: '/admin/svg-sorulari?tur=kart', text: `${alerts.recapFiguresPending} hap bilgi örneği şekil bekliyor (çizilene kadar gizli) — promptu kopyala ya da Claude'a "kart şekillerini çiz" de` },
+    alerts.recapFailed > 0 && { text: `${alerts.recapFailed} konuda hap bilgi kartı 3 denemede üretilemedi — Claude'a "başarısız kartlara bak" de` },
+  ].filter((x): x is AlertItem => !!x);
   if (!items.length) return null;
 
   return (
@@ -39,9 +43,13 @@ export function AdminAlerts() {
       <ul className="flex flex-col gap-1.5">
         {items.map((it) => (
           <li key={it.text}>
-            <Link href={it.href} className="text-sm font-medium text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
-              {it.text} →
-            </Link>
+            {it.href ? (
+              <Link href={it.href} className="text-sm font-medium text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
+                {it.text} →
+              </Link>
+            ) : (
+              <span className="text-sm font-medium text-amber-900 dark:text-amber-100">{it.text}</span>
+            )}
           </li>
         ))}
       </ul>

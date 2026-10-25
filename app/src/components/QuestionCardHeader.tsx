@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { ListChecks, MessageSquare, Minus, PenLine, Pencil, Plus, Share2, Shuffle, Trash2 } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
+import { stripEmphasis } from '@/app/src/lib/latexToPlain';
 import { TYPE_LABELS } from '@/app/src/components/QuizClient';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
 
@@ -22,7 +23,7 @@ const TYPE_ICONS: Record<QuizQuestion['type'], typeof ListChecks> = {
 
 function shareTextFor(q: QuizQuestion): string {
   if (q.type === 'matching') return 'Bu eşleştirme sorusuna bir bak!';
-  return q.question_text;
+  return stripEmphasis(q.question_text);
 }
 
 // Soru kartının altındaki birleşik "Yorum Yap / Soru Paylaş" eylem çubuğunda kullanılıyor

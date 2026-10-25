@@ -11,7 +11,7 @@ Kazanımlar:
 - {"type":"multiple_choice","question_text","solution_text","svg_prompt","svg_position","choices":[{"text","is_correct"}×4]}
 - {"type":"blank","question_text","solution_text","svg_prompt","svg_position","options":[{"text","is_correct"}×4]}
 - {"type":"matching","pairs":[{"left_text","right_text"}×3-5]}
-svg_prompt: string|null, svg_position: "above"|"below".
+svg_prompt: string|null, svg_position: "above"|"below". Her soruya ayrıca "difficulty": 1-5 (1-2 hatırlama, 3 uygulama, 4-5 çok adımlı).
 
 Kurallar:
 - 7-10 soru: en az 3 multiple_choice, en az 3 blank, 1-2 matching

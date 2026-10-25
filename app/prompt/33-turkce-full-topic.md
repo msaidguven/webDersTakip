@@ -20,6 +20,10 @@ TÜRKÇE KONU ANLATIMI KURALLARI (aşağıdaki genel kurallarla çelişirse BUNL
 
 {explanation_notebook_rules}
 
+Her alt başlık için ayrıca bir hap bilgi kartı (recap_card) üret:
+
+{recap_card_rules}
+
 {topic_summary_discussion_rules}
 
 Ayrıca konunun en önemli 4-8 anahtar kavramını/terimini çıkar (JSON'da "cover" objesinin içinde, "highlights" dizisi). Bunlar konu sayfasının kapağında öğrenciye "bu konuda şunlar var" diye önizleme olarak gösterilecek.
@@ -57,7 +61,8 @@ SADECE bu JSON'u döndür, başka metin ekleme:
       "explanation_markdown": string,   // kural + örnek cümleler + gerekiyorsa Dikkat
       "activity_prompt_markdown": string,   // "Dene:/Karşılaştır:/Düşün:..." ile başlayan kısa istem
       "activity_example_markdown": string,  // "Örneğe Bak"ta görünecek kısa cevap
-      "review_summary": string  // 2-4 kısa, bağımsız cümle — ev tekrar özeti, bkz. açıklama
+      "review_summary": string,  // 2-4 kısa, bağımsız cümle — ev tekrar özeti, bkz. açıklama
+      "recap_card": object  // hap bilgi kartı — yukarıdaki recap_card biçiminde
     }
   ],
   "summary_markdown": string,  // konunun TEK toplu özeti (madde madde, - madde) — bkz. açıklama

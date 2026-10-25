@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
+import { normalizeRecapCard, recapCardToHtml, type RecapCardHtml } from '@/app/src/lib/recapCards';
 
 type LearningOutcomeRow = { id: number; code: string | null; title: string };
 type OutcomeRow = {
@@ -37,6 +38,7 @@ type SectionRow = {
   video_url: string | null;
   video_prompt: string | null;
   video_type: string | null;
+  recap_card: unknown;
 };
 type HighlightRow = {
   topic_content_id: number;
@@ -74,6 +76,8 @@ export type LessonWeekSection = {
   videoUrl: string | null;
   videoPrompt: string | null;
   videoType: 'ai_generated' | 'youtube' | null;
+  // Hap bilgi kartı (bkz. recapCards.ts); varsa sayfada önde, anlatım "Ayrıntılı oku" altında.
+  recapCard: RecapCardHtml | null;
 };
 export type LessonWeekContent = {
   id: number;
@@ -252,7 +256,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }, { data: narrationsData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
-          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type')
+          .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type, recap_card')
           .in('topic_content_id', contentIds)
           .order('order_no', { ascending: true }),
         supabase
@@ -276,6 +280,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
         const topicId = topicIdByContentId.get(row.topic_content_id);
         if (!topicId) continue;
         const list = sectionsByTopic.get(topicId) || [];
+        const recapCard = normalizeRecapCard(row.recap_card);
         list.push({
           id: row.id,
           heading: row.heading,
@@ -290,6 +295,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           videoUrl: row.video_url,
           videoPrompt: row.video_prompt,
           videoType: row.video_type === 'ai_generated' || row.video_type === 'youtube' ? row.video_type : null,
+          recapCard: recapCard ? recapCardToHtml(recapCard) : null,
         });
         sectionsByTopic.set(topicId, list);
       }

@@ -6,6 +6,7 @@ import { parseGradeSegment } from '@/app/src/lib/routeParsing';
 import { getQuestionCountsByLessonGrade } from '@/app/src/lib/questionCounts';
 import { getGradeColor, getGradeDescription, getGradeIcon } from '../src/lib/homeMapping';
 import { Grade, Lesson } from '../src/models/homeTypes';
+import type { GradeLink } from '../src/components/home/LessonSelector';
 import GradePageClient from './GradePageClient';
 
 // Bu sayfa taslak/admin önizlemesi göstermiyor (o iş /ders?... + admin paneli üzerinden
@@ -139,11 +140,17 @@ const getGradePageData = cache(async function getGradePageData(gradeSlug: string
   return { grade, lessons };
 });
 
+// Başlıktaki sınıf sekmeleri için yayındaki sınıflar (anasayfadaki listeyle aynı: is_active).
+const getActiveGradeLinks = cache(async function getActiveGradeLinks(): Promise<GradeLink[]> {
+  const { data } = await createAnonClient().from('grades').select('order_no, slug').eq('is_active', true).order('order_no');
+  return ((data as { order_no: number; slug: string | null }[] | null) || []).map((g) => ({ level: g.order_no, slug: g.slug || `${g.order_no}-sinif` }));
+});
+
 export default async function GradePage({ params }: { params: Promise<Params> }) {
   const { gradeSlug } = await params;
-  const { grade, lessons } = await getGradePageData(gradeSlug);
+  const [{ grade, lessons }, gradeLinks] = await Promise.all([getGradePageData(gradeSlug), getActiveGradeLinks()]);
   if (!grade) notFound();
-  return <GradePageClient gradeSlug={gradeSlug} initialGrade={grade} initialLessons={lessons} />;
+  return <GradePageClient gradeSlug={gradeSlug} initialGrade={grade} initialLessons={lessons} gradeLinks={gradeLinks} />;
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {

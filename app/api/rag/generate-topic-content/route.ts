@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { generateNextAiContentDraft } from '@/app/src/lib/aiContentDraftGen';
+import { generateNextRecapCards } from '@/app/src/lib/recapCardsGen';
 import { CONTENT_WORKER_PROFILES, type ContentWorkerId } from '@/app/src/lib/contentWorkerProfiles';
 
 export const maxDuration = 300;
@@ -35,6 +36,22 @@ export async function POST(request: NextRequest) {
     worker: profile.id,
   });
   if (logError) console.error('ai_content_draft_worker_runs log yazılamadı:', logError.message);
+
+  // Yeni konu yoksa bu saat kartı eksik bir konuya hap bilgi kartı üretir (2026-10-24, saatte 1 konu; yeni
+  // konularda kart içerikle aynı çağrıda geliyor). Ayrı kayıt: kind='recap_card', topic_id başarısızlık sayımı için.
+  if (result.idle) {
+    const recap = await generateNextRecapCards(supabase, profile);
+    const { error: recapLogError } = await supabase.from('ai_content_draft_worker_runs').insert({
+      kind: 'recap_card',
+      generated: recap.ok,
+      // "Son Çalışmalar" listesinde içerik kayıtlarından ayırt edilsin.
+      reason: `Hap bilgi kartı${recap.topicId ? ` (konu ${recap.topicId})` : ''}: ${recap.ok ? 'üretildi' : recap.reason}`,
+      topic_id: recap.topicId ?? null,
+      worker: profile.id,
+    });
+    if (recapLogError) console.error('Kart çalışma kaydı yazılamadı:', recapLogError.message);
+    return NextResponse.json({ ...result, recap });
+  }
 
   return NextResponse.json(result);
 }

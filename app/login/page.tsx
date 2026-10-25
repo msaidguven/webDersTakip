@@ -26,27 +26,18 @@ function LoginForm() {
   const explicitRedirectTo = rawRedirectTo ? safeRedirectPath(rawRedirectTo, '') || null : null;
   const callbackError = CALLBACK_ERRORS[searchParams?.get('error') ?? ''] ?? null;
 
-  const { isAuthenticated, loading, user, supabase } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { state, login, clearError } = useLoginViewModel();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showCallbackError, setShowCallbackError] = useState(true);
 
-  // Giriş yapmış kullanıcıyı TEK yerden yönlendir: açık redirectTo varsa oraya, yoksa öğretmen
-  // /ogretmen'e, öğrenci anasayfaya.
+  // Giriş yapmış kullanıcıyı TEK yerden yönlendir: açık redirectTo varsa oraya, yoksa anasayfaya —
+  // anasayfa role göre ayrılıyor (öğretmene öğretmen paneli, 2026-10-22), ayrı rol sorgusu gerekmez.
   useEffect(() => {
     if (loading || !isAuthenticated || !user) return;
-    if (explicitRedirectTo) {
-      router.replace(explicitRedirectTo);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (!cancelled) router.replace((data as { role: string } | null)?.role === 'teacher' ? '/ogretmen' : '/');
-    })();
-    return () => { cancelled = true; };
-  }, [isAuthenticated, loading, router, explicitRedirectTo, user, supabase]);
+    router.replace(explicitRedirectTo ?? '/');
+  }, [isAuthenticated, loading, router, explicitRedirectTo, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

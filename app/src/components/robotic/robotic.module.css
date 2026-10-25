@@ -116,6 +116,8 @@ a:hover > .brandChip { transform: scale(1.05); box-shadow: inset 0 0 16px -2px v
 .brandTld { font-family: var(--font-r-mono), monospace; font-weight: 600; color: var(--neon); }
 .navLink { display: block; white-space: nowrap; padding: 7px 12px; border-radius: 10px; border: 1px solid transparent; font-family: var(--font-r-display), system-ui, sans-serif; font-size: 13.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); transition: color .2s, border-color .2s, box-shadow .2s, background .2s; }
 .navLink:hover { color: var(--neon); }
+/* lg–xl arası (1024–1279px): 4–5 menü + giriş/kayıt düğmeleri sığsın. */
+@media (max-width: 1279px) { .navLink { padding: 7px 8px; letter-spacing: .02em; } }
 .navActive { color: var(--neon); border-color: var(--neon); background: color-mix(in srgb, var(--neon) 10%, transparent); box-shadow: 0 0 14px -4px var(--glow); }
 .metalChip { border-radius: 12px; border: 1px solid var(--edge); background: var(--panel); box-shadow: var(--shadow); }
 .iconBtn { display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid var(--edge); background: var(--panel-solid); color: var(--muted); transition: color .2s, border-color .2s, box-shadow .2s; }
@@ -137,4 +139,7 @@ a:hover > .brandChip { transform: scale(1.05); box-shadow: inset 0 0 16px -2px v
 .neonBorder { border-color: var(--neon) !important; }
 /* Header'daki site adı: 430px altında gizli (sağdaki düğmeler sığsın). Tailwind'in min-[430px]
    varyantı bu projede üretilmediği için düz medya sorgusu. */
-@media (max-width: 429px) { .brandText { display: none !important; } }
+@media (max-width: 339px) { .brandText { display: none !important; } }
+
+/* Sayı göstergesi (NeonCount, 2026-10-25): çerçeveli küçük neon kutu, başlık yazı tipinde sayı. */
+.readout { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--neon) 30%, var(--edge)); background: color-mix(in srgb, var(--neon) 7%, var(--panel-solid)); font-family: var(--font-r-display), system-ui, sans-serif; font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--neon); }

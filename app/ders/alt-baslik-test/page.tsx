@@ -1,9 +1,8 @@
 // app/ders/alt-baslik-test/page.tsx
 // LEGACY — sadece redirect, yeni UI'dan buraya link VERME. Eski ?sectionId= tabanlı URL
 // için geriye dönük uyumluluk: section'ın ait olduğu sınıf/ders/ünite/konu slug'larını
-// bulup yeni SEO uyumlu, konu seviyesindeki
-// /[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/kavrama-testi
-// adresine kalıcı olarak yönlendirir (artık alt başlık bazlı ayrı test yok).
+// bulup konunun soru bankası sayfasına (/soru-bankasi/[sınıf]/[ders]/[ünite]/[konu], testin
+// tek yeri, 2026-10-24) kalıcı olarak yönlendirir (artık alt başlık bazlı ayrı test yok).
 
 import { permanentRedirect, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
@@ -70,5 +69,5 @@ export default async function LegacyAltBaslikTestRedirectPage({ searchParams }: 
   const grade = gradeData as GradeRow | null;
   if (!lesson?.slug || !grade?.slug) redirect('/');
 
-  permanentRedirect(`/${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}/kavrama-testi`);
+  permanentRedirect(`/soru-bankasi/${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}`);
 }

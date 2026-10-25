@@ -9,8 +9,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
-import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
+import { NeonCount } from './robotic/NeonCount';
 import { hasClientSession } from '@/app/src/lib/clientSession';
 import r from './robotic/robotic.module.css';
 
@@ -47,7 +47,6 @@ export default function SoruBankasiUnitTopicAnalytics({
   unitSlug: string;
 }) {
   const [statsByTopic, setStatsByTopic] = useState<Record<number, TopicStatEntry> | null>(null);
-  const tint = subjectStyle(lessonName).tint;
 
   useEffect(() => {
     let cancelled = false;
@@ -83,13 +82,11 @@ export default function SoruBankasiUnitTopicAnalytics({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={topic.heroImageUrl} alt="" loading="lazy" decoding="async" className="h-16 w-24 shrink-0 rounded-xl bg-surface-elevated object-cover sm:h-20 sm:w-32" />
               ) : (
-                <span className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-xl border sm:h-20 sm:w-32 ${tint}`} aria-hidden="true">
-                  <SubjectIcon lessonName={lessonName} variant="solid" />
-                </span>
+                <NeonSubjectIcon lessonName={lessonName} className="h-16 w-24 sm:h-20 sm:w-32" iconClassName="h-7 w-7" />
               )}
               <span className="min-w-0 flex-1">
                 <span className={`text-xs font-semibold ${r.accent}`}>{topic.number}. konu</span>
-                <span className="mt-0.5 block font-semibold leading-snug text-default">{topic.title}</span>
+                <span className={`mt-0.5 block font-bold leading-snug text-default ${r.display}`}>{topic.title}</span>
                 <span className="mt-1 block text-sm text-muted-foreground">Sorular yakında eklenecek</span>
               </span>
             </li>
@@ -105,13 +102,11 @@ export default function SoruBankasiUnitTopicAnalytics({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={topic.heroImageUrl} alt="" loading="lazy" decoding="async" className="h-16 w-24 shrink-0 rounded-xl bg-surface-elevated object-cover sm:h-20 sm:w-32" />
               ) : (
-                <span className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-xl border sm:h-20 sm:w-32 ${tint}`} aria-hidden="true">
-                  <SubjectIcon lessonName={lessonName} variant="solid" />
-                </span>
+                <NeonSubjectIcon lessonName={lessonName} className="h-16 w-24 sm:h-20 sm:w-32" iconClassName="h-7 w-7" />
               )}
               <span className="min-w-0 flex-1">
                 <span className={`text-xs font-semibold ${r.accent}`}>{topic.number}. konu</span>
-                <span className={`mt-0.5 block font-semibold leading-snug text-default transition-colors ${r.groupHoverAccent}`}>{topic.title}</span>
+                <span className={`mt-0.5 block font-bold leading-snug text-default transition-colors ${r.display} ${r.groupHoverAccent}`}>{topic.title}</span>
                 {stat && stat.solved > 0 ? (
                   <span className="mt-2 block">
                     <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -125,7 +120,9 @@ export default function SoruBankasiUnitTopicAnalytics({
                     </span>
                   </span>
                 ) : (
-                  <span className="mt-1 block text-sm text-muted-foreground">{topic.questionCount} soru · cevap anahtarlı</span>
+                  <span className="mt-1.5 block">
+                    <NeonCount value={topic.questionCount} unit="soru" />
+                  </span>
                 )}
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />

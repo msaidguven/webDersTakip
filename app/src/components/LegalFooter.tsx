@@ -5,6 +5,7 @@ const LEGAL_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: '/hakkimizda', label: 'Hakkımızda' },
   { href: '/iletisim', label: 'İletişim' },
   { href: '/farkli-konular', label: 'Farklı Konular' },
+  { href: '/yazili-sorulari', label: 'Yazılı Soruları' },
   { href: '/ders-takip-cizelgesi', label: 'Ders Takip Çizelgesi' },
   { href: '/takdir-tesekkur-hesaplama', label: 'Takdir/Teşekkür Hesaplama' },
   { href: '/yillik-plan', label: 'MEB Yıllık Plan' },

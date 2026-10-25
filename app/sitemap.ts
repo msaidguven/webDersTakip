@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next';
 import { createPublicClient } from '@/utils/supabase/public';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
+import { getYaziliIndex, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
 
 // 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazartesi 03:00 TR yenilemesi
 // (scheduledCacheRefresh.ts, revalidatePath layout) sitemap'i de tazeler.
@@ -144,11 +145,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const pathKey = `${gradeSlug}/${lessonSlug}/${u.slug}`;
         const currentWinner = winningUnitIdByPathKey.get(pathKey);
         if (currentWinner === undefined || u.id < currentWinner) winningUnitIdByPathKey.set(pathKey, u.id);
-        // /unite-testi BİLİNÇLİ OLARAK sitemap'e girmiyor — sayfanın kendi generateMetadata'sı
-        // (bkz. unite-testi/page.tsx) her zaman robots: {index:false} dönüyor ("Sorular artık
-        // /soru-bankasi'nda indeksleniyor" kararı, 2026-09-03). noindex bir sayfayı sitemap'te
-        // listelemek Google Search Console'da "noindex" kapsam sorunu olarak birikiyordu
-        // (kullanıcının paylaştığı Coverage raporu, 2026-09-17).
+        // /unite-testi sitemap'e hiç girmedi (noindex'ti); 2026-10-24'ten beri sayfa yok,
+        // adres soru bankasına 308 ile yönleniyor (bkz. next.config.ts redirects).
       }
     }
     // Aynı yolu (grade/lesson/unit slug) paylaşan "kaybeden" ünite(ler) — o yoldaki hem
@@ -275,8 +273,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Soru bankası sayfası (alt başlıklar + konu geneli, questions.topic_id tek kaynak)
     // yalnızca gerçekten sorusu olan konularda gösterilmeli. URL her zaman parametresiz
     // (taban) haliyle eklenir — ?soru=ID varyasyonları sitemap'e ASLA girmez, bunlar
-    // canonical ile taban sayfaya birleşir. /kavrama-testi BİLİNÇLİ OLARAK eklenmiyor —
-    // /unite-testi'yle AYNI sebep (bkz. yukarıdaki not): her zaman noindex.
+    // canonical ile taban sayfaya birleşir. (/kavrama-testi artık yok, buraya yönleniyor.)
     for (const [topicId, topicPath] of topicPathById) {
       if (!topicIdsWithQuestions.has(topicId)) continue;
       entries.push({
@@ -288,6 +285,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch (error) {
     console.error('[sitemap] Dinamik URL üretimi başarısız:', error);
+  }
+
+  // Yazılı soruları: yalnız yayında ve sorusu olan yazılılar (getYaziliIndex zaten bunları döner).
+  try {
+    const yazili = await getYaziliIndex();
+    if (yazili.length) entries.push({ url: `${SITE_URL}${YAZILI_INDEX_PATH}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
+    for (const g of yazili) {
+      for (const l of g.lessons) {
+        entries.push({ url: `${SITE_URL}${l.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 });
+        for (const e of l.exams) entries.push({ url: `${SITE_URL}${e.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
+      }
+    }
+  } catch (error) {
+    console.error('[sitemap] Yazılı URL üretimi başarısız:', error);
   }
 
   return entries.filter((entry) => !excludedSitemapUrls.has(entry.url));

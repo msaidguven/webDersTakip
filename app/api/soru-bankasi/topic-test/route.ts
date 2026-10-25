@@ -2,11 +2,9 @@
 // Soru bankasının kendi client-side modalı (bkz. TestStatusCard.tsx) "Teste Başla/Devam Et"
 // tıklandığında bunu çağırır — sayfa hiç navigasyon yapmadan (kullanıcının 2026-09-05
 // isteği: URL sabit kalsın) QuizWithAsk'ı çalıştırmak için gereken TÜM veriyi tek istekte
-// döner. Gerçek konu kavrama testi sayfasıyla (kavrama-testi/page.tsx) VE panelin modalıyla
-// (QuizModalContent.tsx) BİREBİR AYNI veri fonksiyonlarını (getTopicTestPageData,
-// loadTopicQuizState) kullanır — davranış/kişiselleştirme/resume mantığı tekrar yazılmıyor.
+// döner. Konu sayfasındaki test (DersClientCards.tsx useTopicTest) da bunu kullanır; veri
+// fonksiyonları (getTopicTestPageData, loadTopicQuizState) quizPageData.ts'te tek yerde.
 import { NextRequest, NextResponse } from 'next/server';
-import { SECONDS_PER_QUESTION } from '@/app/src/lib/quizQuestions';
 import { getTopicTestPageData, loadTopicQuizState, buildQuestionBankPath } from '@/app/src/lib/quizPageData';
 
 export async function GET(request: NextRequest) {
@@ -39,6 +37,5 @@ export async function GET(request: NextRequest) {
     resume: resumable ? { sessionId: resumable.sessionId, answers: resumable.answers } : null,
     reloadEndpoint: `/api/topic-test-questions?topicId=${data.topicId}`,
     questionBankPathBase: buildQuestionBankPath(data),
-    secondsPerQuestion: initialQuestions.length > 0 ? SECONDS_PER_QUESTION : null,
   });
 }

@@ -87,14 +87,6 @@ export function NotificationBell() {
     await supabase.from('notifications').delete().eq('id', id);
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center">
-        <Icon name="bell" className="text-muted-foreground" size={18} />
-      </div>
-    );
-  }
-
   // Misafirde zil gizli (2026-10-04, kullanıcı isteği): bildirimler yalnız üyelere gelir.
   if (!isAuthenticated) return null;
 

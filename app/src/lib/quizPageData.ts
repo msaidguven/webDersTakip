@@ -1,8 +1,7 @@
 // app/src/lib/quizPageData.ts
-// Konu (kavrama-testi) ve ünite (unite-testi) test sayfalarının veri/oturum mantığı — hem
-// gerçek (SEO'lu, doğrudan ziyaret edilebilen) sayfalar hem de panelden açılan modal
-// (intercepting route) varyantları AYNI fonksiyonları kullanır. Bu, ikisi arasında resume/soru
-// seçimi davranışının zamanla birbirinden sapmasını yapısal olarak engeller.
+// Konu ve ünite testlerinin veri/oturum mantığı. Ayrı test sayfaları 2026-10-24'te kaldırıldı;
+// soru bankası (api/soru-bankasi/topic-test, unit-test) ve konu sayfası AYNI fonksiyonları
+// kullanır — resume/soru seçimi davranışı tek yerde kalır.
 
 import { cache } from 'react';
 import { createClient } from '@/utils/supabase/server';
@@ -247,10 +246,6 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
   const { data: topicData, count: topicCount } = await unitTopicsQuery.order('order_no', { ascending: true });
 
   const topicRows = (topicData as UnitTopicRow[] | null) || [];
-  const firstTopic = topicRows.find((topic) => topic.slug) || null;
-  const exitHref = firstTopic?.slug
-    ? `/${grade.slug}/${lesson.slug}/${unit.slug}/${firstTopic.slug}`
-    : `/${grade.slug}/${lesson.slug}`;
 
   // Ünite testi sayfası yalnızca gerçekten sorusu olan ünitelerde gösterilmeli;
   // units.question_count elle girilen bir alan olduğu için burada gerçek soru
@@ -283,7 +278,6 @@ export const getUnitTestPageData = cache(async function getUnitTestPageData(grad
     gradeSlug: grade.slug,
     lessonSlug: lesson.slug,
     unitSlug: unit.slug,
-    exitHref,
     hasQuestions: realQuestionCount > 0,
   };
 });

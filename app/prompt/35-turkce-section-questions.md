@@ -14,20 +14,22 @@ Ders kitabının bu konuya ait bölümü (kapsam ve kural kaynağı):
 {book_content}
 
 SORU YAZIM KURALLARI:
-- Soru tipleri: Yazım, noktalama, dil bilgisi ve sözcükte anlam konularında çoğunlukla "Aşağıdaki cümlelerin hangisinde ... yanlış/doğru kullanılmıştır?", "Bu cümlede ... hangi görevde kullanılmıştır?", "Numaralanmış yerlerden hangisine ... getirilmelidir?" kalıpları. Anlam/paragraf konularında soru gövdesine SEN yazdığın 40-90 kelimelik özgün bir paragraf koy ("Bu parçada asıl anlatılmak istenen…", "Bu parçadan aşağıdakilerden hangisine ulaşılamaz?" vb.).
+- Soru tipleri: Yazım, noktalama, dil bilgisi ve sözcükte anlam konularında çoğunlukla "Aşağıdaki cümlelerin hangisinde ... yanlış/doğru kullanılmıştır?", "Bu cümlede ... hangi görevde kullanılmıştır?", "Numaralanmış yerlerden hangisine ... getirilmelidir?" kalıpları. Anlam/paragraf konularında SEN yazdığın 40-90 kelimelik özgün bir paragrafa dayalı sorular sor ("Bu parçada asıl anlatılmak istenen…", "Bu parçadan aşağıdakilerden hangisine ulaşılamaz?" vb.); paragraf "passage" alanına gider (aşağıya bak).
+{passage_guidance}
 - Şıklar tam cümle olabilir; her şık aynı uzunluk ve yapıda olsun, doğru cevap uzunluğuyla belli olmasın. Çeldiriciler öğrencinin gerçekten yaptığı hatalardan seçilsin (ör. bağlaç "de" ile hâl eki "-de" karışıklığı).
 - "Hangisinde yanlış kullanılmıştır" sorusunda TAM OLARAK BİR şık yanlış, diğer üçü KUSURSUZ doğru olmalı; "hangisinde doğru" sorusunda tersi. Diğer şıklarda sorulan kuralın dışında da hiçbir yazım/noktalama hatası olmamalı.
 - Numaralı yer soruları: cümlede yerleri (I), (II), (III), (IV) diye işaretle; şıklar "I", "II"... olsun.
 - blank tipini yalnız tek bir doğru cevabı olan durumlarda kullan (ör. bir terimin adı); noktalama/yazım boşluk sorusu YAZMA (birden fazla doğru çıkabiliyor).
 - Soru cümlelerini ve paragrafları kendin, serbestçe yaz; bir cümlenin kitaptakiyle aynı çıkması sorun değil, ama kitabın örnek listelerini ya da okuma metinlerini aktarma. Cümleler {grade} öğrencisine uygun, "{unit}" temasına yakın ve kitaptaki bir hikâyeyi bilmeyi gerektirmeyen, tek başına anlaşılır olsun.
-- solution_text: doğru şıkkın neden doğru olduğunu ve en güçlü çeldiricinin neden yanlış olduğunu 1-3 cümlede kuralı adıyla açıkla.
+- solution_text: doğru şıkkın neden doğru olduğunu ve en güçlü çeldiricinin neden yanlış olduğunu 1-3 cümlede kuralı adıyla açıkla. Şıklar öğrenciye karışık sırayla gösterilir: şıkka ASLA harfle ("A seçeneği", "B şıkkı") atıf yapma, şıkkı içeriğinden kısa bir alıntıyla an (ör. "'Sınıfa girdi, …' cümlesinde").
 - Öğrenciye "sen" diye hitap etme; "sence" sorusu yok.
 
 SON KONTROL (JSON'u döndürmeden önce her soru için uygula, hatalıysa düzelt):
 1. Doğru cevap TDK'ye göre gerçekten doğru mu? Sorunun tek bir doğru cevabı mı var?
 2. Diğer şıklarda, sorulan kural dışında, gözden kaçmış bir yazım/noktalama hatası var mı? (Varsa soru iki cevaplı olur.)
-3. solution_text doğru şıkla ve kuralla tutarlı mı?
+3. solution_text doğru şıkla ve kuralla tutarlı mı? Şıkka harfle atıf yapıyor mu? (Yapıyorsa içerikten alıntıyla değiştir.)
 4. Gerçek kişi/tarih hakkında uydurma ayrıntı var mı?
+5. Paragraf sorusunda metin "passage" alanında mı, question_text yalnız soru kökü mü? Cevap yalnız metinden çıkıyor ve tek mi?
 
 Çıktı (sadece JSON):
 {
@@ -35,7 +37,8 @@ SON KONTROL (JSON'u döndürmeden önce her soru için uygula, hatalıysa düzel
   "questions": [
     {
       "type": "multiple_choice",
-      "question_text": string,
+      "passage": string | null,  // okuma metni (paragraf soruları); diğer sorularda null
+      "question_text": string,   // yalnız soru kökü
       "solution_text": string,
       "svg_prompt": null,
       "svg_position": "below",
@@ -67,3 +70,6 @@ Kurallar (MUTLAKA uygula):
 - Tam 4 şık/seçenek, SADECE 1 doğru; "Hepsi doğru"/"Hiçbiri" yok.
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____"; doğru cevap 1-3 kelime.
 - Paragraflarda ve şıklarda Türkçe tırnak/konuşma çizgisi kurallarına uy; svg_prompt her zaman null.
+- Kalın yazıyı (**…**) YALNIZ soru kökündeki olumsuz ifadede (hangisi **değildir**, **yanlıştır**, **söylenemez**) ve sorusu sorulan sözcükte ("**tatlı** sözcüğü…") kullan; şıklarda ve çözümde kullanma.
+
+{test_question_quality_rules}

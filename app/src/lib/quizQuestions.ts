@@ -33,7 +33,7 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
   const supabase = createAnonClient();
 
   const [{ data: questionsData }, { data: choicesData }, { data: optionsData }, { data: pairsData }] = await Promise.all([
-    supabase.from('questions').select('id, question_text, solution_text, svg_content, svg_position').in('id', questionIds),
+    supabase.from('questions').select('id, question_text, solution_text, svg_content, svg_position, question_passages(body)').in('id', questionIds),
     supabase.from('question_choices').select('id, question_id, choice_text, is_correct').in('question_id', questionIds),
     supabase.from('question_blank_options').select('id, question_id, option_text, is_correct').in('question_id', questionIds),
     supabase.from('question_matching_pairs').select('id, question_id, left_text, right_text').in('question_id', questionIds),
@@ -62,15 +62,20 @@ async function resolveQuestions(questionIds: number[], opts: { preserveOrder?: b
 
   const all: QuizQuestion[] = [];
 
-  ((questionsData as { id: number; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition }[] | null) || []).forEach((q) => {
+  type QuestionRow = {
+    id: number; question_text: string; solution_text: string | null; svg_content: string | null; svg_position: SvgPosition;
+    question_passages: { body: string } | null;
+  };
+  ((questionsData as unknown as QuestionRow[] | null) || []).forEach((q) => {
+    const passage = q.question_passages?.body ?? null;
     const choices = shuffle(choicesByQuestion.get(q.id) || []);
     if (choices.length >= 2) {
-      all.push({ id: q.id, type: 'multiple_choice', question_text: q.question_text, solution_text: q.solution_text, svg_content: q.svg_content, svg_position: q.svg_position, choices });
+      all.push({ id: q.id, type: 'multiple_choice', question_text: q.question_text, passage, solution_text: q.solution_text, svg_content: q.svg_content, svg_position: q.svg_position, choices });
       return;
     }
     const options = shuffle(optionsByQuestion.get(q.id) || []);
     if (options.length >= 2 && q.question_text.includes('_____')) {
-      all.push({ id: q.id, type: 'blank', question_text: q.question_text, solution_text: q.solution_text, svg_content: q.svg_content, svg_position: q.svg_position, options });
+      all.push({ id: q.id, type: 'blank', question_text: q.question_text, passage, solution_text: q.solution_text, svg_content: q.svg_content, svg_position: q.svg_position, options });
       return;
     }
     const pairs = shuffle(pairsByQuestion.get(q.id) || []);

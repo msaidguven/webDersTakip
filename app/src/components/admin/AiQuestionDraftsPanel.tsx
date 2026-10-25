@@ -30,6 +30,8 @@ function hasLatex(text: string): boolean {
 type Choice = { text: string; is_correct: boolean };
 type DraftQuestion = {
   type: 'multiple_choice' | 'blank';
+  // Okuma metni (Türkçe paragraf soruları); kayıtta question_passages'a yazılır.
+  passage?: string | null;
   question_text: string;
   solution_text?: string | null;
   svg_prompt?: string | null;
@@ -123,6 +125,13 @@ export default function AiQuestionDraftsPanel() {
     }));
   }
 
+  function updatePassage(draftId: number, idx: number, text: string) {
+    setEditableQuestions((cur) => ({
+      ...cur,
+      [draftId]: cur[draftId].map((q, i) => (i === idx ? { ...q, passage: text } : q)),
+    }));
+  }
+
   function updateChoiceText(draftId: number, qIdx: number, cIdx: number, text: string) {
     setEditableQuestions((cur) => ({
       ...cur,
@@ -208,7 +217,7 @@ export default function AiQuestionDraftsPanel() {
       }
 
       setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
-      showNotice('success', `${saveData?.savedCount ?? kept.length} soru kaydedildi${wantMore ? ' — bu alt başlık için tekrar üretim kuyruğa alındı' : ''}`);
+      showNotice('success', `${saveData?.savedCount ?? kept.length} soru kaydedildi${saveData?.skippedDuplicateCount ? ` (${saveData.skippedDuplicateCount} tekrar atlandı)` : ''}${wantMore ? ' — bu alt başlık için tekrar üretim kuyruğa alındı' : ''}`);
     } catch {
       showNotice('error', 'Ağ hatası oluştu');
     } finally {
@@ -312,6 +321,15 @@ export default function AiQuestionDraftsPanel() {
                             Sil
                           </button>
                         </div>
+                        {q.passage != null && (
+                          <textarea
+                            value={q.passage}
+                            onChange={(e) => updatePassage(draft.id, qIdx, e.target.value)}
+                            rows={4}
+                            aria-label="Okuma metni"
+                            className="w-full rounded-lg border-l-4 border-indigo-400/70 bg-indigo-500/5 p-2 text-xs text-foreground focus:border-indigo-500 outline-none"
+                          />
+                        )}
                         <textarea
                           value={q.question_text}
                           onChange={(e) => updateQuestionText(draft.id, qIdx, e.target.value)}

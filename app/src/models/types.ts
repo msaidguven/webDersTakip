@@ -29,8 +29,6 @@ export interface LessonProgress {
   wrongAnswers: number;
   progress: number;
   soruBankasiHref?: string;
-  // Dersin konu anlatımı sayfası (/<sınıf>/<ders>) — girişli anasayfada konulara giden yol.
-  lessonHref?: string;
   // Dersin ders raporu (/ilerlemem/<ders>, bkz. lessonReports.lessonHref).
   reportHref?: string;
   // Kural: ≥10 çözülmüş + doğruluk <%60 (bkz. weak_topic_by_accuracy.sql, topicMastery.ts).

@@ -62,30 +62,31 @@ function haftalikSaatSinirla(ham: string): number | null {
   return Math.min(40, Math.max(1, Number(ham)));
 }
 
+// Kısa etiketli, eşit genişlikte not kutusu: bir dersin tüm notları mobilde de tek satıra sığsın
+// (kullanıcı isteği 2026-10-20: "öğrenci bir bakışta hepsini görsün"). Tam ad aria-label/title'da.
 function NotAlani({
   label,
   value,
   onChange,
   ariaLabel,
-  vurgulu,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number | null) => void;
   ariaLabel: string;
-  vurgulu?: boolean;
 }) {
   return (
-    <label className="flex w-24 shrink-0 flex-col gap-1 whitespace-nowrap text-xs font-semibold text-muted-foreground">
-      {label}
+    <label className="flex min-w-0 flex-col items-center gap-0.5" title={ariaLabel}>
+      <span className={`text-[10px] font-semibold leading-none ${r.mono} ${r.muted}`}>{label}</span>
       <input
         type="number"
+        inputMode="numeric"
         min={0}
         max={100}
         value={value ?? ''}
         onChange={(e) => onChange(sayiYaDaBos(e.target.value))}
         aria-label={ariaLabel}
-        className={`w-full rounded-xl px-2 py-2 text-sm font-bold ${r.item} ${vurgulu ? r.itemHover : ''}`}
+        className={`h-9 w-full min-w-0 rounded-lg px-0 text-center text-sm font-bold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${r.item}`}
       />
     </label>
   );
@@ -252,7 +253,10 @@ export function TakdirTesekkurHesaplama() {
           </div>
 
           {dersler.length > 0 && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <p className={`text-[11px] ${r.mono} ${r.muted}`}>
+                {kademe === 'ortaokul' ? 'Y: Yazılı · S: Sözlü (katılım) · Pr: Proje · sa: haftalık saat' : 'Y: Yazılı · P: Performans · Pr: Proje · sa: haftalık saat'} · en sağda dönem notu
+              </p>
               {dersler.map((ders) => (
                 <DersKarti
                   key={ders.id}
@@ -318,7 +322,8 @@ export function TakdirTesekkurHesaplama() {
         )}
       </section>
 
-      {/* .panel position: relative verdiği için fixed konum dış kapsayıcıda. */}
+      {/* .panel position: relative verdiği için fixed konum dış kapsayıcıda; aynı sebeple aşağıdaki
+          sonuç kartında lg:!sticky (önem işareti olmadan .panel sticky'yi eziyordu). */}
       {!sonucGorunur && notGirilenDersSayisi < dersler.length && (
         <div className="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
           <button
@@ -335,7 +340,7 @@ export function TakdirTesekkurHesaplama() {
         </div>
       )}
 
-      <aside ref={sonucRef} aria-label="Sonuç" className={`${card} ${r.hero} flex flex-col gap-4 p-5 sm:p-6 scroll-mt-24 lg:sticky lg:top-24`}>
+      <aside ref={sonucRef} aria-label="Sonuç" className={`${card} ${r.hero} flex flex-col gap-4 p-5 sm:p-6 scroll-mt-24 lg:!sticky lg:top-24`}>
         <span className={r.scan} aria-hidden="true" />
         <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
           <i className={r.led} aria-hidden="true" />
@@ -537,79 +542,97 @@ function DersKarti({
   const notu = donemNotu(ders, kademe);
   const katilimAdedi = katilimSayisi(ders.haftalikSaat);
 
-  const notAlani = (anahtar: 'yazili1' | 'yazili2' | 'yazili3' | 'performans1' | 'performans2' | 'performans3' | 'proje', etiket: string) => (
-    <NotAlani
-      label={etiket}
-      value={ders[anahtar]}
-      onChange={(v) => onGuncelle({ [anahtar]: v })}
-      ariaLabel={`${ad} ${etiket}`}
-    />
-  );
+  type NotAnahtari = 'yazili1' | 'yazili2' | 'yazili3' | 'performans1' | 'performans2' | 'performans3' | 'proje' | (typeof KATILIM_ANAHTARLARI)[number];
+  const alanlar: { anahtar: NotAnahtari; kisa: string; uzun: string }[] = [
+    { anahtar: 'yazili1', kisa: 'Y1', uzun: '1. yazılı' },
+    { anahtar: 'yazili2', kisa: 'Y2', uzun: '2. yazılı' },
+    ...(kademe === 'lise'
+      ? [
+          { anahtar: 'yazili3' as const, kisa: 'Y3', uzun: '3. yazılı (isteğe bağlı)' },
+          { anahtar: 'performans1' as const, kisa: 'P1', uzun: 'Performans 1' },
+          { anahtar: 'performans2' as const, kisa: 'P2', uzun: 'Performans 2' },
+          { anahtar: 'performans3' as const, kisa: 'P3', uzun: 'Performans 3' },
+        ]
+      : KATILIM_ANAHTARLARI.slice(0, katilimAdedi).map((anahtar, i) => ({ anahtar, kisa: `S${i + 1}`, uzun: `Sözlü ${i + 1}` }))),
+    { anahtar: 'proje', kisa: 'Pr', uzun: 'Proje (isteğe bağlı)' },
+  ];
 
   return (
-    <div className={`flex flex-col gap-3 rounded-2xl p-4 sm:p-5 ${r.item}`}>
-      <div className="flex items-start gap-2">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            value={ders.dersAdi}
-            onChange={(e) => onGuncelle({ dersAdi: e.target.value })}
-            placeholder="Ders adı"
-            className={`flex-1 ${inputCls}`}
-          />
-          <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-            Haftalık saat
-            <input
-              type="number"
-              min={1}
-              max={40}
-              value={ders.haftalikSaat}
-              onChange={(e) => {
-                const saat = haftalikSaatSinirla(e.target.value);
-                if (saat !== null) onGuncelle({ haftalikSaat: saat });
-              }}
-              aria-label={`${ad} haftalık saat`}
-              className={`w-20 rounded-xl px-2 py-2 text-sm ${r.item}`}
-            />
-          </label>
-        </div>
+    <div className={`flex flex-col gap-2 rounded-xl p-2.5 xl:flex-row xl:items-end xl:gap-3 ${r.item}`}>
+      <div className="flex min-w-0 items-center gap-1.5 xl:flex-1 xl:self-end">
+        <input
+          value={ders.dersAdi}
+          onChange={(e) => onGuncelle({ dersAdi: e.target.value })}
+          placeholder="Ders adı"
+          aria-label="Ders adı"
+          className={`h-9 min-w-0 flex-1 rounded-lg px-2.5 text-sm font-semibold ${r.item}`}
+        />
+        <span
+          aria-label={`${ad} dönem notu`}
+          className={`w-14 shrink-0 text-right text-base font-bold tabular-nums xl:hidden ${r.display} ${
+            notu === null ? 'text-muted-foreground' : barajAltinda ? 'text-rose-600 dark:text-rose-400' : 'text-default'
+          }`}
+        >
+          {notu === null ? '—' : notu.toFixed(kademe === 'ortaokul' ? 0 : 2)}
+        </span>
         <button
           type="button"
           onClick={onSil}
           aria-label={`${ad} satırını sil`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-600 xl:hidden dark:hover:bg-rose-500/10"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        {notAlani('yazili1', '1. yazılı')}
-        {notAlani('yazili2', '2. yazılı')}
-        {kademe === 'lise' && notAlani('yazili3', '3. yazılı (ops.)')}
-        {kademe === 'lise' && notAlani('performans1', 'Performans 1')}
-        {kademe === 'lise' && notAlani('performans2', 'Performans 2')}
-        {kademe === 'lise' && notAlani('performans3', 'Performans 3')}
-        {kademe === 'ortaokul' &&
-          KATILIM_ANAHTARLARI.slice(0, katilimAdedi).map((anahtar, i) => (
-            <NotAlani
-              key={anahtar}
-              label={`Sözlü ${i + 1}`}
-              value={ders[anahtar]}
-              onChange={(v) => onGuncelle({ [anahtar]: v })}
-              ariaLabel={`${ad} sözlü ${i + 1}`}
-            />
-          ))}
-        {notAlani('proje', 'Proje (ops.)')}
-        <div className="ml-auto flex flex-col items-end gap-0.5">
-          <span className="text-[11px] font-bold text-muted-foreground">Dönem notu</span>
-          <span
-            className={`min-w-[4.5rem] rounded-xl px-3 py-2 text-center text-lg font-bold tabular-nums ${r.display} ${
-              notu === null ? 'text-muted-foreground' : barajAltinda ? 'text-rose-600 dark:text-rose-400' : 'text-default'
-            }`}
-          >
-            {notu === null ? '—' : notu.toFixed(kademe === 'ortaokul' ? 0 : 2)}
-          </span>
-        </div>
+      {/* Mobilde kutular satırı eşit paylaşır; geniş ekranda sabit kutu + en kalabalık satıra göre sabit
+          blok genişliği (ortaokul 7, lise 8 kutu), böylece satırlar alt alta hizalı. */}
+      <div className={`grid flex-1 auto-cols-fr grid-flow-col gap-1 xl:flex-none xl:auto-cols-[2.75rem] ${kademe === 'lise' ? 'xl:w-[23.5rem]' : 'xl:w-[20.75rem]'}`}>
+        <label className="flex min-w-0 flex-col items-center gap-0.5" title="Haftalık ders saati">
+          <span className={`text-[10px] font-semibold leading-none ${r.mono} ${r.muted}`}>sa</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={40}
+            value={ders.haftalikSaat}
+            onChange={(e) => {
+              const saat = haftalikSaatSinirla(e.target.value);
+              if (saat !== null) onGuncelle({ haftalikSaat: saat });
+            }}
+            aria-label={`${ad} haftalık saat`}
+            className={`h-9 w-full min-w-0 rounded-lg border-dashed px-0 text-center text-sm font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${r.item} ${r.muted}`}
+          />
+        </label>
+        {alanlar.map(({ anahtar, kisa, uzun }) => (
+          <NotAlani
+            key={anahtar}
+            label={kisa}
+            value={ders[anahtar]}
+            onChange={(v) => onGuncelle({ [anahtar]: v })}
+            ariaLabel={`${ad} ${uzun}`}
+          />
+        ))}
+      </div>
+
+      {/* Geniş ekranda not + sil satırın sonunda (mobilde üst satırda). */}
+      <div className="hidden shrink-0 items-center gap-1 xl:flex">
+        <span
+          aria-label={`${ad} dönem notu`}
+          className={`w-16 text-right text-lg font-bold tabular-nums ${r.display} ${
+            notu === null ? 'text-muted-foreground' : barajAltinda ? 'text-rose-600 dark:text-rose-400' : 'text-default'
+          }`}
+        >
+          {notu === null ? '—' : notu.toFixed(kademe === 'ortaokul' ? 0 : 2)}
+        </span>
+        <button
+          type="button"
+          onClick={onSil}
+          aria-label={`${ad} satırını sil`}
+          className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

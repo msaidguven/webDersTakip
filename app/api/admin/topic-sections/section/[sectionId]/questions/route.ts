@@ -66,9 +66,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<P
 
   const result = await insertQuestions(supabase, { topicId, sectionId: Number(sectionId), outcomeIds, questions, aiModel });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
-  const { savedCount } = result;
+  const { savedCount, skippedDuplicateCount } = result;
 
   await revalidateUnitPagesForTopics(supabase, [topicId]);
   revalidateHomepage();
-  return NextResponse.json({ ok: true, savedCount });
+  return NextResponse.json({ ok: true, savedCount, skippedDuplicateCount });
 }

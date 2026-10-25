@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 import { PDFDocument } from 'pdf-lib';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { createClient } from '@/utils/supabase/server';
 import { markdownToHtml, escapeHtml } from '@/app/src/lib/topicContentV11';
 import { slugifyHeading, SITE_URL } from '@/app/src/lib/site';
+import { normalizeRecapCard, recapCardToHtml, type RecapCardHtml } from '@/app/src/lib/recapCards';
 
 // Ders sayfasındaki "PDF Olarak İndir" butonu (kullanıcı isteği, 2026-09-12: güzel bir
 // kapak + her sayfada başlık/site linki taşıyan bir üstbilgi). Bunu tarayıcının kendi
@@ -34,6 +37,15 @@ const katexCss = (() => {
   }
 })();
 
+// Üretilen PDF önbelleği (2026-10-25, Vercel CPU): her indirmede Chrome açmak yerine ilk üretilen PDF
+// Storage'da saklanır (bkz. supabase/migrations/topic_pdfs_storage.sql). Dosya adı, PDF'i etkileyen her
+// şeyin (kapak + içerik HTML'i + üst/altbilgi şablonu) hash'i — içerik ya da tasarım değişince kendiliğinden
+// yeni PDF üretilir. Kapaktaki tarih hash'e girmez (her gün yeni PDF olmasın); kapakta ilk üretim tarihi kalır.
+const PDF_BUCKET = 'topic-pdfs';
+// HTML'e girmeyen basım ayarları (page.pdf kenar boşlukları, kapak birleştirme) değişirse artır.
+const PDF_RENDER_VERSION = '1';
+const SIGNED_URL_SECONDS = 60;
+
 type TopicRow = { id: number; title: string; slug: string | null; unit_id: number };
 type UnitRow = { title: string; slug: string | null; lesson_id: number; grade_id: number };
 type TopicContentRow = { id: number; hero_image_url: string | null; subtitle: string | null };
@@ -41,8 +53,10 @@ type SectionRow = {
   heading: string;
   body_markdown: string | null;
   notebook_markdown: string | null;
+  activity_prompt_markdown: string | null;
   image_url: string | null;
   diagram_svg: string | null;
+  recap_card: unknown;
   order_no: number;
 };
 
@@ -57,13 +71,34 @@ function stripDangerousSvg(svg: string): string {
     .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '');
 }
 
-// PDF tasarımı (2026-10-19, konu sayfası v1 ile aynı dijital dil): koyu lacivert kapak (ızgara +
-// mavi/camgöbeği ışık, içindekiler), bölümlerde gradyan numara kutusu, "Konu Anlatımı" beyaz kart
-// (sol kenarı gradyan), "Defterine Not Al" camgöbeği tonlu kart, kalın terimler fosforlu kalem.
-// Yazı tipleri Google Fonts'tan (Space Grotesk + Inter); yüklenemezse sistem sans-serif'e düşer.
+// Hap bilgi kartı (2026-10-24): sitedeki RecapCardView ile aynı yapı ve anlam renkleri. HTML recapCardToHtml'den
+// (metin kaçışlı, yalnız <strong> + KaTeX); örnek şekli çizilmemişse örnek zaten null gelir.
+function recapCardHtml(card: RecapCardHtml): string {
+  const groups = card.groups
+    .map((g) => `${g.labelHtml ? `<p class="rc-label">${g.labelHtml}</p>` : ''}<ul class="rc-list">${g.itemsHtml.map((h) => `<li>${h}</li>`).join('')}</ul>`)
+    .join('');
+  const figure = card.example?.figureSvg?.trim().startsWith('<svg') ? `<div class="rc-figure">${stripDangerousSvg(card.example.figureSvg)}</div>` : '';
+  const example = card.example
+    ? `<div class="rc-box rc-ex"><b>Örnek</b>${figure}<p class="rc-exq">${card.example.questionHtml}</p><ol class="rc-steps">${card.example.stepsHtml.map((h) => `<li>${h}</li>`).join('')}</ol></div>`
+    : '';
+  return `<div class="rc">
+    ${card.introHtml ? `<p class="rc-intro">${card.introHtml}</p>` : ''}
+    ${groups}
+    ${card.noteHtml ? `<div class="rc-box rc-note"><b>Not</b>${card.noteHtml}</div>` : ''}
+    ${card.warningsHtml.map((h) => `<div class="rc-box rc-warn"><b>Dikkat</b>${h}</div>`).join('')}
+    ${example}
+    ${card.tags.length ? `<p class="rc-tags">İlişkili: ${card.tags.map((x) => `<span>${escapeHtml(x)}</span>`).join('')}</p>` : ''}
+  </div>`;
+}
+
+// PDF tasarımı (2026-10-19, konu sayfası v1 ile aynı dijital dil): bölümlerde gradyan numara kutusu, "Konu Anlatımı"
+// beyaz kart (sol kenarı gradyan), kalın terimler fosforlu kalem. 2026-10-24: kapak koyu değil — beyaz, sade (üstte
+// ince renk şeridi, büyük başlık, kısa vurgu çizgisi, görsel, içindekiler); son sayfa kartı da açık renk.
+// Yazı tipleri Google Fonts'tan (Onest başlık + Inter metin, sitedeki gibi); yüklenemezse sistem sans-serif'e düşer.
 // 2026-10-20: kapak artık AYRI, kenar boşluksuz ve üstbilgisiz tam A4 sayfa olarak basılıp
-// pdf-lib ile içeriğin önüne ekleniyor (headerTemplate sayfa bazında kapatılamıyor). Kapakta,
-// bölüm sonlarında ve son sayfada siteye tıklanabilir linkler var (topicUrl/testUrl null ise gizli).
+// pdf-lib ile içeriğin önüne ekleniyor (headerTemplate sayfa bazında kapatılamıyor).
+// 2026-10-24: içerik iki sütun (daha az sayfa); siteye bağlantılar ve son sayfa kartı kaldırıldı (kullanıcı:
+// "gerek yok" — basılı kâğıtta ileride karekod düşünülüyor); üstbilgi konunun künyesi (sınıf · ders · ünite + konu).
 function buildHtml(opts: {
   topicTitle: string;
   gradeName: string;
@@ -73,12 +108,9 @@ function buildHtml(opts: {
   heroImageUrl: string | null;
   sections: SectionRow[];
   generatedDate: string;
-  topicUrl: string | null;
-  testUrl: string | null;
 }): { cover: string; body: string } {
-  const { topicTitle, gradeName, lessonName, unitName, subtitle, heroImageUrl, sections, generatedDate, topicUrl, testUrl } = opts;
+  const { topicTitle, gradeName, lessonName, unitName, subtitle, heroImageUrl, sections, generatedDate } = opts;
   const siteLabel = SITE_URL.replace(/^https?:\/\//, '');
-  const sectionUrl = (heading: string) => (topicUrl ? `${topicUrl}#${slugifyHeading(heading)}` : null);
   const total = sections.length;
   const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -90,7 +122,13 @@ function buildHtml(opts: {
       // (eski bölümler) body_markdown tek kutuda.
       const bodyHtml = s.body_markdown ? markdownToHtml(s.body_markdown) : '';
       const notebookHtml = s.notebook_markdown ? markdownToHtml(s.notebook_markdown) : '';
-      const contentHtml = notebookHtml
+      const card = normalizeRecapCard(s.recap_card);
+      const activityHtml = s.activity_prompt_markdown ? markdownToHtml(s.activity_prompt_markdown) : '';
+      // Kartı olan bölüm (2026-10-24): PDF bir çalışma kâğıdı — kart + "Düşün" sorusu; uzun anlatım yalnız sitede.
+      // Kartı olmayan bölümler eskisi gibi anlatımla basılır.
+      const contentHtml = card
+        ? `${recapCardHtml(recapCardToHtml(card))}${activityHtml ? `<div class="box think">${activityHtml}</div>` : ''}`
+        : notebookHtml
         ? `
           <div class="box explain">
             <p class="box-label">Konu anlatımı</p>
@@ -105,28 +143,23 @@ function buildHtml(opts: {
         <section class="section">
           <div class="sec-head">
             <span class="sec-no">${pad(i + 1)}</span>
-            <div>
-              <p class="kicker">Bölüm ${i + 1} / ${total}</p>
-              <h2>${escapeHtml(s.heading)}</h2>
-            </div>
+            <h2>${escapeHtml(s.heading)}</h2>
           </div>
           ${s.image_url ? `<img class="section-image" src="${escapeHtml(s.image_url)}" alt="" />` : ''}
           ${cleanSvg ? `<div class="diagram">${cleanSvg}</div>` : ''}
           ${contentHtml}
-          ${sectionUrl(s.heading) ? `<a class="sec-link" href="${escapeHtml(sectionUrl(s.heading)!)}">Bu bölümü sitede aç →</a>` : ''}
         </section>`;
     })
     .join('\n');
 
+  // İçindekiler içerikteki bölüm başlıklarıyla aynı dilde (gradyan numara kutusu); kartlı bölümde madde sayısı.
   const tocHtml = sections
     .map((s, i) => {
-      const url = sectionUrl(s.heading);
-      const inner = `<span class="toc-no">${pad(i + 1)}</span><span class="toc-t">${escapeHtml(s.heading)}</span>`;
-      return `<li>${url ? `<a href="${escapeHtml(url)}">${inner}<span class="toc-go">↗</span></a>` : inner}</li>`;
+      const items = normalizeRecapCard(s.recap_card)?.groups.reduce((n, g) => n + g.items.length, 0);
+      return `<li><span class="toc-no">${pad(i + 1)}</span><span class="toc-t">${escapeHtml(s.heading)}</span>${items ? `<span class="toc-n">${items} madde</span>` : ''}</li>`;
     })
     .join('');
 
-  const pills = [gradeName, lessonName, unitName].filter(Boolean).map((p) => `<span class="pill">${escapeHtml(p)}</span>`).join('');
 
   const head = `<!DOCTYPE html>
 <html lang="tr">
@@ -134,56 +167,55 @@ function buildHtml(opts: {
 <meta charset="utf-8" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Onest:wght@600;700;800&display=swap" rel="stylesheet" />
 <style>
 ${katexCss}
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 :root { --ink: #0B1220; --ink2: #334155; --muted: #64748B; --line: #E3E8F1; --accent: #3B5BFD; --cyan: #06B6D4; --soft: #EBF0FF; --grad: linear-gradient(120deg, #3B5BFD 0%, #2F8CF6 50%, #06B6D4 100%); --mark: rgba(6, 182, 212, .22); }
 body { margin: 0; font-family: 'Inter', -apple-system, 'Segoe UI', Arial, sans-serif; color: var(--ink2); font-size: 11.5px; line-height: 1.7; }
-h1, h2, h3, .display { font-family: 'Space Grotesk', 'Inter', Arial, sans-serif; }
+h1, h2, h3, .display { font-family: 'Onest', 'Inter', Arial, sans-serif; }
 
-/* KAPAK — kenar boşluksuz tam A4 (ayrı basılır) */
-.cover { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #0A1024; color: #F1F5FF; padding: 18mm 18mm 14mm; display: flex; flex-direction: column; }
-.cover::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px); background-size: 10mm 10mm; -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.35) 100%); }
-.cover::after { content: ""; position: absolute; inset: 0; background: radial-gradient(140mm 100mm at 100% 0%, rgba(59,91,253,.6), transparent 65%), radial-gradient(130mm 100mm at 0% 100%, rgba(6,182,212,.45), transparent 65%); }
-.cover > * { position: relative; z-index: 1; }
-.cover a { color: inherit; text-decoration: none; }
-.cover-top { display: flex; justify-content: space-between; align-items: center; }
-.brand { display: flex; align-items: center; gap: 9px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: .02em; }
-.brand-dot { width: 10px; height: 10px; border-radius: 50%; background: #22D3EE; box-shadow: 0 0 0 4px rgba(34,211,238,.22), 0 0 12px #22D3EE; }
-.cover-site { font-size: 10px; font-weight: 600; color: #9FB0D8; border: 1px solid rgba(255,255,255,.16); padding: 4px 10px; border-radius: 999px; }
-.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22mm; }
-.pill { font-size: 10px; font-weight: 600; color: #C7D2F0; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.07); padding: 4px 11px; border-radius: 999px; }
-.cover h1 { margin: 7mm 0 0; font-size: 42px; font-weight: 700; line-height: 1.05; letter-spacing: -.025em; color: #FFFFFF; }
-.cover h1 .grad { background: linear-gradient(120deg, #8EA2FF, #5CC8FF 50%, #4FE3F5); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.cover .subtitle { margin: 5mm 0 0; max-width: 150mm; font-size: 13.5px; line-height: 1.6; color: #A9B6D6; }
-.cta-row { display: flex; gap: 8px; margin-top: 8mm; }
-.cta { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 9px 16px; border-radius: 12px; }
-.cta.primary { background: linear-gradient(120deg, #3B5BFD 0%, #2F8CF6 50%, #06B6D4 100%); color: #fff; box-shadow: 0 8px 24px rgba(47,140,246,.35); }
-.cta.ghost { border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #E2E8F8; }
-.hero-frame { margin-top: 9mm; padding: 6px; border-radius: 18px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); align-self: flex-start; max-width: 100%; }
-.hero-frame img { display: block; max-width: 100%; max-height: 70mm; border-radius: 13px; object-fit: contain; }
-.toc { margin-top: auto; padding-top: 8mm; }
-.toc-label { margin: 0 0 4mm; font-size: 9.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #7FE4F3; }
-.toc ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 8mm; }
-.toc li { font-size: 11.5px; color: #E2E8F8; border-bottom: 1px solid rgba(255,255,255,.1); }
-.toc li a { display: flex; align-items: baseline; gap: 10px; padding: 2.4mm 0; }
-.toc li:not(:has(a)) { display: flex; align-items: baseline; gap: 10px; padding: 2.4mm 0; }
-.toc-t { flex: 1; }
-.toc-go { color: #5E77C9; font-size: 10px; }
-.toc-no { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 11px; color: #7C93FF; min-width: 20px; }
-.cover-foot { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 9.5px; color: #7D8BAE; }
+/* KAPAK — kenar boşluksuz tam A4 (ayrı basılır). İçerik sayfalarıyla aynı dil (2026-10-24): aynı kenar boşlukları,
+   mavi çizgili üstbilgi, sol kenarı gradyanlı tonlu panel, gradyan numara kutulu iki sütunlu içindekiler, aynı altbilgi.
+   Görsel tam genişlikte ve kalan boşluğu doldurur (flex) — başlık/bölüm sayısı ne olursa olsun sayfa dengeli dolar. */
+.cover { width: 210mm; height: 297mm; overflow: hidden; background: #FFFFFF; color: var(--ink); padding: 11mm 12mm 9mm; display: flex; flex-direction: column; gap: 7mm; }
+.cover-top { flex: none; display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 2.5mm; border-bottom: 1.2px solid var(--accent); }
+.brand { display: flex; align-items: center; gap: 8px; font-family: 'Onest', sans-serif; font-weight: 800; font-size: 14px; color: var(--ink); }
+.brand-mark { width: 18px; height: 18px; border-radius: 5px; background: var(--grad); }
+.cover-kind { font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.cover-panel { flex: none; position: relative; padding: 9mm 9mm 8mm 11mm; border-radius: 14px; background: #F3F6FF; border: 1px solid #DCE4FF; }
+.cover-panel::before { content: ""; position: absolute; left: 0; top: 9mm; bottom: 9mm; width: 4px; border-radius: 4px; background: var(--grad); }
+.cover-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3mm 4mm; font-family: 'Onest', sans-serif; font-weight: 800; }
+.cm-grade { font-size: 13.5px; color: #fff; background: var(--grad); padding: 1.3mm 4mm; border-radius: 999px; }
+.cm-lesson { font-size: 19px; letter-spacing: -.01em; color: var(--accent); }
+.cm-unit { padding-left: 4mm; border-left: 1px solid #C9D4FF; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.cm-unit span { margin-right: 1.5mm; font-size: 9.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.cover h1 { margin: 6mm 0 0; font-size: 34px; font-weight: 800; line-height: 1.12; letter-spacing: -.02em; color: var(--ink); text-wrap: balance; }
+.cover .subtitle { margin: 4mm 0 0; max-width: 165mm; font-size: 12.5px; line-height: 1.6; color: var(--ink2); }
+.hero-frame { flex: 1 1 auto; min-height: 45mm; display: flex; align-items: center; justify-content: center; padding: 4mm; border-radius: 14px; background: #F7F9FD; border: 1px solid var(--line); overflow: hidden; }
+.hero-frame img { display: block; max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; }
+.cover-spacer { flex: 1 1 auto; }
+.toc { flex: none; }
+.toc-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2.5mm; padding-bottom: 2.5mm; border-bottom: 1px dashed var(--line); }
+.toc-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); }
+.toc-head span { font-size: 10px; font-weight: 600; color: var(--muted); }
+.toc ol { list-style: none; margin: 0; padding: 0; column-count: 2; column-gap: 7mm; column-rule: 1px solid var(--line); }
+.toc li { display: flex; align-items: center; gap: 8px; padding: 1.6mm 0; break-inside: avoid; font-size: 11px; line-height: 1.35; color: var(--ink2); }
+.toc-no { flex: none; width: 22px; height: 22px; border-radius: 6px; background: var(--grad); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Onest', sans-serif; font-weight: 700; font-size: 10px; }
+.toc-t { flex: 1; font-weight: 600; color: var(--ink); }
+.toc-n { flex: none; font-size: 9.5px; color: var(--muted); }
+.cover-foot { flex: none; display: flex; justify-content: space-between; padding-top: 2.5mm; border-top: 1px solid var(--line); font-size: 8.5px; color: #94A3B8; }
 
-/* BÖLÜMLER */
-.section { margin-bottom: 9mm; }
-.sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 5mm; padding-bottom: 4mm; border-bottom: 1px dashed var(--line); break-after: avoid; page-break-after: avoid; }
-.sec-no { flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--grad); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
-.kicker { margin: 0 0 1px; font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-.sec-head h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; color: var(--ink); }
-.section-image { display: block; max-width: 100%; max-height: 80mm; margin: 0 auto 5mm; border-radius: 12px; border: 1px solid var(--line); object-fit: contain; }
-.diagram { margin: 0 0 5mm; padding: 4mm; border-radius: 12px; border: 1px solid var(--line); background: #fff; text-align: center; }
+/* BÖLÜMLER — iki sütun (2026-10-24, daha az sayfa); bölümler sütun/sayfa sınırında akabilir, kutular bölünmez */
+main { column-count: 2; column-gap: 7mm; column-rule: 1px solid var(--line); font-size: 10px; line-height: 1.55; }
+.section { margin-bottom: 5mm; }
+.sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3mm; padding-bottom: 2.5mm; border-bottom: 1px dashed var(--line); break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+.sec-no { flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--grad); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Onest', sans-serif; font-weight: 700; font-size: 11px; }
+.sec-head h2 { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: var(--ink); }
+.section-image { display: block; max-width: 100%; max-height: 50mm; margin: 0 auto 3mm; border-radius: 10px; border: 1px solid var(--line); object-fit: contain; break-inside: avoid; }
+.diagram { margin: 0 0 3mm; padding: 3mm; border-radius: 10px; border: 1px solid var(--line); background: #fff; text-align: center; break-inside: avoid; }
 .diagram svg { max-width: 100%; height: auto; }
-.box { position: relative; border-radius: 12px; padding: 4.5mm 5mm 3mm 6mm; margin-bottom: 4mm; }
+.box { position: relative; border-radius: 9px; padding: 2.5mm 3mm 1.5mm 4mm; margin-bottom: 2.5mm; }
 .box.explain { background: #FFFFFF; border: 1px solid var(--line); }
 .box.explain::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--grad); }
 .box.note { background: linear-gradient(135deg, #EEF6FF, #E6FAFD); border: 1px solid #CDEFF7; }
@@ -192,23 +224,35 @@ h1, h2, h3, .display { font-family: 'Space Grotesk', 'Inter', Arial, sans-serif;
 .box p { margin: 0 0 2.5mm; }
 .box ul, .box ol { margin: 0 0 2.5mm; padding-left: 5mm; }
 .box li { margin-bottom: 1.2mm; }
-h3 { margin: 4mm 0 1.5mm; font-size: 13px; font-weight: 700; color: var(--ink); }
+h3 { margin: 3mm 0 1mm; font-size: 11.5px; font-weight: 700; color: var(--ink); }
 strong { color: var(--ink); font-weight: 700; background: linear-gradient(transparent 58%, var(--mark) 58%, var(--mark) 94%, transparent 94%); padding: 0 1px; }
 a { color: var(--accent); }
 img { max-width: 100%; }
-.sec-link { display: inline-block; font-size: 10px; font-weight: 600; text-decoration: none; color: var(--accent); }
+.box.think { background: #F7F3FF; border: 1px solid #E4D9FB; break-inside: avoid; }
 
-/* SON SAYFA — siteye dönüş kartı */
-.outro { break-inside: avoid; page-break-inside: avoid; margin-top: 10mm; border-radius: 18px; overflow: hidden; background: #0A1024; color: #E2E8F8; padding: 8mm 8mm 7mm; position: relative; }
-.outro::after { content: ""; position: absolute; inset: 0; background: radial-gradient(90mm 60mm at 100% 0%, rgba(59,91,253,.5), transparent 65%), radial-gradient(80mm 60mm at 0% 100%, rgba(6,182,212,.35), transparent 65%); }
-.outro > * { position: relative; z-index: 1; }
-.outro h2 { margin: 0; font-size: 20px; color: #fff; letter-spacing: -.01em; }
-.outro p { margin: 2mm 0 5mm; color: #A9B6D6; }
-.outro-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
-.outro-links a { display: block; text-decoration: none; border-radius: 12px; padding: 4mm; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); color: #fff; }
-.outro-links a.primary { background: linear-gradient(120deg, #3B5BFD 0%, #2F8CF6 50%, #06B6D4 100%); border-color: transparent; }
-.outro-links b { display: block; font-family: 'Space Grotesk', sans-serif; font-size: 12.5px; }
-.outro-links span { display: block; margin-top: 1mm; font-size: 9.5px; color: #C7D2F0; }
+/* HAP BİLGİ KARTI — sitedeki anlam renkleri: ara başlık lacivert, kavram mor-pembe, Not turuncu, Dikkat kırmızı, Örnek yeşil */
+.rc { display: grid; gap: 2mm; margin-bottom: 2.5mm; }
+.rc-intro { margin: 0; font-size: 11px; color: var(--ink); }
+.rc-label { margin: 0 0 1.2mm; padding-left: 2.5mm; border-left: 2.5px solid #3B5BFD; font-size: 11px; font-weight: 800; color: #1E3A8A; break-after: avoid; page-break-after: avoid; }
+.rc-list { list-style: none; margin: 0; padding: 0; }
+.rc-list li { position: relative; padding-left: 3.5mm; margin-bottom: 1mm; break-inside: avoid; }
+.rc-list li::before { content: ""; position: absolute; left: .4mm; top: 1.9mm; width: 1.6mm; height: 1.6mm; border-radius: 50%; background: #3B5BFD; }
+.rc strong { color: #A21CAF; background: none; padding: 0; }
+.rc-box { border: 1px solid; border-radius: 9px; padding: 2mm 3mm; break-inside: avoid; page-break-inside: avoid; }
+.rc-box > b { display: block; margin-bottom: .8mm; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; }
+.rc-note { background: #FFF4E5; border-color: #FDBA74; }
+.rc-note > b { color: #C2410C; }
+.rc-warn { background: #FEEFEF; border-color: #FCA5A5; }
+.rc-warn > b { color: #B91C1C; }
+.rc-ex { background: #ECF8F0; border-color: #86EFAC; }
+.rc-ex > b { color: #15803D; }
+.rc-figure { margin: 1mm 0 2mm; padding: 2mm; border-radius: 8px; background: #fff; text-align: center; }
+.rc-figure svg { max-width: 100%; height: auto; }
+.rc-exq { margin: 0; font-weight: 600; color: var(--ink); }
+.rc-steps { margin: 1.5mm 0 0; padding-left: 5mm; }
+.rc-tags { margin: 0; font-size: 9.5px; color: var(--muted); }
+.rc-tags span { display: inline-block; margin-left: 1.5mm; padding: .4mm 2.5mm; border-radius: 999px; background: var(--soft); color: var(--accent); font-weight: 700; }
+
 </style>
 </head>
 <body>`;
@@ -216,41 +260,31 @@ img { max-width: 100%; }
   const cover = `${head}
   <div class="cover">
     <div class="cover-top">
-      <a class="brand" href="${SITE_URL}"><span class="brand-dot"></span>Ders Takip</a>
-      <a class="cover-site" href="${SITE_URL}">${escapeHtml(siteLabel)}</a>
+      <span class="brand"><span class="brand-mark"></span>Ders Takip</span>
+      <span class="cover-kind">Ders notu · ${escapeHtml(generatedDate)}</span>
     </div>
-    <div class="pills">${pills}<span class="pill">Konu anlatımı</span></div>
-    <h1><span class="grad">${escapeHtml(topicTitle)}</span></h1>
-    ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
-    ${topicUrl || testUrl ? `<div class="cta-row">
-      ${topicUrl ? `<a class="cta primary" href="${escapeHtml(topicUrl)}">Konuyu sitede aç →</a>` : ''}
-      ${testUrl ? `<a class="cta ghost" href="${escapeHtml(testUrl)}">Konu testini çöz</a>` : ''}
-    </div>` : ''}
-    ${heroImageUrl ? `<div class="hero-frame"><img src="${escapeHtml(heroImageUrl)}" alt="" /></div>` : ''}
-    ${total ? `<div class="toc"><p class="toc-label">İçindekiler · ${total} bölüm</p><ol>${tocHtml}</ol></div>` : ''}
+    <div class="cover-panel">
+      <div class="cover-meta">
+        ${gradeName ? `<span class="cm-grade">${escapeHtml(gradeName)}</span>` : ''}
+        ${lessonName ? `<span class="cm-lesson">${escapeHtml(lessonName)}</span>` : ''}
+        ${unitName ? `<span class="cm-unit"><span>Ünite</span>${escapeHtml(unitName)}</span>` : ''}
+      </div>
+      <h1>${escapeHtml(topicTitle)}</h1>
+      ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
+    </div>
+    ${heroImageUrl ? `<div class="hero-frame"><img src="${escapeHtml(heroImageUrl)}" alt="" /></div>` : '<div class="cover-spacer"></div>'}
+    ${total ? `<div class="toc"><div class="toc-head"><h2>Bu notta</h2><span>${total} bölüm</span></div><ol>${tocHtml}</ol></div>` : ''}
     <div class="cover-foot">
-      <span>Ücretsiz konu anlatımı, test ve tekrar · ${escapeHtml(siteLabel)}</span>
-      <span>${escapeHtml(generatedDate)}</span>
+      <span>Ders Takip · ${escapeHtml(siteLabel)}</span>
+      <span>Ücretsiz konu anlatımı, test ve tekrar</span>
     </div>
   </div>
 </body>
 </html>`;
 
-  const outro = `
-    <div class="outro">
-      <h2>Konuyu pekiştirme zamanı</h2>
-      <p>Okuduklarını test et, eksiklerini gör ve ilerlemeni takip et — hepsi ücretsiz.</p>
-      <div class="outro-links">
-        ${testUrl ? `<a class="primary" href="${escapeHtml(testUrl)}"><b>Konu testini çöz →</b><span>Bu konunun soruları</span></a>` : ''}
-        ${topicUrl ? `<a href="${escapeHtml(topicUrl)}"><b>Konuyu sitede aç</b><span>Görseller, sesli anlatım, slaytlar</span></a>` : ''}
-        <a href="${SITE_URL}"><b>${escapeHtml(siteLabel)}</b><span>Tüm dersler ve günün sorusu</span></a>
-      </div>
-    </div>`;
-
   const body = `${head}
   <main>
     ${sectionsHtml}
-    ${outro}
   </main>
 </body>
 </html>`;
@@ -262,6 +296,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { topicId: topicIdParam } = await params;
   const topicId = Number(topicIdParam);
   if (!Number.isFinite(topicId)) return NextResponse.json({ error: 'Geçersiz konu id' }, { status: 400 });
+
+  // PDF yalnızca üyelere açık (arayüzdeki uyarı penceresi tek başına yetmez, link doğrudan açılabilir).
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  if (!user) return NextResponse.json({ error: 'PDF indirmek için giriş yapmalısınız.' }, { status: 401 });
 
   const supabase = createServiceClient();
 
@@ -291,17 +331,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: sectionsData } = await supabase
     .from('topic_content_sections')
-    .select('heading, body_markdown, notebook_markdown, image_url, diagram_svg, order_no')
+    .select('heading, body_markdown, notebook_markdown, activity_prompt_markdown, image_url, diagram_svg, recap_card, order_no')
     .eq('topic_content_id', topicContent.id)
     .order('order_no', { ascending: true });
   const sections = (sectionsData as SectionRow[] | null) || [];
 
-  const generatedDate = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const topicPath =
-    grade?.slug && lesson?.slug && unit?.slug && topic.slug ? `${grade.slug}/${lesson.slug}/${unit.slug}/${topic.slug}` : null;
-
-  const { cover, body } = buildHtml({
+  const htmlInput = {
     topicTitle: topic.title,
     gradeName: grade?.name || '',
     lessonName: lesson?.name || '',
@@ -309,10 +344,41 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     subtitle: topicContent.subtitle,
     heroImageUrl: topicContent.hero_image_url,
     sections,
-    generatedDate,
-    topicUrl: topicPath ? `${SITE_URL}/${topicPath}` : null,
-    testUrl: topicPath ? `${SITE_URL}/soru-bankasi/${topicPath}` : null,
-  });
+  };
+
+  const siteUrlLabel = SITE_URL.replace(/^https?:\/\//, '');
+  // Üstbilgi = konunun künyesi (2026-10-24): solda sınıf · ders · ünite, sağda "Konu: …", altında çizgi.
+  const metaLabel = [grade?.name, lesson?.name, unit?.title].filter(Boolean).map((v) => escapeHtml(v as string)).join(' · ');
+  const headerTemplate = `
+      <div style="-webkit-print-color-adjust:exact; width:100%; padding:0 12mm; font-family:Arial,Helvetica,sans-serif;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:6mm; padding-bottom:1.6mm; border-bottom:1.2px solid #3B5BFD;">
+          <span style="flex:none; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#3B5BFD;">${metaLabel}</span>
+          <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:#64748B;">Konu: <b style="color:#0B1220;">${escapeHtml(topic.title)}</b></span>
+        </div>
+      </div>
+    `;
+  const footerTemplate = `
+      <div style="-webkit-print-color-adjust:exact; font-size:8px; width:100%; padding:0 12mm; display:flex; justify-content:space-between; align-items:center; color:#94A3B8; font-family:Arial,Helvetica,sans-serif;">
+        <span>Ders Takip · ${escapeHtml(siteUrlLabel)}</span>
+        <span style="font-weight:700; color:#3B5BFD;"><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+      </div>
+    `;
+
+  const asciiName = slugifyHeading(topic.title) || 'ders-notu';
+  const keyHtml = buildHtml({ ...htmlInput, generatedDate: '' });
+  const hash = createHash('sha256').update([PDF_RENDER_VERSION, keyHtml.cover, keyHtml.body, headerTemplate, footerTemplate].join('\u0000')).digest('hex').slice(0, 32);
+  const cachedPath = `${topicId}/${hash}.pdf`;
+
+  // Önbellekte varsa Chrome'u hiç açmadan kısa süreli imzalı URL'ye yönlendir (dosya yoksa hata döner).
+  const { data: signed } = await supabase.storage
+    .from(PDF_BUCKET)
+    .createSignedUrl(cachedPath, SIGNED_URL_SECONDS, { download: `${asciiName}.pdf` });
+  if (signed?.signedUrl) {
+    return NextResponse.redirect(signed.signedUrl, { status: 302, headers: { 'Cache-Control': 'private, no-store' } });
+  }
+
+  const generatedDate = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const { cover, body } = buildHtml({ ...htmlInput, generatedDate });
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
@@ -336,26 +402,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     await page.setContent(body, { waitUntil: 'load', timeout: 20_000 });
 
-    const siteUrlLabel = SITE_URL.replace(/^https?:\/\//, '');
-    // Web fontları (Space Grotesk/Inter) 'load' sonrası da gelebilir — basmadan önce bekle.
+    // Web fontları (Onest/Inter) 'load' sonrası da gelebilir — basmadan önce bekle.
     await page.evaluate(() => document.fonts.ready).catch(() => {});
-
-    const metaLabel = [lesson?.name, grade?.name].filter(Boolean).map((v) => escapeHtml(v as string)).join(' · ');
-    const headerTemplate = `
-      <div style="-webkit-print-color-adjust:exact; font-size:8.5px; width:100%; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; color:#64748B; font-family:Arial,Helvetica,sans-serif;">
-        <span style="display:flex; align-items:center; gap:6px;">
-          <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#06B6D4;"></span>
-          <b style="color:#0B1220;">${escapeHtml(topic.title)}</b>
-        </span>
-        <span>${metaLabel}</span>
-      </div>
-    `;
-    const footerTemplate = `
-      <div style="-webkit-print-color-adjust:exact; font-size:8px; width:100%; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; color:#94A3B8; font-family:Arial,Helvetica,sans-serif;">
-        <span>Ders Takip · ${escapeHtml(siteUrlLabel)}</span>
-        <span style="font-weight:700; color:#3B5BFD;"><span class="pageNumber"></span> / <span class="totalPages"></span></span>
-      </div>
-    `;
 
     const bodyPdf = await page.pdf({
       format: 'A4',
@@ -363,10 +411,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      // top 26mm: üstbilgiye (headerTemplate) rahat yer bırakıyor. Asıl kritik olan,
-      // stildeki "@page margin:0" kuralının BURADAN kaldırılmış olması (bkz. yukarıdaki
-      // not) — o kural varken 2. sayfadan itibaren içerik üstbilgiyle çakışıyordu.
-      margin: { top: '26mm', bottom: '16mm', left: '14mm', right: '14mm' },
+      // top: üstbilgiye (headerTemplate) yer bırakıyor. Asıl kritik olan, stildeki "@page margin:0" kuralının
+      // BURADAN kaldırılmış olması — o kural varken 2. sayfadan itibaren içerik üstbilgiyle çakışıyordu.
+      margin: { top: '22mm', bottom: '15mm', left: '12mm', right: '12mm' },
     });
 
     // Kapak + içerik birleştirme; linkler (annotation) copyPages ile korunuyor.
@@ -379,7 +426,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     merged.setTitle(`${topic.title} – Ders Takip`);
     const pdf = await merged.save();
 
-    const asciiName = slugifyHeading(topic.title) || 'ders-notu';
+    // Yanıt gönderildikten sonra önbelleğe yaz + konunun eski sürümlerini sil. Kayıt başarısız olursa
+    // kullanıcı yine PDF'ini alır; bir sonraki indirme yeniden üretir.
+    after(async () => {
+      const { error: uploadError } = await supabase.storage
+        .from(PDF_BUCKET)
+        .upload(cachedPath, pdf, { contentType: 'application/pdf', upsert: true });
+      if (uploadError) {
+        console.error('[topic-pdf] önbelleğe yazılamadı:', uploadError.message);
+        return;
+      }
+      const { data: files } = await supabase.storage.from(PDF_BUCKET).list(String(topicId), { limit: 100 });
+      const stale = (files ?? []).filter((f) => f.name !== `${hash}.pdf`).map((f) => `${topicId}/${f.name}`);
+      if (stale.length) await supabase.storage.from(PDF_BUCKET).remove(stale);
+    });
+
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',

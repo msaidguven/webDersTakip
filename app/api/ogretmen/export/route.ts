@@ -1,33 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from 'docx';
-import { Resvg } from '@resvg/resvg-js';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { requireTeacher } from '@/app/src/lib/teacherAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
+import { latexToPlain } from '@/app/src/lib/latexToPlain';
+import { svgToImageRun } from '@/app/src/lib/svgToDocxImage';
 
 const MAX_QUESTIONS = 100;
 const BLANK_LINES_PER_QUESTION = 4;
-const SVG_RENDER_WIDTH = 420; // px — makul bir sayfa genişliği, docx px'i EMU'ya kendi çeviriyor
 
 type ExportMode = 'questions' | 'answers' | 'both';
 
 type QuestionRow = { id: number; question_text: string; svg_content: string | null; svg_position: 'above' | 'below' };
 type ClassicalRow = { question_id: number; model_answer: string | null; key_terms: string[] };
-
-function svgToImageRun(svg: string): ImageRun | null {
-  try {
-    const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: SVG_RENDER_WIDTH } });
-    const rendered = resvg.render();
-    return new ImageRun({
-      type: 'png',
-      data: rendered.asPng(),
-      transformation: { width: rendered.width, height: rendered.height },
-    });
-  } catch {
-    // Bozuk/desteklenmeyen bir SVG dokümanı bloke etmesin — o sorunun görseli
-    // atlanır, metni yine de Word'e girer.
-    return null;
-  }
-}
 
 export async function POST(request: NextRequest) {
   const teacher = await requireTeacher();
@@ -79,7 +63,7 @@ export async function POST(request: NextRequest) {
       }
       children.push(new Paragraph({
         spacing: { before: 240 },
-        children: [new TextRun({ text: `${idx + 1}. ${q.question_text}`, bold: true })],
+        children: [new TextRun({ text: `${idx + 1}. ${latexToPlain(q.question_text)}`, bold: true })],
       }));
       if (image && q.svg_position === 'below') {
         children.push(new Paragraph({ children: [image], alignment: AlignmentType.CENTER }));
@@ -96,9 +80,9 @@ export async function POST(request: NextRequest) {
       const answer = answerByQuestion.get(q.id);
       children.push(new Paragraph({
         spacing: { before: 240 },
-        children: [new TextRun({ text: `${idx + 1}. `, bold: true }), new TextRun({ text: q.question_text, bold: true })],
+        children: [new TextRun({ text: `${idx + 1}. `, bold: true }), new TextRun({ text: latexToPlain(q.question_text), bold: true })],
       }));
-      children.push(new Paragraph({ children: [new TextRun(answer?.model_answer || '(cevap anahtarı girilmemiş)')] }));
+      children.push(new Paragraph({ children: [new TextRun(answer?.model_answer ? latexToPlain(answer.model_answer) : '(cevap anahtarı girilmemiş)')] }));
       if (answer?.key_terms?.length) {
         children.push(new Paragraph({ children: [new TextRun({ text: `Anahtar kavramlar: ${answer.key_terms.join(', ')}`, italics: true })] }));
       }
