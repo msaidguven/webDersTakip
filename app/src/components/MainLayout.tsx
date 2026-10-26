@@ -27,6 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, supabase, signOut } = useAuth();
   const role = useProfileRole();
   const isAdmin = role === 'admin';
+  const isTeacher = role === 'teacher';
   const displayName = useDisplayName();
   const pathname = usePathname();
   const gradeSlug = useMyGradeSlug();
@@ -57,7 +58,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   // Mobil alt sekme çubuğu: konu okuma sayfasının kendi sabit Geri/İleri çubuğu varken
   // gösterilmez (footer ile aynı kural) — üst üste iki alt çubuk olmasın.
   const showTabBar = !hideFooter;
-  const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, gradeSlug });
+  const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, isTeacher, gradeSlug });
 
   return (
     <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
@@ -95,7 +96,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* Sağ Menü */}
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-2 xl:gap-4">
             {/* 1024–1279px'te menü bağlantılarına yer açmak için seri gizli (İlerlemem'de görünüyor). */}
-            {isAuthenticated && streak != null && (
+            {/* Öğretmen soru çözmüyor: seri sayacı yalnız öğrenci/admin'de. */}
+            {isAuthenticated && streak != null && !isTeacher && (
               <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
                 <span className="text-lg sm:text-xl">🔥</span>
                 <div>
@@ -132,7 +134,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               isAuthenticated={isAuthenticated}
               displayName={displayName || user?.email?.split('@')[0] || null}
               isAdmin={isAdmin}
-              isTeacher={role === 'teacher'}
+              isTeacher={isTeacher}
               onSignOut={signOut}
             />
           </div>

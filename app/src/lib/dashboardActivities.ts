@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Activity } from '@/app/src/models/types';
+import { topicTestEndpoint, unitTestEndpoint } from '@/app/src/lib/quizTestEndpoints';
 
 type SessionRow = {
   id: number;
@@ -106,6 +107,7 @@ export async function getRecentActivities(
     const title = hasRemainingQuestions ? `${baseTitle} (Yarım Kaldı)` : baseTitle;
 
     let resumeHref: string | undefined;
+    let resumeEndpoint: string | undefined;
     // Ünitesiz ama dersli oturum = "Sıradaki 10 soru" (2026-10-01); sayfası yarım oturumu
     // ders bazında bulup devam ettirir (findResumableSession lessonId).
     if (hasRemainingQuestions && !unit && s.lesson_id != null && s.settings?.topic_id == null) {
@@ -122,6 +124,9 @@ export async function getRecentActivities(
         resumeHref = topicId != null
           ? topicSlug ? `${unitPath}/${topicSlug}?devam=1` : undefined
           : `${unitPath}?devam=1`;
+        resumeEndpoint = topicId != null
+          ? topicSlug ? topicTestEndpoint(gradeSlug, lesson.slug, unit.slug, topicSlug) : undefined
+          : unitTestEndpoint(gradeSlug, lesson.slug, unit.slug);
       }
     }
 
@@ -138,6 +143,7 @@ export async function getRecentActivities(
       iconColor: hasRemainingQuestions ? 'orange' : 'purple',
       isComplete,
       resumeHref,
+      resumeEndpoint,
       baseTitle,
       lessonId: s.lesson_id,
     };

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Alerts = { svgPending: number; openReports: number; autoHidden: number; failedBatches: number; awaitingReview: number; recapFiguresPending: number; recapFailed: number };
+type Alerts = { svgPending: number; openReports: number; studentReplies: number; autoHidden: number; failedBatches: number; awaitingReview: number; recapFiguresPending: number; recapFailed: number };
 // href yoksa iş Claude'a söylenerek yapılır, gidilecek sayfa yok.
 type AlertItem = { href?: string; text: string };
 
@@ -28,6 +28,7 @@ export function AdminAlerts() {
   if (!alerts) return null;
   const items = [
     alerts.openReports > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.openReports} soru için öğrenci "hatalı soru" bildirimi var` },
+    alerts.studentReplies > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.studentReplies} soru bildiriminde öğrenci sana geri yazdı` },
     alerts.autoHidden > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.autoHidden} soru 3+ "cevap yanlış" bildirimiyle otomatik gizlendi` },
     alerts.svgPending > 0 && { href: '/admin/svg-sorulari', text: `${alerts.svgPending} soru çizim (SVG) bekliyor — çizim eklenene kadar yayında değil` },
     alerts.awaitingReview > 0 && { href: '/admin/soru-bildirimleri#partiler', text: `${alerts.awaitingReview} Türkçe konusunun soruları inceleme bekliyor — Claude'a "Türkçe sorularını kontrol et" de, sonra Yayınla` },

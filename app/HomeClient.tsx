@@ -150,6 +150,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
               <TeacherHome
                 firstName={profile!.firstName}
                 isVerified={profile!.role === 'admin' || profile!.isVerified}
+                grades={resolvedGrades}
+                thisWeek={thisWeek}
                 upcomingExams={allUpcoming.length ? <UpcomingExamsCard exams={allUpcoming} className="rounded-[22px]" /> : undefined}
               />
             ) : (

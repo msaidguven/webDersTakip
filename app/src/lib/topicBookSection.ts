@@ -15,7 +15,7 @@ const GENERAL_MARKERS = ['Listede olmayan diğer bilgiler:', 'Tema metinleri:'];
 
 // Chunk'lar değil ham metin: chunk sınırı bir konu başlığını ikiye bölerse eşleşme kaçardı.
 export async function fetchUnitBookRawText(supabase: Supabase, unitId: number): Promise<string | null> {
-  const { data } = await supabase.from('rag_documents').select('raw_text').eq('unit_id', unitId).order('id', { ascending: true });
+  const { data } = await supabase.from('rag_documents').select('raw_text').eq('unit_id', unitId).neq('source', 'ai_generated').order('id', { ascending: true });
   const text = ((data as { raw_text: string | null }[] | null) || []).map((d) => d.raw_text || '').filter(Boolean).join('\n\n');
   return text.trim() ? text : null;
 }

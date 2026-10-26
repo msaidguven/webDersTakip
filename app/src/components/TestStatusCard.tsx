@@ -24,38 +24,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import type { SoruBankasiTestStatus } from '@/app/src/lib/soruBankasiStatus';
-import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
-import QuizWithAsk from '@/app/src/components/QuizWithAsk';
+import { topicTestEndpoint, unitTestEndpoint, useQuizTestLauncher } from '@/app/src/hooks/useQuizTestLauncher';
 import { withPublicFlag } from '@/app/src/lib/clientSession';
 import r from './robotic/robotic.module.css';
-
-interface TestData {
-  gradeId: number;
-  lessonId: number;
-  unitId: number;
-  topicId?: number;
-  scopeLabel: string;
-  initialQuestions: QuizQuestion[];
-  remainingQuestionIds: number[];
-  allCaughtUp: boolean;
-  conflict: ConflictInfo | null;
-  resume: { sessionId: number; answers: { questionId: number; isCorrect: boolean }[] } | null;
-  reloadEndpoint: string;
-  questionBankPathBase?: string;
-  intro?: { subLabel: string; description: string | null; topicCount: number | null; questionCount: number | null };
-}
-
-// Aynı ünitenin konu testi ile ünite testi aynı soru havuzunu paylaşıyor — ikisi aynı anda
-// açık kalırsa biri diğerini "hayalete" çevirebiliyor (bkz. quizResume.ts'teki
-// findConflictingSession). Yeni bir test başlatılırken böyle bir çakışma bulunursa, sessizce
-// üstüne yazmak yerine kullanıcıya seçim sunuluyor (kullanıcının 2026-09-06 isteği).
-interface ConflictInfo {
-  sessionId: number;
-  scopeLabel: string;
-  href: string;
-  total: number;
-  answeredCount: number;
-}
 
 interface TestStatusCardProps {
   scope: 'topic' | 'unit';
@@ -119,10 +90,6 @@ function ResultSummary({ correct, wrong, solved }: { correct: number; wrong: num
 
 export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color, guestContent }: TestStatusCardProps) {
   const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
-  const [testData, setTestData] = useState<TestData | null>(null);
-  const [testLoading, setTestLoading] = useState(false);
-  const [testError, setTestError] = useState<string | null>(null);
-  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const classes = COLOR_CLASSES[color];
 
   // Ayrı test sayfaları kaldırıldı (2026-10-24) — yedek href artık kartın bulunduğu soru bankası sayfası.
@@ -160,33 +127,20 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
     };
   }, [fetchStatus]);
 
+  // Test kapandığında durumu ve sayfadaki "çözdüğün sorular" listesini (useQuestionBankViewer) tazele.
+  const onTestClosed = useCallback(() => {
+    refetchStatus();
+    window.dispatchEvent(new Event(QUESTION_BANK_STATS_REFRESH_EVENT));
+  }, [refetchStatus]);
+  const { open, loading: testLoading, error: testError, conflict: conflictInfo, player } = useQuizTestLauncher(onTestClosed);
   const requestTest = useCallback(
-    async (forceNew: boolean) => {
-      if (testLoading) return;
-      setTestLoading(true);
-      setTestError(null);
-      setConflictInfo(null);
-      try {
-        const base =
-          scope === 'topic'
-            ? `/api/soru-bankasi/topic-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}&topicSlug=${topicSlug}`
-            : `/api/soru-bankasi/unit-test?gradeSlug=${gradeSlug}&lessonSlug=${lessonSlug}&unitSlug=${unitSlug}`;
-        const url = forceNew ? `${base}&forceNew=1` : base;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('failed');
-        const data = (await res.json()) as TestData;
-        if (data.conflict) {
-          setConflictInfo(data.conflict);
-          return;
-        }
-        setTestData(data);
-      } catch {
-        setTestError('Test yüklenemedi, tekrar dener misin?');
-      } finally {
-        setTestLoading(false);
-      }
-    },
-    [scope, gradeSlug, lessonSlug, unitSlug, topicSlug, testLoading]
+    (forceNew: boolean) =>
+      open(
+        scope === 'topic' ? topicTestEndpoint(gradeSlug, lessonSlug, unitSlug, topicSlug!) : unitTestEndpoint(gradeSlug, lessonSlug, unitSlug),
+        testHref,
+        forceNew
+      ),
+    [open, scope, gradeSlug, lessonSlug, unitSlug, topicSlug, testHref]
   );
 
   const startOrResumeTest = useCallback(
@@ -216,16 +170,8 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
     params.delete('devam');
     const query = params.toString();
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- adres parametresi yalnızca istemcide, tek seferlik okunur
     if (status.loggedIn && status.resumable) void requestTest(false);
   }, [status, requestTest]);
-
-  const closeTest = useCallback(() => {
-    setTestData(null);
-    refetchStatus();
-    // Sayfadaki "çözdüğün sorular" listesi (useQuestionBankViewer) yeni cevapları görsün.
-    window.dispatchEvent(new Event(QUESTION_BANK_STATS_REFRESH_EVENT));
-  }, [refetchStatus]);
 
   const resumable = status?.resumable ?? null;
 
@@ -324,30 +270,7 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
 
       {testError && <p className="text-xs font-bold text-rose-500">{testError}</p>}
 
-      {testData && (
-        <QuizWithAsk
-          presentation="player"
-          key={testData.resume?.sessionId ?? 'new'}
-          gradeId={testData.gradeId}
-          lessonId={testData.lessonId}
-          unitId={testData.unitId}
-          topicId={testData.topicId}
-          scopeLabel={testData.scopeLabel}
-          exitHref={testHref}
-          exitLabel="Kapat"
-          onExit={closeTest}
-          initialQuestions={testData.initialQuestions}
-          remainingQuestionIds={testData.remainingQuestionIds}
-          allCaughtUp={testData.allCaughtUp}
-          reloadEndpoint={testData.reloadEndpoint}
-          resume={testData.resume}
-          questionBankPathBase={testData.questionBankPathBase}
-          // intro BİLEREK verilmiyor: kullanıcı zaten bu karttaki "Teste Başla/Devam Et"
-          // butonuna tıklayarak testi başlatmayı onaylamış oluyor — modal içinde ayrıca bir
-          // "kapak sayfası" (intro) gösterip ikinci kez "Başla" dedirtmek gereksiz bir adım
-          // (kullanıcının 2026-09-06 bildirdiği bug).
-        />
-      )}
+      {player}
     </div>
   );
 }

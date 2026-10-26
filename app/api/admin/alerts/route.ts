@@ -6,6 +6,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 //   /admin "Senin yapman gerekenler" kutusu (AdminAlerts, 2026-10-12): AI soruları onaysız yayınlandığı için
 //     svgPending      — AI'nin görsel istediği, çizimi henüz eklenmemiş (yayında olmayan) sorular
 //     openReports     — öğrencilerin açık "Hatalı soru" bildirimi olan soru sayısı
+//     studentReplies  — öğrencinin geri yazıp admin cevabı beklediği bildirim (destek talebi) sayısı
 //     autoHidden      — 3+ "cevap yanlış" bildirimiyle otomatik gizlenmiş sorular
 //     failedBatches   — hiç soru üretilemeyen / yayında hata alan konu partileri
 //     awaitingReview  — yayından önce inceleme bekleyen (Türkçe) konu partileri
@@ -23,7 +24,7 @@ export async function GET() {
   if (!admin.ok) return admin.response;
   const supabase = createServiceClient();
 
-  const [svg, reports, hidden, failed, awaiting, teachers, recapFigures, recapFailed] = await Promise.all([
+  const [svg, reports, hidden, failed, awaiting, teachers, recapFigures, recapFailed, replies] = await Promise.all([
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('svg_prompt', 'is', null).is('svg_content', null),
     supabase.from('question_reports').select('question_id').eq('status', 'open').limit(1000),
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('auto_hidden_at', 'is', null),
@@ -42,6 +43,7 @@ export async function GET() {
       .not('recap_card->example->>figure_prompt', 'is', null)
       .is('recap_card->example->>figure_svg', null),
     supabase.rpc('count_recap_card_failed_topics'),
+    supabase.from('question_reports').select('id', { count: 'exact', head: true }).not('awaiting_admin_at', 'is', null),
   ]);
   if (teachers.error) return NextResponse.json({ error: teachers.error.message }, { status: 500 });
   const rows = (teachers.data as unknown as PendingRow[] | null) ?? [];
@@ -62,6 +64,7 @@ export async function GET() {
   return NextResponse.json({
     svgPending: svg.count ?? 0,
     openReports: new Set(((reports.data as { question_id: number }[] | null) || []).map((r) => r.question_id)).size,
+    studentReplies: replies.count ?? 0,
     autoHidden: hidden.count ?? 0,
     failedBatches: failed.count ?? 0,
     awaitingReview: awaiting.count ?? 0,

@@ -1,10 +1,13 @@
 'use client';
 
 // Öğrenci "Hatalı soru" bildirimleri + otomatik soru partilerinin durumu (2026-10-12).
-// Veri: app/api/admin/question-reports/route.ts.
+// Veri: app/api/admin/question-reports/route.ts. 2026-10-25: her bildirimin öğrenciyle yazışması var — yazışma ve
+// cevap kutusu (./reply), öğrenci /profil/bildirdigim-sorular'da okuyup geri yazar.
 import { useCallback, useEffect, useState } from 'react';
 import { QuestionEditModal } from '@/app/src/components/admin/ManagementTab';
 
+type Message = { sender: 'admin' | 'student'; body: string; createdAt: string };
+type Report = { id: number; reason: string; note: string | null; createdAt: string; isOpen: boolean; studentName: string; chosenAnswer: string | null; messages: Message[] };
 type Item = {
   questionId: number;
   questionText: string;
@@ -15,11 +18,98 @@ type Item = {
   aiModel: string | null;
   context: string;
   reportCount: number;
-  reports: { reason: string; note: string | null; createdAt: string }[];
+  hasOpen: boolean;
+  reports: Report[];
 };
 type Batch = { topicId: number; roundNo: number; topicTitle: string; status: string; startedAt: string; publishedAt: string | null; questionCount: number | null; svgPendingCount: number | null; lastError: string | null };
 
 const REASON_LABEL: Record<string, string> = { wrong_answer: 'Cevap yanlış', unclear: 'Anlaşılmıyor', typo: 'Yazım hatası', other: 'Diğer' };
+// Cevap kutusunun hazır taslağı — admin gönderip göndermeden önce düzenler.
+function replyDraft(it: Item, r: Report) {
+  const firstName = r.studentName.split(/\s+/)[0];
+  return [
+    `Merhaba ${firstName}, geri bildirimin için çok teşekkür ederim!`,
+    `Soruyu kontrol ettim. Doğru cevap: ${it.correctAnswer ?? '…'}${r.chosenAnswer ? ` (sen "${r.chosenAnswer}" işaretlemiştin)` : ''}.`,
+    it.solutionText ?? '',
+    'Başka bir hata görürsen yine bildir, çok işimize yarıyor.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function ReportThread({ it, report, onSent }: { it: Item; report: Report; onSent: (m: Message) => void }) {
+  const [skipped, setSkipped] = useState(false);
+  const studentLast = !skipped && report.messages.at(-1)?.sender === 'student';
+  const awaitingAdmin = report.messages.length === 0 || studentLast;
+  const [text, setText] = useState(() => (report.messages.length === 0 ? replyDraft(it, report) : ''));
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  const send = async () => {
+    setSending(true);
+    setError('');
+    const res = await fetch('/api/admin/question-reports/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: report.id, body: text }) });
+    setSending(false);
+    if (!res.ok) {
+      setError('Gönderilemedi');
+      return;
+    }
+    onSent({ sender: 'admin', body: text.trim(), createdAt: new Date().toISOString() });
+    setText('');
+  };
+
+  const skip = async () => {
+    setSending(true);
+    setError('');
+    const res = await fetch('/api/admin/question-reports/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: report.id, skip: true }) });
+    setSending(false);
+    if (res.ok) setSkipped(true);
+    else setError('İşlem başarısız');
+  };
+
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      <div className="flex flex-wrap items-center gap-x-2 text-xs">
+        <b>{report.studentName}</b>
+        <span>· {REASON_LABEL[report.reason] ?? report.reason}</span>
+        {report.chosenAnswer && <span className="text-muted-foreground">· işaretlediği: {report.chosenAnswer}</span>}
+        <span className="text-muted-foreground">· {new Date(report.createdAt).toLocaleString('tr-TR')}</span>
+        {!report.isOpen && <span className="rounded bg-muted px-2 py-0.5 font-bold">Kapalı</span>}
+        {awaitingAdmin && <span className="rounded bg-amber-100 px-2 py-0.5 font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">Cevap bekliyor</span>}
+      </div>
+      {report.note && <p className="text-xs text-muted-foreground">Not: {report.note}</p>}
+      {report.messages.length > 0 && (
+        <ol className="flex flex-col gap-1.5">
+          {report.messages.map((m, i) => (
+            <li
+              key={i}
+              className={`max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-xs ${m.sender === 'admin' ? 'self-end bg-indigo-50 text-indigo-950 dark:bg-indigo-500/15 dark:text-indigo-100' : 'self-start bg-muted text-foreground'}`}
+            >
+              {m.body}
+              <span className="mt-1 block text-[10px] opacity-60">{m.sender === 'admin' ? 'Sen' : report.studentName} · {new Date(m.createdAt).toLocaleString('tr-TR')}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        {report.messages.length === 0 ? 'Cevabın (taslak hazır, düzenleyebilirsin)' : 'Cevap yaz'}
+        <textarea value={text} onChange={(e) => setText(e.target.value.slice(0, 2000))} rows={report.messages.length === 0 ? 6 : 3} maxLength={2000} className="rounded-lg border border-border bg-background p-2 text-sm text-foreground" />
+      </label>
+      {error && <p className="text-xs text-rose-600">{error}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button disabled={sending || !text.trim()} onClick={send} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+          {sending ? 'Gönderiliyor…' : 'Öğrenciye gönder'}
+        </button>
+        {studentLast && (
+          <button disabled={sending} onClick={skip} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
+            Cevap gerekmiyor
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 const BATCH_LABEL: Record<string, string> = { collecting: 'Üretiliyor', publishing: 'Yayınlanıyor', awaiting_review: 'İnceleme bekliyor', published: 'Yayında', failed: 'Başarısız' };
 
 export default function QuestionReportsPanel() {
@@ -62,13 +152,19 @@ export default function QuestionReportsPanel() {
       setError('İşlem başarısız');
       return;
     }
+    // Kapanan bildirim öğrenciye geçer (Tamamlanan); kapalı bildirime yazılamadığı için listeden düşer.
     setItems((cur) => (cur ? cur.filter((i) => i.questionId !== questionId) : cur));
   };
+
+  const appendMessage = (questionId: number, reportId: number, m: Message) =>
+    setItems((cur) =>
+      cur?.map((i) => (i.questionId !== questionId ? i : { ...i, reports: i.reports.map((r) => (r.id === reportId ? { ...r, messages: [...r.messages, m] } : r)) })) ?? cur
+    );
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8">
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-foreground">Açık bildirimler</h2>
+        <h2 className="text-lg font-bold text-foreground">Açık bildirimler ve yazışmalar</h2>
         {error && <p className="text-sm text-rose-600">{error}</p>}
         {!items ? (
           <div className="h-32 animate-pulse rounded-xl bg-muted" />
@@ -92,15 +188,14 @@ export default function QuestionReportsPanel() {
                 </p>
               )}
               {it.solutionText && <p className="text-xs text-muted-foreground">Çözüm: {it.solutionText}</p>}
-              <ul className="flex flex-col gap-1 border-t border-border pt-2 text-xs">
-                {it.reports.map((r, i) => (
-                  <li key={i}>
-                    <b>{REASON_LABEL[r.reason] ?? r.reason}</b>
-                    {r.note && <span className="text-muted-foreground"> — {r.note}</span>}
-                    <span className="text-muted-foreground"> · {new Date(r.createdAt).toLocaleString('tr-TR')}</span>
-                  </li>
+              <ul className="flex flex-col gap-2 border-t border-border pt-3">
+                {it.reports.map((r) => (
+                  <ReportThread key={r.id} it={it} report={r} onSent={(m) => appendMessage(it.questionId, r.id, m)} />
                 ))}
               </ul>
+              {it.hasOpen && (
+              <>
+              <p className="text-[11px] text-muted-foreground">Kapatınca bildiren öğrenciye sonuç bildirimi gider ve bildirim onun &quot;Tamamlanan&quot; sekmesine geçer; kapalı bildirime öğrenci yazamaz.</p>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => setEditId(it.questionId)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent">
                   Soruyu düzenle
@@ -112,9 +207,11 @@ export default function QuestionReportsPanel() {
                   Soru doğru, kapat
                 </button>
                 <button disabled={busy === it.questionId} onClick={() => act(it.questionId, 'hide')} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                  Yayından kaldır
+                  Yayından kaldır, kapat
                 </button>
               </div>
+              </>
+              )}
             </article>
           ))
         )}

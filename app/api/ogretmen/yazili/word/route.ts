@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getTeacherAccess } from '@/app/src/lib/teacherAuth';
 import { buildPaperDocx } from '@/app/src/lib/yazili/paperDocx';
 import { resolvePaperRequest } from '@/app/src/lib/yazili/teacher';
+import { logPaperEvent } from '@/app/src/lib/yazili/paperEvents';
 
 // Öğretmen paneli → Yazılı hazırla → düzenlenebilir Word (kağıt + yeni sayfada cevap anahtarı).
 export const runtime = 'nodejs';
@@ -15,6 +16,15 @@ export async function POST(request: NextRequest) {
   if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: resolved.status });
 
   const buffer = await buildPaperDocx(resolved.req);
+  after(() =>
+    logPaperEvent({
+      kind: 'download',
+      teacherId: access.user.id,
+      examId: resolved.req.examId,
+      questionIds: resolved.req.items.map((i) => i.question.id),
+      format: 'word',
+    })
+  );
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

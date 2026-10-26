@@ -5,17 +5,20 @@
 // kenar çubuğu, dar ekranda üstte kaydırılabilir sekmeler. Veri İlerlemem ile aynı SWR önbelleklerinden.
 // Görünüm (2026-10-19, kullanıcı isteği): "robotik kontrol paneli" — metal paneller, HUD köşebentleri,
 // reaktör göstergesi, LED segmentli çubuklar, neon vurgular (bkz. LessonReport.module.css).
-import { useEffect, useMemo, useRef } from 'react';
+// Konu satırları (2026-10-25, kullanıcı isteği): satır link değil; çubuğun altında "Soru çöz" (konu testi
+// sayfa değiştirmeden tam ekran açılır, bkz. useQuizTestLauncher) + "Konu anlatımı" düğmeleri.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { Chakra_Petch, Inter, JetBrains_Mono } from 'next/font/google';
-import { ChevronLeft } from 'lucide-react';
+import { BookOpen, ChevronLeft, Loader2, Play } from 'lucide-react';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTopicMastery } from '../../src/hooks/useTopicMastery';
 import { useReviewDue } from '../../src/hooks/useReviewDue';
 import { useTopicWeekSpans } from '../../src/hooks/useTopicWeekSpans';
 import { onQuizModalClosed } from '../../src/lib/panelRefreshBridge';
+import { topicTestEndpoint, useQuizTestLauncher, type QuizTestConflict } from '../../src/hooks/useQuizTestLauncher';
 import { AuthPrompt } from '../../src/components/AuthPrompt';
 import { accuracyTone, lessonHref, totalsOf, unitReports, type Totals, type UnitReport } from '../../src/lib/lessonReports';
 import { mergeWeekSpans, weekLabel, type WeekRange } from '../../src/lib/kazanimPlan';
@@ -73,9 +76,10 @@ function StatusChip({ totals }: { totals: Totals }) {
   );
 }
 
-function WeekTag({ range }: { range: WeekRange | null | undefined }) {
+// Öğretim haftası: kartın (ünite/konu) sol üst köşesine oturan sekme.
+function CornerWeek({ range, className }: { range: WeekRange | null | undefined; className?: string }) {
   if (!range) return null;
-  return <span className={s.week}>{weekLabel(range)}</span>;
+  return <span className={cx(s.cornerWeek, className)}>{weekLabel(range)}</span>;
 }
 
 function TopicBar({ totals }: { totals: Totals }) {
@@ -93,40 +97,112 @@ function TopicBar({ totals }: { totals: Totals }) {
   );
 }
 
-function TopicRow({ t, week }: { t: TopicMastery; week: WeekRange | null | undefined }) {
-  const totals = totalsOf([t]);
-  const { total, solved, correct } = totals;
-  const body = (
-    <>
-      <span className={s.topicName}>{t.title}<WeekTag range={week} /></span>
-      <span className={s.topicData}>
-        <TopicBar totals={totals} />
-        <span className={s.topicStats}>{total === 0 ? 'Yakında' : `${solved}/${total} çözüldü · ${correct} doğru · ${solved - correct} yanlış`}</span>
-      </span>
-    </>
-  );
-  if (!t.href) return <li className={s.topic}>{body}</li>;
-  return <li><Link href={t.href} className={s.topic}>{body}</Link></li>;
+// Sayfadaki tek test oynatıcısının durumu. `activeKey` hangi düğmeden açıldığını tutar (aynı konu hem
+// ünite listesinde hem "Zorlandığın konular"da olabilir): yükleniyor/hata/çakışma yalnız orada görünür.
+interface QuizUi {
+  activeKey: string | null;
+  loading: boolean;
+  error: string | null;
+  conflict: QuizTestConflict | null;
+  solve: (key: string, t: TopicMastery, forceNew?: boolean) => void;
 }
 
-function UnitPanels({ units, weekSpans }: { units: UnitReport[]; weekSpans?: Record<number, WeekRange | null> }) {
+// href (orta tık / yeni sekme) konunun soru bankası sayfası; düz sol tık testi bu sayfada açar.
+function SolveButton({ placeKey, t, quiz, label, className }: { placeKey: string; t: TopicMastery; quiz: QuizUi; label: React.ReactNode; className: string }) {
+  const busy = quiz.loading && quiz.activeKey === placeKey;
+  return (
+    <a
+      href={t.href ?? undefined}
+      aria-label={`${t.title} sorularını çöz`}
+      aria-busy={busy || undefined}
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        quiz.solve(placeKey, t);
+      }}
+      className={className}
+    >
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : label}
+    </a>
+  );
+}
+
+function QuizNotice({ placeKey, t, quiz }: { placeKey: string; t: TopicMastery; quiz: QuizUi }) {
+  if (quiz.activeKey !== placeKey || quiz.loading) return null;
+  if (quiz.error) return <p role="alert" className={cx(s.notice, s.noticeError)}>{quiz.error}</p>;
+  const c = quiz.conflict;
+  if (!c) return null;
+  return (
+    <div role="alert" className={s.notice}>
+      <span>Bu ünitede yarım kalmış bir testin var: {c.scopeLabel} ({c.answeredCount}/{c.total})</span>
+      <span className={s.topicActions}>
+        <Link href={`${c.href}?devam=1`} className={cx(s.tag, s.tagMuted)}>Yarım teste git</Link>
+        <button type="button" onClick={() => quiz.solve(placeKey, t, true)} className={cx(s.tag, s.tagSolve)}>
+          Yeni test başlat
+        </button>
+      </span>
+    </div>
+  );
+}
+
+function TopicRow({ t, week, quiz }: { t: TopicMastery; week: WeekRange | null | undefined; quiz: QuizUi }) {
+  const totals = totalsOf([t]);
+  const { total, solved, correct } = totals;
+  const placeKey = `unit-${t.id}`;
+  return (
+    <li className={cx(s.topic, week && s.topicHasWeek)}>
+      <CornerWeek range={week} />
+      <span className={s.topicName}>{t.title}</span>
+      <span className={s.topicData}>
+        <TopicBar totals={totals} />
+        <span className={s.topicMeta}>
+          <span className={s.topicStats}>{total === 0 ? 'Yakında' : `${solved}/${total} çözüldü · ${correct} doğru · ${solved - correct} yanlış`}</span>
+          {(t.test || t.contentHref) && (
+            <span className={s.topicActions}>
+              {t.test && (
+                <SolveButton
+                  placeKey={placeKey}
+                  t={t}
+                  quiz={quiz}
+                  label={<><Play className={s.tagIcon} aria-hidden="true" />Soru çöz</>}
+                  className={cx(s.tag, s.tagSolve)}
+                />
+              )}
+              {t.contentHref && (
+                <Link href={t.contentHref} aria-label={`${t.title} konu anlatımı`} className={cx(s.tag, s.tagMuted)}>
+                  <BookOpen className={s.tagIcon} aria-hidden="true" />Konu anlatımı
+                </Link>
+              )}
+            </span>
+          )}
+        </span>
+      </span>
+      <QuizNotice placeKey={placeKey} t={t} quiz={quiz} />
+    </li>
+  );
+}
+
+function UnitPanels({ units, weekSpans, quiz }: { units: UnitReport[]; weekSpans?: Record<number, WeekRange | null>; quiz: QuizUi }) {
   return (
     <div className={s.units}>
-      {units.map((u, i) => (
-        <section key={u.key} aria-label={u.title} className={cx(s.panel, s.unit)}>
-          <header className={s.unitHead}>
-            <h3 className={s.unitTitle}>
-              <span className={s.unitIdx}>{String(i + 1).padStart(2, '0')}</span>
-              {u.title}
-              <WeekTag range={mergeWeekSpans(u.topics.map((t) => weekSpans?.[t.id]))} />
-            </h3>
-            <StatusChip totals={u.totals} />
-          </header>
-          <ul className={s.topics}>
-            {u.topics.map((t) => <TopicRow key={t.id} t={t} week={weekSpans?.[t.id]} />)}
-          </ul>
-        </section>
-      ))}
+      {units.map((u, i) => {
+        const week = mergeWeekSpans(u.topics.map((t) => weekSpans?.[t.id]));
+        return (
+          <section key={u.key} aria-label={u.title} className={cx(s.panel, s.unit, week && s.unitHasWeek)}>
+            <CornerWeek range={week} className={s.cornerWeekUnit} />
+            <header className={s.unitHead}>
+              <h3 className={s.unitTitle}>
+                <span className={s.unitIdx}>{String(i + 1).padStart(2, '0')}</span>
+                {u.title}
+              </h3>
+              <StatusChip totals={u.totals} />
+            </header>
+            <ul className={cx(s.topics, s.topicList)}>
+              {u.topics.map((t) => <TopicRow key={t.id} t={t} week={weekSpans?.[t.id]} quiz={quiz} />)}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -169,10 +245,26 @@ export default function LessonReportPage() {
   const { data: mastery, error: mErr } = useTopicMastery();
   const { data: reviewDue = 0 } = useReviewDue();
 
-  useEffect(
-    () => onQuizModalClosed(() => void mutate((key) => Array.isArray(key) && REFRESH_KEYS.has(key[0]))),
+  const refreshProgress = useCallback(
+    () => void mutate((key) => Array.isArray(key) && REFRESH_KEYS.has(key[0])),
     [mutate]
   );
+  useEffect(() => onQuizModalClosed(refreshProgress), [refreshProgress]);
+
+  const { open: openTest, loading: testLoading, error: testError, conflict: testConflict, player } = useQuizTestLauncher(refreshProgress);
+  const [quizKey, setQuizKey] = useState<string | null>(null);
+  const quiz: QuizUi = {
+    activeKey: quizKey,
+    loading: testLoading,
+    error: testError,
+    conflict: testConflict,
+    solve: (key, t, forceNew = false) => {
+      if (!t.test || !t.href) return;
+      setQuizKey(key);
+      const { gradeSlug, lessonSlug, unitSlug, topicSlug } = t.test;
+      void openTest(topicTestEndpoint(gradeSlug, lessonSlug, unitSlug, topicSlug), t.href, forceNew);
+    },
+  };
 
   const lesson = mastery?.lessons.find((l) => l.slug === ders);
   const totals = useMemo(() => (lesson ? totalsOf(lesson.topics) : null), [lesson]);
@@ -294,7 +386,7 @@ export default function LessonReportPage() {
             <span><i className={s.dot} style={{ background: '#E11D48' }} aria-hidden="true" />Yanlış</span>
             <span><i className={s.dot} style={{ background: 'var(--track)' }} aria-hidden="true" />Çözülmedi</span>
           </div>
-          <UnitPanels units={units} weekSpans={weekSpans} />
+          <UnitPanels units={units} weekSpans={weekSpans} quiz={quiz} />
         </section>
       )}
 
@@ -314,11 +406,8 @@ export default function LessonReportPage() {
                   <b>{t.title}</b>
                   <small>{t.solved} soru çözdün · {t.wrong} yanlış</small>
                 </span>
-                {t.href && (
-                  <Link href={t.href} aria-label={`${t.title} sorularını çöz`} className={cx(s.btn, s.btnNeon)}>
-                    Çöz
-                  </Link>
-                )}
+                {t.test && <SolveButton placeKey={`weak-${t.id}`} t={t} quiz={quiz} label="Çöz" className={cx(s.btn, s.btnNeon)} />}
+                <QuizNotice placeKey={`weak-${t.id}`} t={t} quiz={quiz} />
               </li>
             ))}
           </ol>
@@ -335,6 +424,8 @@ export default function LessonReportPage() {
           <Link href="/tekrar" className={cx(s.btn, s.btnGhost)}>Tekrar et</Link>
         </section>
       )}
+
+      {player}
     </>
   );
 }

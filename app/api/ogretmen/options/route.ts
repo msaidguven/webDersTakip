@@ -16,10 +16,9 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // Panelin üstünde "Derslerim" olarak gösterilecek — öğretmenin kayıt olurken
-  // seçtiği branşlar. Admin için anlamlı değil (kayıt olmadığı için), boş döner.
+  // Panelin üstünde "Derslerim" olarak gösterilecek — öğretmenin seçtiği dersler (teacher_lessons).
+  // Admin de profilinden kendi derslerini seçebiliyor (2026-10-25); seçmediyse boş döner.
   if (mine) {
-    if (teacher.role !== 'teacher') return NextResponse.json({ lessons: [] });
     const { data: rows } = await supabase.from('teacher_lessons').select('lesson_id').eq('teacher_id', teacher.user.id);
     const ids = ((rows as { lesson_id: number }[] | null) || []).map((r) => r.lesson_id);
     if (!ids.length) return NextResponse.json({ lessons: [] });

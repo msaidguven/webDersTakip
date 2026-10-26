@@ -24,6 +24,10 @@ export interface TopicMastery {
   id: number;
   title: string;
   href: string | null;
+  /** Konu anlatımı sayfası (/sinif/ders/unite/konu). */
+  contentHref: string | null;
+  /** Testi sayfa değiştirmeden açmak için (bkz. useQuizTestLauncher); sorusu olmayan konuda null. */
+  test: { gradeSlug: string; lessonSlug: string; unitSlug: string; topicSlug: string } | null;
   total: number;
   solved: number;
   correct: number;
@@ -104,6 +108,7 @@ export function groupMastery(rows: Row[]): LessonMastery[] {
     const hasQuestions = r.total_questions > 0;
     const state = masteryState(r.total_questions, r.solved_questions, r.correct_answers);
     const slugs = r.grade_slug && r.lesson_slug && r.unit_slug && r.topic_slug;
+    const contentHref = slugs ? `/${r.grade_slug}/${r.lesson_slug}/${r.unit_slug}/${r.topic_slug}` : null;
     const topic: TopicMastery = {
       id: r.topic_id,
       title: r.topic_title,
@@ -111,7 +116,11 @@ export function groupMastery(rows: Row[]): LessonMastery[] {
         ? null
         : hasQuestions
           ? `${buildSoruBankasiUnitPath(r.grade_slug!, r.lesson_slug!, r.unit_slug!)}/${r.topic_slug}`
-          : `/${r.grade_slug}/${r.lesson_slug}/${r.unit_slug}/${r.topic_slug}`,
+          : contentHref,
+      contentHref,
+      test: slugs && hasQuestions
+        ? { gradeSlug: r.grade_slug!, lessonSlug: r.lesson_slug!, unitSlug: r.unit_slug!, topicSlug: r.topic_slug! }
+        : null,
       total: r.total_questions,
       solved: r.solved_questions,
       correct: r.correct_answers,

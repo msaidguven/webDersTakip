@@ -66,6 +66,8 @@ export interface Activity {
   iconColor: string;
   isComplete?: boolean;
   resumeHref?: string;
+  // Soru bankası testleri için oynatıcı veri adresi: İlerlemem testi sayfa değiştirmeden açar.
+  resumeEndpoint?: string;
   // "(Yarım Kaldı)" eki olmadan test adı (İlerlemem → Testlerim, 2026-09-29).
   baseTitle?: string;
   // Oturumun dersi — Derslerim kartında o dersin yarım testini öne çıkarmak için (2026-10-01).

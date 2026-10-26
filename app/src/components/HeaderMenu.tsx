@@ -75,9 +75,10 @@ export function HeaderMenu({
           {isAuthenticated ? (
             <>
               <div className={`px-4 py-3 border-b text-sm truncate ${r.divider} ${r.muted}`}>👋 {displayName}</div>
-              <Link href="/ilerlemem" onClick={close} className={r.menuItem}>İlerlemem</Link>
+              {!isTeacher && <Link href="/ilerlemem" onClick={close} className={r.menuItem}>İlerlemem</Link>}
               <Link href="/profil" onClick={close} className={r.menuItem}>Profil</Link>
               <Link href="/profil/ayarlar" onClick={close} className={r.menuItem}>Ayarlar</Link>
+              <Link href="/profil/bildirdigim-sorular" onClick={close} className={r.menuItem}>Bildirdiğim sorular</Link>
               {(isTeacher || isAdmin) && <Link href="/ogretmen/yazili" onClick={close} className={r.menuItem}>Öğretmen Paneli</Link>}
               {isAdmin && <Link href="/admin" onClick={close} className={r.menuItem}>Admin</Link>}
             </>

@@ -28,6 +28,11 @@ type ExamRow = {
   exam_topics: { topic_id: number; order_no: number }[];
 };
 
+// Yazılı tarihleri ŞİMDİLİK sitede gösterilmiyor (2026-10-26, kullanıcı kararı: tarihler düzenlenip sonra eklenecek).
+// Tarih tek bu noktadan çıkıyor; null olunca "Yaklaşan yazılılar" kartı, geri sayımlar ve öğretmen panelindeki tarih
+// kendiliğinden gizlenir. Admin tarih girmeye devam edebilir (admin API'si bu dosyayı kullanmaz). Açmak için true yap.
+const SHOW_EXAM_DATES = false;
+
 async function classicalCounts(topicIds: number[]): Promise<Map<number, number>> {
   const counts = new Map<number, number>();
   if (!topicIds.length) return counts;
@@ -48,7 +53,7 @@ const toListItem = (e: ExamRow, counts: Map<number, number>): ExamListItem => ({
   label: examLabel(e.term as ExamTerm, e.exam_no as ExamNo),
   path: yaziliExamPath(e.grades.slug, e.lessons.slug, e.term as ExamTerm, e.exam_no as ExamNo),
   national: e.national,
-  examDate: e.exam_date,
+  examDate: SHOW_EXAM_DATES ? e.exam_date : null,
   questionCount: e.exam_topics.reduce((n, t) => n + (counts.get(t.topic_id) ?? 0), 0),
 });
 

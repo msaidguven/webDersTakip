@@ -24,10 +24,13 @@ const GRADE_SEGMENT = /^\d+-sinif$/;
 export function buildNavItems({
   pathname,
   isAuthenticated,
+  isTeacher,
   gradeSlug,
 }: {
   pathname: string;
   isAuthenticated: boolean;
+  /** Öğretmen (2026-10-25): soru çözmüyor — Soru Bankası ve İlerlemem gösterilmez. */
+  isTeacher: boolean;
   gradeSlug: string | null;
 }): NavItem[] {
   const first = pathname.split('/').filter(Boolean)[0] ?? '';
@@ -37,8 +40,8 @@ export function buildNavItems({
       id: 'lessons',
       label: 'Dersler',
       // Sınıf sayfası tüm dersleri ve konu anlatımlarını listeliyor; sınıfı bilinmeyen için
-      // anasayfadaki sınıf/ders seçici (misafir görünümü) ya da profil (sınıf seçimi).
-      href: gradeSlug ? `/${gradeSlug}` : isAuthenticated ? '/profil' : '/#dersler',
+      // anasayfadaki sınıf/ders seçici (misafir ve öğretmen anasayfası) ya da profil (öğrencinin sınıf seçimi).
+      href: gradeSlug ? `/${gradeSlug}` : isAuthenticated && !isTeacher ? '/profil' : '/#dersler',
       icon: BookOpen,
       active: GRADE_SEGMENT.test(first) || first === 'ders',
     },
@@ -60,10 +63,10 @@ export function buildNavItems({
     icon: Table2,
     active: pathname.startsWith('/ders-takip-cizelgesi'),
   });
-  if (isAuthenticated) {
+  if (isAuthenticated && !isTeacher) {
     items.push({ id: 'progress', label: 'İlerlemem', href: '/ilerlemem', icon: ChartNoAxesColumn, active: first === 'ilerlemem' });
   }
-  return items;
+  return isTeacher ? items.filter((item) => item.id !== 'questions') : items;
 }
 
 export function DesktopNav({ items }: { items: NavItem[] }) {

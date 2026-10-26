@@ -1,7 +1,8 @@
 // /yazili-sorulari/6-sinif/matematik/1-donem-1-yazili — bir yazılının konu konu klasik soruları, cevap
 // anahtarı ve puanlama ölçütüyle (bkz. docs/yazili-sorulari-plani.md). Sorular herkese açık; cevaplar
 // <details> içinde (JS'siz çalışır, arama motoru da okur). Sorusu olmayan yazılı 404 (ince sayfa üretmeyelim).
-// 2026-10-25 düzeni öğrenci önce: deneme sınavı (örnek kağıtlar) → sekmeli konu havuzu → en altta kapalı
+// 2026-10-25 düzeni öğrenci önce: deneme sınavı (örnek kağıtlar) | sekmeli konu havuzu (2026-10-26 tek alanda
+// iki sekme, YaziliQuestionModes) → en altta kapalı
 // "Öğretmenler için" (MEB senaryo tablosu, PDF, yazılı hazırla; öğretmene kendiliğinden açılır).
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,6 +19,7 @@ import { PaperDownloads } from '@/app/src/components/yazili/PaperDownloads';
 import { YaziliPracticeExam, type PracticePaper } from '@/app/src/components/yazili/YaziliPracticeExam';
 import { YaziliTopicTabs, YAZILI_TOPIC_PANEL_CLASS } from '@/app/src/components/yazili/YaziliTopicTabs';
 import { YaziliTeacherSection } from '@/app/src/components/yazili/YaziliTeacherSection';
+import { YaziliQuestionModes, YAZILI_MODE_PANEL_CLASS } from '@/app/src/components/yazili/YaziliQuestionModes';
 import { YaziliAdminEditProvider, YaziliEditButton } from '@/app/src/components/yazili/YaziliAdminEdit';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
@@ -88,11 +90,64 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
 
   // Konu havuzu sekmeli (2026-10-25): soru numarası her konuda 1'den başlar.
   const shownTopics = topics.filter((t) => t.questions.length);
+  const poolSection = (
+    <section aria-label="Konu konu sorular" className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        {exam.questionCount} soru, {shownTopics.length} konu. Bir konu seç, soruyu çöz, sonra cevabını aç.
+      </p>
+      <YaziliAdminEditProvider>
+        <YaziliTopicTabs
+          tabs={shownTopics.map((t) => ({ id: t.id, label: t.title, count: t.questions.length }))}
+          panels={shownTopics.map((t) => (
+            <section key={t.id} id={`konu-${t.id}`} aria-labelledby={`konu-baslik-${t.id}`} className="flex flex-col gap-3">
+              <h3 id={`konu-baslik-${t.id}`} className={`text-lg font-bold uppercase text-default ${r.display}`}>
+                {t.title}
+                <span className="ml-2 align-middle text-sm font-semibold normal-case text-muted-foreground">{t.questions.length} soru</span>
+              </h3>
+              <ol className="flex flex-col gap-3">
+                {t.questions.map((q, qi) => {
+                  const n = qi + 1;
+                  const svg = q.svgContent ? <YaziliSvg svgContent={q.svgContent} /> : null;
+                  return (
+                    <li key={q.id} className={`rounded-2xl p-4 sm:p-5 ${r.item}`}>
+                      <div className="flex gap-3">
+                        <span className={`h-8 w-8 shrink-0 text-sm ${r.chipBox}`} aria-hidden="true">{n}</span>
+                        <div className="min-w-0 flex-1">
+                          {q.svgPosition === 'above' && svg}
+                          <p className="leading-relaxed text-default"><span className="sr-only">Soru {n}: </span><MathHtml text={q.text} /></p>
+                          {q.svgPosition === 'below' && svg}
+                          <details className="group mt-3">
+                            <summary className={`cursor-pointer select-none text-sm font-semibold ${r.accent}`}>Cevabı göster</summary>
+                            <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[var(--edge)] p-3 text-sm">
+                              <p><b className="text-default">Cevap:</b> <MathHtml text={q.modelAnswer} className="text-default" /></p>
+                              {q.answerSvgContent && <YaziliSvg svgContent={q.answerSvgContent} label={`Soru ${n} cevap görseli`} />}
+                              {q.rubric && (
+                                <p className="whitespace-pre-line text-muted-foreground"><b className="text-default">Puanlama:</b> {q.rubric}</p>
+                              )}
+                              {q.keyTerms.length > 0 && (
+                                <p className="text-muted-foreground"><b className="text-default">Anahtar kavramlar:</b> {q.keyTerms.join(', ')}</p>
+                              )}
+                            </div>
+                          </details>
+                        </div>
+                        <YaziliEditButton questionId={q.id} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
+        />
+      </YaziliAdminEditProvider>
+    </section>
+  );
+
   return (
     <div className={pageShellCls}>
       <div className={pageInnerCls}>
         <noscript>
-          <style>{`.${YAZILI_TOPIC_PANEL_CLASS}{display:block!important}`}</style>
+          <style>{`.${YAZILI_TOPIC_PANEL_CLASS},.${YAZILI_MODE_PANEL_CLASS}{display:block!important}`}</style>
         </noscript>
         <script
           id="structured-data-yazili-breadcrumb"
@@ -133,65 +188,12 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
 
         <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
           <div className="flex min-w-0 flex-col gap-8">
-            {/* Öğrenci önce (2026-10-25): deneme sınavı → konu konu havuz → en altta öğretmen bölümü. */}
-            {practicePapers.length > 0 && <YaziliPracticeExam papers={practicePapers} />}
-
-            <section aria-labelledby="soru-havuzu" className="flex flex-col gap-4">
-              <div>
-                <p className={r.label}>Soru havuzu</p>
-                <h2 id="soru-havuzu" className={`mt-1 text-xl font-bold uppercase text-default sm:text-2xl ${r.display}`}>
-                  Konu konu tüm sorular
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {exam.questionCount} soru, {shownTopics.length} konu. Bir konu seç, soruyu çöz, sonra cevabını aç.
-                </p>
-              </div>
-              <YaziliAdminEditProvider>
-                <YaziliTopicTabs
-                  tabs={shownTopics.map((t) => ({ id: t.id, label: t.title, count: t.questions.length }))}
-                  panels={shownTopics.map((t) => (
-                    <section key={t.id} id={`konu-${t.id}`} aria-labelledby={`konu-baslik-${t.id}`} className="flex flex-col gap-3">
-                      <h3 id={`konu-baslik-${t.id}`} className={`text-lg font-bold uppercase text-default ${r.display}`}>
-                        {t.title}
-                        <span className="ml-2 align-middle text-sm font-semibold normal-case text-muted-foreground">{t.questions.length} soru</span>
-                      </h3>
-                      <ol className="flex flex-col gap-3">
-                        {t.questions.map((q, qi) => {
-                          const n = qi + 1;
-                          const svg = q.svgContent ? <YaziliSvg svgContent={q.svgContent} /> : null;
-                          return (
-                            <li key={q.id} className={`rounded-2xl p-4 sm:p-5 ${r.item}`}>
-                              <div className="flex gap-3">
-                                <span className={`h-8 w-8 shrink-0 text-sm ${r.chipBox}`} aria-hidden="true">{n}</span>
-                                <div className="min-w-0 flex-1">
-                                  {q.svgPosition === 'above' && svg}
-                                  <p className="leading-relaxed text-default"><span className="sr-only">Soru {n}: </span><MathHtml text={q.text} /></p>
-                                  {q.svgPosition === 'below' && svg}
-                                  <details className="group mt-3">
-                                    <summary className={`cursor-pointer select-none text-sm font-semibold ${r.accent}`}>Cevabı göster</summary>
-                                    <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[var(--edge)] p-3 text-sm">
-                                      <p><b className="text-default">Cevap:</b> <MathHtml text={q.modelAnswer} className="text-default" /></p>
-                                      {q.answerSvgContent && <YaziliSvg svgContent={q.answerSvgContent} label={`Soru ${n} cevap görseli`} />}
-                                      {q.rubric && (
-                                        <p className="whitespace-pre-line text-muted-foreground"><b className="text-default">Puanlama:</b> {q.rubric}</p>
-                                      )}
-                                      {q.keyTerms.length > 0 && (
-                                        <p className="text-muted-foreground"><b className="text-default">Anahtar kavramlar:</b> {q.keyTerms.join(', ')}</p>
-                                      )}
-                                    </div>
-                                  </details>
-                                </div>
-                                <YaziliEditButton questionId={q.id} />
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </section>
-                  ))}
-                />
-              </YaziliAdminEditProvider>
-            </section>
+            {/* Öğrenci önce (2026-10-25): deneme sınavı | konu konu havuz tek alanda iki sekme (2026-10-26,
+                aynı sorular alt alta iki kez çıkmasın) → en altta öğretmen bölümü. */}
+            <YaziliQuestionModes
+              practice={practicePapers.length ? { count: practicePapers[0].items.length, content: <YaziliPracticeExam papers={practicePapers} /> } : null}
+              pool={{ count: exam.questionCount, content: poolSection }}
+            />
 
             <YaziliTeacherSection>
               <section aria-labelledby="kapsam">

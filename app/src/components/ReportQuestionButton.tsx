@@ -28,7 +28,15 @@ export function ReportQuestionButton({ questionId }: { questionId: number }) {
   const formId = useId();
 
   if (state === 'sent') {
-    return <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Teşekkürler! Bildirimin bize ulaştı, soruyu kontrol edeceğiz.</p>;
+    return (
+      <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+        Teşekkürler! Bildirimin bize ulaştı, soruyu kontrol edeceğiz. Cevabımızı{' '}
+        <Link href="/profil/bildirdigim-sorular" className="underline underline-offset-2">
+          Bildirdiğim sorular
+        </Link>
+        &apos;de görebilirsin.
+      </p>
+    );
   }
 
   if (state === 'closed') {

@@ -126,6 +126,53 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+// Öğretmenin profilinden branşlarını (teacher_lessons) değiştirmesi — 2026-10-25'e kadar branş yalnız
+// kayıtta seçilebiliyordu. Liste olduğu gibi değiştirilir: önce yeniler eklenir, sonra listede olmayanlar
+// silinir; arada hata olsa bile öğretmen hiçbir zaman branşsız kalmaz. Onay (is_verified) etkilenmez.
+// Admin de kendi derslerini seçebilir (öğretmen anasayfası/paneli onun için de bu listeyle gelir).
+export async function PUT(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
+  }
+
+  const service = createServiceClient();
+  const { data: roleRow } = await service.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const role = (roleRow as { role: string | null } | null)?.role;
+  if (role !== 'teacher' && role !== 'admin') {
+    return NextResponse.json({ error: 'Yalnız öğretmen hesapları ders seçebilir' }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null) as { lessonIds?: unknown } | null;
+  const lessonIds = Array.isArray(body?.lessonIds)
+    ? [...new Set((body!.lessonIds as unknown[]).filter((v): v is number => typeof v === 'number' && Number.isInteger(v)))]
+    : [];
+  if (!lessonIds.length || lessonIds.length > MAX_TEACHER_LESSONS) {
+    return NextResponse.json({ error: `1-${MAX_TEACHER_LESSONS} arası branş (ders) seçmelisin` }, { status: 400 });
+  }
+
+  const { data: validRows } = await service.from('lessons').select('id').in('id', lessonIds).eq('is_active', true);
+  if ((validRows?.length ?? 0) !== lessonIds.length) {
+    return NextResponse.json({ error: 'Geçersiz ders seçimi' }, { status: 400 });
+  }
+
+  const { error: insertError } = await service
+    .from('teacher_lessons')
+    .upsert(lessonIds.map((lessonId) => ({ teacher_id: user.id, lesson_id: lessonId })), { onConflict: 'teacher_id,lesson_id', ignoreDuplicates: true });
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+
+  const { error: deleteError } = await service
+    .from('teacher_lessons')
+    .delete()
+    .eq('teacher_id', user.id)
+    .not('lesson_id', 'in', `(${lessonIds.join(',')})`);
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
 // OAuth (Google vb.) ile İLK kez giriş yapan kullanıcının profili role/sınıf/branş
 // bilinmeden oluşturulur (bkz. app/auth/callback/route.ts, onboarding_completed:false) —
 // bu kullanıcı /profil'e yönlendirilip burada öğrenci/öğretmen seçip sınıf/branşını

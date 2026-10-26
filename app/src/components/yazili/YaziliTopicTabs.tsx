@@ -5,6 +5,7 @@
 // soru bankasındaki QuestionBankBoard ile aynı yöntem, JS kapalıysa sayfadaki <noscript> stili hepsini açar.
 // "#konu-<id>" bağlantıları (yan menü) ilgili sekmeyi açıp oraya kaydırır.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useShowYaziliPool } from '@/app/src/components/yazili/YaziliQuestionModes';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 export type YaziliTopicTab = { id: number; label: string; count: number };
@@ -14,6 +15,8 @@ export const YAZILI_TOPIC_PANEL_CLASS = 'yazili-topic-panel';
 export function YaziliTopicTabs({ tabs, panels }: { tabs: YaziliTopicTab[]; panels: ReactNode[] }) {
   const [active, setActive] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
+  // Havuz "Sınav provası" sekmesinin arkasında gizliyse önce onu aç (gizli çubuğa kaydırılamaz).
+  const showPool = useShowYaziliPool();
 
   const scrollToBar = useCallback(() => {
     barRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -23,6 +26,7 @@ export function YaziliTopicTabs({ tabs, panels }: { tabs: YaziliTopicTab[]; pane
     const syncFromHash = () => {
       const i = tabs.findIndex((t) => window.location.hash === `#konu-${t.id}`);
       if (i === -1) return;
+      showPool?.();
       setActive(i);
       requestAnimationFrame(scrollToBar);
     };
@@ -35,6 +39,7 @@ export function YaziliTopicTabs({ tabs, panels }: { tabs: YaziliTopicTab[]; pane
       if (i === -1) return;
       e.preventDefault();
       window.history.replaceState(window.history.state, '', href);
+      showPool?.();
       setActive(i);
       requestAnimationFrame(scrollToBar);
     };
@@ -45,7 +50,7 @@ export function YaziliTopicTabs({ tabs, panels }: { tabs: YaziliTopicTab[]; pane
       window.removeEventListener('hashchange', syncFromHash);
       document.removeEventListener('click', onClick, true);
     };
-  }, [tabs, scrollToBar]);
+  }, [tabs, scrollToBar, showPool]);
 
   const select = (i: number, scroll: boolean) => {
     setActive(i);
@@ -58,7 +63,7 @@ export function YaziliTopicTabs({ tabs, panels }: { tabs: YaziliTopicTab[]; pane
         <div
           role="tablist"
           aria-label="Konular"
-          className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--edge)] bg-[var(--panel-solid)] p-1 shadow-sm [scrollbar-width:thin]"
+          className="flex gap-1 overflow-x-auto rounded-xl sm:flex-wrap sm:overflow-x-visible border border-[var(--edge)] bg-[var(--panel-solid)] p-1 shadow-sm [scrollbar-width:thin]"
         >
           {tabs.map((t, i) => (
             <button

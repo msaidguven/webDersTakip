@@ -3,7 +3,7 @@
 // Yazılı sayfasının öğrenci bölümü (2026-10-25): örnek kağıt bir "deneme sınavı" olarak gösterilir —
 // öğrenci kağıda çözer, sonra cevap anahtarını tek seferde açar. Metinler sunucuda KaTeX'le HTML'e
 // çevrilip gelir (KaTeX istemci paketine girmesin). Cevaplar yalnız açılınca çizilir; aynı sorular
-// cevaplarıyla birlikte aşağıdaki konu havuzunda zaten HTML'de (SEO).
+// cevaplarıyla birlikte "Konu konu sorular" sekmesinde zaten HTML'de (SEO).
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
@@ -79,13 +79,12 @@ export function YaziliPracticeExam({ papers }: { papers: PracticePaper[] }) {
               <div className="flex gap-3">
                 <span className={`h-8 w-8 shrink-0 text-sm ${r.chipBox}`} aria-hidden="true">{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex justify-end">
-                    <span className={r.badge}>{it.points} puan</span>
-                  </div>
                   {it.svgPosition === 'above' && svg}
                   <p className="leading-relaxed text-default">
                     <span className="sr-only">Soru {i + 1}: </span>
                     <span dangerouslySetInnerHTML={{ __html: it.textHtml }} />
+                    {/* Puan, yazılı kağıdındaki gibi soru metninin sonunda (ayrı boş satır açmasın). */}
+                    <span className={`ml-2 whitespace-nowrap align-middle ${r.badge}`}>{it.points} puan</span>
                   </p>
                   {it.svgPosition === 'below' && svg}
                   {showAnswers && (

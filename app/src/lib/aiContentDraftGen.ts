@@ -105,8 +105,10 @@ function parseContentDraft(raw: unknown): DraftPayload | null {
 // Soru üretme worker'ının (aiQuestionDraftGen.ts) kullandığı AYNI kaynak: kitap yüklenmiş
 // bir ünitenin TÜM chunk'ları — konu-bazlı değil ünite-bazlı, çünkü rag_document_chunks
 // konuya değil üniteye bağlı. Prompt, modele "sadece bu konuyla ilgili kısmı bul" diyor.
+// AI kaynak taslakları (ai_generated) da unit_id taşır ama kitap DEĞİL — onlar yalnız
+// sentez → tekilleştirme yolundan içeriğe girer (bkz. rag_unit_ready_gate.sql).
 export async function fetchUnitBookContent(supabase: Supabase, unitId: number): Promise<string | null> {
-  const { data: docs } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId);
+  const { data: docs } = await supabase.from('rag_documents').select('id').eq('unit_id', unitId).neq('source', 'ai_generated');
   const documentIds = ((docs as { id: number }[] | null) || []).map((d) => d.id);
   if (!documentIds.length) return null;
 
@@ -337,11 +339,13 @@ async function generateContentDraftForTopic(
   }
 
   // İki içerik worker'ı (:13 ve :23) üretim sürerken aynı konuyu seçmiş olabilir — geç kalan
-  // taraf yayınlanmış içeriğin üzerine yazmasın.
+  // taraf yayınlanmış içeriğin üzerine yazmasın. regen_after_rag'li içerik (sentezden önce
+  // üretilmiş v0) bilerek üzerine yazılır; ilk yazan bayrağı indirdiği için ikinci worker atlar.
   const { count: existingContentCount } = await supabase
     .from('topic_contents')
     .select('id', { count: 'exact', head: true })
-    .eq('topic_id', eligible.topic_id);
+    .eq('topic_id', eligible.topic_id)
+    .eq('regen_after_rag', false);
   if (existingContentCount) {
     return { generated: false, reason: `Konu ${eligible.topic_id} bu sırada diğer worker tarafından üretildi, atlandı` };
   }
@@ -397,6 +401,7 @@ async function generateContentDraftForTopic(
     .from('topic_section_content_drafts')
     .update({ status: 'saved', reviewed_at: new Date().toISOString() })
     .eq('id', draftId);
+  await supabase.from('topic_contents').update({ regen_after_rag: false }).eq('topic_id', eligible.topic_id).eq('regen_after_rag', true);
 
   // Eşleşmeyen kazanım kodu artık sessizce kaybolmuyor: worker çalıştırma kaydına (reason)
   // düşer — kazanımsız kalan bölüme soru worker'ı soru üretmez, fark edilmesi şart.

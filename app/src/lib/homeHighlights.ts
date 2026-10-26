@@ -285,6 +285,7 @@ export async function getRecentlyPublishedTopicsByGrade(supabase: AnySupabaseCli
 export interface ThisWeekTopicItem {
   id: number;
   title: string;
+  lessonId: number;
   lessonName: string;
   href: string | null;
   // Konu kapak görseli (topic_contents.hero_image_url); varsa kartta ikon yerine o.
@@ -337,6 +338,7 @@ export async function getThisWeekTopicsByGrade(supabase: AnySupabaseClient): Pro
     (byGradeId[String(unit.grade_id)] ||= []).push({
       id: topic.id,
       title: topic.title,
+      lessonId: unit.lesson_id,
       lessonName: lesson?.name ?? '',
       href: topicHref(grade?.slug, lesson?.slug, unit.slug, topic.slug),
       imageUrl: one(topic.topic_contents)?.hero_image_url ?? null,

@@ -317,13 +317,16 @@ export default function MufredatOverviewClient({
                                 Taslak
                               </span>
                             )}
-                            {start != null && end != null && (
-                              <span className={`gap-1 ${r.badge}`}>
-                                <Calendar className="h-3 w-3" /> Hafta {start}–{end}
+                            <span className={`gap-1.5 ${r.badge}`}>
+                              {start != null && end != null && (
+                                <>
+                                  <Calendar className="h-3 w-3" /> Hafta {start}–{end}
+                                  <span>·</span>
+                                </>
+                              )}
+                              <span className="normal-case">
+                                {topics.length} konu · {unit.questionCount ?? 0} soru
                               </span>
-                            )}
-                            <span className={`${r.mono} text-xs font-semibold ${r.muted}`}>
-                              {topics.length} konu · {unit.questionCount ?? 0} soru
                             </span>
                           </div>
                         </div>

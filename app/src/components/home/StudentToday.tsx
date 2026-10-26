@@ -7,15 +7,19 @@
 // sağda bugünkü durum özeti ve Okulda bu hafta kartı; en altta Günün sorusu ve Yeni konular — her biri
 // kendi kartında, sekme yok (2026-10-19, kullanıcı isteği). Derslerim İlerlemem'deki ders çubuklarıyla
 // aynı görünür (doğru / yanlış / kalan); satıra dokunmak dersin müfredat sayfasına (/<sınıf>/<ders>) götürür.
-import type { ReactNode } from 'react';
+// Yarım soru bankası testleri ("Kaldığın yerden devam et", Derslerim'deki "Devam et") sayfa değiştirmeden
+// oynatıcıda açılır (useQuizTestLauncher); sıralı testler kendi sayfasına gider.
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Onest } from 'next/font/google';
-import { BookOpen, ChartColumn, ChevronRight, Flame, RotateCcw, Trophy, TrendingUp } from 'lucide-react';
+import { BookOpen, ChartColumn, ChevronRight, Flame, Loader2, RotateCcw, Trophy, TrendingUp } from 'lucide-react';
 import { Legend, Pill } from '@/app/src/components/progress/UnitProgressChart';
 import { MASTERY_RULES } from '@/app/src/lib/topicMastery';
 import type { Totals } from '@/app/src/lib/lessonReports';
 import type { LessonProgress } from '@/app/src/models/types';
 import { useStudentToday, type OpenTest, type StudentToday as StudentTodayData, type TodayTask } from '@/app/src/hooks/useStudentToday';
+import { useQuizTestLauncher } from '@/app/src/hooks/useQuizTestLauncher';
 import { PushReminderOptIn } from './PushReminderOptIn';
 import r from '../robotic/robotic.module.css';
 
@@ -25,12 +29,22 @@ const lessonFont = Onest({ subsets: ['latin', 'latin-ext'], weight: ['400', '500
 // Bildirim izni kartı bu seriden itibaren gösterilir: ilk gün bir "izin ver" kartı kalabalık yapıyor.
 const PUSH_OPT_IN_MIN_STREAK = 3;
 
-type TaskCopy = { title: string; detail: string; cta: string; href: string; progress?: { done: number; total: number }; done?: boolean };
+type TaskCopy = { title: string; detail: string; cta: string; href: string; endpoint?: string; progress?: { done: number; total: number }; done?: boolean };
+
+// Yarım testi açan bağlantıların ortak durumu: hangi bağlantı tıklandı, yükleniyor mu, hata var mı.
+type Resume = {
+  onClick: (key: string, endpoint: string | undefined, href: string) => (e: MouseEvent<HTMLAnchorElement>) => void;
+  busyKey: string | null;
+  errorKey: string | null;
+  error: string | null;
+};
+
+const RESUME_TASK_KEY = 'task';
 
 function taskCopy(task: TodayTask, data: StudentTodayData): TaskCopy {
   switch (task.kind) {
     case 'resume':
-      return { title: 'Yarım kalan testini bitir', detail: task.title, cta: 'Kaldığın yerden devam et', href: task.href, progress: { done: task.answered, total: task.total } };
+      return { title: 'Yarım kalan testini bitir', detail: task.title, cta: 'Kaldığın yerden devam et', href: task.href, endpoint: task.endpoint, progress: { done: task.answered, total: task.total } };
     case 'srs':
       return { title: `${task.count} soruyu tekrar etme zamanı`, detail: 'Daha önce yanlış yaptığın ya da unutmaya başladığın sorular.', cta: 'Tekrara başla', href: task.href };
     case 'weak':
@@ -97,7 +111,7 @@ function LessonBar({ totals }: { totals: Totals }) {
   );
 }
 
-function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | undefined }) {
+function LessonRow({ lesson, open, resume }: { lesson: LessonProgress; open: OpenTest | undefined; resume: Resume }) {
   const totals = lessonTotals(lesson);
   const { solved, correct, total } = totals;
   const remaining = total - solved;
@@ -128,10 +142,17 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
         </>
       )}
       {open && (
-        <Link href={open.href} className="relative z-10 self-start text-xs font-semibold text-amber-700 hover:underline dark:text-amber-400">
-          Yarım testin var · {open.answered}/{open.total} · Devam et →
+        <Link
+          href={open.href}
+          onClick={resume.onClick(`lesson-${lesson.id}`, open.endpoint, open.href)}
+          aria-busy={resume.busyKey === `lesson-${lesson.id}`}
+          className="relative z-10 inline-flex items-center gap-1 self-start text-xs font-semibold text-amber-700 hover:underline dark:text-amber-400"
+        >
+          Yarım testin var · {open.answered}/{open.total} · Devam et
+          {resume.busyKey === `lesson-${lesson.id}` ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : ' →'}
         </Link>
       )}
+      {resume.errorKey === `lesson-${lesson.id}` && <span role="alert" className="text-xs text-red-500">{resume.error}</span>}
     </>
   );
   // Kartın tamamı soru bankasındaki derse gider (ayrı bağlantı, after: ile kartı kaplar); "Raporu göster"
@@ -165,7 +186,7 @@ function LessonRow({ lesson, open }: { lesson: LessonProgress; open: OpenTest | 
   );
 }
 
-function LessonList({ data }: { data: StudentTodayData }) {
+function LessonList({ data, resume }: { data: StudentTodayData; resume: Resume }) {
   if (!data.lessons.length) return <p className="text-sm text-muted-foreground">Henüz bir ders yok.</p>;
   return (
     <div className={`${lessonFont.variable} flex flex-col gap-3 font-[family-name:var(--font-home-lessons)]`}>
@@ -173,7 +194,7 @@ function LessonList({ data }: { data: StudentTodayData }) {
       <ul className="flex flex-col gap-3">
         {data.lessons.map((lesson) => (
           <li key={lesson.id}>
-            <LessonRow lesson={lesson} open={data.openTestByLesson.get(Number(lesson.id))} />
+            <LessonRow lesson={lesson} open={data.openTestByLesson.get(Number(lesson.id))} resume={resume} />
           </li>
         ))}
       </ul>
@@ -214,8 +235,30 @@ export function StudentToday({
   recent?: ReactNode;
   upcomingExams?: ReactNode;
 }) {
-  const { data } = useStudentToday();
+  const router = useRouter();
+  const { data, mutate } = useStudentToday();
+  const { open: openTest, loading, error, conflict, player } = useQuizTestLauncher(() => void mutate());
+  const [active, setActive] = useState<{ key: string; href: string } | null>(null);
+
+  // Oturum bu arada başka yerde bitmişse API devam yerine çakışma döner; seçimi soru bankası sayfası sunar.
+  useEffect(() => {
+    if (conflict && active) router.push(active.href);
+  }, [conflict, active, router]);
+
   if (!data) return <Skeleton />;
+
+  const resume: Resume = {
+    onClick: (key, endpoint, href) => (e) => {
+      // Uç noktası olmayan (sıralı test) ya da değiştirici tuşlu tıklar normal bağlantı gibi davranır.
+      if (!endpoint || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      setActive({ key, href });
+      void openTest(endpoint, href);
+    },
+    busyKey: loading ? active?.key ?? null : null,
+    errorKey: error ? active?.key ?? null : null,
+    error,
+  };
 
   const copy = taskCopy(data.tasks[0], data);
   const pct = copy.progress && copy.progress.total > 0 ? Math.min(100, Math.round((copy.progress.done / copy.progress.total) * 100)) : null;
@@ -267,11 +310,18 @@ export function StudentToday({
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={copy.href}
+                onClick={resume.onClick(RESUME_TASK_KEY, copy.endpoint, copy.href)}
+                aria-busy={resume.busyKey === RESUME_TASK_KEY}
                 className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition duration-200 ${copy.done ? 'bg-emerald-700 hover:bg-emerald-800' : `${r.btnNeon} ${r.btnText}`}`}
               >
                 {copy.cta}
-                <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
+                {resume.busyKey === RESUME_TASK_KEY ? (
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
+                )}
               </Link>
+              {resume.errorKey === RESUME_TASK_KEY && <span role="alert" className="text-sm text-red-500">{resume.error}</span>}
             </div>
           </section>
 
@@ -279,7 +329,7 @@ export function StudentToday({
             <h2 id="dersler-baslik" className="text-lg font-extrabold text-default">
               Derslerim
             </h2>
-            <LessonList data={data} />
+            <LessonList data={data} resume={resume} />
           </section>
 
           {dailyQuestion}
@@ -317,6 +367,7 @@ export function StudentToday({
       </div>
 
       {data.streak >= PUSH_OPT_IN_MIN_STREAK && <PushReminderOptIn />}
+      {player}
     </section>
   );
 }

@@ -15,7 +15,8 @@ import type { LessonProgress } from '@/app/src/models/types';
 import { getLessonNextSteps, sequentialTestHref, type LessonNextStep } from '@/app/src/lib/sequentialTest';
 
 export type TodayTask =
-  | { kind: 'resume'; title: string; answered: number; total: number; href: string }
+  // endpoint: soru bankası testinin oynatıcı verisi; varsa test sayfa değiştirmeden açılır (useQuizTestLauncher).
+  | { kind: 'resume'; title: string; answered: number; total: number; href: string; endpoint?: string }
   | { kind: 'srs'; count: number; href: string }
   | { kind: 'weak'; topicTitle: string; lessonName: string; wrongCount: number; accuracy: number | null; href: string }
   | { kind: 'goal'; remaining: number; href: string }
@@ -26,6 +27,7 @@ export interface OpenTest {
   answered: number;
   total: number;
   href: string;
+  endpoint?: string;
 }
 
 export interface StudentToday {
@@ -46,7 +48,7 @@ export interface StudentToday {
 }
 
 function buildTasks(input: {
-  resumable: { title: string; answered: number; total: number; href: string } | null;
+  resumable: { title: string; answered: number; total: number; href: string; endpoint?: string } | null;
   dueSrs: number;
   lessons: LessonProgress[];
   dailyProgress: number;
@@ -104,6 +106,7 @@ async function loadStudentToday(
         answered: resumeActivity.questionCount,
         total: resumeActivity.totalQuestionCount ?? resumeActivity.questionCount,
         href: resumeActivity.resumeHref!,
+        endpoint: resumeActivity.resumeEndpoint,
       }
     : null;
 
@@ -117,6 +120,7 @@ async function loadStudentToday(
       answered: a.questionCount,
       total: a.totalQuestionCount ?? a.questionCount,
       href: a.resumeHref,
+      endpoint: a.resumeEndpoint,
     });
   }
 

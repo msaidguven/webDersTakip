@@ -7,7 +7,8 @@ const PRIVATE_PATHS = ['/admin', '/dashboard', '/panel', '/ilerlemem', '/profil'
 // AI tarayıcıları tüm siteden uzak tutuluyor. Arama motorları (Googlebot, Bingbot, YandexBot)
 // etkilenmez; Google-Extended / Applebot-Extended yalnız AI eğitimi iznidir, arama sıralamasına
 // dokunmaz. Yalnız kurallara uyan botları durdurur. Geri açmak için AI_BOTS_BLOCKED = false.
-const AI_BOTS_BLOCKED = true;
+// 2026-10-25: geri açıldı (Vercel Firewall AI Bots kuralı da kapatıldı).
+const AI_BOTS_BLOCKED = false;
 const AI_BOTS = [
   'GPTBot',
   'OAI-SearchBot',

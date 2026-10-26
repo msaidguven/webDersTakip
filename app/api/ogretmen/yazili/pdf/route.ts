@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getTeacherAccess } from '@/app/src/lib/teacherAuth';
 import { htmlToA4Pdf } from '@/app/src/lib/htmlToPdf';
 import { buildTeacherPaperHtml, resolvePaperRequest } from '@/app/src/lib/yazili/teacher';
+import { logPaperEvent } from '@/app/src/lib/yazili/paperEvents';
 
 // Öğretmen paneli → Yazılı hazırla → "Sınav kağıdı" / "Cevap anahtarı" PDF'i (öğretmenin seçtiği sıra ve
 // puanlarla). Doğrulama resolvePaperRequest'te; PDF üretimi örnek kağıtla aynı (htmlToPdf).
@@ -19,6 +20,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const pdf = await htmlToA4Pdf(buildTeacherPaperHtml(req));
+    // Öneri verisi (teacher_paper_events): yanıt gittikten sonra yazılır, indirmeyi geciktirmez.
+    after(() =>
+      logPaperEvent({
+        kind: 'download',
+        teacherId: access.user.id,
+        examId: req.examId,
+        questionIds: req.items.map((i) => i.question.id),
+        format: req.answerKey ? 'key' : 'pdf',
+      })
+    );
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',

@@ -9,11 +9,12 @@ import { getProfileStats } from '@/app/src/lib/profileStats';
 import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
-import { Settings, LogOut, Camera } from 'lucide-react';
+import { Settings, LogOut, Camera, Flag } from 'lucide-react';
 import { roboticFontVars } from '@/app/src/components/robotic/fonts';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { clearMyProfileCache } from '@/app/src/lib/myProfileClient';
 import { PublicProfileToggle } from './PublicProfileToggle';
+import { TeacherProfile } from './TeacherProfile';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
 
 export interface ProfileRow {
@@ -28,6 +29,7 @@ export interface ProfileRow {
   school_id: number | null;
   school_name: string | null;
   role: 'student' | 'teacher' | 'admin' | null;
+  is_verified: boolean | null;
   onboarding_completed: boolean;
   /** Üye profil kartı diğer üyelere açık mı (varsayılan kapalı; public_profile_card.sql). */
   public_profile?: boolean;
@@ -129,6 +131,8 @@ export default function ProfilClient() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
   const [comments, setComments] = useState<MyComment[] | null>(null);
+  // Admin profilini öğrenci ya da öğretmen gözüyle görebilir (anasayfadaki önizlemeyle aynı fikir).
+  const [adminView, setAdminView] = useState<'student' | 'teacher'>('student');
   // Kapsam konu bazlı (2026-10-20, kullanıcı isteği: ünite bazlı oran çok yavaş artıyordu): en az bir
   // sorusunu çözdüğün konular ÷ sınıfındaki tüm konular (sorusu henüz olmayanlar dahil). Veri İlerlemem'le
   // aynı önbellekten — ek istek yok. Sınıf seçilmemişse (mastery === null) 0.
@@ -289,6 +293,10 @@ export default function ProfilClient() {
   if (!authUser) return shell(<AuthPrompt message="Profilini görmek için giriş yap." />);
 
   const initial = (fullName?.trim()?.[0] || email?.[0] || 'U').toLocaleUpperCase('tr-TR');
+  // Öğretmen aynı /profil adresinde kendi ekranını görür (TeacherProfile.tsx); rol profil yüklenince belli olur.
+  const isAdmin = profile?.role === 'admin';
+  const isTeacher = profile?.role === 'teacher' || (isAdmin && adminView === 'teacher');
+  const teacherVerified = isAdmin || profile?.is_verified === true;
 
   return shell(
     <>
@@ -323,15 +331,26 @@ export default function ProfilClient() {
           <h1 id="profil-ad" className={`truncate text-2xl font-bold text-default sm:text-3xl ${r.display}`}>{fullName}</h1>
           {username && <p className={`truncate text-sm font-semibold ${r.accent}`}>@{username}</p>}
           <p className="truncate text-sm text-muted-foreground">{email}</p>
-          <ul className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Özet">
-            <li className={r.badge}>{gradeName ?? 'Sınıf belirtilmemiş'}</li>
-            {stats && <li className={r.badge}>🔥 {stats.streakDays} gün seri</li>}
-          </ul>
+          {profile && (
+            <ul className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Özet">
+              {isTeacher ? (
+                <li className={r.badge}>{teacherVerified ? 'Öğretmen · Onaylı' : 'Öğretmen · Onay bekliyor'}</li>
+              ) : (
+                <>
+                  <li className={r.badge}>{gradeName ?? 'Sınıf belirtilmemiş'}</li>
+                  {stats && <li className={r.badge}>🔥 {stats.streakDays} gün seri</li>}
+                </>
+              )}
+            </ul>
+          )}
         </div>
 
         <div className="flex shrink-0 gap-2 sm:flex-col">
           <Link href="/profil/ayarlar" className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold ${r.btnGhost}`}>
             <Settings className="h-4 w-4" aria-hidden="true" /> Ayarlar
+          </Link>
+          <Link href="/profil/bildirdigim-sorular" className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold ${r.btnGhost}`}>
+            <Flag className="h-4 w-4" aria-hidden="true" /> Bildirdiğim sorular
           </Link>
           <button
             type="button"
@@ -343,7 +362,24 @@ export default function ProfilClient() {
         </div>
       </section>
 
-      {profile && (
+      {isAdmin && (
+        <div role="group" aria-label="Profil önizlemesi" className={`flex flex-wrap items-center gap-2 p-3 ${r.panel}`}>
+          <span className="px-1 text-sm text-muted-foreground">Profili şöyle gör:</span>
+          {(['student', 'teacher'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={adminView === v}
+              onClick={() => setAdminView(v)}
+              className={`min-h-9 rounded-xl px-3.5 text-sm font-semibold ${r.item} ${adminView === v ? r.navActive : 'text-muted-foreground'}`}
+            >
+              {v === 'student' ? 'Öğrenci' : 'Öğretmen'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {profile && !isTeacher && (
         <PublicProfileToggle
           slug={profile.public_slug ?? null}
           initialOn={profile.public_profile === true}
@@ -355,7 +391,10 @@ export default function ProfilClient() {
         <OnboardingCard onCompleted={() => router.push(nextAfterOnboarding)} />
       )}
 
-      {/* PERFORMANS */}
+      {isTeacher ? (
+        <TeacherProfile isVerified={teacherVerified} />
+      ) : (
+      /* PERFORMANS */
       <section aria-labelledby="performans" className="flex flex-col gap-3">
         <h2 id="performans" className={r.label}>Genel performans</h2>
         {stats ? (
@@ -376,6 +415,7 @@ export default function ProfilClient() {
           <div aria-busy="true" aria-label="Performans yükleniyor" className={`h-56 animate-pulse rounded-[18px] ${r.panel}`} />
         )}
       </section>
+      )}
 
       <MyCommentsCard comments={comments} />
     </>

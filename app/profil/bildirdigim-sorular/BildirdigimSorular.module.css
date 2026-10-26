@@ -1,0 +1,117 @@
+/* Bildirdiğim sorular — metalik mesajlaşma görünümü (2026-10-26). Tokenlar robotic.module.css .root'tan
+   (--panel, --edge, --neon…); yerleşim Tailwind'de, metal yüzeyler burada. Açık tema krom, koyu tema çelik. */
+.vars {
+  --steel: linear-gradient(180deg, #FBFCFE 0%, #EDF1F6 48%, #E1E7EF 52%, #EAEFF5 100%);
+  --brush: repeating-linear-gradient(90deg, rgba(255, 255, 255, .5) 0 1px, transparent 1px 3px);
+  --well: #E9EEF4;
+  --plate: linear-gradient(170deg, #FFFFFF 0%, #F1F4F8 100%);
+  --hi: rgba(255, 255, 255, .95);
+  --lo: rgba(15, 23, 42, .12);
+  --me: linear-gradient(135deg, #3B5BFD 0%, #0891B2 100%);
+}
+:global(.dark) .vars {
+  --steel: linear-gradient(180deg, #222C3E 0%, #182133 48%, #121A29 52%, #172033 100%);
+  --brush: repeating-linear-gradient(90deg, rgba(148, 197, 255, .035) 0 1px, transparent 1px 3px);
+  --well: #0B111C;
+  --plate: linear-gradient(170deg, #1B2435 0%, #141C2B 100%);
+  --hi: rgba(148, 197, 255, .1);
+  --lo: rgba(0, 0, 0, .55);
+  --me: linear-gradient(135deg, #3B5BFD 0%, #0E7490 100%);
+}
+
+/* Dış çerçeve: kalın metal kasa */
+.shell {
+  border-radius: 20px;
+  border: 1px solid var(--edge);
+  background: var(--panel);
+  box-shadow: 0 1px 0 var(--hi) inset, 0 0 0 4px color-mix(in srgb, var(--edge) 35%, transparent), 0 24px 48px -24px var(--lo);
+  overflow: hidden;
+}
+
+/* Fırçalanmış çelik şerit: bölme başlıkları, sekmeler, mesaj alanı */
+.bar {
+  background: var(--brush), var(--steel);
+  box-shadow: 0 1px 0 var(--hi) inset;
+}
+.barTop { border-bottom: 1px solid var(--edge); }
+.barBottom { border-top: 1px solid var(--edge); }
+
+/* İçe gömük kaydırma alanı */
+.well {
+  background: var(--well);
+  box-shadow: inset 0 8px 12px -10px var(--lo), inset 0 -8px 12px -10px var(--lo);
+}
+
+.scroll {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+  scroll-behavior: smooth;
+}
+.scroll::-webkit-scrollbar { width: 8px; }
+.scroll::-webkit-scrollbar-thumb { border-radius: 8px; background: color-mix(in srgb, var(--muted) 40%, transparent); border: 2px solid transparent; background-clip: padding-box; }
+
+/* Sekme yuvası + kabarık metal düğme */
+.segment {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--well);
+  box-shadow: inset 0 1px 3px var(--lo);
+}
+.segmentBtn {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: color .15s, background .15s, box-shadow .15s;
+}
+.segmentBtn:hover { color: var(--ink); }
+.segmentOn {
+  color: var(--neon);
+  background: var(--steel);
+  box-shadow: 0 1px 0 var(--hi) inset, 0 1px 2px var(--lo), 0 0 0 1px var(--edge);
+}
+
+/* Liste satırı: metal plaka, seçilende neon ray */
+.row { position: relative; border-bottom: 1px solid color-mix(in srgb, var(--edge) 70%, transparent); transition: background .15s; }
+.row:hover { background: color-mix(in srgb, var(--neon) 5%, transparent); }
+.rowOn { background: linear-gradient(90deg, color-mix(in srgb, var(--neon) 14%, transparent), transparent 85%); }
+.rowOn::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--neon); box-shadow: 0 0 10px var(--glow); }
+.dot { width: 9px; height: 9px; border-radius: 999px; background: var(--neon); box-shadow: 0 0 8px var(--glow); }
+
+/* Soru kartı ve karşı taraf balonu: çelik plaka */
+.plate {
+  background: var(--plate);
+  border: 1px solid var(--edge);
+  box-shadow: 0 1px 0 var(--hi) inset, 0 6px 16px -12px var(--lo);
+}
+.bubbleThem { composes: plate; border-radius: 18px 18px 18px 6px; }
+.bubbleMe {
+  color: #fff;
+  background: var(--me);
+  border-radius: 18px 18px 6px 18px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .25) inset, 0 8px 20px -12px rgba(8, 145, 178, .9);
+}
+
+/* Gömük metin alanı */
+.input {
+  background: var(--well);
+  border: 1px solid var(--edge);
+  color: var(--ink);
+  box-shadow: inset 0 2px 4px var(--lo);
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { outline: none; border-color: var(--neon); box-shadow: inset 0 2px 4px var(--lo), 0 0 0 3px color-mix(in srgb, var(--neon) 25%, transparent); }
+.input::placeholder { color: var(--muted); }
+
+/* "Son mesaja in" düğmesi */
+.jump {
+  background: var(--steel);
+  border: 1px solid var(--edge);
+  color: var(--neon);
+  box-shadow: 0 1px 0 var(--hi) inset, 0 8px 18px -8px var(--lo);
+}

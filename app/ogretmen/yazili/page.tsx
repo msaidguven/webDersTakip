@@ -9,7 +9,7 @@ import { nationalCountPerLo } from '@/app/src/lib/yazili/papers';
 import { pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { OgretmenTabs } from '../OgretmenTabs';
-import { YaziliBuilder, type BuilderPreset } from './YaziliBuilder';
+import { YaziliBuilder } from './YaziliBuilder';
 
 export const metadata: Metadata = {
   title: 'Yazılı Hazırla · Öğretmen Paneli',
@@ -130,11 +130,6 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
                 const codes = [...new Set(loaded.data.topics.flatMap((t) => t.loCodes))];
                 return Object.fromEntries(codes.map((c) => [c, nationalCountPerLo(codes.length)]));
               })()}
-              presets={loaded.data.papers.map((p): BuilderPreset => ({
-                scenario: p.scenario,
-                label: `${p.scenario ? `${p.scenario}. senaryo` : 'Örnek kağıt'} · ${p.variant === 1 ? 'A' : 'B'}`,
-                items: p.items.map((i) => ({ id: i.questionId, points: i.points })),
-              }))}
               profileDefaults={profileDefaults}
             />
           ) : (
