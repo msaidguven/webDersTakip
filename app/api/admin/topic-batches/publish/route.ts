@@ -4,7 +4,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { publishTopicBatch } from '@/app/src/lib/topicQuestionBatch';
 
 // İnceleme bekleyen (Türkçe) konu partisini yayınlar — Claude taslakları okuyup düzelttikten sonra
-// admin /admin/soru-bildirimleri'nde "Yayınla"ya basar (bkz. ai_topic_question_batch_review_hold.sql).
+// admin /admin/soru-uretimi'nde "Yayınla"ya basar (bkz. ai_topic_question_batch_review_hold.sql).
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
