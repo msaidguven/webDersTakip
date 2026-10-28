@@ -16,7 +16,7 @@ export function nationalCountPerLo(loCount: number): number {
   return Math.max(2, Math.round(NATIONAL_TOTAL / Math.max(1, loCount)));
 }
 
-function distributePoints(n: number): number[] {
+export function distributePoints(n: number): number[] {
   const base = Math.floor(100 / n);
   const rem = 100 - base * n;
   // Artan puan sondaki (daha zor) sorulara.
@@ -68,4 +68,54 @@ export function buildPapers(opts: {
     const ids = new Set(a?.items.map((i) => i.questionId));
     return !(a && a.items.length === p.items.length && p.items.every((i) => ids.has(i.questionId)));
   });
+}
+
+// Öğrencinin seçtiği dağılım (2026-10-28): MEB senaryosundan başlar, öğrenme çıktısı ekleyip çıkarabilir ve
+// sayıları değiştirebilir. Her satır en az 1 soru, en çok o çıktının havuzu kadar; toplam en çok CUSTOM_MAX_TOTAL.
+export const CUSTOM_MAX_TOTAL = 15;
+export type LoOption = { code: string; title: string; topicTitles: string[]; pool: number };
+
+// Geçersizse null. Sıra korunur, kod tekrarı reddedilir.
+export function validatePlan(counts: [string, number][], options: LoOption[]): [string, number][] | null {
+  const pool = new Map(options.map((o) => [o.code, o.pool]));
+  const seen = new Set<string>();
+  let total = 0;
+  for (const [code, n] of counts) {
+    if (seen.has(code) || !Number.isInteger(n) || n < 1 || n > (pool.get(code) ?? 0)) return null;
+    seen.add(code);
+    total += n;
+  }
+  return total >= 1 && total <= CUSTOM_MAX_TOTAL ? counts : null;
+}
+
+// Senaryo satırları havuza göre kırpılır (havuzu boş çıktı düşer); senaryo yoksa her çıktıdan eşit pay.
+export function initialPlan(options: LoOption[], scenarioCounts: Record<string, number> | null): [string, number][] {
+  const usable = options.filter((o) => o.pool > 0);
+  if (scenarioCounts) return usable.filter((o) => scenarioCounts[o.code]).map((o) => [o.code, Math.min(scenarioCounts[o.code], o.pool)]);
+  const each = Math.max(1, Math.floor(CUSTOM_MAX_TOTAL / Math.max(1, usable.length)));
+  const plan: [string, number][] = [];
+  let total = 0;
+  for (const o of usable) {
+    const n = Math.min(each, o.pool, CUSTOM_MAX_TOTAL - total);
+    if (n < 1) break;
+    plan.push([o.code, n]);
+    total += n;
+  }
+  return plan;
+}
+
+// Plan → sorular: her çıktıdan istenen sayıda rastgele soru (önce çözülmemişler), çıktı içinde kolaydan zora.
+export function buildPlanItems(plan: [string, number][], questions: PaperQuestion[], solved: Set<number> = new Set(), random: () => number = Math.random): PaperItem[] {
+  const picked: PaperQuestion[] = [];
+  for (const [code, n] of plan) {
+    const pool = questions.filter((q) => q.loCode === code);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const shuffled = pool.sort((a, b) => Number(solved.has(a.id)) - Number(solved.has(b.id)));
+    picked.push(...shuffled.slice(0, n).sort((a, b) => (a.difficulty ?? 3) - (b.difficulty ?? 3) || a.id - b.id));
+  }
+  const points = distributePoints(Math.max(1, picked.length));
+  return picked.map((q, i) => ({ questionId: q.id, points: points[i] }));
 }

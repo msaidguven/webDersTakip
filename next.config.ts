@@ -41,6 +41,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/topic-sections/**": SHARP_LINUX_X64_TRACE_INCLUDES,
     "/api/ogretmen/export/**": RESVG_LINUX_X64_TRACE_INCLUDES,
+    "/api/yazili/deneme/**": RESVG_LINUX_X64_TRACE_INCLUDES,
     "/api/topic-pdf/**": CHROMIUM_TRACE_INCLUDES,
     "/api/yazili-pdf/**": CHROMIUM_TRACE_INCLUDES,
     "/api/ogretmen/yazili/pdf/**": CHROMIUM_TRACE_INCLUDES,

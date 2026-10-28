@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../src/context/AuthContext';
+import { SchoolPicker, type SchoolValue } from '@/app/src/components/SchoolPicker';
 import { useRegisterViewModel } from '../src/viewmodels/useRegisterViewModel';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
 import { AuthBanner, AuthLoading, AuthShell, authStyles as s } from '../src/components/auth/AuthShell';
@@ -27,6 +28,7 @@ function RegisterForm() {
   // ?rol=ogretmen: yazılı sayfasındaki "Öğretmen misiniz?" bağlantısı formu öğretmen seçili açar.
   const [role, setRole] = useState<'student' | 'teacher'>(searchParams?.get('rol') === 'ogretmen' ? 'teacher' : 'student');
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
+  const [school, setSchool] = useState<SchoolValue>({ cityId: null, districtId: null, schoolId: null, schoolName: '' });
   const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '', gradeId: '' });
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
@@ -82,6 +84,7 @@ function RegisterForm() {
       role,
       gradeId: role === 'student' ? parseInt(form.gradeId, 10) : undefined,
       lessonIds: role === 'teacher' ? Array.from(selectedLessonIds) : undefined,
+      school: role === 'teacher' && (school.cityId || school.schoolName.trim()) ? school : undefined,
       honeypot,
       formRenderedAt,
       mathA: mathChallenge.a,
@@ -146,7 +149,13 @@ function RegisterForm() {
                 ))}
               </div>
             )}
-            <span className={s.hint}>Öğretmen hesapları yönetici onayından sonra açılır.</span>
+          </div>
+        )}
+
+        {role === 'teacher' && (
+          <div className={s.field}>
+            <span className={s.label}>Görev yaptığın okul (isteğe bağlı)</span>
+            <SchoolPicker value={school} onChange={setSchool} labelClassName={s.hint} />
           </div>
         )}
 

@@ -18,12 +18,19 @@ function getApiKeys(profile: GeminiWorkerProfile): string[] {
   return keys;
 }
 
-async function callGenerateContent(prompt: string, model: string, apiKey: string): Promise<Response> {
+// Görsel girdi (PNG, base64) — yalnız puanlama gibi görseli okuması gereken çağrılar verir.
+export interface GeminiInlineImage {
+  mimeType: string;
+  data: string;
+}
+
+async function callGenerateContent(prompt: string, model: string, apiKey: string, images: GeminiInlineImage[], timeoutMs?: number): Promise<Response> {
   return fetch(`${API_BASE}/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: [{ role: 'user', parts: [{ text: prompt }, ...images.map((image) => ({ inlineData: { mimeType: image.mimeType, data: image.data } }))] }],
       generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
     }),
   });
@@ -38,21 +45,43 @@ function sleep(ms: number): Promise<void> {
 // sınırını aşıp çalışmayı log bile yazamadan öldürüyordu. Artık önce diğer modele geçiliyor;
 // hepsi 503 ise kısa bir beklemeyle sadece 503 verenler bir kez daha deneniyor.
 const RETRY_ALL_OVERLOADED_DELAY_MS = 30 * 1000;
+// Süre bütçesinde bundan az kaldıysa yeni istek açılmaz (yarıda kesilecek istek kota harcar).
+const MIN_REQUEST_MS = 20 * 1000;
 
 type Attempt = { key: string; model: string };
 
-export async function generateGeminiJson(prompt: string, profile: GeminiWorkerProfile): Promise<GeneratedJson> {
+export async function generateGeminiJson(prompt: string, profile: GeminiWorkerProfile, images: GeminiInlineImage[] = []): Promise<GeneratedJson> {
   const models = [profile.model, ...profile.fallbackModels.filter((m) => m !== profile.model)];
   // Key önce: aynı key'in kotası tüm modellerde denenmeden yedek key'e (başka bir işin
   // kotası) geçilmez.
   let pending: Attempt[] = getApiKeys(profile).flatMap((key) => models.map((model) => ({ key, model })));
   const failures: string[] = [];
 
+  const remaining = () => (profile.deadlineAt ? profile.deadlineAt - Date.now() : Infinity);
+
   for (let pass = 0; pass < 2 && pending.length; pass++) {
-    if (pass > 0) await sleep(RETRY_ALL_OVERLOADED_DELAY_MS);
+    if (pass > 0) {
+      if (remaining() < RETRY_ALL_OVERLOADED_DELAY_MS + MIN_REQUEST_MS) break;
+      await sleep(RETRY_ALL_OVERLOADED_DELAY_MS);
+    }
     const overloaded: Attempt[] = [];
     for (const attempt of pending) {
-      const res = await callGenerateContent(prompt, attempt.model, attempt.key);
+      if (remaining() < MIN_REQUEST_MS) {
+        failures.push(`${attempt.model}: zaman aşımı (süre bütçesi bitti)`);
+        break;
+      }
+      const timeoutMs = Math.min(profile.requestTimeoutMs ?? Infinity, remaining());
+      let res: Response;
+      try {
+        res = await callGenerateContent(prompt, attempt.model, attempt.key, images, Number.isFinite(timeoutMs) ? timeoutMs : undefined);
+      } catch (e) {
+        // Yanıt vermeyen model (profil süre sınırı koyduysa) atlanır; sıradaki denenir.
+        if (e instanceof Error && e.name === 'TimeoutError') {
+          failures.push(`${attempt.model}: zaman aşımı`);
+          continue;
+        }
+        throw e;
+      }
       if (res.ok) {
         const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
         const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();

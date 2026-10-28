@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import { TYPE_ID } from '@/app/src/lib/parseMixedQuestions';
 import { examLabel, examSlug, normalizeLoCode, type ExamNo, type ExamTerm } from '@/app/src/lib/yazili/common';
-import { buildPapers, type Paper } from '@/app/src/lib/yazili/papers';
+import { buildPapers, type LoOption, type Paper } from '@/app/src/lib/yazili/papers';
 
 export const YAZILI_INDEX_PATH = '/yazili-sorulari';
 export const yaziliLessonPath = (gradeSlug: string, lessonSlug: string) => `${YAZILI_INDEX_PATH}/${gradeSlug}/${lessonSlug}`;
@@ -121,7 +121,7 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
       .eq('is_active', true)
       .order('difficulty', { ascending: true, nullsFirst: false })
       .order('id'),
-    supabase.from('topic_learning_outcomes').select('topic_id, code').in('topic_id', topicIds),
+    supabase.from('topic_learning_outcomes').select('topic_id, code, title').in('topic_id', topicIds),
     supabase.from('exam_lo_targets').select('scenario_no, lo_code, question_count').eq('exam_id', exam.id),
     supabase.from('exams').select(EXAM_SELECT).eq('status', 'published').eq('grades.slug', exam.grades.slug).eq('lessons.slug', exam.lessons.slug),
   ]);
@@ -143,8 +143,10 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
   const loCodeById = new Map(((loRows as { id: number; code: string | null }[] | null) ?? []).map((l) => [l.id, l.code ? normalizeLoCode(l.code) : null]));
   const loCodeByOutcome = new Map(((outcomeData as { id: number; learning_outcome_id: number | null }[] | null) ?? []).map((o) => [o.id, o.learning_outcome_id != null ? loCodeById.get(o.learning_outcome_id) ?? null : null]));
   const loByTopic = new Map<number, string[]>();
-  for (const r of (loData as { topic_id: number; code: string | null }[] | null) ?? []) {
+  const loTitle = new Map<string, string>();
+  for (const r of (loData as { topic_id: number; code: string | null; title: string | null }[] | null) ?? []) {
     const code = r.code ? normalizeLoCode(r.code) : null;
+    if (code && r.title && !loTitle.has(code)) loTitle.set(code, r.title);
     if (code) loByTopic.set(r.topic_id, [...new Set([...(loByTopic.get(r.topic_id) ?? []), code])]);
   }
   const topicById = new Map(((topicsData as unknown as { id: number; title: string; units: { title: string } | null }[] | null) ?? []).map((t) => [t.id, t]));
@@ -184,6 +186,15 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
     .map(([loCode, counts]) => ({ loCode, counts, topicTitles: topics.filter((t) => t.loCodes.includes(loCode)).map((t) => t.title) }));
 
   const allQuestions = topics.flatMap((t) => t.questions);
+  // "Yeni yazılı aç" dağılım seçicisi: kapsamdaki her öğrenme çıktısı, resmî başlığı ve havuzu.
+  const loOptions: LoOption[] = [...new Set(topics.flatMap((t) => t.loCodes))]
+    .sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }))
+    .map((code) => ({
+      code,
+      title: loTitle.get(code) ?? '',
+      topicTitles: topics.filter((t) => t.loCodes.includes(code)).map((t) => t.title),
+      pool: allQuestions.filter((q) => q.loCode === code).length,
+    }));
   const papers: Paper[] = buildPapers({
     questions: allQuestions.map((q) => ({ id: q.id, loCode: q.loCode, difficulty: q.difficulty })),
     scenarios: new Map([...new Set([...scenarioMap.values()].flatMap((c) => Object.keys(c).map(Number)))].map((s) => [
@@ -211,6 +222,7 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
     scenarios,
     scenarioCount: Math.max(0, ...[...scenarioMap.values()].flatMap((c) => Object.keys(c).map(Number))),
     papers,
+    loOptions,
     siblings,
   };
 });

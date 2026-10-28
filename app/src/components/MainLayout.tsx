@@ -14,6 +14,7 @@ import ThemeToggle from './ThemeToggle';
 import { HeaderMenu } from './HeaderMenu';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
+import { MemberPromptModal } from './MemberPromptModal';
 import { DesktopNav, MobileTabBar, buildNavItems } from './SiteNav';
 import { roboticFontVars } from './robotic/fonts';
 import r from './robotic/robotic.module.css';
@@ -145,6 +146,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Ana İçerik */}
       <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
         {!hideHeader && <ProfilePromptBanner />}
+        {!hideHeader && <MemberPromptModal />}
         {children}
       </main>
 

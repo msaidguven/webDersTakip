@@ -198,8 +198,8 @@ export default function OgretmenPanelClient() {
   if (forbidden) {
     return (
       <div className="max-w-2xl mx-auto mt-16 rounded-2xl bg-surface-elevated border border-default p-8 text-center">
-        <p className="text-default font-medium mb-1">Bu sayfa sadece onaylı öğretmen hesapları içindir</p>
-        <p className="text-muted-foreground text-sm">Öğretmen hesabı talebiniz varsa yönetici ile iletişime geçin.</p>
+        <p className="text-default font-medium mb-1">Bu sayfa sadece öğretmen hesapları içindir</p>
+        <p className="text-muted-foreground text-sm">Öğretmen hesabıyla giriş yaptığında bu araçları kullanabilirsin.</p>
       </div>
     );
   }

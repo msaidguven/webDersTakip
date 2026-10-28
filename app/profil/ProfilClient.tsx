@@ -15,6 +15,7 @@ import r from '@/app/src/components/robotic/robotic.module.css';
 import { clearMyProfileCache } from '@/app/src/lib/myProfileClient';
 import { PublicProfileToggle } from './PublicProfileToggle';
 import { TeacherProfile } from './TeacherProfile';
+import { SchoolPicker, type SchoolValue } from '@/app/src/components/SchoolPicker';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
 
 export interface ProfileRow {
@@ -30,6 +31,7 @@ export interface ProfileRow {
   school_name: string | null;
   role: 'student' | 'teacher' | 'admin' | null;
   is_verified: boolean | null;
+  email_verified_at?: string | null;
   onboarding_completed: boolean;
   /** Üye profil kartı diğer üyelere açık mı (varsayılan kapalı; public_profile_card.sql). */
   public_profile?: boolean;
@@ -334,7 +336,7 @@ export default function ProfilClient() {
           {profile && (
             <ul className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Özet">
               {isTeacher ? (
-                <li className={r.badge}>{teacherVerified ? 'Öğretmen · Onaylı' : 'Öğretmen · Onay bekliyor'}</li>
+                <li className={r.badge}>{teacherVerified ? 'Öğretmen · Onaylı' : 'Öğretmen'}</li>
               ) : (
                 <>
                   <li className={r.badge}>{gradeName ?? 'Sınıf belirtilmemiş'}</li>
@@ -392,7 +394,7 @@ export default function ProfilClient() {
       )}
 
       {isTeacher ? (
-        <TeacherProfile isVerified={teacherVerified} />
+        <TeacherProfile isVerified={teacherVerified} emailVerified={isAdmin || !!profile?.email_verified_at} emailResult={searchParams?.get('eposta') ?? null} />
       ) : (
       /* PERFORMANS */
       <section aria-labelledby="performans" className="flex flex-col gap-3">
@@ -437,6 +439,7 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
   const [lessons, setLessons] = useState<OnboardingLesson[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
+  const [school, setSchool] = useState<SchoolValue>({ cityId: null, districtId: null, schoolId: null, schoolName: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -481,6 +484,7 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
           role,
           gradeId: role === 'student' ? Number(gradeId) : undefined,
           lessonIds: role === 'teacher' ? Array.from(selectedLessonIds) : undefined,
+          school: role === 'teacher' && (school.cityId || school.schoolName.trim()) ? school : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -553,7 +557,8 @@ function OnboardingCard({ onCompleted }: { onCompleted: () => void }) {
               ))
             )}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Kayıt sonrası hesabın onay bekler durumda olur; yönetici onayladıktan sonra öğretmen paneline erişebilirsin.</p>
+          <p className="mt-4 mb-1.5 text-xs font-medium text-muted-foreground">Görev yaptığın okul (isteğe bağlı)</p>
+          <SchoolPicker value={school} onChange={setSchool} />
         </div>
       )}
 

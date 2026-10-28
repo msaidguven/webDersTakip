@@ -31,6 +31,11 @@ export default function PrivacyPolicyPage() {
           aktiviteniz gibi hizmeti sunmak için gerekli veriler.
         </li>
         <li>
+          <strong>Yazılı denemeleri:</strong> “Yeni yazılı aç” özelliğinde yazdığınız cevaplar, puanlarınız ve
+          isterseniz yüklediğiniz kâğıt fotoğrafı. Fotoğraflar yalnızca size açık özel bir alanda tutulur ve
+          90 gün sonra otomatik olarak silinir. Fotoğrafa kişisel bilgi (yüz, ad, adres) girmemenizi rica ederiz.
+        </li>
+        <li>
           <strong>Sayfa ziyaretleri:</strong> Giriş yaptığınızda platformda ziyaret ettiğiniz sayfaların
           adresi ve zamanı. Bu kayıt yalnızca platformu geliştirmek için kullanılır ve 90 gün sonra
           otomatik olarak silinir.
@@ -54,6 +59,11 @@ export default function PrivacyPolicyPage() {
         sağlayıcılar yalnızca teknik altyapı hizmeti sunar, verilerinizi kendi amaçları için kullanmaz.
         Yayın tarihi itibarıyla platformda üçüncü taraf reklam veya analiz (tracking) betiği
         kullanılmamaktadır.
+      </p>
+      <p>
+        Yazılı denemelerinizin cevapları (ve yüklediğiniz fotoğraf), puanlanması için Google’ın yapay zekâ
+        hizmetine (Gemini) gönderilir; bu içerik yalnızca puanlama amacıyla kullanılır. Bu özelliği
+        kullanmak isteğe bağlıdır.
       </p>
 
       <h2>Çerezler</h2>

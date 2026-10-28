@@ -1,12 +1,33 @@
 'use client';
 
-// Yazılı sayfasının "Öğretmenler için" bölümü (2026-10-25): MEB senaryo tablosu, kağıt indirme ve
+// Yazılı sayfasının "Öğretmenler için" bölümü (2026-10-25): MEB senaryo tablosu ve
 // "Yazılı hazırla" öğrenciye değil öğretmene hitap ediyor — sayfanın sonunda kapalı durur, admin ya da
-// onaylı öğretmen için kendiliğinden açılır. İçerik sunucuda çizilir (ISR), açık/kapalı yalnız istemcide.
-import { useEffect, useRef, type ReactNode } from 'react';
+// öğretmen için kendiliğinden açılır. İçerik sunucuda çizilir (ISR), açık/kapalı yalnız istemcide.
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { useIsTeacherOrAdmin } from '@/app/src/components/yazili/PaperDownloads';
+import { useAuth } from '@/app/src/context/AuthContext';
+import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
 import r from '@/app/src/components/robotic/robotic.module.css';
+
+type ProfileRole = { profile: { role: string | null } | null } | null;
+
+// Admin ya da öğretmen mi (onay şartı yok, 2026-10-28)? (yazılı sayfasında öğretmen bölümünü açık başlatmak için de kullanılır)
+export function useIsTeacherOrAdmin(): boolean {
+  const { user } = useAuth();
+  const [allowed, setAllowed] = useState<{ userId: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetchMyProfile(user.id).then((data) => {
+      const p = (data as ProfileRole)?.profile;
+      if (!cancelled) setAllowed({ userId: user.id, ok: p?.role === 'admin' || p?.role === 'teacher' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+  return !!user && allowed?.userId === user.id && allowed.ok;
+}
 
 export function YaziliTeacherSection({ children }: { children: ReactNode }) {
   const isTeacher = useIsTeacherOrAdmin();

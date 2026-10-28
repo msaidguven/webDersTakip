@@ -2,11 +2,12 @@
 
 // Öğretmen anasayfası (2026-10-22, 2026-10-26 sıfırdan sadeleştirildi): üstte selamlama + hafta + tek ana eylem
 // (Yazılı hazırla); ortada Derslerim (ders sekmeli, bkz. TeacherLessonsQuick); altta üç kısa liste yan yana —
-// Araçlar, Tüm sınıflar, Yaklaşan yazılılar. Kutu ızgarası yok, her şey satır. Onay bekleyen öğretmene durum
-// yazılır — panel sayfaları da onaysız hesabı zaten içeri almıyor (bkz. teacherAuth.ts).
+// Araçlar, Tüm sınıflar, Yaklaşan yazılılar. Kutu ızgarası yok, her şey satır. Onay yalnız rozeti açar
+// (2026-10-28, bkz. teacherAuth.ts): araçlar onaysız öğretmene de açık.
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronRight, Hourglass } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { TeacherVerifiedBadge } from '@/app/src/components/teacher/TeacherVerifiedBadge';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { ListCard, RowLink, TeacherLessonsQuick } from './TeacherLessonsQuick';
 import type { ThisWeekTopicItem } from '@/app/src/lib/homeHighlights';
@@ -40,17 +41,11 @@ export function TeacherHome({
           <h1 id="ogretmen-baslik" className={`mt-1 text-[26px] leading-tight sm:text-3xl ${r.chrome}`}>
             {firstName ? `Merhaba, ${firstName} Hocam` : 'Merhaba Hocam'}
           </h1>
+          {isVerified && <div className="mt-2"><TeacherVerifiedBadge verified /></div>}
         </div>
-        {isVerified ? (
-          <Link href="/ogretmen/yazili" className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-5 text-sm font-bold ${r.btnNeon} ${r.btnText}`}>
-            Yazılı hazırla <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
-          </Link>
-        ) : (
-          <p className="flex max-w-sm items-start gap-2 text-sm text-muted-foreground">
-            <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
-            Hesabın onay bekliyor. Yönetici onaylayınca yazılı hazırlayabilirsin.
-          </p>
-        )}
+        <Link href="/ogretmen/yazili" className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-5 text-sm font-bold ${r.btnNeon} ${r.btnText}`}>
+          Yazılı hazırla <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
+        </Link>
       </div>
 
       <TeacherLessonsQuick grades={grades} thisWeek={thisWeek} />

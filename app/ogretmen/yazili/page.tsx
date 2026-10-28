@@ -1,5 +1,5 @@
 // Öğretmen paneli → "Yazılı hazırla" (docs/yazili-sorulari-plani.md 4. adım). Sunucu sayfası: yetki
-// (onaylı öğretmen ya da admin) + öğretmenin branşındaki yayındaki yazılılar + seçili yazılının havuzu.
+// (öğretmen ya da admin; onay şartı yok) + öğretmenin branşındaki yayındaki yazılılar + seçili yazılının havuzu.
 // Kağıt kurma tamamen istemcide (YaziliBuilder); indirme /api/ogretmen/yazili/{pdf,word}.
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -55,17 +55,13 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
       return shell(
         <Notice
           title="Yazılı hazırlamak için giriş yap"
-          text="Soru havuzundan kendi yazılı kağıdını kur; MEB dağılımına göre kontrol et, kağıdı ve cevap anahtarını PDF ya da Word olarak indir. Onaylı öğretmen hesapları içindir."
+          text="Soru havuzundan kendi yazılı kağıdını kur; MEB dağılımına göre kontrol et, kağıdı ve cevap anahtarını PDF ya da Word olarak indir. Öğretmen hesapları içindir."
           action={{ href: `/login?redirectTo=${back}`, label: 'Giriş yap' }}
           secondary={{ href: `/register?rol=ogretmen&redirectTo=${back}`, label: 'Öğretmen olarak ücretsiz kayıt ol' }}
         />
       );
     }
-    return shell(
-      access.reason === 'pending'
-        ? <Notice title="Öğretmen hesabın onay bekliyor" text="Onaylandığında yazılı kağıdı hazırlayıp PDF ve Word olarak indirebileceksin." />
-        : <Notice title="Bu alan öğretmenler içindir" text="Öğretmen hesabıyla giriş yaptığında yazılı kağıdı hazırlayabilirsin." />
-    );
+    return shell(<Notice title="Bu alan öğretmenler içindir" text="Öğretmen hesabıyla giriş yaptığında yazılı kağıdı hazırlayabilirsin." />);
   }
 
   const exams = (await listTeacherExams(access)).sort(

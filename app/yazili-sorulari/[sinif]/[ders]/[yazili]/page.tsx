@@ -15,7 +15,7 @@ import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
-import { PaperDownloads } from '@/app/src/components/yazili/PaperDownloads';
+import { YaziliLiveExam } from '@/app/src/components/yazili/YaziliLiveExam';
 import { YaziliPracticeExam, type PracticePaper } from '@/app/src/components/yazili/YaziliPracticeExam';
 import { YaziliTopicTabs, YAZILI_TOPIC_PANEL_CLASS } from '@/app/src/components/yazili/YaziliTopicTabs';
 import { YaziliTeacherSection } from '@/app/src/components/yazili/YaziliTeacherSection';
@@ -46,14 +46,7 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
   if (!data || !data.exam.questionCount) notFound();
 
   const { exam, topics, scenarios, scenarioCount, papers } = data;
-  const pdfBase = `/api/yazili-pdf/${data.gradeSlug}/${data.lessonSlug}/${yazili}`;
   const questionById = new Map(topics.flatMap((t) => t.questions).map((q) => [q.id, q]));
-  const paperGroups = [...new Set(papers.map((p) => p.scenario ?? 0))].map((s) => ({
-    scenario: s,
-    a: papers.find((p) => (p.scenario ?? 0) === s && p.variant === 1)!,
-    hasB: papers.some((p) => (p.scenario ?? 0) === s && p.variant === 2),
-  }));
-
   // Deneme sınavları: eksiksiz kağıtlar (havuz yetmediyse hepsi), senaryo → A/B sırasıyla.
   const completePapers = papers.filter((p) => p.complete);
   const practicePapers: PracticePaper[] = (completePapers.length ? completePapers : papers)
@@ -191,7 +184,15 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
             {/* Öğrenci önce (2026-10-25): deneme sınavı | konu konu havuz tek alanda iki sekme (2026-10-26,
                 aynı sorular alt alta iki kez çıkmasın) → en altta öğretmen bölümü. */}
             <YaziliQuestionModes
-              practice={practicePapers.length ? { count: practicePapers[0].items.length, content: <YaziliPracticeExam papers={practicePapers} /> } : null}
+              practice={practicePapers.length || data.loOptions.some((o) => o.pool > 0) ? {
+                count: practicePapers[0]?.items.length ?? exam.questionCount,
+                content: (
+                  <div className="flex flex-col gap-8">
+                    <YaziliLiveExam sinif={sinif} ders={ders} yazili={yazili} loOptions={data.loOptions} scenarios={scenarios} scenarioCount={exam.national ? 0 : scenarioCount} />
+                    {practicePapers.length > 0 && <YaziliPracticeExam papers={practicePapers} />}
+                  </div>
+                ),
+              } : null}
               pool={{ count: exam.questionCount, content: poolSection }}
             />
 
@@ -237,28 +238,6 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
                   </>
                 )}
               </section>
-
-              {paperGroups.length > 0 && (
-                <section aria-labelledby="kagitlar">
-                  <h3 id="kagitlar" className="text-base font-bold text-default">Yazdırılabilir sınav kağıtları</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {exam.national
-                      ? 'Kapsamdaki konulardan dengeli seçilmiş, puanları toplam 100 olan kağıt (yukarıdaki deneme sınavlarıyla aynı).'
-                      : 'Her kağıt MEB senaryosundaki soru dağılımına birebir uyar; puanlar toplam 100. Soru havuzu yettiğinde her senaryo için A ve B olmak üzere iki farklı soru seti var.'}
-                  </p>
-                  <ul className="mt-3 flex flex-col gap-3">
-                    {paperGroups.map(({ scenario, a, hasB }) => (
-                      <li key={scenario} className={`flex flex-col gap-3 rounded-2xl p-4 ${r.item}`}>
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="font-bold text-default">{scenario ? `${scenario}. senaryo` : 'Örnek sınav'}</span>
-                          <span className="text-sm text-muted-foreground">{a.items.length} soru · 100 puan</span>
-                        </div>
-                        <PaperDownloads pdfBase={pdfBase} scenario={scenario} hasB={hasB} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
 
               {/* Öğretmen kazanımı (2026-10-22): bu havuzdan kendi kağıdını kurma → öğretmen paneli. */}
               <section aria-labelledby="ogretmen-cta">

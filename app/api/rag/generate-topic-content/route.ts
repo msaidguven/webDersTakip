@@ -41,12 +41,14 @@ export async function POST(request: NextRequest) {
   // konularda kart içerikle aynı çağrıda geliyor). Ayrı kayıt: kind='recap_card', topic_id başarısızlık sayımı için.
   if (result.idle) {
     const recap = await generateNextRecapCards(supabase, profile);
+    // Kota/aşırı yük (429/503) konunun suçu değil: 3 deneme sınırına sayılmasın diye topic_id yazılmaz.
+    const transient = !recap.ok && /\b(429|503)\b/.test(recap.reason ?? '');
     const { error: recapLogError } = await supabase.from('ai_content_draft_worker_runs').insert({
       kind: 'recap_card',
       generated: recap.ok,
       // "Son Çalışmalar" listesinde içerik kayıtlarından ayırt edilsin.
       reason: `Hap bilgi kartı${recap.topicId ? ` (konu ${recap.topicId})` : ''}: ${recap.ok ? 'üretildi' : recap.reason}`,
-      topic_id: recap.topicId ?? null,
+      topic_id: transient ? null : (recap.topicId ?? null),
       worker: profile.id,
     });
     if (recapLogError) console.error('Kart çalışma kaydı yazılamadı:', recapLogError.message);

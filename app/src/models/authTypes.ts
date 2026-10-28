@@ -31,6 +31,8 @@ export interface RegisterData extends LoginCredentials {
   role: 'student' | 'teacher';
   gradeId?: number;
   lessonIds?: number[];
+  // Öğretmende zorunlu okul (2026-10-28, bkz. lib/teacherSchool.ts)
+  school?: { cityId: number | null; districtId: number | null; schoolId: number | null; schoolName: string };
   // Bot koruması — sunucuda (app/api/auth/register) yeniden doğrulanır, bkz. authSecurity.ts
   honeypot: string;
   formRenderedAt: number;

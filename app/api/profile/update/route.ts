@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
+import { parseTeacherSchool } from '@/app/src/lib/teacherSchool';
 
 const EDITABLE_FIELDS = ['full_name', 'username', 'nickname', 'use_nickname', 'avatar_url', 'grade_id', 'city_id', 'district_id', 'school_id', 'school_name', 'public_profile'] as const;
 // Sıralamadaki takma ad (bkz. leaderboard_full_names_and_nickname.sql): harf, rakam, boşluk, . _ -
@@ -29,7 +30,7 @@ export async function GET() {
   const service = createServiceClient();
   const { data: profileRow } = await service
     .from('profiles')
-    .select('full_name, username, nickname, use_nickname, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, is_verified, onboarding_completed, profile_prompt_pending')
+    .select('full_name, username, nickname, use_nickname, avatar_url, grade_id, city_id, district_id, school_id, school_name, role, is_verified, email_verified_at, onboarding_completed, profile_prompt_pending')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null) as { role?: unknown; gradeId?: unknown; lessonIds?: unknown } | null;
+  const body = await request.json().catch(() => null) as { role?: unknown; gradeId?: unknown; lessonIds?: unknown; school?: unknown } | null;
   const role = body?.role === 'teacher' ? 'teacher' : body?.role === 'student' ? 'student' : null;
   if (!role) {
     return NextResponse.json({ error: 'Öğrenci veya öğretmen seçmelisin' }, { status: 400 });
@@ -213,11 +214,15 @@ export async function POST(request: NextRequest) {
     if (!lessonIds.length || lessonIds.length > MAX_TEACHER_LESSONS) {
       return NextResponse.json({ error: `1-${MAX_TEACHER_LESSONS} arası branş (ders) seçmelisin` }, { status: 400 });
     }
+    const school = await parseTeacherSchool(service, body?.school);
+    if (school && 'error' in school) return NextResponse.json({ error: school.error }, { status: 400 });
+    // Google ile girişte adres Google tarafından doğrulanmış sayılır (e-posta doğrulaması, emailVerification.ts).
+    const googleVerified = user.app_metadata?.provider === 'google' ? { email_verified_at: new Date().toISOString() } : {};
     // Öğretmen her zaman is_verified:false ile başlar — yönetici onayı gerekir (bkz.
     // app/src/lib/teacherAuth.ts, app/api/auth/register/route.ts'teki AYNI ilke).
     const { error: profileError } = await service
       .from('profiles')
-      .update({ role: 'teacher', is_verified: false, onboarding_completed: true })
+      .update({ role: 'teacher', is_verified: false, onboarding_completed: true, ...school, ...googleVerified })
       .eq('id', user.id);
     if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
 

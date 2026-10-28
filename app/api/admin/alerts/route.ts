@@ -8,7 +8,8 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 //     openReports     — öğrencilerin açık "Hatalı soru" bildirimi olan soru sayısı
 //     studentReplies  — öğrencinin geri yazıp admin cevabı beklediği bildirim (destek talebi) sayısı
 //     autoHidden      — 3+ "cevap yanlış" bildirimiyle otomatik gizlenmiş sorular
-//     failedBatches   — hiç soru üretilemeyen / yayında hata alan konu partileri
+//     failedBatches   — hiç soru üretilemeyen / yayında hata alan konu partileri (kitabı hazır ünitelerde; 1 gün sonra
+//                       aynı tur yeniden denenir — count_failed_topic_batches)
 //     awaitingReview  — yayından önce inceleme bekleyen (Türkçe) konu partileri
 //     recapFiguresPending — şekil tarifi olup SVG'si çizilmemiş hap bilgi örnekleri (çizilene kadar örnek gizli)
 //     recapFailed     — 3 denemede hap bilgi kartı üretilemeyen konular (worker artık denemiyor)
@@ -17,7 +18,7 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 //     bildirimleri, sınava yakın yazılılarda eksik soru havuzu.
 export const dynamic = 'force-dynamic';
 
-type PendingRow = { id: string; full_name: string | null; school_name: string | null; teacher_lessons: { lessons: { name: string } | null }[] };
+type PendingRow = { id: string; full_name: string | null; school_name: string | null; email_verified_at: string | null; teacher_lessons: { lessons: { name: string } | null }[] };
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -28,11 +29,11 @@ export async function GET() {
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('svg_prompt', 'is', null).is('svg_content', null),
     supabase.from('question_reports').select('question_id').eq('status', 'open').limit(1000),
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('auto_hidden_at', 'is', null),
-    supabase.from('ai_topic_question_batches').select('topic_id', { count: 'exact', head: true }).eq('status', 'failed'),
+    supabase.rpc('count_failed_topic_batches'),
     supabase.from('ai_topic_question_batches').select('topic_id', { count: 'exact', head: true }).eq('status', 'awaiting_review'),
     supabase
       .from('profiles')
-      .select('id, full_name, school_name, teacher_lessons(lessons(name))')
+      .select('id, full_name, school_name, email_verified_at, teacher_lessons(lessons(name))')
       .eq('role', 'teacher')
       .eq('is_verified', false)
       .not('is_banned', 'is', true)
@@ -57,6 +58,7 @@ export async function GET() {
       email: users[i]?.email ?? null,
       signedUpAt: users[i]?.created_at ?? null,
       school: r.school_name,
+      emailVerified: !!r.email_verified_at,
       lessons: r.teacher_lessons.flatMap((t) => (t.lessons ? [t.lessons.name] : [])),
     }))
     .sort((a, b) => (a.signedUpAt ?? '').localeCompare(b.signedUpAt ?? ''));
@@ -66,7 +68,7 @@ export async function GET() {
     openReports: new Set(((reports.data as { question_id: number }[] | null) || []).map((r) => r.question_id)).size,
     studentReplies: replies.count ?? 0,
     autoHidden: hidden.count ?? 0,
-    failedBatches: failed.count ?? 0,
+    failedBatches: (failed.data as number | null) ?? 0,
     awaitingReview: awaiting.count ?? 0,
     recapFiguresPending: recapFigures.count ?? 0,
     recapFailed: (recapFailed.data as number | null) ?? 0,

@@ -11,7 +11,7 @@ import { ImageRun } from 'docx';
 import { Resvg, type ResvgRenderOptions } from '@resvg/resvg-js';
 
 const FONT_DIR = path.join(process.cwd(), 'public/fonts');
-const FONT: ResvgRenderOptions['font'] = {
+export const FONT: ResvgRenderOptions['font'] = {
   fontFiles: [path.join(FONT_DIR, 'NotoSans-Regular.ttf'), path.join(FONT_DIR, 'NotoSans-Bold.ttf')],
   loadSystemFonts: false,
   defaultFontFamily: 'Noto Sans',

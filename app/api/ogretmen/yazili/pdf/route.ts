@@ -12,7 +12,7 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const access = await getTeacherAccess();
-  if (!access.ok) return NextResponse.json({ error: 'Bu alan sadece onaylı öğretmenler içindir' }, { status: access.reason === 'login' ? 401 : 403 });
+  if (!access.ok) return NextResponse.json({ error: 'Bu alan sadece öğretmenler içindir' }, { status: access.reason === 'login' ? 401 : 403 });
 
   const resolved = await resolvePaperRequest(access, await request.json().catch(() => null));
   if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: resolved.status });

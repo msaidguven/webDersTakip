@@ -267,3 +267,13 @@ Bu oturumda dosyalar incelendi, ilgili yerler bunlar.
 - Worker ile otomatik Gemini üretimi (manuel kalite oturunca aynı prompt bağlanır).
 - 3. örnek kağıt.
 - 6. Türkçe yazılıları (önce soru altyapısı tamamlanmalı).
+
+## Yeni yazılı aç (2026-10-26)
+Giriş yapmış öğrenci, yazılı sayfasının "Sınav provası" sekmesinde "Yeni yazılı aç" ile rastgele MEB senaryosu + o senaryonun
+her öğrenme çıktısından rastgele soruyla yazılı olur (`randomizePaper`), cevaplarını yazar, yapay zekâ puanlar.
+- Günde 3 hak (TR günü), reklamsız. Açık (puanlanmamış) deneme varsa yenisi açılmaz → yarım kalan hak yakmaz.
+- Cevaplar kalıcı: `yazili_attempts` + `yazili_attempt_answers` (`supabase/migrations/yazili_attempts.sql`).
+- Puanlama: `app/src/lib/yazili/aiGrading.ts`, env `GEMINI_API_KEY_YAZILI` (yoksa cevaplar kaydedilir, 503 döner, hak yanmaz).
+  Soru/cevap SVG'si PNG olarak yapay zekâya gider (resvg). Model gemini-3.6-flash (3.8 bu key'de asılı kaldı), 45 sn süre sınırı.
+- Yazılı sayfasından PDF indirme kaldırıldı (2026-10-27): kağıtlar yalnız /ogretmen/yazili'den indirilir.
+- Reklam / reklamsız abonelik: bilerek ertelendi (maliyet çok düşük, ödüllü reklam web'de AdSense ile yok).

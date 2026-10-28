@@ -4,7 +4,7 @@ import { htmlToA4Pdf } from '@/app/src/lib/htmlToPdf';
 import { getYaziliExam } from '@/app/src/lib/yazili/publicData';
 import { buildPaperHtml } from '@/app/src/lib/yazili/paperPdfHtml';
 
-// Yazılı örnek sınav kağıdı PDF'i — 2026-10-25'ten beri yalnız admin ve onaylı öğretmen (kullanıcı kararı,
+// Yazılı örnek sınav kağıdı PDF'i — 2026-10-25'ten beri yalnız admin ve öğretmen (2026-10-28 onay şartı kalktı; kullanıcı kararı,
 // "şimdilik"; öğrenci/misafir için ileride tekrar konuşulacak). Sorular sayfada herkese açık kalıyor.
 // ?s=<senaryo, ülke genelinde 0>&v=<1|2>&anahtar=1 (cevap anahtarı).
 // Kağıt publicData.getYaziliExam'daki buildPapers ile sayfadakiyle aynı kuralla kurulur.

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseTeacherSchool, type TeacherSchool } from '@/app/src/lib/teacherSchool';
+import { sendTeacherVerificationEmail } from '@/app/src/lib/emailVerification';
 import { createAnonClient } from '@/utils/supabase/server-anon';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { USERNAME_PATTERN, USERNAME_RULES_MESSAGE } from '@/app/src/lib/username';
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
     role?: unknown;
     gradeId?: unknown;
     lessonIds?: unknown;
+    school?: unknown;
     honeypot?: unknown;
     formRenderedAt?: unknown;
     mathA?: unknown;
@@ -80,6 +83,14 @@ export async function POST(request: NextRequest) {
 
   const service = createServiceClient();
 
+  // Öğretmenin okulu isteğe bağlı; verildiyse hesap açılmadan önce doğrulanır (teacherSchool.ts).
+  let school: TeacherSchool | null = null;
+  if (role === 'teacher') {
+    const parsed = await parseTeacherSchool(service, body.school);
+    if (parsed && 'error' in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    school = parsed;
+  }
+
   // Auth hesabı açılmadan ÖNCE: alınmış kullanıcı adı yüzünden hesap açılıp hemen geri
   // silinmesin. Aradaki yarış (iki kişi aynı anda) aşağıda 23505 ile ayrıca yakalanıyor.
   const { data: takenRow } = await service.from('profiles').select('id').eq('username', username).maybeSingle();
@@ -112,7 +123,7 @@ export async function POST(request: NextRequest) {
   const acquisition = { signup_method: 'email', acquisition: parseAcquisition(request.cookies.get(ACQUISITION_COOKIE)?.value) };
   const { error: profileError } = await service.from('profiles').insert(
     role === 'teacher'
-      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt, ...acquisition }
+      ? { id: created.user.id, full_name: fullName, username, role: 'teacher', is_verified: false, ...school, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt, ...acquisition }
       : { id: created.user.id, full_name: fullName, username, role: 'student', grade_id: gradeId, onboarding_completed: true, profile_prompt_pending: true, privacy_accepted_at: privacyAcceptedAt, ...acquisition }
   );
 
@@ -137,6 +148,13 @@ export async function POST(request: NextRequest) {
   }
 
   await recordAuthAttempt(ip, 'register', true);
+
+  // Öğretmene e-posta doğrulama bağlantısı (rozet onayının ön şartı). Gönderilemezse kayıt bozulmaz;
+  // öğretmen profilinden yeniden isteyebilir.
+  if (role === 'teacher') {
+    const sent = await sendTeacherVerificationEmail(service, created.user.id, email, fullName);
+    if (!sent.ok) console.error('[auth/register] doğrulama e-postası:', sent.error);
+  }
 
   // Eski akışta client-side signUp() kullanıcıyı doğrudan oturum açık bırakıyordu; burada
   // aynı deneyimi korumak için hesap sunucuda oluşturulduktan sonra aynı bilgilerle oturum

@@ -32,7 +32,7 @@ export function AdminAlerts() {
     alerts.autoHidden > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.autoHidden} soru 3+ "cevap yanlış" bildirimiyle otomatik gizlendi` },
     alerts.svgPending > 0 && { href: '/admin/svg-sorulari', text: `${alerts.svgPending} soru çizim (SVG) bekliyor — çizim eklenene kadar yayında değil` },
     alerts.awaitingReview > 0 && { href: '/admin/soru-uretimi', text: `${alerts.awaitingReview} Türkçe konusunun soruları inceleme bekliyor — Claude'a "Türkçe sorularını kontrol et" de, sonra Yayınla` },
-    alerts.failedBatches > 0 && { href: '/admin/soru-uretimi', text: `${alerts.failedBatches} konuda otomatik soru üretimi başarısız oldu` },
+    alerts.failedBatches > 0 && { href: '/admin/soru-uretimi', text: `${alerts.failedBatches} konuda otomatik soru üretimi eksik kaldı (içerik yok ya da hata, adım atlandı)` },
     alerts.recapFiguresPending > 0 && { href: '/admin/svg-sorulari?tur=kart', text: `${alerts.recapFiguresPending} hap bilgi örneği şekil bekliyor (çizilene kadar gizli) — promptu kopyala ya da Claude'a "kart şekillerini çiz" de` },
     alerts.recapFailed > 0 && { text: `${alerts.recapFailed} konuda hap bilgi kartı 3 denemede üretilemedi — Claude'a "başarısız kartlara bak" de` },
   ].filter((x): x is AlertItem => !!x);

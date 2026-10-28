@@ -13,7 +13,7 @@ export type HomePreview = 'student' | 'teacher';
 
 const card = `rounded-[22px] ${r.panel}`;
 
-type PendingTeacher = { id: string; name: string; email: string | null; signedUpAt: string | null; school: string | null; lessons: string[] };
+type PendingTeacher = { id: string; name: string; email: string | null; emailVerified: boolean; signedUpAt: string | null; school: string | null; lessons: string[] };
 
 function daysAgo(iso: string | null): string {
   if (!iso) return '';
@@ -87,16 +87,20 @@ function AlertsSection() {
                   <p className="font-bold text-default">
                     {t.name} <span className="font-normal text-muted-foreground">· {daysAgo(t.signedUpAt)}</span>
                   </p>
-                  <p className="truncate text-muted-foreground">{t.email ?? 'e-posta yok'}</p>
+                  <p className="truncate text-muted-foreground">
+                    {t.email ?? 'e-posta yok'}
+                    <span className={t.emailVerified ? 'text-emerald-500' : 'text-amber-500'}> · {t.emailVerified ? 'doğrulandı' : 'e-posta doğrulanmadı'}</span>
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {t.lessons.length ? t.lessons.join(', ') : 'Branş seçmemiş'}
-                    {t.school ? ` · ${t.school}` : ''}
+                    {` · ${t.school || 'okul belirtmemiş'}`}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => approve(t)}
-                  disabled={busyId !== null}
+                  disabled={busyId !== null || !t.emailVerified}
+                  title={t.emailVerified ? undefined : 'E-postası doğrulanınca onaylanabilir'}
                   className={`inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-bold disabled:opacity-50 ${r.btnNeon}`}
                 >
                   {busyId === t.id ? 'Onaylanıyor…' : 'Onayla'}
