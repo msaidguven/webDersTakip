@@ -14,7 +14,8 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiLessonUnits from '@/app/src/components/SoruBankasiLessonUnits';
-import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
+import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import r from '../../../src/components/robotic/robotic.module.css';
 
@@ -80,17 +81,26 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
           eyebrow={`${data.gradeName} · Ders`}
           title={`${data.lessonName} Soru Bankası`}
           pills={[`${data.units.length} ünite`, `${topicCount} konu`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro={intro}
           imageUrl={data.units.find((u) => u.imageUrl)?.imageUrl ?? null}
           imageAlt={`${data.lessonName} dersi görseli`}
         >
           <Link
             href={`/${data.gradeSlug}/${data.lessonSlug}`}
-            className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
+            className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
           >
             <BookOpen className="h-4 w-4" aria-hidden="true" /> {data.lessonName} konu anlatımları
           </Link>
         </SoruBankasiHeader>
+
+        <SoruBankasiQuickNav
+          label={`${data.gradeName} dersleri`}
+          items={(gradeData?.lessons ?? []).map((lesson) => ({
+            key: lesson.slug,
+            href: buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug),
+            label: lesson.name,
+            current: lesson.slug === data.lessonSlug,
+          }))}
+        />
 
         {!data.hasQuestions && (
           <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-800 dark:text-amber-300">
@@ -98,7 +108,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
           </p>
         )}
 
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
+        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
           <section aria-labelledby="uniteler" className="min-w-0">
             <h2 id="uniteler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Üniteler ve konular</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Ünitenin tamamından test çözmek için üniteyi, tek bir konu için konuyu seç.</p>
@@ -126,6 +136,8 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
             />
           </aside>
         </div>
+
+        <SoruBankasiAbout text={intro} />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ListTree, Loader2, Pause, Play, RotateCcw, X
 import { narrationManifestPath, narrationPublicUrl } from '@/app/src/lib/narration/config';
 import { NARRATION_MANIFEST_VERSION, type NarrationManifest, type NarrationScreen } from '@/app/src/lib/narration/types';
 import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
+import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import s from './NarrationPlayer.module.css';
 
 // "Video / Sesli Anlatım" oynatıcısı (PROTOTİP, 2026-10-01). Konunun sayfadaki metni cümle cümle,
@@ -191,6 +192,7 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
         setPlaying(false);
         setPhase('ended');
         writeStorage(PROGRESS_KEY(topicId), null);
+        trackContentEvent('narration_finish', topicId);
         return;
       }
       const delay = flat[i + 1].sectionIndex !== cur?.sectionIndex ? PAUSE_BEFORE_SECTION_MS : PAUSE_BETWEEN_SCREENS_MS;
@@ -234,6 +236,8 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
   }, [flat, index, playing, sectionSpans, totalDuration]);
 
   const start = (from: number) => {
+    // Kullanım ölçümü: başlatma (bitiş, son ekranın sesi bitince — onEnded).
+    trackContentEvent('narration_play', topicId);
     setPhase('running');
     setError(null);
     goTo(from, true);

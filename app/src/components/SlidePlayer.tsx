@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock, ListChecks, Maximize2, PartyPopper, Trophy, X, ZoomIn } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
+import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import { ClassroomSlideView, revealStepsLeft } from '@/app/src/components/SlideKindViews';
 import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
 import {
@@ -96,6 +97,14 @@ export default function SlidePlayer({ deck, topicId, onStartTest, variant = 'ove
     setPhase('slides');
     setAnimKey((k) => k + 1);
   }, [topicId]);
+
+  // Kullanım ölçümü (admin anasayfası "Slayt ve sesli anlatım kullanımı"): açılış ve sonuna kadar gelme.
+  useEffect(() => {
+    trackContentEvent('slides_open', topicId);
+  }, [topicId]);
+  useEffect(() => {
+    if (phase === 'outro') trackContentEvent('slides_finish', topicId);
+  }, [phase, topicId]);
 
   const total = deck.slides.length;
   const slide = deck.slides[index];

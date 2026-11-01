@@ -4,6 +4,8 @@
 //   1. sınıfı seçilmemiş öğrenci → pencerede sınıf seçer
 //   2. branşı (teacher_lessons) seçilmemiş öğretmen → pencerede branş seçer
 //   3. bildirdiği soruya cevap gelen / bildirimi kapanan üye → okunmamış bildirimler (notifications) özetlenir
+//   4. yazılı haftasından bir hafta önce ve hafta boyunca, sınıfı seçili öğrenciye sınıfındaki yayında yazılılar
+//      ("örnek yazılı sorularını çöz"; takvim: yazili/common.ts SCHOOL_EXAM_WEEKS, 2026-11-01)
 // "Günde bir" o cihaz için (localStorage, TR günü): pencere gösterilince o günün hakkı biter, "Sonra" deyince de.
 // Admin, giriş/kayıt ve profil sayfalarında (OAuth tamamlama orada) gösterilmez.
 import { useEffect, useState } from 'react';
@@ -13,6 +15,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { clearMyProfileCache, fetchMyProfile } from '@/app/src/lib/myProfileClient';
 import { TeacherLessonsEditor } from '@/app/src/components/teacher/TeacherLessonsEditor';
+import { activeExamWeek, examLabel, type ActiveExamWeek } from '@/app/src/lib/yazili/common';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 const DAY_KEY = 'member-prompt-day';
@@ -22,7 +25,8 @@ const HIDDEN_PREFIXES = ['/admin', '/profil', '/login', '/register', '/auth', '/
 type Prompt =
   | { kind: 'grade' }
   | { kind: 'lessons' }
-  | { kind: 'reports'; ids: number[]; title: string; body: string | null; link: string };
+  | { kind: 'reports'; ids: number[]; title: string; body: string | null; link: string }
+  | { kind: 'exam_week'; week: ActiveExamWeek & { range: string }; exams: { lesson: string; path: string; national: boolean }[] };
 
 const trDay = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
 
@@ -79,6 +83,12 @@ export function MemberPromptModal() {
             : { kind: 'reports', ids: list.map((n) => n.id), title: `Bildirdiğin ${list.length} soruya cevap geldi`, body: null, link: '/profil/bildirdigim-sorular' };
         }
       }
+      // Yazılı haftası: istek yalnız takvim aralığındayken atılır.
+      if (!next && profile.role === 'student' && profile.grade_id && activeExamWeek()) {
+        const res = await fetch(`/api/yazili/hafta?gradeId=${profile.grade_id}`).catch(() => null);
+        const data = res?.ok ? ((await res.json()) as { week: (ActiveExamWeek & { range: string }) | null; exams: { lesson: string; path: string; national: boolean }[] }) : null;
+        if (data?.week && data.exams.length) next = { kind: 'exam_week', week: data.week, exams: data.exams };
+      }
       if (cancelled || !next || shownToday()) return;
       markShown();
       setPrompt(next);
@@ -96,6 +106,23 @@ export function MemberPromptModal() {
       <>
         <p className="text-sm text-muted-foreground">Branşını seçersen anasayfan ve öğretmen panelin derslerine göre gelir. Birden fazla ders seçebilirsin.</p>
         <TeacherLessonsEditor onSaved={close} />
+      </>
+    ) : prompt.kind === 'exam_week' ? (
+      <>
+        <p className="text-sm text-default">
+          {prompt.week.range} {examLabel(prompt.week.term, prompt.week.examNo).toLocaleLowerCase('tr')} haftası. Örnek yazılı sorularını çöz,
+          cevaplarını kontrol et; sınavda ne çıkabileceğini önceden gör.
+        </p>
+        <ul className="flex flex-col gap-2" aria-label="Yazılılar">
+          {prompt.exams.map((e) => (
+            <li key={e.path}>
+              <Link href={e.path} onClick={close} className={`flex min-h-11 items-center justify-between gap-3 rounded-xl px-4 text-sm font-bold ${r.item}`}>
+                <span>{e.lesson}</span>
+                <span className="text-xs font-semibold text-muted-foreground">{e.national ? 'Ülke geneli · ' : ''}Soruları çöz →</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </>
     ) : (
       <>
@@ -116,7 +143,11 @@ export function MemberPromptModal() {
       </>
     );
 
-  const title = prompt.kind === 'grade' ? 'Sınıfını seç' : prompt.kind === 'lessons' ? 'Branşını seç' : prompt.title;
+  const title =
+    prompt.kind === 'grade' ? 'Sınıfını seç'
+    : prompt.kind === 'lessons' ? 'Branşını seç'
+    : prompt.kind === 'exam_week' ? (prompt.week.phase === 'now' ? '📝 Bu hafta yazılı haftası!' : '📝 Yazılı haftası yaklaşıyor')
+    : prompt.title;
 
   return <PromptDialog title={title} onClose={close}>{content}</PromptDialog>;
 }

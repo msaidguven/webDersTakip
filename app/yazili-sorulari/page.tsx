@@ -1,9 +1,9 @@
-// /yazili-sorulari — yayındaki tüm yazılılar, sınıf → ders. Üstte tarihi belli yaklaşan yazılılar.
+// /yazili-sorulari — yayındaki tüm yazılılar, sınıf → dönem-yazılı → ders (2026-11-02). Üstte tarihi belli yaklaşan yazılılar.
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SITE_URL } from '@/app/src/lib/site';
 import { buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
-import { getYaziliIndex, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
+import { getYaziliIndex, gradeHubs, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
 import { SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
@@ -32,7 +32,7 @@ export default async function YaziliIndexPage() {
           eyebrow="2026-2027 · MEB ortak yazılıya uygun"
           title="Yazılı Soruları"
           pills={[`${allExams.length} yazılı`, `${allExams.reduce((n, e) => n + e.questionCount, 0)} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro="Sınıf ve derse göre 1. ve 2. dönem yazılı soruları. Sorular MEB'in konu-soru dağılım tablolarındaki konulara göre hazırlandı; her sorunun cevabı ve puanlama ölçütü var."
+          intro="Sınıfa ve yazılıya göre 1. ve 2. dönem yazılı soruları. Sorular MEB'in konu-soru dağılım tablolarındaki konulara göre hazırlandı; her sorunun cevabı var."
         />
 
         {dated.length > 0 && (
@@ -55,18 +55,20 @@ export default async function YaziliIndexPage() {
           {grades.map((g) => (
             <section key={g.slug} id={g.slug} aria-labelledby={`sinif-${g.slug}`}>
               <h2 id={`sinif-${g.slug}`} className={`text-xl font-bold uppercase text-default sm:text-2xl ${r.display}`}>{g.name}</h2>
-              <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {g.lessons.map((l) => (
-                  <li key={l.slug} className={`flex flex-col gap-2 p-4 ${r.item}`}>
-                    <Link href={l.path} className={`flex items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
-                      <SubjectIcon lessonName={l.name} size="sm" variant="solid" />
-                      {l.name}
+              <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {gradeHubs(g).map((h) => (
+                  <li key={h.slug} className={`flex flex-col gap-3 p-4 ${r.item}`}>
+                    <Link href={h.path} className={`flex items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
+                      <span className={`h-9 w-9 shrink-0 text-xs ${r.chipBox}`} aria-hidden="true">{h.term}·{h.examNo}</span>
+                      {h.label}
+                      <span className="text-xs font-normal text-muted-foreground">{h.lessons.length} ders</span>
                     </Link>
-                    <ul className="flex flex-col gap-1 text-sm">
-                      {l.exams.map((e) => (
-                        <li key={e.id}>
-                          <Link href={e.path} className={`text-muted-foreground ${r.hoverAccent}`}>
-                            {e.label} <span className="text-xs">({e.questionCount} soru)</span>
+                    <ul className="flex flex-col gap-1.5 text-sm">
+                      {h.lessons.map((l) => (
+                        <li key={l.exam.id}>
+                          <Link href={l.exam.path} className={`flex items-center gap-2 text-muted-foreground ${r.hoverAccent}`}>
+                            <SubjectIcon lessonName={l.name} size="sm" variant="solid" />
+                            {l.name} <span className="text-xs">({l.exam.questionCount} soru)</span>
                           </Link>
                         </li>
                       ))}
@@ -87,7 +89,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const grades = await getYaziliIndex();
   const canonicalUrl = `${SITE_URL}${YAZILI_INDEX_PATH}`;
   const title = 'Yazılı Soruları 2026-2027 — 1. ve 2. Dönem, Cevap Anahtarlı';
-  const description = 'Ortaokul yazılı soruları: sınıf ve derse göre 1. dönem 1. ve 2. yazılı, MEB ortak yazılı konu-soru dağılımına uygun, cevap anahtarı ve puanlama ölçütüyle.';
+  const description = 'Ortaokul yazılı soruları: sınıf ve derse göre 1. dönem 1. ve 2. yazılı, tüm dersler, MEB ortak yazılı konu-soru dağılımına uygun, cevap anahtarıyla.';
   const hasContent = grades.length > 0;
   return {
     title,

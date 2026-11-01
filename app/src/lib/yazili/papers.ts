@@ -4,8 +4,11 @@
 // A'nın bittiği yerden alır — havuz yetmezse başa sarar (B, A ile kısmen örtüşür). Bir öğrenme çıktısının
 // havuzu senaryonun istediğinden azsa kağıt eksiktir ve gösterilmez. Ülke geneli sınavda senaryo yok:
 // kapsamdaki her öğrenme çıktısından eşit pay alınır (toplam ~12 soru). Puanlar toplam 100.
+// 2026-10-31: havuzda önce güncel prompt sürümü (v1), yetmezse eski sorular (v0); kağıtta yine kolaydan zora.
 
-export type PaperQuestion = { id: number; loCode: string | null; difficulty: number | null };
+export type PaperQuestion = { id: number; loCode: string | null; difficulty: number | null; version: number };
+
+const byDifficulty = (a: PaperQuestion, b: PaperQuestion) => (a.difficulty ?? 3) - (b.difficulty ?? 3) || a.id - b.id;
 export type PaperItem = { questionId: number; points: number };
 export type Paper = { scenario: number | null; variant: 1 | 2; items: PaperItem[]; complete: boolean };
 
@@ -31,7 +34,7 @@ export function buildPapers(opts: {
   scopeLoCodes: string[];
 }): Paper[] {
   const pool = new Map<string, PaperQuestion[]>();
-  for (const q of [...opts.questions].sort((a, b) => (a.difficulty ?? 3) - (b.difficulty ?? 3) || a.id - b.id)) {
+  for (const q of [...opts.questions].sort((a, b) => b.version - a.version || byDifficulty(a, b))) {
     if (!q.loCode) continue;
     pool.set(q.loCode, [...(pool.get(q.loCode) ?? []), q]);
   }
@@ -55,7 +58,9 @@ export function buildPapers(opts: {
         if (list.length < need) complete = false;
         if (!list.length) continue;
         const start = variant === 1 ? 0 : need;
-        for (let i = 0; i < Math.min(need, list.length); i++) picked.push(list[(start + i) % list.length]);
+        const segment: PaperQuestion[] = [];
+        for (let i = 0; i < Math.min(need, list.length); i++) segment.push(list[(start + i) % list.length]);
+        picked.push(...segment.sort(byDifficulty));
       }
       const points = distributePoints(Math.max(1, picked.length));
       papers.push({ scenario: plan.scenario, variant, complete: complete && picked.length > 0, items: picked.map((q, i) => ({ questionId: q.id, points: points[i] })) });
@@ -104,17 +109,61 @@ export function initialPlan(options: LoOption[], scenarioCounts: Record<string, 
   return plan;
 }
 
-// Plan → sorular: her çıktıdan istenen sayıda rastgele soru (önce çözülmemişler), çıktı içinde kolaydan zora.
-export function buildPlanItems(plan: [string, number][], questions: PaperQuestion[], solved: Set<number> = new Set(), random: () => number = Math.random): PaperItem[] {
+// Zorluk bandı (soru 1-5 → üç düzey) ve kağıt tercihi (2026-10-31): öğrenci "Yeni yazılı aç"ta, öğretmen rastgele
+// kağıtta seçer. Tercih yalnız sıralamayı değiştirir: istenen band önce, havuz yetmezse komşu bandla tamamlanır,
+// kağıt hiçbir zaman eksik kalmaz. "Sınav gibi" havuzun kendi dağılımını korur (v1 promptu yarı kolay üretir).
+export type DifficultyBand = 'kolay' | 'orta' | 'zor';
+export const DIFFICULTY_BAND_LABEL: Record<DifficultyBand, string> = { kolay: 'Kolay', orta: 'Orta', zor: 'Zor' };
+export function difficultyBand(d: number | null): DifficultyBand {
+  const v = d ?? 3;
+  return v <= 2 ? 'kolay' : v >= 4 ? 'zor' : 'orta';
+}
+
+export type DifficultyPreset = 'isinma' | 'sinav' | 'zorlayici';
+export const DIFFICULTY_PRESETS: { id: DifficultyPreset; label: string; hint: string }[] = [
+  { id: 'isinma', label: 'Isınma', hint: 'Çoğu kolay' },
+  { id: 'sinav', label: 'Sınav gibi', hint: 'Karışık' },
+  { id: 'zorlayici', label: 'Zorlayıcı', hint: 'Zorlar önce' },
+];
+export function isDifficultyPreset(v: unknown): v is DifficultyPreset {
+  return DIFFICULTY_PRESETS.some((p) => p.id === v);
+}
+const BAND_RANK: Record<DifficultyPreset, Record<DifficultyBand, number>> = {
+  isinma: { kolay: 0, orta: 1, zor: 2 },
+  sinav: { kolay: 0, orta: 0, zor: 0 },
+  zorlayici: { kolay: 2, orta: 1, zor: 0 },
+};
+
+// Bir çıktının havuzunu karıştırıp seçim sırasına dizer: çözülmemiş → tercih edilen zorluk → güncel sürüm (v1).
+// Her grubun içinde sıra rastgele kalır. İlk n eleman kağıda girer.
+export function orderPool<T extends PaperQuestion>(
+  pool: readonly T[],
+  opts: { preset?: DifficultyPreset; solved?: Set<number>; random?: () => number } = {}
+): T[] {
+  const { preset = 'sinav', solved = new Set<number>(), random = Math.random } = opts;
+  const out = [...pool];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  const rank = BAND_RANK[preset];
+  return out.sort(
+    (a, b) =>
+      Number(solved.has(a.id)) - Number(solved.has(b.id)) ||
+      rank[difficultyBand(a.difficulty)] - rank[difficultyBand(b.difficulty)] ||
+      b.version - a.version
+  );
+}
+
+// Plan → sorular: her çıktıdan istenen sayıda soru (orderPool sırasıyla), çıktı içinde kolaydan zora.
+export function buildPlanItems(
+  plan: [string, number][],
+  questions: PaperQuestion[],
+  opts: { solved?: Set<number>; preset?: DifficultyPreset; random?: () => number } = {}
+): PaperItem[] {
   const picked: PaperQuestion[] = [];
   for (const [code, n] of plan) {
-    const pool = questions.filter((q) => q.loCode === code);
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const shuffled = pool.sort((a, b) => Number(solved.has(a.id)) - Number(solved.has(b.id)));
-    picked.push(...shuffled.slice(0, n).sort((a, b) => (a.difficulty ?? 3) - (b.difficulty ?? 3) || a.id - b.id));
+    picked.push(...orderPool(questions.filter((q) => q.loCode === code), opts).slice(0, n).sort(byDifficulty));
   }
   const points = distributePoints(Math.max(1, picked.length));
   return picked.map((q, i) => ({ questionId: q.id, points: points[i] }));

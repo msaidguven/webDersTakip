@@ -20,7 +20,8 @@ import {
 } from '@/app/src/lib/soruBankasiPageData';
 import { BookOpen } from 'lucide-react';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
-import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
+import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import type { SoruBankasiUnitData } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiUnitTopicAnalytics from '@/app/src/components/SoruBankasiUnitTopicAnalytics';
@@ -95,21 +96,30 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
           eyebrow={`${data.gradeName} · ${data.lessonName} · Ünite`}
           title={`${data.unitTitle} Soru Bankası`}
           pills={[`${data.topics.length} konu`, `${totalQuestions} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro={totalQuestions > 0 ? buildUnitIntro(data, totalQuestions) : undefined}
           imageUrl={data.bannerImageUrl}
           imageAlt={`${data.unitTitle} ünitesi görseli`}
         >
           <Link
             href={`/${data.gradeSlug}/${data.lessonSlug}/${data.unitSlug}`}
-            className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
+            className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
           >
             <BookOpen className="h-4 w-4" aria-hidden="true" /> Ünitenin konu anlatımları
           </Link>
         </SoruBankasiHeader>
 
+        <SoruBankasiQuickNav
+          label={`${data.lessonName} üniteleri`}
+          items={lessonUnits.map((unit) => ({
+            key: unit.slug,
+            href: buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, unit.slug),
+            label: `${unit.number}. ${unit.title}`,
+            current: unit.slug === data.unitSlug,
+          }))}
+        />
+
         {/* lg:grid-rows-[auto_1fr]: uzun konu listesi iki satıra yayılırken boşluk ilk satıra
             (test kartı) değil ikinciye gitsin — yoksa sağ alttaki kart sayfanın dibine düşüyor. */}
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
+        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
           {/* Puanlı ünite testi aynı sayfada, URL değişmeden modal olarak açılır (bkz. TestStatusCard). */}
           {data.hasQuestions && (
             <div className="lg:col-start-2 lg:row-start-1">
@@ -178,6 +188,8 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
             />
           </aside>
         </div>
+
+        <SoruBankasiAbout text={totalQuestions > 0 ? buildUnitIntro(data, totalQuestions) : undefined} />
       </div>
     </div>
   );

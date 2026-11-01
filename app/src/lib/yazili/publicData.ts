@@ -8,9 +8,11 @@ import { examLabel, examSlug, normalizeLoCode, type ExamNo, type ExamTerm } from
 import { buildPapers, type LoOption, type Paper } from '@/app/src/lib/yazili/papers';
 
 export const YAZILI_INDEX_PATH = '/yazili-sorulari';
-export const yaziliLessonPath = (gradeSlug: string, lessonSlug: string) => `${YAZILI_INDEX_PATH}/${gradeSlug}/${lessonSlug}`;
+// Adres sırası (2026-11-02, kullanıcı): sınıf → dönem-yazılı → ders. Öğrenci "6. sınıf 1. yazılı" diye düşünür, ders
+// onun altında seçimdir. Eski sınıf → ders → yazılı adresleri next.config.ts'te 308 ile yenisine gider.
+export const yaziliHubPath = (gradeSlug: string, term: ExamTerm, examNo: ExamNo) => `${YAZILI_INDEX_PATH}/${gradeSlug}/${examSlug(term, examNo)}`;
 export const yaziliExamPath = (gradeSlug: string, lessonSlug: string, term: ExamTerm, examNo: ExamNo) =>
-  `${yaziliLessonPath(gradeSlug, lessonSlug)}/${examSlug(term, examNo)}`;
+  `${yaziliHubPath(gradeSlug, term, examNo)}/${lessonSlug}`;
 
 export function parseExamSlug(slug: string): { term: ExamTerm; examNo: ExamNo } | null {
   const m = slug.match(/^([12])-donem-([12])-yazili$/);
@@ -65,13 +67,13 @@ export const getYaziliIndex = cache(async function getYaziliIndex() {
   const rows = (data as unknown as ExamRow[] | null) ?? [];
   const counts = await classicalCounts(rows.flatMap((e) => e.exam_topics.map((t) => t.topic_id)));
 
-  type Lesson = { name: string; slug: string; order: number; path: string; exams: ExamListItem[] };
+  type Lesson = { name: string; slug: string; order: number; exams: ExamListItem[] };
   const grades = new Map<string, { name: string; slug: string; order: number; lessons: Map<string, Lesson> }>();
   for (const e of rows) {
     const item = toListItem(e, counts);
     if (!item.questionCount) continue;
     const g = grades.get(e.grades.slug) ?? { name: e.grades.name, slug: e.grades.slug, order: e.grades.order_no, lessons: new Map() };
-    const l = g.lessons.get(e.lessons.slug) ?? { name: e.lessons.name, slug: e.lessons.slug, order: e.lessons.order_no, path: yaziliLessonPath(e.grades.slug, e.lessons.slug), exams: [] };
+    const l = g.lessons.get(e.lessons.slug) ?? { name: e.lessons.name, slug: e.lessons.slug, order: e.lessons.order_no, exams: [] };
     l.exams.push(item);
     g.lessons.set(e.lessons.slug, l);
     grades.set(e.grades.slug, g);
@@ -85,11 +87,42 @@ export const getYaziliIndex = cache(async function getYaziliIndex() {
     }));
 });
 
+export type YaziliIndexGrade = Awaited<ReturnType<typeof getYaziliIndex>>[number];
+export type YaziliHub = {
+  term: ExamTerm; examNo: ExamNo; label: string; slug: string; path: string;
+  lessons: { name: string; slug: string; exam: ExamListItem }[];
+};
+
+// Bir sınıfın dönem-yazılı sayfaları (ara sayfa): her biri o yazılıda yayındaki dersler, ders sırasıyla.
+export function gradeHubs(grade: YaziliIndexGrade): YaziliHub[] {
+  const hubs = new Map<string, YaziliHub>();
+  for (const l of grade.lessons) {
+    for (const e of l.exams) {
+      const slug = examSlug(e.term, e.examNo);
+      const hub = hubs.get(slug) ?? { term: e.term, examNo: e.examNo, label: e.label, slug, path: yaziliHubPath(grade.slug, e.term, e.examNo), lessons: [] };
+      hub.lessons.push({ name: l.name, slug: l.slug, exam: e });
+      hubs.set(slug, hub);
+    }
+  }
+  return [...hubs.values()].sort((a, b) => a.term - b.term || a.examNo - b.examNo);
+}
+
+// /yazili-sorulari/6-sinif/1-donem-1-yazili: sınıf + o yazılının dersleri + sınıfın diğer yazılıları.
+export const getYaziliHub = cache(async function getYaziliHub(gradeSlug: string, slug: string) {
+  const grade = (await getYaziliIndex()).find((g) => g.slug === decodeURIComponent(gradeSlug));
+  if (!grade) return null;
+  const hubs = gradeHubs(grade);
+  const hub = hubs.find((h) => h.slug === slug);
+  return hub ? { gradeName: grade.name, gradeSlug: grade.slug, hub, hubs } : null;
+});
+
 export type YaziliQuestion = {
   id: number; text: string; svgContent: string | null; svgPosition: 'above' | 'below';
   modelAnswer: string; keyTerms: string[]; rubric: string | null; difficulty: number | null; loCode: string | null;
   /** Cevap anahtarındaki doğru çizim (çizim isteyen sorular); yoksa null. */
   answerSvgContent: string | null;
+  /** Yazılı prompt sürümü (0 eski, 1 güncel); havuzda güncel sürüm önce gelir. */
+  version: number;
 };
 export type YaziliTopic = { id: number; title: string; unitTitle: string; loCodes: string[]; questions: YaziliQuestion[] };
 export type ScenarioRow = { loCode: string; topicTitles: string[]; counts: Record<number, number> };
@@ -111,11 +144,11 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
   if (!exam) return null;
 
   const topicIds = [...exam.exam_topics].sort((a, b) => a.order_no - b.order_no).map((t) => t.topic_id);
-  const [{ data: topicsData }, { data: qData }, { data: loData }, { data: targetData }, { data: siblingsData }] = await Promise.all([
+  const [{ data: topicsData }, { data: qData }, { data: loData }, { data: targetData }] = await Promise.all([
     supabase.from('topics').select('id, title, units(title)').in('id', topicIds),
     supabase
       .from('questions')
-      .select('id, topic_id, question_text, svg_content, svg_position, difficulty, question_classical(model_answer, key_terms, rubric, answer_svg_content), question_outcomes(outcome_id)')
+      .select('id, topic_id, question_text, svg_content, svg_position, difficulty, question_classical(model_answer, key_terms, rubric, answer_svg_content, prompt_version), question_outcomes(outcome_id)')
       .in('topic_id', topicIds)
       .eq('question_type_id', TYPE_ID.classical)
       .eq('is_active', true)
@@ -123,15 +156,15 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
       .order('id'),
     supabase.from('topic_learning_outcomes').select('topic_id, code, title').in('topic_id', topicIds),
     supabase.from('exam_lo_targets').select('scenario_no, lo_code, question_count').eq('exam_id', exam.id),
-    supabase.from('exams').select(EXAM_SELECT).eq('status', 'published').eq('grades.slug', exam.grades.slug).eq('lessons.slug', exam.lessons.slug),
   ]);
 
   type Q = {
     id: number; topic_id: number; question_text: string; svg_content: string | null; svg_position: string; difficulty: number | null;
-    question_classical: { model_answer: string; key_terms: string[] | null; rubric: string | null; answer_svg_content: string | null } | null;
+    question_classical: { model_answer: string; key_terms: string[] | null; rubric: string | null; answer_svg_content: string | null; prompt_version: number } | null;
     question_outcomes: { outcome_id: number }[];
   };
-  const questions = (qData as unknown as Q[] | null) ?? [];
+  // Sorgu kolaydan zora sıralı; güncel prompt sürümü (v1) öne alınır (sort kararlı, sürüm içinde zorluk sırası kalır).
+  const questions = ((qData as unknown as Q[] | null) ?? []).sort((a, b) => (b.question_classical?.prompt_version ?? 0) - (a.question_classical?.prompt_version ?? 0));
 
   // Sorunun öğrenme çıktısı: bağlı kazanımın learning_outcome_id'si → kod (kağıtlar bu düzeyde kurulur).
   const outcomeIds = [...new Set(questions.flatMap((q) => q.question_outcomes.map((o) => o.outcome_id)))];
@@ -169,6 +202,7 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
           keyTerms: q.question_classical!.key_terms ?? [],
           rubric: q.question_classical!.rubric,
           answerSvgContent: q.question_classical!.answer_svg_content,
+          version: q.question_classical!.prompt_version,
           difficulty: q.difficulty,
           // Kazanım kodu yoksa konunun tek öğrenme çıktısı.
           loCode:
@@ -196,7 +230,7 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
       pool: allQuestions.filter((q) => q.loCode === code).length,
     }));
   const papers: Paper[] = buildPapers({
-    questions: allQuestions.map((q) => ({ id: q.id, loCode: q.loCode, difficulty: q.difficulty })),
+    questions: allQuestions.map((q) => ({ id: q.id, loCode: q.loCode, difficulty: q.difficulty, version: q.version })),
     scenarios: new Map([...new Set([...scenarioMap.values()].flatMap((c) => Object.keys(c).map(Number)))].map((s) => [
       s,
       new Map([...scenarioMap.entries()].filter(([, c]) => c[s]).map(([code, c]) => [code, c[s]])),
@@ -204,13 +238,6 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
     national: exam.national,
     scopeLoCodes: [...new Set(topics.flatMap((t) => t.loCodes))],
   }).filter((p) => p.complete);
-
-  const siblingRows = (siblingsData as unknown as ExamRow[] | null) ?? [];
-  const siblingCounts = await classicalCounts(siblingRows.flatMap((e) => e.exam_topics.map((t) => t.topic_id)));
-  const siblings = siblingRows
-    .map((e) => toListItem(e, siblingCounts))
-    .filter((e) => e.questionCount > 0)
-    .sort((a, b) => a.term - b.term || a.examNo - b.examNo);
 
   return {
     exam: toListItem(exam, new Map(topics.map((t) => [t.id, t.questions.length]))),
@@ -223,14 +250,16 @@ export const getYaziliExam = cache(async function getYaziliExam(gradeSlug: strin
     scenarioCount: Math.max(0, ...[...scenarioMap.values()].flatMap((c) => Object.keys(c).map(Number))),
     papers,
     loOptions,
-    siblings,
   };
 });
 
-// Bir dersin yayındaki yazılıları (ders sayfası).
-export const getYaziliLesson = cache(async function getYaziliLesson(gradeSlug: string, lessonSlug: string) {
-  const index = await getYaziliIndex();
-  const grade = index.find((g) => g.slug === decodeURIComponent(gradeSlug));
-  const lesson = grade?.lessons.find((l) => l.slug === decodeURIComponent(lessonSlug));
-  return grade && lesson ? { gradeName: grade.name, gradeSlug: grade.slug, lesson, otherLessons: grade.lessons.filter((l) => l.slug !== lesson.slug) } : null;
+// Yazılı haftası penceresi/bildirimi için: bir sınıfın o dönem-yazılıda yayında (ve sorusu olan) yazılıları, ders
+// sırasıyla. Sınıf kimlikten çözülür (profildeki grade_id).
+export const getGradeExamsFor = cache(async function getGradeExamsFor(gradeId: number, term: ExamTerm, examNo: ExamNo) {
+  const { data } = await createAnonClient().from('grades').select('slug').eq('id', gradeId).maybeSingle();
+  const slug = (data as { slug: string } | null)?.slug;
+  if (!slug) return [];
+  const grade = (await getYaziliIndex()).find((g) => g.slug === slug);
+  // hubPath: birden çok ders varsa bildirim/pencere o yazılının ara sayfasına gider.
+  return (grade?.lessons ?? []).flatMap((l) => l.exams.filter((e) => e.term === term && e.examNo === examNo).map((e) => ({ lesson: l.name, path: e.path, hubPath: yaziliHubPath(slug, term, examNo), national: e.national })));
 });

@@ -15,7 +15,7 @@
 
 Kurallar (MUTLAKA uygula):
 - Amaç ezberletmek DEĞİL, öğrencinin konuyu anlayıp anlamadığını kısa ve öz şekilde ölçmek. Hem soru hem model_answer buna göre tasarlanmalı.
-- question_text öğrenciyi yazarak, kendi cümleleriyle KISA bir analiz/yorum/karşılaştırma yapmaya yönlendirsin (ör. "neden", "nasıl", "hangi", "X ile Y'yi karşılaştır" gibi) — ama cevabı bir sayfa tutacak genel/geniş bir konu anlatımı İSTEME, öğrencinin genelde birkaç kelimeyle ya da tek cümleyle toparlayabileceği net ve odaklı bir şey sor
+- question_text net ve odaklı olsun: kısa bir bilgi (tanım, kavramın adı, örnek), bir uygulama ya da kısa bir yorum isteyebilir; ne istediğini ve kaç tane istediğini açıkça söylesin (ör. "iki örnek yazınız", "bir nedenini yazınız"). Cevabı bir sayfa tutacak genel konu anlatımı ya da sınırı belirsiz yorum ("… ne gösterir?", "… önemini açıklayınız") İSTEME; öğrencinin birkaç kelimeyle ya da tek cümleyle toparlayabileceği bir şey sor
 - "evet/hayır" gibi düşünmeden cevaplanabilecek soru ÜRETME — ama sorunun DOĞRU cevabının kısa olması (birkaç kelime, tek terim) sorun değil, önemli olan öğrencinin anlayarak/düşünerek cevap vermesi
 - model_answer MÜMKÜN OLDUĞUNCA KISA olsun: gerekiyorsa sadece birkaç kelime, gerekiyorsa TEK cümle yeterli — asla tek cümleyi aşan, madde madde her detayı sayan bir paragraf YAZMA; "kısa ama eksiksiz" ilkesiyle en öz halini bul
 - Her soru farklı bir bilgi/kavramı ölçsün, aynı şeyi farklı cümlelerle tekrar sorma

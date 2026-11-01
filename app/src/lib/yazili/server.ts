@@ -4,9 +4,9 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { attachLearningOutcomeCodes, buildOutcomeKeys, sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
-import { TYPE_ID } from '@/app/src/lib/parseMixedQuestions';
+import { TYPE_ID, type ParsedClassical } from '@/app/src/lib/parseMixedQuestions';
 import type { WeekRange } from '@/app/src/lib/kazanimPlan';
-import { normalizeLoCode } from '@/app/src/lib/yazili/common';
+import { normalizeLoCode, YAZILI_PROMPT_VERSION } from '@/app/src/lib/yazili/common';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -62,23 +62,24 @@ export async function loadTopicOutcomes(supabase: Supabase, topicIds: number[]):
 // Konu başına klasik soru sayısı ve kazanım başına dağılım — yalnız YAYINDAKİ (is_active) sorular, çünkü
 // sayfa ve kağıtlar yalnız onları kullanır. Görseli (SVG) bekleyen taslaklar ayrıca svgPending'de.
 // answerSvgPending: cevap görseli bekleyen sorular — yalnız bilgi, yayını ve havuzu etkilemez (plan kural 1).
-export type ClassicalCounts = { total: number; svgPending: number; answerSvgPending: number; byOutcome: Record<number, number> };
+// current: yayındaki sorulardan güncel prompt sürümüyle (v1) üretilenler.
+export type ClassicalCounts = { total: number; current: number; svgPending: number; answerSvgPending: number; byOutcome: Record<number, number> };
 
 export async function loadClassicalCounts(
   supabase: Supabase,
   topicIds: number[]
 ): Promise<Map<number, ClassicalCounts>> {
-  const result = new Map<number, ClassicalCounts>(topicIds.map((id) => [id, { total: 0, svgPending: 0, answerSvgPending: 0, byOutcome: {} }]));
+  const result = new Map<number, ClassicalCounts>(topicIds.map((id) => [id, { total: 0, current: 0, svgPending: 0, answerSvgPending: 0, byOutcome: {} }]));
   if (!topicIds.length) return result;
   const { data, error } = await supabase
     .from('questions')
-    .select('topic_id, is_active, svg_prompt, svg_content, question_outcomes(outcome_id), question_classical(answer_svg_prompt, answer_svg_content)')
+    .select('topic_id, is_active, svg_prompt, svg_content, question_outcomes(outcome_id), question_classical(answer_svg_prompt, answer_svg_content, prompt_version)')
     .in('topic_id', topicIds)
     .eq('question_type_id', TYPE_ID.classical);
   if (error) throw error;
   type Row = {
     topic_id: number; is_active: boolean; svg_prompt: string | null; svg_content: string | null; question_outcomes: { outcome_id: number }[];
-    question_classical: { answer_svg_prompt: string | null; answer_svg_content: string | null } | null;
+    question_classical: { answer_svg_prompt: string | null; answer_svg_content: string | null; prompt_version: number } | null;
   };
   for (const q of (data as unknown as Row[] | null) ?? []) {
     const entry = result.get(q.topic_id);
@@ -87,6 +88,7 @@ export async function loadClassicalCounts(
     if (q.question_classical?.answer_svg_prompt && !q.question_classical.answer_svg_content) entry.answerSvgPending += 1;
     if (!q.is_active) continue;
     entry.total += 1;
+    if (q.question_classical?.prompt_version === YAZILI_PROMPT_VERSION) entry.current += 1;
     for (const { outcome_id } of q.question_outcomes) entry.byOutcome[outcome_id] = (entry.byOutcome[outcome_id] ?? 0) + 1;
   }
   return result;
@@ -120,6 +122,20 @@ export function classicalByLo(
     if (code && n) out[code] = (out[code] ?? 0) + n;
   }
   return out;
+}
+
+// AI'ın yazılı JSON'undaki her soruyu konunun kazanımına bağlar: outcome_code promptla aynı anahtarla çözülür;
+// kod yoksa ve konunun tek kazanımı varsa o. Zorluk 1-5 dışındaysa 3. Admin kaydı ve worker ortak kullanır.
+export type ResolvedYaziliItem = { q: ParsedClassical; outcomeId: number | null; outcomeKey: string | null; rawCode: string; difficulty: number };
+
+export function resolveYaziliItems(parsed: ParsedClassical[], raw: Record<string, unknown>[], outcomes: ExamOutcome[]): ResolvedYaziliItem[] {
+  const norm = (s: string) => s.trim().replace(/^[(\[]+|[)\].:\s]+$/g, '').toLocaleLowerCase('tr');
+  return parsed.map((q, i) => {
+    const code = typeof raw[i]?.outcome_code === 'string' ? (raw[i].outcome_code as string) : '';
+    const outcome = code ? outcomes.find((o) => norm(o.key) === norm(code)) : outcomes.length === 1 ? outcomes[0] : undefined;
+    const d = Number(raw[i]?.difficulty);
+    return { q, outcomeId: outcome?.id ?? null, outcomeKey: outcome?.key ?? null, rawCode: code, difficulty: Number.isInteger(d) && d >= 1 && d <= 5 ? d : 3 };
+  });
 }
 
 // Yazılı sayfaları az (sınıf × ders × 4) ve istek gelince üretiliyor: soru/kapsam değişince hepsini

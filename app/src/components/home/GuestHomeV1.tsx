@@ -24,6 +24,7 @@ import { TopStudents } from './TopStudents';
 import { SubjectIcon } from './SubjectIcon';
 import { DailyQuestionOfTheDay } from './DailyQuestionCard';
 import { roboticFontVars } from '../robotic/fonts';
+import { GradeMetalCard } from '@/app/src/components/GradeMetalCard';
 import r from '../robotic/robotic.module.css';
 
 // Görünüm: "robotik kontrol paneli" teması (2026-10-19, ders raporuyla aynı; bkz. ../robotic).
@@ -341,7 +342,7 @@ export function GuestHomeV1({
                       </h3>
                       <span className={`h-px flex-1 border-t ${r.divider}`} aria-hidden="true" />
                     </div>
-                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                       {items.map((grade) => {
                         const lessons = gradeSections[grade.id]?.lessons ?? [];
                         const unitCount = lessons.reduce(
@@ -354,33 +355,9 @@ export function GuestHomeV1({
                         );
                         return (
                           <li key={grade.id}>
-                            <Link
-                              href={`/${grade.slug}`}
-                              className={`group relative flex h-full flex-col gap-5 overflow-hidden rounded-2xl p-5 hover:-translate-y-[3px] ${ITEM}`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <span
-                                  className={`h-14 w-14 text-2xl ${r.chipBox}`}
-                                >
-                                  {grade.level}
-                                </span>
-                                <ArrowRight
-                                  className={`h-5 w-5 transition-transform duration-200 group-hover:translate-x-1 ${ACCENT}`}
-                                  aria-hidden="true"
-                                />
-                              </div>
-                              <div>
-                                <p className={`text-lg font-bold text-default ${r.display}`}>
-                                  {grade.level}. Sınıf
-                                </p>
-                                <p className="mt-1 text-xs font-bold text-muted-foreground">
-                                  {lessons.length} ders · {unitCount} ünite
-                                </p>
-                                <p className={`mt-0.5 text-xs font-bold ${ACCENT}`}>
-                                  {questionCount.toLocaleString('tr-TR')} soru
-                                </p>
-                              </div>
-                            </Link>
+                            <GradeMetalCard href={`/${grade.slug}`} level={grade.level} title={`${grade.level}. Sınıf`}>
+                              {lessons.length} ders · {unitCount} ünite · {questionCount.toLocaleString('tr-TR')} soru
+                            </GradeMetalCard>
                           </li>
                         );
                       })}

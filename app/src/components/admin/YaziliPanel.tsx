@@ -13,7 +13,7 @@ type ExamSummary = { gradeId: number; lessonId: number; term: number; examNo: nu
 type Outcome = { id: number; key: string; loCode: string | null; description: string; weeks: WeekRange[] };
 type Topic = {
   id: number; title: string; unitTitle: string; span: WeekRange | null; loCodes: string[]; outcomes: Outcome[];
-  classical: { total: number; svgPending: number; answerSvgPending: number; byOutcome: Record<number, number>; byLo: Record<string, number> };
+  classical: { total: number; current: number; svgPending: number; answerSvgPending: number; byOutcome: Record<number, number>; byLo: Record<string, number> };
 };
 type Target = { scenario: number; loCode: string; count: number };
 type ExamData = {
@@ -365,6 +365,11 @@ function TopicRow({ topic: t, on, open, onToggle, onOpen, onChanged }: {
         </span>
       </span>
       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.cls}`}>{badge.text}</span>
+      {t.classical.total > 0 && (
+        <span className="text-xs text-muted-foreground" title="Yeni yazılı promptuyla eklenen (v1) / eski (v0) sorular. Sayfada ve kağıtlarda önce v1 kullanılır.">
+          v1 {t.classical.current} · v0 {t.classical.total - t.classical.current}
+        </span>
+      )}
       {t.classical.svgPending > 0 && (
         <a href={SVG_PENDING_HREF} className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 hover:underline dark:text-sky-400" title="Görseli eklenince yayına girer ve havuza sayılır">
           +{t.classical.svgPending} çizim bekliyor
@@ -522,7 +527,7 @@ type PreviewItem = {
   rawCode: string;
   difficulty: number;
 };
-type SavedQuestion = { id: number; questionText: string; difficulty: number | null; isActive: boolean; svgPending: boolean; modelAnswer: string; keyTerms: string[]; rubric: string | null; outcomeIds: number[] };
+type SavedQuestion = { id: number; questionText: string; difficulty: number | null; isActive: boolean; svgPending: boolean; modelAnswer: string; keyTerms: string[]; rubric: string | null; outcomeIds: number[]; promptVersion: number };
 
 function TopicQuestions({ topic, onChanged }: { topic: Topic; onChanged: () => void }) {
   const [source, setSource] = useState<'content' | 'questions'>('content');
@@ -800,7 +805,7 @@ function SavedRow({ index, q, outcomeLabel, onDelete, onSaved }: { index: number
         <div className="text-muted-foreground">Cevap: {q.modelAnswer}</div>
         {q.rubric && <div className="whitespace-pre-line text-xs text-muted-foreground">{q.rubric}</div>}
         <div className="text-xs text-muted-foreground">
-          Kazanım: {outcomeLabel} · Zorluk {q.difficulty ?? '—'}
+          v{q.promptVersion} · Kazanım: {outcomeLabel} · Zorluk {q.difficulty ?? '—'}
           {q.svgPending ? (
             <> · <a href={SVG_PENDING_HREF} className="font-semibold text-sky-600 hover:underline dark:text-sky-400">çizim bekliyor → SVG ekle</a></>
           ) : !q.isActive ? ' · pasif' : ''}

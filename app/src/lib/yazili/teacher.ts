@@ -6,6 +6,7 @@
 import 'server-only';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getYaziliExam, getYaziliIndex, type YaziliQuestion } from '@/app/src/lib/yazili/publicData';
+import { examSlug } from '@/app/src/lib/yazili/common';
 import type { TeacherAccess } from '@/app/src/lib/teacherAuth';
 import { buildPaperHtml } from '@/app/src/lib/yazili/paperPdfHtml';
 
@@ -41,7 +42,7 @@ export async function listTeacherExams(access: Extract<TeacherAccess, { ok: true
           examDate: e.examDate,
           questionCount: e.questionCount,
           path: e.path,
-          slugs: [g.slug, l.slug, e.path.split('/').at(-1)!] as [string, string, string],
+          slugs: [g.slug, l.slug, examSlug(e.term, e.examNo)] as [string, string, string],
         }))
       )
   );

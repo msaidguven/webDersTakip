@@ -7,6 +7,7 @@ import puppeteer from 'puppeteer-core';
 import { PDFDocument } from 'pdf-lib';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { createClient } from '@/utils/supabase/server';
+import { logDownload } from '@/app/src/lib/downloadEvents';
 import { markdownToHtml, escapeHtml } from '@/app/src/lib/topicContentV11';
 import { slugifyHeading, SITE_URL } from '@/app/src/lib/site';
 import { normalizeRecapCard, recapCardToHtml, type RecapCardHtml } from '@/app/src/lib/recapCards';
@@ -374,6 +375,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .from(PDF_BUCKET)
     .createSignedUrl(cachedPath, SIGNED_URL_SECONDS, { download: `${asciiName}.pdf` });
   if (signed?.signedUrl) {
+    after(() => logDownload({ kind: 'topic_pdf', userId: user.id, topicId, cached: true }));
     return NextResponse.redirect(signed.signedUrl, { status: 302, headers: { 'Cache-Control': 'private, no-store' } });
   }
 
@@ -441,6 +443,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (stale.length) await supabase.storage.from(PDF_BUCKET).remove(stale);
     });
 
+    after(() => logDownload({ kind: 'topic_pdf', userId: user.id, topicId, cached: false }));
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',

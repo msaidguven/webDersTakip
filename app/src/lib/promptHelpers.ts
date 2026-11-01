@@ -87,7 +87,7 @@ export function buildTestQuestionQualityRules(lessonName: string): string {
 export function buildMathClassicalBalanceRules(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);
   if (!MATH_LESSON_KEYWORDS.some((k) => normalized.includes(k))) return '';
-  return `Matematik dengesi (yukarıdaki "kendi cümleleriyle yorum" kuralının ÖNÜNDEDİR):
+  return `Matematik dengesi (yukarıdaki genel kuralların ÖNÜNDEDİR):
 - Soruların EN AZ YARISI somut sayılarla işlem/hesap/bulma istesin (ör. "90'ı asal çarpanlarına ayırınız", "52A sayısı 6 ile bölünebildiğine göre A yerine yazılabilecek rakamları bulunuz").
 - "Neden/açıklayınız/gerekçelendiriniz" diyen her soru somut bir sayı üzerinde işlem yaptırsın, gerekçe o işleme dayansın (ör. "51 asal mıdır? Çarpanlarını yazarak gerekçelendiriniz").
 - Hiç işlem gerektirmeyen saf sözel soru (tanım, "kendi cümlelerinizle açıklayınız", "genelleme/varsayım yazınız") konu başına EN FAZLA 2 olsun.

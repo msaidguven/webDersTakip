@@ -20,6 +20,11 @@ export interface QuestionWorkerProfile extends GeminiWorkerProfile {
   label: string;
   // pg_cron'daki çalışma dakikası (bilgi amaçlı).
   cronMinute: number;
+  // true: her çalışmada önce otomatik yazılı kuyruğuna bakar (yazili/worker.ts), iş yoksa test partisine geçer.
+  yazili?: boolean;
+  // true: her çalışmada önce etkileşimli ders işine bakar (interactiveLesson/worker.ts: eksik Bit sesleri, sonra
+  // sıradaki konunun dersi), iş yoksa test partisine geçer.
+  interactiveLesson?: boolean;
 }
 
 export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerProfile> = {
@@ -40,6 +45,8 @@ export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerPr
     fallbackModels: ['gemini-3.8-flash'],
     cronMinute: 13,
     apiKeyEnvs: ['NEW_GEMINI_API_KEY_CONTENT'],
+    // 2026-11-01 kullanıcı kararı: içerikli konuların etkileşimli dersleri bitene kadar önce bu işe çalışır.
+    interactiveLesson: true,
   },
   tertiary: {
     id: 'tertiary',
@@ -48,6 +55,8 @@ export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerPr
     fallbackModels: ['gemini-3.6-flash'],
     cronMinute: 51,
     apiKeyEnvs: ['GEMINI_API_KEY_CONTENT'],
+    // 2026-10-31 kullanıcı kararı: yazılı v1 soruları bitene kadar önce yazılıya çalışır.
+    yazili: true,
   },
 };
 

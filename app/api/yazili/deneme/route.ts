@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getYaziliExam } from '@/app/src/lib/yazili/publicData';
-import { buildPlanItems, validatePlan } from '@/app/src/lib/yazili/papers';
+import { buildPlanItems, isDifficultyPreset, validatePlan } from '@/app/src/lib/yazili/papers';
 import { buildAttemptView, countAttemptsToday, DAILY_ATTEMPT_LIMIT, loadAttemptHistory, loadAttemptRow, loadSolvedQuestionIds } from '@/app/src/lib/yazili/attempts';
 
 // "Yeni yazılı aç" (2026-10-26): giriş yapmış öğrenci için rastgele soruyla yazılı açar. 2026-10-28: dağılımı
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: 'Oturum gerekli' }, { status: 401 });
-  const body = (await request.json().catch(() => null)) as { sinif?: unknown; ders?: unknown; yazili?: unknown; plan?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { sinif?: unknown; ders?: unknown; yazili?: unknown; plan?: unknown; preset?: unknown } | null;
   const [sinif, ders, yazili] = [slugOf(body?.sinif), slugOf(body?.ders), slugOf(body?.yazili)];
   if (!sinif || !ders || !yazili) return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
 
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
   }) ?? null;
   const items = buildPlanItems(
     parsed,
-    data.topics.flatMap((t) => t.questions).map((q) => ({ id: q.id, loCode: q.loCode, difficulty: q.difficulty })),
-    await loadSolvedQuestionIds(userId, data.exam.id)
+    data.topics.flatMap((t) => t.questions).map((q) => ({ id: q.id, loCode: q.loCode, difficulty: q.difficulty, version: q.version })),
+    { solved: await loadSolvedQuestionIds(userId, data.exam.id), preset: isDifficultyPreset(body?.preset) ? body.preset : 'sinav' }
   );
 
   const { data: rpc, error } = await createServiceClient().rpc('start_yazili_attempt', {

@@ -3,12 +3,11 @@
 // iniliyor. Anasayfadaki "Soru Bankası" kısayolları artık doğrudan bir sınıfa değil buraya
 // linkleniyor (kullanıcının 2026-09-06 isteği).
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { GradeMetalCard } from '@/app/src/components/GradeMetalCard';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradesIndexData, buildSoruBankasiIndexPath, buildSoruBankasiGradePath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 import { getGradeDescription, formatGradeRange } from '@/app/src/lib/homeMapping';
-import { SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import r from '../src/components/robotic/robotic.module.css';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active filtreli), bu yüzden ISR ile
@@ -48,10 +47,9 @@ export default async function SoruBankasiIndexPage() {
           eyebrow="Ders Takip · MEB müfredatına uygun"
           title="Soru Bankası"
           pills={[`${withQuestions.length} sınıf`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro={`${gradeRange || 'Tüm sınıflar'} için ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorular. Sınıfını seç; dersler, üniteler ve konular üzerinden istediğin soruya ulaş ya da kendini kısa testlerle dene.`}
         />
 
-        <section aria-labelledby="sinifini-sec" className="mt-10">
+        <section aria-labelledby="sinifini-sec" className="mt-6 sm:mt-10">
           <h2 id="sinifini-sec" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Sınıfını seç</h2>
           {data.grades.length ? (
             <div className="mt-4 flex flex-col gap-8">
@@ -67,22 +65,12 @@ export default async function SoruBankasiIndexPage() {
                       </h3>
                       <span className={`h-px flex-1 ${r.tint}`} aria-hidden="true" />
                     </div>
-                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                       {items.map((grade) => (
                         <li key={grade.slug}>
-                          <Link
-                            href={buildSoruBankasiGradePath(grade.slug)}
-                            className={`group flex h-full items-center gap-4 rounded-2xl ${r.panel} p-4 transition-shadow hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)]`}
-                          >
-                            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${r.btnNeon} text-lg font-bold text-white`} aria-hidden="true">
-                              {grade.level}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className={`block font-semibold text-default ${r.groupHoverAccent}`}>{grade.name}</span>
-                              <span className="text-sm text-muted-foreground">{grade.questionCount > 0 ? `${grade.questionCount} soru` : getGradeDescription(grade.level)}</span>
-                            </span>
-                            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                          </Link>
+                          <GradeMetalCard href={buildSoruBankasiGradePath(grade.slug)} level={grade.level} title={grade.name}>
+                            {grade.questionCount > 0 ? `${grade.questionCount.toLocaleString('tr-TR')} soru` : getGradeDescription(grade.level)}
+                          </GradeMetalCard>
                         </li>
                       ))}
                     </ul>
@@ -94,6 +82,8 @@ export default async function SoruBankasiIndexPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">Henüz sınıf eklenmemiş.</p>
           )}
         </section>
+
+        <SoruBankasiAbout text={`${gradeRange || 'Tüm sınıflar'} için ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorular. Sınıfını seç; dersler, üniteler ve konular üzerinden istediğin soruya ulaş ya da kendini kısa testlerle dene.`} />
       </div>
     </div>
   );

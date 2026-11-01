@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { requireTeacher } from '@/app/src/lib/teacherAuth';
+import { logDownload } from '@/app/src/lib/downloadEvents';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { latexToPlain } from '@/app/src/lib/latexToPlain';
 import { svgToImageRun } from '@/app/src/lib/svgToDocxImage';
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
 
   const asciiName = mode === 'answers' ? 'cevap-anahtari.docx' : mode === 'both' ? 'sorular-ve-cevaplar.docx' : 'acik-uclu-sorular.docx';
 
+  after(() => logDownload({ kind: 'question_export', userId: teacher.user.id }));
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

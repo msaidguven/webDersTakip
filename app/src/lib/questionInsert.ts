@@ -20,6 +20,8 @@ export interface InsertQuestionsInput {
   aiModel: string | null;
   // Yazılı soruları AI'dan zorluk (1-5) da istiyor; diğer akışlar vermez (DB varsayılanı kalır).
   difficulty?: number;
+  // Yazılı prompt sürümü (question_classical.prompt_version); verilmezse DB varsayılanı 0.
+  promptVersion?: number;
 }
 
 // skippedDuplicateCount: konuda zaten aktif olan (metni birebir aynı) soru tekrar yazılmadı.
@@ -122,6 +124,7 @@ export async function insertQuestions(supabase: Supabase, input: InsertQuestions
         key_terms: q.key_terms,
         ...(q.rubric ? { rubric: q.rubric } : {}),
         ...(q.answer_svg_prompt ? { answer_svg_prompt: q.answer_svg_prompt } : {}),
+        ...(input.promptVersion != null ? { prompt_version: input.promptVersion } : {}),
       }));
     } else {
       ({ error: detailError } = await supabase
@@ -133,7 +136,13 @@ export async function insertQuestions(supabase: Supabase, input: InsertQuestions
       ? await supabase.from('question_outcomes').insert(input.outcomeIds.map((outcomeId) => ({ question_id: questionId, outcome_id: outcomeId })))
       : { error: null };
 
-    if (detailError || outcomesError) return { ok: false, error: 'Detaylar veya kazanım bağlantısı kaydedilemedi', savedCount };
+    // Soru satırı ayrıntılardan önce yazılıyor; ayrıntı yazılamazsa soru geri alınır (cascade şıkları/eşleri
+    // de siler) — yoksa şıksız/seçeneksiz soru yayında kalıyordu (2026-10-31, konu 945 soru 10410).
+    if (detailError || outcomesError) {
+      await supabase.from('questions').delete().eq('id', questionId);
+      if (passageId) await supabase.from('question_passages').delete().eq('id', passageId);
+      return { ok: false, error: `Detaylar veya kazanım bağlantısı kaydedilemedi (${(detailError ?? outcomesError)?.message ?? ''})`, savedCount };
+    }
 
     savedCount += 1;
     if (svgPrompt) svgPendingCount += 1;

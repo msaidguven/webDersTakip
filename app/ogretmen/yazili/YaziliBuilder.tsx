@@ -18,6 +18,7 @@ import {
 import MathText from '@/app/src/components/MathText';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
 import type { ScenarioRow, YaziliQuestion, YaziliTopic } from '@/app/src/lib/yazili/publicData';
+import { DIFFICULTY_BAND_LABEL, DIFFICULTY_PRESETS, difficultyBand, orderPool, type DifficultyBand, type DifficultyPreset } from '@/app/src/lib/yazili/papers';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 // auto: soruyu sistem rastgele seçti (çıkarılırsa "remove" olumsuz sinyali kaydedilir; elle eklenende yok).
@@ -56,18 +57,10 @@ function equalPoints(n: number): number[] {
   return Array.from({ length: n }, (_, i) => base + (i >= n - rem ? 1 : 0));
 }
 
-// Rastgele kağıt / soru değiştirme yardımcıları (yalnız tıklama işleyicilerinden çağrılır).
-function shuffled<T>(list: readonly T[]): T[] {
-  const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
+// Soru değiştirme yardımcısı (yalnız tıklama işleyicisinden çağrılır).
 const pickRandom = <T,>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)];
 
-const difficultyLabel = (d: number | null) => ((d ?? 3) <= 2 ? 'Kolay' : (d ?? 3) >= 4 ? 'Zor' : 'Orta');
+const difficultyLabel = (d: number | null) => DIFFICULTY_BAND_LABEL[difficultyBand(d)];
 
 type BuilderProps = {
   exam: { id: number; gradeName: string; lessonName: string; label: string; national: boolean; path: string; defaultTitle: string };
@@ -133,6 +126,8 @@ function Builder({
   };
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
   const [loFilter, setLoFilter] = useState<string | null>(null);
+  const [bandFilter, setBandFilter] = useState<DifficultyBand | null>(null);
+  const [preset, setPreset] = useState<DifficultyPreset>('sinav');
   const [hideAdded, setHideAdded] = useState(false);
   const [openAnswers, setOpenAnswers] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState<Busy>(null);
@@ -198,13 +193,15 @@ function Builder({
     setDraft((d) => ({ ...d, autoPoints: false, items: d.items.map((i) => (i.id === id ? { ...i, points: n } : i)) }));
   };
   // Rastgele kağıt (2026-10-25, sabit A/B yerine): öğrenme çıktısı başına istenen sayıda soru havuzdan
-  // rastgele; kağıt çıktı koduna göre sıralı, puanlar eşit. Onay iptal edilirse false — adım değişmesin.
+  // rastgele (2026-10-31: seçilen zorluk tercihi ve güncel sürüm v1 önce, bkz. papers.orderPool); kağıt çıktı
+  // koduna göre sıralı, puanlar eşit. Onay iptal edilirse false — adım değişmesin.
   const generatePaper = (counts: Map<string, number>): boolean => {
     if (items.length && !window.confirm('Kağıttaki sorular yeni rastgele kağıtla değiştirilsin mi?')) return false;
     const codes = [...counts.keys()].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
     const picked: Item[] = [];
     for (const code of codes) {
-      for (const id of shuffled(poolByLo.get(code) ?? []).slice(0, counts.get(code) ?? 0)) picked.push({ id, points: 0, auto: true });
+      const pool = (poolByLo.get(code) ?? []).flatMap((id) => questionById.get(id) ?? []);
+      for (const q of orderPool(pool, { preset }).slice(0, counts.get(code) ?? 0)) picked.push({ id: q.id, points: 0, auto: true });
     }
     if (!picked.length) return false;
     commitItems(picked, true);
@@ -248,7 +245,9 @@ function Builder({
     .filter((t) => topicFilter === null || t.id === topicFilter)
     .map((t) => ({
       ...t,
-      questions: t.questions.filter((q) => (!loFilter || q.loCode === loFilter) && (!hideAdded || !selectedIds.has(q.id))),
+      questions: t.questions.filter(
+        (q) => (!loFilter || q.loCode === loFilter) && (!bandFilter || difficultyBand(q.difficulty) === bandFilter) && (!hideAdded || !selectedIds.has(q.id))
+      ),
     }))
     .filter((t) => t.questions.length);
 
@@ -437,6 +436,15 @@ function Builder({
           </label>
         )}
 
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="group" aria-label="Zorluk tercihi">
+          Zorluk
+          {DIFFICULTY_PRESETS.map((p) => (
+            <button key={p.id} type="button" aria-pressed={preset === p.id} className={chipCls(preset === p.id)} onClick={() => setPreset(p.id)}>
+              {p.label} <span className="font-normal">· {p.hint}</span>
+            </button>
+          ))}
+        </div>
+
         <ul className="mt-4 flex flex-col gap-2">
           {genRows.map((row) => (
             <li key={row.code} className={`flex items-center gap-3 rounded-xl p-3 ${r.item}`}>
@@ -500,6 +508,15 @@ function Builder({
         ))}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5" role="group" aria-label="Zorluk süzgeci">
+          Zorluk:
+          <button type="button" aria-pressed={bandFilter === null} className={chipCls(bandFilter === null)} onClick={() => setBandFilter(null)}>Tümü</button>
+          {(Object.keys(DIFFICULTY_BAND_LABEL) as DifficultyBand[]).map((b) => (
+            <button key={b} type="button" aria-pressed={bandFilter === b} className={chipCls(bandFilter === b)} onClick={() => setBandFilter(bandFilter === b ? null : b)}>
+              {DIFFICULTY_BAND_LABEL[b]}
+            </button>
+          ))}
+        </span>
         <label className="flex cursor-pointer items-center gap-1.5">
           <input type="checkbox" checked={hideAdded} onChange={(e) => setHideAdded(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
           Kağıttakileri gizle

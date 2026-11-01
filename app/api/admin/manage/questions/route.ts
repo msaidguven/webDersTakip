@@ -4,13 +4,14 @@ import { createServerClient as createServiceClient } from '@/utils/supabase/serv
 import { deleteQuestionsCascade } from '@/app/src/lib/adminCascade';
 import { revalidateUnitPagesForQuestionIds, revalidateHomepage } from '@/app/src/lib/topicPageRevalidation';
 import { revalidateYaziliPages } from '@/app/src/lib/yazili/server';
+import { extractSvgMarkup } from '@/app/src/lib/svgMarkup';
 
 const BULK_EDITABLE_FIELDS = ['difficulty', 'score'] as const;
 const MAX_SVG_LENGTH = 20_000;
 
 // Soru görseli ve cevap görseli aynı kuralla doğrulanır. Boş → null, geçerli → kırpılmış kod, geçersiz → undefined.
 function normalizeSvg(raw: unknown): string | null | undefined {
-  const svg = raw == null ? '' : String(raw).trim();
+  const svg = extractSvgMarkup(raw == null ? '' : String(raw));
   if (!svg) return null;
   if (!svg.startsWith('<svg') || !svg.endsWith('</svg>') || svg.length > MAX_SVG_LENGTH) return undefined;
   return svg;

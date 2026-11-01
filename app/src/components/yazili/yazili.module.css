@@ -1,0 +1,96 @@
+/* Yazılı kâğıdı (2026-11-01): cevap yazarken de puanlandıktan sonra da aynı kâğıt. Tema ne olursa olsun
+   kâğıt açık renk kalır (bileşen ayrıca .light taşır); öğrencinin cevabı mavi mürekkep, yapay zekânın
+   puanı ve notu kırmızı kalem. Robotik tema değişkenleri kâğıt içinde açık temaya sabitlenir. */
+.sheet {
+  --lh: 30px;
+  --paper: #fffdf6;
+  --rule: #cfdcee;
+  --margin-line: #f3b0b0;
+  --pen-blue: #1e3a8a;
+  --pen-red: #d1242f;
+  --neon: #0891b2;
+  --neon-2: #3b5bfd;
+  --glow: rgba(8, 145, 178, .35);
+  --edge: #ddd6c3;
+  --ink: #1f2937;
+  --muted: #64748b;
+  --panel-solid: #fffdf6;
+  position: relative;
+  border: 1px solid #e7e0cc;
+  border-radius: 6px;
+  background: var(--paper);
+  color: #1f2937;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 12px 28px -16px rgba(0, 0, 0, .45);
+  padding: 18px 14px 6px;
+}
+@media (min-width: 640px) {
+  .sheet { padding: 26px 26px 10px 60px; }
+  /* Defter kâğıdındaki kırmızı kenar çizgisi */
+  .sheet::before { content: ""; position: absolute; top: 0; bottom: 0; left: 44px; width: 1.5px; background: var(--margin-line); }
+}
+
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid #e7e0cc; }
+.hint { font-size: 13px; line-height: 1.5; color: #4b5563; }
+
+.question { padding: 18px 0 16px; border-bottom: 1px dashed #e2dac4; }
+.question:last-child { border-bottom: 0; }
+.qText { line-height: 1.65; color: #111827; }
+.qNum { font-weight: 800; margin-right: 6px; }
+.points { margin-left: 6px; white-space: nowrap; font-size: 12px; font-weight: 600; color: #6b7280; }
+
+/* Çizgili cevap alanı: satırlar metinle birlikte kayar (background-attachment: local). */
+.lined {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 0 10px;
+  font-size: 15px;
+  line-height: var(--lh);
+  color: var(--pen-blue);
+  background-color: transparent;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px) var(--lh));
+  background-attachment: local;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Kaydırırken yanlışlıkla küçülmesin: en az 4 satır; destekleyen tarayıcıda yazdıkça kendiliğinden uzar. */
+.answer {
+  min-height: calc(var(--lh) * 4 + 2px);
+  field-sizing: content;
+  resize: vertical;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.answer::placeholder { color: #9ca3af; }
+.answer:focus { border-color: #93b4e6; box-shadow: 0 0 0 3px rgba(59, 91, 253, .12); }
+.answer[readonly] { resize: none; }
+.answerDone { min-height: var(--lh); }
+.empty { color: #9ca3af; font-style: italic; }
+
+/* Kırmızı kalem */
+.red { color: var(--pen-red); font-family: var(--font-yazili-pen), 'Comic Sans MS', cursive; }
+.mark { float: right; margin: -2px 0 6px 12px; padding: 0 10px; border: 2px solid var(--pen-red); border-radius: 50%; font-size: 24px; line-height: 1.35; font-weight: 700; transform: rotate(-7deg); }
+.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 21px; line-height: 1.25; transform: rotate(-.6deg); transform-origin: left; }
+.tick { font-size: 26px; line-height: 1; font-weight: 700; }
+.total { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 2px 16px 0; border: 2.5px solid var(--pen-red); border-radius: 50%; transform: rotate(-6deg); line-height: 1; }
+.totalNum { font-size: 44px; font-weight: 700; }
+.totalOf { font-size: 20px; margin-bottom: 6px; }
+
+/* Örnek cevap kapalı gelir; öğrenci isterse açar. */
+.model { margin-top: 8px; font-size: 13.5px; color: #374151; }
+.model > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 4px 10px; border: 1px solid #ddd6c3; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: #4b5563; user-select: none; }
+.model > summary::-webkit-details-marker { display: none; }
+.model > summary::before { content: "▸"; transition: transform .15s; }
+.model[open] > summary::before { transform: rotate(90deg); }
+.model > p { margin-top: 8px; padding: 8px 12px; border-radius: 6px; background: #f5f1e6; }
+
+/* Soru listesi zorluk filtresi (YaziliStudy): kapalı zorluktaki sorular gizlenir (çoklu seçim, data-gizle-*);
+   numaralar CSS sayacıyla görünen sorulara göre 1'den akar (display:none sayacı artırmaz). */
+.poolList { counter-reset: soru; }
+.poolList li[data-zorluk] { counter-increment: soru; }
+.poolNum::before { content: counter(soru); }
+.filtered[data-gizle-kolay] li[data-zorluk="kolay"],
+.filtered[data-gizle-orta] li[data-zorluk="orta"],
+.filtered[data-gizle-zor] li[data-zorluk="zor"] { display: none; }

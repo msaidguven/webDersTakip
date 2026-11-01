@@ -13,24 +13,28 @@
 // tutarlı çıkmasını sağlıyor (kullanıcı isteği 2026-09-09). Soru kökünü görünce model
 // soruyu şeklin içinde çözüyordu (7089: "Dengeleyici Kuvvet: 5 N (Batı)"), bu yüzden
 // cevap/çözüm yazma yasağı açıkça eklendi (2026-10-03).
+// Sohbet arayüzleri düz SVG'yi resim olarak gösterip kodu bozuyordu; çıktı ```svg kod bloğunda istenir (2026-10-31).
 // Teknik kısım soru ve cevap görselinde ortak; "cevabı yazma" yasağı yalnız soru görselinde.
 const SVG_TECHNICAL_RULES =
   `Teknik kurallar: viewBox'lı <svg> kökü kullan; script/style/foreignObject/image/a/use/gradient/filter/animasyon/event-handler kullanma; ` +
   `renk kodlarını "#" ile başlat; metni <text> içinde tut ve Türkçe yaz; sade 3-4 renk kullan, farklı unsurları (gövde/çizgi/etiket) ayırt et, ` +
   `çakışan çizgileri aynı renkte bırakma; kontrastlı zemin/yazı kullan; `;
 
+const SVG_OUTPUT_RULE = `yalnız SVG kodunu döndür ve kodu TEK bir \`\`\`svg kod bloğu içinde ver; kod bloğunun dışına açıklama yazma.`;
+
 export const SVG_RENDER_RULES =
   SVG_TECHNICAL_RULES +
   `şekil soru kökünde VERİLENLERLE birebir tutarlı olsun (sayılar, etiketler, işaretli noktalar); ` +
   `şekilde YALNIZCA soru kökünde verilen bilgileri göster: sonuç, hesaplama, formül, kural/açıklama cümlesi, doğru cevap ya da sorulan büyüklüğün değeri kesinlikle yazılmasın (şekil soruyu çözmemeli); sorulan büyüklük gerekiyorsa "?" ile göster; soruda olmayan etiket/yön ekleme; ` +
-  `sadece SVG kodu döndür.`;
+  SVG_OUTPUT_RULE;
 
 // Cevap görseli (yazılı klasik soruları, plan: docs/yazili-sorulari-plani.md "Cevap görseli"): cevap anahtarındaki
 // doğru çizim. Sorunun SVG'si varsa ondan türetilir (kural 3): aynı çizim korunur, yalnız cevap eklenir.
 const ANSWER_SVG_RULES =
   SVG_TECHNICAL_RULES +
   `bu bir CEVAP ANAHTARI görselidir: doğru cevabı çizimle göster ve yazılı cevapla birebir tutarlı olsun; cevabı belirgin bir vurgu rengiyle (ör. #dc2626) çiz; ` +
-  `açıklama paragrafı, çözüm adımı ya da formül yazma; sadece SVG kodu döndür.`;
+  `açıklama paragrafı, çözüm adımı ya da formül yazma; ` +
+  SVG_OUTPUT_RULE;
 
 export function buildAnswerSvgPrompt(params: {
   questionText: string;

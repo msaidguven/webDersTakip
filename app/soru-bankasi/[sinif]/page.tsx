@@ -15,7 +15,7 @@ import {
   buildSoruBankasiLessonPath,
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
-import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
 import { NeonCount } from '@/app/src/components/robotic/NeonCount';
 import { NeonSubjectIcon } from '@/app/src/components/robotic/NeonSubjectIcon';
@@ -73,7 +73,6 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
           eyebrow="MEB müfredatına uygun · Sınıf"
           title={`${data.gradeName} Soru Bankası`}
           pills={[`${data.lessons.length} ders`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro={intro}
           aside={
             <GradeSwitcher
               items={gradesIndex.grades
@@ -89,7 +88,7 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
           </p>
         )}
 
-        <section aria-labelledby="dersler" className="mt-10 min-w-0">
+        <section aria-labelledby="dersler" className="mt-6 min-w-0 sm:mt-10">
           <h2 id="dersler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Dersler</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir ders seç; üniteleri ve konuları gör.</p>
           {data.lessons.length ? (
@@ -120,6 +119,8 @@ export default async function SoruBankasiGradePage({ params }: { params: Promise
             <p className="py-8 text-center text-sm text-muted-foreground">Bu sınıfta henüz ders eklenmemiş.</p>
           )}
         </section>
+
+        <SoruBankasiAbout text={intro} />
       </div>
     </div>
   );

@@ -72,6 +72,28 @@ const nextConfig: NextConfig = {
       { source: "/panel/:path*", destination: "/ilerlemem/:path*", permanent: true },
       // Eylül 2026'da değişen ünite/konu adresleri (Search Console 404 raporu, 2026-10-24).
       ...legacySlugRedirects,
+      // Yazılı adres sırası değişti (2026-11-02): sınıf → ders → yazılı yerine sınıf → yazılı → ders.
+      // Ders slug'ı harfle, yazılı slug'ı rakamla başlar; yeni adresler bu kurallara takılmaz.
+      {
+        source: "/yazili-sorulari/:sinif/:ders([a-z][^/]*)/:yazili([12]-donem-[12]-yazili)",
+        destination: "/yazili-sorulari/:sinif/:yazili/:ders",
+        permanent: true,
+      },
+      // Eski ders sayfası (/yazili-sorulari/6-sinif/matematik) kaldırıldı: yazılı ana sayfası.
+      { source: "/yazili-sorulari/:sinif/:ders([a-z][^/]*)", destination: "/yazili-sorulari", permanent: true },
+      // Yazılı adres sırası değişti (2026-11-02): sınıf → ders → yazılı yerine sınıf → yazılı → ders.
+      // Ders slug'ı harfle, yazılı slug'ı ("1-donem-1-yazili") rakamla başlar; ayrım bununla. Eski ders sayfası
+      // (/yazili-sorulari/6-sinif/matematik) kaldırıldı, yazılı ana sayfasına gider.
+      {
+        source: "/yazili-sorulari/:sinif/:ders((?![12]-donem-)[^/]+)/:yazili([12]-donem-[12]-yazili)",
+        destination: "/yazili-sorulari/:sinif/:yazili/:ders",
+        permanent: true,
+      },
+      {
+        source: "/yazili-sorulari/:sinif/:ders((?![12]-donem-)[^/]+)",
+        destination: "/yazili-sorulari",
+        permanent: true,
+      },
       // Ayrı ünite/kavrama testi sayfaları kaldırıldı (2026-10-24): testler yalnız soru bankasında
       // açılıyor, yarım kalan test de oradan devam ediyor. Eski linkler/yer imleri oraya gider.
       {

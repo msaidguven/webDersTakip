@@ -50,12 +50,26 @@ const MIN_REQUEST_MS = 20 * 1000;
 
 type Attempt = { key: string; model: string };
 
+// Günlük ücretsiz kota doldu (2026-11-01 ölçüm: model başına 20 istek/gün). Gemini 429 gövdesinde "per day" ve
+// "Please retry in 11h36m29s" yazar; bütün denemeler böyle dönünce bu hata atılır. Mesajdaki [kota:ISO] etiketi
+// worker route'unun o saate kadar boşuna çalışmamasını sağlar (generate-practice-question/route.ts). Mesaj "429"
+// içerdiği için worker'ların geçici hata kuralına (TRANSIENT_ERROR) da uyar: hak yakmaz.
+export const QUOTA_TAG_RE = /\[kota:([^\]]+)\]/;
+
+function retryDelayMs(body: string): number | null {
+  const m = /retry in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?/i.exec(body);
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  return ((Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0)) * 60 + Number(m[3] ?? 0)) * 1000;
+}
+
 export async function generateGeminiJson(prompt: string, profile: GeminiWorkerProfile, images: GeminiInlineImage[] = []): Promise<GeneratedJson> {
   const models = [profile.model, ...profile.fallbackModels.filter((m) => m !== profile.model)];
   // Key önce: aynı key'in kotası tüm modellerde denenmeden yedek key'e (başka bir işin
   // kotası) geçilmez.
   let pending: Attempt[] = getApiKeys(profile).flatMap((key) => models.map((model) => ({ key, model })));
   const failures: string[] = [];
+  // Günlük kota dolu denemelerin kotanın açılacağı an (ms); hepsi böyleyse en erken açılan esas alınır.
+  const dailyRetryAt: number[] = [];
 
   const remaining = () => (profile.deadlineAt ? profile.deadlineAt - Date.now() : Infinity);
 
@@ -94,11 +108,25 @@ export async function generateGeminiJson(prompt: string, profile: GeminiWorkerPr
         const errText = await res.text().catch(() => '');
         throw new Error(`Gemini generateContent hatası (${attempt.model}, ${res.status}): ${errText}`);
       }
+      if (res.status === 429) {
+        const body = await res.text().catch(() => '');
+        const delay = /per day/i.test(body) ? retryDelayMs(body) : null;
+        if (delay !== null) {
+          dailyRetryAt.push(Date.now() + delay);
+          failures.push(`${attempt.model}: 429 günlük kota`);
+          continue;
+        }
+      }
       failures.push(`${attempt.model}: ${res.status}`);
       if (res.status === 503) overloaded.push(attempt);
     }
     pending = overloaded;
   }
 
+  if (failures.length && dailyRetryAt.length === failures.length) {
+    const until = new Date(Math.min(...dailyRetryAt));
+    const hhmm = until.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
+    throw new Error(`Gemini günlük kotası doldu, ${hhmm}'de açılıyor (${failures.join(', ')}) [kota:${until.toISOString()}]`);
+  }
   throw new Error(`Gemini generateContent hatası, tüm modeller başarısız (${failures.join(', ')})`);
 }

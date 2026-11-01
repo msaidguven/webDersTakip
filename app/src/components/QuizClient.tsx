@@ -32,7 +32,7 @@ import {
   type AnswerStatus,
 } from '@/app/src/components/questionPlayer/QuestionPlayerParts';
 
-const CORRECT_MESSAGES = [
+export const CORRECT_MESSAGES = [
   'Harika! 🎉',
   'Süpersin! ⭐',
   'Tam isabet! 🎯',
@@ -59,7 +59,7 @@ const CORRECT_MESSAGES = [
   'Süper performans! 🌈',
 ];
 
-const INCORRECT_MESSAGES = ['Olsun, öğrenmenin bir parçası! 🌱', 'Az kalsın, bir dahakine yakalarsın 💪', 'Sorun değil, doğrusuna bakalım 👇', 'Bu sefer olmadı ama devam! ✨'];
+export const INCORRECT_MESSAGES = ['Olsun, öğrenmenin bir parçası! 🌱', 'Az kalsın, bir dahakine yakalarsın 💪', 'Sorun değil, doğrusuna bakalım 👇', 'Bu sefer olmadı ama devam! ✨'];
 
 export const TYPE_LABELS: Record<QuizQuestion['type'], string> = {
   multiple_choice: 'Çoktan Seçmeli',
@@ -265,79 +265,114 @@ export function MatchingView({
   onCheck: () => void;
   fontScale?: number;
 }) {
-  const [activeLeft, setActiveLeft] = useState<number | null>(null);
+  // Kâğıt test düzeni: kavramlar numaralı, her karşılığın başındaki kutuya eşlendiği
+  // kavramın numarası yazılır. Eski düzen iki serbest sütundu — satırlar hizasızdı ve
+  // eşleşmiş tanım sol kutunun içine bir kez daha yazılıp telefonda kartları uzatıyordu.
+  // Sıradaki boş kavram kendiliğinden seçilir: öğrenci çoğunlukla yalnız karşılıklara dokunur.
+  const firstUnassigned = (assign: Record<number, number>) => question.pairs.find((p) => assign[p.id] == null)?.id ?? null;
+  const [activeLeft, setActiveLeft] = useState<number | null>(() => (locked ? null : firstUnassigned(assignment)));
   const rightItems = useMemo(() => seededShuffle<Pair>(question.pairs, question.id), [question]);
-  const rightTextById = useMemo(() => new Map(question.pairs.map((p) => [p.id, p.right_text])), [question]);
+  const numberByLeft = useMemo(() => new Map(question.pairs.map((p, i) => [p.id, i + 1])), [question]);
+  const leftByRight = new Map(Object.entries(assignment).map(([left, right]) => [right, Number(left)]));
   const allAssigned = Object.keys(assignment).length === question.pairs.length;
-  const assignedRightIds = new Set(Object.values(assignment));
-  const stemStyle = fontScale !== 1 ? { fontSize: `${fontScale}rem`, lineHeight: 1.4 } : undefined;
-  const pairStyle = fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.5 } : undefined;
+  const pairStyle = fontScale !== 1 ? { fontSize: `${0.8125 * fontScale}rem`, lineHeight: 1.45 } : undefined;
+  const badgeBase = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black';
+
+  const assign = (rightId: number) => {
+    if (activeLeft == null) return;
+    onAssign(activeLeft, rightId);
+    // onAssign'ın yaptığıyla aynı: bu sağ öğe başka kavramdaysa oradan çözülür.
+    const next: Record<number, number> = {};
+    for (const [left, right] of Object.entries(assignment)) if (right !== rightId) next[Number(left)] = right;
+    next[activeLeft] = rightId;
+    setActiveLeft(firstUnassigned(next));
+  };
 
   return (
     <div>
-      {/* Soru kökü (ör. "Aşağıdaki kavramları tanımlarıyla eşleştirin") — diğer üç görünümün
-          (MultipleChoiceOrBlankView, ClassicalView) hepsi kendi question_text'ini gösteriyordu,
-          bu bileşen hiç göstermiyordu (kullanıcının 2026-09-06 bildirdiği bug). */}
-      <p className="mb-3 text-base font-black leading-snug text-justify text-default sm:mb-4 sm:text-lg" style={stemStyle}><MathText text={question.question_text} /></p>
-      <p className="mb-4 text-xs font-bold text-muted-foreground">
-        Önce soldan bir kavram seç, sonra sağdan eşini işaretle. Kontrol etmeden önce istediğin eşleşmeyi değiştirebilirsin.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          {question.pairs.map((pair) => {
-            const assignedTo = assignment[pair.id];
-            // Doğru/yanlış rengi sadece kilitlendikten (Cevabımı Kontrol Et'e basıldıktan)
-            // SONRA gösterilir — kullanıcı bir eşleşme yaptığı anda "doğru/yanlış" denmez,
-            // sadece nötr bir "eşleşti" göstergesi görür.
-            const isCorrect = locked && assignedTo != null && assignedTo === pair.id;
-            const isWrong = locked && assignedTo != null && assignedTo !== pair.id;
-            const isMatched = !locked && assignedTo != null;
-            // isCorrect/isWrong kilitlenmeden önce hep false olduğu için bu sıralama
-            // güvenli: kilitlenmeden önce hâlâ activeLeft/isMatched'e düşer, kilitlendikten
-            // sonra ise doğru/yanlış rengi "son seçilen" mavi rengin önüne geçer (aksi halde
-            // son tıklanan sol öğe kilitli halde bile mavi kalıp doğru/yanlış belli olmuyordu).
-            let cls = 'border-default bg-surface';
-            if (isCorrect) cls = 'border-emerald-400/60 bg-emerald-500/10';
-            else if (isWrong) cls = 'border-rose-400/60 bg-rose-500/10';
-            else if (activeLeft === pair.id) cls = 'border-indigo-400 bg-indigo-500/10';
-            else if (isMatched) cls = 'border-indigo-300/50 bg-indigo-500/5';
-            return (
-              <button
-                key={pair.id}
-                type="button"
-                disabled={locked}
-                onClick={() => setActiveLeft(pair.id)}
-                style={pairStyle}
-                className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-bold text-default transition-colors disabled:cursor-default ${cls}`}
-              >
-                <MathText as="span" className="block" text={pair.left_text} />
-                {isMatched && (
-                  <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-indigo-500">
-                    <CheckCircle2 className="h-3 w-3 shrink-0" /> <MathText text={rightTextById.get(assignedTo) || ''} />
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Soru kökü burada YOK — tek çağıran QuestionAnswerKeyItem kökü zaten kendisi
+          basıyor; burada da basılınca eşleştirme sorularında kök iki kez görünüyordu. */}
+      {!locked && (
+        <p className="mb-3 text-xs font-bold text-muted-foreground">
+          Mavi kavramın karşılığına dokun, sıradaki kavram kendiliğinden seçilir. Bir eşleşmeyi değiştirmek için önce kavrama dokun.
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">Kavramlar</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+            {question.pairs.map((pair) => {
+              const assignedTo = assignment[pair.id];
+              // Doğru/yanlış rengi yalnız kilitlendikten (Cevabımı Kontrol Et) SONRA.
+              const isCorrect = locked && assignedTo != null && assignedTo === pair.id;
+              const isWrong = locked && assignedTo != null && assignedTo !== pair.id;
+              const isActive = !locked && activeLeft === pair.id;
+              const isMatched = !locked && assignedTo != null;
+              let cls = 'border-default bg-surface';
+              let badge = 'border border-default text-muted-foreground';
+              if (isCorrect) [cls, badge] = ['border-emerald-400/60 bg-emerald-500/10', 'bg-emerald-500 text-white'];
+              else if (isWrong) [cls, badge] = ['border-rose-400/60 bg-rose-500/10', 'bg-rose-500 text-white'];
+              else if (isActive) [cls, badge] = ['border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/30', 'bg-indigo-500 text-white'];
+              else if (isMatched) [cls, badge] = ['border-indigo-300/50 bg-surface', 'bg-indigo-500/15 text-indigo-500'];
+              return (
+                <button
+                  key={pair.id}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={isActive}
+                  onClick={() => setActiveLeft(pair.id)}
+                  style={pairStyle}
+                  className={`flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-[13px] font-bold leading-snug text-default transition-colors disabled:cursor-default ${cls}`}
+                >
+                  <span className={`${badgeBase} ${badge}`}>{numberByLeft.get(pair.id)}</span>
+                  <MathText as="span" className="min-w-0 flex-1 break-words" text={pair.left_text} />
+                  {isMatched && <CheckCircle2 aria-label="eşleşti" className="h-4 w-4 shrink-0 text-indigo-500" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="space-y-2">
-          {rightItems.map((pair) => {
-            const used = assignedRightIds.has(pair.id);
-            return (
-              <button
-                key={pair.id}
-                type="button"
-                disabled={locked || activeLeft == null}
-                onClick={() => activeLeft != null && onAssign(activeLeft, pair.id)}
-                style={pairStyle}
-                className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:cursor-default ${
-                  used ? 'border-indigo-300/50 bg-indigo-500/5 text-muted-foreground' : 'border-default bg-surface text-default hover:border-indigo-400/50 hover:bg-indigo-500/5'
-                } ${activeLeft == null && !locked ? 'opacity-60' : ''}`}
-              >
-                <MathText text={pair.right_text} />
-              </button>
-            );
-          })}
+        <div>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">Karşılıkları</p>
+          <div className="space-y-2">
+            {rightItems.map((pair) => {
+              const owner = leftByRight.get(pair.id);
+              let cls = 'border-default bg-surface hover:border-indigo-400/60 hover:bg-indigo-500/5';
+              let slot = 'border-2 border-dashed border-default text-transparent';
+              if (locked && owner != null) {
+                const ok = owner === pair.id;
+                cls = ok ? 'border-emerald-400/60 bg-emerald-500/10' : 'border-rose-400/60 bg-rose-500/10';
+                slot = ok ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white';
+              } else if (locked) {
+                cls = 'border-default bg-surface';
+              } else if (owner != null) {
+                cls = 'border-indigo-300/50 bg-indigo-500/5 hover:border-indigo-400/60';
+                slot = 'bg-indigo-500 text-white';
+              }
+              return (
+                <button
+                  key={pair.id}
+                  type="button"
+                  disabled={locked || activeLeft == null}
+                  onClick={() => assign(pair.id)}
+                  style={pairStyle}
+                  className={`flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium leading-snug text-default transition-colors disabled:cursor-default ${cls}`}
+                >
+                  <span className={`${badgeBase} ${slot}`} aria-label={owner != null ? `${numberByLeft.get(owner)}. kavram` : 'boş'}>
+                    {owner != null ? numberByLeft.get(owner) : '·'}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words pt-0.5">
+                    <MathText text={pair.right_text} />
+                    {locked && owner != null && owner !== pair.id && (
+                      <span className="mt-1 block text-xs font-bold text-emerald-600">
+                        Doğrusu: {numberByLeft.get(pair.id)}. <MathText text={pair.left_text} />
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
       {!locked && (

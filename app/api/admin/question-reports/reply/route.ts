@@ -17,14 +17,19 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
-  const text = typeof body?.body === 'string' ? body.body.trim() : '';
-  if (!Number.isInteger(reportId) || text.length < 1 || text.length > 2000) {
+  const rawText = typeof body?.body === 'string' ? body.body.trim() : '';
+  if (!Number.isInteger(reportId) || rawText.length < 1 || rawText.length > 2000) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
   }
 
   const supabase = createServiceClient();
   const { data: report, error: rError } = await supabase.from('question_reports').select('id, user_id').eq('id', reportId).maybeSingle();
   if (rError || !report) return NextResponse.json({ error: 'Bildirim bulunamadı' }, { status: 404 });
+
+  // Yapay zekâ taslağındaki "{ad}" öğrencinin ilk adıyla değişir (../route.ts ile aynı kural).
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', (report as { user_id: string }).user_id).maybeSingle();
+  const name = (profile as { full_name: string | null } | null)?.full_name?.trim().split(/\s+/)[0] || '';
+  const text = (name ? rawText.replaceAll('{ad}', name) : rawText.replace(/\s*\{ad\}/g, '')).slice(0, 2000);
 
   const { error: mError } = await supabase.from('question_report_messages').insert({ report_id: reportId, sender: 'admin', body: text });
   if (mError) return NextResponse.json({ error: mError.message }, { status: 500 });

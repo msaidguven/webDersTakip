@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       span: mergeWeekSpans((outcomesByTopic.get(t.id) ?? []).flatMap((o) => o.weeks)),
       loCodes: loByTopic.get(t.id) ?? [],
       outcomes: outcomesByTopic.get(t.id) ?? [],
-      classical: { total: countsByTopic.get(t.id)?.total ?? 0, svgPending: countsByTopic.get(t.id)?.svgPending ?? 0, answerSvgPending: countsByTopic.get(t.id)?.answerSvgPending ?? 0, byOutcome: countsByTopic.get(t.id)?.byOutcome ?? {}, byLo: classicalByLo(t.id, outcomesByTopic, countsByTopic, loByTopic) },
+      classical: { total: countsByTopic.get(t.id)?.total ?? 0, current: countsByTopic.get(t.id)?.current ?? 0, svgPending: countsByTopic.get(t.id)?.svgPending ?? 0, answerSvgPending: countsByTopic.get(t.id)?.answerSvgPending ?? 0, byOutcome: countsByTopic.get(t.id)?.byOutcome ?? {}, byLo: classicalByLo(t.id, outcomesByTopic, countsByTopic, loByTopic) },
     })),
   });
 }

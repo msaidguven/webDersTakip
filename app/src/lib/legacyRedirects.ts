@@ -52,6 +52,16 @@ const RENAMED_TOPICS: [string, string, string][] = [
   ['6-sinif/sosyal-bilgiler/ortak-mirasimiz', 'xi-xiii-yuzyillar-arasinda-meydana-gelen-askeri-mucadelelerin-anadolu-nun-turklesmesi-ve-islamlasmasina-katkilari', SOS6_ISLAMIYET],
 ];
 
+// [sınıf/ders, eski ünite slug'ı, yeni ünite slug'ı, konu slug'ı] — konu başka üniteye taşındı (slug aynı).
+// 2026-10-31: 6. Türkçe MEB yıllık planına hizalandı (bkz. supabase/migrations/turkce6_yearly_plan_alignment.sql).
+const MOVED_TOPICS: [string, string, string, string][] = [
+  ['6-sinif/turkce', 'bagimsizlik-yolu', 'bilim-ve-teknoloji', 'hikaye-unsurlari'],
+  ['6-sinif/turkce', 'bagimsizlik-yolu', 'bilim-ve-teknoloji', 'soz-sanatlari'],
+  ['6-sinif/turkce', 'farkli-dunyalar', 'iletisim-ve-sosyal-iliskiler', 'oznel-ve-nesnel-yargi'],
+  ['6-sinif/turkce', 'iletisim-ve-sosyal-iliskiler', 'bilim-ve-teknoloji', 'acik-ve-ortuk-anlam'],
+  ['6-sinif/turkce', 'lider-ruhlar', 'farkli-dunyalar', 'biyografi-ve-otobiyografi'],
+];
+
 export const legacySlugRedirects: Redirect[] = [
   // Ünite: altındaki tüm konu adresleri de (":path*") yeni ünite adresine taşınır.
   ...RENAMED_UNITS.flatMap(([base, from, to]) =>
@@ -59,5 +69,8 @@ export const legacySlugRedirects: Redirect[] = [
   ),
   ...RENAMED_TOPICS.flatMap(([base, from, to]) =>
     PREFIXES.map((p) => ({ source: `${p}/${base}/${from}`, destination: `${p}/${base}/${to}`, permanent: true as const }))
+  ),
+  ...MOVED_TOPICS.flatMap(([base, fromUnit, toUnit, topic]) =>
+    PREFIXES.map((p) => ({ source: `${p}/${base}/${fromUnit}/${topic}`, destination: `${p}/${base}/${toUnit}/${topic}`, permanent: true as const }))
   ),
 ];

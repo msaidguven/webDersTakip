@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { createPublicClient } from '@/utils/supabase/public';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getQuestionCountsByTopicId } from '@/app/src/lib/questionCounts';
-import { getYaziliIndex, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
+import { getYaziliIndex, gradeHubs, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
 
 // 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazartesi 03:00 TR yenilemesi
 // (scheduledCacheRefresh.ts, revalidatePath layout) sitemap'i de tazeler.
@@ -292,9 +292,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const yazili = await getYaziliIndex();
     if (yazili.length) entries.push({ url: `${SITE_URL}${YAZILI_INDEX_PATH}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
     for (const g of yazili) {
-      for (const l of g.lessons) {
-        entries.push({ url: `${SITE_URL}${l.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 });
-        for (const e of l.exams) entries.push({ url: `${SITE_URL}${e.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
+      for (const h of gradeHubs(g)) {
+        entries.push({ url: `${SITE_URL}${h.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
+        for (const l of h.lessons) entries.push({ url: `${SITE_URL}${l.exam.path}`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 });
       }
     }
   } catch (error) {

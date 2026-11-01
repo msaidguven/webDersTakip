@@ -33,7 +33,8 @@ import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSect
 import Link from 'next/link';
 import { BookOpen, ClipboardList } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
-import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
+import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 import r from '../../../../../src/components/robotic/robotic.module.css';
@@ -132,7 +133,6 @@ export default async function QuestionBankPage({ params }: PageProps) {
           eyebrow={`${data.gradeName} · ${data.lessonName}`}
           title={`${data.topicTitle} Soru Bankası`}
           pills={[`${questions.length} soru`, 'Cevap anahtarlı', 'Açıklamalı', 'Ücretsiz']}
-          intro={intro}
           imageUrl={data.heroImageUrl}
           imageAlt={`${data.topicTitle} konu görseli`}
         >
@@ -146,15 +146,27 @@ export default async function QuestionBankPage({ params }: PageProps) {
           {data.hasPublishedContent && (
             <Link
               href={buildTopicPath(data)}
-              className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
+              className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
             >
               <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımını oku
             </Link>
           )}
         </SoruBankasiHeader>
 
+        {unitData && unitPath && (
+          <SoruBankasiQuickNav
+            label={`${unitData.unitTitle} konuları`}
+            items={unitData.topics.map((t) => ({
+              key: t.id,
+              href: `${unitPath}/${t.slug}`,
+              label: `${t.number}. ${t.title}`,
+              current: t.id === data.topicId,
+            }))}
+          />
+        )}
+
         {/* Mobilde sıra: test kartı → sorular → ilgili linkler; masaüstünde test kartı ve linkler sağ sütunda. */}
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
+        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
           <div className="lg:col-start-2 lg:row-start-1">
             <TestStatusCard
               scope="topic"
@@ -246,6 +258,8 @@ export default async function QuestionBankPage({ params }: PageProps) {
             </aside>
           )}
         </div>
+
+        <SoruBankasiAbout text={intro} />
       </div>
     </div>
   );

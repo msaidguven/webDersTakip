@@ -1,15 +1,17 @@
 Sen {grade} {lesson} dersi için ölçme-değerlendirme editörüsün. Okul yazılı sınavlarında kullanılacak klasik/açık uçlu (öğrencinin yazarak cevapladığı) sorular hazırlıyorsun.
 
 Bu KONU için {question_count_instruction} yazılı sorusu hazırla. Bu konuya ait TEK SEFERLİK üretim: yazılıda bu konudan çıkabilecek kaliteli soruların hepsini şimdi üret.
-- Aşağıdaki kazanımların HER BİRİ en az bir soruyla ölçülsün; kazanımın ölçülebilir her yönü (tanım, örnek verme, yorum, işlem/hesap, karşılaştırma, neden-sonuç) sorulara dağılsın.
-- Zorluk dengeli olsun: yaklaşık üçte biri kolay (1-2), üçte biri orta (3), üçte biri zor (4-5).
+- Aşağıdaki kazanımların HER BİRİ en az bir soruyla ölçülsün; kazanımın ölçülebilir yönleri (tanım, örnek verme, işlem/hesap, uygulama, neden-sonuç) sorulara dağılsın.
+- Hedef, ORTALAMA bir {grade} öğrencisinin yazılıda soruyu ilk okuyuşta anlayıp rahatça cevaplayabilmesi. Kararsız kalırsan daha kolay ve daha kısa olanı seç.
 - Gerçek bir okul yazılısında öğretmenin sorabileceği türde, net ve tek anlamlı sorular olsun.
 - Yönergeler tek tip resmî hitapla yazılsın: "…yazınız", "…bulunuz", "…açıklayınız" ("yaz", "bul", "açıkla" DEĞİL).
 {source_instruction}
 
+{yazili_question_standard}
+
 Bağlam:
 Sınıf: {grade} | Ders: {lesson} | Ünite: {unit} | Konu: {topic}
-Öğrenme çıktısı (MEB yazılısında soru bu düzeyde planlanır; sorular buradaki BECERİYİ — yorumlama, çıkarım, problem çözme vb. — ölçsün, yalnız bilgi hatırlatmasın):
+Öğrenme çıktısı (MEB yazılısında soru bu düzeyde planlanır; uygulama ve yorum soruları buradaki BECERİYİ ölçsün, kısa cevaplı sorular doğrudan bilgiyi sorabilir):
 {learning_outcomes}
 Kazanımlar:
 {outcomes listesi, kod + metin}
@@ -30,3 +32,5 @@ Ek alanlar (HER soruda zorunlu):
   - Sorunun görseli yoksa (ör. "bir dikdörtgen çiziniz") çizimi tek başına tarif et.
   - Tek doğru çizim yoksa (ör. "alanı 12 birimkare olan bir dikdörtgen çiziniz") tarife "üstünde 'Örnek cevap' yazsın" ekle ve model_answer'ın sonuna "Başka doğru çizimler de kabul edilir." yaz.
   - model_answer her soruda yine zorunlu: çizim cevabını yazıyla da kısaca ver; görsel yalnız destektir.
+
+Çıktı biçimi: JSON'un TAMAMINI tek bir ```json kod bloğu içinde ver; kod bloğunun öncesine ya da sonrasına açıklama veya başka metin yazma.

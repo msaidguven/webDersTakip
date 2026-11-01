@@ -3,6 +3,7 @@
 // href/on* gibi kod çalıştırabilecek veya dış kaynağa gidebilecek her şey dışarıda kalır.
 // Sadece client'ta (window/DOM gerektirir) çalışır.
 import DOMPurify from 'dompurify';
+import { extractSvgMarkup } from '@/app/src/lib/svgMarkup';
 
 const MAX_LENGTH = 20_000;
 
@@ -20,7 +21,7 @@ const ALLOWED_ATTR = [
 ];
 
 export function sanitizeMathSvg(raw: string): string | null {
-  const trimmed = raw.trim();
+  const trimmed = extractSvgMarkup(raw);
   if (!trimmed.startsWith('<svg') || !trimmed.endsWith('</svg>')) return null;
   if (trimmed.length > MAX_LENGTH) return null;
 

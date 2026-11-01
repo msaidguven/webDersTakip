@@ -3,7 +3,8 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { parseQuestions, TYPE_ID, type ParsedClassical } from '@/app/src/lib/parseMixedQuestions';
 import { insertQuestions } from '@/app/src/lib/questionInsert';
-import { loadTopicOutcomes, revalidateYaziliPages } from '@/app/src/lib/yazili/server';
+import { YAZILI_PROMPT_VERSION } from '@/app/src/lib/yazili/common';
+import { loadTopicOutcomes, resolveYaziliItems, revalidateYaziliPages } from '@/app/src/lib/yazili/server';
 
 // Yazılı soruları — bir konunun klasik soruları.
 //   GET  ?topicId          liste (düzenleme/silme mevcut /api/admin/manage/questions ile)
@@ -11,6 +12,7 @@ import { loadTopicOutcomes, revalidateYaziliPages } from '@/app/src/lib/yazili/s
 //        payload = AI'dan dönen JSON ya da elle eklenen tek soru (aynı şema + outcome_code, difficulty).
 //        dryRun: kaydetmeden önizleme — her sorunun kazanımı çözülür, çözülemeyen işaretlenir.
 //        Kaydetmede kazanımı çözülemeyen soru varsa hiçbiri kaydedilmez.
+//        Buradan kaydedilen her soru (AI JSON'u da elle eklenen de) güncel prompt sürümü (v1) sayılır.
 
 const MAX_QUESTIONS = 30;
 
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('questions')
-    .select('id, question_text, difficulty, is_active, svg_prompt, svg_content, svg_position, question_classical(model_answer, key_terms, rubric), question_outcomes(outcome_id)')
+    .select('id, question_text, difficulty, is_active, svg_prompt, svg_content, svg_position, question_classical(model_answer, key_terms, rubric, prompt_version), question_outcomes(outcome_id)')
     .eq('topic_id', topicId)
     .eq('question_type_id', TYPE_ID.classical)
     .order('id');
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
   type Row = {
     id: number; question_text: string; difficulty: number | null; is_active: boolean;
     svg_prompt: string | null; svg_content: string | null; svg_position: string;
-    question_classical: { model_answer: string; key_terms: string[] | null; rubric: string | null } | null;
+    question_classical: { model_answer: string; key_terms: string[] | null; rubric: string | null; prompt_version: number } | null;
     question_outcomes: { outcome_id: number }[];
   };
   return NextResponse.json({
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest) {
       modelAnswer: q.question_classical?.model_answer ?? '',
       keyTerms: q.question_classical?.key_terms ?? [],
       rubric: q.question_classical?.rubric ?? null,
+      promptVersion: q.question_classical?.prompt_version ?? 0,
       outcomeIds: q.question_outcomes.map((o) => o.outcome_id),
     })),
   });
@@ -66,15 +69,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
   const outcomes = (await loadTopicOutcomes(supabase, [topicId])).get(topicId) ?? [];
-  const norm = (s: string) => s.trim().replace(/^[(\[]+|[)\].:\s]+$/g, '').toLocaleLowerCase('tr');
-  const raw = (payload?.questions as Record<string, unknown>[]) ?? [];
-
-  const items = (parsed as ParsedClassical[]).map((q, i) => {
-    const code = typeof raw[i]?.outcome_code === 'string' ? (raw[i].outcome_code as string) : '';
-    const outcome = code ? outcomes.find((o) => norm(o.key) === norm(code)) : outcomes.length === 1 ? outcomes[0] : undefined;
-    const d = Number(raw[i]?.difficulty);
-    return { q, outcomeId: outcome?.id ?? null, outcomeKey: outcome?.key ?? null, rawCode: code, difficulty: Number.isInteger(d) && d >= 1 && d <= 5 ? d : 3 };
-  });
+  const items = resolveYaziliItems(parsed as ParsedClassical[], (payload?.questions as Record<string, unknown>[]) ?? [], outcomes);
 
   if (body?.dryRun === true) {
     return NextResponse.json({
@@ -93,7 +88,7 @@ export async function POST(request: NextRequest) {
   let svgPending = 0;
   for (const it of items) {
     const res = await insertQuestions(supabase, {
-      topicId, sectionId: null, outcomeIds: [it.outcomeId as number], questions: [it.q], aiModel, difficulty: it.difficulty,
+      topicId, sectionId: null, outcomeIds: [it.outcomeId as number], questions: [it.q], aiModel, difficulty: it.difficulty, promptVersion: YAZILI_PROMPT_VERSION,
     });
     if (!res.ok) return NextResponse.json({ error: res.error, saved }, { status: 500 });
     saved += res.savedCount;

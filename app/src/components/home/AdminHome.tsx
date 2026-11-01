@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BellRing, Check, GraduationCap, LayoutDashboard, Presentation, UserCheck } from 'lucide-react';
 import r from '@/app/src/components/robotic/robotic.module.css';
+import { AdminYaziliUsage } from './AdminYaziliUsage';
+import { AdminDownloadStats } from './AdminDownloadStats';
+import { AdminContentUsage } from './AdminContentUsage';
 
 export type HomePreview = 'student' | 'teacher';
 
@@ -153,6 +156,9 @@ export function AdminHome({ firstName, onPreview }: { firstName: string | null; 
       </div>
 
       <AlertsSection />
+      <AdminYaziliUsage />
+      <AdminDownloadStats />
+      <AdminContentUsage />
     </section>
   );
 }

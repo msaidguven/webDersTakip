@@ -1,5 +1,5 @@
 // Soru bankası sayfalarının ortak üst bölümü (2026-10-03 yenilemesi; sınıf/ders/ünite/konu):
-// sayfa yolu, ders ikonlu üst satır, H1, özet etiketleri, veriden türetilmiş özgün giriş metni,
+// ders ikonlu üst satır (konum yolu ya da eyebrow), H1, özet etiketleri, veriden türetilmiş özgün giriş metni,
 // isteğe bağlı ek içerik (kazanım, düğmeler) ve sağ alan: masaüstünde görsel ya da `aside` (ör. sınıf kutuları).
 import Link from 'next/link';
 import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
@@ -36,30 +36,32 @@ export function SoruBankasiHeader({
   /** Başlığın sağında (mobilde altında) gösterilir; görsel yoksa kullanılır. */
   aside?: React.ReactNode;
 }) {
+  // 2026-10-31 (kullanıcı isteği "kart üstünde tek başına duran '6. Sınıf' yazısı gereksiz, alan sıkışık olsun"):
+  // konum yolu kartın içinde, üst satırda (tıklanabilir); yol yoksa eyebrow metni. Mobilde boşluklar daraltıldı.
   return (
     <>
-      {crumbs.length > 0 && (
-        <nav aria-label="Konum">
-          <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
-            {crumbs.map((c, i) => (
-              <li key={c.href} className="flex items-center gap-1.5">
-                {i > 0 && <span aria-hidden className="opacity-50">›</span>}
-                <Link href={c.href} className={r.hoverAccent}>{c.name}</Link>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      )}
-
-      <header className={`relative mt-5 grid items-center gap-8 p-5 sm:p-7 ${r.panel} ${r.hero} ${imageUrl ? 'md:grid-cols-[minmax(0,1fr)_340px]' : aside ? 'md:grid-cols-[minmax(0,1fr)_auto] md:items-end' : ''}`}>
+      <header className={`relative grid items-center gap-6 p-4 sm:gap-8 sm:p-7 ${r.panel} ${r.hero} ${imageUrl ? 'md:grid-cols-[minmax(0,1fr)_340px]' : aside ? 'md:grid-cols-[minmax(0,1fr)_auto] md:items-end' : ''}`}>
         <span className={r.scan} aria-hidden="true" />
         <div>
-          <p className={`flex items-center gap-2 ${r.label}`}>
-            {lessonName && <NeonSubjectIcon lessonName={lessonName} className="h-9 w-9" iconClassName="h-[18px] w-[18px]" />}
-            {eyebrow}
-          </p>
-          <h1 className={`mt-3 text-3xl leading-tight sm:text-4xl ${r.chrome}`}>{title}</h1>
-          <ul className="mt-3 flex flex-wrap gap-2" aria-label="Sayfa özeti">
+          <div className={`flex items-center gap-2 ${r.label}`}>
+            {lessonName && <NeonSubjectIcon lessonName={lessonName} className="h-8 w-8 shrink-0" iconClassName="h-4 w-4" />}
+            {crumbs.length > 0 ? (
+              <nav aria-label="Konum" className="min-w-0">
+                <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  {crumbs.map((c, i) => (
+                    <li key={c.href} className="flex items-center gap-1.5">
+                      {i > 0 && <span aria-hidden className="opacity-50">›</span>}
+                      <Link href={c.href} className={`underline-offset-2 hover:underline ${r.hoverAccent}`}>{c.name}</Link>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            ) : (
+              <p>{eyebrow}</p>
+            )}
+          </div>
+          <h1 className={`mt-2 text-[26px] leading-tight sm:mt-3 sm:text-4xl ${r.chrome}`}>{title}</h1>
+          <ul className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2" aria-label="Sayfa özeti">
             {pills.map((t) => (
               <li key={t} className={r.badge}>{t}</li>
             ))}
@@ -78,6 +80,19 @@ export function SoruBankasiHeader({
   );
 }
 
+// Sayfa açıklaması (2026-10-31): soru bankası sayfalarında uzun giriş metni başlıktan alınıp listelerin altına
+// kondu — mobilde sınıf/ders/ünite/konu listesine ulaşmak için ekran ekran kaydırmak gerekiyordu. Metin aynı
+// sayfada kaldığı için arama motoru açısından fark yok.
+export function SoruBankasiAbout({ text }: { text?: string }) {
+  if (!text) return null;
+  return (
+    <section aria-labelledby="sayfa-hakkinda" className={`mt-12 p-5 sm:p-6 ${r.panel}`}>
+      <h2 id="sayfa-hakkinda" className={r.label}>Bu sayfa hakkında</h2>
+      <p className="mt-2 max-w-[72ch] leading-relaxed text-muted-foreground">{text}</p>
+    </section>
+  );
+}
+
 /** Türkçe liste birleştirme: "a, b ve c". */
 export function joinTr(parts: string[]): string {
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ve ${parts.at(-1)}` : (parts[0] ?? '');
@@ -85,4 +100,4 @@ export function joinTr(parts: string[]): string {
 
 // Robotik tema kökü (2026-10-19) — tüm soru bankası seviyeleri bu kabuğu kullanır.
 export const pageShellCls = `${roboticFontVars} ${r.root}`;
-export const pageInnerCls = 'mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10';
+export const pageInnerCls = 'mx-auto max-w-5xl px-4 pb-16 pt-4 sm:px-6 sm:pt-10';

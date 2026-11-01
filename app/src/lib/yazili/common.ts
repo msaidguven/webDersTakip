@@ -23,8 +23,42 @@ export const DEFAULT_EXAM_WEEKS: Record<`${ExamTerm}-${ExamNo}`, { from: number;
   '2-2': { from: 28, to: 36 },
 };
 
-// Konu başına hedef klasik soru sayısı (tek seferde üretilecek havuz).
+// Okulların yazılı haftaları (kullanıcı 2026-11-01: "bu sene 9 Kasım 1. dönem 1. yazılı haftası"). Bir hafta
+// önceden ve hafta boyunca üyeye "yazılı haftası" penceresi (MemberPromptModal) ve akşam bildirimi
+// (cron/push-reminders) gösterilir; yalnız öğrencinin sınıfında yayında olan yazılılar listelenir. Tarihler her yıl
+// burada güncellenir (bilinmeyen hafta eklenmez). Tarihler TR günü, start Pazartesi, end Cuma.
+export const SCHOOL_EXAM_WEEKS: { term: ExamTerm; examNo: ExamNo; start: string; end: string }[] = [
+  { term: 1, examNo: 1, start: '2026-11-09', end: '2026-11-13' },
+];
+const EXAM_WEEK_LEAD_DAYS = 7;
+
+export type ActiveExamWeek = (typeof SCHOOL_EXAM_WEEKS)[number] & { phase: 'soon' | 'now' };
+
+// TR günü (YYYY-AA-GG).
+export const trToday = (now = Date.now()) => new Date(now + 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+// Bugün bir yazılı haftasının 7 gün öncesinden hafta sonuna kadar olan aralıktaysa o hafta.
+export function activeExamWeek(today = trToday()): ActiveExamWeek | null {
+  for (const w of SCHOOL_EXAM_WEEKS) {
+    const lead = new Date(Date.parse(`${w.start}T00:00:00Z`) - EXAM_WEEK_LEAD_DAYS * 86400000).toISOString().slice(0, 10);
+    if (today >= lead && today <= w.end) return { ...w, phase: today >= w.start ? 'now' : 'soon' };
+  }
+  return null;
+}
+
+// "9–13 Kasım"
+export function examWeekRange(w: { start: string; end: string }): string {
+  const fmt = (d: string, month: boolean) => new Date(`${d}T12:00:00Z`).toLocaleDateString('tr-TR', month ? { day: 'numeric', month: 'long', timeZone: 'UTC' } : { day: 'numeric', timeZone: 'UTC' });
+  return w.start.slice(0, 7) === w.end.slice(0, 7) ? `${fmt(w.start, false)}–${fmt(w.end, true)}` : `${fmt(w.start, true)} – ${fmt(w.end, true)}`;
+}
+
+// Konu başına hedef klasik soru sayısı (tek seferde üretilecek havuz). min, otomatik yazılı worker'ının
+// "konu tamam" eşiği de (claim_next_yazili_topic RPC'sinde aynı sayı yazılı).
 export const TOPIC_QUESTION_TARGET = { min: 8, max: 15 } as const;
+
+// Yazılı prompt sürümü (question_classical.prompt_version). 0 = 2026-10-31 öncesi sorular; 1 = kısa cevaplı
+// ağırlıklı, net istemli yeni prompt. Sayfa, kağıt ve "Yeni yazılı aç" önce güncel sürümü kullanır.
+export const YAZILI_PROMPT_VERSION = 1;
 
 // Öğrenme çıktısı kodu: "MAT.6.1.4.  Günlük…", "SB 7.1.1.", "T.O.6.5." → MAT.6.1.4 / SB.7.1.1 / T.O.6.5.
 export const LO_CODE_RE = /^\s*([A-ZÇĞİÖŞÜ]+(?:\.[A-ZÇĞİÖŞÜ])?)[\s.]+(\d+(?:\.\d+)+)/u;

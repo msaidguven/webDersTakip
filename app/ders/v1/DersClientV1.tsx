@@ -297,25 +297,31 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const [guestTestOpen, setGuestTestOpen] = useState(false);
 
   // ---- Slaytlar ---- (sayfada gömülü değil; yalnız araçlardaki "Slaytlar" ile tam ekran açılır)
+  // Deste düğmeye basılınca indirilir (2026-10-31, Vercel CPU): önceden HER sayfa açılışında indiriliyordu —
+  // yalnız menüde slayt sayısını yazmak için; her CDN ıskalamasında 8 sorguyla yeniden üretiliyordu. Düğme
+  // içerik bölümü olan konuda görünür (deste bölümlerden türetiliyor, bkz. topicSlideDeck.ts).
   const [slideDeck, setSlideDeck] = useState<SlideDeck | null>(null);
   const [slidesExpanded, setSlidesExpanded] = useState(false);
-  const [slidesReloadKey, setSlidesReloadKey] = useState(0);
+  const [slidesState, setSlidesState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [narrationOpen, setNarrationOpen] = useState(false);
   const [interactiveOpen, setInteractiveOpen] = useState(false);
   const hasNarration = !!topic?.hasNarration;
   const topicId = topic?.id;
-  useEffect(() => {
-    if (topicId == null) return;
-    let cancelled = false;
-    fetch(`/api/topics/${topicId}/slides`)
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (!cancelled) setSlideDeck(res.ok ? (data?.deck as SlideDeck) : null);
-      })
-      // Slayt yoksa/alınamazsa araç görünmez; ayrı bir hata ekranı yok.
-      .catch(() => { if (!cancelled) setSlideDeck(null); });
-    return () => { cancelled = true; };
-  }, [topicId, slidesReloadKey]);
+  const openSlides = async () => {
+    if (slideDeck) return setSlidesExpanded(true);
+    if (topicId == null || slidesState === 'loading') return;
+    setSlidesState('loading');
+    try {
+      const res = await fetch(`/api/topics/${topicId}/slides`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.deck) throw new Error('slides');
+      setSlideDeck(data.deck as SlideDeck);
+      setSlidesState('idle');
+      setSlidesExpanded(true);
+    } catch {
+      setSlidesState('error');
+    }
+  };
 
   // ---- Admin araçları ----
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
@@ -325,7 +331,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const closeAdminTool = () => {
     setAdminTool(null);
     router.refresh();
-    setSlidesReloadKey((k) => k + 1);
+    setSlideDeck(null); // admin içeriği değiştirmiş olabilir: sonraki açılışta yeniden indir
   };
 
   // ---- Yorum deep-link vurgusu (DersHighlight.tsx ile aynı olay) ----
@@ -461,7 +467,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
   const tools: Tool[] = [
     hasNarration && { key: 'listen', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
-    slideDeck && { key: 'slides', label: 'Slaytlar', hint: `${slideDeck.slides.length} slayt`, icon: <Presentation size={18} aria-hidden="true" />, onClick: () => setSlidesExpanded(true) },
+    sections.length > 0 && { key: 'slides', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
     hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
     unit && { key: 'discuss', label: 'Yorumlar', hint: 'Sor, tartış', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: () => scrollTo('konu-tartisma') },
     unitQuestionsHref && { key: 'bank', label: 'Ünite soruları', hint: `${unit?.test_question_count ?? 0} soru`, icon: <Library size={18} aria-hidden="true" />, href: unitQuestionsHref },
@@ -498,7 +504,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
           </button>
           {isAdmin && (
             <button type="button" className={s.ghostBtn} onClick={() => setInteractiveOpen(true)}>
-              🎬 Etkileşimli video (önizleme)
+              🎬 Etkileşimli ders (önizleme)
             </button>
           )}
           {isAdmin && (

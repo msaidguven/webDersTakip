@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { runTopicBatchStep } from '@/app/src/lib/topicQuestionBatch';
 import { QUESTION_WORKER_PROFILES, isQuestionWorkerId } from '@/app/src/lib/questionWorkerProfiles';
+import { runYaziliStep } from '@/app/src/lib/yazili/worker';
+import { runInteractiveLessonStep, runInteractiveVoiceStep } from '@/app/src/lib/interactiveLesson/worker';
+import { QUOTA_TAG_RE } from '@/app/src/lib/geminiJsonGen';
 
 // RAG kuyruğu boşken (@kanka/@hocam sorusu yoksa) boşa giden 5 dakikalık döngülerin
 // aksine, bu AYRI bir worker — saatte bir (kullanıcının 2026-09-08 isteği, 2026-09-09'da
@@ -28,16 +31,41 @@ export async function POST(request: NextRequest) {
 
   // Her pg_cron job'u body'de hangi worker olduğunu söyler; eski job '{}' gönderiyor → primary
   // (bkz. questionWorkerProfiles.ts).
-  const body = (await request.json().catch(() => ({}))) as { worker?: unknown };
+  // task: 'interactive_lesson' → yalnız etkileşimli ders işi (iş yoksa soru partisine GEÇMEZ). :33/:53 ek
+  // çalışmaları bunu gönderir; ders işi bitince bu anahtarla saatte yine tek soru partisi yapılsın diye
+  // (bkz. supabase/migrations/interactive_lesson_worker_cron.sql).
+  const body = (await request.json().catch(() => ({}))) as { worker?: unknown; task?: unknown };
   if (body.worker !== undefined && !isQuestionWorkerId(body.worker)) {
     return NextResponse.json({ error: 'Geçersiz worker' }, { status: 400 });
   }
   const profile = QUESTION_WORKER_PROFILES[body.worker ?? 'primary'];
 
   const supabase = createServiceClient();
+
+  // Kota kısa devresi (2026-11-01): bu worker'ın son çalışması "günlük kota doldu" dediyse, kota açılana kadar
+  // hiçbir şey denenmez (Gemini'ye istek, konu/taslak seçimi yok) — boşuna CPU ve log harcanmasın. Yalnız
+  // Gemini'siz iş (etkileşimli dersin Bit sesleri) yapılır. Kayıt zinciri sürsün diye atlanan çalışma da aynı
+  // etiketle loglanır.
+  const { data: last } = await supabase.from('ai_question_draft_worker_runs').select('reason').eq('worker', profile.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const quotaUntil = QUOTA_TAG_RE.exec((last as { reason: string | null } | null)?.reason ?? '')?.[1];
+  if (quotaUntil && Date.parse(quotaUntil) > Date.now()) {
+    const voice = profile.interactiveLesson ? await runInteractiveVoiceStep(supabase) : null;
+    const hhmm = new Date(quotaUntil).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
+    const skipped = { generated: voice?.generated ?? false, reason: `${voice ? `${voice.reason} · ` : ''}Gemini günlük kotası dolu, ${hhmm}'e kadar atlandı [kota:${quotaUntil}]` };
+    await supabase.from('ai_question_draft_worker_runs').insert({ generated: skipped.generated, reason: skipped.reason, draft_id: null, worker: profile.id });
+    return NextResponse.json(skipped);
+  }
+
   // 2026-10-12: alt başlık başına admin onaylı taslak yerine konu bazlı otomatik parti
   // (bkz. topicQuestionBatch.ts). Eski akış generateNextAiQuestionDraft olarak duruyor.
-  const result = await runTopicBatchStep(supabase, profile);
+  // Yazılıya ayrılan worker önce v1 yazılı sorusu eksik konuya bakar; etkileşimli derse ayrılan worker önce
+  // ders/ses işine (2026-11-01); iş yoksa ikisi de test partisine geçer.
+  const result =
+    body.task === 'interactive_lesson'
+      ? ((await runInteractiveLessonStep(supabase, profile)) ?? { generated: false, reason: 'Etkileşimli ders: sırada iş yok' })
+      : ((profile.yazili ? await runYaziliStep(supabase, profile) : null) ??
+        (profile.interactiveLesson ? await runInteractiveLessonStep(supabase, profile) : null) ??
+        (await runTopicBatchStep(supabase, profile)));
 
   // net.http_post (pg_cron) bu yanıtı beklemiyor — sonucu admin panelinde görünür
   // kılmak için burada logluyoruz (bkz. supabase/migrations/ai_question_draft_worker_runs.sql).

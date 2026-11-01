@@ -4,9 +4,13 @@
 //   - serisi varsa: seri bu gece bozulacak uyarısı → anasayfa ("Bugün")
 //   - yoksa tekrar zamanı gelen soru varsa → /tekrar
 //   - ikisi de yoksa göndermez (hedefsiz "gel bak" bildirimi = spam).
+// Yazılı haftasında (bir hafta öncesinden hafta sonuna, yazili/common.ts SCHOOL_EXAM_WEEKS) sınıfında yayında
+// yazılı olan öğrenciye bunların yerine "örnek yazılı sorularını çöz" bildirimi gider (2026-11-01).
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { isWebPushConfigured, sendPush, type PushPayload } from '@/app/src/lib/webPush';
+import { activeExamWeek, examLabel, examWeekRange } from '@/app/src/lib/yazili/common';
+import { getGradeExamsFor } from '@/app/src/lib/yazili/publicData';
 
 export const maxDuration = 300;
 const CONCURRENCY = 20;
@@ -29,6 +33,35 @@ function messageFor(c: Candidate): PushPayload | null {
   return null;
 }
 
+// Yazılı haftası aralığındaysak: sınıfında yayında yazılı olan adaylara yazılı bildirimi (sınıf başına bir kez sorgu).
+async function examWeekMessages(supabase: ReturnType<typeof createServiceClient>, list: Candidate[]): Promise<Map<string, PushPayload>> {
+  const out = new Map<string, PushPayload>();
+  const week = activeExamWeek();
+  if (!week || !list.length) return out;
+  const { data } = await supabase.from('profiles').select('id, grade_id').in('id', list.map((c) => c.user_id)).not('grade_id', 'is', null);
+  const rows = (data as { id: string; grade_id: number }[] | null) ?? [];
+  const byGrade = new Map<number, PushPayload | null>();
+  for (const gradeId of new Set(rows.map((r) => r.grade_id))) {
+    const exams = await getGradeExamsFor(gradeId, week.term, week.examNo);
+    byGrade.set(
+      gradeId,
+      exams.length
+        ? {
+            title: week.phase === 'now' ? '📝 Bu hafta yazılı haftası' : '📝 Yazılı haftası yaklaşıyor',
+            body: `${examWeekRange(week)} ${examLabel(week.term, week.examNo).toLocaleLowerCase('tr')}: ${exams.map((e) => e.lesson).join(', ')} için örnek yazılı sorularını çöz.`,
+            url: exams.length === 1 ? exams[0].path : exams[0].hubPath,
+            tag: 'daily-reminder',
+          }
+        : null,
+    );
+  }
+  for (const r of rows) {
+    const msg = byGrade.get(r.grade_id);
+    if (msg) out.set(r.id, msg);
+  }
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -40,9 +73,11 @@ export async function GET(request: NextRequest) {
   const { data: candidates, error } = await supabase.rpc('get_push_reminder_candidates');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const list = (candidates as Candidate[] | null) || [];
+  const examMessages = await examWeekMessages(supabase, list);
   const messages = new Map<string, PushPayload>();
-  for (const c of (candidates as Candidate[] | null) || []) {
-    const msg = messageFor(c);
+  for (const c of list) {
+    const msg = examMessages.get(c.user_id) ?? messageFor(c);
     if (msg) messages.set(c.user_id, msg);
   }
   if (!messages.size) return NextResponse.json({ candidates: candidates?.length ?? 0, sent: 0 });
