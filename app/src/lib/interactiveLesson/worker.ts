@@ -29,11 +29,18 @@ async function update(supabase: Supabase, topicId: number, fields: Record<string
 
 export async function runInteractiveLessonStep(supabase: Supabase, baseProfile: QuestionWorkerProfile): Promise<BatchStepResult | null> {
   const deadlineAt = Date.now() + STEP_BUDGET_MS;
-  return (await runInteractiveVoiceStep(supabase, deadlineAt)) ?? (await runLessonGeneration(supabase, baseProfile, deadlineAt));
+  const voice = await runInteractiveVoiceStep(supabase, deadlineAt);
+  if (voice && !voice.failed) return voice;
+  // Ses üretilemediyse (ör. 2026-11-03 Azure anahtarı geçersiz → 401) ders üretimi durmasın: aynı çalışmada ders
+  // adımına geçilir, ses hatası kayda eklenir; ses borcu servis düzelince kendiliğinden kapanır.
+  const lesson = await runLessonGeneration(supabase, baseProfile, deadlineAt);
+  if (!voice) return lesson;
+  return lesson ? { ...lesson, reason: `${voice.reason} · ${lesson.reason ?? ''}` } : voice;
 }
 
 // 1) Ses borcu: hazır ders, sesleri eksik. Gemini kullanmaz — Gemini kotası doluyken de çalışır (route).
-export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = Date.now() + STEP_BUDGET_MS): Promise<BatchStepResult | null> {
+// failed: ses servisi hata verdi (çağıran ders üretimine geçebilsin diye ayrıca işaretlenir).
+export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = Date.now() + STEP_BUDGET_MS): Promise<(BatchStepResult & { failed?: boolean }) | null> {
   const { data: pendingVoice } = await supabase.from('interactive_lessons').select('topic_id').eq('status', 'ready').eq('voice_done', false).order('updated_at').limit(1).maybeSingle();
   if (pendingVoice && process.env.AZURE_SPEECH_KEY) {
     const topicId = (pendingVoice as { topic_id: number }).topic_id;
@@ -43,7 +50,7 @@ export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = D
       if (r.done) await update(supabase, topicId, { voice_done: true });
       return { generated: r.made > 0, reason: `${label}: ${r.made} yeni ses${r.done ? `, tamam (${r.lines} cümle)` : ', devamı sonraki çalışmada'}` };
     } catch (e) {
-      return { generated: false, reason: `${label}: ${e instanceof Error ? e.message : String(e)}` };
+      return { generated: false, failed: true, reason: `${label}: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
   return null;
