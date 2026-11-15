@@ -60,6 +60,8 @@ jobs:
           WORKER_REVALIDATE_URL: https://www.derstakip.net/api/internal/revalidate
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Soru havuzu yardımcıları (quizQuestions.ts) herkese açık istemciyi de kurar.
+          NEXT_PUBLIC_SUPABASE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_KEY }}
           RAG_QUEUE_WORKER_SECRET: ${{ secrets.RAG_QUEUE_WORKER_SECRET }}
           GEMINI_API_KEY_QUESTIONS: ${{ secrets.GEMINI_API_KEY_QUESTIONS }}
           GEMINI_API_KEY_CONTENT: ${{ secrets.GEMINI_API_KEY_CONTENT }}
