@@ -12,6 +12,7 @@ import { renderPlainTextMath } from '@/app/src/lib/topicContentV11';
 import { buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 import { getYaziliExam, getYaziliHub, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
 import { difficultyBand } from '@/app/src/lib/yazili/papers';
+import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
 import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
@@ -137,6 +138,11 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
             </p>
           )}
         </SoruBankasiHeader>
+
+        <SoruBankasiQuickNav
+          label={`${hubName} dersleri`}
+          items={(hubData?.hub.lessons ?? []).map((l) => ({ key: l.exam.id, href: l.exam.path, label: l.name, current: l.exam.id === exam.id }))}
+        />
 
         <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
           <div className="flex min-w-0 flex-col gap-8">

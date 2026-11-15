@@ -54,10 +54,8 @@ export async function getQuestionIdsForTopics(supabase: AnySupabaseClient, topic
 // gerçek toplamı görmeye devam eder.
 // excludeClassical=true, question_type_id=4 (klasik/açık uçlu, otomatik değerlendirilemeyen)
 // soruları da sayıma dahil etmez — öğrencinin etkileşime girdiği HER sayfada (ünite/konu
-// sayfası, testler, panel, soru bankası) kullanılmalı; sadece ana sayfadaki toplam sayı
-// (bkz. homeStats.ts:getPublishedUnitContent, RPC count_questions_by_topic) bilerek klasik
-// soruları da sayar — kullanıcı isteği, 2026-09-13: "ilerde klasik soruları göstermek
-// istediğim yerde göstersin" — o yüzden ayrı, açık bir opt-in/opt-out flag.
+// sayfası, testler, panel, soru bankası, anasayfa) kullanılmalı. Anasayfa da 2026-11-16'dan beri
+// klasikleri saymıyor (önceden bilerek sayıyordu; soru bankasıyla sayılar tutmuyordu).
 export async function getQuestionCountsByTopicId(
   supabase: AnySupabaseClient,
   topicIds: number[],

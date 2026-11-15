@@ -44,13 +44,14 @@ export async function getPublishedUnitContent(supabase: AnySupabaseClient, grade
   // yapılıyor (count_questions_by_topic RPC'si) — PostgREST'in varsayılan 1000 satır limiti
   // yüzünden gerçek soru sayısı 1000'i geçince anasayfa sessizce "1000"de takılı kalıyordu
   // (2026-09-10 kullanıcı bildirimi, bkz. migration). RPC tek satır/konu döndürdüğü için bu
-  // limite hiç takılmıyor.
+  // limite hiç takılmıyor. Klasik (yazılı) sorular sayılmaz: öğrencinin soru bankasında çözebildiği
+  // sayıyla anasayfadaki sayı tutsun (2026-11-16; soru bankası da activeOnly+excludeClassical).
   const [{ data: publishedContentRows }, { data: countRows }] = await Promise.all([
     topicIds.length
       ? supabase.from('topic_contents').select('id, topic_id').in('topic_id', topicIds).eq('is_published', true)
       : Promise.resolve({ data: [] as { id: number; topic_id: number }[] }),
     topicIds.length
-      ? supabase.rpc('count_questions_by_topic', { p_topic_ids: topicIds })
+      ? supabase.rpc('count_questions_by_topic', { p_topic_ids: topicIds, p_active_only: true, p_exclude_classical: true })
       : Promise.resolve({ data: [] as { topic_id: number; cnt: number }[] }),
   ]);
 

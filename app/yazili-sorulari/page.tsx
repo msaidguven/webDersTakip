@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { SITE_URL } from '@/app/src/lib/site';
 import { buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 import { getYaziliIndex, gradeHubs, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
-import { SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
 import r from '@/app/src/components/robotic/robotic.module.css';
@@ -32,7 +32,6 @@ export default async function YaziliIndexPage() {
           eyebrow="2026-2027 · MEB ortak yazılıya uygun"
           title="Yazılı Soruları"
           pills={[`${allExams.length} yazılı`, `${allExams.reduce((n, e) => n + e.questionCount, 0)} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
-          intro="Sınıfa ve yazılıya göre 1. ve 2. dönem yazılı soruları. Sorular MEB'in konu-soru dağılım tablolarındaki konulara göre hazırlandı; her sorunun cevabı var."
         />
 
         {dated.length > 0 && (
@@ -80,6 +79,9 @@ export default async function YaziliIndexPage() {
           ))}
           {!grades.length && <p className="py-8 text-center text-sm text-muted-foreground">Yazılı soruları hazırlanıyor.</p>}
         </div>
+
+        {/* Açıklama listelerin altında (soru bankası sayfalarıyla aynı düzen): telefonda sınıf listesine ulaşmak için kaydırmak gerekmesin. */}
+        <SoruBankasiAbout text="Sınıfa ve yazılıya göre 1. ve 2. dönem yazılı soruları. Sorular MEB'in konu-soru dağılım tablolarındaki konulara göre hazırlandı; her sorunun cevabı var." />
       </div>
     </div>
   );
