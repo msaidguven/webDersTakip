@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markdownToHtml } from '@/app/src/lib/topicContentV11';
 import { normalizeRecapCard, recapCardToHtml, type RecapCardHtml } from '@/app/src/lib/recapCards';
+import { HAND_WRITTEN_LESSON_TOPIC_IDS } from '@/app/src/lib/interactiveLesson/handWritten';
 
 type LearningOutcomeRow = { id: number; code: string | null; title: string };
 type OutcomeRow = {
@@ -103,6 +104,8 @@ export type LessonWeekContent = {
   isArchived: boolean;
   // "Video / Sesli Anlatım" hazır mı (topic_narrations satırı var mı) — bkz. app/src/lib/narration.
   hasNarration: boolean;
+  // Etkileşimli ders hazır mı (elle yazılmış ya da worker'ın bitirdiği) — konu sayfasında "Etkileşimli derse başla".
+  hasInteractiveLesson: boolean;
 };
 
 function extractHeroImageAlt(generationMeta: unknown): string | null {
@@ -230,6 +233,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     contentLoaded: false,
     isArchived: t.is_archived,
     hasNarration: false,
+    hasInteractiveLesson: false,
   }));
 
   if (contentTopicIds.length) {
@@ -251,9 +255,10 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     const sectionsByTopic = new Map<number, LessonWeekSection[]>();
     const highlightsByTopic = new Map<number, { icon: string | null; title: string; description: string }[]>();
     const narratedTopicIds = new Set<number>();
+    const interactiveTopicIds = new Set<number>(HAND_WRITTEN_LESSON_TOPIC_IDS.filter((id) => contentTopicIds.includes(id)));
 
     if (contentIds.length) {
-      const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }, { data: narrationsData }] = await Promise.all([
+      const [{ data: sectionsData, error: sectionsError }, { data: highlightsData }, { data: narrationsData }, { data: interactiveData }] = await Promise.all([
         supabase
           .from('topic_content_sections')
           .select('id, topic_content_id, order_no, heading, body_markdown, notebook_markdown, activity_prompt_markdown, activity_example_markdown, image_url, image_prompt, image_alt, diagram_svg, video_url, video_prompt, video_type, recap_card')
@@ -266,8 +271,11 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
           .order('order_no', { ascending: true }),
         // Tablo henüz yoksa (migration çalıştırılmadıysa) hata → buton görünmez, sayfa etkilenmez.
         supabase.from('topic_narrations').select('topic_id').in('topic_id', contentTopicIds),
+        // Worker'ın bitirdiği dersler (tablo dışarıya kapalı; yalnız konu numaraları — interactive_lesson_public.sql).
+        supabase.rpc('interactive_lesson_ready_topics', { p_topic_ids: contentTopicIds }),
       ]);
       for (const row of (narrationsData as { topic_id: number }[] | null) || []) narratedTopicIds.add(row.topic_id);
+      for (const id of (interactiveData as number[] | null) || []) interactiveTopicIds.add(Number(id));
 
       // Sorgu bir sebeple (ör. eksik migration) hata verirse sessizce boş alt başlık
       // listesine düşmek yerine logluyoruz — aksi halde TÜM konularda alt başlık/içerik
@@ -320,6 +328,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       highlights: highlightsByTopic.get(c.id) || [],
       contentLoaded: loadedTopicIds.has(c.id),
       hasNarration: narratedTopicIds.has(c.id),
+      hasInteractiveLesson: interactiveTopicIds.has(c.id),
     }));
   }
 

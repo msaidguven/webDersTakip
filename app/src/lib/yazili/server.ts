@@ -1,7 +1,7 @@
 // Yazılı soruları — admin route'larının ortak sunucu sorguları: konuların kazanımları (promptla aynı
 // kazanım anahtarlarıyla) ve konu/kazanım bazında klasik soru sayıları.
 import 'server-only';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath } from '@/app/src/lib/cacheInvalidation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { attachLearningOutcomeCodes, buildOutcomeKeys, sortOutcomesByWeek } from '@/app/src/lib/outcomeCodes';
 import { TYPE_ID, type ParsedClassical } from '@/app/src/lib/parseMixedQuestions';

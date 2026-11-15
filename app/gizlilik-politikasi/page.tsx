@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { StaticPageLayout } from '@/app/src/components/StaticPageLayout';
 
 const canonicalPath = '/gizlilik-politikasi';
 const CONTACT_EMAIL = 'info@derstakip.net';
-const LAST_UPDATED = '26 Eylül 2026';
+const LAST_UPDATED = '15 Kasım 2026';
 
 export const metadata: Metadata = {
   title: 'Gizlilik Politikası',
@@ -83,6 +84,11 @@ export default function PrivacyPolicyPage() {
       <p>
         Verilerinize erişme, düzeltme veya silinmesini talep etme hakkına sahipsiniz. Bu tür talepleriniz
         için <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> adresinden bize ulaşabilirsiniz.
+      </p>
+      <p>
+        Hesabınızı <Link href="/hesap-silme">Hesabımı sil</Link> sayfasından kendiniz silebilirsiniz. Silme isteğinden
+        30 gün sonra hesabınız ve hesabınıza bağlı veriler kalıcı olarak silinir; bu süre içinde giriş yaparak
+        isteğinizden vazgeçebilirsiniz.
       </p>
 
       <h2>Değişiklikler</h2>

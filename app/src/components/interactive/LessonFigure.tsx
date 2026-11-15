@@ -1,6 +1,7 @@
 'use client';
 
-// Etkileşimli dersin görselleri: hazır bileşenler (kartlar, tablo, ağaç, akış, parçala) + SVG + resim.
+// Etkileşimli dersin görselleri: hazır bileşenler (kartlar, tablo, ağaç, akış, parçala, denklem, döngü, merkez,
+// karşılaştır, çubuk) + SVG + resim.
 // Hazır bileşenler yalnız veriyle çizilir (bkz. app/src/lib/interactiveLesson/types.ts LessonVisual).
 import { useId, useMemo, type ReactNode } from 'react';
 import {
@@ -12,7 +13,7 @@ import {
 } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import type { IconName } from '@/app/src/lib/interactiveLesson/icons';
-import type { CardsFigure, FlowFigure, LessonVisual, PartsFigure, TableFigure, TreeFigure } from '@/app/src/lib/interactiveLesson/types';
+import type { BarsFigure, CardsFigure, CompareFigure, CycleFigure, EquationFigure, FlowFigure, HubFigure, LessonVisual, PartsFigure, TableFigure, TreeFigure } from '@/app/src/lib/interactiveLesson/types';
 
 export const LESSON_ICONS: Record<IconName, LucideIcon> = {
   Archive, ArrowDownUp, BookOpen, Calculator, CircleCheck, Clapperboard, ClipboardPaste, Cloud, Cog, Copy, Database, File,
@@ -52,6 +53,16 @@ function termsOf(visual: LessonVisual): Termed[] {
       return visual.steps;
     case 'parcala':
       return visual.parts;
+    case 'denklem':
+      return [...visual.inputs, visual.result];
+    case 'dongu':
+      return visual.steps;
+    case 'merkez':
+      return [visual.center, ...visual.parts];
+    case 'karsilastir':
+      return visual.sides;
+    case 'cubuk':
+      return visual.bars;
     default:
       return [];
   }
@@ -209,6 +220,170 @@ function Parts({ figure, active, hasActive }: { figure: PartsFigure } & ActivePr
   );
 }
 
+// İkonlu yuvarlak + etiket (+ kısa açıklama): denklem, döngü ve merkez görsellerinin ortak öğesi.
+function IconTile({ item, i, size = 'md', active, hasActive }: { item: { icon?: IconName; label: string; text?: string; term?: string }; i: number; size?: 'md' | 'lg' } & ActiveProps) {
+  return (
+    <div className={`flex h-full flex-col items-center px-2 py-2.5 text-center transition ${CARD} ${termClass(item, active, hasActive)}`}>
+      <span className={`grid place-items-center rounded-full ${ACCENTS[i % ACCENTS.length]} ${size === 'lg' ? 'h-14 w-14' : 'h-10 w-10'}`}>
+        {item.icon ? <LessonIcon name={item.icon} className={size === 'lg' ? 'h-8 w-8' : 'h-5 w-5'} /> : <span className="text-base font-bold">{i + 1}</span>}
+      </span>
+      <p className={`mt-1.5 font-bold leading-tight text-slate-900 ${size === 'lg' ? 'text-lg' : 'text-base'}`}>{item.label}</p>
+      {item.text && <p className="mt-1 text-sm leading-snug text-slate-600">{item.text}</p>}
+    </div>
+  );
+}
+
+function Op({ children }: { children: ReactNode }) {
+  return <span className="grid h-9 w-9 shrink-0 place-items-center self-center rounded-full bg-orange-500 text-xl font-black text-white shadow-sm" aria-hidden="true">{children}</span>;
+}
+
+// A + B = C: telefonda girdiler yan yana (2-3 sütun), sonuç altta büyük; geniş ekranda tek satır.
+function Equation({ figure, active, hasActive }: { figure: EquationFigure } & ActiveProps) {
+  const n = figure.inputs.length;
+  return (
+    <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-stretch sm:justify-center">
+      <div className={`grid w-full items-stretch gap-1.5 sm:flex sm:w-auto sm:flex-1 ${n === 3 ? 'grid-cols-[1fr_auto_1fr_auto_1fr]' : 'grid-cols-[1fr_auto_1fr]'}`}>
+        {figure.inputs.map((it, i) => (
+          <div key={i} className="contents">
+            {i > 0 && <Op>+</Op>}
+            <div className="min-w-0 sm:flex-1"><IconTile item={it} i={i} active={active} hasActive={hasActive} /></div>
+          </div>
+        ))}
+      </div>
+      <Op>=</Op>
+      <div className="w-full max-w-xs sm:w-auto sm:flex-[1.3]">
+        <div className={`h-full rounded-2xl ring-4 ring-amber-200 ${termClass(figure.result, active, hasActive)}`}>
+          <IconTile item={figure.result} i={1} size="lg" hasActive={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Sunucu ve tarayıcı son basamağı farklı yuvarlayabiliyor (hydration uyarısı): koordinatlar 2 basamak.
+const round = (n: number) => Math.round(n * 100) / 100;
+
+// Döngü: adımlar bir çemberin çevresine dizilir, aralarında saat yönünde ok (telefonda da sığar: öğe %30 genişlik).
+function Cycle({ figure, active, hasActive }: { figure: CycleFigure } & ActiveProps) {
+  const marker = `cyc${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const count = figure.steps.length;
+  const r = 34; // yüzde: öğe merkezlerinin çember yarıçapı (öğe %30 genişlik → kaba taşmaz)
+  const at = (k: number) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * k) / count;
+    return { x: round(50 + r * Math.cos(a)), y: round(50 + r * Math.sin(a)) };
+  };
+  return (
+    <div className="relative mx-auto aspect-square w-full max-w-[30rem]">
+      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <defs>
+          <marker id={marker} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="2.6" markerHeight="2.6" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#fb923c" />
+          </marker>
+        </defs>
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#fed7aa" strokeWidth="0.8" strokeDasharray="2 1.5" />
+        {figure.steps.map((_, i) => {
+          // Bir adımdan sonrakine ok: yayın öğe aralarında kalan kısmı (uçlar öğelerin altında kalmasın).
+          const p1 = at(i + 0.38);
+          const p2 = at(i + 0.62);
+          return <path key={i} d={`M${p1.x} ${p1.y} A${r} ${r} 0 0 1 ${p2.x} ${p2.y}`} fill="none" stroke="#fb923c" strokeWidth="1.6" strokeLinecap="round" markerEnd={`url(#${marker})`} />;
+        })}
+      </svg>
+      <div className="absolute left-1/2 top-1/2 flex w-[34%] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
+        <Repeat className="h-7 w-7 text-orange-500" aria-hidden="true" />
+        {figure.center && <p className="mt-1 text-sm font-bold leading-tight text-slate-700">{figure.center}</p>}
+      </div>
+      {figure.steps.map((st, i) => {
+        const p = at(i);
+        return (
+          // Çember çevresinde yer dar: adım açıklaması gösterilmez.
+          <div key={i} className="absolute w-[30%] -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+            <IconTile item={{ ...st, text: undefined }} i={i} active={active} hasActive={hasActive} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Merkez + parçalar: bütün üstte, parçalar altta ızgarada (çember dizilimi telefonda sıkışıyordu).
+function Hub({ figure, active, hasActive }: { figure: HubFigure } & ActiveProps) {
+  const n = figure.parts.length;
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`w-full max-w-[14rem] rounded-2xl ring-4 ring-amber-200 ${termClass(figure.center, active, hasActive)}`}>
+        <IconTile item={figure.center} i={1} size="lg" hasActive={false} />
+      </div>
+      <div className={`h-4 w-0.5 ${LINE}`} aria-hidden="true" />
+      <ul className={`grid w-full gap-2.5 border-t-2 border-slate-300 pt-3 ${n === 4 ? 'grid-cols-2 sm:grid-cols-4' : n <= 4 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+        {figure.parts.map((p, i) => <li key={i}><IconTile item={p} i={i} active={active} hasActive={hasActive} /></li>)}
+      </ul>
+    </div>
+  );
+}
+
+const SIDE_STYLE = [
+  { head: 'bg-sky-100 text-sky-800', dot: 'bg-sky-500' },
+  { head: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
+];
+
+function Compare({ figure, active, hasActive }: { figure: CompareFigure } & ActiveProps) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="relative grid grid-cols-2 gap-2.5">
+        {figure.sides.map((s, i) => (
+          <div key={i} className={`overflow-hidden transition ${CARD} ${termClass(s, active, hasActive)}`}>
+            {/* İç kenarda VS rozeti payı: dar ekranda başlık rozetin altına girmesin. */}
+            <p className={`flex items-center justify-center gap-2 py-2.5 text-center font-bold leading-tight ${i === 0 ? 'pl-2 pr-5' : 'pl-5 pr-2'} ${SIDE_STYLE[i].head}`}>
+              <LessonIcon name={s.icon} className="h-5 w-5 shrink-0" />
+              {s.title}
+            </p>
+            <ul className="space-y-2 p-3">
+              {s.points.map((p, j) => (
+                <li key={j} className="flex gap-2 text-sm leading-snug text-slate-700 sm:text-base">
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${SIDE_STYLE[i].dot}`} aria-hidden="true" />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <span className="absolute left-1/2 top-2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full bg-orange-500 text-xs font-black text-white ring-4 ring-[#eef2fb]" aria-hidden="true">VS</span>
+      </div>
+      {figure.common && figure.common.length > 0 && (
+        <div className={`px-3 py-2.5 ${CARD}`}>
+          <p className="text-center text-sm font-bold text-emerald-700">İkisinde de</p>
+          <ul className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-slate-700 sm:text-base">
+            {figure.common.map((c, j) => <li key={j} className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />{c}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Yatay çubuklar; uzunluk en büyük değere göre (en küçük çubuk da görünsün diye en az %4).
+function Bars({ figure, active, hasActive }: { figure: BarsFigure } & ActiveProps) {
+  const max = Math.max(...figure.bars.map((b) => b.value), 0) || 1;
+  return (
+    <ul className={`mx-auto max-w-3xl space-y-3 p-4 ${CARD}`}>
+      {figure.bars.map((b, i) => (
+        <li key={i} className={`transition ${termClass(b, active, hasActive)} rounded-lg`}>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+              <LessonIcon name={b.icon} className="h-4 w-4 text-slate-500" />
+              {b.label}
+            </span>
+            <span className="font-bold tabular-nums text-slate-900">{b.display ?? b.value.toLocaleString('tr-TR')}</span>
+          </div>
+          <div className="mt-1 h-4 rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${['bg-sky-500', 'bg-amber-500', 'bg-emerald-500', 'bg-fuchsia-500', 'bg-indigo-500', 'bg-rose-500'][i % 6]}`} style={{ width: `${Math.max(4, (b.value / max) * 100)}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 const SAFE_TERM = /^[a-z0-9-]+$/;
 
 // Etkileşimli SVG haritası (kavram bağı, keşif, etiketleme, görselde bul ortak altyapısı):
@@ -327,6 +502,11 @@ export default function LessonFigure({ visual, compact = false, active }: { visu
       {visual.kind === 'agac' && <Tree figure={visual} active={active} hasActive={hasActive} />}
       {visual.kind === 'akis' && <Flow figure={visual} compact={compact} active={active} hasActive={hasActive} />}
       {visual.kind === 'parcala' && <Parts figure={visual} active={active} hasActive={hasActive} />}
+      {visual.kind === 'denklem' && <Equation figure={visual} active={active} hasActive={hasActive} />}
+      {visual.kind === 'dongu' && <Cycle figure={visual} active={active} hasActive={hasActive} />}
+      {visual.kind === 'merkez' && <Hub figure={visual} active={active} hasActive={hasActive} />}
+      {visual.kind === 'karsilastir' && <Compare figure={visual} active={active} hasActive={hasActive} />}
+      {visual.kind === 'cubuk' && <Bars figure={visual} active={active} hasActive={hasActive} />}
       {visual.caption && <figcaption className={`text-center text-sm ${framed ? 'px-3 py-2 text-slate-300' : 'mt-2 text-slate-500'}`}>{visual.caption}</figcaption>}
     </figure>
   );

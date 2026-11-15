@@ -1,4 +1,4 @@
-// Etkileşimli dersin anlatıcı robotu (Bit) için sesleri elle üretir (normalde etkileşimli ders worker'ı
+// Etkileşimli dersin anlatıcı robotu (Atom) için sesleri elle üretir (normalde etkileşimli ders worker'ı
 // üretilen derslerin seslerini kendisi üretir). Üretim mantığı app/src/lib/interactiveLesson/voice.ts'te.
 //   NODE_OPTIONS=--conditions=react-server npx tsx scripts/generate-lesson-voice.ts 704 817 818 881 [--redo=<regex>]
 // --redo: deseni içeren cümleler, sesi olsa da yeniden üretilir (okunuş düzeltmesinden sonra, ör. --redo=[âîû]).

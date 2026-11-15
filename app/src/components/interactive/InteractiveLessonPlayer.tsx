@@ -1,7 +1,7 @@
 'use client';
 
-// Etkileşimli ders oynatıcısı (YALNIZCA ADMİN ÖNİZLEMESİ). 2026-11-01 oyun tasarımı: dersi anlatıcı robot Bit
-// anlatır — konuşma balonu ekranın üstünde sabit, metni Bit sesli okur (önceden üretilmiş sesler, guide.ts),
+// Etkileşimli ders oynatıcısı (2026-11-03'ten beri herkese açık; ilerleme kaydı henüz yok). 2026-11-01 oyun tasarımı: dersi anlatıcı robot Atom
+// anlatır — konuşma balonu ekranın üstünde sabit, metni Atom sesli okur (önceden üretilmiş sesler, guide.ts),
 // arka planda açılıp kapanabilen müzik; ana düğme (Devam / Kontrol et) balonun sonunda (kullanıcı isteği: alt
 // çubuk yok, ekran içeriğe kalsın). Ders, konunun bölümleri kadar bloktan oluşur: anlatım → pekiştirme →
 // havuzdan test soruları → "Konuyu anladık mı?" ("yazılı" sözcüğü bilerek kullanılmaz) → bölüm sonu.
@@ -16,14 +16,16 @@ import { CheckCircle2, ChevronLeft, Loader2, Maximize2, Minimize2, Minus, Music,
 import MathText from '@/app/src/components/MathText';
 import { QuestionSvg } from '@/app/src/components/QuizClient';
 import LessonFigure, { labelRect, LessonIcon, MapSvg, nearestTerm } from '@/app/src/components/interactive/LessonFigure';
-import BitRobot, { type BitMood } from '@/app/src/components/interactive/BitRobot';
+import RobotGuide, { type RobotMood } from '@/app/src/components/interactive/RobotGuide';
 import { useFullscreen } from '@/app/src/components/questionPlayer/QuestionPlayerParts';
 import type { BlankQuestion, MultipleChoiceQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { TERM_LINK, termSlug, type LessonTerm } from '@/app/src/lib/interactiveLesson/types';
 import { conceptsIn, linkConcepts } from '@/app/src/lib/interactiveLesson/conceptLinks';
 import { GUIDE, narrativeParts, narrativeSpeech, praiseAt, ROBOT_NAME, stepIntro, ttsText, type NarrativePart, voiceAudioPath, voiceKey, voiceManifestPath, VOICE_BUCKET } from '@/app/src/lib/interactiveLesson/guide';
 import { lessonSound } from '@/app/src/lib/interactiveLesson/sound';
-import type { BlankStep, ExploreStep, FindStep, HydratedLesson, LabelStep, NarrativeStep, HydratedStep, LessonVisual, MatchStep, MultiStep, SortStep, TrueFalseStep } from '@/app/src/lib/interactiveLesson/types';
+import { trackContentEvent } from '@/app/src/lib/contentUsage';
+import { useAuth } from '@/app/src/context/AuthContext';
+import type { BlankStep, ExploreStep, FindStep, HydratedLesson, LabelStep, NarrativeStep, HydratedStep, LessonPhoto, LessonVisual, MatchStep, MultiStep, SortStep, TrueFalseStep } from '@/app/src/lib/interactiveLesson/types';
 
 const display = Baloo_2({ subsets: ['latin', 'latin-ext'], weight: ['700', '800'] });
 
@@ -99,11 +101,11 @@ function isDone(step: HydratedStep, state: StepState | undefined, part?: Narrati
   }
 }
 
-/* ---------------- Anlatıcı (Bit): konuşma + balon ---------------- */
+/* ---------------- Anlatıcı (Atom): konuşma + balon ---------------- */
 
 type Tone = 'ok' | 'retry' | 'info' | null;
-type Speech = { lines: string[]; mood?: BitMood; tone?: Tone; sfx?: 'ok' | 'retry' | 'tap' | 'win' };
-// say: Bit konuşur (ses + ruh hâli + balon rengi). Balonun İÇERİĞİ ayrıca bildirimseldir: adım, metnini
+type Speech = { lines: string[]; mood?: RobotMood; tone?: Tone; sfx?: 'ok' | 'retry' | 'tap' | 'win' };
+// say: Atom konuşur (ses + ruh hâli + balon rengi). Balonun İÇERİĞİ ayrıca bildirimseldir: adım, metnini
 // <Bubble> ile balona yerleştirir (portal) — kavram bağları gibi canlı öğeler balonda da çalışır.
 const SayContext = createContext<(s: Speech) => void>(() => {});
 const BubbleContext = createContext<HTMLElement | null>(null);
@@ -169,7 +171,7 @@ function afterCheck<T extends CheckState>(s: T, marks: Mark[], solved: boolean):
   return { ...s, marks, solved, fails: solved ? s.fails : s.fails + 1, firstTry: s.firstTry ?? solved };
 }
 
-// Kontrol anında Bit'in tepkisi (ses + renk). Balondaki yazı CheckFeedback'te.
+// Kontrol anında Atom'un tepkisi (ses + renk). Balondaki yazı CheckFeedback'te.
 function checkSpeech(solved: boolean, fails: number, explanation: string, seed: number, missing = false): Speech {
   if (solved) return { lines: [praiseAt(seed), explanation], mood: 'happy', tone: 'ok', sfx: 'ok' };
   const base = missing ? GUIDE.missing : GUIDE.retry;
@@ -459,7 +461,7 @@ function MisconceptionCard({ wrong, right }: { wrong: string; right: string }) {
 
 type Predict = NonNullable<NarrativeStep['predict']>;
 
-// "Önce tahmin et": soruyu Bit sorar (balonda); seçenekler sahnede. Cevaplanınca tek satıra iner.
+// "Önce tahmin et": soruyu Atom sorar (balonda); seçenekler sahnede. Cevaplanınca tek satıra iner.
 function PredictChoices({ p, pick, seed, onPick }: { p: Predict; pick: number | undefined; seed: string; onPick: (i: number) => void }) {
   const order = useMemo(() => displayOrder(p.options, seed), [p, seed]);
   if (pick === undefined) {
@@ -487,7 +489,7 @@ function PredictChoices({ p, pick, seed, onPick }: { p: Predict; pick: number | 
 }
 
 // Anlatım ekranı (üç parçadan biri): text = başlık + metin (kavram bağlarıyla) + varsa tahmin; visual = görsel tam
-// genişlik (Bit kartları/adımları okur); mis = sık yapılan yanılgı kartı.
+// genişlik (Atom kartları/adımları okur); mis = sık yapılan yanılgı kartı.
 function NarrativeView({ step, part, seed, state, onChange, terms }: { step: NarrativeStep; part: NarrativePart; seed: string; state: PredictState | undefined; onChange: (s: PredictState) => void; terms: Record<string, LessonTerm> }) {
   const say = useSay();
   const p = step.predict;
@@ -542,18 +544,33 @@ function NarrativeView({ step, part, seed, state, onChange, terms }: { step: Nar
           seed={seed}
           onPick={(pick) => {
             onChange({ pick });
-            // Tahmin sonucunun ardından Bit anlatıma geçer (tek konuşma: sonuç + metin).
+            // Tahmin sonucunun ardından Atom anlatıma geçer (tek konuşma: sonuç + metin).
             const ok = pick === p.answer;
             say({ lines: [ok ? GUIDE.predictOk(p.options[p.answer]) : GUIDE.predictInfo(p.options[p.answer]), step.body ?? step.title], mood: ok ? 'happy' : 'wow', tone: ok ? 'ok' : 'info', sfx: ok ? 'ok' : undefined });
           }}
         />
       )}
       {open && activeTerm && activeDef && <ConceptCard term={activeDef} onClose={() => setActiveTerm(null)} />}
+      {open && step.photo && <LessonPhotoView photo={step.photo} />}
     </div>
   );
 }
 
-// Keşif haritası: haritaya dokununca Bit o yeri anlatır; yakın plan kartı (resim, özellikler) haritanın yanında.
+// Gerçek fotoğraf + lisansın istediği atıf (yazar, lisans, kaynak bağlantısı).
+function LessonPhotoView({ photo }: { photo: LessonPhoto }) {
+  return (
+    <figure className="mx-auto max-w-2xl overflow-hidden rounded-2xl border-2 border-b-4 border-slate-200 bg-white">
+      {/* Wikimedia adresi; next/image alan adı izni gerektirmesin diye düz img. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={photo.url} alt={photo.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-[45vh] w-full bg-slate-100 object-contain" />
+      <figcaption className="px-3 py-1.5 text-right text-xs text-slate-500">
+        <a href={photo.source} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">{photo.credit} · {photo.license} · Wikimedia Commons</a>
+      </figcaption>
+    </figure>
+  );
+}
+
+// Keşif haritası: haritaya dokununca Atom o yeri anlatır; yakın plan kartı (resim, özellikler) haritanın yanında.
 function ExploreView({ step, seed, state, onChange }: { step: ExploreStep; seed: string; state: ExploreState | undefined; onChange: (s: ExploreState) => void }) {
   const say = useSay();
   const s = state ?? { visited: [], pick: undefined };
@@ -1344,7 +1361,7 @@ function ChoiceView({ step, state, onChange, onAnswer, inline = false }: { step:
   return (
     <div className="space-y-4">
       {!inline && (
-        // Soru metni Bit'in balonunda (Bit okur); sahnede metin parçası, görsel ve şıklar.
+        // Soru metni Atom'un balonunda (Atom okur); sahnede metin parçası, görsel ve şıklar.
         <Bubble>
           <MathText as="p" text={q.question_text} className="block whitespace-pre-line font-bold text-slate-900" />
           {result && <div className="mt-1">{result}</div>}
@@ -1625,6 +1642,11 @@ function Confetti() {
 
 /* ---------------- Oynatıcı ---------------- */
 
+// Üyenin kaldığı yer (interactive_lesson_progress, RLS ile yalnız kendi satırı; 2026-11-03). Ders yeniden üretilip
+// adım sayısı değiştiyse kayıt yok sayılır (adım numaraları artık başka adımları gösterir).
+type SavedProgress = { stepIndex: number; state: { states?: Record<number, StepState>; retryStates?: Record<number, ChoiceState>; seed?: string } };
+const PROGRESS_SAVE_DELAY_MS = 1200;
+
 export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
   const [lesson, setLesson] = useState<HydratedLesson | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1641,11 +1663,14 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
   const [stepAction, setStepAction] = useState<FooterAction>(null);
   const [sessionSeed, setSessionSeed] = useState(newSeed);
   const [bubbleEl, setBubbleEl] = useState<HTMLDivElement | null>(null);
-  const [mood, setMood] = useState<BitMood>('normal');
+  const [mood, setMood] = useState<RobotMood>('normal');
   const [tone, setTone] = useState<Tone>(null);
   const [talking, setTalking] = useState(false);
   const [voiced, setVoiced] = useState<Set<string> | null>(null);
   const [started, setStarted] = useState(false);
+  const [saved, setSaved] = useState<SavedProgress | null>(null);
+  const { user, supabase } = useAuth();
+  const userId = user?.id;
   const lastSpeech = useRef<Speech | null>(null);
   // say() kararlı (useCallback) kalsın diye güncel ayarlar ref'te; effect'ler bildirim sırasıyla çalışır, bu
   // eşitleme ekran konuşmasından (aşağıda) önce yapılır.
@@ -1670,7 +1695,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/admin/interactive-lesson?topicId=${topicId}`, { signal: controller.signal })
+    fetch(`/api/interactive-lesson?topicId=${topicId}`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
@@ -1680,7 +1705,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Yüklenemedi');
       });
-    // Seslendirilmiş cümlelerin listesi (yoksa Bit yalnız yazıyla konuşur).
+    // Seslendirilmiş cümlelerin listesi (yoksa Atom yalnız yazıyla konuşur).
     fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${VOICE_BUCKET}/${voiceManifestPath(topicId)}`, { signal: controller.signal, cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((m: { keys?: string[] } | null) => setVoiced(new Set(m?.keys ?? [])))
@@ -1699,12 +1724,13 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
     };
   }, []);
 
-  // Bit konuşur: ruh hâli + balon rengi + ses. Durum güncellemeleri bir sonraki görev adımında (ekran açılış
+  // Atom konuşur: ruh hâli + balon rengi + ses. Durum güncellemeleri bir sonraki görev adımında (ekran açılış
   // konuşması effect içinden çağrılır; ses dış sistemdir, durum ona eşlik eder).
   const say = useCallback((s: Speech) => {
     lastSpeech.current = s;
     const sound = lessonSound();
-    const audible = voiceOnRef.current && startedRef.current;
+    // Dersi açan tıklama ses bağlamını açtıysa karşılama cümlesi de okunur (müzik yine "Başla" ile).
+    const audible = voiceOnRef.current && (startedRef.current || sound.isUnlocked());
     if (audible && s.sfx) sound.sfx(s.sfx);
     const items = audible ? s.lines.map((l) => ({ url: voicedRef.current?.has(voiceKey(l)) ? voiceUrl(l) : null, text: ttsText(l) })) : [];
     queueMicrotask(() => {
@@ -1742,7 +1768,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
   }, [index]);
   const setState = (i: number) => (s: StepState) => setStates((prev) => ({ ...prev, [i]: s }));
 
-  // Ekrana girince Bit'in açılış konuşması. states bilerek bağımlılık değil: yalnız ekran değişince konuşur.
+  // Ekrana girince Atom'un açılış konuşması. states bilerek bağımlılık değil: yalnız ekran değişince konuşur.
   const statesRef = useRef(states);
   useEffect(() => {
     statesRef.current = states;
@@ -1774,17 +1800,73 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
     lessonSound().preload(lines.filter((l) => voiced.has(voiceKey(l))).map(voiceUrl));
   }, [started, voiced, current]);
 
+  // Üye: kaldığı yeri oku (yalnız yarım kalmış ve ders değişmemişse "Devam et" sunulur).
+  useEffect(() => {
+    if (!userId || !steps.length) return;
+    let cancelled = false;
+    supabase
+      .from('interactive_lesson_progress')
+      .select('step_index, step_count, state, finished')
+      .eq('topic_id', topicId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = data as { step_index: number; step_count: number; state: SavedProgress['state']; finished: boolean } | null;
+        if (cancelled || !row || row.finished || row.step_count !== steps.length || row.step_index <= 0 || row.step_index >= steps.length) return;
+        setSaved({ stepIndex: row.step_index, state: row.state ?? {} });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, supabase, topicId, steps.length]);
+
+  // Üye: ilerlemeyi kaydet (kısa gecikmeyle, art arda değişikliklerde tek yazma). Tarayıcıdan doğrudan, RLS ile.
+  useEffect(() => {
+    if (!userId || !started || !steps.length || index < 0) return;
+    const t = window.setTimeout(() => {
+      // Sorgu ancak sonucu beklenince gönderilir (supabase-js) — then şart.
+      supabase.from('interactive_lesson_progress').upsert({
+        user_id: userId,
+        topic_id: topicId,
+        step_index: Math.min(index, steps.length - 1),
+        step_count: steps.length,
+        state: { states, retryStates, seed: sessionSeed },
+        finished: index >= steps.length,
+        updated_at: new Date().toISOString(),
+      }).then(({ error }) => {
+        if (error) console.warn('[etkileşimli ders] ilerleme kaydedilemedi:', error.message);
+      });
+    }, PROGRESS_SAVE_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [userId, supabase, started, topicId, index, steps.length, states, retryStates, sessionSeed]);
+
+  useEffect(() => {
+    if (finished && started) trackContentEvent('interactive_finish', topicId);
+  }, [finished, started, topicId]);
+
   const canContinue = current ? current.step.kind === 'bolum_sonu' || isDone(current.step, states[index], current.part) : false;
   const isLast = index === steps.length - 1;
   const seed = `${sessionSeed}-${index}`;
 
-  const start = () => {
+  const begin = (at: number) => {
     // Ses bağlamı yalnız bir dokunuşun içinde açılabilir (tarayıcı kuralı).
     const sound = lessonSound();
     sound.unlock();
     if (musicOn) sound.startMusic();
     setStarted(true);
-    goTo(0);
+    trackContentEvent('interactive_open', topicId);
+    goTo(at);
+  };
+  const start = () => {
+    setSaved(null);
+    begin(0);
+  };
+  // Kaldığı yerden: adım durumları ve karıştırma tohumu geri yüklenir (seçenekler aynı sırada gelsin).
+  const resume = () => {
+    if (!saved) return start();
+    setStates(saved.state.states ?? {});
+    setRetryStates(saved.state.retryStates ?? {});
+    if (saved.state.seed) setSessionSeed(saved.state.seed);
+    begin(saved.stepIndex);
   };
   const restart = () => {
     setStates({});
@@ -1815,7 +1897,9 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
   const primary: { label: string; disabled?: boolean; run: () => void } | null = !lesson
     ? null
     : index === -1
-      ? { label: 'Başla', run: start }
+      ? saved
+        ? { label: 'Devam et', run: resume }
+        : { label: 'Başla', run: start }
       : finished
         ? { label: 'Baştan başla', run: restart }
         : stepAction ?? { label: isLast ? 'Dersi bitir' : 'Devam', disabled: !canContinue, run: () => goTo(index + 1) };
@@ -1884,7 +1968,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
                 {!error && !lesson && <Loader2 className="mx-auto mt-16 h-9 w-9 animate-spin text-slate-400" aria-label="Yükleniyor" />}
 
                 {lesson && (
-                  // Bit + konuşma balonu: üstte sabit; ana düğme balonun sonunda (alt çubuk yok).
+                  // Atom + konuşma balonu: üstte sabit; ana düğme balonun sonunda (alt çubuk yok).
                   <section className="sticky top-0 z-20 -mx-4 flex items-end gap-2.5 bg-[#eef2fb]/95 px-4 pb-3 pt-1 backdrop-blur sm:-mx-6 sm:gap-3 sm:px-6">
                     <button
                       type="button"
@@ -1893,7 +1977,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
                       title="Tekrar dinle"
                       className="w-[60px] shrink-0 pb-3 sm:w-[84px]"
                     >
-                      <BitRobot mood={mood} talking={talking} upgraded={finished} />
+                      <RobotGuide mood={mood} talking={talking} upgraded={finished} />
                     </button>
                     <div className={`relative min-w-0 flex-1 rounded-[20px] rounded-bl-md border-2 px-4 pb-2.5 pt-2.5 text-[1.05rem] leading-relaxed text-slate-800 transition-colors lg:text-[1.15rem] ${toneBox}`}>
                       <p className="text-[0.75rem] font-extrabold uppercase tracking-[.1em] text-orange-600">{eyebrow}</p>
@@ -1941,7 +2025,15 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
                         </li>
                       ))}
                     </ol>
-                    <p className="text-sm text-slate-500">Yönetici önizlemesi · Müzik ve {ROBOT_NAME}&apos;in sesi sağ üstten açılıp kapanır.</p>
+                    {saved && (
+                      <div className={`${panel} flex flex-wrap items-center justify-between gap-3 px-4 py-3`}>
+                        <p className="font-semibold text-slate-800">
+                          Kaldığın yerden devam edebilirsin: <span className="text-orange-700">{saved.stepIndex < steps.length ? `${steps[saved.stepIndex].block + 1}. bölüm` : 'son ekran'}</span>
+                        </p>
+                        <button type="button" onClick={start} className={ghostBtn}>Baştan başla</button>
+                      </div>
+                    )}
+                    <p className="text-sm text-slate-500">Müzik ve {ROBOT_NAME}&apos;in sesi sağ üstten açılıp kapanır.</p>
                   </div>
                 )}
 
@@ -1992,10 +2084,10 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
                     <Confetti />
                     <div className={`${panel} p-5 text-center`}>
                       <div className="mx-auto w-[110px]">
-                        <BitRobot mood="happy" upgraded />
+                        <RobotGuide mood="happy" upgraded />
                       </div>
                       <p className="mt-1 text-sm font-extrabold uppercase tracking-[.12em] text-orange-600">Ders tamamlandı</p>
-                      <p className={`${display.className} mt-1 text-[clamp(1.5rem,4vw,2.2rem)] font-extrabold leading-tight`}>{ROBOT_NAME} yeni parçalar kazandı: yıldız anteni ve jet motoru!</p>
+                      <p className={`${display.className} mt-1 text-[clamp(1.5rem,4vw,2.2rem)] font-extrabold leading-tight`}>{ROBOT_NAME} altın parıltı kazandı!</p>
                       <p className="mt-2 text-slate-600">
                         <span className="text-amber-500">★</span> <strong className="text-slate-900">{stars}</strong> yıldız topladın
                       </p>

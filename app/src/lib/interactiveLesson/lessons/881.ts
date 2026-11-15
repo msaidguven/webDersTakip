@@ -57,7 +57,7 @@ export const lesson881: LessonDefinition = {
   topicId: 881,
   // Anlatıcı robotun bu derse özel hikâyesi (açılış/kapanış).
   guide: {
-    intro: "Merhaba! Ben Bit. Bugün haritada hac ibadetinin yapıldığı mekânları ve aşamalarını sırayla keşfedeceğiz. Hazırsan başlayalım!",
+    intro: "Merhaba! Ben Atom. Bugün haritada hac ibadetinin yapıldığı mekânları ve aşamalarını sırayla keşfedeceğiz. Hazırsan başlayalım!",
     finish: "Tebrikler! Hac ibadetinin mekânlarını ve aşamalarını sırasıyla öğrendin.",
   },
   terms: {

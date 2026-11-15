@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Gamepad2,
   Headphones,
   Library,
   ListChecks,
@@ -39,6 +40,7 @@ import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { lessonSound } from '@/app/src/lib/interactiveLesson/sound';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
@@ -466,6 +468,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
   // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
   const tools: Tool[] = [
+    topic.hasInteractiveLesson && { key: 'interactive', label: 'Etkileşimli derse başla', hint: 'Oyunla öğren', icon: <Gamepad2 size={18} aria-hidden="true" />, onClick: () => {
+      // Tarayıcı sesi yalnız bir tıklamanın içinde açar: Bit karşılama cümlesini de okuyabilsin.
+      lessonSound().unlock();
+      setInteractiveOpen(true);
+    } },
     hasNarration && { key: 'listen', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
     sections.length > 0 && { key: 'slides', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
     hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
@@ -502,11 +509,6 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
           <button type="button" className={s.ghostBtn} onClick={() => setSwitcherOpen(true)}>
             <ListTree size={16} aria-hidden="true" /> Konu değiştir
           </button>
-          {isAdmin && (
-            <button type="button" className={s.ghostBtn} onClick={() => setInteractiveOpen(true)}>
-              🎬 Etkileşimli ders (önizleme)
-            </button>
-          )}
           {isAdmin && (
             <div className={s.menuWrap}>
               <button type="button" className={s.adminBtn} onClick={() => setAdminMenuOpen((v) => !v)} aria-expanded={adminMenuOpen}>
@@ -921,7 +923,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         />,
         document.body
       )}
-      {interactiveOpen && isAdmin && createPortal(
+      {interactiveOpen && topic.hasInteractiveLesson && createPortal(
         <InteractiveLessonPlayer topicId={Number(topic.id)} onClose={() => setInteractiveOpen(false)} />,
         document.body
       )}

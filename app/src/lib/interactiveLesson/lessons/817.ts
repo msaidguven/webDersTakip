@@ -65,7 +65,7 @@ export const lesson817: LessonDefinition = {
   topicId: 817,
   // Anlatıcı robotun bu derse özel hikâyesi (açılış/kapanış).
   guide: {
-    intro: "Merhaba! Ben Bit. Bilgisayarın parçaları da tıpkı benim parçalarım gibi birlikte çalışır. Hangi parça ne iş yapar, birlikte keşfedelim mi?",
+    intro: "Merhaba! Ben Atom. Bilgisayarın parçaları da tıpkı benim parçalarım gibi birlikte çalışır. Hangi parça ne iş yapar, birlikte keşfedelim mi?",
     finish: "Harika! Artık giriş ve çıkış birimlerini tanıyorsun. Parçalarım da sayende tıkır tıkır çalışıyor!",
   },
   terms: {

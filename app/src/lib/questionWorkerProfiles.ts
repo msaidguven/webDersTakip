@@ -42,9 +42,11 @@ export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerPr
     id: 'secondary',
     label: 'Soru AI 2',
     model: 'gemini-3.6-flash',
-    fallbackModels: ['gemini-3.8-flash'],
+    // 2026-11-06: 3.6/3.8 sık 503 veriyordu; 3.5-flash aynı anahtarlarla çalışıyor (ayrı günlük kota).
+    fallbackModels: ['gemini-3.8-flash', 'gemini-3.5-flash'],
     cronMinute: 13,
-    apiKeyEnvs: ['NEW_GEMINI_API_KEY_CONTENT'],
+    // 2026-11-03: kullanıcının aldığı ek anahtar (Vercel'e eklendi) — ilk anahtarın kotası dolunca ders üretimi buna geçer.
+    apiKeyEnvs: ['NEW_GEMINI_API_KEY_CONTENT', 'GEMINI_API_KEY_IMAGE'],
     // 2026-11-01 kullanıcı kararı: içerikli konuların etkileşimli dersleri bitene kadar önce bu işe çalışır.
     interactiveLesson: true,
   },

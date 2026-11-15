@@ -1,0 +1,70 @@
+# Zamanlanmış AI worker'ları (soru / içerik / sesli anlatım) burada çalışır — Vercel'in aktif CPU
+# sınırını yemesin diye (2026-11-15). Zamanlamayı GitHub DEĞİL Supabase pg_cron yapar (GitHub'ın kendi
+# "schedule" tetikleyicisi saatlerce gecikiyordu, 2026-09-09): pg_cron bu iş akışını workflow_dispatch ile
+# çağırır, bkz. supabase/migrations/workers_to_github_actions.sql.
+# Depo herkese açık → bu kayıtlar da herkese açık: betik yalnız sonuç özeti yazdırır.
+name: worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Worker türü
+        required: true
+        type: choice
+        options: [question, content, narration]
+      worker:
+        description: Worker profili (boş = primary)
+        required: false
+        type: string
+        default: ''
+      task:
+        description: Görev (ör. interactive_lesson)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# Aynı worker'ın önceki çalışması sürüyorsa yenisi sıraya girer; üst üste binmez.
+concurrency:
+  group: worker-${{ inputs.kind }}-${{ inputs.worker }}-${{ inputs.task }}
+  cancel-in-progress: false
+
+run-name: ${{ inputs.kind }} ${{ inputs.worker }} ${{ inputs.task }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: deps
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: worker-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.deps.outputs.cache-hit != 'true'
+        run: npm ci --no-audit --no-fund
+      - name: Worker'ı çalıştır
+        run: npx tsx scripts/run-worker.ts "$KIND" "$WORKER" "$TASK"
+        env:
+          KIND: ${{ inputs.kind }}
+          WORKER: ${{ inputs.worker }}
+          TASK: ${{ inputs.task }}
+          NODE_OPTIONS: --conditions=react-server
+          WORKER_REVALIDATE_URL: https://www.derstakip.net/api/internal/revalidate
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RAG_QUEUE_WORKER_SECRET: ${{ secrets.RAG_QUEUE_WORKER_SECRET }}
+          GEMINI_API_KEY_QUESTIONS: ${{ secrets.GEMINI_API_KEY_QUESTIONS }}
+          GEMINI_API_KEY_CONTENT: ${{ secrets.GEMINI_API_KEY_CONTENT }}
+          NEW_GEMINI_API_KEY_CONTENT: ${{ secrets.NEW_GEMINI_API_KEY_CONTENT }}
+          GEMINI_API_KEY_IMAGE: ${{ secrets.GEMINI_API_KEY_IMAGE }}
+          GEMINI_API_KEY_YAZILI: ${{ secrets.GEMINI_API_KEY_YAZILI }}
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}

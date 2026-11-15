@@ -3,9 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateGeminiJson } from '@/app/src/lib/geminiJsonGen';
 import type { GeminiWorkerProfile } from '@/app/src/lib/geminiWorkerProfile';
 import { getQuestionsByIds } from '@/app/src/lib/quizQuestions';
+import { ROBOT_NAME } from './guide';
 import { LESSON_ICON_NAMES, type IconName } from './icons';
-import { BLOCK_LIMITS, STEP_TEMPLATES, VISUAL_TEMPLATES, validateLesson } from './templates';
-import { termSlug, type LessonBlock, type LessonDefinition, type LessonStep, type LessonVisual } from './types';
+import { BLOCK_LIMITS, STEP_TEMPLATES, VISUAL_TEMPLATES, validateLesson, validateVisual } from './templates';
+import { TERM_LINK, termSlug, type LessonBlock, type LessonDefinition, type LessonStep, type LessonVisual } from './types';
 
 // Etkileşimli ders üretimi (Aşama 2, 2026-11-01): konunun yayındaki içeriği + anahtar kavramları + soru havuzu
 // → tek AI çağrısı → şemaya göre ayıklama (AI'ın JSON'una güvenilmez, her alan yeniden kurulur) → elle yazılan
@@ -86,9 +87,36 @@ export async function loadLessonSource(supabase: Supabase, topicId: number): Pro
 }
 
 // part: uzun konu parça parça üretilirken src.sections yalnız bu çağrının bölümleridir; guide yalnız ilk parçada.
+// Görsel türleri + seçim kuralları: ders üretimi ve hazır derslerin görsel yenilemesi (revisualizeLesson) ortak.
+function visualRules(): string {
+  const V = VISUAL_TEMPLATES;
+  const r = (x: readonly [number, number]) => `${x[0]}-${x[1]}`;
+  return `GÖRSELLER (visual; hepsinde "caption"? isteğe bağlı):
+- {"kind":"kartlar","cards":[{"icon"?,"title":"≤${V.kartlar.titleMax}","text"?:"≤${V.kartlar.textMax}","tag"?:"≤${V.kartlar.tagMax}"}]} ${r(V.kartlar.cards)} kart — türler/çeşitler/örnekler.
+- {"kind":"tablo","columns":[${r(V.tablo.columns)}],"rows":[[...]]} ${r(V.tablo.rows)} satır, hücre ≤${V.tablo.cellMax}; "✓"/"✗" hücreleri simge olur — karşılaştırma.
+- {"kind":"agac","root":{"label","icon"?},"children":[{"label","icon"?,"items"?:[≤3]}]} ${r(V.agac.children)} dal — hiyerarşi/sınıflandırma.
+- {"kind":"akis","steps":[{"label":"≤${V.akis.labelMax}","icon"?}]} ${r(V.akis.steps)} adım — süreç, sıra, neden-sonuç.
+- {"kind":"parcala","parts":[{"text":"≤${V.parcala.textMax}","label","note"?}]} ${r(V.parcala.parts)} parça — YALNIZ yazılı bir ifadeyi (dosya adı, e-posta/web adresi, kelime + ek) parçalarına ayırma.
+- {"kind":"denklem","inputs":[{"label":"≤${V.denklem.labelMax}","icon"?,"text"?:"≤${V.denklem.textMax}"}],"result":{"label","icon"?,"text"?}} ${r(V.denklem.inputs)} girdi — iki-üç şeyin birleşmesiyle oluşan kavram (Gerçek çevre + Dijital bilgi = Artırılmış gerçeklik).
+- {"kind":"dongu","center"?:"≤${V.dongu.centerMax}","steps":[{"label":"≤${V.dongu.labelMax}","icon"?}]} ${r(V.dongu.steps)} adım — kendini tekrarlayan süreç (son adım başa döner).
+- {"kind":"merkez","center":{"label","icon"?},"parts":[{"label":"≤${V.merkez.labelMax}","icon"?,"text"?:"≤${V.merkez.textMax}"}]} ${r(V.merkez.parts)} parça — bir bütün ve parçaları / bileşenleri / kullanım alanları.
+- {"kind":"karsilastir","sides":[{"title":"≤${V.karsilastir.titleMax}","icon"?,"points":[${r(V.karsilastir.points)} madde ≤${V.karsilastir.pointMax}]}, {…}],"common"?:[≤${V.karsilastir.common[1]} ortak madde]} — TAM 2 şeyin farkları.
+- {"kind":"cubuk","bars":[{"label":"≤${V.cubuk.labelMax}","value":<sayı>,"display"?:"gösterilecek değer, ör. %60","icon"?}]} ${r(V.cubuk.bars)} çubuk — sayısal büyüklükleri karşılaştırma; YALNIZ kaynakta yazan sayılar, sayı uydurma.
+İkon yalnız şu adlardan: ${LESSON_ICON_NAMES.join(', ')}. Uygun yoksa icon yazma (ikon görseli çok güçlendirir, uygun olanı mutlaka seç).
+
+GÖRSEL SEÇİMİ (bilginin şekline göre; görsel bilgiyi ÇİZEREK taşısın, metni kutuya koymak görsel değildir):
+- iki-üç şey birleşip yeni bir şey oluşturuyorsa → denklem
+- bir bütün ve parçaları / bileşenleri / kullanım alanları → merkez
+- tekrarlayan süreç → dongu; başı ve sonu olan süreç, sıra, neden-sonuç → akis
+- iki şeyin farkı → karsilastir; 3+ öğe aynı özelliklerle → tablo
+- türler, çeşitler, örnekler → kartlar; ana öğe → alt gruplar hiyerarşisi → agac
+- kaynakta sayısal değer (yüzde, miktar, süre) varsa → cubuk
+- parcala YALNIZ yazılı bir ifadeyi bölmek için; kavram anlatmak için ASLA kullanma.
+- Bir bölümdeki anlatım ekranlarında mümkünse farklı görsel türleri seç.`;
+}
+
 export function buildLessonPrompt(src: LessonSource, previousErrors?: string, part?: LessonPart): string {
   const T = STEP_TEMPLATES;
-  const V = VISUAL_TEMPLATES;
   const r = (x: readonly [number, number]) => `${x[0]}-${x[1]}`;
   const sections = src.sections
     .map((s) => [
@@ -103,7 +131,7 @@ export function buildLessonPrompt(src: LessonSource, previousErrors?: string, pa
   const terms = src.terms.map((t) => `- ${t.slug}: ${t.title} — ${t.description}`).join('\n') || '(anahtar kavram yok: kavram bağı kullanma)';
 
   return `Sen ortaokul öğrencileri için oyun havasında ETKİLEŞİMLİ DERS hazırlayan bir eğitim tasarımcısısın.
-Konu: ${src.grade} ${src.lesson} · "${src.title}". Dersi "Bit" adlı sevimli robot anlatır; öğrenci her ekranda bir şey yapar.
+Konu: ${src.grade} ${src.lesson} · "${src.title}". Dersi "${ROBOT_NAME}" adlı sevimli robot anlatır; öğrenci her ekranda bir şey yapar.
 ${part && part.of > src.sections.length ? `Ders ${part.of} bölümden oluşuyor; bu çağrıda yalnız aşağıdaki ${src.sections.length === 1 ? 'bölümü' : `${src.sections.length} bölümü`} yaz.${part.first ? '' : ' Bu ilk parça değil: "guide" yazma.'}\n` : ''}${part?.previous ? `ÖNCEKİ BÖLÜMLERDE YAZILANLAR (aynı bilgiyi ve aynı anlatım başlıklarını tekrar etme; mümkünse farklı etkinlik türleri ve görseller seç):\n${part.previous}\n` : ''}
 KAYNAK (yalnız buradaki bilgileri kullan, yeni bilgi ekleme, kaynakla çelişme):
 ${sections}
@@ -113,7 +141,7 @@ ${terms}
 
 ÇIKTI: yalnız JSON.
 {
-  "guide": { "intro": "Bit'in konuya özel kısa hikâyeli açılışı (1-2 cümle, 'Merhaba! Ben Bit.' ile başlar)", "finish": "kapanış (1-2 cümle)" },
+  "guide": { "intro": "${ROBOT_NAME} adlı robotun konuya özel kısa hikâyeli açılışı (1-2 cümle, 'Merhaba! Ben ${ROBOT_NAME}.' ile başlar)", "finish": "kapanış (1-2 cümle)" },
   "blocks": [ { "sectionId": <yukarıdaki id>, "title": "<kısa bölüm adı>", "steps": [ ... ] } ]
 }
 Yukarıdaki HER bölüm için sırasıyla bir blok yaz. Blok içi sıra: anlatım ekranları → pekiştirme → test soruları → klasik.
@@ -130,13 +158,7 @@ ADIM TÜRLERİ:
 - {"kind":"soru","questionId":<aynı bölümün test soru id'si>} — her soru en çok bir kez.
 - {"kind":"klasik","questionId":<aynı bölümün açık uçlu soru id'si>} ya da {"kind":"klasik","prompt":"≤${T.klasik.promptCharsMax} karakter","modelAnswer":"örnek cevap, 2-3 cümle"}
 
-GÖRSELLER (visual; hepsinde "caption"? isteğe bağlı):
-- {"kind":"kartlar","cards":[{"icon"?,"title":"≤${V.kartlar.titleMax}","text"?:"≤${V.kartlar.textMax}","tag"?:"≤${V.kartlar.tagMax}"}]} ${r(V.kartlar.cards)} kart — türler/çeşitler/örnekler.
-- {"kind":"tablo","columns":[${r(V.tablo.columns)}],"rows":[[...]]} ${r(V.tablo.rows)} satır, hücre ≤${V.tablo.cellMax}; "✓"/"✗" hücreleri simge olur — karşılaştırma.
-- {"kind":"agac","root":{"label","icon"?},"children":[{"label","icon"?,"items"?:[≤3]}]} ${r(V.agac.children)} dal — hiyerarşi/sınıflandırma.
-- {"kind":"akis","steps":[{"label":"≤${V.akis.labelMax}","icon"?}]} ${r(V.akis.steps)} adım — süreç, sıra, neden-sonuç.
-- {"kind":"parcala","parts":[{"text","label","note"?}]} ${r(V.parcala.parts)} parça — bir ifadeyi parçalarına ayırma.
-İkon yalnız şu adlardan: ${LESSON_ICON_NAMES.join(', ')}. Uygun yoksa icon yazma.
+${visualRules()}
 
 KURALLAR:
 - Dil: ${src.grade} öğrencisine sade, kısa, samimi Türkçe. "Yazılı" sözcüğünü hiç kullanma.
@@ -154,6 +176,8 @@ const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const arr = (v: unknown) => (Array.isArray(v) ? v : []);
 const icon = (v: unknown) => (typeof v === 'string' && ICONS.has(v) ? (v as IconName) : undefined);
 const opt = (v: unknown) => str(v) || undefined;
+
+const iconItem = (v: unknown) => (isObj(v) && str(v.label) ? { label: str(v.label), icon: icon(v.icon), text: opt(v.text) } : null);
 
 function parseVisual(v: unknown): LessonVisual | null {
   if (!isObj(v)) return null;
@@ -175,6 +199,23 @@ function parseVisual(v: unknown): LessonVisual | null {
       return { kind: 'akis', caption, steps: arr(v.steps).filter(isObj).map((st) => ({ label: str(st.label), icon: icon(st.icon) })).filter((st) => st.label) };
     case 'parcala':
       return { kind: 'parcala', caption, parts: arr(v.parts).filter(isObj).map((p) => ({ text: str(p.text), label: str(p.label), note: opt(p.note) })) };
+    case 'denklem': {
+      const result = iconItem(v.result);
+      return result ? { kind: 'denklem', caption, inputs: arr(v.inputs).map(iconItem).filter((it) => it !== null), result } : null;
+    }
+    case 'dongu':
+      return { kind: 'dongu', caption, center: opt(v.center), steps: arr(v.steps).map(iconItem).filter((it) => it !== null) };
+    case 'merkez': {
+      const center = iconItem(v.center);
+      return center ? { kind: 'merkez', caption, center, parts: arr(v.parts).map(iconItem).filter((it) => it !== null) } : null;
+    }
+    case 'karsilastir': {
+      const sides = arr(v.sides).filter(isObj).map((s) => ({ title: str(s.title), icon: icon(s.icon), points: arr(s.points).map(str).filter(Boolean) }));
+      if (sides.length !== 2) return null;
+      return { kind: 'karsilastir', caption, sides: [sides[0], sides[1]], common: arr(v.common).map(str).filter(Boolean) };
+    }
+    case 'cubuk':
+      return { kind: 'cubuk', caption, bars: arr(v.bars).filter(isObj).map((b) => ({ label: str(b.label), value: Number(b.value), display: opt(b.display), icon: icon(b.icon) })).filter((b) => b.label) };
     default:
       return null;
   }
@@ -265,4 +306,83 @@ export async function produceLesson(src: LessonSource, profile: GeminiWorkerProf
     if (!errors.length || calls >= 3 || timeLeft < REPAIR_MIN_MS) return { lesson, errors, model: out.model, calls };
     errorsText = errors.slice(0, 25).join('\n');
   }
+}
+
+/* ---------------- Hazır dersin görsellerini yenileme ---------------- */
+
+// 2026-11-03 (kullanıcı isteği): yeni görsel türleri (denklem/döngü/merkez/karşılaştır/çubuk) gelmeden üretilmiş
+// derslerin anlatım ekranlarına görseli yeniden seçtirir. Metin, sorular ve diğer adımlar AYNEN kalır (seslerin
+// çoğu geçerli kalsın); geçerli görsel gelmeyen ekran eski görseliyle kalır. Bilgi kaynağı ekranın kendi metni +
+// eski görseli: yeni bilgi eklenmez.
+export async function revisualizeLesson(
+  lesson: LessonDefinition,
+  topic: { title: string; grade: string; lesson: string },
+  profile: GeminiWorkerProfile,
+): Promise<{ lesson: LessonDefinition; changed: string[]; errors: string[]; calls: number }> {
+  type Screen = { id: string; bi: number; si: number };
+  const screens: Screen[] = lesson.blocks.flatMap((b, bi) => b.steps.flatMap((st, si) => (st.kind === 'anlatim' ? [{ id: `b${bi}s${si}`, bi, si }] : [])));
+  const next = structuredClone(lesson);
+  const accepted = new Map<string, LessonVisual>();
+  let errors: string[] = [];
+  let calls = 0;
+  const plain = (t?: string) => (t ?? '').replace(TERM_LINK, '$1');
+  while (calls < 3) {
+    const todo = screens.filter((sc) => !accepted.has(sc.id));
+    if (!todo.length) break;
+    const list = todo
+      .map(({ id, bi, si }) => {
+        const st = lesson.blocks[bi].steps[si];
+        if (st.kind !== 'anlatim') return '';
+        return [
+          `### ${id} · Bölüm: ${lesson.blocks[bi].title} · Ekran: ${st.title}`,
+          `Metin: ${plain(st.body)}`,
+          st.misconception ? `Yanılgı: ${st.misconception.wrong} → Doğrusu: ${st.misconception.right}` : '',
+          `Şu anki görsel: ${JSON.stringify(st.visual ?? null)}`,
+        ].filter(Boolean).join('\n');
+      })
+      .join('\n\n');
+    calls++;
+    const out = await generateGeminiJson(
+      `Sen ortaokul için oyun havasında etkileşimli ders hazırlayan bir eğitim tasarımcısısın. Konu: ${topic.grade} ${topic.lesson} · "${topic.title}".
+Aşağıda hazır bir dersin anlatım ekranları var. Metinlere DOKUNMA; her ekran için bilgiyi en iyi taşıyan görseli seç.
+Görseldeki bilgi YALNIZ o ekranın metninden, yanılgısından ve şu anki görselinden gelsin; yeni bilgi ekleme, kaynakla çelişme.
+Şu anki görsel bilgiyi zaten iyi taşıyorsa (ör. gerçek bir karşılaştırma tablosu) aynı türde bırakabilirsin; "parcala" kavram anlatıyorsa MUTLAKA değiştir.
+Aynı bölümdeki ekranlarda mümkünse farklı görsel türleri kullan.
+
+EKRANLAR:
+${list}
+
+ÇIKTI: yalnız JSON. {"visuals":[{"id":"<ekran kimliği>","visual":{...}}]} — yukarıdaki HER ekran için bir tane.
+
+${visualRules()}
+${errors.length ? `\nÖNCEKİ DENEMEN ŞU HATALARLA REDDEDİLDİ, BU EKRANLARI DÜZELT:\n${errors.slice(0, 25).join('\n')}\n` : ''}`,
+      profile,
+    );
+    errors = [];
+    const root = isObj(out.data) ? out.data : {};
+    for (const item of arr(root.visuals).filter(isObj)) {
+      const sc = todo.find((x) => x.id === str(item.id));
+      if (!sc) continue;
+      const visual = parseVisual(item.visual);
+      if (!visual) {
+        errors.push(`${sc.id}: görsel okunamadı`);
+        continue;
+      }
+      const found: string[] = [];
+      validateVisual(found, sc.id, visual);
+      if (found.length) errors.push(...found);
+      else accepted.set(sc.id, visual);
+    }
+    for (const sc of todo) if (!accepted.has(sc.id) && !errors.some((e) => e.startsWith(sc.id))) errors.push(`${sc.id}: görsel yazılmamış`);
+  }
+  const changed: string[] = [];
+  for (const { id, bi, si } of screens) {
+    const st = next.blocks[bi].steps[si];
+    const v = accepted.get(id);
+    if (st.kind === 'anlatim' && v && JSON.stringify(v) !== JSON.stringify(st.visual)) {
+      st.visual = v;
+      changed.push(`${id} ${st.title}: ${v.kind}`);
+    }
+  }
+  return { lesson: next, changed, errors, calls };
 }

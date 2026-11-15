@@ -16,7 +16,7 @@
 // bu yüzden her fonksiyonun tek-id değil id LİSTESİ alan bir hâli var; tekli çağrılar da
 // aynı bulk mantığı (tek sorguda çözüp dedupe ederek) kullansın diye bulk sürüm üzerine
 // kuruldu.
-import { revalidatePath } from 'next/cache';
+import { revalidatePath } from '@/app/src/lib/cacheInvalidation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

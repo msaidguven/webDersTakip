@@ -1,6 +1,6 @@
-// Etkileşimli dersi (admin önizlemesi) gerçek tarayıcıda baştan sona oynar: dersin verisini API'den okuyup her
+// Etkileşimli dersi (konu sayfasındaki "Etkileşimli derse başla") gerçek tarayıcıda baştan sona oynar: dersin verisini API'den okuyup her
 // adımı çözer (bazılarında önce bilerek yanlış yapar: ✓ kilit / ✕ kalır akışı), ekran görüntüsü alır, takılan
-// adımı, konsol hatalarını ve çalınan Bit seslerini yazar.
+// adımı, konsol hatalarını ve çalınan Atom seslerini yazar.
 //   node scripts/walk-interactive-lesson.mjs <görüntü klasörü> <konu yolu> <topicId> <etiket> [genişlik]
 //   ör. node scripts/walk-interactive-lesson.mjs /tmp/shots 6-sinif/fen-bilimleri/gunes-sistemi-ve-tutulmalar/gunes-sistemi 704 fen 390
 // Önkoşul: dev sunucusu (localhost:3000, Node 22), .env.local'da TEST_ADMIN_*, Playwright kurulu.
@@ -32,7 +32,7 @@ await page.click('button[type=submit]');
 await page.waitForTimeout(3000);
 await page.goto('http://localhost:3000/' + TOPIC_PATH, { waitUntil: 'networkidle', timeout: 180000 });
 await page.evaluate(() => localStorage.removeItem('interactive-lesson-scale'));
-const lesson = await page.evaluate(async (id) => (await fetch(`/api/admin/interactive-lesson?topicId=${id}`)).json(), TOPIC_ID);
+const lesson = await page.evaluate(async (id) => (await fetch(`/api/interactive-lesson?topicId=${id}`)).json(), TOPIC_ID);
 // Oynatıcıdaki gibi: anlatım üç ekrana bölünür (metin / görsel / yanılgı; guide.ts narrativeParts).
 const parts = (st) => [st.body || st.predict || !st.visual ? 'text' : null, st.visual ? 'visual' : null, st.misconception ? 'mis' : null].filter(Boolean);
 const steps = lesson.blocks.flatMap((b) => [...b.steps.flatMap((st) => (st.kind === 'anlatim' ? parts(st).map((part) => ({ ...st, part })) : [st])), { kind: 'bolum_sonu' }]);
@@ -40,7 +40,7 @@ const steps = lesson.blocks.flatMap((b) => [...b.steps.flatMap((st) => (st.kind 
 // Next.js geliştirme rozeti ("N 1 Issue") alttaki düğmelerin üstünü örtmesin; içeriği rapora yazılır.
 const devIssues = await page.evaluate(() => document.querySelector('nextjs-portal')?.shadowRoot?.textContent?.slice(0, 300) ?? '');
 await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' });
-await page.getByRole('button', { name: /Etkileşimli ders/ }).click();
+await page.getByRole('button', { name: /Etkileşimli derse başla/ }).filter({ visible: true }).first().click();
 const dlg = page.getByRole('dialog', { name: 'Etkileşimli ders' });
 const bubble = dlg.locator('section').first();
 const primary = () => bubble.locator('button').last();
@@ -184,5 +184,5 @@ for (let i = 0; i < steps.length; i++) {
 await shot('bitis');
 const ignored = /favicon|adsbygoogle|googletag|Download the React|500 \(Internal/;
 const ok = voices.filter((s) => s === 200).length;
-console.log(TAG, WIDTH, 'adım:', steps.length, 'bitti:', await dlg.getByText('Ders tamamlandı').first().isVisible(), '| Bit sesi:', `${ok}/${voices.length} dosya`, '| yatay taşma:', await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), '| hatalar:', JSON.stringify(errors.filter((e) => !ignored.test(e))), devIssues ? `| dev rozeti: ${devIssues}` : '');
+console.log(TAG, WIDTH, 'adım:', steps.length, 'bitti:', await dlg.getByText('Ders tamamlandı').first().isVisible(), '| Atom sesi:', `${ok}/${voices.length} dosya`, '| yatay taşma:', await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), '| hatalar:', JSON.stringify(errors.filter((e) => !ignored.test(e))), devIssues ? `| dev rozeti: ${devIssues}` : '');
 await browser.close();

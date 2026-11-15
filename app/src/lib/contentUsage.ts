@@ -1,7 +1,7 @@
-// Slayt ve sesli anlatım kullanım ölçümü (istemci). Aynı tarayıcı oturumunda aynı konu + olay bir kez gönderilir;
+// Slayt, sesli anlatım ve etkileşimli ders kullanım ölçümü (istemci). Aynı tarayıcı oturumunda aynı konu + olay bir kez gönderilir;
 // gönderim sessizdir, başarısız olsa da kullanıcı etkilenmez. Sunucu tarafı: app/api/usage-event/route.ts,
 // tablo + rapor: supabase/migrations/content_usage_stats.sql.
-export type ContentEvent = 'slides_open' | 'slides_finish' | 'narration_play' | 'narration_finish';
+export type ContentEvent = 'slides_open' | 'slides_finish' | 'narration_play' | 'narration_finish' | 'interactive_open' | 'interactive_finish';
 
 export function trackContentEvent(kind: ContentEvent, topicId: number): void {
   if (!Number.isInteger(topicId) || topicId <= 0) return;

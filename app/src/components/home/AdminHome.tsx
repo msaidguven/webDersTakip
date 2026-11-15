@@ -11,6 +11,7 @@ import r from '@/app/src/components/robotic/robotic.module.css';
 import { AdminYaziliUsage } from './AdminYaziliUsage';
 import { AdminDownloadStats } from './AdminDownloadStats';
 import { AdminContentUsage } from './AdminContentUsage';
+import { AdminInteractiveLessons } from './AdminInteractiveLessons';
 
 export type HomePreview = 'student' | 'teacher';
 
@@ -158,6 +159,7 @@ export function AdminHome({ firstName, onPreview }: { firstName: string | null; 
       <AlertsSection />
       <AdminYaziliUsage />
       <AdminDownloadStats />
+      <AdminInteractiveLessons />
       <AdminContentUsage />
     </section>
   );

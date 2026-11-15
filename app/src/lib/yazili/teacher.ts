@@ -135,3 +135,18 @@ export function buildTeacherPaperHtml(req: PaperRequest): string {
     columns: req.columns,
   });
 }
+
+// Öğretmenin kayıtlı kağıdı (teacher_paper_drafts.sql): seçtiği sorular, sırası, puanları, başlık. Cihazlar arası
+// aynı kağıdı görsün diye hesapta tutulur; indirme sonrası da silinmez (yeniden görüp indirebilsin).
+export type PaperDraft = { items: { id: number; points: number; auto?: boolean }[]; autoPoints: boolean; title: string };
+
+export async function loadPaperDraft(userId: string, examId: number): Promise<PaperDraft | null> {
+  const { data } = await createServiceClient()
+    .from('teacher_paper_drafts')
+    .select('items, auto_points, title')
+    .eq('teacher_id', userId)
+    .eq('exam_id', examId)
+    .maybeSingle();
+  const row = data as { items: PaperDraft['items']; auto_points: boolean; title: string | null } | null;
+  return row ? { items: Array.isArray(row.items) ? row.items : [], autoPoints: row.auto_points, title: row.title ?? '' } : null;
+}

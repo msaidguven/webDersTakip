@@ -300,12 +300,20 @@ async function generateQuestionDraftForSection(
 
   if (opts.dryRun) return { generated: false, reason: 'dry-run', sectionId: eligible.section_id, prompt };
 
+  // Önceki çalışmada denetimi yarıda kalan taslak varsa üretim atlanır (yalnız parti modunda).
+  const stepKey = opts.batchDraftId != null ? await batchStepKey(supabase, opts.batchDraftId) : null;
+  const cached = await loadUnreviewed(supabase, stepKey);
   let raw: unknown;
   let usedModel: string;
-  try {
-    ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
-  } catch (e) {
-    return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+  if (cached) {
+    raw = { questions: cached.questions };
+    usedModel = cached.model;
+  } else {
+    try {
+      ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
+    } catch (e) {
+      return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+    }
   }
 
   let parsed = parseQuestions(raw, 7);
@@ -329,8 +337,11 @@ async function generateQuestionDraftForSection(
     try {
       ({ data: reviewRaw } = await generateQuestionsJson(reviewPrompt, profile));
     } catch (e) {
-      return { generated: false, reason: `Doğrulama çağrısı başarısız, taslak kaydedilmedi: ${e instanceof Error ? e.message : String(e)}` };
+      const kept = await saveUnreviewed(supabase, stepKey, (raw as { questions: unknown[] }).questions, usedModel);
+      return { generated: false, reason: `Doğrulama çağrısı başarısız, taslak ${kept ? 'saklandı (sonraki çalışmada yalnız denetlenecek)' : 'kaydedilmedi'}: ${e instanceof Error ? e.message : String(e)}` };
     }
+    // Denetim döndü: saklı taslak işini gördü. Bütün sorular elendiyse taslak bilerek saklanmaz (yeniden üretilmeli).
+    await clearUnreviewed(supabase, stepKey);
     const reviewed = parseQuestions(reviewRaw, 7);
     if (!reviewed) return { generated: false, reason: 'Doğrulama çıktısı beklenen JSON şemasına uymadı (ya da tüm sorular elendi), taslak kaydedilmedi' };
     parsed = reviewed;
@@ -377,6 +388,38 @@ async function generateQuestionDraftForSection(
   if (insertError || !draftRow) return { generated: false, reason: `Taslak kaydedilemedi: ${insertError?.message}` };
 
   return { generated: true, draftId: (draftRow as { id: number }).id, sectionId: eligible.section_id, reviewCorrections };
+}
+
+// Denetim bekleyen taslak (supabase/migrations/ai_question_unreviewed_drafts.sql): denetim çağrısı hata verirse
+// üretilen taslak saklanır, aynı parti adımı tekrar geldiğinde üretim atlanıp yalnız denetlenir (Gemini kotası boşa
+// gitmesin). Yalnız parti modunda (batchDraftId); anahtar = konu + tur + alt başlık (konu geneli 0). 2 günden eski
+// saklı taslak kullanılmaz (kitap/mevcut sorular değişmiş olabilir).
+type StepKey = { batch_topic_id: number; batch_round: number; section_key: number };
+const UNREVIEWED_MAX_AGE_MS = 2 * 24 * 3600 * 1000;
+
+async function batchStepKey(supabase: Supabase, draftId: number): Promise<StepKey | null> {
+  const { data } = await supabase.from('ai_question_drafts').select('batch_topic_id, batch_round, section_id').eq('id', draftId).maybeSingle();
+  const row = data as { batch_topic_id: number | null; batch_round: number | null; section_id: number | null } | null;
+  if (!row?.batch_topic_id || row.batch_round == null) return null;
+  return { batch_topic_id: row.batch_topic_id, batch_round: row.batch_round, section_key: row.section_id ?? 0 };
+}
+
+async function loadUnreviewed(supabase: Supabase, key: StepKey | null): Promise<{ questions: unknown[]; model: string } | null> {
+  if (!key) return null;
+  const { data } = await supabase.from('ai_question_unreviewed_drafts').select('questions, ai_model, created_at').match(key).maybeSingle();
+  const row = data as { questions: unknown[]; ai_model: string; created_at: string } | null;
+  if (!row || Date.now() - Date.parse(row.created_at) > UNREVIEWED_MAX_AGE_MS || !Array.isArray(row.questions)) return null;
+  return { questions: row.questions, model: row.ai_model };
+}
+
+async function saveUnreviewed(supabase: Supabase, key: StepKey | null, questions: unknown[], model: string): Promise<boolean> {
+  if (!key) return false;
+  const { error } = await supabase.from('ai_question_unreviewed_drafts').upsert({ ...key, questions, ai_model: model, created_at: new Date().toISOString() });
+  return !error;
+}
+
+async function clearUnreviewed(supabase: Supabase, key: StepKey | null) {
+  if (key) await supabase.from('ai_question_unreviewed_drafts').delete().match(key);
 }
 
 // Konu partisinin kaptığı satırı doldurur. Yalnız hâlâ 'generating' ise — zaman aşımıyla 'failed'
@@ -467,12 +510,19 @@ export async function generateBatchTopicDraft(supabase: Supabase, topicId: numbe
       .replaceAll('{svg_question_instructions}', svgBlock);
   const prompt = fill(await readFile(path.join(promptDir, TOPIC_GENERAL_TEMPLATE), 'utf8'));
 
+  const stepKey = await batchStepKey(supabase, draftId);
+  const cached = await loadUnreviewed(supabase, stepKey);
   let raw: unknown;
   let usedModel: string;
-  try {
-    ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
-  } catch (e) {
-    return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+  if (cached) {
+    raw = { questions: cached.questions };
+    usedModel = cached.model;
+  } else {
+    try {
+      ({ data: raw, model: usedModel } = await generateQuestionsJson(prompt, profile));
+    } catch (e) {
+      return { generated: false, reason: `Gemini çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+    }
   }
   if (!parseQuestions(raw, TOPIC_GENERAL_MAX_QUESTIONS)) return { generated: false, reason: 'Konu geneli çıktısı beklenen JSON şemasına uymadı' };
 
@@ -486,8 +536,10 @@ export async function generateBatchTopicDraft(supabase: Supabase, topicId: numbe
   try {
     ({ data: reviewRaw } = await generateQuestionsJson(reviewPrompt, profile));
   } catch (e) {
-    return { generated: false, reason: `Konu geneli doğrulama çağrısı başarısız: ${e instanceof Error ? e.message : String(e)}` };
+    const kept = await saveUnreviewed(supabase, stepKey, (raw as { questions: unknown[] }).questions, usedModel);
+    return { generated: false, reason: `Konu geneli doğrulama çağrısı başarısız, taslak ${kept ? 'saklandı (sonraki çalışmada yalnız denetlenecek)' : 'kaydedilmedi'}: ${e instanceof Error ? e.message : String(e)}` };
   }
+  await clearUnreviewed(supabase, stepKey);
   if (!parseQuestions(reviewRaw, TOPIC_GENERAL_MAX_QUESTIONS)) return { generated: false, reason: 'Konu geneli doğrulama çıktısı şemaya uymadı (ya da tüm sorular elendi)' };
 
   const saved = await saveBatchDraft(supabase, draftId, prettyModelName(usedModel), (reviewRaw as { questions: unknown[] }).questions);

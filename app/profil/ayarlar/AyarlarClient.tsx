@@ -114,6 +114,9 @@ export default function AyarlarClient() {
               setProfile((p) => (p ? { ...p, full_name: name, username: uname, nickname, use_nickname: useNickname } : p))
             }
           />
+          <Link href="/hesap-silme" className="self-start text-sm font-semibold text-muted-foreground hover:underline">
+            Hesabımı sil
+          </Link>
           </div>
         ) : (
           <SchoolInfoCard initialProfile={profile} />

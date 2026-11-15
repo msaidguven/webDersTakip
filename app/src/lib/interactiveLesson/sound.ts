@@ -1,6 +1,6 @@
 // Etkileşimli dersin sesi (yalnız tarayıcı): telifsiz, tarayıcıda üretilen sakin müzik döngüsü, kısa efektler
-// ve Bit'in önceden üretilmiş konuşma dosyaları. Hepsi tek Web Audio bağlamında: bağlam ilk dokunuşta açılır
-// (tarayıcı kuralı), sonra her cümle iOS'ta da çalar. Bit konuşurken müzik kısılır.
+// ve Atom'un önceden üretilmiş konuşma dosyaları. Hepsi tek Web Audio bağlamında: bağlam ilk dokunuşta açılır
+// (tarayıcı kuralı), sonra her cümle iOS'ta da çalar. Atom konuşurken müzik kısılır.
 type Sfx = 'ok' | 'retry' | 'tap' | 'win';
 
 const CHORDS = [
@@ -89,6 +89,11 @@ class LessonSound {
   /** Kullanıcı dokunuşunun içinden çağrılmalı (ses bağlamını açar). */
   unlock() {
     void this.init()?.resume();
+  }
+
+  /** Ses bağlamı bir dokunuşla açıldı mı (ör. konu sayfasındaki "Etkileşimli derse başla" tıklaması). */
+  isUnlocked(): boolean {
+    return this.ctx?.state === 'running';
   }
 
   startMusic() {

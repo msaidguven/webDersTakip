@@ -256,7 +256,7 @@ export const lesson704: LessonDefinition = {
   topicId: 704,
   // Anlatıcı robotun bu derse özel hikâyesi (açılış/kapanış).
   guide: {
-    intro: "Merhaba kaptan! Ben Bit. Uzay gemimin rota haritası silindi. Güneş sistemini birlikte keşfedip rotayı yeniden kuralım mı?",
+    intro: "Merhaba kaptan! Ben Atom. Uzay gemimin rota haritası silindi. Güneş sistemini birlikte keşfedip rotayı yeniden kuralım mı?",
     finish: "Başardık kaptan! Rotamı kurtardın. Güneş sistemini artık çok iyi tanıyorsun.",
   },
   // Anahtar kavramlarda olmayan kavram bağları (diğerleri — gök taşı, meteor, kızıl gezegen… — anahtar kavramlardan gelir).

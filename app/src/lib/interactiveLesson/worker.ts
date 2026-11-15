@@ -6,10 +6,14 @@ import { loadLessonSource, produceLesson, SECTIONS_PER_CALL, summarizeBlocks } f
 import { HAND_WRITTEN_TOPIC_IDS } from './registry';
 import type { LessonDefinition } from './types';
 import { voiceLesson } from './voice';
+import { addLessonPhotos } from './photos';
+import { expireTag } from '@/app/src/lib/cacheInvalidation';
+import { revalidateTopicPage } from '@/app/src/lib/topicPageRevalidation';
+import { interactiveLessonTag } from './hydrate';
 
 // Etkileşimli ders worker adımı (2026-11-01, kullanıcı kararı: 2. soru worker'ı bu işe ayrıldı; bkz.
 // supabase/migrations/interactive_lesson_generation.sql). Her çalışmada TEK iş:
-//   1) dersi hazır ama Bit sesleri eksik konu varsa sesleri üretir (süre bitince kalanı sonraki çalışmaya),
+//   1) dersi hazır ama Atom sesleri eksik konu varsa sesleri üretir (süre bitince kalanı sonraki çalışmaya),
 //   2) yoksa sıradaki konunun dersini üretir: her çalışmada tek alt konu (önceki bölümlerin özetiyle), her parça
 //      denetlenir; geçemezse hata listesi saklanır ve sonraki deneme o hatalarla düzelttirilir.
 // İş yoksa null döner, worker soru partisine geçer.
@@ -26,6 +30,9 @@ async function update(supabase: Supabase, topicId: number, fields: Record<string
   const msg = typeof fields.last_message === 'string' ? fields.last_message.slice(0, 2000) : undefined;
   await supabase.from('interactive_lessons').update({ ...fields, ...(msg !== undefined ? { last_message: msg } : {}), updated_at: new Date().toISOString() }).eq('topic_id', topicId);
 }
+
+// Fotoğraf adımı (2 AI çağrısı + Commons araması) için kalması gereken en az süre.
+const PHOTO_MIN_MS = 90 * 1000;
 
 export async function runInteractiveLessonStep(supabase: Supabase, baseProfile: QuestionWorkerProfile): Promise<BatchStepResult | null> {
   const deadlineAt = Date.now() + STEP_BUDGET_MS;
@@ -44,10 +51,16 @@ export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = D
   const { data: pendingVoice } = await supabase.from('interactive_lessons').select('topic_id').eq('status', 'ready').eq('voice_done', false).order('updated_at').limit(1).maybeSingle();
   if (pendingVoice && process.env.AZURE_SPEECH_KEY) {
     const topicId = (pendingVoice as { topic_id: number }).topic_id;
-    const label = `Etkileşimli ders · Konu ${topicId} (Bit sesi)`;
+    const label = `Etkileşimli ders · Konu ${topicId} (robot sesi)`;
     try {
       const r = await voiceLesson(supabase, topicId, { deadlineAt });
-      if (r.done) await update(supabase, topicId, { voice_done: true });
+      if (r.done) {
+        await update(supabase, topicId, { voice_done: true });
+        // Ders artık öğrenciye açık: önbellekteki "ders yok" cevabı temizlensin.
+        expireTag(interactiveLessonTag(topicId));
+        // Ders öğrenciye ancak sesleri tamamlanınca görünür: konu sayfası şimdi yenilensin ("Etkileşimli derse başla").
+        await revalidateTopicPage(supabase, topicId).catch(() => {});
+      }
       return { generated: r.made > 0, reason: `${label}: ${r.made} yeni ses${r.done ? `, tamam (${r.lines} cümle)` : ', devamı sonraki çalışmada'}` };
     } catch (e) {
       return { generated: false, failed: true, reason: `${label}: ${e instanceof Error ? e.message : String(e)}` };
@@ -87,6 +100,18 @@ async function runLessonGeneration(supabase: Supabase, baseProfile: QuestionWork
       await update(supabase, topicId, { status: 'failed', model: out.model, last_message: message });
       return { generated: false, reason: `${label} "${source.title}": ${out.errors.length} denetim hatası (deneme ${runs}/3)` };
     }
+    // Yeni bölümün anlatım ekranlarına gerçek fotoğraf (Wikimedia Commons). Başarısız olsa ya da süre yetmese de
+    // ders kaydedilir; fotoğrafsız ekran ikonlu görseliyle kalır.
+    let photoNote = '';
+    if (deadlineAt - Date.now() > PHOTO_MIN_MS) {
+      try {
+        const withPhotos = await addLessonPhotos(out.lesson, { title: source.title, grade: source.grade, lesson: source.lesson }, profile);
+        out.lesson.blocks = withPhotos.lesson.blocks;
+        photoNote = ` · ${withPhotos.added.length} fotoğraf`;
+      } catch (e) {
+        photoNote = ` · fotoğraf eklenemedi (${e instanceof Error ? e.message.slice(0, 80) : 'hata'})`;
+      }
+    }
     const order = new Map(source.sections.map((sec, i) => [sec.id, i]));
     const blocks = [...(partial?.blocks ?? []), ...out.lesson.blocks].sort((a, b) => (order.get(a.sectionId) ?? 0) - (order.get(b.sectionId) ?? 0));
     const stored: StoredLesson = { guide: partial?.guide ?? out.lesson.guide, blocks };
@@ -97,7 +122,7 @@ async function runLessonGeneration(supabase: Supabase, baseProfile: QuestionWork
     await update(supabase, topicId, { status: finished ? 'ready' : 'partial', lesson: stored, model: out.model, runs: 0, voice_done: false, last_message: summary });
     return {
       generated: true,
-      reason: `${label} "${source.title}": ${finished ? `hazır (${summary}), Bit sesleri sonraki çalışmada` : `${summary}, devamı sonraki çalışmada`} · ${out.calls} AI çağrısı`,
+      reason: `${label} "${source.title}": ${finished ? `hazır (${summary}), robot sesleri sonraki çalışmada` : `${summary}, devamı sonraki çalışmada`} · ${out.calls} AI çağrısı${photoNote}`,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

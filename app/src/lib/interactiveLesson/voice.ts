@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { hydrateLesson } from './hydrate';
 import { lessonLines, ttsText, voiceAudioPath, voiceKey, voiceManifestPath, VOICE_BUCKET } from './guide';
 
-// Bit'in seslerini üretir (Azure): dersin bütün cümleleri içerik adresli olarak yüklenir (aynı cümle bütün
+// Atom'un seslerini üretir (Azure): dersin bütün cümleleri içerik adresli olarak yüklenir (aynı cümle bütün
 // derslerde tek dosya, var olan yeniden üretilmez), hepsi tamamlanınca konunun ses listesi yazılır.
 // deadlineAt verilirse (worker) süre bitince durur, kalanlar sonraki çalışmada üretilir.
 // Kullananlar: scripts/generate-lesson-voice.ts ve etkileşimli ders worker'ı (worker.ts).
@@ -43,7 +43,7 @@ async function synthesize(text: string): Promise<Uint8Array> {
 export type VoiceResult = { lines: number; made: number; done: boolean };
 
 export async function voiceLesson(supabase: Supabase, topicId: number, opts: { deadlineAt?: number; redo?: RegExp | null } = {}): Promise<VoiceResult> {
-  const result = await hydrateLesson(topicId);
+  const result = await hydrateLesson(topicId, { includeUnvoiced: true });
   if ('error' in result) throw new Error(result.error);
   const lines = lessonLines(result.lesson);
   const publicUrl = (path: string) => `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${VOICE_BUCKET}/${path}`;

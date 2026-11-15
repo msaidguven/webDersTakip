@@ -4,13 +4,13 @@
 // yenilemesi): görsel + "N. ünite" + başlık + konu/soru sayısı, kartın altında ünitenin konuları
 // (her biri kendi soru bankası sayfasına) — öğrenciye kısayol, Google'a iç bağlantı.
 // Başlık/sayılar/görsel SSR'dan (ISR'a uygun); ilerleme YALNIZ giriş yapmış kullanıcıya, client'ta
-// mevcut /api/soru-bankasi/unit-status ile (TestStatusCard'ın kullandığı) ünite başına paralel.
+// /api/soru-bankasi/units-progress ile tüm üniteler TEK istekte (misafir hiç istek atmaz).
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
 import { NeonCount } from './robotic/NeonCount';
-import { withPublicFlag } from '@/app/src/lib/clientSession';
+import { hasClientSession } from '@/app/src/lib/clientSession';
 import r from './robotic/robotic.module.css';
 
 interface UnitForList {
@@ -24,11 +24,9 @@ interface UnitForList {
 }
 
 interface UnitStatus {
-  loggedIn: boolean;
   poolSize: number;
   solved: number;
   correct: number;
-  wrong: number;
 }
 
 export default function SoruBankasiLessonUnits({
@@ -46,22 +44,15 @@ export default function SoruBankasiLessonUnits({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      units.filter((unit) => unit.questionCount > 0).map((unit) =>
-        withPublicFlag(`/api/soru-bankasi/unit-status?unitId=${unit.id}`)
-          .then((url) => fetch(url))
-          .then((res) => (res.ok ? res.json() : null))
-          .then((data: UnitStatus | null) => (data ? ([unit.id, data] as const) : null))
-          .catch(() => null)
-      )
-    ).then((results) => {
-      if (cancelled) return;
-      const map: Record<number, UnitStatus> = {};
-      for (const entry of results) {
-        if (entry) map[entry[0]] = entry[1];
-      }
-      setStatusByUnit(map);
-    });
+    const unitIds = units.filter((unit) => unit.questionCount > 0).map((unit) => unit.id);
+    if (!unitIds.length) return;
+    hasClientSession()
+      .then((loggedIn) => (loggedIn ? fetch(`/api/soru-bankasi/units-progress?unitIds=${unitIds.join(',')}`) : null))
+      .then((res) => (res?.ok ? res.json() : null))
+      .then((data: { units: Record<number, UnitStatus> } | null) => {
+        if (!cancelled && data) setStatusByUnit(data.units);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -75,7 +66,7 @@ export default function SoruBankasiLessonUnits({
       {units.map((unit) => {
         const unitHref = `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}`;
         const status = statusByUnit[unit.id];
-        const showProgress = status?.loggedIn && status.solved > 0;
+        const showProgress = !!status && status.solved > 0;
         const percent = status && status.poolSize > 0 ? Math.min(100, Math.round((status.solved / status.poolSize) * 100)) : 0;
         const available = unit.questionCount > 0;
         const body = (

@@ -7,7 +7,7 @@ export const lesson818: LessonDefinition = {
   topicId: 818,
   // Anlatıcı robotun bu derse özel hikâyesi (açılış/kapanış).
   guide: {
-    intro: "Merhaba! Ben Bit. Hafızamdaki dosyalar karmakarışık oldu! Dosya ve klasörleri birlikte düzenleyelim mi?",
+    intro: "Merhaba! Ben Atom. Hafızamdaki dosyalar karmakarışık oldu! Dosya ve klasörleri birlikte düzenleyelim mi?",
     finish: "Hafızam tertemiz oldu! Artık dosya ve klasörleri düzenlemeyi biliyorsun.",
   },
   // "Dosya" ve "klasör" neredeyse her cümlede geçer; otomatik bağlansa her açıklama mavi bağlantıyla dolar.

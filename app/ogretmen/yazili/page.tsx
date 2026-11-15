@@ -4,8 +4,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTeacherAccess } from '@/app/src/lib/teacherAuth';
-import { listTeacherExams, loadTeacherExam, loadTeacherPaperDefaults } from '@/app/src/lib/yazili/teacher';
-import { nationalCountPerLo } from '@/app/src/lib/yazili/papers';
+import { listTeacherExams, loadPaperDraft, loadTeacherExam, loadTeacherPaperDefaults } from '@/app/src/lib/yazili/teacher';
 import { pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { OgretmenTabs } from '../OgretmenTabs';
@@ -55,7 +54,7 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
       return shell(
         <Notice
           title="Yazılı hazırlamak için giriş yap"
-          text="Soru havuzundan kendi yazılı kağıdını kur; MEB dağılımına göre kontrol et, kağıdı ve cevap anahtarını PDF ya da Word olarak indir. Öğretmen hesapları içindir."
+          text="Soru havuzundan kendi yazılı kağıdını kur; seçtiğin sorular hesabında saklanır, kağıdı ve cevap anahtarını PDF ya da Word olarak indir. Öğretmen hesapları içindir."
           action={{ href: `/login?redirectTo=${back}`, label: 'Giriş yap' }}
           secondary={{ href: `/register?rol=ogretmen&redirectTo=${back}`, label: 'Öğretmen olarak ücretsiz kayıt ol' }}
         />
@@ -68,9 +67,10 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
     (a, b) => (a.examDate ?? '9999').localeCompare(b.examDate ?? '9999') || a.gradeName.localeCompare(b.gradeName, 'tr', { numeric: true })
   );
   const selected = exams.find((e) => e.id === requested) ?? exams[0];
-  const [loaded, profileDefaults] = await Promise.all([
+  const [loaded, profileDefaults, initialDraft] = await Promise.all([
     selected ? loadTeacherExam(access, selected.id) : null,
     loadTeacherPaperDefaults(access.user.id),
+    selected ? loadPaperDraft(access.user.id, selected.id) : null,
   ]);
 
   return shell(
@@ -120,12 +120,7 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
                 defaultTitle: `${loaded.data.gradeName} ${loaded.data.lessonName} Dersi ${loaded.data.exam.label} Sınavı`,
               }}
               topics={loaded.data.topics.filter((t) => t.questions.length)}
-              scenarios={loaded.data.scenarios}
-              scenarioCount={loaded.data.scenarioCount}
-              nationalNeed={(() => {
-                const codes = [...new Set(loaded.data.topics.flatMap((t) => t.loCodes))];
-                return Object.fromEntries(codes.map((c) => [c, nationalCountPerLo(codes.length)]));
-              })()}
+              initialDraft={initialDraft}
               profileDefaults={profileDefaults}
             />
           ) : (

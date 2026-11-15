@@ -9,6 +9,7 @@ import { Grade, Lesson } from '../../models/homeTypes';
 import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
+import { isClientAdmin } from '@/app/src/lib/clientSession';
 
 export type GradeLink = { level: number; slug: string };
 
@@ -45,6 +46,8 @@ function useLessonUnits() {
     setLoadingLessonIds((prev) => new Set(prev).add(lessonId));
     try {
       const params = new URLSearchParams({ gradeId, lessonId });
+      // Admin dışındaki herkes aynı (yalnız yayındaki) listeyi görür → CDN'den gelir.
+      if (!(await isClientAdmin())) params.set('publicOnly', '1');
       const res = await fetch(`/api/lesson-units?${params.toString()}`);
       const data = res.ok ? await res.json().catch(() => null) : null;
       setByLessonId((prev) => ({ ...prev, [lessonId]: (data?.units as LessonUnit[]) || [] }));

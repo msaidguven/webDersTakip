@@ -25,7 +25,20 @@ export type TreeFigure = Caption & { kind: 'agac'; root: Term & { label: string;
 export type FlowFigure = Caption & { kind: 'akis'; steps: (Term & { label: string; icon?: IconName })[] };
 // Bir ifadeyi parçalarına ayırıp her parçayı etiketler ("odev" | "." | "docx" → ad / nokta / uzantı).
 export type PartsFigure = Caption & { kind: 'parcala'; parts: (Term & { text: string; label: string; note?: string })[] };
-export type LessonVisual = SvgFigure | ImageFigure | CardsFigure | TableFigure | TreeFigure | FlowFigure | PartsFigure;
+// 2026-11-03 (görsel ekranlar zayıftı, kullanıcı onayı): yapay zekâ veriyi seçer, çizimi bileşen yapar.
+type IconItem = Term & { icon?: IconName; label: string; text?: string };
+// İki-üç şeyin birleşmesiyle oluşan kavram: "Gerçek çevre + Dijital bilgi = Artırılmış gerçeklik".
+export type EquationFigure = Caption & { kind: 'denklem'; inputs: IconItem[]; result: IconItem };
+// Kendini tekrarlayan süreç (su döngüsü, geri dönüşüm): adımlar çember üzerinde, sonuncusu başa döner.
+export type CycleFigure = Caption & { kind: 'dongu'; center?: string; steps: IconItem[] };
+// Bir bütün ve çevresindeki parçaları/bileşenleri/kullanım alanları.
+export type HubFigure = Caption & { kind: 'merkez'; center: IconItem; parts: IconItem[] };
+// İki şeyin yan yana karşılaştırması (+ ikisinde ortak olanlar).
+export type CompareFigure = Caption & { kind: 'karsilastir'; sides: [CompareSide, CompareSide]; common?: string[] };
+export type CompareSide = Term & { icon?: IconName; title: string; points: string[] };
+// Sayısal büyüklüklerin karşılaştırması (yalnız kaynakta sayı varsa); display gösterilen değer ("%60", "1,3 milyon").
+export type BarsFigure = Caption & { kind: 'cubuk'; bars: (Term & { label: string; value: number; display?: string; icon?: IconName })[] };
+export type LessonVisual = SvgFigure | ImageFigure | CardsFigure | TableFigure | TreeFigure | FlowFigure | PartsFigure | EquationFigure | CycleFigure | HubFigure | CompareFigure | BarsFigure;
 
 // Anlatım kalıbı (pedagojik gerekçe: ön test etkisi, ikili kodlama, gereksiz tekrardan kaçınma, çürütme metni):
 // - predict: içerik gösterilmeden önce tek hızlı tahmin sorusu (puana sayılmaz); cevaplanınca içerik açılır.
@@ -40,7 +53,11 @@ export type NarrativeStep = {
   visual?: LessonVisual;
   predict?: { question: string; options: string[]; answer: number };
   misconception?: { wrong: string; right: string };
+  // Gerçek fotoğraf (2026-11-06, kullanıcı isteği): Wikimedia Commons'tan serbest lisanslı; metin ekranında gösterilir,
+  // altında yazar + lisans + kaynak (lisans şartı). Bkz. app/src/lib/interactiveLesson/photos.ts.
+  photo?: LessonPhoto;
 };
+export type LessonPhoto = { url: string; alt: string; credit: string; license: string; source: string };
 
 // Eşleştirme ve gruplama aynı tip: her öğe targets'tan birine (index) gider; birden çok öğe aynı
 // hedefe gidebilir (gruplama).

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { isViewerAdmin } from '@/app/src/lib/publishGuard';
+import { publicApiCacheHeaders } from '@/app/src/lib/publicApiCache';
 
 // Bir sınıf+ders için üniteleri, her ünitenin ilk konusunun slug'ıyla birlikte döner.
 // Anasayfa -> sınıf -> dersler sayfasında, ünite listesini (ünite sayfasına gitmeden)
@@ -28,6 +29,11 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const isAdmin = !publicOnly && (await isViewerAdmin(supabase));
+  // publicOnly yanıtı herkes için aynıdır (yalnız yayındaki ünite/konular) → CDN'de haftalık yenilemeye
+  // (pazartesi 03:00 TR) kadar saklanır, diğer herkese açık API'lerle aynı (bkz. publicApiCache.ts);
+  // 2026-11-15 ölçümünde bu rota hiç önbelleğe girmiyordu, sınıf sayfası her açılışta ders başına
+  // bir fonksiyon çalıştırıyordu. Admin (taslakları da görür) işaretsiz çağırır, canlı veri alır.
+  const headers = publicOnly ? publicApiCacheHeaders() : undefined;
 
   if (!isAdmin) {
     const [{ data: lessonGradeData }, { data: lessonData }] = await Promise.all([
@@ -35,7 +41,7 @@ export async function GET(request: Request) {
       supabase.from('lessons').select('is_active').eq('id', lessonId).maybeSingle(),
     ]);
     if ((lessonGradeData as { is_active: boolean } | null)?.is_active !== true || (lessonData as { is_active: boolean } | null)?.is_active !== true) {
-      return NextResponse.json({ units: [] });
+      return NextResponse.json({ units: [] }, { headers });
     }
   }
 
@@ -78,5 +84,5 @@ export async function GET(request: Request) {
     ...(includeTopics && { topics: (topicsByUnit.get(u.id) || []).map((t) => ({ id: t.id, title: t.title, slug: t.slug })) }),
   }));
 
-  return NextResponse.json({ units: result });
+  return NextResponse.json({ units: result }, { headers });
 }

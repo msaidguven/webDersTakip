@@ -5,7 +5,7 @@
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
 
-export const ROBOT_NAME = 'Bit';
+export const ROBOT_NAME = 'Atom';
 export const VOICE_BUCKET = 'topic-narration';
 export const voiceAudioPath = (key: string) => `interactive-voice/${key}.mp3`;
 export const voiceManifestPath = (topicId: number) => `interactive-voice/topics/${topicId}.json`;
@@ -115,6 +115,16 @@ export function visualSpeech(v: LessonVisual | undefined): string[] {
       return [`${v.root.label}: ${v.children.map((c) => c.label + (c.items?.length ? ` (${c.items.join(', ')})` : '')).join('; ')}.`];
     case 'parcala':
       return v.parts.map((p) => `${p.text}: ${p.label}${p.note ? `, ${p.note}` : ''}.`);
+    case 'denklem':
+      return [`${v.inputs.map((it) => it.label).join(' artı ')}, eşittir ${v.result.label}.`, ...[...v.inputs, v.result].filter((it) => it.text).map((it) => `${it.label}: ${it.text}`)];
+    case 'dongu':
+      return [`${v.steps.map((st) => st.label).join(', ')}. Sonra yeniden ${v.steps[0]?.label ?? ''}.`];
+    case 'merkez':
+      return [`${v.center.label}.`, ...v.parts.map((p) => (p.text ? `${p.label}. ${p.text}` : `${p.label}.`))];
+    case 'karsilastir':
+      return [...v.sides.map((s) => `${s.title}: ${s.points.join(', ')}.`), ...(v.common?.length ? [`İkisinde de: ${v.common.join(', ')}.`] : [])];
+    case 'cubuk':
+      return [`${v.bars.map((b) => `${b.label}: ${b.display ?? b.value.toLocaleString('tr-TR')}`).join('; ')}.`];
     default:
       return [];
   }

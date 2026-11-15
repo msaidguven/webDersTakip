@@ -112,6 +112,34 @@ export async function getSoruBankasiTestStatus(
   };
 }
 
+export interface UnitProgress {
+  poolSize: number;
+  solved: number;
+  correct: number;
+}
+
+// Ünite kartındaki ilerleme çubuğu için yalnız sayılar — getSoruBankasiTestStatus'un solved/correct
+// tanımıyla aynı (denenmiş soru = total_attempts>0), ama yarım oturum aramaz ve hiçbir şey yazmaz.
+export async function getUnitProgress(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  userId: string,
+  questionIds: number[]
+): Promise<UnitProgress> {
+  if (!questionIds.length) return { poolSize: 0, solved: 0, correct: 0 };
+  const rows = await fetchAllRows<{ question_id: number; last_answer_correct: boolean }>((from, to) =>
+    supabase
+      .from('user_question_stats')
+      .select('question_id, last_answer_correct')
+      .eq('user_id', userId)
+      .in('question_id', questionIds)
+      .gt('total_attempts', 0)
+      .order('question_id')
+      .range(from, to)
+  );
+  return { poolSize: questionIds.length, solved: rows.length, correct: rows.filter((r) => r.last_answer_correct).length };
+}
+
 export interface TopicStatEntry {
   topicId: number;
   poolSize: number;

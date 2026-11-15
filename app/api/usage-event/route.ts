@@ -2,9 +2,9 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 
-// Slayt / sesli anlatım kullanım olayı (bkz. supabase/migrations/content_usage_stats.sql). Misafir de sayılır
+// Slayt / sesli anlatım / etkileşimli ders kullanım olayı (bkz. supabase/migrations/content_usage_stats.sql). Misafir de sayılır
 // (user_id boş). Yanıt hemen döner; kayıt yanıttan sonra yazılır ve başarısız olsa yalnız loglanır.
-const KINDS = new Set(['slides_open', 'slides_finish', 'narration_play', 'narration_finish']);
+const KINDS = new Set(['slides_open', 'slides_finish', 'narration_play', 'narration_finish', 'interactive_open', 'interactive_finish']);
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { kind?: unknown; topicId?: unknown } | null;

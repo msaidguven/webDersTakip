@@ -30,7 +30,14 @@ export const VISUAL_TEMPLATES = {
   tablo: { name: 'Tablo', purpose: 'Birkaç öğenin aynı özelliklerde karşılaştırılması.', columns: [2, 4] as Range, rows: [2, 6] as Range, cellMax: 40 },
   agac: { name: 'Ağaç', purpose: 'Hiyerarşi: ana öğe → alt öğeler.', children: [2, 4] as Range, itemsPerChild: [0, 3] as Range },
   akis: { name: 'Akış', purpose: 'Süreç adımları; adım adım ilerleyen bilgi.', steps: [2, 6] as Range, labelMax: 40 },
-  parcala: { name: 'Parçalı etiket', purpose: 'Bir ifadeyi parçalarına ayırıp her parçayı adlandırmak.', parts: [2, 5] as Range },
+  // Yalnız YAZILI bir ifadeyi bölmek için (dosya adı, adres, kelime + ek); kavram anlatımında kullanılırsa iki
+  // kelime + not olarak boş görünüyor (565, 2026-11-02) — kısa parça sınırı bunu da zorlaştırır.
+  parcala: { name: 'Parçalı etiket', purpose: 'Yazılı bir ifadeyi (dosya adı, adres, kelime + ek) parçalarına ayırıp her parçayı adlandırmak.', parts: [2, 5] as Range, textMax: 16 },
+  denklem: { name: 'Denklem', purpose: 'İki-üç şeyin birleşmesiyle oluşan kavram (A + B = C).', inputs: [2, 3] as Range, labelMax: 24, textMax: 50 },
+  dongu: { name: 'Döngü', purpose: 'Kendini tekrarlayan süreç; son adım başa döner.', steps: [3, 5] as Range, labelMax: 24, centerMax: 20 },
+  merkez: { name: 'Merkez ve parçaları', purpose: 'Bir bütün ve çevresindeki parçaları / bileşenleri / kullanım alanları.', parts: [3, 6] as Range, labelMax: 24, textMax: 50 },
+  karsilastir: { name: 'Karşılaştırma', purpose: 'İki şeyin yan yana farkları (+ ortak yönleri).', points: [2, 4] as Range, common: [0, 3] as Range, titleMax: 24, pointMax: 50 },
+  cubuk: { name: 'Çubuk grafik', purpose: 'Kaynakta verilen sayısal büyüklükleri karşılaştırmak.', bars: [2, 6] as Range, labelMax: 24 },
   svg: { name: 'Şema (SVG)', purpose: 'Gerçek bir şekil gerektiğinde (gezegenler, devre, harita…). Yazılar Türkçe, telefonda okunur.' },
   resim: { name: 'Resim', purpose: 'Yalnız isteğe bağlı süs; bilgi taşımaz, yabancı dilde yazı içermez.' },
 } as const;
@@ -58,7 +65,7 @@ function checkLen(out: string[], where: string, what: string, s: string | undefi
   if (s && s.length > max) out.push(`${where}: ${what} ${s.length} karakter (en çok ${max}): "${s.slice(0, 40)}…"`);
 }
 
-function validateVisual(out: string[], where: string, v: LessonVisual) {
+export function validateVisual(out: string[], where: string, v: LessonVisual) {
   switch (v.kind) {
     case 'kartlar': {
       const t = VISUAL_TEMPLATES.kartlar;
@@ -87,6 +94,52 @@ function validateVisual(out: string[], where: string, v: LessonVisual) {
       break;
     case 'parcala':
       checkRange(out, where, 'parça', v.parts.length, VISUAL_TEMPLATES.parcala.parts);
+      v.parts.forEach((p) => checkLen(out, where, 'parça (yalnız yazılı ifade bölünür; kavram için denklem/merkez/kartlar)', p.text, VISUAL_TEMPLATES.parcala.textMax));
+      break;
+    case 'denklem': {
+      const t = VISUAL_TEMPLATES.denklem;
+      checkRange(out, where, 'denklem girdisi', v.inputs.length, t.inputs);
+      [...v.inputs, v.result].forEach((it) => {
+        checkLen(out, where, 'denklem etiketi', it.label, t.labelMax);
+        checkLen(out, where, 'denklem açıklaması', it.text, t.textMax);
+      });
+      break;
+    }
+    case 'dongu': {
+      const t = VISUAL_TEMPLATES.dongu;
+      checkRange(out, where, 'döngü adımı', v.steps.length, t.steps);
+      v.steps.forEach((st) => checkLen(out, where, 'döngü etiketi', st.label, t.labelMax));
+      checkLen(out, where, 'döngü ortası', v.center, t.centerMax);
+      break;
+    }
+    case 'merkez': {
+      const t = VISUAL_TEMPLATES.merkez;
+      checkRange(out, where, 'parça', v.parts.length, t.parts);
+      [v.center, ...v.parts].forEach((it) => {
+        checkLen(out, where, 'etiket', it.label, t.labelMax);
+        checkLen(out, where, 'açıklama', it.text, t.textMax);
+      });
+      break;
+    }
+    case 'karsilastir': {
+      const t = VISUAL_TEMPLATES.karsilastir;
+      if (v.sides.length !== 2) out.push(`${where}: karşılaştırmada tam 2 taraf olmalı`);
+      v.sides.forEach((s) => {
+        checkLen(out, where, 'taraf başlığı', s.title, t.titleMax);
+        checkRange(out, where, `"${s.title}" maddesi`, s.points.length, t.points);
+        s.points.forEach((p) => checkLen(out, where, 'madde', p, t.pointMax));
+      });
+      checkRange(out, where, 'ortak madde', v.common?.length ?? 0, t.common);
+      v.common?.forEach((p) => checkLen(out, where, 'ortak madde', p, t.pointMax));
+      break;
+    }
+    case 'cubuk':
+      checkRange(out, where, 'çubuk', v.bars.length, VISUAL_TEMPLATES.cubuk.bars);
+      v.bars.forEach((b) => {
+        checkLen(out, where, 'çubuk etiketi', b.label, VISUAL_TEMPLATES.cubuk.labelMax);
+        if (!Number.isFinite(b.value) || b.value < 0) out.push(`${where}: "${b.label}" değeri geçersiz (0 ya da pozitif sayı olmalı)`);
+      });
+      if (v.bars.every((b) => b.value === 0)) out.push(`${where}: çubukların hepsi 0`);
       break;
     case 'svg':
     case 'resim':

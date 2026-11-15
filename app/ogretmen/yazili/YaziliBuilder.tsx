@@ -1,11 +1,11 @@
 'use client';
 
-// Yazılı kağıdı kurucu (öğretmen paneli). 2026-10-25'ten beri 4 adım (mobilde tek uzun sayfa karışıktı):
-// 1 Başla (öğrenme çıktısı başına sayı → rastgele kağıt / boş / taslağa devam), 2 Soru seç (havuz, konu/öğrenme çıktısı süzgeci),
-// 3 Düzenle ("Kağıdım": sürükle-bırak sıra, soru başı puan — varsayılan eşit dağıtım, elle değişince elle
-// kalır — ve MEB rehberi; yalnız bilgi, indirme asla engellenmez), 4 Bilgiler + PDF/Word indirme. Adımlar
-// serbest (sıra zorunlu değil). Taslak bu cihazda (localStorage) saklanır; okul/öğretmen adı tüm yazılılarda ortak.
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+// Yazılı kağıdı kurucu (öğretmen paneli). 2026-11-11'den beri 3 sade adım: 1 Soru seç (havuz, konu süzgeci),
+// 2 Düzenle ("Kağıdım": sürükle-bırak sıra, soru başı puan — varsayılan eşit dağıtım, elle değişince elle kalır;
+// indirme asla engellenmez), 3 Bilgiler + PDF/Word indirme. Hazır/rastgele kağıt ve MEB senaryo rehberi kaldırıldı.
+// Seçilen sorular hesapta saklanır (teacher_paper_drafts; telefonda seç, bilgisayarda aç); okul/öğretmen adı
+// tüm yazılılarda ortak ve bu cihazda (localStorage) tutulur.
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
@@ -17,21 +17,20 @@ import {
 } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
-import type { ScenarioRow, YaziliQuestion, YaziliTopic } from '@/app/src/lib/yazili/publicData';
-import { DIFFICULTY_BAND_LABEL, DIFFICULTY_PRESETS, difficultyBand, orderPool, type DifficultyBand, type DifficultyPreset } from '@/app/src/lib/yazili/papers';
+import type { YaziliQuestion, YaziliTopic } from '@/app/src/lib/yazili/publicData';
+import { DIFFICULTY_BAND_LABEL, difficultyBand, type DifficultyBand } from '@/app/src/lib/yazili/papers';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 // auto: soruyu sistem rastgele seçti (çıkarılırsa "remove" olumsuz sinyali kaydedilir; elle eklenende yok).
 type Item = { id: number; points: number; auto?: boolean };
-type Draft = { items: Item[]; autoPoints: boolean; scenario: number; title: string };
+type Draft = { items: Item[]; autoPoints: boolean; title: string };
 type Busy = 'paper' | 'key' | 'word' | null;
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 // v2 (2026-10-22): yalnız öğretmen alanı elle değiştirince yazılır; hiç yoksa profil bilgisi kullanılır.
 // v1 açılışta boş değerleri de kaydediyordu, profil bilgisinin gelmesini engellerdi.
 const INFO_KEY = 'dt-ogretmen-kagit-bilgi-v2';
 const COLUMNS_KEY = 'dt-ogretmen-kagit-sutun';
-const draftKey = (examId: number) => `dt-yazili-kagit:${examId}`;
 
 function readStorage<T>(key: string): T | null {
   try {
@@ -65,9 +64,8 @@ const difficultyLabel = (d: number | null) => DIFFICULTY_BAND_LABEL[difficultyBa
 type BuilderProps = {
   exam: { id: number; gradeName: string; lessonName: string; label: string; national: boolean; path: string; defaultTitle: string };
   topics: YaziliTopic[];
-  scenarios: ScenarioRow[];
-  scenarioCount: number;
-  nationalNeed: Record<string, number>;
+  // Hesaptaki kayıtlı kağıt (teacher_paper_drafts); yoksa null.
+  initialDraft: { items: Item[]; autoPoints: boolean; title: string } | null;
   // Öğretmenin profilinden (okul adı, ad soyad): kağıt bilgileri hiç düzenlenmediyse bunlarla dolar.
   profileDefaults: { school: string; teacherName: string };
 };
@@ -84,29 +82,17 @@ export function YaziliBuilder(props: BuilderProps) {
 function Builder({
   exam,
   topics,
-  scenarios,
-  scenarioCount,
-  nationalNeed,
+  initialDraft,
   profileDefaults,
 }: BuilderProps) {
   const questionById = useMemo(() => new Map(topics.flatMap((t) => t.questions).map((q) => [q.id, q])), [topics]);
   const topicTitleByQuestion = useMemo(() => new Map(topics.flatMap((t) => t.questions.map((q) => [q.id, t.title]))), [topics]);
-  const loTopicTitles = useMemo(() => {
-    const m = new Map<string, string[]>();
-    for (const t of topics) for (const c of t.loCodes) m.set(c, [...(m.get(c) ?? []), t.title]);
-    return m;
-  }, [topics]);
-
-  // Kayıtlı taslak (yalnız hâlâ havuzda olan sorular) ya da boş kağıt.
-  const [draft, setDraft] = useState<Draft>(() => {
-    const saved = readStorage<Draft>(draftKey(exam.id));
-    return {
-      items: Array.isArray(saved?.items) ? saved.items.filter((i) => questionById.has(i.id)) : [],
-      autoPoints: saved?.autoPoints !== false,
-      scenario: scenarioCount ? Math.min(Math.max(1, saved?.scenario || 1), scenarioCount) : 0,
-      title: saved?.title || exam.defaultTitle,
-    };
-  });
+  // Hesaptaki kayıtlı kağıt (yalnız hâlâ havuzda olan sorular) ya da boş kağıt.
+  const [draft, setDraft] = useState<Draft>(() => ({
+    items: Array.isArray(initialDraft?.items) ? initialDraft.items.filter((i) => questionById.has(i.id)) : [],
+    autoPoints: initialDraft?.autoPoints !== false,
+    title: initialDraft?.title || exam.defaultTitle,
+  }));
   const [info, setInfo] = useState(() => {
     const saved = readStorage<{ school?: string; teacherName?: string }>(INFO_KEY);
     return saved ? { school: saved.school ?? '', teacherName: saved.teacherName ?? '' } : profileDefaults;
@@ -125,20 +111,33 @@ function Builder({
     writeStorage(COLUMNS_KEY, n);
   };
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
-  const [loFilter, setLoFilter] = useState<string | null>(null);
   const [bandFilter, setBandFilter] = useState<DifficultyBand | null>(null);
-  const [preset, setPreset] = useState<DifficultyPreset>('sinav');
   const [hideAdded, setHideAdded] = useState(false);
   const [openAnswers, setOpenAnswers] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState<Busy>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Taslağı olan öğretmen doğrudan Düzenle'ye, boş kağıtla gelen Başla'ya.
-  const [step, setStep] = useState<Step>(() => (draft.items.length ? 3 : 1));
-  // Rastgele kağıt için öğrenme çıktısı başına elle değiştirilmiş sayılar (null = MEB önerisi).
-  const [customCounts, setCustomCounts] = useState<Record<string, number> | null>(null);
+  // Kayıtlı kağıdı olan öğretmen doğrudan Düzenle'ye, boş kağıtla gelen Soru seç'e.
+  const [step, setStep] = useState<Step>(() => (draft.items.length ? 2 : 1));
 
-  useEffect(() => writeStorage(draftKey(exam.id), draft), [exam.id, draft]);
+  // Kağıt hesaba kaydedilir (değişiklikten 800 ms sonra; ilk açılışta yazılmaz). Başarısızlık öğretmenin işini
+  // engellemez, bir sonraki değişiklikte yeniden denenir.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch('/api/ogretmen/yazili/taslak', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ examId: exam.id, items: draft.items, autoPoints: draft.autoPoints, title: draft.title }),
+        keepalive: true,
+      }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [exam.id, draft]);
 
   const { items, autoPoints } = draft;
   const selectedIds = useMemo(() => new Set(items.map((i) => i.id)), [items]);
@@ -192,21 +191,6 @@ function Builder({
     const n = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
     setDraft((d) => ({ ...d, autoPoints: false, items: d.items.map((i) => (i.id === id ? { ...i, points: n } : i)) }));
   };
-  // Rastgele kağıt (2026-10-25, sabit A/B yerine): öğrenme çıktısı başına istenen sayıda soru havuzdan
-  // rastgele (2026-10-31: seçilen zorluk tercihi ve güncel sürüm v1 önce, bkz. papers.orderPool); kağıt çıktı
-  // koduna göre sıralı, puanlar eşit. Onay iptal edilirse false — adım değişmesin.
-  const generatePaper = (counts: Map<string, number>): boolean => {
-    if (items.length && !window.confirm('Kağıttaki sorular yeni rastgele kağıtla değiştirilsin mi?')) return false;
-    const codes = [...counts.keys()].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
-    const picked: Item[] = [];
-    for (const code of codes) {
-      const pool = (poolByLo.get(code) ?? []).flatMap((id) => questionById.get(id) ?? []);
-      for (const q of orderPool(pool, { preset }).slice(0, counts.get(code) ?? 0)) picked.push({ id: q.id, points: 0, auto: true });
-    }
-    if (!picked.length) return false;
-    commitItems(picked, true);
-    return true;
-  };
   const clearPaper = () => {
     if (window.confirm('Kağıttaki tüm sorular çıkarılsın mı?')) setDraft((d) => ({ ...d, items: [], autoPoints: true }));
   };
@@ -220,33 +204,12 @@ function Builder({
     move(items.findIndex((i) => i.id === active.id), items.findIndex((i) => i.id === over.id));
   };
 
-  // MEB rehberi: istenen (senaryo ya da ülke geneli dengeli öneri) ↔ kağıttaki öğrenme çıktısı sayısı.
-  const guide = useMemo(() => {
-    const need = new Map<string, number>();
-    if (exam.national || !scenarioCount) {
-      for (const [c, n] of Object.entries(nationalNeed)) need.set(c, n);
-    } else {
-      for (const s of scenarios) if (s.counts[draft.scenario]) need.set(s.loCode, s.counts[draft.scenario]);
-    }
-    const have = new Map<string, number>();
-    let unknown = 0;
-    for (const it of items) {
-      const code = questionById.get(it.id)?.loCode;
-      if (code) have.set(code, (have.get(code) ?? 0) + 1);
-      else unknown += 1;
-    }
-    const codes = [...new Set([...need.keys(), ...have.keys()])].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
-    const rows = codes.map((code) => ({ code, need: need.get(code) ?? 0, have: have.get(code) ?? 0, topics: loTopicTitles.get(code) ?? [] }));
-    const needTotal = [...need.values()].reduce((a, b) => a + b, 0);
-    return { rows, unknown, needTotal, allOk: rows.every((r) => r.need === r.have) && unknown === 0 && items.length > 0 };
-  }, [exam.national, scenarioCount, nationalNeed, scenarios, draft.scenario, items, questionById, loTopicTitles]);
-
   const visibleTopics = topics
     .filter((t) => topicFilter === null || t.id === topicFilter)
     .map((t) => ({
       ...t,
       questions: t.questions.filter(
-        (q) => (!loFilter || q.loCode === loFilter) && (!bandFilter || difficultyBand(q.difficulty) === bandFilter) && (!hideAdded || !selectedIds.has(q.id))
+        (q) => (!bandFilter || difficultyBand(q.difficulty) === bandFilter) && (!hideAdded || !selectedIds.has(q.id))
       ),
     }))
     .filter((t) => t.questions.length);
@@ -290,206 +253,18 @@ function Builder({
   const chipCls = (active: boolean) =>
     `shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${active ? 'border-[var(--neon)] text-[var(--neon)]' : 'border-[var(--edge)] text-muted-foreground hover:text-default'}`;
 
-  // Rastgele kağıt satırları: kapsamdaki her öğrenme çıktısı (MEB ihtiyacı + havuzda sorusu olanlar). Sayı
-  // varsayılan olarak MEB senaryosundan (ülke genelinde dengeli öneri) gelir; öğretmen değiştirirse o kalır.
-  // Senaryo değişince öğretmenin elle sayıları sıfırlanır (o senaryonun dağılımı gelir).
-  const needByCode = new Map(guide.rows.map((row) => [row.code, row.need]));
-  const genRows = [...new Set([...needByCode.keys(), ...poolByLo.keys()])]
-    .sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }))
-    .map((code) => {
-      const available = poolByLo.get(code)?.length ?? 0;
-      const need = needByCode.get(code) ?? 0;
-      return { code, need, available, topics: loTopicTitles.get(code) ?? [], count: Math.min(available, customCounts?.[code] ?? need) };
-    })
-    .filter((row) => row.available > 0 || row.need > 0);
-  const genTotal = genRows.reduce((n, row) => n + row.count, 0);
-  const setGenCount = (code: string, value: number) =>
-    setCustomCounts(() => ({ ...Object.fromEntries(genRows.map((row) => [row.code, row.count])), [code]: Math.max(0, value) }));
-  const startRandom = () => {
-    if (!generatePaper(new Map(genRows.map((row) => [row.code, row.count])))) return;
-    goTo(3);
-  };
-
-  // Alt çubuk özeti: eksik ve fazla ayrı (yalnız eksik sayılırsa fazladan soru "uygun" görünürdü).
-  const guideMissing = guide.rows.reduce((n, row) => n + Math.max(0, row.need - row.have), 0);
-  const guideExtra = guide.rows.reduce((n, row) => n + (row.need ? Math.max(0, row.have - row.need) : row.have), 0);
-  const guideSummary = guide.allOk
-    ? 'MEB dağılımına uygun'
-    : [guideMissing && `${guideMissing} eksik`, guideExtra && `${guideExtra} fazla`].filter(Boolean).join(' · ') + ' (MEB rehberine göre)';
   const goTo = (next: Step) => {
     setStep(next);
     requestAnimationFrame(() => document.getElementById('yazili-adimlar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
-  const startEmpty = () => {
-    if (items.length && !window.confirm('Kağıttaki sorular çıkarılıp boş kağıtla başlansın mı?')) return;
-    setDraft((d) => ({ ...d, items: [], autoPoints: true }));
-    goTo(2);
-  };
 
   const steps: { n: Step; label: string; status: string; done: boolean }[] = [
-    { n: 1, label: 'Başla', status: items.length ? 'Kağıt var' : 'Rastgele ya da boş', done: items.length > 0 },
-    { n: 2, label: 'Soru seç', status: `${items.length} soru`, done: items.length > 0 },
-    { n: 3, label: 'Düzenle', status: total === 100 ? '100 puan ✓' : `${total} puan`, done: items.length > 0 && total === 100 },
-    { n: 4, label: 'İndir', status: 'PDF · Word', done: false },
+    { n: 1, label: 'Soru seç', status: `${items.length} soru`, done: items.length > 0 },
+    { n: 2, label: 'Düzenle', status: total === 100 ? '100 puan ✓' : `${total} puan`, done: items.length > 0 && total === 100 },
+    { n: 3, label: 'İndir', status: 'PDF · Word', done: false },
   ];
 
   // ── Bölümler (adımlarda kullanılır) ──
-  const guideSection = () => (
-    <section aria-labelledby="rehber" className={`p-4 ${r.panel}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="rehber" className={`text-sm font-bold uppercase text-default ${r.display}`}>MEB rehberi</h2>
-        {!exam.national && scenarioCount > 0 && (
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Zümre senaryosu
-            <select
-              value={draft.scenario}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, scenario: Number(e.target.value) }));
-                setCustomCounts(null);
-              }}
-              className="rounded-lg border border-[var(--edge)] bg-[var(--panel-solid)] px-2 py-1 text-xs text-default"
-            >
-              {Array.from({ length: scenarioCount }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}. senaryo</option>)}
-            </select>
-          </label>
-        )}
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {exam.national
-          ? 'Ülke geneli sınav: kitapçığı MEB gönderir. Deneme kağıdı için kapsamdaki öğrenme çıktılarından dengeli dağılım önerisi.'
-          : `Seçilen senaryoda öğrenme çıktısı başına istenen soru sayısı (toplam ${guide.needTotal}). Yalnız bilgi verir; karar senin.`}
-      </p>
-      <ul className="mt-3 flex flex-col gap-1">
-        {guide.rows.map((row) => {
-          const diff = row.have - row.need;
-          const status = !row.need
-            ? { text: 'Senaryoda yok', cls: 'text-muted-foreground' }
-            : diff === 0
-              ? { text: '✓ Tamam', cls: 'text-emerald-500' }
-              : diff < 0
-                ? { text: `${-diff} eksik`, cls: 'text-amber-500' }
-                : { text: `${diff} fazla`, cls: 'text-amber-500' };
-          return (
-            <li key={row.code}>
-              <button
-                type="button"
-                onClick={() => {
-                  setLoFilter(loFilter === row.code ? null : row.code);
-                  setTopicFilter(null);
-                  if (step !== 2) goTo(2);
-                }}
-                title="Bu öğrenme çıktısının sorularını göster"
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-[var(--panel-solid)] ${loFilter === row.code && step === 2 ? 'ring-1 ring-[var(--neon)]' : ''}`}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className={`font-semibold ${r.mono} text-default`}>{row.code}</span>
-                  <span className="block truncate text-muted-foreground">{row.topics.join(', ') || '—'}</span>
-                </span>
-                <span className="shrink-0 tabular-nums text-default">{row.have}/{row.need || '–'}</span>
-                <span className={`w-20 shrink-0 text-right font-semibold ${status.cls}`}>{status.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {guide.unknown > 0 && <p className="mt-2 text-xs text-muted-foreground">{guide.unknown} sorunun öğrenme çıktısı belirsiz, rehbere sayılmadı.</p>}
-      {guide.allOk && <p className="mt-2 text-xs font-semibold text-emerald-500">Kağıt bu dağılıma birebir uyuyor.</p>}
-    </section>
-  );
-
-  const stepperBtn = 'flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--edge)] text-default disabled:opacity-30';
-  const startStep = (
-    <div className="flex flex-col gap-4">
-      {items.length > 0 && (
-        <button type="button" onClick={() => goTo(3)} className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl p-4 text-left ${r.item} ${r.neonBorder}`}>
-          <span>
-            <span className={`block ${r.label}`}>Taslağın</span>
-            <span className="block text-base font-bold text-default">Kaldığın yerden devam et</span>
-          </span>
-          <span className="text-sm text-muted-foreground">{items.length} soru · {total} puan →</span>
-        </button>
-      )}
-
-      <section aria-labelledby="rastgele" className={`p-4 sm:p-5 ${r.panel}`}>
-        <p className={r.label}>Rastgele kağıt</p>
-        <h2 id="rastgele" className={`mt-1 text-lg font-bold uppercase text-default ${r.display}`}>Hangi çıktıdan kaç soru?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {exam.national
-            ? 'Sayılar kapsamdaki öğrenme çıktılarına dengeli dağıtılmış öneridir.'
-            : `Sayılar seçili MEB senaryosundan gelir.`}{' '}
-          Değiştirebilir, istemediğin çıktıyı 0 yapabilirsin. Sorular havuzdan rastgele seçilir; sonra tek tek değiştirebilirsin.
-        </p>
-
-        {!exam.national && scenarioCount > 0 && (
-          <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            Zümre senaryosu
-            <select
-              value={draft.scenario}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, scenario: Number(e.target.value) }));
-                setCustomCounts(null);
-              }}
-              className="rounded-lg border border-[var(--edge)] bg-[var(--panel-solid)] px-2 py-1 text-xs text-default"
-            >
-              {Array.from({ length: scenarioCount }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}. senaryo</option>)}
-            </select>
-          </label>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="group" aria-label="Zorluk tercihi">
-          Zorluk
-          {DIFFICULTY_PRESETS.map((p) => (
-            <button key={p.id} type="button" aria-pressed={preset === p.id} className={chipCls(preset === p.id)} onClick={() => setPreset(p.id)}>
-              {p.label} <span className="font-normal">· {p.hint}</span>
-            </button>
-          ))}
-        </div>
-
-        <ul className="mt-4 flex flex-col gap-2">
-          {genRows.map((row) => (
-            <li key={row.code} className={`flex items-center gap-3 rounded-xl p-3 ${r.item}`}>
-              <span className="min-w-0 flex-1">
-                <span className={`block text-xs font-semibold ${r.mono} text-default`}>{row.code}</span>
-                <span className="block truncate text-xs text-muted-foreground">{row.topics.join(', ') || '—'}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  Havuzda {row.available} soru{row.need ? ` · MEB: ${row.need}` : ''}
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-1.5" role="group" aria-label={`${row.code} soru sayısı`}>
-                <button type="button" onClick={() => setGenCount(row.code, row.count - 1)} disabled={row.count <= 0} aria-label="Bir azalt" className={stepperBtn}>−</button>
-                <span className="w-6 text-center text-sm font-bold tabular-nums text-default" aria-live="polite">{row.count}</span>
-                <button type="button" onClick={() => setGenCount(row.code, row.count + 1)} disabled={row.count >= row.available} aria-label="Bir artır" className={stepperBtn}>+</button>
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            Toplam <b className="text-default">{genTotal}</b> soru
-            {customCounts && (
-              <button type="button" onClick={() => setCustomCounts(null)} className={`ml-3 text-xs font-semibold hover:underline ${r.accent}`}>
-                MEB önerisine dön
-              </button>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={startRandom}
-            disabled={!genTotal}
-            className={`inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold disabled:opacity-50 ${r.btnNeon} ${r.btnText}`}
-          >
-            <Shuffle className="h-4 w-4" aria-hidden="true" /> Rastgele kağıt oluştur
-          </button>
-        </div>
-      </section>
-
-      <button type="button" onClick={startEmpty} className={`self-start text-sm font-semibold hover:underline ${r.accent}`}>
-        Ya da boş kağıtla başla, soruları kendin seç →
-      </button>
-    </div>
-  );
-
   const poolStep = (
     <section aria-labelledby="havuz" className="min-w-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -521,11 +296,6 @@ function Builder({
           <input type="checkbox" checked={hideAdded} onChange={(e) => setHideAdded(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
           Kağıttakileri gizle
         </label>
-        {loFilter && (
-          <button type="button" onClick={() => setLoFilter(null)} className={`inline-flex items-center gap-1 ${chipCls(true)}`}>
-            {loFilter} <X className="h-3 w-3" aria-hidden="true" /><span className="sr-only">süzgecini kaldır</span>
-          </button>
-        )}
       </div>
 
       <div className="mt-4 flex flex-col gap-6">
@@ -572,8 +342,7 @@ function Builder({
       {!items.length ? (
         <p className="mt-4 rounded-xl border border-dashed border-[var(--edge)] p-4 text-center text-sm text-muted-foreground">
           Kağıtta soru yok.{' '}
-          <button type="button" onClick={() => goTo(2)} className={`font-semibold hover:underline ${r.accent}`}>Soru seç</button> ya da{' '}
-          <button type="button" onClick={() => goTo(1)} className={`font-semibold hover:underline ${r.accent}`}>hazır kağıtla başla</button>.
+          <button type="button" onClick={() => goTo(1)} className={`font-semibold hover:underline ${r.accent}`}>Soru seç</button>.
         </p>
       ) : (
         <>
@@ -609,7 +378,7 @@ function Builder({
               {!autoPoints || total !== 100 ? (
                 <button type="button" onClick={() => commitItems(items, true)} className={`font-semibold hover:underline ${r.accent}`}>Puanları eşit dağıt</button>
               ) : null}
-              <button type="button" onClick={() => goTo(2)} className={`inline-flex items-center gap-1 font-semibold hover:underline ${r.accent}`}>
+              <button type="button" onClick={() => goTo(1)} className={`inline-flex items-center gap-1 font-semibold hover:underline ${r.accent}`}>
                 <Plus className="h-3 w-3" aria-hidden="true" /> Soru ekle
               </button>
               <button type="button" onClick={clearPaper} className="inline-flex items-center gap-1 font-semibold text-muted-foreground hover:text-red-500">
@@ -662,7 +431,7 @@ function Builder({
       ) : total !== 100 ? (
         <p className="mt-4 text-sm font-semibold text-amber-500">
           Toplam {total} puan.{' '}
-          <button type="button" onClick={() => goTo(3)} className="underline">Düzenle</button> adımında 100&apos;e tamamlayabilirsin (indirme yine de açık).
+          <button type="button" onClick={() => goTo(2)} className="underline">Düzenle</button> adımında 100&apos;e tamamlayabilirsin (indirme yine de açık).
         </p>
       ) : null}
 
@@ -690,7 +459,7 @@ function Builder({
     <div id="yazili-adimlar" className="mt-6 scroll-mt-[60px] sm:scroll-mt-[72px]">
       {/* Adım çubuğu (2026-10-25): mobilde tek uzun sayfa yerine 4 adım; adımlar serbest, sıra zorunlu değil. */}
       <nav aria-label="Yazılı hazırlama adımları" className="sticky top-[60px] z-20 -mx-4 bg-[color:var(--bg)] px-4 py-2 sm:top-[72px] sm:mx-0 sm:px-0">
-        <ol className="grid grid-cols-4 gap-1 rounded-xl border border-[var(--edge)] bg-[var(--panel-solid)] p-1">
+        <ol className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--edge)] bg-[var(--panel-solid)] p-1">
           {steps.map((s) => (
             <li key={s.n}>
               <button
@@ -720,20 +489,9 @@ function Builder({
       </nav>
 
       <div className="mt-4 pb-28 lg:pb-24">
-        {step === 1 && startStep}
-        {step === 2 && (
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            {poolStep}
-            <aside className="hidden lg:sticky lg:top-40 lg:block">{guideSection()}</aside>
-          </div>
-        )}
-        {step === 3 && (
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            {paperStep}
-            {guideSection()}
-          </div>
-        )}
-        {step === 4 && downloadStep}
+        {step === 1 && poolStep}
+        {step === 2 && paperStep}
+        {step === 3 && downloadStep}
       </div>
 
       {/* Alt çubuk: kağıt özeti + Geri/İleri (mobilde site sekme çubuğunun üstünde). */}
@@ -750,20 +508,8 @@ function Builder({
           </button>
           <p className="min-w-0 flex-1 text-center text-xs leading-tight text-muted-foreground">
             <span className="block font-bold text-default">{items.length} soru · {total} puan</span>
-            {items.length > 0 && (
-              <span className={guide.allOk ? 'text-emerald-500' : 'text-amber-500'}>{guideSummary}</span>
-            )}
           </p>
-          {step === 1 && !items.length && genTotal > 0 ? (
-            // Başla adımında asıl iş kağıdı oluşturmak — mobilde panelin düğmesi ekran dışında kalabiliyor.
-            <button
-              type="button"
-              onClick={startRandom}
-              className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-bold ${r.btnNeon} ${r.btnText}`}
-            >
-              <Shuffle className="h-4 w-4" aria-hidden="true" /> Kağıt oluştur
-            </button>
-          ) : step < 4 ? (
+          {step < 3 ? (
             <button
               type="button"
               onClick={() => goTo((step + 1) as Step)}

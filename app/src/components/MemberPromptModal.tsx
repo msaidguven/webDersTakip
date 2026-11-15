@@ -6,6 +6,7 @@
 //   3. bildirdiği soruya cevap gelen / bildirimi kapanan üye → okunmamış bildirimler (notifications) özetlenir
 //   4. yazılı haftasından bir hafta önce ve hafta boyunca, sınıfı seçili öğrenciye sınıfındaki yayında yazılılar
 //      ("örnek yazılı sorularını çöz"; takvim: yazili/common.ts SCHOOL_EXAM_WEEKS, 2026-11-01)
+// Hepsinden önce: silme isteği verilmiş hesaba giriş yapılmışsa silinme günü + geri alma bağlantısı (2026-11-15).
 // "Günde bir" o cihaz için (localStorage, TR günü): pencere gösterilince o günün hakkı biter, "Sonra" deyince de.
 // Admin, giriş/kayıt ve profil sayfalarında (OAuth tamamlama orada) gösterilmez.
 import { useEffect, useState } from 'react';
@@ -16,13 +17,15 @@ import { useAuth } from '@/app/src/context/AuthContext';
 import { clearMyProfileCache, fetchMyProfile } from '@/app/src/lib/myProfileClient';
 import { TeacherLessonsEditor } from '@/app/src/components/teacher/TeacherLessonsEditor';
 import { activeExamWeek, examLabel, type ActiveExamWeek } from '@/app/src/lib/yazili/common';
+import { formatDeletionDate } from '@/app/src/lib/accountDeletion';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 const DAY_KEY = 'member-prompt-day';
 const REPORT_TYPES = ['question_report_reply', 'question_report_closed'];
-const HIDDEN_PREFIXES = ['/admin', '/profil', '/login', '/register', '/auth', '/sifremi-unuttum', '/sifre-yenile'];
+const HIDDEN_PREFIXES = ['/admin', '/profil', '/login', '/register', '/auth', '/sifremi-unuttum', '/sifre-yenile', '/hesap-silme'];
 
 type Prompt =
+  | { kind: 'deletion'; date: string }
   | { kind: 'grade' }
   | { kind: 'lessons' }
   | { kind: 'reports'; ids: number[]; title: string; body: string | null; link: string }
@@ -58,11 +61,12 @@ export function MemberPromptModal() {
     let cancelled = false;
     (async () => {
       const data = await fetchMyProfile(userId);
-      const profile = data?.profile as { role?: string; grade_id?: number | null; onboarding_completed?: boolean } | null;
+      const profile = data?.profile as { role?: string; grade_id?: number | null; onboarding_completed?: boolean; deletion_requested_at?: string | null } | null;
       if (!profile || profile.onboarding_completed === false) return;
 
       let next: Prompt | null = null;
-      if (profile.role === 'student' && !profile.grade_id) next = { kind: 'grade' };
+      if (profile.deletion_requested_at) next = { kind: 'deletion', date: formatDeletionDate(profile.deletion_requested_at) };
+      else if (profile.role === 'student' && !profile.grade_id) next = { kind: 'grade' };
       else if (profile.role === 'teacher') {
         const { count } = await supabase.from('teacher_lessons').select('lesson_id', { count: 'exact', head: true }).eq('teacher_id', userId);
         if (count === 0) next = { kind: 'lessons' };
@@ -100,7 +104,18 @@ export function MemberPromptModal() {
   const close = () => setPrompt(null);
 
   const content =
-    prompt.kind === 'grade' ? (
+    prompt.kind === 'deletion' ? (
+      <>
+        <p className="text-sm text-default">
+          Bu hesap için silme isteği verilmiş: {prompt.date} tarihinde kalıcı olarak silinecek. Vazgeçtiysen hesabını geri alabilirsin.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/hesap-silme" onClick={close} className={`inline-flex min-h-10 items-center rounded-xl px-5 text-sm font-bold ${r.btnNeon} ${r.btnText}`}>
+            Hesabımı geri al
+          </Link>
+        </div>
+      </>
+    ) : prompt.kind === 'grade' ? (
       <GradePicker onSaved={close} />
     ) : prompt.kind === 'lessons' ? (
       <>
@@ -133,7 +148,8 @@ export function MemberPromptModal() {
             onClick={() => {
               close();
               // Görmeye gidince okundu sayılır (bildirim zilinde de düşer); "Sonra" okunmamış bırakır.
-              void supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', prompt.ids);
+              // Sorgu ancak sonucu beklenince gönderilir (supabase-js): then şart, yoksa okundu işareti hiç gitmez.
+              supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', prompt.ids).then(() => {});
             }}
             className={`inline-flex min-h-10 items-center rounded-xl px-5 text-sm font-bold ${r.btnNeon} ${r.btnText}`}
           >
@@ -144,7 +160,8 @@ export function MemberPromptModal() {
     );
 
   const title =
-    prompt.kind === 'grade' ? 'Sınıfını seç'
+    prompt.kind === 'deletion' ? 'Hesabın silinmek üzere'
+    : prompt.kind === 'grade' ? 'Sınıfını seç'
     : prompt.kind === 'lessons' ? 'Branşını seç'
     : prompt.kind === 'exam_week' ? (prompt.week.phase === 'now' ? '📝 Bu hafta yazılı haftası!' : '📝 Yazılı haftası yaklaşıyor')
     : prompt.title;

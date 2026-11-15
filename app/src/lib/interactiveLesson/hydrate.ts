@@ -1,4 +1,5 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getQuestionsByIds } from '@/app/src/lib/quizQuestions';
 import { getLessonDefinition } from './registry';
@@ -6,8 +7,12 @@ import { termSlug, type HydratedLesson, type HydratedStep, type LessonTerm } fro
 import type { ClassicalQuestion, QuizQuestion, SvgPosition } from '@/app/src/lib/quizQuestionTypes';
 import type { LessonDefinition } from './types';
 
-async function loadGeneratedLesson(supabase: ReturnType<typeof createServiceClient>, topicId: number): Promise<LessonDefinition | null> {
-  const { data } = await supabase.from('interactive_lessons').select('lesson').eq('topic_id', topicId).eq('status', 'ready').maybeSingle();
+// Öğrenciye yalnız sesleri tamamlanmış ders gösterilir (kullanıcı kararı 2026-11-03); ses üretimi (voice.ts)
+// sesi eksik dersi de okuyabilmeli → includeUnvoiced.
+async function loadGeneratedLesson(supabase: ReturnType<typeof createServiceClient>, topicId: number, includeUnvoiced: boolean): Promise<LessonDefinition | null> {
+  let query = supabase.from('interactive_lessons').select('lesson').eq('topic_id', topicId).eq('status', 'ready');
+  if (!includeUnvoiced) query = query.eq('voice_done', true);
+  const { data } = await query.maybeSingle();
   const lesson = (data as { lesson: Omit<LessonDefinition, 'topicId'> | null } | null)?.lesson;
   return lesson ? { ...lesson, topicId } : null;
 }
@@ -15,11 +20,11 @@ async function loadGeneratedLesson(supabase: ReturnType<typeof createServiceClie
 type ClassicalRow = { id: number; question_text: string; svg_content: string | null; svg_position: SvgPosition; question_classical: { model_answer: string | null } | null };
 
 // Ders tanımı + soru adımları havuzdaki sorularla doldurulmuş hâl (admin önizleme API'si ve ses üretim betiği
-// aynı kaynağı kullanır: Bit'in seslendirilen cümleleri öğrencinin gördüğüyle birebir aynı olsun).
-export async function hydrateLesson(topicId: number): Promise<{ lesson: HydratedLesson } | { error: string; status: number }> {
+// aynı kaynağı kullanır: Atom'un seslendirilen cümleleri öğrencinin gördüğüyle birebir aynı olsun).
+export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: boolean } = {}): Promise<{ lesson: HydratedLesson } | { error: string; status: number }> {
   const supabase = createServiceClient();
   // Önce elle yazılmış ders (kodda), yoksa worker'ın ürettiği ve denetimden geçmiş ders (interactive_lessons).
-  const lesson = getLessonDefinition(topicId) ?? (await loadGeneratedLesson(supabase, topicId));
+  const lesson = getLessonDefinition(topicId) ?? (await loadGeneratedLesson(supabase, topicId, !!opts.includeUnvoiced));
   if (!lesson) return { error: 'Bu konu için etkileşimli ders henüz hazırlanmadı', status: 404 };
 
   const idsOf = (kind: 'soru' | 'klasik') =>
@@ -87,4 +92,22 @@ export async function hydrateLesson(topicId: number): Promise<{ lesson: Hydrated
 
   const payload: HydratedLesson = { topicId, topicTitle: (topicRes.data as { title: string }).title, blocks, terms, autoLinkExclude: lesson.autoLinkExclude ?? [], guide: lesson.guide };
   return { lesson: payload };
+}
+
+// Öğrenciye giden ders önbellekten gelir (kullanıcı kararı 2026-11-03): yalnız PUSH (yeni yayın kimliği anahtarda)
+// ya da içerik değişince (worker revalidateTag — interactiveLessonTag) yenilenir. Hata (500) önbelleğe girmez;
+// "ders yok" (404) girer, ders açılınca etiketle temizlenir.
+export const interactiveLessonTag = (topicId: number) => `interactive-lesson-${topicId}`;
+const DEPLOY_KEY = process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'yerel';
+
+export function getCachedLesson(topicId: number) {
+  return unstable_cache(
+    async () => {
+      const result = await hydrateLesson(topicId);
+      if ('error' in result && result.status >= 500) throw new Error(result.error);
+      return result;
+    },
+    ['interactive-lesson', DEPLOY_KEY, String(topicId)],
+    { tags: [interactiveLessonTag(topicId)], revalidate: false },
+  )();
 }

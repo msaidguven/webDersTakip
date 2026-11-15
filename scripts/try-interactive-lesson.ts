@@ -2,6 +2,7 @@
 // Varsayılan kuru çalışma: sonucu yazdırır, veritabanına yazmaz. --save: geçerse interactive_lessons'a 'ready'
 // olarak kaydeder (sesleri worker sonra üretir).
 //   NODE_OPTIONS=--conditions=react-server npx tsx scripts/try-interactive-lesson.ts <topicId> [--save]
+//   TRY_KEY_ENV=<env adı>: worker anahtarı yerine başka bir Gemini anahtarıyla dene (ör. GEMINI_API_KEY_IMAGE).
 import { readFileSync, writeFileSync } from 'node:fs';
 
 for (const line of readFileSync(new URL('../.env.local', import.meta.url), 'utf8').split('\n')) {
@@ -25,7 +26,7 @@ async function main() {
   // Worker gibi ilk parça (ilk alt konu); --save yalnız tüm bölümler tek parçaya sığdıysa.
   const { SECTIONS_PER_CALL } = await import('../app/src/lib/interactiveLesson/generate');
   const chunk = { ...source, sections: source.sections.slice(0, SECTIONS_PER_CALL) };
-  const out = await produceLesson(chunk, { ...QUESTION_WORKER_PROFILES.secondary, requestTimeoutMs: 230_000, deadlineAt: Date.now() + 250_000 }, undefined, { first: true, of: source.sections.length });
+  const out = await produceLesson(chunk, { ...QUESTION_WORKER_PROFILES.secondary, ...(process.env.TRY_KEY_ENV ? { apiKeyEnvs: [process.env.TRY_KEY_ENV] } : {}), requestTimeoutMs: 230_000, deadlineAt: Date.now() + 250_000 }, undefined, { first: true, of: source.sections.length });
   const { lesson, errors } = out;
   console.log(`${out.model} · ${out.calls} AI çağrısı · ${Math.round((Date.now() - started) / 1000)} sn`);
   const file = `/tmp/interactive-lesson-${topicId}.json`;

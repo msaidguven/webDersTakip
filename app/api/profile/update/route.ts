@@ -49,14 +49,16 @@ export async function GET() {
   // public_slug: kartın genel kimliği (public_profile_slug.sql) — "Kartımı gör" linki için.
   let publicProfile = false;
   let publicSlug: string | null = null;
+  let deletionRequestedAt: string | null = null;
   if (profileRow) {
-    const { data: pubRow, error: pubError } = await service.from('profiles').select('public_profile, public_slug').eq('id', user.id).maybeSingle();
-    const pub = pubError ? null : (pubRow as { public_profile?: boolean; public_slug?: string } | null);
+    const { data: pubRow, error: pubError } = await service.from('profiles').select('public_profile, public_slug, deletion_requested_at').eq('id', user.id).maybeSingle();
+    const pub = pubError ? null : (pubRow as { public_profile?: boolean; public_slug?: string; deletion_requested_at?: string | null } | null);
     publicProfile = pub?.public_profile === true;
     publicSlug = pub?.public_slug ?? null;
+    deletionRequestedAt = pub?.deletion_requested_at ?? null;
   }
 
-  return NextResponse.json({ profile: profileRow ? { ...profileRow, public_profile: publicProfile, public_slug: publicSlug } : null, gradeName });
+  return NextResponse.json({ profile: profileRow ? { ...profileRow, public_profile: publicProfile, public_slug: publicSlug, deletion_requested_at: deletionRequestedAt } : null, gradeName });
 }
 
 // Kullanıcının kendi profilini güncellemesi için: oturumu doğrular, sadece kendi
