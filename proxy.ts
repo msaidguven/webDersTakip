@@ -64,9 +64,69 @@ async function isRequestBanned(request: NextRequest, response: NextResponse): Pr
   return true;
 }
 
+// Salt okunur yönetici (Google Play inceleme hesabı, 2026-11-16): auth.users.app_metadata.read_only
+// = true olan kullanıcı admin panelini gezebilir ama /api/admin/* altında hiçbir değişiklik
+// (silme/düzenleme/ekleme) yapamaz. app_metadata'yı yalnız service key değiştirebilir.
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+async function isReadOnlyUser(request: NextRequest, response: NextResponse): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return false;
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      get(name: string) {
+        return request.cookies.get(name)?.value;
+      },
+      set(name: string, value: string, options: CookieOptions) {
+        response.cookies.set({ name, value, ...options });
+      },
+      remove(name: string, options: CookieOptions) {
+        response.cookies.set({ name, value: '', ...options });
+      },
+    },
+  });
+
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.app_metadata?.read_only === true;
+}
+
+// Salt okunur kullanıcının değişiklik isteği hiçbir route'a ulaşmaz. Silme istekleri "başarılı"
+// gibi cevaplanır (ekranlar satırı listeden düşürsün, DB'ye dokunulmaz); diğer değişiklikler 403.
+// x-demo-readonly başlığını DemoReadOnlyNotice yakalayıp ekranda bildirim gösterir.
+async function demoReadOnlyResponse(request: NextRequest, pathname: string): Promise<NextResponse> {
+  const body = (await request.clone().json().catch(() => null)) as
+    | { action?: unknown; ids?: unknown; id?: unknown }
+    | null;
+  const isDelete =
+    request.method === 'DELETE' || /delete|purge/i.test(pathname) || body?.action === 'delete';
+  const headers = { 'x-demo-readonly': isDelete ? 'delete' : 'write' };
+
+  if (!isDelete) {
+    return NextResponse.json(
+      { error: 'Bu demo hesabı salt okunurdur; değişiklikler kaydedilmez.' },
+      { status: 403, headers },
+    );
+  }
+
+  const ids = Array.isArray(body?.ids) ? body.ids : body?.id != null ? [body.id] : [];
+  return NextResponse.json(
+    { ok: true, success: true, demo: true, deletedIds: ids, deletedCount: ids.length || 1, failed: [], status: 'deleted' },
+    { status: 200, headers },
+  );
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const response = NextResponse.next();
+
+  if (pathname.startsWith('/api/admin/')) {
+    if (!READ_METHODS.has(request.method) && (await isReadOnlyUser(request, response))) {
+      return demoReadOnlyResponse(request, pathname);
+    }
+    return response;
+  }
 
   // ?soru= paylaşım linklerinin "noindex" başlığı artık next.config.ts headers() kuralında —
   // middleware normal sayfa ziyaretlerinde hiç çalışmıyor (bkz. aşağıdaki matcher notu).
@@ -127,6 +187,7 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/admin',
+    '/api/admin/:path*',
     '/ilerlemem/:path*',
     '/ilerlemem',
     '/profil/:path*',

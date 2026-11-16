@@ -11,6 +11,7 @@ import { PageViewTracker } from "./src/components/PageViewTracker";
 import { AcquisitionCapture } from "./src/components/AcquisitionCapture";
 import { AnswerOutboxFlusher } from "./src/components/AnswerOutboxFlusher";
 import { InAppNavigationTracker } from "./src/components/InAppNavigationTracker";
+import { DemoReadOnlyNotice } from "./src/components/DemoReadOnlyNotice";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -75,6 +76,7 @@ export default function RootLayout({
           <AcquisitionCapture />
           <AnswerOutboxFlusher />
           <InAppNavigationTracker />
+          <DemoReadOnlyNotice />
           <MainLayout>
             {children}
           </MainLayout>
