@@ -1,0 +1,67 @@
+{
+  "ders": "Sosyal Bilgiler",
+  "sinif": 5,
+  "unite": "Yaşadığımız Yer",
+  "kavramlar": [
+    {
+      "id": "dagınık-yerlesme",
+      "kavram": "Dağınık Yerleşme",
+      "tanim": "Su kaynaklarının bol ve arazinin engebeli olduğu yerlerde evlerin birbirinden uzak inşa edildiği yerleşme türüdür.",
+      "ek": "Ülkemizde özellikle Karadeniz Bölgesi'nde sık görülür."
+    },
+    {
+      "id": "toplu-yerlesme",
+      "kavram": "Toplu Yerleşme",
+      "tanim": "Su kaynaklarının az ve arazinin düz olduğu yerlerde evlerin birbirine yakın inşa edildiği yerleşme türüdür.",
+      "ek": "İç Anadolu Bölgesi'ndeki köylerde sık görülür."
+    },
+    {
+      "id": "harita",
+      "kavram": "Harita",
+      "tanim": "Yeryüzünün tamamının veya bir bölümünün kuşbakışı görünüşünün, küçültülerek düzlem üzerine çizilmiş hâlidir.",
+      "ek": ""
+    },
+    {
+      "id": "olcek",
+      "kavram": "Ölçek",
+      "tanim": "Haritadaki uzaklıkların gerçek uzaklıktan kaç kat küçültüldüğünü gösteren orandır.",
+      "ek": "Ölçek haritanın köşesinde 1/1.000.000 gibi yazılır."
+    },
+    {
+      "id": "pusula",
+      "kavram": "Pusula",
+      "tanim": "İbresi her zaman kuzeyi gösteren, yönleri bulmamıza yarayan araçtır.",
+      "ek": ""
+    },
+    {
+      "id": "kroki",
+      "kavram": "Kroki",
+      "tanim": "Bir yerin ölçek kullanılmadan, gözleme dayanarak çizilmiş basit planıdır.",
+      "ek": "Okulumuzun ya da evimizin yolunu tarif ederken kroki çizebiliriz."
+    },
+    {
+      "id": "iklim",
+      "kavram": "İklim",
+      "tanim": "Bir yerde uzun yıllar boyunca görülen hava olaylarının ortalamasıdır.",
+      "ek": "Hava durumu günlük, iklim ise uzun süreli bir kavramdır."
+    },
+    {
+      "id": "dogal-afet",
+      "kavram": "Doğal Afet",
+      "tanim": "Deprem, sel ve heyelan gibi insanlara ve çevreye zarar veren doğa olaylarıdır.",
+      "ek": "Önceden hazırlık yapmak doğal afetlerin zararını azaltır."
+    },
+    {
+      "id": "goc",
+      "kavram": "Göç",
+      "tanim": "İnsanların çeşitli nedenlerle bir yerden başka bir yere gidip yerleşmesidir.",
+      "ek": ""
+    },
+    {
+      "id": "cografi-bolge",
+      "kavram": "Coğrafi Bölge",
+      "tanim": "İklim, bitki örtüsü ve yer şekilleri bakımından birbirine benzeyen alanlardır.",
+      "ek": "Ülkemiz yedi coğrafi bölgeye ayrılır."
+    }
+  ]
+}

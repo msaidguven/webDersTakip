@@ -1,0 +1,65 @@
+/* Kavram Avı — robotic.module.css tokenlarını (--neon, --edge, --ink ...) kullanır; sayfa kökü r.root olmalı. */
+
+/* Seçim ekranı */
+.secimDugme { padding: 8px 16px; min-height: 44px; border-radius: 10px; border: 1px solid var(--edge); background: var(--panel-solid); color: var(--muted); font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 600; letter-spacing: .03em; transition: color .2s, border-color .2s, box-shadow .2s; }
+.secimDugme:hover { color: var(--ink); }
+.secimAktif { color: var(--neon); border-color: var(--neon); box-shadow: 0 0 12px -4px var(--glow); }
+.liste { display: grid; grid-template-columns: 1fr; gap: 10px; list-style: none; margin: 0; padding: 0; }
+@media (min-width: 560px) { .liste { grid-template-columns: 1fr 1fr; } }
+.kavramDugme { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 12px; border-radius: 14px; text-align: left; cursor: pointer; }
+.numara { width: 36px; height: 36px; flex: none; }
+.kavramAdi { font-weight: 700; overflow-wrap: anywhere; }
+
+/* Oyun ekranı */
+.tanim { padding: 8px 14px; border-radius: 14px; }
+.tanimEtiket { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.tanim p { margin: 0; font-size: 14.5px; line-height: 1.45; font-weight: 500; }
+@media (min-width: 640px) { .tanim { padding: 14px 16px; } .tanim p { font-size: 16px; line-height: 1.55; } }
+.sira { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Kutucuklar: en uzun kelime tek satırda sığacak şekilde kutu boyutu kapsayıcı genişliğinden hesaplanır;
+   kelimeler arası boşluk büyük, kelime grupları sığmazsa alt satıra iner (kelime ortadan bölünmez). */
+.kutularKap { container-type: inline-size; width: 100%; }
+.kutular { --bosluk: 4px; --kutu: clamp(20px, calc((100cqw - (var(--n) - 1) * var(--bosluk)) / var(--n)), 42px); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; }
+.kelimeGrubu { display: flex; flex-wrap: nowrap; gap: var(--bosluk); }
+.kutu, .kutuDolu, .kutuIpucu { display: inline-flex; align-items: center; justify-content: center; width: var(--kutu); height: var(--kutu); border-radius: 8px; font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; font-size: calc(var(--kutu) * .58); line-height: 1; transition: background .25s, color .25s, border-color .25s; }
+.kutu { border: 1px solid var(--edge); background: var(--panel-solid); box-shadow: inset 0 0 12px -6px var(--glow); }
+.kutuDolu { border: 1px solid var(--neon); color: #fff; background: linear-gradient(135deg, var(--neon-2), var(--neon)); box-shadow: 0 0 12px -3px var(--glow); }
+.kutuIpucu { border: 1px dashed #D97706; color: #B45309; background: color-mix(in srgb, #F59E0B 16%, var(--panel-solid)); }
+:global(.dark) .kutuIpucu { color: #FBBF24; border-color: #FBBF24; }
+
+/* Çember */
+.cemberKap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.cemberAlan { position: relative; display: flex; justify-content: center; width: 100%; }
+.secilen { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; pointer-events: none; max-width: 62%; padding: 2px 12px; border-radius: 999px; text-align: center; font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; letter-spacing: .08em; line-height: 1.5; color: #fff; background: linear-gradient(135deg, var(--neon-2), var(--neon)); overflow-wrap: anywhere; transition: background .2s; }
+.secilenYanlis { background: #DC2626; }
+.aktifKutu { border-color: var(--neon); }
+.cember { width: min(100%, clamp(190px, calc(100svh - 460px), 320px)); aspect-ratio: 1; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; overflow: visible; }
+.cemberZemin { fill: color-mix(in srgb, var(--neon) 7%, var(--panel-solid)); stroke: var(--edge); stroke-width: 1.5; }
+.cizgi { fill: none; stroke: var(--neon); stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; opacity: .55; pointer-events: none; }
+.harf { outline: none; }
+.harfDaire { fill: var(--panel-solid); stroke: var(--edge); stroke-width: 2; transition: fill .15s, stroke .15s; }
+.harfYazi { fill: var(--ink); font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 700; pointer-events: none; }
+.harfSecili .harfDaire { fill: var(--neon); stroke: var(--neon-2); }
+.harfSecili .harfYazi { fill: #fff; }
+.harf:focus-visible .harfDaire { stroke: var(--neon-2); stroke-width: 4; }
+
+.kontroller { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.dugme { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 6px 16px; border-radius: 12px; font-family: var(--font-r-display), system-ui, sans-serif; font-weight: 600; letter-spacing: .03em; cursor: pointer; }
+.dugme:disabled { opacity: .45; cursor: not-allowed; }
+.dugme:focus-visible, .secimDugme:focus-visible, .kavramDugme:focus-visible { outline: 3px solid var(--neon-2); outline-offset: 2px; }
+
+/* Bilgi kartı */
+.bilgiKarti { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border-radius: 16px; border-color: var(--neon); box-shadow: 0 0 22px -6px var(--glow); }
+.bilgiBaslik { margin: 0; font-family: var(--font-r-display), system-ui, sans-serif; font-size: 24px; font-weight: 700; }
+.bilgiMetin { margin: 0; font-size: 16px; line-height: 1.6; }
+.bilgiEk { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.5; background: color-mix(in srgb, var(--neon) 10%, transparent); }
+
+/* Yanlış denemede kısa sallanma */
+.sallan { animation: sallan .45s ease-in-out; }
+@keyframes sallan { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sallan { animation: none; }
+  .kutu, .kutuDolu, .kutuIpucu, .harfDaire, .secilen { transition: none; }
+}

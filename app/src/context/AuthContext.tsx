@@ -6,9 +6,14 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { SupabaseClient, User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { useViewAs, type ViewAsRole } from '../lib/viewAs';
 
 interface AuthContextType {
+  // Admin "misafir olarak gör" seçtiyse null (bkz. lib/viewAs.ts); gerçek oturum realUser'da.
   user: User | null;
+  realUser: User | null;
+  // Admin'in seçtiği görünüm rolü (yalnız görünüm; yetki değil). Gerçek rol useRealProfileRole'da.
+  viewAs: ViewAsRole | null;
   loading: boolean;
   isAuthenticated: boolean;
   supabase: SupabaseClient;
@@ -134,12 +139,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, router]);
 
+  const viewAs = useViewAs(user?.id);
+  const visibleUser = viewAs === 'guest' ? null : user;
+
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: visibleUser,
+        realUser: user,
+        viewAs,
         loading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!visibleUser,
         supabase,
         signOut,
         refreshUser,

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { useProfileRole } from '../hooks/useIsAdmin';
+import { useProfileRole, useRealProfileRole } from '../hooks/useIsAdmin';
+import { ViewAsMenu } from './ViewAsMenu';
 import { useDisplayName } from '../hooks/useDisplayName';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { NotificationBell } from './NotificationBell';
@@ -25,8 +26,10 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { isAuthenticated, user, supabase, signOut } = useAuth();
+  const { isAuthenticated, user, realUser, viewAs, supabase, signOut } = useAuth();
   const role = useProfileRole();
+  // Rol menüsü gerçek role göre: admin misafir/öğrenci görünümündeyken de menüye ulaşabilsin.
+  const realRole = useRealProfileRole();
   const isAdmin = role === 'admin';
   const isTeacher = role === 'teacher';
   const displayName = useDisplayName();
@@ -107,6 +110,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </div>
               </div>
             )}
+
+            {realRole === 'admin' && realUser && <ViewAsMenu userId={realUser.id} viewAs={viewAs} />}
 
             <NotificationBell />
 

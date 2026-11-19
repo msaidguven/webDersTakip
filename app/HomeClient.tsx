@@ -9,7 +9,7 @@ import { Grade } from './src/models/homeTypes';
 import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/homeMapping';
 import type { HomeGradeSection, SiteStats } from './src/lib/homeStats';
 import type { DailyQuestionSet, RecentTopicItem, ThisWeekTopicItem } from './src/lib/homeHighlights';
-import { RecentTopicsCard, SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
+import { SchoolThisWeekCard } from './src/components/home/HomeHighlightCards';
 import { StudentToday } from './src/components/home/StudentToday';
 import { DailyQuestionOfTheDay } from './src/components/home/DailyQuestionCard';
 import type { TopStudentEntry } from './src/lib/leaderboard';
@@ -17,7 +17,8 @@ import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
 import { UpcomingExamsCard, type UpcomingExam } from './src/components/yazili/UpcomingExamsCard';
 import { GuestHomeV1 } from './src/components/home/GuestHomeV1';
 import { TeacherHome } from './src/components/home/TeacherHome';
-import { AdminHome, PreviewBanner, type HomePreview } from './src/components/home/AdminHome';
+import { AdminHome } from './src/components/home/AdminHome';
+import { setViewAs } from './src/lib/viewAs';
 import { roboticFontVars } from './src/components/robotic/fonts';
 import r from './src/components/robotic/robotic.module.css';
 
@@ -62,15 +63,14 @@ interface HomeClientProps {
   gradeSections: Record<string, HomeGradeSection>;
   // grade_id → haftalık 7 soruluk set (bkz. getDailyQuestionSetsByGrade).
   dailyQuestionSets: Record<string, DailyQuestionSet>;
-  recentTopics: RecentTopicItem[];
   recentByGrade: Record<string, RecentTopicItem[]>;
   thisWeek: { week: number; byGradeId: Record<string, ThisWeekTopicItem[]> };
   topStudents: TopStudentEntry[];
   upcomingExamsByGrade: Record<string, UpcomingExam[]>;
 }
 
-export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek, upcomingExamsByGrade }: HomeClientProps) {
-  const { isAuthenticated, user } = useAuth();
+export default function HomeClient({ initialGrades, stats, gradeSections, topStudents, dailyQuestionSets, recentByGrade, thisWeek, upcomingExamsByGrade }: HomeClientProps) {
+  const { isAuthenticated, user, viewAs } = useAuth();
   const { data: grades } = useSWR('grades', fetcher, {
     fallbackData: initialGrades,
     revalidateOnFocus: false,
@@ -93,9 +93,8 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   // bastıysa (hasManualSelectionRef) üzerine yazmıyoruz.
   const hasManualSelectionRef = useRef(false);
   // Anasayfa role göre ayrılır (2026-10-22): öğrenci → StudentToday, öğretmen → öğretmen paneli, admin →
-  // yönetim anasayfası (+ öğrenci/öğretmen önizlemesi). Rol aynı profil isteğinden gelir, ek sorgu yok.
+  // yönetim anasayfası; admin header'daki rol menüsünden başka rol seçtiyse o rolün anasayfası (lib/viewAs.ts). Rol aynı profil isteğinden gelir, ek sorgu yok.
   const [me, setMe] = useState<{ userId: string; role: string | null; firstName: string | null; isVerified: boolean } | null>(null);
-  const [preview, setPreview] = useState<HomePreview | null>(null);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -131,21 +130,19 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   const hasThisWeek = thisWeekTopics.length > 0;
   // Günün sorusu seçili sınıftan (girişlide profildeki sınıf); o sınıfın seti yoksa ilk mevcut set.
   const dailyQuestionSet = (selectedGrade && dailyQuestionSets[selectedGrade.id]) || Object.values(dailyQuestionSets)[0] || null;
-  const recent = isAuthenticated && selectedGrade ? recentByGrade[selectedGrade.id] ?? [] : recentTopics;
 
   if (isAuthenticated) {
     const profile = me && me.userId === user?.id ? me : null;
-    const view = !profile ? null : profile.role === 'admin' ? preview ?? 'admin' : profile.role === 'teacher' ? 'teacher' : 'student';
+    const view = !profile ? null : profile.role === 'admin' ? (viewAs === 'student' || viewAs === 'teacher' ? viewAs : 'admin') : profile.role === 'teacher' ? 'teacher' : 'student';
     const allUpcoming = Object.values(upcomingExamsByGrade).flat();
     return (
       <div className={`${roboticFontVars} ${r.root}`}>
         <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
           <div className="mx-auto max-w-5xl">
-            {profile?.role === 'admin' && preview && <PreviewBanner view={preview} onExit={() => setPreview(null)} />}
             {view === null ? (
               <div className={`h-64 animate-pulse rounded-[22px] ${r.panel}`} aria-hidden="true" />
             ) : view === 'admin' ? (
-              <AdminHome firstName={profile!.firstName} onPreview={setPreview} />
+              <AdminHome firstName={profile!.firstName} onPreview={(v) => setViewAs(profile!.userId, v)} />
             ) : view === 'teacher' ? (
               <TeacherHome
                 firstName={profile!.firstName}
@@ -164,7 +161,6 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
                 )
               }
               thisWeek={hasThisWeek ? thisWeekCard : undefined}
-              recent={recent.length > 0 ? <RecentTopicsCard topics={recent} gradeName={selectedGrade?.name} /> : undefined}
               upcomingExams={selectedGrade && upcomingExamsByGrade[selectedGrade.id]?.length ? <UpcomingExamsCard exams={upcomingExamsByGrade[selectedGrade.id]} className="rounded-[22px]" /> : undefined}
             />
             )}

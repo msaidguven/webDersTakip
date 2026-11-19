@@ -8,7 +8,7 @@ import { getGradeColor, getGradeDescription, getGradeIcon } from './src/lib/home
 import { getSiteStats, getHomeGradeSections, getPublishedUnitContent, getPublicMemberCount, type HomeGradeSection } from './src/lib/homeStats';
 import { getYaziliIndex } from './src/lib/yazili/publicData';
 import type { UpcomingExam } from './src/components/yazili/UpcomingExamsCard';
-import { getDailyQuestionSetsByGrade, getRecentlyPublishedTopics, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
+import { getDailyQuestionSetsByGrade, getRecentlyPublishedTopicsByGrade, getThisWeekTopicsByGrade } from './src/lib/homeHighlights';
 
 // ISR (tamamen public). 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı; eskiden 1 saat):
 // içerik yayınlandığında/soru eklendiğinde admin endpoint'leri revalidateHomepage() ile sayfayı
@@ -58,13 +58,12 @@ export default async function HomePage() {
 
   // Anasayfanın "canlı" bölümleri (Günün Sorusu, Okulda bu hafta, Yeni eklenenler — bkz.
   // homeHighlights.ts) diğer sorgularla paralel; hepsi anon client, sayfa ISR'da kalır.
-  const [gradeSectionsMap, memberCount, topStudents, dailyQuestionSets, recentTopics, recentByGrade, thisWeek, yazili] = await Promise.all([
+  const [gradeSectionsMap, memberCount, topStudents, dailyQuestionSets, recentByGrade, thisWeek, yazili] = await Promise.all([
     getHomeGradeSections(supabase, rows.map((r) => ({ id: r.id, slug: r.slug })), publishedUnitsAll),
     getPublicMemberCount(supabase),
     getPublicWeeklyTopStudents(supabase),
     getDailyQuestionSetsByGrade(supabase),
-    getRecentlyPublishedTopics(supabase),
-    // Girişli öğrenci sadece kendi sınıfının son 5 konusunu görür (2026-10-02).
+    // Misafir anasayfasındaki "Yeni eklenenler" (sınıf sekmesine göre).
     getRecentlyPublishedTopicsByGrade(supabase, gradeIds),
     getThisWeekTopicsByGrade(supabase),
     getYaziliIndex(),
@@ -85,5 +84,5 @@ export default async function HomePage() {
   const gradeSections: Record<string, HomeGradeSection> = {};
   for (const [id, section] of gradeSectionsMap) gradeSections[String(id)] = section;
 
-  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestionSets={dailyQuestionSets} recentTopics={recentTopics} recentByGrade={recentByGrade} thisWeek={thisWeek} upcomingExamsByGrade={upcomingExamsByGrade} />;
+  return <HomeClient initialGrades={grades} stats={stats} gradeSections={gradeSections} topStudents={stripIsReal(topStudents)} dailyQuestionSets={dailyQuestionSets} recentByGrade={recentByGrade} thisWeek={thisWeek} upcomingExamsByGrade={upcomingExamsByGrade} />;
 }

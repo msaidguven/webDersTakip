@@ -30,6 +30,8 @@ const CHROMIUM_TRACE_INCLUDES = [
 ];
 
 const nextConfig: NextConfig = {
+  // Yalnız `next dev`: telefondan yerel ağ IP'siyle açınca (hotspot / Wi-Fi) JS ve HMR engellenmesin.
+  allowedDevOrigins: ['10.*.*.*', '192.168.*.*'],
   reactStrictMode: true,
   serverExternalPackages: ["sharp", "@resvg/resvg-js", "@sparticuz/chromium", "puppeteer-core"],
   // sharp'ın native binary'leri (libvips .so dosyaları) sharp'ın kendi kodu

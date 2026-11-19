@@ -2,8 +2,8 @@
 
 // Admin anasayfası (2026-10-22). "Acil uyarılar" yalnız admin'in bir şey yapması gereken durumları gösterir;
 // ilk kaynak onay bekleyen öğretmenler (/api/admin/alerts), satırdan onaylanır.
-// "Öğrenci / Öğretmen anasayfası" düğmeleri o anasayfaları admin'in kendi hesabıyla önizletir (başka
-// birinin hesabına bürünme değildir; öğrenci görünümündeki ilerleme verisi admin'in kendi verisidir).
+// "Öğrenci / Öğretmen anasayfası" düğmeleri header'daki rol menüsüyle aynı seçimi yapar (lib/viewAs.ts):
+// admin'in kendi hesabıyla, değiştirilene kadar her sayfada o rolde görünüm.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BellRing, Check, GraduationCap, LayoutDashboard, Presentation, UserCheck } from 'lucide-react';
@@ -162,19 +162,5 @@ export function AdminHome({ firstName, onPreview }: { firstName: string | null; 
       <AdminInteractiveLessons />
       <AdminContentUsage />
     </section>
-  );
-}
-
-// Önizleme sırasında sayfanın üstünde durur; admin'e hangi görünümde olduğunu hatırlatır.
-export function PreviewBanner({ view, onExit }: { view: HomePreview; onExit: () => void }) {
-  return (
-    <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm">
-      <span className="font-semibold text-default">
-        Önizleme: {view === 'student' ? 'öğrenci' : 'öğretmen'} anasayfası <span className="font-normal text-muted-foreground">(kendi hesabının verisiyle)</span>
-      </span>
-      <button type="button" onClick={onExit} className="font-bold text-amber-600 hover:underline dark:text-amber-400">
-        Admin anasayfasına dön
-      </button>
-    </div>
   );
 }

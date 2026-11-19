@@ -12,10 +12,19 @@ export function useIsAdmin(): boolean {
   return useProfileRole() === 'admin';
 }
 
-// profiles.role ('admin' | 'teacher' | 'student' …) — yalnız göster/gizle için (header'daki
-// "Öğretmen Paneli" bağlantısı gibi). Oturum yoksa null.
+// Görünen rol: profiles.role ('admin' | 'teacher' | 'student' …), admin "şu rolde gör" seçtiyse o rol
+// (misafirde null; bkz. lib/viewAs.ts) — yalnız göster/gizle için (header'daki "Öğretmen Paneli" gibi).
+// Oturum yoksa null.
 export function useProfileRole(): string | null {
-  const { user, supabase } = useAuth();
+  const real = useRealProfileRole();
+  const { viewAs } = useAuth();
+  if (real === 'admin' && viewAs) return viewAs === 'guest' ? null : viewAs;
+  return real;
+}
+
+// Hesabın gerçek rolü (görünüm seçiminden bağımsız) — rol menüsünü kimin göreceği gibi kararlar için.
+export function useRealProfileRole(): string | null {
+  const { realUser: user, supabase } = useAuth();
   // Rol, okunduğu kullanıcıyla birlikte tutulur: çıkış/hesap değişince eski rol hemen geçersiz sayılır.
   const [state, setState] = useState<{ userId: string; role: string | null } | null>(null);
 

@@ -32,9 +32,10 @@ export const QUESTION_BANK_STATS_REFRESH_EVENT = 'soru-bankasi:stats-refresh';
 const EMPTY = new Map<number, QuestionStat>();
 const cache = new Map<string, Promise<QuestionBankViewer>>();
 
+// asStudent: admin header'daki rol menüsünden "Öğrenci" seçtiyse öğrenci gibi göster (bkz. lib/viewAs.ts).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function load(supabase: any, userId: string, questionIds: number[]): Promise<QuestionBankViewer> {
-  const key = `${userId}:${questionIds.join(',')}`;
+function load(supabase: any, userId: string, questionIds: number[], asStudent: boolean): Promise<QuestionBankViewer> {
+  const key = `${userId}:${asStudent ? 's' : ''}:${questionIds.join(',')}`;
   const cached = cache.get(key);
   if (cached) return cached;
   const promise = (async (): Promise<QuestionBankViewer> => {
@@ -49,7 +50,7 @@ function load(supabase: any, userId: string, questionIds: number[]): Promise<Que
         : Promise.resolve({ data: [], error: null }),
     ]);
     const role = (profile as { role: string | null } | null)?.role;
-    if (role === 'admin' || role === 'teacher') return { status: 'staff', stats: EMPTY };
+    if ((role === 'admin' && !asStudent) || role === 'teacher') return { status: 'staff', stats: EMPTY };
     // İstatistik okunamazsa öğrenciyi boş listeye mahkûm etme — eski davranışa (tüm liste) dön.
     if (error) return { status: 'staff', stats: EMPTY };
     const stats = new Map<number, QuestionStat>();
@@ -64,7 +65,8 @@ function load(supabase: any, userId: string, questionIds: number[]): Promise<Que
 }
 
 export function useQuestionBankViewer(questionIds: number[]): QuestionBankViewer {
-  const { user, supabase, loading: authLoading } = useAuth();
+  const { user, supabase, loading: authLoading, viewAs } = useAuth();
+  const asStudent = viewAs === 'student';
   const userId = user?.id;
   const idsKey = questionIds.join(',');
   const [viewer, setViewer] = useState<QuestionBankViewer>({ status: 'guest', stats: EMPTY });
@@ -93,11 +95,11 @@ export function useQuestionBankViewer(questionIds: number[]): QuestionBankViewer
     }
     let cancelled = false;
     setViewer((prev) => (prev.status === 'guest' ? { status: 'loading', stats: EMPTY } : prev));
-    load(supabase, userId, idsKey ? idsKey.split(',').map(Number) : [])
+    load(supabase, userId, idsKey ? idsKey.split(',').map(Number) : [], asStudent)
       .then((v) => { if (!cancelled) setViewer(v); })
       .catch(() => { if (!cancelled) setViewer({ status: 'staff', stats: EMPTY }); });
     return () => { cancelled = true; };
-  }, [authLoading, userId, supabase, idsKey, version]);
+  }, [authLoading, userId, supabase, idsKey, version, asStudent]);
 
   return viewer;
 }

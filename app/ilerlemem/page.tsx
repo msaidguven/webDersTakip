@@ -6,23 +6,21 @@
 // bugünkü görev) burada TEKRAR ETMEZ.
 //
 // Sıra (2026-10-12, Sınav Hazırlık projesindeki tasarımdan — taslak https://claude.ai/artifact/BhprJ2kq1N4gouA6tRTmkH):
-// Son 7 gün → yarım kalan testler (yalnız varsa; bitenler /ilerlemem/aktiviteler'de) → son 7 gün çizelgesi
-// (2026-10-20, "bu hafta önceliğin"in yerine) |
+// Son 7 gün çizelgesi (2026-10-20, "bu hafta önceliğin"in yerine) |
 // ders raporları (her ders /ilerlemem/[ders]: ünite başarı grafiği, zorlandığın konular, tüm konular) →
-// rozetler → tüm testler / sıralama; günlük hedef seçimi başlıkta. Her bölüm kendi verisini SWR ile çeker;
+// rozetler → sıralama / çizelge; günlük hedef seçimi başlıkta. Son 7 gün özet kartı, yarım testler ve
+// "Tüm testlerim" kısayolu 2026-11-17'de kaldırıldı (sayfa kalabalıktı; konu/ünite raporu yeterli). Her bölüm kendi verisini SWR ile çeker;
 // aynı veriyi kullananlar önbelleği paylaşır (konu ustalığı: öncelikler + ders listesi + özet).
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
-import { ArrowRight, ListChecks, Trophy, CalendarDays } from 'lucide-react';
+import { ArrowRight, Trophy, CalendarDays } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { useMyProfileBasics } from '../src/hooks/useMyGradeSlug';
 import { onQuizModalClosed } from '../src/lib/panelRefreshBridge';
 import { AuthPrompt } from '../src/components/AuthPrompt';
-import { ProgressSummary } from '../src/components/progress/ProgressSummary';
 import { WeeklyChart } from '../src/components/progress/WeeklyChart';
 import { LessonList } from '../src/components/progress/LessonList';
-import { MyTests } from '../src/components/progress/MyTests';
 import { Badges } from '../src/components/progress/Badges';
 import { DailyGoalPicker } from '../src/components/progress/DailyGoalPicker';
 import { roboticFontVars } from '../src/components/robotic/fonts';
@@ -31,10 +29,9 @@ import r from '../src/components/robotic/robotic.module.css';
 // Görünüm: "robotik kontrol paneli" teması (2026-10-19, ders raporu/anasayfa ile aynı; bkz. robotic).
 
 // Test penceresi (bu rotadaki @modal) kapanınca tazelenecek bölüm verileri.
-const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-due', 'my-tests', 'monthly-activity']);
+const PROGRESS_KEYS = new Set(['progress-daily-activity', 'topic-mastery', 'review-due', 'monthly-activity']);
 
 const SHORTCUTS = [
-  { href: '/ilerlemem/aktiviteler', label: 'Tüm testlerim', hint: 'Çözdüğün bütün testler', Icon: ListChecks },
   { href: '/ilerlemem/siralama', label: 'Haftalık sıralama', hint: 'Bu hafta kim önde?', Icon: Trophy },
   { href: '/ders-takip-cizelgesi', label: 'Ders takip çizelgesi', hint: 'Ay ay doğru ve yanlışların', Icon: CalendarDays },
 ];
@@ -49,7 +46,6 @@ export default function IlerlememPage() {
     [mutate]
   );
 
-  const firstName = profile?.fullName?.trim().split(/\s+/)[0];
   const meta = profile?.gradeName ?? null;
 
   return (
@@ -65,13 +61,7 @@ export default function IlerlememPage() {
               </span>
             )}
             <h1 className={`text-3xl leading-tight sm:text-4xl ${r.chrome}`}>
-              {user && firstName ? (
-                <>
-                  Merhaba, {firstName}
-                </>
-              ) : (
-                'İlerlemem'
-              )}
+              İlerlemem
             </h1>
             {user && <p className="text-base text-muted-foreground">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
           </div>
@@ -84,10 +74,6 @@ export default function IlerlememPage() {
           <AuthPrompt message="Son 7 gününü, serini ve hangi konularda zorlandığını görmek için giriş yap." />
         ) : (
           <>
-            <ProgressSummary />
-
-            <MyTests />
-
             <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
               <WeeklyChart />
               <div id="derslerim" className="scroll-mt-24">
@@ -97,7 +83,7 @@ export default function IlerlememPage() {
 
             <Badges />
 
-            <nav aria-label="Diğer sayfalar" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <nav aria-label="Diğer sayfalar" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {SHORTCUTS.map(({ href, label, hint, Icon }) => (
                 <Link
                   key={href}
