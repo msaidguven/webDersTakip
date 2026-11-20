@@ -98,7 +98,7 @@ export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: b
 // ya da içerik değişince (worker revalidateTag — interactiveLessonTag) yenilenir. Hata (500) önbelleğe girmez;
 // "ders yok" (404) girer, ders açılınca etiketle temizlenir.
 export const interactiveLessonTag = (topicId: number) => `interactive-lesson-${topicId}`;
-const DEPLOY_KEY = process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'yerel';
+const DEPLOY_KEY = process.env.K_REVISION ?? process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'yerel';
 
 export function getCachedLesson(topicId: number) {
   return unstable_cache(
