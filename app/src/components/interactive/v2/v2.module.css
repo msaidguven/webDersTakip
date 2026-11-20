@@ -1,0 +1,973 @@
+/* Etkileşimli Ders v2 — Dokunsal oyun arayüzü stilleri */
+.root {
+  --ink: #1b2440;
+  --mut: #5d6985;
+  --or: #ff7a29;
+  --or-d: #c9560e;
+  --cy: #15b8d9;
+  --cy-d: #0c8aa6;
+  --ok: #16a34a;
+  --ok-d: #0f7a37;
+  --no: #e5484d;
+  --no-d: #b3262b;
+  --pu: #7c5cff;
+  --pu-d: #5638d4;
+  --gold: #f5b301;
+  --tint: #efe9ff;
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: background 0.45s ease;
+}
+
+.skySvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hillsSvg {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 30vh;
+  min-height: 160px;
+}
+
+.twinkle {
+  animation: v2Twinkle 3.2s ease-in-out infinite;
+}
+
+/* Üst çubuk */
+.header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: max(env(safe-area-inset-top), 8px) 14px 8px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.headerDark {
+  background: rgba(20, 17, 56, 0.74);
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.pill {
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 3px 0 rgba(27, 36, 64, 0.14);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.08s ease;
+}
+
+.pill:active {
+  transform: translateY(2px);
+}
+
+.pillIcon {
+  width: 38px;
+  padding: 0;
+  justify-content: center;
+}
+
+.pillOff {
+  opacity: 0.65;
+}
+
+.courseLabel {
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progressWrap {
+  flex: 1;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.progressBar {
+  height: 14px;
+  background: rgba(27, 36, 64, 0.14);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #26d0ce, var(--or));
+  border-radius: 99px;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Kaydırılabilir içerik alanı */
+.scrollArea {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px max(env(safe-area-inset-bottom), 32px);
+}
+
+/* Harita görünümü */
+.mapWrap {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.mapTitle {
+  font-size: clamp(24px, 6vw, 31px);
+  font-weight: 800;
+  margin: 4px 0;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+}
+
+.mapSub {
+  margin: 0 auto 14px;
+  max-width: 38ch;
+  color: #e2dcff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.dock {
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+  padding: 14px 16px;
+  margin: 0 auto 14px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+}
+
+.dockVis {
+  width: 74px;
+  height: 74px;
+  flex: none;
+}
+
+.dockVisReady {
+  animation: v2MachineGlow 2.2s ease-in-out infinite;
+}
+
+.dockInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.dockTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 7px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dockPct {
+  font-size: 12px;
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.18);
+  padding: 2px 9px;
+  border-radius: 99px;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.slot {
+  height: 42px;
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.32);
+  background: rgba(15, 12, 42, 0.35);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.slotFilled {
+  border-style: solid;
+  border-color: #ffd166;
+  background: linear-gradient(145deg, rgba(255, 209, 102, 0.28), rgba(56, 189, 248, 0.22));
+  color: #fff;
+  box-shadow: 0 0 14px rgba(255, 209, 102, 0.35);
+  animation: v2Pop 0.4s ease;
+}
+
+.mapBox {
+  position: relative;
+  width: min(100%, 390px);
+  aspect-ratio: 9 / 15;
+  margin: 0 auto;
+  container-type: inline-size;
+}
+
+.mapSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 8px rgba(255, 209, 102, 0.42));
+}
+
+.nodeWrap {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4cqw;
+  z-index: 2;
+}
+
+.nodeBtn {
+  position: relative;
+  width: 19cqw;
+  height: 19cqw;
+  border-radius: 50%;
+  border: 1.2cqw solid #fff;
+  background: var(--node-c, #f59e0b);
+  color: #fff;
+  font-weight: 900;
+  font-size: 7.4cqw;
+  box-shadow: 0 1.8cqw 0 color-mix(in srgb, var(--node-c, #f59e0b), #000 34%), 0 3.5cqw 7cqw rgba(0, 0, 0, 0.35);
+  transition: transform 0.14s ease;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.nodeBtn:hover:not(.nodeLock) {
+  transform: scale(1.08);
+}
+
+.nodeLock {
+  background: #8b95b5;
+  box-shadow: 0 1.8cqw 0 #5b6482, 0 3cqw 6cqw rgba(0, 0, 0, 0.28);
+  cursor: not-allowed;
+}
+
+.nodeCur::after {
+  content: "";
+  position: absolute;
+  inset: -2.8cqw;
+  border: 0.7cqw dashed #ffd166;
+  border-radius: 50%;
+  animation: v2Spin 12s linear infinite;
+}
+
+.nodeShake {
+  animation: v2Shake 0.36s;
+}
+
+.nodeLabel {
+  font-size: 3.5cqw;
+  font-weight: 800;
+  line-height: 1.2;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  border: 0.5cqw solid #fff;
+  border-radius: 3cqw;
+  padding: 1.2cqw 2.6cqw;
+  box-shadow: 0 1.2cqw 0 rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+
+.nodeLabel small {
+  display: block;
+  font-size: 2.7cqw;
+  font-weight: 700;
+  color: var(--mut);
+}
+
+.nodeStars {
+  height: 5cqw;
+  font-size: 4.5cqw;
+  color: var(--gold);
+  letter-spacing: 0.4cqw;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.mapMascot {
+  position: absolute;
+  width: 17cqw;
+  transform: translate(-50%, -100%);
+  margin-top: -9.5cqw;
+  transition: left 0.55s ease, top 0.55s ease;
+  z-index: 3;
+  pointer-events: none;
+  animation: v2Float 2.4s ease-in-out infinite;
+}
+
+.mapFoot {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.resetBtn {
+  font-size: 13px;
+  font-weight: 800;
+  color: #cfc7f7;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.resetBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* Portal ışınlanma geçişi */
+.warpOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(circle at center, #2c1e75 0%, #0f0c2e 75%);
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+  animation: v2FadeIn 0.2s ease;
+}
+
+.portal {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+}
+
+.portalRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 5px dashed #38bdf8;
+  animation: v2Spin 2.2s linear infinite;
+}
+
+.portalRing2 {
+  inset: 14px;
+  border-color: #ffd166;
+  border-style: dotted;
+  animation: v2Spin 1.6s linear infinite reverse;
+}
+
+.warpEra {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.16);
+  padding: 5px 14px;
+  border-radius: 99px;
+}
+
+.warpTitle {
+  font-size: 25px;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* Sahne kartı (Tek Ekranda Tek Bilgi) */
+.sceneWrap {
+  max-width: 580px;
+  margin: 0 auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px 18px 18px;
+  background: #fff;
+  border-radius: 28px;
+  border: 4px solid #fff;
+  box-shadow: 0 10px 0 rgba(27, 36, 64, 0.14), 0 24px 44px rgba(27, 36, 64, 0.22);
+  animation: v2Pop 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topTags {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eraChip {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--tint);
+  padding: 5px 11px;
+  border-radius: 99px;
+}
+
+.gameChip {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--pu);
+  padding: 5px 11px;
+  border-radius: 99px;
+}
+
+/* Atom konuşma satırı */
+.dialogueRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.atomBtn {
+  width: 76px;
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.14));
+}
+
+.bubble {
+  position: relative;
+  flex: 1;
+  background: var(--tint);
+  border: 3px solid #fff;
+  border-radius: 20px;
+  padding: 13px 15px;
+  font-size: clamp(15px, 3.8vw, 17.5px);
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink);
+  box-shadow: 0 4px 0 rgba(27, 36, 64, 0.07);
+}
+
+.bubble::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 22px;
+  border: 8px solid transparent;
+  border-left: 0;
+  border-right-color: var(--tint);
+}
+
+.bubbleOk {
+  background: #eafaf0;
+}
+
+.bubbleOk::before {
+  border-right-color: #eafaf0;
+}
+
+.bubbleOops {
+  background: #fff4e5;
+}
+
+.bubbleOops::before {
+  border-right-color: #fff4e5;
+}
+
+/* Hikâye / ödül görsel dairesi */
+.stageOrb {
+  width: 144px;
+  height: 144px;
+  margin: 4px auto;
+  display: grid;
+  place-items: center;
+  font-size: 68px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 46%, var(--tint));
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.9), 0 10px 28px rgba(27, 36, 64, 0.12);
+}
+
+.stageOrbReward {
+  animation: v2Hop 0.8s 0.15s both;
+}
+
+/* Kavram Avı entegrasyon kabuğu (mevcut HarfCemberi + KavramKutulari tokenlarını v2'ye uyarlar) */
+.kavramTheme {
+  --neon: #ff7a29;
+  --neon-2: #c9560e;
+  --edge: #cbd5e1;
+  --ink: #1b2440;
+  --muted: #5d6985;
+  --panel-solid: #ffffff;
+  --glow: rgba(255, 122, 41, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.kavramDef {
+  width: 100%;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  line-height: 1.45;
+}
+
+/* 3D Ana & İkincil butonlar */
+.goBtn {
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 17px;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9442, var(--or));
+  border: 0;
+  border-bottom: 6px solid var(--or-d);
+  box-shadow: 0 8px 18px rgba(255, 122, 41, 0.3);
+  cursor: pointer;
+  transition: transform 0.08s, border-bottom-width 0.08s;
+}
+
+.goBtn:active:not(:disabled) {
+  transform: translateY(4px);
+  border-bottom-width: 2px;
+}
+
+.goBtn:disabled {
+  opacity: 0.42;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.secBtn {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink);
+  background: #eef3fb;
+  border: 0;
+  border-bottom: 5px solid #d4deef;
+  cursor: pointer;
+}
+
+.secBtn:active {
+  transform: translateY(3px);
+  border-bottom-width: 2px;
+}
+
+/* Oyun bileşenleri ortak dokunsal stiller */
+.tileBtn {
+  min-height: 54px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 2px solid #dde5f3;
+  border-bottom: 5px solid #cdd8ec;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.tileBtn:hover:not(:disabled) {
+  border-color: var(--cy);
+  background: #f5fdff;
+}
+
+.tileBtn:active:not(:disabled) {
+  transform: translateY(3px);
+  border-bottom-width: 2px;
+}
+
+.tileSel {
+  border-color: var(--pu);
+  border-bottom-color: var(--pu-d);
+  background: #f3f0ff;
+  color: var(--pu-d);
+}
+
+.tileOk {
+  border-color: var(--ok);
+  border-bottom-color: var(--ok-d);
+  background: #eafaf0;
+  color: #14532d;
+}
+
+.tileBad {
+  border-color: var(--no);
+  border-bottom-color: var(--no-d);
+  background: #fef2f2;
+  color: #991b1b;
+  animation: v2Shake 0.35s;
+}
+
+/* Slider */
+.sliderBox {
+  background: var(--tint);
+  border-radius: 22px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+
+.sliderBadge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--ink);
+  padding: 5px 14px;
+  border-radius: 99px;
+}
+
+.sliderVisual {
+  font-size: 60px;
+  line-height: 1;
+}
+
+.sliderCaption {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  min-height: 54px;
+  color: var(--ink);
+}
+
+.rangeInput {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 14px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--or), var(--cy));
+  outline: none;
+  cursor: pointer;
+}
+
+.rangeInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid var(--ink);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* Swipe Sort */
+.swipeCard {
+  min-height: 118px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px 16px;
+  border-radius: 22px;
+  background: #fff;
+  border: 3px solid var(--tint);
+  border-bottom: 7px solid rgba(27, 36, 64, 0.12);
+  box-shadow: 0 8px 22px rgba(27, 36, 64, 0.08);
+  font-size: clamp(16.5px, 4.1vw, 19.5px);
+  font-weight: 800;
+  line-height: 1.38;
+  user-select: none;
+  cursor: grab;
+  touch-action: pan-y;
+  transition: transform 0.2s ease, border-color 0.15s;
+}
+
+.swipeDragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+.swipeOutL {
+  animation: v2OutL 0.28s forwards;
+}
+
+.swipeOutR {
+  animation: v2OutR 0.28s forwards;
+}
+
+.twoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.leftBtn,
+.rightBtn {
+  min-height: 54px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+  border: 0;
+  border-bottom: 6px solid rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.leftBtn {
+  background: var(--cy);
+  border-bottom-color: var(--cy-d);
+}
+
+.rightBtn {
+  background: var(--or);
+  border-bottom-color: var(--or-d);
+}
+
+.leftBtn:active,
+.rightBtn:active {
+  transform: translateY(4px);
+  border-bottom-width: 2px;
+}
+
+/* Spot Error (Hata Avcısı) */
+.tokenBox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding: 18px 14px;
+  border-radius: 22px;
+  background: var(--tint);
+  border: 2px solid rgba(27, 36, 64, 0.08);
+}
+
+.tokenChip {
+  padding: 9px 13px;
+  border-radius: 14px;
+  border: 2px solid #d8e1f0;
+  border-bottom: 4px solid #c3d0e6;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+}
+
+.tokenChip:hover:not(:disabled) {
+  border-color: var(--pu);
+  transform: translateY(-1px);
+}
+
+.tokenFixed {
+  border-color: var(--ok);
+  border-bottom-color: var(--ok-d);
+  background: #eafaf0;
+  color: #14532d;
+  animation: v2Pop 0.35s ease;
+}
+
+/* Ödül / Konfeti */
+.starsRow {
+  text-align: center;
+  font-size: 40px;
+  color: var(--gold);
+  letter-spacing: 6px;
+  text-shadow: 0 3px 0 rgba(184, 134, 11, 0.35);
+  animation: v2Pop 0.45s ease;
+}
+
+.confettiLayer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 150;
+  overflow: hidden;
+}
+
+.confettiPiece {
+  position: absolute;
+  top: -16px;
+  width: 10px;
+  height: 14px;
+  border-radius: 3px;
+  animation: v2Fall var(--dur, 2s) linear forwards;
+}
+
+@keyframes v2Fall {
+  to {
+    transform: translateY(105vh) rotate(540deg);
+    opacity: 0.2;
+  }
+}
+
+@keyframes v2Spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes v2Float {
+  50% {
+    transform: translate(-50%, calc(-100% - 6px));
+  }
+}
+
+@keyframes v2FadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes v2Pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+@keyframes v2Hop {
+  30% {
+    transform: translateY(-12px) scale(1.06);
+  }
+  60% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes v2Shake {
+  25% {
+    transform: translateX(-7px);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+  75% {
+    transform: translateX(-4px);
+  }
+}
+
+@keyframes v2OutL {
+  to {
+    opacity: 0;
+    transform: translateX(-110px) rotate(-14deg);
+  }
+}
+
+@keyframes v2OutR {
+  to {
+    opacity: 0;
+    transform: translateX(110px) rotate(14deg);
+  }
+}
+
+@keyframes v2Twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes v2MachineGlow {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 10px rgba(255, 209, 102, 0.65));
+  }
+  50% {
+    transform: translateY(-4px) scale(1.04);
+    filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.9));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .warpOverlay *,
+  .confettiLayer * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

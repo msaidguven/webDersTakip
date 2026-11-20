@@ -4,16 +4,18 @@
 // cümleleri BURADAN kurar; bir cümle değişirse sesi yeniden üretilene kadar yalnız yazı görünür (ses sessizce
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
+import { isHydratedV2, type HydratedLessonV2 } from './typesV2';
 
 export const ROBOT_NAME = 'Atom';
 export const VOICE_BUCKET = 'topic-narration';
 export const voiceAudioPath = (key: string) => `interactive-voice/${key}.mp3`;
 export const voiceManifestPath = (topicId: number) => `interactive-voice/topics/${topicId}.json`;
 
-// Konuşulacak düz metin: kavram bağı → görünen metin, **kalın** → düz, emoji yok.
+// Konuşulacak düz metin: kavram bağı → görünen metin, **kalın** / <b>kalın</b> → düz, emoji yok.
 export function speechText(text: string): string {
   return text
     .replace(new RegExp(TERM_LINK.source, 'g'), '$1')
+    .replace(/<\/?b>/gi, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}★]/gu, '')
     .replace(/\s+/g, ' ')
@@ -137,9 +139,34 @@ export function narrativeSpeech(step: NarrativeStep, part: NarrativePart): strin
   return [step.body ?? step.title];
 }
 
-// Dersin seslendirilecek bütün cümleleri (üretim betiği). Havuz soruları da seslendirilir; soru sonradan
-// düzeltilirse anahtarı değişir, yeniden üretilene kadar cihazın Türkçe sesi (varsa) okur.
-export function lessonLines(lesson: HydratedLesson): string[] {
+// Dersin seslendirilecek bütün cümleleri (üretim betiği). Hem v1 hem v2 derslerini destekler.
+export function lessonLines(lesson: HydratedLesson | HydratedLessonV2): string[] {
+  if (isHydratedV2(lesson)) {
+    const out: string[] = [
+      ...GUIDE.praise,
+      lesson.guide?.intro ?? GUIDE.intro(lesson.topicTitle),
+      lesson.guide?.finish ?? GUIDE.finish,
+    ];
+    for (const stop of lesson.stops) {
+      out.push(`Harikasın! ${stop.part.name} kapsüle takıldı!`);
+      for (const step of stop.steps) {
+        if ('say' in step && step.say) out.push(step.say);
+        if ('feedback' in step && step.feedback) out.push(step.feedback);
+        if (step.kind === 'hat') for (const r of step.rounds) out.push(r.feedback);
+        if (step.kind === 'scenario') {
+          for (const r of step.rounds) {
+            out.push(r.situation);
+            for (const o of r.options) out.push(o.feedback);
+          }
+        }
+        if (step.kind === 'pool_question') {
+          out.push(step.question.question_text);
+          if (step.question.solution_text) out.push(step.question.solution_text);
+        }
+      }
+    }
+    return [...new Set(out.map(speechText).filter(Boolean))];
+  }
   const out: string[] = [
     ...GUIDE.praise,
     GUIDE.retry, GUIDE.missing, GUIDE.hint, GUIDE.tryAgain, GUIDE.findHint, GUIDE.tfMixed, GUIDE.exploreDone,

@@ -1,7 +1,7 @@
 // Etkileşimli dersin sesi (yalnız tarayıcı): telifsiz, tarayıcıda üretilen sakin müzik döngüsü, kısa efektler
 // ve Atom'un önceden üretilmiş konuşma dosyaları. Hepsi tek Web Audio bağlamında: bağlam ilk dokunuşta açılır
 // (tarayıcı kuralı), sonra her cümle iOS'ta da çalar. Atom konuşurken müzik kısılır.
-type Sfx = 'ok' | 'retry' | 'tap' | 'win';
+type Sfx = 'ok' | 'retry' | 'tap' | 'win' | 'warp' | 'link';
 
 const CHORDS = [
   [130.81, 164.81, 196.0, 246.94],
@@ -127,16 +127,21 @@ class LessonSound {
     if (this.ctx && this.playing) this.music.gain.setTargetAtTime(on ? 0.35 : 1, this.ctx.currentTime, 0.25);
   }
 
-  sfx(kind: Sfx) {
-    const ctx = this.ctx;
+  sfx(kind: Sfx, stepIndex = 0) {
+    const ctx = this.ctx ?? this.init();
     if (!ctx) return;
+    if (ctx.state === 'suspended') void ctx.resume();
     const t = ctx.currentTime;
     if (kind === 'ok') [659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, t + i * 0.09, 0.4, 'sine', 0.11, this.fx, 0.01));
     else if (kind === 'retry') {
       this.tone(392, t, 0.22, 'triangle', 0.07, this.fx, 0.01);
       this.tone(329.63, t + 0.12, 0.3, 'triangle', 0.07, this.fx, 0.01);
     } else if (kind === 'tap') this.tone(1318.5, t, 0.14, 'sine', 0.05, this.fx, 0.005);
-    else [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => this.tone(f, t + i * 0.11, 0.6, 'sine', 0.1, this.fx, 0.01));
+    else if (kind === 'warp') {
+      [320, 520, 780].forEach((f, i) => this.tone(f, t + i * 0.1, 0.22, 'sine', 0.09, this.fx, 0.01));
+    } else if (kind === 'link') {
+      this.tone(420 + Math.min(stepIndex, 10) * 65, t, 0.08, 'sine', 0.07, this.fx, 0.005);
+    } else [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => this.tone(f, t + i * 0.11, 0.6, 'sine', 0.1, this.fx, 0.01));
   }
 
   private load(url: string): Promise<AudioBuffer | null> {

@@ -2,30 +2,92 @@ import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { getQuestionsByIds } from '@/app/src/lib/quizQuestions';
-import { getLessonDefinition } from './registry';
+import { getLessonDefinition, type AnyLessonDefinition } from './registry';
 import { termSlug, type HydratedLesson, type HydratedStep, type LessonTerm } from './types';
+import { isLessonV2, type HydratedLessonV2, type HydratedV2Step, type LessonDefinitionV2 } from './typesV2';
 import type { ClassicalQuestion, QuizQuestion, SvgPosition } from '@/app/src/lib/quizQuestionTypes';
-import type { LessonDefinition } from './types';
+
+export type AnyHydratedLesson = (HydratedLesson & { version: 1 }) | HydratedLessonV2;
 
 // Öğrenciye yalnız sesleri tamamlanmış ders gösterilir (kullanıcı kararı 2026-11-03); ses üretimi (voice.ts)
 // sesi eksik dersi de okuyabilmeli → includeUnvoiced.
-async function loadGeneratedLesson(supabase: ReturnType<typeof createServiceClient>, topicId: number, includeUnvoiced: boolean): Promise<LessonDefinition | null> {
+async function loadGeneratedLesson(supabase: ReturnType<typeof createServiceClient>, topicId: number, includeUnvoiced: boolean): Promise<AnyLessonDefinition | null> {
   let query = supabase.from('interactive_lessons').select('lesson').eq('topic_id', topicId).eq('status', 'ready');
   if (!includeUnvoiced) query = query.eq('voice_done', true);
   const { data } = await query.maybeSingle();
-  const lesson = (data as { lesson: Omit<LessonDefinition, 'topicId'> | null } | null)?.lesson;
-  return lesson ? { ...lesson, topicId } : null;
+  const lesson = (data as { lesson: Omit<AnyLessonDefinition, 'topicId'> | null } | null)?.lesson;
+  return lesson ? ({ ...lesson, topicId } as AnyLessonDefinition) : null;
 }
 
 type ClassicalRow = { id: number; question_text: string; svg_content: string | null; svg_position: SvgPosition; question_classical: { model_answer: string | null } | null };
 
+async function hydrateLessonV2(
+  supabase: ReturnType<typeof createServiceClient>,
+  lesson: LessonDefinitionV2,
+): Promise<{ lesson: HydratedLessonV2 } | { error: string; status: number }> {
+  const qIds = lesson.stops.flatMap((stop) =>
+    stop.steps.flatMap((s) => (s.kind === 'pool_question' ? [s.questionId] : [])),
+  );
+  const [questions, topicRes, highlightsRes] = await Promise.all([
+    getQuestionsByIds(qIds),
+    supabase.from('topics').select('title').eq('id', lesson.topicId).single(),
+    supabase
+      .from('topic_content_highlights')
+      .select('icon, title, description, topic_contents!inner(topic_id, is_published)')
+      .eq('topic_contents.topic_id', lesson.topicId)
+      .eq('topic_contents.is_published', true),
+  ]);
+  const failed = topicRes.error ?? highlightsRes.error;
+  if (failed) return { error: failed.message, status: 500 };
+
+  const terms: Record<string, LessonTerm> = {};
+  for (const h of (highlightsRes.data ?? []) as { icon: string | null; title: string; description: string }[]) {
+    terms[termSlug(h.title)] = { title: h.title, description: h.description, icon: h.icon ?? undefined };
+  }
+
+  const byId = new Map<number, QuizQuestion>(questions.map((q) => [q.id, q]));
+  const broken: number[] = [];
+
+  const stops = lesson.stops.map((stop) => ({
+    ...stop,
+    steps: stop.steps.flatMap((step): HydratedV2Step[] => {
+      if (step.kind === 'pool_question') {
+        const q = byId.get(step.questionId);
+        if (q?.type === 'multiple_choice' || q?.type === 'blank') {
+          return [{ kind: 'pool_question', say: step.say, question: q }];
+        }
+        broken.push(step.questionId);
+        return [];
+      }
+      if (step.kind === 'kavram_avi' && !step.definition) {
+        const slug = step.highlightSlug ?? termSlug(step.word);
+        const found = terms[slug];
+        return [{ ...step, definition: found?.description ?? `${step.word} kavramını harfleri birleştirerek bul.` }];
+      }
+      return [step];
+    }),
+  }));
+
+  if (broken.length) return { error: `Derste kullanılamayan soru var: ${broken.join(', ')}`, status: 500 };
+
+  return {
+    lesson: {
+      ...lesson,
+      topicTitle: (topicRes.data as { title: string }).title,
+      stops,
+      terms,
+    },
+  };
+}
+
 // Ders tanımı + soru adımları havuzdaki sorularla doldurulmuş hâl (admin önizleme API'si ve ses üretim betiği
 // aynı kaynağı kullanır: Atom'un seslendirilen cümleleri öğrencinin gördüğüyle birebir aynı olsun).
-export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: boolean } = {}): Promise<{ lesson: HydratedLesson } | { error: string; status: number }> {
+export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: boolean } = {}): Promise<{ lesson: AnyHydratedLesson } | { error: string; status: number }> {
   const supabase = createServiceClient();
   // Önce elle yazılmış ders (kodda), yoksa worker'ın ürettiği ve denetimden geçmiş ders (interactive_lessons).
   const lesson = getLessonDefinition(topicId) ?? (await loadGeneratedLesson(supabase, topicId, !!opts.includeUnvoiced));
   if (!lesson) return { error: 'Bu konu için etkileşimli ders henüz hazırlanmadı', status: 404 };
+  if (isLessonV2(lesson)) return hydrateLessonV2(supabase, lesson);
 
   const idsOf = (kind: 'soru' | 'klasik') =>
     lesson.blocks.flatMap((b) => b.steps.flatMap((s) => (s.kind === kind && 'questionId' in s ? [s.questionId] : [])));
@@ -90,7 +152,15 @@ export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: b
   }
   Object.assign(terms, lesson.terms);
 
-  const payload: HydratedLesson = { topicId, topicTitle: (topicRes.data as { title: string }).title, blocks, terms, autoLinkExclude: lesson.autoLinkExclude ?? [], guide: lesson.guide };
+  const payload: HydratedLesson & { version: 1 } = {
+    version: 1,
+    topicId,
+    topicTitle: (topicRes.data as { title: string }).title,
+    blocks,
+    terms,
+    autoLinkExclude: lesson.autoLinkExclude ?? [],
+    guide: lesson.guide,
+  };
   return { lesson: payload };
 }
 
