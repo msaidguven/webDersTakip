@@ -398,6 +398,7 @@
 .pagePrev { justify-content: flex-start; }
 .pageNext { text-align: right; justify-content: flex-end; }
 .discussion { margin-top: clamp(36px, 3vw, 60px); scroll-margin-top: calc(var(--header-h) + 24px); }
+.contentDate { margin: 20px 0 0; font-size: var(--fs-xs); color: var(--muted); text-align: right; }
 
 /* Kapak görseli büyütme (portal: .root tokenları yok, renkler sabit) */
 .zoom { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(10, 16, 36, .78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); padding: 16px; cursor: zoom-out; }

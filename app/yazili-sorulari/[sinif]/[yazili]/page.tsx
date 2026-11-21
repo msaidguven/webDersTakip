@@ -56,7 +56,7 @@ export default async function YaziliHubPage({ params }: { params: Promise<Params
           pills={[`${hub.lessons.length} ders`, `${total} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
         />
 
-        <div className={`mt-10 grid grid-cols-1 items-start gap-6 lg:gap-x-8 ${otherHubs.length ? 'lg:grid-cols-[minmax(0,1fr)_300px]' : ''}`}>
+        <div className={`mt-10 grid grid-cols-1 items-start gap-6 lg:gap-x-8 ${otherHubs.length ? 'lg:grid-cols-[minmax(0,1fr)_350px]' : ''}`}>
           <div className="flex min-w-0 flex-col gap-8">
             <section aria-labelledby="dersler">
               <h2 id="dersler" className="text-base font-bold text-default">Hangi dersin yazılısına çalışacaksın?</h2>

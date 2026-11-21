@@ -74,17 +74,36 @@ export const TYPE_LABELS: Record<QuizQuestion['type'], string> = {
 // "modern, şıklara ABCD yaz" isteği).
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-function OptionLetterBadge({ index, state }: { index: number; state: 'idle' | 'correct' | 'wrong' | 'muted' }) {
+function OptionLetterBadge({
+  index,
+  state,
+  fluid = false,
+}: {
+  index: number;
+  state: 'idle' | 'correct' | 'wrong' | 'muted';
+  fluid?: boolean;
+}) {
   const cls =
     state === 'correct'
-      ? 'bg-emerald-500 text-white'
+      ? 'bg-emerald-500 text-white shadow-sm'
       : state === 'wrong'
-        ? 'bg-rose-500 text-white'
+        ? 'bg-rose-500 text-white shadow-sm'
         : state === 'muted'
           ? 'bg-default/10 text-muted-foreground'
-          : 'bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white';
+          : 'bg-indigo-500/12 text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white';
   return (
-    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black transition-colors ${cls}`}>
+    <span
+      style={
+        fluid
+          ? {
+              width: 'var(--qp-letter, 2rem)',
+              height: 'var(--qp-letter, 2rem)',
+              fontSize: 'calc(var(--qp-meta, 0.8125rem) * min(var(--qp-scale, 1), 1.6))',
+            }
+          : undefined
+      }
+      className={`flex shrink-0 items-center justify-center rounded-xl font-black transition-colors ${fluid ? '' : 'h-7 w-7 text-xs'} ${cls}`}
+    >
       {OPTION_LETTERS[index] ?? index + 1}
     </span>
   );
@@ -257,6 +276,7 @@ export function MatchingView({
   onAssign,
   onCheck,
   fontScale = 1,
+  fluid = false,
 }: {
   question: MatchingQuestion;
   assignment: Record<number, number>;
@@ -264,6 +284,7 @@ export function MatchingView({
   onAssign: (leftId: number, rightId: number) => void;
   onCheck: () => void;
   fontScale?: number;
+  fluid?: boolean;
 }) {
   // Kâğıt test düzeni: kavramlar numaralı, her karşılığın başındaki kutuya eşlendiği
   // kavramın numarası yazılır. Eski düzen iki serbest sütundu — satırlar hizasızdı ve
@@ -275,7 +296,11 @@ export function MatchingView({
   const numberByLeft = useMemo(() => new Map(question.pairs.map((p, i) => [p.id, i + 1])), [question]);
   const leftByRight = new Map(Object.entries(assignment).map(([left, right]) => [right, Number(left)]));
   const allAssigned = Object.keys(assignment).length === question.pairs.length;
-  const pairStyle = fontScale !== 1 ? { fontSize: `${0.8125 * fontScale}rem`, lineHeight: 1.45 } : undefined;
+  const pairStyle: CSSProperties | undefined = fluid
+    ? { fontSize: 'calc(var(--qp-choice, 0.9375rem) * var(--qp-scale, 1))', lineHeight: 1.45 }
+    : fontScale !== 1
+      ? { fontSize: `${0.8125 * fontScale}rem`, lineHeight: 1.45 }
+      : undefined;
   const badgeBase = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black';
 
   const assign = (rightId: number) => {
@@ -424,6 +449,8 @@ function QuestionAnswerKeyItemImpl({
   twoStepExplanation = false,
   explanationRevealed: explanationRevealedProp,
   onRevealExplanation,
+  fluid = false,
+  headerActions,
 }: {
   question: QuizQuestion;
   index?: number;
@@ -490,14 +517,38 @@ function QuestionAnswerKeyItemImpl({
   twoStepExplanation?: boolean;
   explanationRevealed?: boolean;
   onRevealExplanation?: () => void;
+  // true olunca (tam ekran soru oynatıcısı): Mobil → PC → Dev Akıllı Tahta otomatik fluid tipografi
+  // (.player-stage --qp-* değişkenleri * --qp-scale) kullanılır; liste/soru bankası kompakt kalır.
+  fluid?: boolean;
+  // numberBadge='label' ile aynı satırın sağına yerleşen kart eylemleri (Anlamadım sor, Paylaş vb.).
+  headerActions?: ReactNode;
 }) {
   // line-height'ı da vermek şart — Tailwind'in text-sm/text-xs'i font-size+line-height'ı
   // BİRLİKTE (sabit rem) tanımlıyor; sadece fontSize'ı büyütüp line-height'ı eski sabit
   // rem'de bırakırsak satırlar birbirinin/alt bloğun üstüne biner (kullanıcının 2026-09-21
   // "yazı boyutunu çok büyüttüğümde sorular iç içe giriyor" şikayeti). Unitless line-height
   // kendi font-size'ına göre orantılı kalıyor, ekstra scale hesabı gerekmiyor.
-  const textSmStyle = fontScale !== 1 ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.43 } : undefined;
-  const textXsStyle = fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 } : undefined;
+  const questionStyle: CSSProperties | undefined = fluid
+    ? { fontSize: 'calc(var(--qp-question, 1rem) * var(--qp-scale, 1))', lineHeight: 1.48 }
+    : fontScale !== 1
+      ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.43 }
+      : undefined;
+  const choiceStyle: CSSProperties | undefined = fluid
+    ? { fontSize: 'calc(var(--qp-choice, 0.9375rem) * var(--qp-scale, 1))', lineHeight: 1.42 }
+    : fontScale !== 1
+      ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.43 }
+      : undefined;
+  const passageStyle: CSSProperties | undefined = fluid
+    ? { fontSize: 'calc(var(--qp-passage, 0.9375rem) * var(--qp-scale, 1))', lineHeight: 1.6 }
+    : fontScale !== 1
+      ? { fontSize: `${0.875 * fontScale}rem`, lineHeight: 1.5 }
+      : undefined;
+  const textSmStyle = choiceStyle;
+  const textXsStyle: CSSProperties | undefined = fluid
+    ? { fontSize: 'calc(var(--qp-meta, 0.8125rem) * var(--qp-scale, 1))', lineHeight: 1.45 }
+    : fontScale !== 1
+      ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 }
+      : undefined;
   const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
   const [internalRevealed, setInternalRevealed] = useState(false);
   const [internalAssignment, setInternalAssignment] = useState<Record<number, number>>({});
@@ -630,29 +681,43 @@ function QuestionAnswerKeyItemImpl({
   return (
     <>
       {svgPosition !== 'below' && svg}
-      {index != null && numberBadge === 'label' && (
-        <div
-          className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-sm"
-          style={{ background: accentColor, ...(fontScale !== 1 ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 } : undefined) }}
-        >
-          {index + 1}. Soru
+      {(index != null && numberBadge === 'label') || headerActions ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          {index != null && numberBadge === 'label' ? (
+            <div
+              className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-sm"
+              style={{
+                background: accentColor,
+                ...(fluid
+                  ? { fontSize: 'calc(var(--qp-badge, 0.75rem) * min(var(--qp-scale, 1), 1.6))', lineHeight: 1.25 }
+                  : fontScale !== 1
+                    ? { fontSize: `${0.75 * fontScale}rem`, lineHeight: 1.35 }
+                    : undefined),
+              }}
+            >
+              {index + 1}. Soru
+            </div>
+          ) : (
+            <span />
+          )}
+          {headerActions && <div className="flex items-center gap-1">{headerActions}</div>}
         </div>
-      )}
-      {passage && <PassageBlock text={passage} style={textSmStyle} />}
+      ) : null}
+      {passage && <PassageBlock text={passage} style={passageStyle} />}
       <div className="flex items-start gap-2">
         {index != null && numberBadge === 'dot' && (
           <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-black text-white">
             {index + 1}
           </span>
         )}
-        <p className="min-w-0 flex-1 text-sm font-bold text-justify text-default" style={textSmStyle}>
+        <p className={`min-w-0 flex-1 text-sm font-bold text-default ${fluid ? 'text-left' : 'text-justify'}`} style={questionStyle}>
           <MathText text={q.question_text} />
         </p>
       </div>
       {svgPosition === 'below' && svg}
 
       {optionList && (
-        <ul className="mt-3 space-y-2 text-sm" style={textSmStyle}>
+        <ul className={`text-sm ${fluid ? 'mt-3 space-y-2 sm:mt-4 sm:space-y-2.5' : 'mt-3 space-y-2'}`} style={choiceStyle}>
           {optionList.map((opt, i) => {
             const isChosen = selectedId === opt.id;
             let cls = 'border-default bg-surface text-default hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5';
@@ -677,9 +742,11 @@ function QuestionAnswerKeyItemImpl({
                   disabled={answered}
                   aria-expanded={answered}
                   aria-controls={explanationId}
-                  className={`group flex w-full items-center gap-3 rounded-2xl border-2 px-3.5 py-3 text-left font-bold shadow-sm transition-all disabled:cursor-default active:scale-[0.98] ${cls}`}
+                  className={`group flex w-full items-center gap-2.5 sm:gap-3 rounded-2xl border-2 text-left font-bold shadow-sm transition-all disabled:cursor-default active:scale-[0.985] ${
+                    fluid ? 'px-3 py-2.5 sm:px-4 sm:py-3' : 'px-3.5 py-3'
+                  } ${cls}`}
                 >
-                  <OptionLetterBadge index={i} state={badgeState} />
+                  <OptionLetterBadge index={i} state={badgeState} fluid={fluid} />
                   <MathText as="span" className="min-w-0 flex-1" text={opt.text} />
                   <span
                     data-open={answered}
@@ -700,8 +767,8 @@ function QuestionAnswerKeyItemImpl({
       )}
 
       {q.type === 'matching' && (
-        <div className="mt-2.5">
-          <MatchingView question={q} assignment={assignment} locked={answered} onAssign={assignMatchPair} onCheck={checkMatchAssignment} fontScale={fontScale} />
+        <div className="mt-3">
+          <MatchingView question={q} assignment={assignment} locked={answered} onAssign={assignMatchPair} onCheck={checkMatchAssignment} fontScale={fontScale} fluid={fluid} />
         </div>
       )}
 
@@ -1489,7 +1556,8 @@ export default function QuizClient({
   );
 
   const playerAccent = SLIDE_ACCENTS[index % SLIDE_ACCENTS.length];
-  const playerShell = (body: ReactNode, opts: { controls?: ReactNode; footer?: ReactNode } = {}) => (
+  const playerProgress = questions.length > 0 ? (showResult ? 100 : ((index + 1) / questions.length) * 100) : undefined;
+  const playerShell = (body: ReactNode, opts: { stats?: ReactNode; controls?: ReactNode; footer?: ReactNode } = {}) => (
     <PlayerFrame
       variant="overlay"
       accent={playerAccent}
@@ -1497,15 +1565,36 @@ export default function QuizClient({
       cardKey={`quiz-${reloadKey}`}
       outside={adminLayers}
       headerResetKey={`${index}-${showResult}`}
+      isFullscreen={isFullscreen}
+      fontScale={fontScale}
+      progress={playerProgress}
       header={
         <div className={PLAYER_TOP_BAR_CLASS}>
-          <div className="min-w-0 w-full sm:w-auto">
-            <PlayerEyebrow text={scopeLabel} accent={playerAccent} fontScale={fontScale} />
+          {/* Mobilde 1. satır: Başlık + Kapat/Tam Ekran; sm+: tek satırda hepsi yan yana */}
+          <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:flex-1">
+            <div className="min-w-0 flex-1">
+              <PlayerEyebrow text={scopeLabel} accent={playerAccent} fontScale={fontScale} />
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 sm:hidden">
+              <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={closeQuiz} />
+            </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-            {opts.controls}
-            <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={closeQuiz} />
-          </div>
+          {(opts.stats || opts.controls) && (
+            <div className="flex w-full shrink-0 items-center justify-between gap-1.5 sm:w-auto sm:justify-end">
+              {opts.stats && <div className="flex items-center gap-1.5">{opts.stats}</div>}
+              <div className="flex items-center gap-1.5">
+                {opts.controls}
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={closeQuiz} />
+                </div>
+              </div>
+            </div>
+          )}
+          {!opts.stats && !opts.controls && (
+            <div className="hidden shrink-0 sm:flex items-center gap-1.5">
+              <OverlayWindowButtons isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={closeQuiz} />
+            </div>
+          )}
         </div>
       }
     >
@@ -1852,53 +1941,58 @@ export default function QuizClient({
     const isAnsweredP = !!locked[current.id];
     const isCorrectP = !!correct[current.id];
     const isLastP = index === questions.length - 1;
+    const wrongCountP = Object.values(pillStatuses).filter((v) => v === 'incorrect').length;
+    const cardHeaderActions = (
+      <>
+        {renderAside && (
+          <button
+            type="button"
+            onClick={() => setAsideOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-black text-slate-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 sm:px-3 sm:py-1.5"
+          >
+            <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>Anlamadım, sor</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => handleShare(current)}
+          aria-label="Soruyu paylaş"
+          title="Soruyu paylaş"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              aria-label="Soruyu düzenle"
+              title="Soruyu düzenle"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              aria-label="Soruyu sil"
+              title="Soruyu sil"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
+        )}
+      </>
+    );
+
     return playerShell(
       <>
         {/* key: her soruda kaydırma kutusu yenilenir → yeni soru en baştan görünür. */}
-        <div key={current.id} className="relative flex flex-1 min-h-0 flex-col overflow-y-auto px-4 pt-1 pb-4 sm:px-8 sm:pb-6">
-          <div className="relative z-[1] my-auto w-full rounded-2xl border border-slate-200 bg-white/60 p-4 sm:p-6">
-            <div className="mb-2 flex items-center justify-end gap-1">
-              {renderAside && (
-                <button
-                  type="button"
-                  onClick={() => setAsideOpen(true)}
-                  className="mr-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-600"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> Anlamadım, sor
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => handleShare(current)}
-                aria-label="Soruyu paylaş"
-                title="Soruyu paylaş"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
-              {isAdmin && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen(true)}
-                    aria-label="Soruyu düzenle"
-                    title="Soruyu düzenle"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-500"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteOpen(true)}
-                    aria-label="Soruyu sil"
-                    title="Soruyu sil"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
+        <div key={current.id} className="relative flex flex-1 min-h-0 flex-col overflow-y-auto bg-slate-50 px-2 py-2 sm:px-[clamp(16px,2.5vw,64px)] sm:py-3">
+          <div className="relative z-[1] mt-0.5 mb-auto sm:my-auto w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
             {shareState === 'copied' && <p className="mb-2 text-xs font-bold text-emerald-600">Bağlantı kopyalandı!</p>}
             {editSaved && <p className="mb-2 text-xs font-bold text-emerald-600">Kaydedildi — güncel hâli sayfa yenilenince görünür.</p>}
 
@@ -1907,9 +2001,11 @@ export default function QuizClient({
               question={current}
               index={index}
               interactive
+              fluid
               numberBadge="label"
               accentColor={playerAccent.bar}
               fontScale={fontScale}
+              headerActions={cardHeaderActions}
               controlledSelectedId={current.type === 'multiple_choice' || current.type === 'blank' ? selection[current.id] ?? null : undefined}
               controlledAssignment={current.type === 'matching' ? matchAssign[current.id] || {} : undefined}
               onAssignPair={assignMatch}
@@ -1960,17 +2056,18 @@ export default function QuizClient({
         )}
       </>,
       {
-        controls: (
+        stats: (
           <>
-            <FontScaleControl fontScale={fontScale} onChange={setFontScale} />
-            <div className={`hidden sm:block ${PLAYER_BADGE_CLASS}`}>
-              <span className="text-emerald-600">D:{score}</span> <span className="text-rose-500">Y:{Object.values(pillStatuses).filter((v) => v === 'incorrect').length}</span>
-            </div>
-            <div className={`text-slate-500 ${PLAYER_BADGE_CLASS}`}>
+            <div className={`text-slate-600 ${PLAYER_BADGE_CLASS}`}>
               {index + 1}/{questions.length}
+            </div>
+            <div className={PLAYER_BADGE_CLASS}>
+              <span className="text-emerald-600">D:{score}</span>{' '}
+              <span className="text-rose-500">Y:{wrongCountP}</span>
             </div>
           </>
         ),
+        controls: <FontScaleControl fontScale={fontScale} onChange={setFontScale} />,
         footer: (
           <div className={PLAYER_NAV_ROW_CLASS}>
             <button type="button" onClick={goPrev} disabled={index === 0} aria-label="Önceki soru" className={NAV_BTN_CLASS}>
@@ -1998,7 +2095,14 @@ export default function QuizClient({
                 Bitir ({answeredCount}/{questions.length})
               </button>
             ) : (
-              <button type="button" onClick={goNext} disabled={!isAnsweredP} aria-label="Sonraki soru" className={NAV_BTN_CLASS}>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={!isAnsweredP}
+                aria-label="Sonraki soru"
+                className={NAV_BTN_CLASS}
+                style={isAnsweredP ? { background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` } : undefined}
+              >
                 <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             )}

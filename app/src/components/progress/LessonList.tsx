@@ -18,7 +18,53 @@ export const TONE_TEXT = {
   none: 'text-muted-foreground',
 } as const;
 
-const CARD = `group flex flex-col gap-4 rounded-2xl p-4 ${r.panel}`;
+const TONE_STROKE = {
+  good: '#10B981',
+  mid: '#F59E0B',
+  bad: '#E11D48',
+  none: 'transparent',
+} as const;
+
+function AccuracyRing({ accuracy, tone }: { accuracy: number | null; tone: keyof typeof TONE_TEXT }) {
+  const radius = 20;
+  const circ = 2 * Math.PI * radius;
+  const pct = accuracy ?? 0;
+  const dash = (pct / 100) * circ;
+
+  return (
+    <div className="relative h-[52px] w-[52px] shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 52 52" className="h-full w-full">
+        <circle
+          cx="26"
+          cy="26"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="5"
+          className="text-zinc-200 dark:text-white/10"
+        />
+        {accuracy != null && pct > 0 && (
+          <circle
+            cx="26"
+            cy="26"
+            r={radius}
+            fill="none"
+            stroke={TONE_STROKE[tone]}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`}
+            transform="rotate(-90 26 26)"
+          />
+        )}
+      </svg>
+      <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums ${r.statValue} ${TONE_TEXT[tone]}`}>
+        {accuracy == null ? '—' : `%${accuracy}`}
+      </span>
+    </div>
+  );
+}
+
+const CARD = `group flex flex-col gap-3 rounded-2xl p-4 ${r.panel}`;
 
 export function LessonList() {
   const { data: mastery, error, isLoading } = useTopicMastery();
@@ -70,18 +116,25 @@ export function LessonList() {
                     </div>
                     <ArrowRight className={`h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 ${r.accent}`} aria-hidden="true" />
                   </div>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-muted-foreground">
-                      {t.solved}/{t.total} soru · {t.correct} doğru · {t.solved - t.correct} yanlış
-                      {t.accuracy == null && t.solved > 0 && ` · başarı oranı için en az ${MASTERY_RULES.minSolvedToJudge} soru`}
-                    </span>
-                    <span className={`text-xl ${r.statValue} ${TONE_TEXT[tone]}`}>{t.accuracy == null ? '—' : `%${t.accuracy}`}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-0.5 text-xs text-muted-foreground">
+                      <span className="font-medium text-default/80">{t.solved}/{t.total} soru çözüldü</span>
+                      <span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">{t.correct} doğru</span>
+                        {' · '}
+                        <span className="font-semibold text-rose-600 dark:text-rose-400">{t.solved - t.correct} yanlış</span>
+                      </span>
+                      {t.accuracy == null && t.solved > 0 && (
+                        <span className="text-[11px]">en az {MASTERY_RULES.minSolvedToJudge} soru gerekli</span>
+                      )}
+                    </div>
+                    <AccuracyRing accuracy={t.accuracy} tone={tone} />
                   </div>
                   {/* Anasayfadaki ders çubuğuyla aynı: doğru / yanlış / çözülmedi (kalan iz). */}
                   <span
-                    className={`flex h-2.5 ${r.track}`}
+                    className={`flex h-2 ${r.track}`}
                     role="img"
-                    aria-label={`${t.total} sorunun ${t.correct} doğru, ${t.solved - t.correct} yanlış, ${t.total - t.solved} çözülmedi`}
+                    aria-label={`${t.total} sorunun ${t.correct} doğru, ${t.solved - t.correct} yanlış, ${t.total - t.solved} çözülmedi${t.accuracy != null ? `, başarı oranı yüzde ${t.accuracy}` : ''}`}
                   >
                     <span className="h-full bg-emerald-500" style={{ width: `${(t.correct / t.total) * 100}%` }} />
                     <span className="h-full bg-rose-500" style={{ width: `${((t.solved - t.correct) / t.total) * 100}%` }} />

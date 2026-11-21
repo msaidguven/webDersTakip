@@ -23,11 +23,13 @@ import {
   VolumeX,
   X,
   XCircle,
+  ZoomIn,
 } from 'lucide-react';
 import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import {
   GUIDE,
   ttsText,
+  v3BeatSpeech,
   voiceAudioPath,
   voiceKey,
   voiceManifestPath,
@@ -132,6 +134,7 @@ export default function PlayerV3({
   const [voiced, setVoiced] = useState<Set<string>>(() => new Set());
   const [talking, setTalking] = useState(false);
   const [atomMood, setAtomMood] = useState<RobotMood>('normal');
+  const [zoomedVisual, setZoomedVisual] = useState(false);
 
   const soundOnRef = useRef(soundOn);
   const voicedRef = useRef(voiced);
@@ -178,14 +181,20 @@ export default function PlayerV3({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.fullscreenElement) {
-        if (mode === 'play') setMode('map');
-        else onClose();
+      if (e.key === 'Escape') {
+        if (zoomedVisual) {
+          setZoomedVisual(false);
+          return;
+        }
+        if (!document.fullscreenElement) {
+          if (mode === 'play') setMode('map');
+          else onClose();
+        }
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [mode, onClose]);
+  }, [mode, onClose, zoomedVisual]);
 
   const speakLine = useCallback((text: string) => {
     if (!soundOnRef.current) return;
@@ -194,6 +203,29 @@ export default function PlayerV3({
     setTalking(true);
     void lessonSound().speak([{ url: voiceUrl(text), text: ttsText(text) }], () => setTalking(false));
   }, []);
+
+  const resolveBeatVoiceText = useCallback((beat: V3TeachBeat): string | null => {
+    const combined = v3BeatSpeech(beat);
+    if (voicedRef.current.has(voiceKey(combined))) return combined;
+    if (voicedRef.current.has(voiceKey(beat.fact))) return beat.fact;
+    return null;
+  }, []);
+
+  const speakBeat = useCallback(
+    (beat: V3TeachBeat, force = false) => {
+      if (!force && !soundOnRef.current) return;
+      const chosen = resolveBeatVoiceText(beat);
+      if (!chosen) return;
+      if (force && !soundOnRef.current) {
+        setSoundOn(true);
+        soundOnRef.current = true;
+      }
+      lessonSound().unlock();
+      setTalking(true);
+      void lessonSound().speak([{ url: voiceUrl(chosen), text: ttsText(chosen) }], () => setTalking(false));
+    },
+    [resolveBeatVoiceText],
+  );
 
   const handleFeedback = useCallback(
     (fb: MiniGameFeedback) => {
@@ -236,10 +268,11 @@ export default function PlayerV3({
       setScreenIdx(0);
       setQuickWrongIdx(null);
       setLastGameResult(null);
+      setZoomedVisual(false);
       setAtomMood('normal');
-      if (target.beats[0]?.fact) speakLine(target.beats[0].fact);
+      if (target.beats[0]) speakBeat(target.beats[0]);
     },
-    [lesson.sections, speakLine],
+    [lesson.sections, speakBeat],
   );
 
   const goToScreen = useCallback(
@@ -250,11 +283,12 @@ export default function PlayerV3({
       lessonSound().unlock();
       setScreenIdx(clamped);
       setQuickWrongIdx(null);
+      setZoomedVisual(false);
 
       if (scr.kind === 'teach') {
         setAtomMood('normal');
         if (soundOnRef.current) lessonSound().sfx('tap');
-        speakLine(scr.beat.fact);
+        speakBeat(scr.beat);
       } else if (scr.kind === 'quick') {
         setAtomMood('think');
         if (soundOnRef.current) lessonSound().sfx('tap');
@@ -271,7 +305,7 @@ export default function PlayerV3({
         if (soundOnRef.current) lessonSound().sfx('win');
       }
     },
-    [markSectionCompleted, screens, sectionIdx, speakLine],
+    [markSectionCompleted, screens, sectionIdx, speakBeat, speakLine],
   );
 
   const handleQuickOption = (beat: V3TeachBeat, optIdx: number) => {
@@ -484,13 +518,32 @@ export default function PlayerV3({
                     <h2 className={s.gameBeatHeading}>{activeScreen.beat.title}</h2>
                   </div>
 
-                  <div className={s.gameVisualFrame}>
-                    {lesson.sceneId === 'digestive-system' && activeScreen.beat.focus ? (
+                  {lesson.sceneId === 'digestive-system' && activeScreen.beat.focus ? (
+                    <div
+                      className={`${s.gameVisualFrame} ${s.gameVisualClickable}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setZoomedVisual(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setZoomedVisual(true);
+                        }
+                      }}
+                      title="Görseli büyütmek için tıkla"
+                      aria-label={`${activeScreen.beat.title} görselini büyüt`}
+                    >
+                      <span className={s.visualZoomHint} aria-hidden="true">
+                        <ZoomIn className="h-4 w-4" />
+                        <span>Büyüt</span>
+                      </span>
                       <DigestiveScene focus={activeScreen.beat.focus} />
-                    ) : (
+                    </div>
+                  ) : (
+                    <div className={s.gameVisualFrame}>
                       <GenericVisualScene visual={activeScreen.beat.visual} title={activeScreen.beat.title} />
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className={s.gameDialogueBox}>
                     <div className="w-12 shrink-0 xl:w-16">
@@ -499,6 +552,18 @@ export default function PlayerV3({
                     <div className={s.gameDialogueInner}>
                       <p className="m-0">{activeScreen.beat.fact}</p>
                     </div>
+                    {(voiced.has(voiceKey(v3BeatSpeech(activeScreen.beat))) ||
+                      voiced.has(voiceKey(activeScreen.beat.fact))) && (
+                      <button
+                        type="button"
+                        onClick={() => speakBeat(activeScreen.beat, true)}
+                        className={s.gameDialogueReplayBtn}
+                        aria-label="Tekrar dinle"
+                        title="Tekrar dinle"
+                      >
+                        <Volume2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -703,6 +768,43 @@ export default function PlayerV3({
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </footer>
+        </div>
+      )}
+
+      {/* ==================== GÖRSEL BÜYÜTME (LIGHTBOX) MODALI ==================== */}
+      {zoomedVisual && mode === 'play' && activeScreen?.kind === 'teach' && (
+        <div
+          className={s.visualLightboxBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${activeScreen.beat.title} — Büyütülmüş Görsel`}
+          onClick={() => setZoomedVisual(false)}
+        >
+          <div className={s.visualLightboxCard} onClick={(e) => e.stopPropagation()}>
+            <div className={s.visualLightboxHeader}>
+              <h3 className={s.visualLightboxTitle}>{activeScreen.beat.title}</h3>
+              <button
+                type="button"
+                onClick={() => setZoomedVisual(false)}
+                className={s.visualLightboxClose}
+                aria-label="Büyütülmüş görseli kapat"
+                title="Kapat (Esc)"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <div
+              className={s.visualLightboxBody}
+              onClick={() => setZoomedVisual(false)}
+              title="Kapatmak için tıkla"
+            >
+              {lesson.sceneId === 'digestive-system' && activeScreen.beat.focus ? (
+                <DigestiveScene focus={activeScreen.beat.focus} />
+              ) : (
+                <GenericVisualScene visual={activeScreen.beat.visual} title={activeScreen.beat.title} />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -65,6 +65,8 @@ export type Content = {
   hasNarration?: boolean;
   // Etkileşimli ders hazır mı — bkz. lessonWeekData.ts.
   hasInteractiveLesson?: boolean;
+  // Konu içeriğinin hazırlanma tarihi (topic_contents.created_at).
+  createdAt?: string | null;
 };
 export type Unit = { id: number; title: string; slug: string | null; order_no: number; start_week: number | null; end_week: number | null; is_active?: boolean; has_questions?: boolean; test_question_count?: number };
 export type ProfileRoleRow = { role: string | null };

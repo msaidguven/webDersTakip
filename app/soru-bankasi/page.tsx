@@ -8,6 +8,7 @@ import { SITE_URL } from '@/app/src/lib/site';
 import { getSoruBankasiGradesIndexData, buildSoruBankasiIndexPath, buildSoruBankasiGradePath, buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 import { getGradeDescription, formatGradeRange } from '@/app/src/lib/homeMapping';
 import { SoruBankasiAbout, SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiStudentGuard } from './SoruBankasiStudentGuard';
 import r from '../src/components/robotic/robotic.module.css';
 
 // Taslak/admin önizlemesi göstermiyor (public + is_active filtreli), bu yüzden ISR ile
@@ -49,41 +50,43 @@ export default async function SoruBankasiIndexPage() {
           pills={[`${withQuestions.length} sınıf`, `${questionCount} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
         />
 
-        <section aria-labelledby="sinifini-sec" className="mt-6 sm:mt-10">
-          <h2 id="sinifini-sec" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Sınıfını seç</h2>
-          {data.grades.length ? (
-            <div className="mt-4 flex flex-col gap-8">
-              {[
-                { label: 'Ortaokul', items: data.grades.filter((g) => g.level <= 8) },
-                { label: 'Lise', items: data.grades.filter((g) => g.level > 8) },
-              ].map(({ label, items }) =>
-                items.length === 0 ? null : (
-                  <div key={label} className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      <h3 className={`shrink-0 rounded-full border ${r.neonBorder} bg-background/80 px-3 py-1 text-xs font-bold tracking-wide ${r.accent}`}>
-                        {label}
-                      </h3>
-                      <span className={`h-px flex-1 ${r.tint}`} aria-hidden="true" />
+        <SoruBankasiStudentGuard>
+          <section aria-labelledby="sinifini-sec" className="mt-6 sm:mt-10">
+            <h2 id="sinifini-sec" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Sınıfını seç</h2>
+            {data.grades.length ? (
+              <div className="mt-4 flex flex-col gap-8">
+                {[
+                  { label: 'Ortaokul', items: data.grades.filter((g) => g.level <= 8) },
+                  { label: 'Lise', items: data.grades.filter((g) => g.level > 8) },
+                ].map(({ label, items }) =>
+                  items.length === 0 ? null : (
+                    <div key={label} className="flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <h3 className={`shrink-0 rounded-full border ${r.neonBorder} bg-background/80 px-3 py-1 text-xs font-bold tracking-wide ${r.accent}`}>
+                          {label}
+                        </h3>
+                        <span className={`h-px flex-1 ${r.tint}`} aria-hidden="true" />
+                      </div>
+                      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                        {items.map((grade) => (
+                          <li key={grade.slug}>
+                            <GradeMetalCard href={buildSoruBankasiGradePath(grade.slug)} level={grade.level} title={grade.name}>
+                              {grade.questionCount > 0 ? `${grade.questionCount.toLocaleString('tr-TR')} soru` : getGradeDescription(grade.level)}
+                            </GradeMetalCard>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                      {items.map((grade) => (
-                        <li key={grade.slug}>
-                          <GradeMetalCard href={buildSoruBankasiGradePath(grade.slug)} level={grade.level} title={grade.name}>
-                            {grade.questionCount > 0 ? `${grade.questionCount.toLocaleString('tr-TR')} soru` : getGradeDescription(grade.level)}
-                          </GradeMetalCard>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ),
-              )}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">Henüz sınıf eklenmemiş.</p>
-          )}
-        </section>
+                  ),
+                )}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">Henüz sınıf eklenmemiş.</p>
+            )}
+          </section>
 
-        <SoruBankasiAbout text={`${gradeRange || 'Tüm sınıflar'} için ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorular. Sınıfını seç; dersler, üniteler ve konular üzerinden istediğin soruya ulaş ya da kendini kısa testlerle dene.`} />
+          <SoruBankasiAbout text={`${gradeRange || 'Tüm sınıflar'} için ünite ve konulara ayrılmış, cevap anahtarlı ve açıklamalı sorular. Sınıfını seç; dersler, üniteler ve konular üzerinden istediğin soruya ulaş ya da kendini kısa testlerle dene.`} />
+        </SoruBankasiStudentGuard>
       </div>
     </div>
   );

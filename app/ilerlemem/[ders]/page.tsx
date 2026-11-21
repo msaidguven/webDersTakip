@@ -7,21 +7,18 @@
 // reaktör göstergesi, LED segmentli çubuklar, neon vurgular (bkz. LessonReport.module.css).
 // Konu satırları (2026-10-25, kullanıcı isteği): satır link değil; çubuğun altında "Soru çöz" (konu testi
 // sayfa değiştirmeden tam ekran açılır, bkz. useQuizTestLauncher) + "Konu anlatımı" düğmeleri.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { Chakra_Petch, Inter, JetBrains_Mono } from 'next/font/google';
-import { BookOpen, ChevronLeft, Loader2, Play } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, Loader2, Play } from 'lucide-react';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTopicMastery } from '../../src/hooks/useTopicMastery';
-import { useReviewDue } from '../../src/hooks/useReviewDue';
-import { useTopicWeekSpans } from '../../src/hooks/useTopicWeekSpans';
 import { onQuizModalClosed } from '../../src/lib/panelRefreshBridge';
 import { topicTestEndpoint, useQuizTestLauncher, type QuizTestConflict } from '../../src/hooks/useQuizTestLauncher';
 import { AuthPrompt } from '../../src/components/AuthPrompt';
 import { accuracyTone, lessonHref, totalsOf, unitReports, type Totals, type UnitReport } from '../../src/lib/lessonReports';
-import { mergeWeekSpans, weekLabel, type WeekRange } from '../../src/lib/kazanimPlan';
 import { MASTERY_RULES, weakestTopics, type LessonMastery, type TopicMastery } from '../../src/lib/topicMastery';
 import s from './LessonReport.module.css';
 
@@ -32,8 +29,6 @@ const monoFont = JetBrains_Mono({ subsets: ['latin', 'latin-ext'], weight: ['500
 const REFRESH_KEYS = new Set(['topic-mastery', 'review-due']);
 const SEGMENTS = 20;
 const TONE_CLASS = { good: s.tGood, mid: s.tMid, bad: s.tBad, none: s.tNone } as const;
-// Göstergenin renkleri başarı tonuna göre (renk tek başına anlam taşımaz: yüzde yazıyla da var).
-const TONE_COLOR = { good: 'var(--good)', mid: 'var(--mid)', bad: 'var(--bad)', none: 'var(--neon)' } as const;
 
 function cx(...names: (string | false | null | undefined)[]) {
   return names.filter(Boolean).join(' ');
@@ -74,12 +69,6 @@ function StatusChip({ totals }: { totals: Totals }) {
       {solved === 0 ? 'başlanmadı' : accuracy == null ? 'veri az' : `%${accuracy} başarı`}
     </span>
   );
-}
-
-// Öğretim haftası: kartın (ünite/konu) sol üst köşesine oturan sekme.
-function CornerWeek({ range, className }: { range: WeekRange | null | undefined; className?: string }) {
-  if (!range) return null;
-  return <span className={cx(s.cornerWeek, className)}>{weekLabel(range)}</span>;
 }
 
 function TopicBar({ totals }: { totals: Totals }) {
@@ -145,64 +134,180 @@ function QuizNotice({ placeKey, t, quiz }: { placeKey: string; t: TopicMastery; 
   );
 }
 
-function TopicRow({ t, week, quiz }: { t: TopicMastery; week: WeekRange | null | undefined; quiz: QuizUi }) {
+function TopicRow({ t, quiz }: { t: TopicMastery; quiz: QuizUi }) {
   const totals = totalsOf([t]);
   const { total, solved, correct } = totals;
   const placeKey = `unit-${t.id}`;
   return (
-    <li className={cx(s.topic, week && s.topicHasWeek)}>
-      <CornerWeek range={week} />
+    <li className={s.topic}>
       <span className={s.topicName}>{t.title}</span>
-      <span className={s.topicData}>
-        <TopicBar totals={totals} />
-        <span className={s.topicMeta}>
+      <div className={s.topicRight}>
+        <span className={s.topicData}>
+          <TopicBar totals={totals} />
           <span className={s.topicStats}>{total === 0 ? 'Yakında' : `${solved}/${total} çözüldü · ${correct} doğru · ${solved - correct} yanlış`}</span>
-          {(t.test || t.contentHref) && (
-            <span className={s.topicActions}>
-              {t.test && (
-                <SolveButton
-                  placeKey={placeKey}
-                  t={t}
-                  quiz={quiz}
-                  label={<><Play className={s.tagIcon} aria-hidden="true" />Soru çöz</>}
-                  className={cx(s.tag, s.tagSolve)}
-                />
-              )}
-              {t.contentHref && (
-                <Link href={t.contentHref} aria-label={`${t.title} konu anlatımı`} className={cx(s.tag, s.tagMuted)}>
-                  <BookOpen className={s.tagIcon} aria-hidden="true" />Konu anlatımı
-                </Link>
-              )}
-            </span>
-          )}
         </span>
-      </span>
+        {t.test && (
+          <SolveButton
+            placeKey={placeKey}
+            t={t}
+            quiz={quiz}
+            label={<Play className={s.playIcon} aria-hidden="true" />}
+            className={s.playBtn}
+          />
+        )}
+      </div>
       <QuizNotice placeKey={placeKey} t={t} quiz={quiz} />
     </li>
   );
 }
 
-function UnitPanels({ units, weekSpans, quiz }: { units: UnitReport[]; weekSpans?: Record<number, WeekRange | null>; quiz: QuizUi }) {
+// Ünite bazlı başarı oranı sütun grafiği (SVG/CSS, sıfır harici kütüphane).
+// Sütuna tıklayınca sayfadaki ilgili ünite kartına kaydırır.
+function UnitChart({ units }: { units: UnitReport[] }) {
+  return (
+    <section aria-labelledby="unite-grafik" className={cx(s.panel, s.chartPanel)}>
+      <div className={s.chartHead}>
+        <div>
+          <p className={s.label}>Grafik</p>
+          <h2 id="unite-grafik" className={s.chartTitle}>Ünitelere göre başarı</h2>
+        </div>
+        <span className={s.note}>üniteye gitmek için sütuna tıkla</span>
+      </div>
+      <div className={s.barChartScroll}>
+        <div className={s.barChartWrap}>
+          {/* Yatay kılavuz çizgileri (%100, %50, %0) */}
+          <div className={s.barGrid} aria-hidden="true">
+            <span className={s.barGridLine}><i>100%</i></span>
+            <span className={s.barGridLine}><i>50%</i></span>
+            <span className={s.barGridLine}><i>0%</i></span>
+          </div>
+          <ul className={s.barCols}>
+            {units.map((u, i) => {
+              const acc = u.totals.accuracy;
+              const tone = accuracyTone(acc);
+              const pct = acc ?? 0;
+              const solvedRatio = u.totals.total > 0 ? Math.round((u.totals.solved / u.totals.total) * 100) : 0;
+              return (
+                <li key={u.key} className={s.barCol}>
+                  <a
+                    href={`#unit-${i + 1}`}
+                    className={s.barLink}
+                    title={`${i + 1}. ${u.title} — ${acc == null ? (u.totals.solved === 0 ? 'Başlanmadı' : 'Veri az') : `%${acc} başarı`} (${u.totals.solved}/${u.totals.total} soru)`}
+                  >
+                    <span className={cx(s.barVal, TONE_CLASS[tone])}>
+                      {acc == null ? '—' : `%${acc}`}
+                    </span>
+                    <span className={s.barWell}>
+                      <span
+                        className={cx(s.barFill, tone === 'good' && s.barFillGood, tone === 'mid' && s.barFillMid, tone === 'bad' && s.barFillBad)}
+                        style={{ height: `${acc == null ? (u.totals.solved > 0 ? Math.max(8, solvedRatio * 0.35) : 4) : Math.max(8, pct)}%` }}
+                      />
+                    </span>
+                    <span className={s.barIdx}>Ü{i + 1}</span>
+                    <span className={s.barSub}>{u.totals.solved}/{u.totals.total}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Ders genelinde Doğru / Yanlış / Kalan dağılımı (hafif SVG halka grafik).
+function QuestionBreakdownChart({ totals }: { totals: Totals }) {
+  const { total, solved, correct } = totals;
+  const wrong = Math.max(0, solved - correct);
+  const remaining = Math.max(0, total - solved);
+  const solvedPct = total > 0 ? Math.round((solved / total) * 100) : 0;
+
+  const rRadius = 42;
+  const circ = 2 * Math.PI * rRadius;
+  const goodLen = total > 0 ? (correct / total) * circ : 0;
+  const badLen = total > 0 ? (wrong / total) * circ : 0;
+
+  return (
+    <section aria-labelledby="dagilim-grafik" className={cx(s.panel, s.chartPanel)}>
+      <div className={s.chartHead}>
+        <div>
+          <p className={s.label}>Dağılım</p>
+          <h2 id="dagilim-grafik" className={s.chartTitle}>Soru özeti</h2>
+        </div>
+      </div>
+      <div className={s.donutBody}>
+        <div className={s.donutWrap}>
+          <svg viewBox="0 0 108 108" className={s.donutSvg} role="img" aria-label={`${total} sorudan ${correct} doğru, ${wrong} yanlış, ${remaining} kalan`}>
+            <circle cx="54" cy="54" r={rRadius} fill="none" stroke="var(--track)" strokeWidth="12" />
+            {goodLen > 0 && (
+              <circle
+                cx="54"
+                cy="54"
+                r={rRadius}
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="12"
+                strokeDasharray={`${goodLen} ${circ}`}
+                strokeDashoffset={0}
+                transform="rotate(-90 54 54)"
+              />
+            )}
+            {badLen > 0 && (
+              <circle
+                cx="54"
+                cy="54"
+                r={rRadius}
+                fill="none"
+                stroke="#E11D48"
+                strokeWidth="12"
+                strokeDasharray={`${badLen} ${circ}`}
+                strokeDashoffset={-goodLen}
+                transform="rotate(-90 54 54)"
+              />
+            )}
+          </svg>
+          <div className={s.donutCenter}>
+            <strong>%{solvedPct}</strong>
+            <span>çözüldü</span>
+          </div>
+        </div>
+        <dl className={s.donutLegend}>
+          <div>
+            <dt><i className={s.dot} style={{ background: '#10B981' }} aria-hidden="true" />Doğru</dt>
+            <dd>{correct}</dd>
+          </div>
+          <div>
+            <dt><i className={s.dot} style={{ background: '#E11D48' }} aria-hidden="true" />Yanlış</dt>
+            <dd>{wrong}</dd>
+          </div>
+          <div>
+            <dt><i className={s.dot} style={{ background: 'var(--track)' }} aria-hidden="true" />Kalan</dt>
+            <dd>{remaining}</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function UnitPanels({ units, quiz }: { units: UnitReport[]; quiz: QuizUi }) {
   return (
     <div className={s.units}>
-      {units.map((u, i) => {
-        const week = mergeWeekSpans(u.topics.map((t) => weekSpans?.[t.id]));
-        return (
-          <section key={u.key} aria-label={u.title} className={cx(s.panel, s.unit, week && s.unitHasWeek)}>
-            <CornerWeek range={week} className={s.cornerWeekUnit} />
-            <header className={s.unitHead}>
-              <h3 className={s.unitTitle}>
-                <span className={s.unitIdx}>{String(i + 1).padStart(2, '0')}</span>
-                {u.title}
-              </h3>
-              <StatusChip totals={u.totals} />
-            </header>
-            <ul className={cx(s.topics, s.topicList)}>
-              {u.topics.map((t) => <TopicRow key={t.id} t={t} week={weekSpans?.[t.id]} quiz={quiz} />)}
-            </ul>
-          </section>
-        );
-      })}
+      {units.map((u, i) => (
+        <section key={u.key} id={`unit-${i + 1}`} aria-label={u.title} className={cx(s.panel, s.unit)}>
+          <header className={s.unitHead}>
+            <h3 className={s.unitTitle}>
+              <span className={s.unitIdx}>{String(i + 1).padStart(2, '0')}</span>
+              {u.title}
+            </h3>
+            <StatusChip totals={u.totals} />
+          </header>
+          <ul className={cx(s.topics, s.topicList)}>
+            {u.topics.map((t) => <TopicRow key={t.id} t={t} quiz={quiz} />)}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }
@@ -243,7 +348,6 @@ export default function LessonReportPage() {
   const { user, loading } = useAuth();
   const { mutate } = useSWRConfig();
   const { data: mastery, error: mErr } = useTopicMastery();
-  const { data: reviewDue = 0 } = useReviewDue();
 
   const refreshProgress = useCallback(
     () => void mutate((key) => Array.isArray(key) && REFRESH_KEYS.has(key[0])),
@@ -270,23 +374,15 @@ export default function LessonReportPage() {
   const totals = useMemo(() => (lesson ? totalsOf(lesson.topics) : null), [lesson]);
   const units = useMemo(() => (lesson ? unitReports(lesson) : []), [lesson]);
   const weak = useMemo(() => (lesson ? weakestTopics([lesson], 5) : []), [lesson]);
-  const topicIds = useMemo(() => units.flatMap((u) => u.topics.map((t) => t.id)), [units]);
-  const { data: weekSpans } = useTopicWeekSpans(topicIds);
-  const tabs = mastery?.lessons.filter((l) => l.slug && l.topics.length > 0) ?? [];
-  // Seçili ders sekmesi dar ekranda kaydırma alanının dışında kalmasın.
-  const activeTab = useRef<HTMLAnchorElement>(null);
-  const tabsReady = tabs.length > 1;
-  useEffect(() => {
-    activeTab.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
-  }, [ders, tabsReady]);
 
   const back = (
     <Link href="/ilerlemem" className={s.back}>
       <ChevronLeft className="h-4 w-4" aria-hidden="true" /> İlerlemem
     </Link>
   );
-  const shell = (body: React.ReactNode) => (
+  const shell = (body: React.ReactNode, mobileTop?: React.ReactNode) => (
     <div className={cx(s.root, displayFont.variable, bodyFont.variable, monoFont.variable)}>
+      {mobileTop}
       <div className={s.shell}>
         {mastery ? <LessonSidebar lessons={mastery.lessons} current={ders} /> : <div className={s.side} />}
         <main className={s.main}>{body}</main>
@@ -307,13 +403,27 @@ export default function LessonReportPage() {
   const learned = lesson.counts.learned;
   const topicTotal = lesson.topics.length + lesson.upcoming;
   const tone = accuracyTone(totals.accuracy);
-  const pct = totals.accuracy ?? 0;
+  const solvedPct = totals.total > 0 ? Math.round((totals.solved / totals.total) * 100) : 0;
+  const wrongTotal = Math.max(0, totals.solved - totals.correct);
+  const isEarlySample = totals.accuracy != null && totals.solved < 20;
+
+  const mobileBar = (
+    <div className={s.mobileBar}>
+      <Link href="/ilerlemem" className={s.mobileBackBtn} aria-label="İlerlemem sayfasına dön">
+        <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+      </Link>
+      <span className={s.mobileBarTitle}>{lesson.name}</span>
+      <span className={s.mobileBarPct}>
+        {totals.solved}/{totals.total}
+      </span>
+    </div>
+  );
 
   return shell(
     <>
-      {back}
+      <div className={s.desktopBack}>{back}</div>
 
-      {/* KOKPİT: ders adı + reaktör göstergesi */}
+      {/* KOKPİT: sade ders başlığı */}
       <header className={cx(s.panel, s.hero)}>
         <span className={s.scan} aria-hidden="true" />
         <div>
@@ -321,41 +431,7 @@ export default function LessonReportPage() {
           <h1 className={s.title}>{lesson.name}</h1>
           <p className={s.heroSub}>{units.length} ünite · {topicTotal} konu · {totals.total} soru</p>
         </div>
-        <div className={s.gauge}>
-          <span className={s.gaugeTicks} aria-hidden="true" />
-          <span
-            className={s.gaugeRing}
-            aria-hidden="true"
-            style={{ background: `conic-gradient(${TONE_COLOR[tone]} 0 ${pct}%, var(--track) 0 100%)` }}
-          />
-          <div className={s.gaugeCore}>
-            <div>
-              <div className={cx(s.gaugeValue, TONE_CLASS[tone])}>{totals.accuracy == null ? '—' : `%${totals.accuracy}`}</div>
-              <div className={s.gaugeLabel}>Başarı oranı</div>
-              {totals.accuracy == null && <div className={s.gaugeNote}>en az {MASTERY_RULES.minSolvedToJudge} soru çöz</div>}
-            </div>
-          </div>
-        </div>
       </header>
-
-      {tabs.length > 1 && (
-        <nav aria-label="Ders değiştir" className={s.tabs}>
-          <ul className={s.tabList}>
-            {tabs.map((l) => (
-              <li key={l.id}>
-                <Link
-                  href={lessonHref(l.slug!)}
-                  ref={l.slug === ders ? activeTab : undefined}
-                  aria-current={l.slug === ders ? 'page' : undefined}
-                  className={cx(s.tab, l.slug === ders && s.tabActive)}
-                >
-                  {l.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
 
       <div className={s.modules}>
         <div className={cx(s.panel, s.module)}>
@@ -366,27 +442,60 @@ export default function LessonReportPage() {
           <Segments
             ratio={totals.total ? totals.solved / totals.total : 0}
             good={totals.total ? totals.correct / totals.total : 0}
-            label={`${totals.total} sorunun ${totals.correct} doğru, ${totals.solved - totals.correct} yanlış, ${totals.total - totals.solved} çözülmedi`}
+            label={`${totals.total} sorunun ${totals.correct} doğru, ${wrongTotal} yanlış, ${totals.total - totals.solved} çözülmedi`}
           />
+          <p className={s.moduleSub}>
+            {totals.solved === 0 ? 'Henüz soru çözülmedi' : `Toplamın %${solvedPct}'i çözüldü`}
+          </p>
         </div>
+
+        <div className={cx(s.panel, s.module)}>
+          <div className={s.moduleTop}>
+            <span className={s.label}>Çözülende doğruluk</span>
+            <span className={cx(s.moduleValue, TONE_CLASS[tone])}>
+              {totals.accuracy == null ? '—' : `%${totals.accuracy}`}
+            </span>
+          </div>
+          <Segments
+            ratio={totals.accuracy == null ? 0 : 1}
+            good={totals.accuracy == null ? 0 : totals.accuracy / 100}
+            label={totals.accuracy == null ? 'Yeterli veri yok' : `Çözülen ${totals.solved} soruda yüzde ${totals.accuracy} doğruluk`}
+          />
+          <p className={s.moduleSub}>
+            {totals.accuracy == null
+              ? `Hesaplamak için en az ${MASTERY_RULES.minSolvedToJudge} soru çöz`
+              : `${totals.solved} soruda · ${totals.correct} doğru · ${wrongTotal} yanlış${isEarlySample ? ' · erken veri' : ''}`}
+          </p>
+        </div>
+
         <div className={cx(s.panel, s.module)}>
           <div className={s.moduleTop}>
             <span className={s.label}>Konu öğrenildi</span>
             <span className={s.moduleValue}>{learned}<small>/{topicTotal}</small></span>
           </div>
           <Segments ratio={topicTotal ? learned / topicTotal : 0} label={`${topicTotal} konunun ${learned} tanesi öğrenildi`} />
+          <p className={s.moduleSub}>
+            {learned === 0 ? 'Henüz tamamlanan konu yok' : `${topicTotal} konudan ${learned} tanesi öğrenildi`}
+          </p>
         </div>
       </div>
 
       {units.length > 0 && (
+        <div className={s.chartsGrid}>
+          <UnitChart units={units} />
+          <QuestionBreakdownChart totals={totals} />
+        </div>
+      )}
+
+      {units.length > 0 && (
         <section aria-labelledby="unite-basari" className={s.main}>
-          <SectionHead id="unite-basari" kicker="Modüller" title="Ünitelere göre başarı oranı" />
+          <SectionHead id="unite-basari" kicker="Modüller" title="Ünitelere göre detay" />
           <div className={s.legend}>
             <span><i className={s.dot} style={{ background: '#10B981' }} aria-hidden="true" />Doğru</span>
             <span><i className={s.dot} style={{ background: '#E11D48' }} aria-hidden="true" />Yanlış</span>
             <span><i className={s.dot} style={{ background: 'var(--track)' }} aria-hidden="true" />Çözülmedi</span>
           </div>
-          <UnitPanels units={units} weekSpans={weekSpans} quiz={quiz} />
+          <UnitPanels units={units} quiz={quiz} />
         </section>
       )}
 
@@ -414,18 +523,8 @@ export default function LessonReportPage() {
         </section>
       )}
 
-      {reviewDue > 0 && (
-        <section aria-labelledby="tekrar" className={cx(s.panel, s.review)}>
-          <span className={s.alertText}>
-            <span className={s.label} id="tekrar">Tekrar</span>
-            <b>Tekrar zamanı gelen {reviewDue} soru</b>
-            <small>Tekrar testi tüm derslerin zamanı gelen sorularını birlikte açar.</small>
-          </span>
-          <Link href="/tekrar" className={cx(s.btn, s.btnGhost)}>Tekrar et</Link>
-        </section>
-      )}
-
       {player}
-    </>
+    </>,
+    mobileBar
   );
 }

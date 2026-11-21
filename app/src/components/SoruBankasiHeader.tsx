@@ -100,4 +100,4 @@ export function joinTr(parts: string[]): string {
 
 // Robotik tema kökü (2026-10-19) — tüm soru bankası seviyeleri bu kabuğu kullanır.
 export const pageShellCls = `${roboticFontVars} ${r.root}`;
-export const pageInnerCls = 'mx-auto max-w-5xl px-4 pb-16 pt-4 sm:px-6 sm:pt-10';
+export const pageInnerCls = 'mx-auto max-w-7xl px-4 pb-16 pt-4 sm:px-6 sm:pt-10';

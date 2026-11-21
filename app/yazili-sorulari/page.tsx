@@ -50,34 +50,37 @@ export default async function YaziliIndexPage() {
           </section>
         )}
 
-        <div className="mt-10 flex flex-col gap-10">
-          {grades.map((g) => (
-            <section key={g.slug} id={g.slug} aria-labelledby={`sinif-${g.slug}`}>
-              <h2 id={`sinif-${g.slug}`} className={`text-xl font-bold uppercase text-default sm:text-2xl ${r.display}`}>{g.name}</h2>
-              <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {gradeHubs(g).map((h) => (
-                  <li key={h.slug} className={`flex flex-col gap-3 p-4 ${r.item}`}>
-                    <Link href={h.path} className={`flex items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
-                      <span className={`h-9 w-9 shrink-0 text-xs ${r.chipBox}`} aria-hidden="true">{h.term}·{h.examNo}</span>
-                      {h.label}
-                      <span className="text-xs font-normal text-muted-foreground">{h.lessons.length} ders</span>
-                    </Link>
-                    <ul className="flex flex-col gap-1.5 text-sm">
-                      {h.lessons.map((l) => (
-                        <li key={l.exam.id}>
-                          <Link href={l.exam.path} className={`flex items-center gap-2 text-muted-foreground ${r.hoverAccent}`}>
-                            <SubjectIcon lessonName={l.name} size="sm" variant="solid" />
-                            {l.name} <span className="text-xs">({l.exam.questionCount} soru)</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-          {!grades.length && <p className="py-8 text-center text-sm text-muted-foreground">Yazılı soruları hazırlanıyor.</p>}
+        <div className="mt-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+          {grades.map((g) => {
+            const hubs = gradeHubs(g);
+            return (
+              <section key={g.slug} id={g.slug} aria-labelledby={`sinif-${g.slug}`} className="min-w-0">
+                <h2 id={`sinif-${g.slug}`} className={`text-xl font-bold uppercase text-default sm:text-2xl ${r.display}`}>{g.name}</h2>
+                <ul className={`mt-4 grid grid-cols-1 gap-3 ${hubs.length > 1 ? 'sm:grid-cols-2' : ''}`}>
+                  {hubs.map((h) => (
+                    <li key={h.slug} className={`flex flex-col gap-3 p-4 ${r.item}`}>
+                      <Link href={h.path} className={`flex items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
+                        <span className={`h-9 w-9 shrink-0 text-xs ${r.chipBox}`} aria-hidden="true">{h.term}·{h.examNo}</span>
+                        {h.label}
+                        <span className="text-xs font-normal text-muted-foreground">{h.lessons.length} ders</span>
+                      </Link>
+                      <ul className="flex flex-col gap-1.5 text-sm">
+                        {h.lessons.map((l) => (
+                          <li key={l.exam.id}>
+                            <Link href={l.exam.path} className={`flex items-center gap-2 text-muted-foreground ${r.hoverAccent}`}>
+                              <SubjectIcon lessonName={l.name} size="sm" variant="solid" />
+                              {l.name} <span className="text-xs">({l.exam.questionCount} soru)</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {!grades.length && <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Yazılı soruları hazırlanıyor.</p>}
         </div>
 
         {/* Açıklama listelerin altında (soru bankası sayfalarıyla aynı düzen): telefonda sınıf listesine ulaşmak için kaydırmak gerekmesin. */}

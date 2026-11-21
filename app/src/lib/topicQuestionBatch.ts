@@ -51,8 +51,28 @@ async function releaseDraft(supabase: Supabase, draftId: number) {
 const STEP_BUDGET_MS = 240 * 1000;
 const REQUEST_TIMEOUT_MS = 120 * 1000;
 
+// Tek seferlik öncelikli konu (2026-11-22): 6. Sınıf Bilişim · İletişim Teknolojileri ve Çeşitleri.
+// 1. tur satırı yoksa en eski started_at ile sıranın başına eklenir; tur bittiğinde satır zaten var olduğu
+// için bir daha tetiklenmez.
+const ONE_TIME_PRIORITY_TOPIC_ID = 577;
+
+async function ensureOneTimePriorityBatch(supabase: Supabase) {
+  await supabase
+    .from('ai_topic_question_batches')
+    .upsert(
+      {
+        topic_id: ONE_TIME_PRIORITY_TOPIC_ID,
+        round_no: 1,
+        status: 'collecting',
+        started_at: '2000-01-01T00:00:00.000Z',
+      },
+      { onConflict: 'topic_id,round_no', ignoreDuplicates: true },
+    );
+}
+
 export async function runTopicBatchStep(supabase: Supabase, baseProfile: QuestionWorkerProfile): Promise<BatchStepResult> {
   const profile: QuestionWorkerProfile = { ...baseProfile, requestTimeoutMs: REQUEST_TIMEOUT_MS, deadlineAt: Date.now() + STEP_BUDGET_MS };
+  await ensureOneTimePriorityBatch(supabase);
   const { data, error } = await supabase.rpc('claim_next_topic_batch_step');
   if (error) return { generated: false, reason: `Parti adımı alınamadı: ${error.message}` };
   const step = data as Step;

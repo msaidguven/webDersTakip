@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
-import { launchChromium } from '@/app/src/lib/htmlToPdf';
+import { withChromium } from '@/app/src/lib/htmlToPdf';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { createClient } from '@/utils/supabase/server';
 import { logDownload } from '@/app/src/lib/downloadEvents';
@@ -381,33 +381,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const generatedDate = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   const { cover, body } = buildHtml({ ...htmlInput, generatedDate });
 
-  let browser: Awaited<ReturnType<typeof launchChromium>> | null = null;
   try {
-    browser = await launchChromium();
+    const { coverPdf, bodyPdf } = await withChromium(async (browser) => {
+      // 'networkidle0' (500ms boyunca sıfır ağ isteği) sayfadaki görsellerden biri yavaş/
+      // yanıt vermezse gereksiz yere bekleyip süreyi uzatabiliyordu — bu sayfada script yok,
+      // sadece resim/SVG var; tarayıcının kendi 'load' event'i (tüm <img>'ler yüklenene/
+      // hataya düşene kadar bekler) burada hem yeterli hem daha hızlı/öngörülebilir.
+      const coverPage = await browser.newPage();
+      await coverPage.setContent(cover, { waitUntil: 'load', timeout: 20_000 });
+      await coverPage.evaluate(() => document.fonts.ready).catch(() => {});
+      const coverBytes = await coverPage.pdf({ format: 'A4', printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 }, pageRanges: '1' });
+      await coverPage.close();
 
-    const page = await browser.newPage();
-    // 'networkidle0' (500ms boyunca sıfır ağ isteği) sayfadaki görsellerden biri yavaş/
-    // yanıt vermezse gereksiz yere bekleyip süreyi uzatabiliyordu — bu sayfada script yok,
-    // sadece resim/SVG var; tarayıcının kendi 'load' event'i (tüm <img>'ler yüklenene/
-    // hataya düşene kadar bekler) burada hem yeterli hem daha hızlı/öngörülebilir.
-    await page.setContent(cover, { waitUntil: 'load', timeout: 20_000 });
-    await page.evaluate(() => document.fonts.ready).catch(() => {});
-    const coverPdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 }, pageRanges: '1' });
+      const bodyPage = await browser.newPage();
+      await bodyPage.setContent(body, { waitUntil: 'load', timeout: 20_000 });
+      // Web fontları (Onest/Inter) 'load' sonrası da gelebilir — basmadan önce bekle.
+      await bodyPage.evaluate(() => document.fonts.ready).catch(() => {});
+      const bodyBytes = await bodyPage.pdf({
+        format: 'A4',
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        // top: üstbilgiye (headerTemplate) yer bırakıyor. Asıl kritik olan, stildeki "@page margin:0" kuralının
+        // BURADAN kaldırılmış olması — o kural varken 2. sayfadan itibaren içerik üstbilgiyle çakışıyordu.
+        margin: { top: '22mm', bottom: '15mm', left: '12mm', right: '12mm' },
+      });
+      await bodyPage.close();
 
-    await page.setContent(body, { waitUntil: 'load', timeout: 20_000 });
-
-    // Web fontları (Onest/Inter) 'load' sonrası da gelebilir — basmadan önce bekle.
-    await page.evaluate(() => document.fonts.ready).catch(() => {});
-
-    const bodyPdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate,
-      footerTemplate,
-      // top: üstbilgiye (headerTemplate) yer bırakıyor. Asıl kritik olan, stildeki "@page margin:0" kuralının
-      // BURADAN kaldırılmış olması — o kural varken 2. sayfadan itibaren içerik üstbilgiyle çakışıyordu.
-      margin: { top: '22mm', bottom: '15mm', left: '12mm', right: '12mm' },
+      return { coverPdf: coverBytes, bodyPdf: bodyBytes };
     });
 
     // Kapak + içerik birleştirme; linkler (annotation) copyPages ile korunuyor.
@@ -450,7 +452,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     console.error('[topic-pdf] PDF üretilemedi:', err);
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     return NextResponse.json({ error: `PDF üretilemedi: ${message}` }, { status: 500 });
-  } finally {
-    if (browser) await browser.close();
   }
 }

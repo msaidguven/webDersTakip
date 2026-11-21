@@ -22,11 +22,43 @@ export function useProfileRole(): string | null {
   return real;
 }
 
+// Oturum içi rol önbelleği (bellek + sessionStorage): sayfa geçişlerinde ve yenilemelerde
+// rol yeniden çekilene kadar yanlış rolün (ör. öğretmene öğrenci arayüzünün) yanıp sönmesini önler.
+const roleCache = new Map<string, string | null>();
+const ROLE_STORAGE_PREFIX = 'dt-role-cache:';
+
+function readCachedRole(userId: string): string | null | undefined {
+  if (roleCache.has(userId)) return roleCache.get(userId);
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem(`${ROLE_STORAGE_PREFIX}${userId}`);
+    if (raw === null) return undefined;
+    const parsed = raw === '' ? null : raw;
+    roleCache.set(userId, parsed);
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedRole(userId: string, role: string | null) {
+  roleCache.set(userId, role);
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(`${ROLE_STORAGE_PREFIX}${userId}`, role ?? '');
+  } catch {
+    // gizli pencere / depolama kapalı
+  }
+}
+
 // Hesabın gerçek rolü (görünüm seçiminden bağımsız) — rol menüsünü kimin göreceği gibi kararlar için.
 export function useRealProfileRole(): string | null {
   const { realUser: user, supabase } = useAuth();
+  const cached = user ? readCachedRole(user.id) : undefined;
   // Rol, okunduğu kullanıcıyla birlikte tutulur: çıkış/hesap değişince eski rol hemen geçersiz sayılır.
-  const [state, setState] = useState<{ userId: string; role: string | null } | null>(null);
+  const [state, setState] = useState<{ userId: string; role: string | null } | null>(() =>
+    user && cached !== undefined ? { userId: user.id, role: cached } : null
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -37,7 +69,9 @@ export function useRealProfileRole(): string | null {
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }: { data: ProfileRoleRow | null }) => {
-        if (!cancelled) setState({ userId: user.id, role: data?.role ?? null });
+        const nextRole = data?.role ?? null;
+        writeCachedRole(user.id, nextRole);
+        if (!cancelled) setState({ userId: user.id, role: nextRole });
       });
     return () => {
       cancelled = true;
@@ -45,5 +79,7 @@ export function useRealProfileRole(): string | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, supabase]);
 
-  return user && state?.userId === user.id ? state.role : null;
+  if (!user) return null;
+  if (state?.userId === user.id) return state.role;
+  return cached !== undefined ? cached : null;
 }

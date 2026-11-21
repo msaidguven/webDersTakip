@@ -96,6 +96,9 @@ export function PlayerFrame({
   outside,
   header,
   headerResetKey,
+  isFullscreen = false,
+  fontScale = 1,
+  progress,
 }: {
   variant: 'overlay' | 'embedded';
   accent: SlideAccent;
@@ -110,21 +113,30 @@ export function PlayerFrame({
   // Üst kontrol çubuğu — mobilde aşağı kaydırınca gizlenir (bkz. useAutoHideHeader).
   header?: ReactNode;
   headerResetKey?: string | number;
+  isFullscreen?: boolean;
+  fontScale?: number;
+  // 0–100 arası ilerleme yüzdesi — verilirse üstteki renkli şerit ilerleme çubuğu gibi dolar.
+  progress?: number;
 }) {
   const isOverlay = variant === 'overlay';
   const cardRef = useRef<HTMLDivElement>(null);
   const headerHidden = useAutoHideHeader(cardRef, headerResetKey, cardKey);
+  const clampedProgress = progress == null ? null : Math.max(0, Math.min(100, progress));
   return (
     <div
       ref={containerRef}
       role={isOverlay ? 'dialog' : undefined}
       aria-modal={isOverlay ? true : undefined}
+      data-fullscreen={isFullscreen ? 'true' : undefined}
       className={
         isOverlay
-          ? 'fixed inset-0 z-[999] flex items-center justify-center p-0 sm:p-6 transition-colors duration-700'
-          : 'relative flex items-center justify-center transition-colors duration-700'
+          ? 'player-stage fixed inset-0 z-[999] flex items-center justify-center p-0 sm:p-3 transition-colors duration-700'
+          : 'player-stage relative flex items-center justify-center transition-colors duration-700'
       }
-      style={isOverlay ? { background: `radial-gradient(circle at 50% 20%, ${accent.glow}, transparent 55%), rgba(15, 23, 42, 0.94)` } : undefined}
+      style={{
+        ['--qp-scale' as string]: fontScale,
+        ...(isOverlay ? { background: `radial-gradient(circle at 50% 20%, ${accent.glow}, transparent 55%), rgba(15, 23, 42, 0.94)` } : undefined),
+      }}
     >
       <div className="flex flex-col items-center gap-3 w-full">
         <div
@@ -138,19 +150,28 @@ export function PlayerFrame({
             isOverlay
               ? // Mobilde GERÇEK tam ekran (eskiden 100dvh-4.5rem'di: üstte site başlığı, altta sayfa
                 // metni görünüp "sayfa içinde küçük pencere" hissi veriyordu — 2026-09-26 geri bildirimi).
-                'animate-slide-pop-in relative flex w-full h-[100dvh] sm:h-[92dvh] sm:w-[92vw] flex-col overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl'
+                `animate-slide-pop-in relative flex w-full h-[100dvh] ${isFullscreen ? 'sm:h-[100dvh] sm:w-[100vw] sm:rounded-none' : 'sm:h-[94dvh] sm:w-[96vw] sm:rounded-2xl'} flex-col overflow-hidden rounded-none bg-white shadow-2xl`
               : 'animate-slide-pop-in relative flex w-full aspect-[16/10] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl'
           }
         >
           <div
-            className="animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full blur-3xl"
-            style={{ background: `radial-gradient(circle, ${accent.from}55, transparent 70%)` }}
+            className="animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-70 blur-3xl"
+            style={{ background: `radial-gradient(circle, ${accent.from}44, transparent 70%)` }}
           />
           <div
-            className="animate-blob-drift pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full blur-3xl"
-            style={{ background: `radial-gradient(circle, ${accent.to}40, transparent 70%)`, animationDelay: '2.5s' }}
+            className="animate-blob-drift pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full opacity-70 blur-3xl"
+            style={{ background: `radial-gradient(circle, ${accent.to}33, transparent 70%)`, animationDelay: '2.5s' }}
           />
-          <div className="absolute inset-x-0 top-0 h-2 transition-colors duration-500" style={{ background: `linear-gradient(90deg, ${accent.from}, ${accent.to})` }} />
+          {/* İnce üst vurgu / ilerleme şeridi */}
+          <div className="relative z-20 h-1 w-full shrink-0 bg-slate-200/80 overflow-hidden">
+            <div
+              className="h-full transition-[width,background] duration-300 ease-out"
+              style={{
+                width: clampedProgress == null ? '100%' : `${clampedProgress}%`,
+                background: `linear-gradient(90deg, ${accent.from}, ${accent.to})`,
+              }}
+            />
+          </div>
           {header && (
             // grid-rows 1fr→0fr: yüksekliği bilinmeyen içeriği yumuşakça daraltmanın CSS yolu.
             <div
@@ -276,31 +297,33 @@ export function QuestionPills({
   // Pencere tüm soruları kapsıyorsa ‹/› hep pasif kalırdı — sadece kaydıracak bir şey varsa göster.
   const hasMultiplePages = maxStart > 0;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 max-w-full items-center gap-1">
       {hasMultiplePages && (
         <button
           type="button"
           onClick={() => setPillStart((s) => Math.max(0, s - PILL_PAGE_STEP))}
           disabled={pillStart === 0}
           aria-label="Önceki sorular"
-          className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
       )}
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide px-0.5 py-1">
         {questions.slice(pillStart, pillStart + PILL_WINDOW_SIZE).map((q, iInWindow) => {
           const i = pillStart + iInWindow;
           const status = answeredMap[q.id];
           const isCurrent = i === qIndex;
           const cls =
             status === 'correct'
-              ? 'bg-emerald-500 text-white'
+              ? 'bg-emerald-500 text-white shadow-sm'
               : status === 'incorrect'
-                ? 'bg-rose-500 text-white'
+                ? 'bg-rose-500 text-white shadow-sm'
                 : status === 'revealed'
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-slate-900/10 text-slate-500';
+                  ? 'bg-indigo-500 text-white shadow-sm'
+                  : isCurrent
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200';
           return (
             <button
               key={q.id}
@@ -309,7 +332,7 @@ export function QuestionPills({
               disabled={isJumpable ? !isJumpable(i) : false}
               aria-label={`${i + 1}. soruya git`}
               aria-current={isCurrent ? 'step' : undefined}
-              className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full text-[0.625rem] sm:text-[0.6875rem] font-black transition-all disabled:cursor-not-allowed disabled:opacity-40 ${cls} ${isCurrent ? 'ring-2 ring-offset-1' : ''}`}
+              className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full text-[0.6875rem] sm:text-xs font-black transition-all disabled:cursor-not-allowed disabled:opacity-40 ${cls} ${isCurrent ? 'ring-2 ring-offset-1 scale-105' : ''}`}
               style={isCurrent ? ({ ['--tw-ring-color' as string]: accentBar } as CSSProperties) : undefined}
             >
               {i + 1}
@@ -323,7 +346,7 @@ export function QuestionPills({
           onClick={() => setPillStart((s) => Math.min(maxStart, s + PILL_PAGE_STEP))}
           disabled={pillStart >= maxStart}
           aria-label="Sonraki sorular"
-          className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-900/10 disabled:opacity-25 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
@@ -334,33 +357,30 @@ export function QuestionPills({
 
 // Üst kontrol çubuğu / alt gezinme satırı — mobilde çentik ve ana ekran çubuğu (safe-area) payı dahil.
 export const PLAYER_TOP_BAR_CLASS =
-  'relative z-10 flex shrink-0 flex-col gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-5';
+  'relative z-10 flex shrink-0 flex-col gap-2 border-b border-slate-200/80 bg-white/90 px-3 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3.5';
 export const PLAYER_NAV_ROW_CLASS =
-  'relative z-10 flex shrink-0 items-center justify-center gap-3 sm:gap-4 px-3 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4 sm:pt-2';
+  'relative z-10 flex shrink-0 items-center justify-between sm:justify-center gap-2 sm:gap-4 border-t border-slate-200/80 bg-white/90 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 sm:py-3';
 // Üst çubuktaki küçük rozetlerin (sayaç, D/Y) ortak tabanı — eskiden mobilde 9px'ti.
-export const PLAYER_BADGE_CLASS = 'rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[0.6875rem] sm:text-xs font-black shadow-sm';
+export const PLAYER_BADGE_CLASS = 'rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1 text-[0.6875rem] sm:text-xs font-black shadow-sm tabular-nums';
 
-// "6. SINIF · DERS · ÜNİTE" rozeti. Eskiden 9px (mobil) / 11px'ti, yazı büyütmeden etkilenmiyordu
-// ve mobilde tek satıra kırpılıp ünite adı hiç görünmüyordu (2026-09-26 geri bildirimi). Artık
-// daha büyük, mobilde 2 satıra kadar sarıyor ve yazı boyutuyla (en fazla 2 katına kadar) büyüyor.
+// "6. SINIF · DERS · ÜNİTE" rozeti. Mobilde tek satırda temizce kırpılır (üst başlık çubuğunu
+// şişirip soru kartını aşağı itmesin diye); geniş ekranda ve yazı büyütmeyle okunaklı kalır.
 export function PlayerEyebrow({ text, accent, fontScale = 1 }: { text: string; accent: SlideAccent; fontScale?: number }) {
   return (
-    // Satır sınırı (line-clamp) iç SPAN'da: dolgu (padding) aynı elemanda olunca kırpılan 3. satır
-    // alt dolgudan yarım görünüyordu (320px iPhone SE'de yakalandı).
     <div
-      className="w-fit max-w-full rounded-lg px-2.5 py-1.5 text-[0.6875rem] leading-snug sm:text-xs font-black uppercase tracking-wide text-white shadow-sm"
+      className="inline-flex max-w-full items-center rounded-xl px-2.5 py-1.5 text-[0.6875rem] leading-tight sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide text-white shadow-sm"
       style={{
         background: `linear-gradient(90deg, ${accent.from}, ${accent.to})`,
-        ...(fontScale !== 1 ? { fontSize: `${0.75 * Math.min(fontScale, 2)}rem` } : undefined),
+        ...(fontScale !== 1 ? { fontSize: `${0.75 * Math.min(fontScale, 1.8)}rem` } : undefined),
       }}
     >
-      <span className="line-clamp-2 sm:line-clamp-1">{text}</span>
+      <span className="truncate">{text}</span>
     </div>
   );
 }
 
 export const NAV_BTN_CLASS =
-  'flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
+  'flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-slate-900/70 text-white hover:bg-slate-900/90 active:scale-95 shadow-sm';
 
 // Parmakla yatay kaydırma → ileri/geri. Dikey kaydırmayla (soru içinde scroll) karışmasın diye
 // yatay mesafe dikeyden belirgin büyük olmalı.

@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { BookOpen, ChevronRight, Loader2, RotateCcw, Trophy } from 'lucide-react';
 import { useStudentToday, type StudentToday as StudentTodayData, type TodayTask } from '@/app/src/hooks/useStudentToday';
 import { useQuizTestLauncher } from '@/app/src/hooks/useQuizTestLauncher';
+import { useMyGradeSlug } from '@/app/src/hooks/useMyGradeSlug';
 import { PushReminderOptIn } from './PushReminderOptIn';
 import r from '../robotic/robotic.module.css';
 
@@ -114,6 +115,7 @@ export function StudentToday({
 }) {
   const router = useRouter();
   const { data, mutate } = useStudentToday();
+  const gradeSlug = useMyGradeSlug();
   const { open: openTest, loading, error, conflict, player } = useQuizTestLauncher(() => void mutate());
   const [active, setActive] = useState<{ key: string; href: string } | null>(null);
 
@@ -160,24 +162,33 @@ export function StudentToday({
           </div>
         </div>
         <nav aria-label="Hızlı erişim" className={`grid grid-cols-3 gap-2.5 border-t pt-5 ${DIVIDER}`}>
-          {quickLinks.map(({ href, label, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold hover:-translate-y-0.5 ${r.item}`}
-            >
-              <span className={`h-9 w-9 shrink-0 ${r.chipBox}`}>
-                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
-              </span>
-              {label}
-            </Link>
-          ))}
+          {quickLinks.map(({ href, label, Icon }) => {
+            const resolvedHref = href === '/soru-bankasi' && gradeSlug ? `/soru-bankasi/${gradeSlug}` : href;
+            return (
+              <Link
+                key={href}
+                href={resolvedHref}
+                className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold hover:-translate-y-0.5 ${r.item}`}
+              >
+                <span className={`h-9 w-9 shrink-0 ${r.chipBox}`}>
+                  <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <section aria-label="Bugünkü görev" className={`${card} flex flex-col gap-3 p-5 sm:p-7`}>
+          {thisWeek}
+
+          {dailyQuestion}
+        </div>
+
+        <aside className="order-first flex flex-col gap-6 lg:order-none lg:sticky lg:top-24" aria-label="Bugünkü görevin ve yaklaşan yazılılar">
+          <section aria-label="Bugünkü görev" className={`${card} flex flex-col gap-3 p-5 sm:p-6`}>
             <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}><i className={r.led} aria-hidden="true" />Bugünkü görevin</span>
             <div className="flex flex-col gap-1.5">
               <h2 className="text-lg font-extrabold leading-tight text-default sm:text-xl">{copy.title}</h2>
@@ -202,14 +213,8 @@ export function StudentToday({
             </div>
           </section>
 
-          {thisWeek}
-
-          {dailyQuestion}
-        </div>
-
-        <div className="flex flex-col gap-6">
           {upcomingExams}
-        </div>
+        </aside>
       </div>
 
       {data.streak >= PUSH_OPT_IN_MIN_STREAK && <PushReminderOptIn />}

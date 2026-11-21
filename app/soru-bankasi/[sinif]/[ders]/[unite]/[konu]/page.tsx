@@ -166,7 +166,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
         )}
 
         {/* Mobilde sıra: test kartı → sorular → ilgili linkler; masaüstünde test kartı ve linkler sağ sütunda. */}
-        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
+        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
           <div className="lg:col-start-2 lg:row-start-1">
             <TestStatusCard
               scope="topic"

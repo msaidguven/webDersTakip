@@ -7,19 +7,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { renderPlainTextMath } from '@/app/src/lib/topicContentV11';
 import { buildSoruBankasiBreadcrumbJsonLd } from '@/app/src/lib/soruBankasiPageData';
 import { getYaziliExam, getYaziliHub, YAZILI_INDEX_PATH } from '@/app/src/lib/yazili/publicData';
 import { difficultyBand } from '@/app/src/lib/yazili/papers';
-import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
 import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
-import { YaziliStudy, YAZILI_LIST_CLASS } from '@/app/src/components/yazili/YaziliStudy';
-import { YaziliTeacherSection } from '@/app/src/components/yazili/YaziliTeacherSection';
+import { YaziliStudy, YAZILI_LIST_CLASS, type StudyQuestionItem } from '@/app/src/components/yazili/YaziliStudy';
+import { HideForTeacher, YaziliTeacherSection } from '@/app/src/components/yazili/YaziliTeacherSection';
 import { YaziliAdminEditProvider, YaziliEditButton } from '@/app/src/components/yazili/YaziliAdminEdit';
+import { YaziliPaperPickerProvider, YaziliPickButton } from '@/app/src/components/yazili/YaziliPaperPickerContext';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import y from '@/app/src/components/yazili/yazili.module.css';
 
@@ -56,11 +57,13 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
     `${exam.questionCount} açık uçlu soru. Her sorunun cevabı var; sorular 2026-2027 MEB ortak yazılı ` +
     (exam.national ? 'sınavının kapsamına göre hazırlandı.' : 'konu-soru dağılım tablosundaki öğrenme çıktılarına göre hazırlandı.');
 
-  // Öğrenci alanı: konu başına soru listesi sunucuda çizilir (SEO), başlık/süzme/numara YaziliStudy'de.
+  // Öğrenci ve öğretmen alanı: konu başına soru listesi sunucuda çizilir (SEO), ünite/konu süzme ve
+  // öğretmen soru seçimi istemcide (YaziliStudy + YaziliPaperPickerProvider).
   const shownTopics = topics.filter((t) => t.questions.length);
   const studyTopics = shownTopics.map((t) => ({
     id: t.id,
     title: t.title,
+    unitTitle: t.unitTitle,
     count: t.questions.length,
     loCodes: t.loCodes,
     bandCounts: {
@@ -69,37 +72,72 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
       zor: t.questions.filter((q) => difficultyBand(q.difficulty) === 'zor').length,
     },
   }));
-  const questionPanels = shownTopics.map((t) => (
-    <ol key={t.id} className="flex flex-col gap-3">
-      {t.questions.map((q, qi) => {
-        const n = qi + 1;
-        const svg = q.svgContent ? <YaziliSvg svgContent={q.svgContent} /> : null;
-        return (
-          <li key={q.id} data-zorluk={difficultyBand(q.difficulty)} className={`rounded-2xl p-4 sm:p-5 ${r.item}`}>
-            <div className="flex gap-3">
-              <span className={`h-8 w-8 shrink-0 text-sm ${r.chipBox} ${y.poolNum}`} aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                {q.svgPosition === 'above' && svg}
-                <p className="leading-relaxed text-default"><span className="sr-only">Soru {n}: </span><MathHtml text={q.text} /></p>
-                {q.svgPosition === 'below' && svg}
-                <details className="group mt-3">
-                  <summary className={`cursor-pointer select-none text-sm font-semibold ${r.accent}`}>Cevabı göster</summary>
-                  <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[var(--edge)] p-3 text-sm">
-                    <p><b className="text-default">Cevap:</b> <MathHtml text={q.modelAnswer} className="text-default" /></p>
-                    {q.answerSvgContent && <YaziliSvg svgContent={q.answerSvgContent} label={`Soru ${n} cevap görseli`} />}
-                  </div>
-                </details>
-              </div>
-              <YaziliEditButton questionId={q.id} />
+  const questionSummaries = shownTopics.flatMap((t) =>
+    t.questions.map((q) => ({ id: q.id, text: q.text, topicTitle: t.title }))
+  );
+  const defaultPaperTitle = `${data.gradeName} ${data.lessonName} Dersi ${exam.label} Sınavı`;
+  const questionItems: StudyQuestionItem[] = shownTopics.flatMap((t) =>
+    t.questions.map((q, qi) => {
+      const n = qi + 1;
+      const band = difficultyBand(q.difficulty);
+      const svg = q.svgContent ? <YaziliSvg svgContent={q.svgContent} /> : null;
+      return {
+        id: q.id,
+        topicId: t.id,
+        band,
+        node: (
+          <div className={`rounded-2xl p-4 sm:p-5 ${r.item}`}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t.unitTitle ? `${t.unitTitle} · ${t.title}` : t.title}
+              </span>
             </div>
-          </li>
-        );
-      })}
-    </ol>
-  ));
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex items-start gap-3 sm:min-w-0 sm:flex-1">
+                <span className={`h-8 w-8 shrink-0 text-sm ${r.chipBox} ${y.poolNum}`} aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  {q.svgPosition === 'above' && svg}
+                  <p className="leading-relaxed text-default"><span className="sr-only">Soru {n}: </span><MathHtml text={q.text} /></p>
+                  {q.svgPosition === 'below' && svg}
+                  <details className="group mt-3">
+                    <summary className={`cursor-pointer select-none text-sm font-semibold ${r.accent}`}>Cevabı göster</summary>
+                    <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[var(--edge)] p-3 text-sm">
+                      <p><b className="text-default">Cevap:</b> <MathHtml text={q.modelAnswer} className="text-default" /></p>
+                      {q.answerSvgContent && <YaziliSvg svgContent={q.answerSvgContent} label={`Soru ${n} cevap görseli`} />}
+                    </div>
+                  </details>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-1.5 sm:flex-col sm:items-end sm:justify-start">
+                <YaziliPickButton questionId={q.id} />
+                <YaziliEditButton questionId={q.id} />
+              </div>
+            </div>
+          </div>
+        ),
+      };
+    })
+  );
 
   return (
     <div className={pageShellCls}>
+      {/* Mobil uygulama üst çubuğu (< 1024px): !sticky (.root > * { position: relative } kuralını geçer) */}
+      <div className={`!sticky top-[3.75rem] z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_90%,transparent)] px-4 py-2.5 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
+        <Link
+          href={hubPath}
+          aria-label={`${hubName} derslerine dön`}
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-transform active:scale-95 ${r.iconBtn}`}
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+        </Link>
+        <span className={`min-w-0 flex-1 truncate text-sm font-bold text-default ${r.display}`}>
+          {data.gradeName} {data.lessonName}
+        </span>
+        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground ${r.divider}`}>
+          {exam.questionCount} soru
+        </span>
+      </div>
+
       <div className={pageInnerCls}>
         <noscript>
           <style>{`.${YAZILI_LIST_CLASS}{display:block!important}`}</style>
@@ -139,26 +177,17 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
           )}
         </SoruBankasiHeader>
 
-        <SoruBankasiQuickNav
-          label={`${hubName} dersleri`}
-          items={(hubData?.hub.lessons ?? []).map((l) => ({ key: l.exam.id, href: l.exam.path, label: l.name, current: l.exam.id === exam.id }))}
-        />
-
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
+        <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:mt-10 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-x-8">
           <div className="flex min-w-0 flex-col gap-8">
             <YaziliAdminEditProvider>
-              <YaziliStudy
-                topics={studyTopics}
-                panels={questionPanels}
-                exam={{ sinif, ders, yazili, loOptions: data.loOptions, scenarios, scenarioCount: exam.national ? 0 : scenarioCount }}
-              />
+              <YaziliPaperPickerProvider examId={exam.id} examTitle={defaultPaperTitle} questions={questionSummaries}>
+                <YaziliStudy
+                  topics={studyTopics}
+                  items={questionItems}
+                  exam={{ sinif, ders, yazili, loOptions: data.loOptions, scenarios, scenarioCount: exam.national ? 0 : scenarioCount }}
+                />
+              </YaziliPaperPickerProvider>
             </YaziliAdminEditProvider>
-
-            {/* Tanıtım metni (SEO) en altta (2026-11-02, kullanıcı): telefonda konu seçimini aşağı itmesin. */}
-            <section aria-labelledby="yazili-hakkinda" className={`p-5 sm:p-6 ${r.panel}`}>
-              <h2 id="yazili-hakkinda" className="text-base font-bold text-default">Bu yazılı hakkında</h2>
-              <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{intro}</p>
-            </section>
 
             <YaziliTeacherSection>
               <section aria-labelledby="kapsam">
@@ -214,9 +243,15 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
                 </Link>
               </section>
             </YaziliTeacherSection>
+
+            {/* Tanıtım metni (SEO) en altta: kullanıcı akışını bölmez, arama motoru okur. */}
+            <section aria-labelledby="yazili-hakkinda" className={`p-5 sm:p-6 ${r.panel}`}>
+              <h2 id="yazili-hakkinda" className="text-base font-bold text-default">Bu yazılı hakkında</h2>
+              <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{intro}</p>
+            </section>
           </div>
 
-          <aside className="flex flex-col gap-4 lg:sticky lg:top-24" aria-label="Yazılı gezinmesi">
+          <aside className="hidden lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-4" aria-label="Yazılı gezinmesi">
             <SoruBankasiNavList
               id="yazili-dersleri"
               title={`${hubName} dersleri`}
@@ -230,10 +265,12 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
                 isPage: true,
               }))}
             />
-            <a href="#ogretmenler-icin" className={`p-4 text-sm ${r.panel}`}>
-              <span className="font-bold text-default">Öğretmen misiniz?</span>{' '}
-              <span className={r.accent}>Kendi yazılınızı hazırlayın →</span>
-            </a>
+            <HideForTeacher>
+              <a href="#ogretmenler-icin" className={`p-4 text-sm ${r.panel}`}>
+                <span className="font-bold text-default">Öğretmen misiniz?</span>{' '}
+                <span className={r.accent}>Kendi yazılınızı hazırlayın →</span>
+              </a>
+            </HideForTeacher>
           </aside>
         </div>
       </div>

@@ -43,34 +43,35 @@ export function Badges() {
       {!badges ? (
         <div aria-busy="true" aria-label="Rozetler yükleniyor" className="h-40 animate-pulse rounded-2xl bg-surface-elevated" />
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <ul className="grid grid-cols-4 gap-2 sm:gap-3">
           {badges.map((b) => {
             const Icon = ICONS[b.icon];
             return (
               <li
                 key={b.id}
-                className={`flex flex-col items-center gap-2 rounded-2xl p-3 text-center ${
+                title={b.description}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center sm:gap-2 sm:rounded-2xl sm:p-3 ${
                   b.earned
-                    ? `bg-gradient-to-br text-white shadow-lg ${EARNED[b.icon]}`
+                    ? `bg-gradient-to-br text-white shadow-md sm:shadow-lg ${EARNED[b.icon]}`
                     : r.panel
                 }`}
               >
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl ${
                     b.earned ? 'bg-white/25' : r.chipBox
                   }`}
                 >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
                 </span>
-                <span className={`text-sm font-semibold ${b.earned ? 'text-white' : 'text-default'}`}>{b.title}</span>
+                <span className={`text-[11px] font-semibold leading-tight sm:text-sm ${b.earned ? 'text-white' : 'text-default'}`}>{b.title}</span>
                 {b.earned ? (
-                  <span className="text-xs text-white/85">{b.description}</span>
+                  <span className="hidden text-xs text-white/85 sm:inline">{b.description}</span>
                 ) : (
                   <>
-                    <span className={`block h-1.5 w-full ${r.track}`} role="img" aria-label={`İlerleme: ${b.progressLabel}`}>
+                    <span className={`block h-1 w-full sm:h-1.5 ${r.track}`} role="img" aria-label={`İlerleme: ${b.progressLabel}`}>
                       <span className={`block ${r.fill}`} style={{ width: `${b.progress}%` }} />
                     </span>
-                    <span className="text-xs text-muted-foreground">{b.progressLabel}</span>
+                    <span className="text-[10px] leading-tight text-muted-foreground sm:text-xs">{b.progressLabel}</span>
                   </>
                 )}
               </li>

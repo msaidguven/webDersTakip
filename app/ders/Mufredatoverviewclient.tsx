@@ -82,7 +82,6 @@ interface MufredatOverviewClientProps {
 // Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfa/İlerlemem ile aynı; bkz. robotic).
 const FRAME = `rounded-[22px] ${r.panel}`;
 const OUTLINE_BUTTON = `inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${r.btnGhost} ${r.btnText}`;
-const SORU_BADGE = `relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${r.btnGhost}`;
 const SELECT = `appearance-none rounded-lg py-1.5 pl-3 pr-7 text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 ${r.iconBtn} ${r.ink}`;
 
 function academicYearLabel(): string {
@@ -175,7 +174,7 @@ export default function MufredatOverviewClient({
       <Suspense fallback={null}>
         <SearchParamsSync onChange={setSearchParams} />
       </Suspense>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
         {/* Mobil/Tablet Üst Navigasyon */}
         <div className="flex items-center justify-between gap-3 mb-6 lg:hidden">
@@ -268,7 +267,6 @@ export default function MufredatOverviewClient({
                 {[
                   { icon: Layers, value: units.length, label: 'Ünite' },
                   { icon: BookOpen, value: totalTopics, label: 'Konu' },
-                  { icon: ListChecks, value: totalQuestions, label: 'Soru' },
                 ].map(({ icon: Icon, value, label }) => (
                   <div key={label} className={`flex flex-col items-center gap-1 py-3 ${r.stat}`}>
                     <Icon className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
@@ -276,6 +274,24 @@ export default function MufredatOverviewClient({
                     <span className={`${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.muted}`}>{label}</span>
                   </div>
                 ))}
+                {totalQuestions > 0 && gradeSlug && lessonSlug ? (
+                  <Link
+                    href={`/soru-bankasi/${gradeSlug}/${lessonSlug}`}
+                    className={`group flex flex-col items-center gap-1 py-3 transition-transform hover:-translate-y-0.5 ${r.stat} ${r.itemHover}`}
+                  >
+                    <ListChecks className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
+                    <span className={`text-xl ${r.statValue}`}>{totalQuestions}</span>
+                    <span className={`inline-flex items-center gap-1 ${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.accent}`}>
+                      Soru Bankası <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </span>
+                  </Link>
+                ) : (
+                  <div className={`flex flex-col items-center gap-1 py-3 ${r.stat}`}>
+                    <ListChecks className={`h-4 w-4 ${r.accent}`} aria-hidden="true" />
+                    <span className={`text-xl ${r.statValue}`}>{totalQuestions}</span>
+                    <span className={`${r.mono} text-[10.5px] font-semibold uppercase tracking-[0.14em] ${r.muted}`}>Soru</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -325,29 +341,31 @@ export default function MufredatOverviewClient({
                                 </>
                               )}
                               <span className="normal-case">
-                                {topics.length} konu · {unit.questionCount ?? 0} soru
+                                {(unit.questionCount ?? 0) > 0
+                                  ? `${topics.length} konu · ${unit.questionCount} soru`
+                                  : `${topics.length} konu`}
                               </span>
                             </span>
                           </div>
                         </div>
 
                         {/* Ünitenin kendi tanıtım sayfasına (kapak görseli + konu kartları,
-                            bkz. [unitSlug]/page.tsx) link — kullanıcının 2026-09-06 isteği:
-                            "konulara link verdiğimiz gibi ünite sayfasına da güzel bi link
-                            veren buton ekleyelim". Taslak ünitelerin sayfası olmadığından
-                            (getUnitOverviewData is_active filtreliyor) buton gizleniyor.
-                            Geniş ekranda başlığın sağında, dar ekranda (flex-wrap ile) alt
-                            satırda duruyor — başlığın yerini çalıp kesmesin diye. */}
+                            bkz. [unitSlug]/page.tsx) ve sorusu varsa ünite soru bankasına net linkler. */}
                         {!isDraftUnit && unit.slug && (
-                          // w-full: dar ekranda kendi satırına iner (flex-wrap'i zorlar), böylece
-                          // ünite başlığı tüm genişliği kullanır. sm:w-auto ile geniş ekranda
-                          // başlığın sağına, aynı satıra geçer.
-                          <div className="order-last w-full sm:order-none sm:w-auto sm:shrink-0 sm:self-center">
+                          <div className="order-last flex w-full flex-wrap items-center gap-2 sm:order-none sm:w-auto sm:shrink-0 sm:self-center">
+                            {(unit.questionCount ?? 0) > 0 && gradeSlug && lessonSlug && (
+                              <Link
+                                href={`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}`}
+                                className={OUTLINE_BUTTON}
+                              >
+                                <ListChecks className="h-3.5 w-3.5" aria-hidden="true" /> Soru Bankası
+                              </Link>
+                            )}
                             <Link
                               href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
                               className={OUTLINE_BUTTON}
                             >
-                              Ünite Sayfası <ArrowRight className="h-3.5 w-3.5" />
+                              Ünite Sayfası <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                             </Link>
                           </div>
                         )}
@@ -366,17 +384,12 @@ export default function MufredatOverviewClient({
                         <div className={`border-l-2 pl-2 sm:pl-3 ${r.divider}`}>
                         {topics.map((topic, idx) => {
                           const hasContent = topic.hasContent !== false;
-                          const questionCount = topic.questionCount ?? 0;
                           const topicHref = gradeSlug && lessonSlug && unit.slug && topic.slug
                             ? `/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
                             : null;
-                          const bankHref = questionCount > 0 && gradeSlug && lessonSlug && unit.slug && topic.slug
-                            ? `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}/${topic.slug}`
-                            : null;
 
-                          // Satırın TAMAMI konu anlatımına gider (after:inset-0 ile yayılan
-                          // link). Soru rozeti onun ÜSTÜNDE ayrı bir link — iç içe <a>
-                          // kurmadan iki hedefi aynı satıra sığdırmanın standart yolu.
+                          // Satırın TAMAMI konu anlatımına gider (tek hedef — soru bankası bağlantıları
+                          // ünite ve ders seviyesinde net butonlarla verilir).
                           // Konunun öğretim haftası (İlerlemem ders raporundaki etiketle aynı). Başlık line-clamp'li
                           // kendi span'ında; etiket dar ekranda altında, geniş ekranda yanında.
                           const titleBody = (
@@ -447,11 +460,6 @@ export default function MufredatOverviewClient({
                                 >
                                   {titleBody}
                                 </button>
-                              )}
-                              {bankHref && (
-                                <Link href={bankHref} className={SORU_BADGE}>
-                                  <ListChecks className="h-3 w-3" /> {questionCount} soru
-                                </Link>
                               )}
                               <ChevronRight className={`h-4 w-4 shrink-0 ${r.accent}`} />
                             </div>

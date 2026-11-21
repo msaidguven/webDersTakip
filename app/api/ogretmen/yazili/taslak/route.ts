@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTeacherAccess } from '@/app/src/lib/teacherAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
-import { listTeacherExams } from '@/app/src/lib/yazili/teacher';
+import { listTeacherExams, loadPaperDraft } from '@/app/src/lib/yazili/teacher';
 
-// Öğretmenin kağıt taslağını hesabına kaydeder (teacher_paper_drafts). İstemci her değişiklikte (bekletmeli) gönderir.
-// Sorular yalnız biçim olarak doğrulanır: kağıt üretilirken (pdf/word/önizleme) her soru zaten yazılının havuzunda
-// yeniden doğrulanıyor, havuzda olmayan id'ler orada reddedilir.
+// Öğretmenin kağıt taslağını hesabından okur (GET) ve hesabına kaydeder (PUT, teacher_paper_drafts).
+// Telefonda seçilen sorular hesapta saklanır, PC'de aynı yazılı açıldığında otomatik geri gelir.
 const MAX_ITEMS = 60;
+
+export async function GET(request: NextRequest) {
+  const auth = await getTeacherAccess();
+  if (!auth.ok) return NextResponse.json({ error: auth.reason === 'login' ? 'Oturum gerekli' : 'Bu alan sadece öğretmenler içindir' }, { status: auth.reason === 'login' ? 401 : 403 });
+
+  const examId = Number(request.nextUrl.searchParams.get('examId'));
+  if (!Number.isInteger(examId) || examId <= 0) {
+    return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });
+  }
+  const exams = await listTeacherExams(auth);
+  if (!exams.some((e) => e.id === examId)) {
+    return NextResponse.json({ error: 'Bu yazılıya erişimin yok' }, { status: 403 });
+  }
+  const draft = await loadPaperDraft(auth.user.id, examId);
+  return NextResponse.json({ draft }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
 
 export async function PUT(request: NextRequest) {
   const auth = await getTeacherAccess();

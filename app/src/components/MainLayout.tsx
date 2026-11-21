@@ -56,13 +56,14 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isTopicContentRoute = pathSegments.length === 4;
   const isDersRoute = isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
+  const isProgressRoute = pathname === '/ilerlemem' || pathname?.startsWith('/ilerlemem/');
   const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
-  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için LegalFooter'ı burada gizli
-  // tutuyoruz (global header'ı gösterse bile).
-  const hideFooter = hideHeader || isDersRoute;
-  // Mobil alt sekme çubuğu: konu okuma sayfasının kendi sabit Geri/İleri çubuğu varken
-  // gösterilmez (footer ile aynı kural) — üst üste iki alt çubuk olmasın.
-  const showTabBar = !hideFooter;
+  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için, /ilerlemem ise giriş gerektiren
+  // kişisel uygulama ekranı olduğu için LegalFooter'ı buralarda gizli tutuyoruz.
+  const hideFooter = hideHeader || isDersRoute || isProgressRoute;
+  // Mobil alt sekme çubuğu: yalnızca header gizli veya konu okuma sayfasındayken gizlenir
+  // (/ilerlemem'de footer gizli olsa da alt sekme çubuğu görünmeye devam eder).
+  const showTabBar = !hideHeader && !isDersRoute;
   const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, isTeacher, gradeSlug });
 
   return (

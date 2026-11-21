@@ -26,7 +26,7 @@
   --fs-sm: clamp(11px, 0.65vw + 5.5px, 18px);
   --fs-btn: clamp(13px, 0.85vw + 6px, 22px);
   --stage-max: clamp(340px, 68vw, 1340px);
-  --visual-h: clamp(195px, 34vh, 460px);
+  --visual-h: clamp(260px, 48vh, 620px);
   --tile-size: clamp(82px, 7.2vw, 148px);
   --bar-btn: clamp(34px, 2.5vw, 52px);
 }
@@ -40,7 +40,7 @@
   --fs-sm: clamp(12px, 0.78vw + 6px, 20px);
   --fs-btn: clamp(14px, 1vw + 6px, 24px);
   --stage-max: clamp(420px, 76vw, 1540px);
-  --visual-h: clamp(230px, 38vh, 540px);
+  --visual-h: clamp(300px, 54vh, 720px);
 }
 
 /* ==================== ÜST GECE-LACİVERT CAM OYUN HUD ==================== */
@@ -464,9 +464,10 @@
 }
 
 .gameVisualFrame {
+  position: relative;
   width: 100%;
   max-width: var(--stage-max);
-  padding: clamp(10px, 1.1vw, 20px);
+  padding: clamp(8px, 0.9vw, 16px);
   border-radius: 24px;
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
   border: 1.5px solid #c3d7ee;
@@ -476,8 +477,129 @@
   justify-content: center;
 }
 
-.gameVisualFrame svg {
-  max-height: calc(var(--visual-h) - 24px);
+.gameVisualClickable {
+  cursor: zoom-in;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.gameVisualClickable:hover,
+.gameVisualClickable:focus-visible {
+  border-color: #38bdf8;
+  box-shadow: 0 16px 38px rgba(2, 132, 199, 0.14), inset 0 1px 0 #ffffff;
+  outline: none;
+}
+
+.visualZoomHint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.gameVisualClickable:hover .visualZoomHint,
+.gameVisualClickable:focus-visible .visualZoomHint {
+  opacity: 1;
+  background: rgba(2, 132, 199, 0.92);
+  transform: scale(1.04);
+}
+
+.gameVisualFrame .sceneSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--visual-h);
+}
+
+/* ==================== GÖRSEL BÜYÜTME (LIGHTBOX) MODALI ==================== */
+.visualLightboxBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 2vw, 28px);
+}
+
+.visualLightboxCard {
+  width: min(95vw, 1380px);
+  max-height: 92vh;
+  border-radius: 26px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  border: 2px solid rgba(125, 211, 252, 0.65);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.visualLightboxHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(10px, 1.2vh, 16px) clamp(16px, 1.8vw, 26px);
+  border-bottom: 1.5px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.visualLightboxTitle {
+  margin: 0;
+  font-size: clamp(16px, 1.3vw + 6px, 28px);
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.visualLightboxClose {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.visualLightboxClose:hover {
+  background: #ffe4e6;
+  border-color: #fb7185;
+  color: #be123c;
+}
+
+.visualLightboxBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(12px, 1.6vw, 24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+.visualLightboxBody .sceneSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 78vh;
 }
 
 /* Özgün İnci-Cam Atom Diyalog Kutusu */
@@ -503,6 +625,30 @@
   font-weight: 600;
   line-height: 1.5;
   color: #1e293b;
+}
+
+.gameDialogueReplayBtn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1.5px solid #bae6fd;
+  background: #f0f9ff;
+  color: #0369a1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+.gameDialogueReplayBtn:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  transform: scale(1.06);
+}
+
+.gameDialogueReplayBtn:active {
+  transform: scale(0.96);
 }
 
 /* Anında Kontrollü Dokunsal Seçenek Kartları */

@@ -68,6 +68,9 @@ function extractAl2023Libs(destDir: string): void {
 function prepareChromium(): Promise<string> {
   if (!preparedExecutablePath) {
     preparedExecutablePath = (async () => {
+      // HTML → PDF için WebGL/SwiftShader gerekmez; kapatmak hem belleği düşürür hem Cloud Run'da
+      // GPU/SwiftShader kaynaklı renderer çökmesini önler.
+      chromium.setGraphicsMode = false;
       const executablePath = await chromium.executablePath();
       if (process.platform === 'linux') {
         extractAl2023Libs(path.join(os.tmpdir(), 'al2023'));
@@ -126,20 +129,48 @@ export async function launchChromium(): Promise<Browser> {
   env.FONTCONFIG_PATH ??= path.join(os.tmpdir(), 'fonts');
   env.HOME ??= os.tmpdir();
 
-  // @sparticuz/chromium 137'de defaultViewport/headless static alanları kaldırıldı
-  // — sadece args/executablePath sağlıyor, headless artık puppeteer-core'un varsayılanı (true).
+  // @sparticuz/chromium yalnızca chrome-headless-shell dağıtır; puppeteer-core 24'te headless: true
+  // --headless=new ekleyip çakıştığı için resmi README'deki gibi headless: 'shell' kullanılır.
+  // --single-process ise AWS Lambda seccomp workaround'udur; Cloud Run / gVisor'da setContent sırasında
+  // renderer çökmesine ("Navigating frame was detached") yol açtığı için AWS/Vercel dışında çıkarılır.
+  const isAwsOrVercel = Boolean(process.env.AWS_EXECUTION_ENV || process.env.AWS_LAMBDA_JS_RUNTIME || process.env.VERCEL);
+  const args = [
+    ...chromium.args.filter((arg) => arg !== "--headless='shell'" && (isAwsOrVercel || arg !== '--single-process')),
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+  ];
+
   return puppeteer.launch({
-    args: chromium.args,
+    args,
     executablePath,
-    headless: true,
+    headless: 'shell',
     env,
   });
 }
 
-export async function htmlToA4Pdf(html: string): Promise<Uint8Array> {
-  let browser: Browser | null = null;
+export async function withChromium<T>(fn: (browser: Browser) => Promise<T>): Promise<T> {
+  const browser = await launchChromium();
+  let stderrTail = '';
+  browser.process()?.stderr?.on('data', (chunk: Buffer | string) => {
+    stderrTail = (stderrTail + String(chunk)).slice(-1500);
+  });
+
   try {
-    browser = await launchChromium();
+    return await fn(browser);
+  } catch (err) {
+    const tail = stderrTail.trim();
+    if (tail) {
+      const base = err instanceof Error ? err.message : String(err);
+      throw new Error(`${base}\n[chromium stderr]: ${tail}`);
+    }
+    throw err;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+export async function htmlToA4Pdf(html: string): Promise<Uint8Array> {
+  return withChromium(async (browser) => {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
     const siteLabel = SITE_URL.replace(/^https?:\/\//, '');
@@ -151,7 +182,5 @@ export async function htmlToA4Pdf(html: string): Promise<Uint8Array> {
       footerTemplate: `<div style="font-size:7.5px; width:100%; padding:0 12mm; display:flex; justify-content:space-between; color:#555; font-family:Arial,sans-serif;"><span>${siteLabel} · Ders Takip</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
       margin: { top: '12mm', bottom: '14mm', left: '12mm', right: '12mm' },
     });
-  } finally {
-    if (browser) await browser.close();
-  }
+  });
 }

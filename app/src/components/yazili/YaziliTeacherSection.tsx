@@ -3,30 +3,15 @@
 // Yazılı sayfasının "Öğretmenler için" bölümü (2026-10-25): MEB senaryo tablosu ve
 // "Yazılı hazırla" öğrenciye değil öğretmene hitap ediyor — sayfanın sonunda kapalı durur, admin ya da
 // öğretmen için kendiliğinden açılır. İçerik sunucuda çizilir (ISR), açık/kapalı yalnız istemcide.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { useAuth } from '@/app/src/context/AuthContext';
-import { fetchMyProfile } from '@/app/src/lib/myProfileClient';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
-type ProfileRole = { profile: { role: string | null } | null } | null;
-
-// Admin ya da öğretmen mi (onay şartı yok, 2026-10-28)? (yazılı sayfasında öğretmen bölümünü açık başlatmak için de kullanılır)
+// Admin ya da öğretmen mi (viewAs önizlemesi dahil)?
 export function useIsTeacherOrAdmin(): boolean {
-  const { user } = useAuth();
-  const [allowed, setAllowed] = useState<{ userId: string; ok: boolean } | null>(null);
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    fetchMyProfile(user.id).then((data) => {
-      const p = (data as ProfileRole)?.profile;
-      if (!cancelled) setAllowed({ userId: user.id, ok: p?.role === 'admin' || p?.role === 'teacher' });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-  return !!user && allowed?.userId === user.id && allowed.ok;
+  const role = useProfileRole();
+  return role === 'admin' || role === 'teacher';
 }
 
 export function YaziliTeacherSection({ children }: { children: ReactNode }) {
@@ -57,4 +42,11 @@ export function YaziliTeacherSection({ children }: { children: ReactNode }) {
       <div className="mt-5 flex flex-col gap-6">{children}</div>
     </details>
   );
+}
+
+// Giriş yapmış öğretmen/admin'e "Öğretmen misiniz?" promosyon kutusunu gizler.
+export function HideForTeacher({ children }: { children: ReactNode }) {
+  const isTeacher = useIsTeacherOrAdmin();
+  if (isTeacher) return null;
+  return <>{children}</>;
 }

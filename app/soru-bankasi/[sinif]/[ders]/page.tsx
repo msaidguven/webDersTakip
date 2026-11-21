@@ -108,7 +108,7 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
           </p>
         )}
 
-        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
+        <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-x-8">
           <section aria-labelledby="uniteler" className="min-w-0">
             <h2 id="uniteler" className={`text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>Üniteler ve konular</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Ünitenin tamamından test çözmek için üniteyi, tek bir konu için konuyu seç.</p>

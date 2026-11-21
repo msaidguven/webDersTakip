@@ -22,6 +22,7 @@ type TopicContentRow = {
   generation_meta: unknown;
   summary_markdown: string | null;
   discussion_prompt_markdown: string | null;
+  created_at: string | null;
 };
 type SectionRow = {
   id: number;
@@ -106,6 +107,8 @@ export type LessonWeekContent = {
   hasNarration: boolean;
   // Etkileşimli ders hazır mı (elle yazılmış ya da worker'ın bitirdiği) — konu sayfasında "Etkileşimli derse başla".
   hasInteractiveLesson: boolean;
+  // Konu içeriğinin oluşturulma tarihi (topic_contents.created_at) — sayfa altında küçük bilgi olarak gösterilir.
+  createdAt: string | null;
 };
 
 function extractHeroImageAlt(generationMeta: unknown): string | null {
@@ -154,7 +157,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
 
   let topicContentsQuery = supabase
     .from('topic_contents')
-    .select('id, topic_id, hero_image_url, subtitle, generation_meta, summary_markdown, discussion_prompt_markdown')
+    .select('id, topic_id, hero_image_url, subtitle, generation_meta, summary_markdown, discussion_prompt_markdown, created_at')
     .in('topic_id', contentTopicIds);
   if (!isAdmin) topicContentsQuery = topicContentsQuery.eq('is_published', true);
 
@@ -234,6 +237,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     isArchived: t.is_archived,
     hasNarration: false,
     hasInteractiveLesson: false,
+    createdAt: null,
   }));
 
   if (contentTopicIds.length) {
@@ -241,7 +245,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
     const topicIdByContentId = new Map(topicContentRows.map((tc) => [tc.id, tc.topic_id]));
     const contentIds = topicContentRows.map((tc) => tc.id);
 
-    const heroByTopic = new Map<number, { heroImageUrl: string | null; heroImageAlt: string | null; subtitle: string | null; summaryHtml: string | null; discussionPromptHtml: string | null }>();
+    const heroByTopic = new Map<number, { heroImageUrl: string | null; heroImageAlt: string | null; subtitle: string | null; summaryHtml: string | null; discussionPromptHtml: string | null; createdAt: string | null }>();
     for (const tc of topicContentRows) {
       heroByTopic.set(tc.topic_id, {
         heroImageUrl: tc.hero_image_url,
@@ -249,6 +253,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
         subtitle: tc.subtitle,
         summaryHtml: tc.summary_markdown ? markdownToHtml(tc.summary_markdown) : null,
         discussionPromptHtml: tc.discussion_prompt_markdown ? markdownToHtml(tc.discussion_prompt_markdown) : null,
+        createdAt: tc.created_at ?? null,
       });
     }
 
@@ -329,6 +334,7 @@ export async function getLessonWeekData(supabase: SupabaseClient<any, any, any>,
       contentLoaded: loadedTopicIds.has(c.id),
       hasNarration: narratedTopicIds.has(c.id),
       hasInteractiveLesson: interactiveTopicIds.has(c.id),
+      createdAt: heroByTopic.get(c.id)?.createdAt || null,
     }));
   }
 

@@ -121,6 +121,13 @@ function nearestWeekIndex(weeks: number[], target: number): number {
   return best;
 }
 
+function formatContentDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 // Hero'daki kazanımlar (2026-10-23, ayrı karttan taşındı): her kazanım yalnızca işleneceği hafta(lar)da
 // görünür; ilk HERO_OUTCOME_LIMIT tanesi açık, gerisi "+N kazanım daha" ile — hero uzayıp "Konuya başla"yı itmesin.
 // Tek kazanım için kısaltma yapılmaz ("+1 kazanım daha" tıklatmaya değmez).
@@ -592,42 +599,44 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         </div>
 
         <div className={s.layout}>
-          {/* ÇALIŞMA PANELİ (masaüstü, sabit) */}
+          {/* ÇALIŞMA PANELİ (masaüstü, sabit) — içerik/başlık yoksa boş İçindekiler kutusu çizilmez. */}
           <aside className={s.panel} aria-label="Çalışma paneli">
-            <div className={s.panelCard}>
-              {/* Mini içindekiler (2026-10-23): öğrenme yolu, okundu halkası ve ✓ işaretleri kaldırıldı. */}
-              <p className={s.panelLabel}>İçindekiler</p>
-              <ol className={s.toc}>
-                {highlights.length > 0 && (
-                  <li>
-                    <a href="#kavramlar" className={cx(s.tocLink, activeStep === 'kavramlar' && s.tocActive)} aria-current={activeStep === 'kavramlar' ? 'location' : undefined}>
-                      <span className={s.tocNo} aria-hidden="true" />
-                      <span>Anahtar kavramlar</span>
-                    </a>
-                  </li>
-                )}
-                {sections.map((sec, i) => {
-                  const slug = sectionSlugs.get(sec.id) || String(sec.id);
-                  const active = activeStep === 'bolumler' && slug === activeSlug;
-                  return (
-                    <li key={sec.id}>
-                      <a href={`#${slug}`} className={cx(s.tocLink, active && s.tocActive)} aria-current={active ? 'location' : undefined}>
-                        <span className={cx(s.tocNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
-                        <span>{sec.heading}</span>
+            {(highlights.length > 0 || sections.length > 0 || hasSummary) && (
+              <div className={s.panelCard}>
+                {/* Mini içindekiler (2026-10-23): öğrenme yolu, okundu halkası ve ✓ işaretleri kaldırıldı. */}
+                <p className={s.panelLabel}>İçindekiler</p>
+                <ol className={s.toc}>
+                  {highlights.length > 0 && (
+                    <li>
+                      <a href="#kavramlar" className={cx(s.tocLink, activeStep === 'kavramlar' && s.tocActive)} aria-current={activeStep === 'kavramlar' ? 'location' : undefined}>
+                        <span className={s.tocNo} aria-hidden="true" />
+                        <span>Anahtar kavramlar</span>
                       </a>
                     </li>
-                  );
-                })}
-                {hasSummary && (
-                  <li>
-                    <a href="#ozet" className={cx(s.tocLink, activeStep === 'ozet' && s.tocActive)} aria-current={activeStep === 'ozet' ? 'location' : undefined}>
-                      <span className={s.tocNo} aria-hidden="true" />
-                      <span>Özet</span>
-                    </a>
-                  </li>
-                )}
-              </ol>
-            </div>
+                  )}
+                  {sections.map((sec, i) => {
+                    const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                    const active = activeStep === 'bolumler' && slug === activeSlug;
+                    return (
+                      <li key={sec.id}>
+                        <a href={`#${slug}`} className={cx(s.tocLink, active && s.tocActive)} aria-current={active ? 'location' : undefined}>
+                          <span className={cx(s.tocNo, s.num)} data-no={pad2(i)} aria-hidden="true" />
+                          <span>{sec.heading}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                  {hasSummary && (
+                    <li>
+                      <a href="#ozet" className={cx(s.tocLink, activeStep === 'ozet' && s.tocActive)} aria-current={activeStep === 'ozet' ? 'location' : undefined}>
+                        <span className={s.tocNo} aria-hidden="true" />
+                        <span>Özet</span>
+                      </a>
+                    </li>
+                  )}
+                </ol>
+              </div>
+            )}
           </aside>
 
           <main className={s.main}>
@@ -785,7 +794,9 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               ) : (
                 <p className={s.pending}>Bu konunun anlatımı hazırlanıyor.</p>
               )}
-              <div className={s.complete}><TopicCompleteButton topicId={topic.id} /></div>
+              {(sections.length > 0 || Boolean(topic.content)) && (
+                <div className={s.complete}><TopicCompleteButton topicId={topic.id} /></div>
+              )}
             </section>
 
             {/* Özet + düşün ve yorumla */}
@@ -861,6 +872,12 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
                   highlightTarget={discussionTarget}
                 />
               </div>
+            )}
+
+            {(sections.length > 0 || Boolean(topic.content)) && formatContentDate(topic.createdAt) && (
+              <p className={s.contentDate}>
+                Bu içerik <time dateTime={topic.createdAt!}>{formatContentDate(topic.createdAt)}</time> tarihinde hazırlandı.
+              </p>
             )}
           </main>
 

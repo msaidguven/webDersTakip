@@ -1452,3 +1452,24 @@
 
 /* Soru metinlerindeki **vurgu** (renderPlainTextMath): kalın + altı çizili, kökü zaten kalın kartlarda da ayırt edilsin. */
 .q-em { font-weight: 900; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+/* Soru / Slayt Oynatıcısı: Otomatik ekran ölçekleme (Mobil → PC → Dev Akıllı Tahta).
+   Etkileşimli oyunlu ders (v3.module.css) ve site geneli (html clamp) ile uyumlu;
+   A− / A+ kontrolü --qp-scale çarpanıyla bunun üzerine eklenir. */
+.player-stage {
+  --qp-question: clamp(15.5px, 0.95vw + 5.2px, 32px);
+  --qp-choice: clamp(14.5px, 0.85vw + 4.8px, 28px);
+  --qp-passage: clamp(14px, 0.8vw + 4.8px, 25px);
+  --qp-meta: clamp(12px, 0.65vw + 4.5px, 20px);
+  --qp-badge: clamp(12px, 0.68vw + 4.5px, 21px);
+  --qp-letter: clamp(30px, 2vw + 8px, 48px);
+}
+.player-stage[data-fullscreen='true'],
+.player-stage:fullscreen {
+  --qp-question: clamp(17px, 1.25vw + 5.5px, 40px);
+  --qp-choice: clamp(16px, 1.1vw + 5.2px, 34px);
+  --qp-passage: clamp(15px, 1vw + 5px, 30px);
+  --qp-meta: clamp(13px, 0.8vw + 5px, 24px);
+  --qp-badge: clamp(13px, 0.82vw + 5px, 24px);
+  --qp-letter: clamp(34px, 2.4vw + 8px, 56px);
+}

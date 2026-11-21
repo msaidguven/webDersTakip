@@ -138,7 +138,7 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
     return (
       <div className={`${roboticFontVars} ${r.root}`}>
         <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
-          <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-7xl">
             {view === null ? (
               <div className={`h-64 animate-pulse rounded-[22px] ${r.panel}`} aria-hidden="true" />
             ) : view === 'admin' ? (

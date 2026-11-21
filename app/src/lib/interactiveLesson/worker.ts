@@ -77,17 +77,73 @@ export async function runInteractiveVoiceStep(
   return null;
 }
 
+// Tek seferlik öncelikli konu (2026-11-22): 6. Sınıf Bilişim · İletişim Teknolojileri ve Çeşitleri.
+// Konunun aktif test soru havuzu (>=4 soru) oluştuğu anda sıranın başına alınır; tamamlanınca
+// (status = 'ready' veya 3 deneme) bir daha tetiklenmez.
+const ONE_TIME_PRIORITY_TOPIC_ID = 577;
+
+async function claimOneTimePriorityInteractiveTopic(supabase: Supabase): Promise<number | null> {
+  const { data: existing } = await supabase
+    .from('interactive_lessons')
+    .select('status, runs, updated_at')
+    .eq('topic_id', ONE_TIME_PRIORITY_TOPIC_ID)
+    .maybeSingle();
+
+  if (existing) {
+    const row = existing as { status: string; runs: number; updated_at: string };
+    const staleMs = Date.now() - Date.parse(row.updated_at);
+    const retryable =
+      row.runs < 3 &&
+      (row.status === 'partial' ||
+        (row.status === 'failed' && staleMs > 50 * 60 * 1000) ||
+        (row.status === 'generating' && staleMs > 30 * 60 * 1000));
+    if (!retryable) return null;
+    const { data: claimed } = await supabase
+      .from('interactive_lessons')
+      .update({ status: 'generating', runs: row.runs + 1, updated_at: new Date().toISOString() })
+      .eq('topic_id', ONE_TIME_PRIORITY_TOPIC_ID)
+      .eq('status', row.status)
+      .select('topic_id')
+      .maybeSingle();
+    return claimed ? ONE_TIME_PRIORITY_TOPIC_ID : null;
+  }
+
+  const { data: sections } = await supabase
+    .from('topic_content_sections')
+    .select('id, topic_contents!inner(topic_id, is_published)')
+    .eq('topic_contents.topic_id', ONE_TIME_PRIORITY_TOPIC_ID)
+    .eq('topic_contents.is_published', true);
+  const sectionIds = ((sections as { id: number }[] | null) ?? []).map((s) => s.id);
+  if (!sectionIds.length) return null;
+
+  const { count } = await supabase
+    .from('questions')
+    .select('id', { count: 'exact', head: true })
+    .in('section_id', sectionIds)
+    .eq('is_active', true)
+    .in('question_type_id', [1, 3]);
+  if ((count ?? 0) < 4) return null;
+
+  const { error } = await supabase
+    .from('interactive_lessons')
+    .insert({ topic_id: ONE_TIME_PRIORITY_TOPIC_ID, status: 'generating', runs: 1 });
+  return error ? null : ONE_TIME_PRIORITY_TOPIC_ID;
+}
+
 // 2) Sıradaki konunun v3 dersi (ya da yarım v3 dersin kalan bölümleri).
 async function runLessonGeneration(
   supabase: Supabase,
   baseProfile: QuestionWorkerProfile,
   deadlineAt: number,
 ): Promise<BatchStepResult | null> {
-  const { data: claimed, error: claimError } = await supabase.rpc('claim_next_interactive_lesson_topic', {
-    p_exclude: HAND_WRITTEN_TOPIC_IDS,
-  });
-  if (claimError) return { generated: false, reason: `Etkileşimli ders: konu alınamadı: ${claimError.message}` };
-  const topicId = claimed as number | null;
+  let topicId = await claimOneTimePriorityInteractiveTopic(supabase);
+  if (topicId == null) {
+    const { data: claimed, error: claimError } = await supabase.rpc('claim_next_interactive_lesson_topic', {
+      p_exclude: HAND_WRITTEN_TOPIC_IDS,
+    });
+    if (claimError) return { generated: false, reason: `Etkileşimli ders: konu alınamadı: ${claimError.message}` };
+    topicId = claimed as number | null;
+  }
   if (topicId == null) return null;
   const label = `Etkileşimli ders v3 · Konu ${topicId}`;
 

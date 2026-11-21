@@ -121,7 +121,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
           </div>
         </SoruBankasiHeader>
 
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8">
+        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-x-8">
           <section aria-labelledby="konular" className="min-w-0">
             <h2 id="konular" className="text-xl font-bold tracking-tight text-default sm:text-2xl">{data.unitTitle} ünitesinin konuları</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir konu seç; anlatımı oku, slaytlarla tekrar et, testle kendini dene.</p>

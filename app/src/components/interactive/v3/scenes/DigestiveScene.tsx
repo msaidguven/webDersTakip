@@ -3,6 +3,7 @@
 // Canlı, etkileşimli Sindirim Sistemi Vektör/SVG Sahnesi (Konu #861).
 // Her tek-bilgi adımına göre ilgili organı, besin lokmasını, villus yakınlaştırmasını,
 // yardımcı organ salgı kanallarını veya sindirim sağlığı şemasını net ve yüksek kontrastlı çizer.
+import { useId } from 'react';
 import type { DigestiveFocusId } from '@/app/src/lib/interactiveLesson/typesV3';
 import s from '../v3.module.css';
 
@@ -36,7 +37,7 @@ const BOLUS_POS: Partial<Record<DigestiveFocusId, { cx: number; cy: number }>> =
 function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
   if (focus === 'overview-digestion') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Sindirim: büyük besinlerin kana geçebilecek küçük parçalara ayrılması">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Sindirim: büyük besinlerin kana geçebilecek küçük parçalara ayrılması">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#EFF6FF" stroke="#BFDBFE" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           Besinlerin Kana Geçiş Yolculuğu
@@ -82,7 +83,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   if (focus === 'physical-chewing') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Fiziksel sindirim: kimyasal yapı değişmeden parçalanma">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Fiziksel sindirim: kimyasal yapı değişmeden parçalanma">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#FFFBEB" stroke="#FDE68A" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           Fiziksel (Mekanik) Sindirim
@@ -127,7 +128,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   if (focus === 'surface-area') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Temas yüzey alanının artması">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Temas yüzey alanının artması">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#F0F9FF" stroke="#BAE6FD" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           Temas Yüzey Alanı Neden Önemli?
@@ -163,7 +164,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
   if (focus === 'chemical-breakdown' || focus === 'enzyme-speed') {
     const isEnzyme = focus === 'enzyme-speed';
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Kimyasal sindirim ve enzimlerin görevi">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Kimyasal sindirim ve enzimlerin görevi">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#ECFDF5" stroke="#A7F3D0" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           {isEnzyme ? 'Enzimler Kimyasal Sindirimi Hızlandırır' : 'Kimyasal Sindirim: Yapı Taşlarına Ayrışma'}
@@ -213,7 +214,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
       { label: 'Su', x: 500, y: 268, color: '#0284C7', bg: '#E0F2FE' },
     ];
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="6 besin grubu ile dengeli beslenme">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="6 besin grubu ile dengeli beslenme">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#F0FDF4" stroke="#BBF7D0" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           6 Besin Grubu ile Dengeli Beslenme
@@ -234,7 +235,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   if (focus === 'health-chewing') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Yavaş ve iyi çiğneme mide yükünü azaltır">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Yavaş ve iyi çiğneme mide yükünü azaltır">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#EFF6FF" stroke="#BFDBFE" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#0F172A">
           Oturarak, Yavaş ve İyi Çiğneme
@@ -262,7 +263,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   if (focus === 'health-risks') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Zararlı gıdalar ve sindirim rahatsızlıkları">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Zararlı gıdalar ve sindirim rahatsızlıkları">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#FFF1F2" stroke="#FECDD3" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#881337">
           Zararlı Gıdalar &amp; Sindirim Riskleri
@@ -295,7 +296,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   if (focus === 'health-exercise') {
     return (
-      <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Düzenli egzersizin sindirime faydaları">
+      <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Düzenli egzersizin sindirime faydaları">
         <rect x="20" y="24" width="600" height="352" rx="24" fill="#ECFDF5" stroke="#A7F3D0" strokeWidth="2" />
         <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#065F46">
           Düzenli Egzersizin 3 Büyük Faydası
@@ -319,7 +320,7 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 
   // health-screen
   return (
-    <svg viewBox="0 0 640 400" className="h-full max-h-[420px] w-full" role="img" aria-label="Teknoloji bağımlılığının sindirime olumsuz etkileri">
+    <svg viewBox="0 0 640 400" className={s.sceneSvg} role="img" aria-label="Teknoloji bağımlılığının sindirime olumsuz etkileri">
       <rect x="20" y="24" width="600" height="352" rx="24" fill="#FFFBEB" stroke="#FDE68A" strokeWidth="2" />
       <text x="320" y="64" textAnchor="middle" fontSize="20" fontWeight="800" fill="#92400E">
         Ekran Bağımlılığı Sindirimi Nasıl Etkiler?
@@ -340,9 +341,15 @@ function ConceptStageSvg({ focus }: { focus: DigestiveFocusId }) {
 }
 
 export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
+  const uid = useId().replace(/:/g, '');
   if (!ANATOMY_FOCUSES.has(focus)) {
     return <ConceptStageSvg focus={focus} />;
   }
+
+  const torsoGradId = `${uid}-torsoGrad`;
+  const organGlowId = `${uid}-organGlow`;
+  const warmGlowId = `${uid}-warmGlow`;
+  const villusClipId = `${uid}-villusClip`;
 
   const isMouth = focus === 'mouth';
   const isPharynx = focus === 'pharynx';
@@ -359,19 +366,19 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
   return (
     <svg
       viewBox="0 0 640 500"
-      className="h-full max-h-[480px] w-full"
+      className={s.sceneSvg}
       role="img"
       aria-label="İnsan sindirim sistemi etkileşimli şeması"
     >
       <defs>
-        <linearGradient id="torsoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id={torsoGradId} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#E4EEF9" />
           <stop offset="100%" stopColor="#D3E2F4" />
         </linearGradient>
-        <filter id="organGlow" x="-25%" y="-25%" width="150%" height="150%">
+        <filter id={organGlowId} x="-25%" y="-25%" width="150%" height="150%">
           <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#0284C7" floodOpacity="0.45" />
         </filter>
-        <filter id="warmGlow" x="-25%" y="-25%" width="150%" height="150%">
+        <filter id={warmGlowId} x="-25%" y="-25%" width="150%" height="150%">
           <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#F59E0B" floodOpacity="0.55" />
         </filter>
       </defs>
@@ -379,7 +386,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
       {/* İnsan Gövde Silueti */}
       <path
         d="M274 26 C242 26 226 48 228 80 C228 102 238 118 248 128 L244 152 C202 158 172 184 166 232 L152 342 L182 346 L194 252 L198 468 L350 468 L354 252 L366 346 L396 342 L382 232 C376 184 346 158 304 152 L300 128 C312 118 320 100 320 80 C322 48 306 26 274 26 Z"
-        fill="url(#torsoGrad)"
+        fill={`url(#${torsoGradId})`}
         stroke="#A7C0DF"
         strokeWidth="2.5"
       />
@@ -390,7 +397,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         fill={isMouth ? '#F59E0B' : '#F4B2A6'}
         stroke={isMouth ? '#B45309' : '#C97B6E'}
         strokeWidth={isMouth ? 3.5 : 2}
-        filter={isMouth ? 'url(#warmGlow)' : undefined}
+        filter={isMouth ? `url(#${warmGlowId})` : undefined}
       />
 
       {/* Yutak */}
@@ -399,7 +406,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         fill={isPharynx ? '#0284C7' : '#E9A59B'}
         stroke={isPharynx ? '#0369A1' : '#C4776D'}
         strokeWidth={isPharynx ? 3.5 : 2}
-        filter={isPharynx ? 'url(#organGlow)' : undefined}
+        filter={isPharynx ? `url(#${organGlowId})` : undefined}
       />
 
       {/* Yemek Borusu */}
@@ -408,11 +415,11 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         fill={isEsophagus ? '#0284C7' : '#E7A99F'}
         stroke={isEsophagus ? '#0369A1' : '#C4776D'}
         strokeWidth={isEsophagus ? 3.5 : 2}
-        filter={isEsophagus ? 'url(#organGlow)' : undefined}
+        filter={isEsophagus ? `url(#${organGlowId})` : undefined}
       />
 
       {/* Karaciğer + Safra Kesesi (Sol üstte görünür: anatomik sağ) */}
-      <g filter={isLiver ? 'url(#organGlow)' : undefined}>
+      <g filter={isLiver ? `url(#${organGlowId})` : undefined}>
         <path
           d="M214 242 C214 218 248 214 274 226 C284 231 286 244 274 252 C256 264 228 274 218 270 C212 266 212 254 214 242 Z"
           fill={isLiver ? '#10B981' : '#B9645A'}
@@ -443,7 +450,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
       </g>
 
       {/* Pankreas (Midenin arka alt kısmında) */}
-      <g filter={isPancreas ? 'url(#organGlow)' : undefined}>
+      <g filter={isPancreas ? `url(#${organGlowId})` : undefined}>
         <path
           d="M268 318 C288 310 318 310 330 318 C334 324 326 332 308 332 C292 332 276 330 266 326 Z"
           fill={isPancreas ? '#0EA5E9' : '#F3C669'}
@@ -468,7 +475,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         fill={isStomach ? '#F97316' : '#EE9681'}
         stroke={isStomach ? '#C2410C' : '#C26C59'}
         strokeWidth={isStomach ? 3.5 : 2}
-        filter={isStomach ? 'url(#warmGlow)' : undefined}
+        filter={isStomach ? `url(#${warmGlowId})` : undefined}
       />
 
       {/* Kalın Bağırsak (Çerçeve) */}
@@ -479,7 +486,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         strokeWidth={isLarge ? 20 : 17}
         strokeLinecap="round"
         strokeLinejoin="round"
-        filter={isLarge ? 'url(#organGlow)' : undefined}
+        filter={isLarge ? `url(#${organGlowId})` : undefined}
       />
       <path
         d="M222 414 L222 350 C222 336 234 330 248 330 L306 330 C320 330 330 338 330 352 L330 412 C330 424 316 428 294 428 L278 428 L278 448"
@@ -499,7 +506,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         strokeWidth={isSmall ? 14 : 12}
         strokeLinecap="round"
         strokeLinejoin="round"
-        filter={isSmall ? 'url(#organGlow)' : undefined}
+        filter={isSmall ? `url(#${organGlowId})` : undefined}
       />
 
       {/* Anüs */}
@@ -510,7 +517,7 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         fill={isAnus ? '#7C3AED' : '#94A3B8'}
         stroke={isAnus ? '#4C1D95' : '#64748B'}
         strokeWidth="2.5"
-        filter={isAnus ? 'url(#organGlow)' : undefined}
+        filter={isAnus ? `url(#${organGlowId})` : undefined}
       />
 
       {/* Hareketli Besin Lokması */}
@@ -526,10 +533,10 @@ export function DigestiveScene({ focus }: { focus: DigestiveFocusId }) {
         <g>
           <line x1="306" y1="384" x2="430" y2="334" stroke="#0284C7" strokeWidth="2.5" strokeDasharray="5 4" />
           <circle cx="508" cy="316" r="88" fill="#FFFFFF" stroke="#0284C7" strokeWidth="4" />
-          <clipPath id="villusClip">
+          <clipPath id={villusClipId}>
             <circle cx="508" cy="316" r="84" />
           </clipPath>
-          <g clipPath="url(#villusClip)">
+          <g clipPath={`url(#${villusClipId})`}>
             <rect x="420" y="228" width="176" height="176" fill="#E0F2FE" />
             {/* Parmak benzeri villus kıvrımları */}
             <path

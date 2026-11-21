@@ -5,7 +5,7 @@
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
 import { isHydratedV2, type HydratedLessonV2 } from './typesV2';
-import { isHydratedV3, type HydratedLessonV3 } from './typesV3';
+import { isHydratedV3, type HydratedLessonV3, type V3TeachBeat } from './typesV3';
 
 export const ROBOT_NAME = 'Atom';
 export const VOICE_BUCKET = 'topic-narration';
@@ -140,6 +140,17 @@ export function narrativeSpeech(step: NarrativeStep, part: NarrativePart): strin
   return [step.body ?? step.title];
 }
 
+// v3 anlatım ekranında Atom önce başlığı, hemen ardından açıklamayı tek akışta okur.
+export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>): string {
+  const title = beat.title.trim();
+  const fact = beat.fact.trim();
+  if (!title) return fact;
+  if (!fact) return title;
+  if (fact.toLocaleLowerCase('tr-TR').startsWith(title.toLocaleLowerCase('tr-TR'))) return fact;
+  const sep = /[.!?:…]$/.test(title) ? ' ' : '. ';
+  return `${title}${sep}${fact}`;
+}
+
 // Dersin seslendirilecek bütün cümleleri (üretim betiği). v1, v2 ve v3 derslerini destekler.
 export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | HydratedLessonV3): string[] {
   if (isHydratedV3(lesson)) {
@@ -150,7 +161,7 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | Hydrated
     ];
     for (const sec of lesson.sections) {
       for (const beat of sec.beats) {
-        out.push(beat.fact);
+        out.push(v3BeatSpeech(beat));
         if (beat.quickCheck) {
           out.push(beat.quickCheck.prompt, beat.quickCheck.okFeedback, beat.quickCheck.retryFeedback);
         }

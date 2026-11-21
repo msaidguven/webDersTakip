@@ -43,21 +43,21 @@ function Visual({ item }: { item: SoruBankasiNavItem }) {
 export function SoruBankasiNavList({ id, title, items, footer }: { id: string; title: string; items: SoruBankasiNavItem[]; footer?: React.ReactNode }) {
   if (!items.length) return null;
   return (
-    <section aria-labelledby={id} className={`p-5 ${r.panel}`}>
+    <section aria-labelledby={id} className={`p-4 ${r.panel}`}>
       <h2 id={id} className={r.label}>{title}</h2>
       <ol className="mt-3 flex flex-col gap-2">
         {items.map((item) => {
           const body = (
             <>
               <Visual item={item} />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 {(item.eyebrow || item.current) && (
                   <span className={`block text-xs font-semibold ${item.current ? r.accent : 'text-muted-foreground'}`}>
                     {[item.eyebrow, item.current ? 'buradasın' : null].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 <span
-                  className={`block text-sm font-semibold leading-snug ${
+                  className={`block break-words text-sm font-semibold leading-snug ${
                     item.current ? 'text-default' : `text-default ${r.groupHoverAccent}`
                   }`}
                 >
