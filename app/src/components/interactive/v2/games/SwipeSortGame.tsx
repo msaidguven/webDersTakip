@@ -1,5 +1,6 @@
 'use client';
 
+// Dokunsal Kart Ayırma: Canlı yön damgaları + altta bekleyen kart yığını derinliği.
 import { useRef, useState } from 'react';
 import type { V2SwipeSortStep } from '@/app/src/lib/interactiveLesson/typesV2';
 import type { GameCallbacks } from './KavramAviGame';
@@ -16,6 +17,7 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
   const missedOnce = useRef(false);
 
   const current = step.items[idx];
+  const nextCard = step.items[idx + 1];
 
   const judge = (side: 'L' | 'R') => {
     if (locked.current || done || !current) return;
@@ -23,7 +25,7 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
       locked.current = true;
       setDx(0);
       setAnim(side === 'L' ? 'outL' : 'outR');
-      onReact('happy', 'Doğru karar! 👏', 'ok', 'ok');
+      onReact('happy', 'Doğru karar!', 'ok', 'ok');
       window.setTimeout(() => {
         setAnim('none');
         locked.current = false;
@@ -32,7 +34,7 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
           onReact('normal', step.say, 'normal');
         } else {
           setDone(true);
-          onReact('happy', `🎉 ${step.feedback ?? 'Süper! Tüm kartları doğru yerleştirdin.'}`, 'ok', 'ok');
+          onReact('celebrate', step.feedback ?? 'Süper! Tüm kartları doğru yerleştirdin.', 'ok', 'combo', step.items.length);
         }
       }, 280);
       return;
@@ -55,17 +57,33 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
     );
   }
 
-  const tiltBorder = dx < -35 ? '#15b8d9' : dx > 35 ? '#ff7a29' : undefined;
+  const tiltBorder = dx < -30 ? '#15b8d9' : dx > 30 ? '#ff7a29' : undefined;
+  const leftOpacity = Math.min(1, Math.max(0, (-dx - 18) / 55));
+  const rightOpacity = Math.min(1, Math.max(0, (dx - 18) / 55));
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-center text-xs font-extrabold text-slate-500">
-        {idx + 1} / {step.items.length}
+      <div className="flex items-center justify-center gap-1.5" aria-label={`${idx + 1} / ${step.items.length}`}>
+        {step.items.map((_, i) => (
+          <span
+            key={i}
+            className={`h-2 rounded-full transition-all ${
+              i < idx ? 'w-5 bg-emerald-500' : i === idx ? 'w-7 bg-indigo-600' : 'w-2 bg-slate-300'
+            }`}
+          />
+        ))}
       </div>
 
-      <div>
+      <div className="relative pt-1">
+        {/* Altta bekleyen sıradaki kartın yığın derinliği */}
+        {nextCard && (
+          <div className={s.swipeDeckBack} aria-hidden="true">
+            {nextCard.text}
+          </div>
+        )}
+
         <div
-          className={`${s.swipeCard} ${dragging ? s.swipeDragging : ''} ${
+          className={`${s.swipeCard} relative z-10 ${dragging ? s.swipeDragging : ''} ${
             anim === 'outL' ? s.swipeOutL : anim === 'outR' ? s.swipeOutR : anim === 'err' ? s.tileBad : ''
           }`}
           style={{
@@ -86,8 +104,8 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
           onPointerUp={() => {
             if (!dragging) return;
             setDragging(false);
-            if (dx < -65) judge('L');
-            else if (dx > 65) judge('R');
+            if (dx < -60) judge('L');
+            else if (dx > 60) judge('R');
             else setDx(0);
           }}
           onPointerCancel={() => {
@@ -95,9 +113,20 @@ export function SwipeSortGame({ step, onReact, onMiss, onComplete }: { step: V2S
             setDx(0);
           }}
         >
-          {current.text}
+          {/* Canlı sürükleme yön damgaları */}
+          {leftOpacity > 0.05 && (
+            <span className={`${s.swipeStamp} ${s.swipeStampL}`} style={{ opacity: leftOpacity }} aria-hidden="true">
+              {step.leftLabel}
+            </span>
+          )}
+          {rightOpacity > 0.05 && (
+            <span className={`${s.swipeStamp} ${s.swipeStampR}`} style={{ opacity: rightOpacity }} aria-hidden="true">
+              {step.rightLabel}
+            </span>
+          )}
+          <span>{current.text}</span>
         </div>
-        <p className="mt-1.5 text-center text-xs font-bold text-slate-400">← Sola/Sağa kaydır veya düğmeye dokun →</p>
+        <p className="mt-2 text-center text-xs font-bold text-slate-400">← Kartı kaydır veya aşağıdaki düğmeye dokun →</p>
       </div>
 
       <div className={s.twoGrid}>

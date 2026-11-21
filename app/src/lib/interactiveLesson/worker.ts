@@ -2,53 +2,60 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { QuestionWorkerProfile } from '@/app/src/lib/questionWorkerProfiles';
 import type { BatchStepResult } from '@/app/src/lib/topicQuestionBatch';
-import { loadLessonSource, produceLesson, SECTIONS_PER_CALL, summarizeBlocks } from './generate';
+import { loadLessonSource } from './generate';
+import { produceLessonV3 } from './generateV3';
 import { HAND_WRITTEN_TOPIC_IDS } from './registry';
-import type { LessonDefinition } from './types';
+import type { LessonDefinitionV3 } from './typesV3';
 import { voiceLesson } from './voice';
-import { addLessonPhotos } from './photos';
 import { expireTag } from '@/app/src/lib/cacheInvalidation';
 import { revalidateTopicPage } from '@/app/src/lib/topicPageRevalidation';
 import { interactiveLessonTag } from './hydrate';
 
-// Etkileşimli ders worker adımı (2026-11-01, kullanıcı kararı: 2. soru worker'ı bu işe ayrıldı; bkz.
-// supabase/migrations/interactive_lesson_generation.sql). Her çalışmada TEK iş:
+// Etkileşimli ders worker adımı (v3 Atom Keşif Dünyası — Tek-Bilgi + Kavram Avı + Havuz Soruları).
+// Her çalışmada TEK iş:
 //   1) dersi hazır ama Atom sesleri eksik konu varsa sesleri üretir (süre bitince kalanı sonraki çalışmaya),
-//   2) yoksa sıradaki konunun dersini üretir: her çalışmada tek alt konu (önceki bölümlerin özetiyle), her parça
-//      denetlenir; geçemezse hata listesi saklanır ve sonraki deneme o hatalarla düzelttirilir.
-// İş yoksa null döner, worker soru partisine geçer.
+//   2) yoksa sıradaki konunun v3 dersini üretir (her alt konu tek başına veya topluca üretilip doğrulanır).
+// Mevcut yayındaki v1 derslere dokunmaz; bundan sonra üretilen tüm yeni dersler otomatik v3 olur.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
-type StoredLesson = Omit<LessonDefinition, 'topicId'>;
+type StoredLessonV3 = Omit<LessonDefinitionV3, 'topicId'>;
 
 const STEP_BUDGET_MS = 250 * 1000;
-const REQUEST_TIMEOUT_MS = 230 * 1000;
+const REQUEST_TIMEOUT_MS = 220 * 1000;
+const SECTIONS_PER_V3_CALL = 2;
 const TRANSIENT_ERROR = /\b(429|500|502|503|504)\b|fetch failed|ECONNRESET|ETIMEDOUT|timed? ?out|zaman aşımı|boş cevap/i;
 
 async function update(supabase: Supabase, topicId: number, fields: Record<string, unknown>) {
   const msg = typeof fields.last_message === 'string' ? fields.last_message.slice(0, 2000) : undefined;
-  await supabase.from('interactive_lessons').update({ ...fields, ...(msg !== undefined ? { last_message: msg } : {}), updated_at: new Date().toISOString() }).eq('topic_id', topicId);
+  await supabase
+    .from('interactive_lessons')
+    .update({ ...fields, ...(msg !== undefined ? { last_message: msg } : {}), updated_at: new Date().toISOString() })
+    .eq('topic_id', topicId);
 }
-
-// Fotoğraf adımı (2 AI çağrısı + Commons araması) için kalması gereken en az süre.
-const PHOTO_MIN_MS = 90 * 1000;
 
 export async function runInteractiveLessonStep(supabase: Supabase, baseProfile: QuestionWorkerProfile): Promise<BatchStepResult | null> {
   const deadlineAt = Date.now() + STEP_BUDGET_MS;
   const voice = await runInteractiveVoiceStep(supabase, deadlineAt);
   if (voice && !voice.failed) return voice;
-  // Ses üretilemediyse (ör. 2026-11-03 Azure anahtarı geçersiz → 401) ders üretimi durmasın: aynı çalışmada ders
-  // adımına geçilir, ses hatası kayda eklenir; ses borcu servis düzelince kendiliğinden kapanır.
   const lesson = await runLessonGeneration(supabase, baseProfile, deadlineAt);
   if (!voice) return lesson;
   return lesson ? { ...lesson, reason: `${voice.reason} · ${lesson.reason ?? ''}` } : voice;
 }
 
-// 1) Ses borcu: hazır ders, sesleri eksik. Gemini kullanmaz — Gemini kotası doluyken de çalışır (route).
-// failed: ses servisi hata verdi (çağıran ders üretimine geçebilsin diye ayrıca işaretlenir).
-export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = Date.now() + STEP_BUDGET_MS): Promise<(BatchStepResult & { failed?: boolean }) | null> {
-  const { data: pendingVoice } = await supabase.from('interactive_lessons').select('topic_id').eq('status', 'ready').eq('voice_done', false).order('updated_at').limit(1).maybeSingle();
+// 1) Ses borcu: hazır ders, sesleri eksik. Gemini kullanmaz — Gemini kotası doluyken de çalışır.
+export async function runInteractiveVoiceStep(
+  supabase: Supabase,
+  deadlineAt = Date.now() + STEP_BUDGET_MS,
+): Promise<(BatchStepResult & { failed?: boolean }) | null> {
+  const { data: pendingVoice } = await supabase
+    .from('interactive_lessons')
+    .select('topic_id')
+    .eq('status', 'ready')
+    .eq('voice_done', false)
+    .order('updated_at')
+    .limit(1)
+    .maybeSingle();
   if (pendingVoice && process.env.AZURE_SPEECH_KEY) {
     const topicId = (pendingVoice as { topic_id: number }).topic_id;
     const label = `Etkileşimli ders · Konu ${topicId} (robot sesi)`;
@@ -56,12 +63,13 @@ export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = D
       const r = await voiceLesson(supabase, topicId, { deadlineAt });
       if (r.done) {
         await update(supabase, topicId, { voice_done: true });
-        // Ders artık öğrenciye açık: önbellekteki "ders yok" cevabı temizlensin.
         expireTag(interactiveLessonTag(topicId));
-        // Ders öğrenciye ancak sesleri tamamlanınca görünür: konu sayfası şimdi yenilensin ("Etkileşimli derse başla").
         await revalidateTopicPage(supabase, topicId).catch(() => {});
       }
-      return { generated: r.made > 0, reason: `${label}: ${r.made} yeni ses${r.done ? `, tamam (${r.lines} cümle)` : ', devamı sonraki çalışmada'}` };
+      return {
+        generated: r.made > 0,
+        reason: `${label}: ${r.made} yeni ses${r.done ? `, tamam (${r.lines} cümle)` : ', devamı sonraki çalışmada'}`,
+      };
     } catch (e) {
       return { generated: false, failed: true, reason: `${label}: ${e instanceof Error ? e.message : String(e)}` };
     }
@@ -69,66 +77,94 @@ export async function runInteractiveVoiceStep(supabase: Supabase, deadlineAt = D
   return null;
 }
 
-// 2) Sıradaki konunun dersi (ya da yarım dersin sıradaki parçası).
-async function runLessonGeneration(supabase: Supabase, baseProfile: QuestionWorkerProfile, deadlineAt: number): Promise<BatchStepResult | null> {
-  const { data: claimed, error: claimError } = await supabase.rpc('claim_next_interactive_lesson_topic', { p_exclude: HAND_WRITTEN_TOPIC_IDS });
+// 2) Sıradaki konunun v3 dersi (ya da yarım v3 dersin kalan bölümleri).
+async function runLessonGeneration(
+  supabase: Supabase,
+  baseProfile: QuestionWorkerProfile,
+  deadlineAt: number,
+): Promise<BatchStepResult | null> {
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_next_interactive_lesson_topic', {
+    p_exclude: HAND_WRITTEN_TOPIC_IDS,
+  });
   if (claimError) return { generated: false, reason: `Etkileşimli ders: konu alınamadı: ${claimError.message}` };
   const topicId = claimed as number | null;
   if (topicId == null) return null;
-  const label = `Etkileşimli ders · Konu ${topicId}`;
+  const label = `Etkileşimli ders v3 · Konu ${topicId}`;
 
-  const { data: row } = await supabase.from('interactive_lessons').select('runs, last_message, lesson').eq('topic_id', topicId).single();
-  const { runs, last_message: lastMessage, lesson: partial } = row as { runs: number; last_message: string | null; lesson: StoredLesson | null };
+  const { data: row } = await supabase
+    .from('interactive_lessons')
+    .select('runs, last_message, lesson')
+    .eq('topic_id', topicId)
+    .single();
+  const { runs, lesson: rawPartial } = row as {
+    runs: number;
+    last_message: string | null;
+    lesson: Partial<StoredLessonV3> | null;
+  };
+  const partial: StoredLessonV3 | null =
+    rawPartial && rawPartial.version === 3 && Array.isArray(rawPartial.sections)
+      ? (rawPartial as StoredLessonV3)
+      : null;
+
   const source = await loadLessonSource(supabase, topicId);
   if ('error' in source) {
-    // Kaynak eksikliği yeniden denemeyle düzelmez: hakkı bitir.
     await update(supabase, topicId, { status: 'failed', runs: 3, last_message: source.error });
     return { generated: false, reason: `${label}: ${source.error}` };
   }
 
-  // Önceki çalışmalarda üretilen bölümler saklı; sıradaki alt konu üretilir.
-  const done = new Set((partial?.blocks ?? []).map((b) => b.sectionId));
-  const chunk = source.sections.filter((sec) => !done.has(sec.id)).slice(0, SECTIONS_PER_CALL);
-  const part = { first: done.size === 0, of: source.sections.length, previous: partial?.blocks.length ? summarizeBlocks(partial.blocks) : undefined };
+  const doneIds = new Set((partial?.sections ?? []).map((sec) => sec.sectionId));
+  const chunk = source.sections.filter((sec) => !doneIds.has(sec.id)).slice(0, SECTIONS_PER_V3_CALL);
   const profile: QuestionWorkerProfile = { ...baseProfile, requestTimeoutMs: REQUEST_TIMEOUT_MS, deadlineAt };
+
   try {
-    // Önceki deneme denetimden geçemediyse aynı hatalar düzelttirilir.
-    const previousErrors = runs > 1 && lastMessage?.startsWith('Denetim:') ? lastMessage.slice('Denetim:'.length).trim() : undefined;
-    const out = await produceLesson({ ...source, sections: chunk }, profile, previousErrors, part);
+    const out = await produceLessonV3({ ...source, sections: chunk }, profile);
     if (out.errors.length) {
-      const message = `Denetim: ${out.errors.slice(0, 25).join('\n')}`;
+      const message = `Denetim (v3): ${out.errors.slice(0, 20).join('\n')}`;
       await update(supabase, topicId, { status: 'failed', model: out.model, last_message: message });
-      return { generated: false, reason: `${label} "${source.title}": ${out.errors.length} denetim hatası (deneme ${runs}/3)` };
+      return {
+        generated: false,
+        reason: `${label} "${source.title}": ${out.errors.length} denetim hatası (deneme ${runs}/3)`,
+      };
     }
-    // Yeni bölümün anlatım ekranlarına gerçek fotoğraf (Wikimedia Commons). Başarısız olsa ya da süre yetmese de
-    // ders kaydedilir; fotoğrafsız ekran ikonlu görseliyle kalır.
-    let photoNote = '';
-    if (deadlineAt - Date.now() > PHOTO_MIN_MS) {
-      try {
-        const withPhotos = await addLessonPhotos(out.lesson, { title: source.title, grade: source.grade, lesson: source.lesson }, profile);
-        out.lesson.blocks = withPhotos.lesson.blocks;
-        photoNote = ` · ${withPhotos.added.length} fotoğraf`;
-      } catch (e) {
-        photoNote = ` · fotoğraf eklenemedi (${e instanceof Error ? e.message.slice(0, 80) : 'hata'})`;
-      }
-    }
+
     const order = new Map(source.sections.map((sec, i) => [sec.id, i]));
-    const blocks = [...(partial?.blocks ?? []), ...out.lesson.blocks].sort((a, b) => (order.get(a.sectionId) ?? 0) - (order.get(b.sectionId) ?? 0));
-    const stored: StoredLesson = { guide: partial?.guide ?? out.lesson.guide, blocks };
-    const finished = blocks.length >= source.sections.length;
-    const steps = blocks.reduce((n, b) => n + b.steps.length, 0);
-    const summary = `${blocks.length}/${source.sections.length} bölüm, ${steps} adım`;
-    // Başarılı parça art arda başarısızlık sayacını sıfırlar.
-    await update(supabase, topicId, { status: finished ? 'ready' : 'partial', lesson: stored, model: out.model, runs: 0, voice_done: false, last_message: summary });
+    const sections = [...(partial?.sections ?? []), ...out.lesson.sections].sort(
+      (a, b) => (order.get(a.sectionId) ?? 0) - (order.get(b.sectionId) ?? 0),
+    );
+    const stored: StoredLessonV3 = {
+      version: 3,
+      courseLabel: out.lesson.courseLabel,
+      sceneId: 'generic',
+      guide: partial?.guide ?? out.lesson.guide,
+      sections,
+    };
+    const finished = sections.length >= source.sections.length;
+    const totalBeats = sections.reduce((sum, sec) => sum + sec.beats.length, 0);
+    const summary = `v3: ${sections.length}/${source.sections.length} bölüm, ${totalBeats} tek-bilgi sahnesi`;
+
+    await update(supabase, topicId, {
+      status: finished ? 'ready' : 'partial',
+      lesson: stored,
+      model: out.model,
+      runs: 0,
+      voice_done: false,
+      last_message: summary,
+    });
+
     return {
       generated: true,
-      reason: `${label} "${source.title}": ${finished ? `hazır (${summary}), robot sesleri sonraki çalışmada` : `${summary}, devamı sonraki çalışmada`} · ${out.calls} AI çağrısı${photoNote}`,
+      reason: `${label} "${source.title}": ${
+        finished ? `hazır (${summary}), robot sesleri sonraki çalışmada` : `${summary}, devamı sonraki çalışmada`
+      } · ${out.calls} AI çağrısı`,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    // Geçici hata (kota/yoğunluk/zaman aşımı) hak yakmaz.
     const transient = TRANSIENT_ERROR.test(message);
-    await update(supabase, topicId, { status: 'failed', last_message: message, ...(transient ? { runs: Math.max(0, runs - 1) } : {}) });
+    await update(supabase, topicId, {
+      status: 'failed',
+      last_message: message,
+      ...(transient ? { runs: Math.max(0, runs - 1) } : {}),
+    });
     return { generated: false, reason: `${label}: ${message}` };
   }
 }

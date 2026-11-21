@@ -1,6 +1,7 @@
-// Elle yazılmış etkileşimli dersler (v1: 704, 817, 818, 881; v2 altın örnek: 861). Diğer konuların dersleri worker'ın ürettiği interactive_lessons tablosundan (hydrate.ts).
+// Elle yazılmış etkileşimli dersler (704, 817, 818, 861, 881). Diğer konuların dersleri worker'ın ürettiği interactive_lessons tablosundan (hydrate.ts).
 import type { LessonDefinition } from './types';
 import type { LessonDefinitionV2 } from './typesV2';
+import type { LessonDefinitionV3 } from './typesV3';
 import { HAND_WRITTEN_LESSON_TOPIC_IDS } from './handWritten';
 import { lesson704 } from './lessons/704';
 import { lesson817 } from './lessons/817';
@@ -8,7 +9,7 @@ import { lesson818 } from './lessons/818';
 import { lesson861 } from './lessons/861';
 import { lesson881 } from './lessons/881';
 
-export type AnyLessonDefinition = LessonDefinition | LessonDefinitionV2;
+export type AnyLessonDefinition = LessonDefinition | LessonDefinitionV2 | LessonDefinitionV3;
 
 const LESSONS: Record<number, AnyLessonDefinition> = {
   704: lesson704,

@@ -1,5 +1,6 @@
 'use client';
 
+// Süreç / Zaman Hattı Sıralaması: Dikey bağlantılı istasyon rayı üzerinde doğru sırayı kur.
 import { useMemo, useRef, useState } from 'react';
 import type { V2OrderStep } from '@/app/src/lib/interactiveLesson/typesV2';
 import type { GameCallbacks } from './KavramAviGame';
@@ -29,9 +30,9 @@ export function OrderGame({ step, onReact, onMiss, onComplete }: { step: V2Order
       const next = [...placed, idx];
       setPlaced(next);
       if (next.length === step.items.length) {
-        onReact('happy', `🎉 ${step.feedback ?? 'Süper! Sıralamayı kusursuz tamamladın.'}`, 'ok', 'ok');
+        onReact('celebrate', step.feedback ?? 'Süper! Sıralamayı kusursuz tamamladın.', 'ok', 'combo', next.length);
       } else {
-        onReact('happy', `Doğru! Şimdi ${next.length + 1}. sıraya hangisi gelmeli?`, 'ok', 'ok');
+        onReact('happy', `Doğru! Şimdi ${next.length + 1}. sıraya hangisi gelmeli?`, 'ok', 'link', next.length);
       }
       return;
     }
@@ -46,27 +47,42 @@ export function OrderGame({ step, onReact, onMiss, onComplete }: { step: V2Order
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex flex-col gap-2">
+      <div className={s.orderRail}>
         {step.items.map((_, slotIdx) => {
           const placedIdx = placed[slotIdx];
           const filled = placedIdx !== undefined;
+          const isNext = slotIdx === placed.length;
           return (
-            <div
-              key={slotIdx}
-              className={`flex min-h-[44px] items-center gap-2.5 rounded-2xl border-2 px-3 py-2 text-sm font-extrabold transition ${
-                filled
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
-                  : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
-              }`}
-            >
+            <div key={slotIdx} className="relative flex items-center gap-2.5">
+              {/* Dikey bağlantı çizgisi */}
+              {slotIdx < step.items.length - 1 && (
+                <span
+                  className={`${s.orderConnector} ${filled ? s.orderConnectorFilled : ''}`}
+                  aria-hidden="true"
+                />
+              )}
               <span
-                className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-black ${
-                  filled ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                className={`relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black transition ${
+                  filled
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : isNext
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
+                      : 'bg-slate-200 text-slate-600'
                 }`}
               >
-                {slotIdx + 1}
+                {filled ? '✓' : slotIdx + 1}
               </span>
-              <span>{filled ? step.items[placedIdx] : (step.slotPlaceholder ?? 'Sıradakini seç 👇')}</span>
+              <div
+                className={`flex min-h-[42px] flex-1 items-center rounded-2xl border-2 px-3 py-1.5 text-sm font-extrabold transition ${
+                  filled
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                    : isNext
+                      ? 'border-dashed border-indigo-400 bg-indigo-50/50 text-indigo-700'
+                      : 'border-dashed border-slate-200 bg-slate-50 text-slate-400'
+                }`}
+              >
+                {filled ? step.items[placedIdx] : isNext ? (step.slotPlaceholder ?? 'Sıradaki adımı seç') : `${slotIdx + 1}. durak`}
+              </div>
             </div>
           );
         })}
@@ -74,7 +90,7 @@ export function OrderGame({ step, onReact, onMiss, onComplete }: { step: V2Order
 
       {allDone ? (
         <button type="button" onClick={onComplete} className={s.goBtn}>
-          Devam →
+          Rotayı Onayla ve Devam Et →
         </button>
       ) : (
         <div className="flex flex-wrap justify-center gap-2">
@@ -87,8 +103,8 @@ export function OrderGame({ step, onReact, onMiss, onComplete }: { step: V2Order
                 type="button"
                 disabled={used}
                 onClick={() => handlePick(item.idx)}
-                className={`${s.tileBtn} !min-h-[44px] !px-3.5 !py-2 !text-sm ${
-                  used ? 'opacity-25' : isBad ? s.tileBad : ''
+                className={`${s.tileBtn} !min-h-[42px] !px-3.5 !py-2 !text-sm ${
+                  used ? 'scale-95 opacity-25' : isBad ? s.tileBad : ''
                 }`}
               >
                 {item.text}

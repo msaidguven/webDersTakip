@@ -1,0 +1,891 @@
+/* Etkileşimli Ders v3 — Özgün "Atom Keşif Dünyası" Oyun Teması
+   Dengeli orta-açık buz mavisi/slate derinlikli zemin, cam efektli gece-lacivert oyun HUD barları,
+   mücevher tonlu dokunsal istasyon portalları ve tam otomatik (Telefon → PC → Akıllı Tahta) ölçekleme. */
+
+.gameShell {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(920px 560px at 14% 12%, rgba(56, 189, 248, 0.2), transparent 62%),
+    radial-gradient(880px 520px at 88% 85%, rgba(129, 140, 248, 0.18), transparent 62%),
+    radial-gradient(640px 420px at 52% 45%, rgba(255, 255, 255, 0.45), transparent 70%),
+    linear-gradient(160deg, #ddeaf9 0%, #e7f0fb 48%, #d2e2f6 100%);
+  color: #0f172a;
+  font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+
+  /* Otomatik ekran ölçekleme: Telefon → PC → Dev Akıllı Tahta */
+  --fs-brand: clamp(14px, 1.1vw + 6px, 26px);
+  --fs-title: clamp(19px, 1.9vw + 8px, 42px);
+  --fs-body: clamp(14px, 1.05vw + 7px, 27px);
+  --fs-choice: clamp(13.5px, 0.95vw + 6.5px, 24px);
+  --fs-label: clamp(12.5px, 0.85vw + 6px, 22px);
+  --fs-sm: clamp(11px, 0.65vw + 5.5px, 18px);
+  --fs-btn: clamp(13px, 0.85vw + 6px, 22px);
+  --stage-max: clamp(340px, 68vw, 1340px);
+  --visual-h: clamp(195px, 34vh, 460px);
+  --tile-size: clamp(82px, 7.2vw, 148px);
+  --bar-btn: clamp(34px, 2.5vw, 52px);
+}
+
+.gameShell[data-fullscreen='true'],
+.gameShell:fullscreen {
+  --fs-title: clamp(22px, 2.3vw + 8px, 48px);
+  --fs-body: clamp(16px, 1.3vw + 7px, 32px);
+  --fs-choice: clamp(15px, 1.15vw + 7px, 28px);
+  --fs-label: clamp(14px, 1vw + 6px, 25px);
+  --fs-sm: clamp(12px, 0.78vw + 6px, 20px);
+  --fs-btn: clamp(14px, 1vw + 6px, 24px);
+  --stage-max: clamp(420px, 76vw, 1540px);
+  --visual-h: clamp(230px, 38vh, 540px);
+}
+
+/* ==================== ÜST GECE-LACİVERT CAM OYUN HUD ==================== */
+.gameTopBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1vw, 16px);
+  padding: clamp(8px, 0.85vh, 14px) clamp(14px, 1.6vw, 28px);
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 72, 0.94) 55%, rgba(15, 23, 42, 0.94) 100%);
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(12px);
+  color: #f8fafc;
+  z-index: 30;
+}
+
+.gameBrandBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 14px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  cursor: pointer;
+  padding: 4px 12px 4px 6px;
+  border-radius: 999px;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.gameBrandBtn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.gameBrandTitle {
+  font-size: var(--fs-brand);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.gameTopRight {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.65vw, 12px);
+}
+
+.gameLevelPill {
+  padding: clamp(4px, 0.45vh, 8px) clamp(10px, 1vw, 18px);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  color: #ffffff;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 3px 12px rgba(14, 165, 233, 0.35);
+}
+
+.gameStarPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: clamp(4px, 0.45vh, 8px) clamp(10px, 0.9vw, 16px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  color: #fde68a;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+}
+
+.gameIconBtn {
+  width: var(--bar-btn);
+  height: var(--bar-btn);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.09);
+  color: #e2e8f0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.gameIconBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.gameIconAmber:hover {
+  border-color: #fbbf24;
+  color: #fde68a;
+}
+.gameIconSky:hover {
+  border-color: #38bdf8;
+  color: #bae6fd;
+}
+.gameIconBlue {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+}
+.gameIconGreen:hover {
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+.gameIconRose:hover {
+  background: rgba(244, 63, 94, 0.28);
+  border-color: #fb7185;
+  color: #ffe4e6;
+}
+
+/* ==================== ANA SAYFA: ÖZGÜN KEŞİF HARİTASI ==================== */
+.worldRoot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.worldViewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.worldBackdropSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.worldTopBanner {
+  position: relative;
+  z-index: 8;
+  padding: clamp(14px, 1.8vh, 24px) 16px 4px;
+  display: flex;
+  justify-content: center;
+}
+
+.worldTopicBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: clamp(6px, 0.7vh, 11px) clamp(16px, 1.6vw, 28px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1.5px solid rgba(14, 165, 233, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+  color: #0f172a;
+  font-size: var(--fs-label);
+  font-weight: 800;
+}
+
+.worldStageWrap {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  width: 100%;
+  max-width: clamp(780px, 88vw, 1600px);
+  margin: auto;
+  padding: 16px clamp(16px, 2vw, 40px) 42px;
+  display: flex;
+  align-items: center;
+}
+
+.worldCurvePath {
+  display: none;
+}
+
+@media (min-width: 780px) {
+  .worldCurvePath {
+    display: block;
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    top: 42px;
+    width: calc(100% - 48px);
+    height: 210px;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+.worldGrid {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(145px, 1fr));
+  gap: 28px 16px;
+  align-items: start;
+  justify-items: center;
+}
+
+@media (min-width: 780px) {
+  .worldGrid {
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    gap: clamp(20px, 2.2vw, 40px);
+  }
+}
+
+.worldSubtopicCol {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 1.1vh, 16px);
+  text-align: center;
+}
+
+@media (max-width: 779px) {
+  .worldSubtopicCol {
+    margin-top: 26px !important;
+  }
+}
+
+.worldAtomMarker {
+  position: absolute;
+  top: calc(var(--tile-size) * -0.58);
+  z-index: 14;
+  pointer-events: none;
+  animation: floatGentle 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.18));
+}
+
+/* Özgün Mücevher Tonlu Dokunsal Portal Butonları */
+.worldTile {
+  position: relative;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  border-radius: clamp(24px, 2.2vw, 34px);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+}
+
+.worldTileLarge {
+  width: var(--tile-size);
+  height: var(--tile-size);
+}
+
+.worldTile:hover {
+  transform: translateY(-5px) scale(1.04);
+}
+
+.portalSky {
+  background: linear-gradient(145deg, #38bdf8 0%, #0284c7 100%);
+  box-shadow: 0 10px 0 #0369a1, 0 18px 30px rgba(2, 132, 199, 0.32);
+}
+
+.portalAmber {
+  background: linear-gradient(145deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 10px 0 #b45309, 0 18px 30px rgba(217, 119, 6, 0.3);
+}
+
+.portalEmerald {
+  background: linear-gradient(145deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 10px 0 #047857, 0 18px 30px rgba(5, 150, 105, 0.3);
+}
+
+.portalRose {
+  background: linear-gradient(145deg, #fb7185 0%, #e11d48 100%);
+  box-shadow: 0 10px 0 #be123c, 0 18px 30px rgba(225, 29, 72, 0.3);
+}
+
+.worldTileActive {
+  box-shadow:
+    0 10px 0 #075985,
+    0 0 0 7px rgba(255, 255, 255, 0.75),
+    0 0 0 12px rgba(14, 165, 233, 0.25),
+    0 20px 34px rgba(2, 132, 199, 0.38);
+}
+
+.worldTileDone {
+  background: linear-gradient(145deg, #10b981 0%, #047857 100%);
+  box-shadow: 0 10px 0 #065f46, 0 18px 30px rgba(5, 150, 105, 0.32);
+}
+
+.worldTileCode {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #0f172a;
+  border: 2px solid #ffffff;
+  color: #f8fafc;
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  line-height: 1.2;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22);
+}
+
+.worldTileIcon {
+  display: grid;
+  place-items: center;
+}
+
+.worldCardMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.worldTileLabelLarge {
+  max-width: clamp(165px, 19vw, 320px);
+  padding: clamp(7px, 0.7vh, 13px) clamp(12px, 1.1vw, 20px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid #cbdcf0;
+  color: #0f172a;
+  font-size: var(--fs-label);
+  font-weight: 800;
+  line-height: 1.28;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.worldTileSub {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+
+/* ==================== OYUN SAHNESİ (TIKLAYINCA AÇILAN İÇERİK EKRANI) ==================== */
+.gamePlayRoot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gamePlayStage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(14px, 1.8vh, 28px) clamp(14px, 2vw, 32px) clamp(20px, 2.4vh, 32px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.worldClouds {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.worldCloud {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 72%);
+}
+
+.gamePlayInner {
+  position: relative;
+  z-index: 6;
+  width: 100%;
+  max-width: var(--stage-max);
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gameBeatStack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 1.4vh, 22px);
+}
+
+.gameKickerPill {
+  display: inline-block;
+  padding: clamp(4px, 0.45vh, 8px) clamp(12px, 1.2vw, 20px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1.5px solid rgba(14, 165, 233, 0.35);
+  color: #0369a1;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  margin-bottom: 6px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.gameBeatHeading {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+}
+
+.gameVisualFrame {
+  width: 100%;
+  max-width: var(--stage-max);
+  padding: clamp(10px, 1.1vw, 20px);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  border: 1.5px solid #c3d7ee;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08), inset 0 1px 0 #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gameVisualFrame svg {
+  max-height: calc(var(--visual-h) - 24px);
+}
+
+/* Özgün İnci-Cam Atom Diyalog Kutusu */
+.gameDialogueBox {
+  width: 100%;
+  max-width: var(--stage-max);
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.2vw, 22px);
+  padding: clamp(12px, 1.1vw, 20px) clamp(14px, 1.5vw, 26px);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1.5px solid #c3d7ee;
+  border-left: 6px solid #0284c7;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.gameDialogueInner {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+/* Anında Kontrollü Dokunsal Seçenek Kartları */
+.gameQuickWrap {
+  width: 100%;
+  max-width: var(--stage-max);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1vh, 16px);
+}
+
+.gameQuickPrompt {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-choice);
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.gameQuestionWrap {
+  width: 100%;
+  max-width: var(--stage-max);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.4vh, 22px);
+}
+
+.gameQuestionHeader {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.2vw, 22px);
+  padding: clamp(14px, 1.4vw, 26px) clamp(16px, 1.8vw, 30px);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid #c3d7ee;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.gameQuestionText {
+  font-size: var(--fs-body);
+  font-weight: 800;
+  line-height: 1.42;
+  color: #0f172a;
+}
+
+.gameChoiceGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(10px, 1.2vw, 18px);
+}
+
+@media (min-width: 600px) {
+  .gameChoiceGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.gameChoiceCard {
+  width: 100%;
+  padding: clamp(14px, 1.4vw, 24px) clamp(16px, 1.6vw, 26px);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 2px solid #c5d8ee;
+  box-shadow: 0 5px 0 #b8cde5, 0 10px 20px rgba(15, 23, 42, 0.06);
+  text-align: left;
+  font-size: var(--fs-choice);
+  font-weight: 700;
+  line-height: 1.42;
+  color: #0f172a;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.16s ease, box-shadow 0.15s ease, background 0.16s ease;
+}
+
+.gameChoiceCard:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #0284c7;
+  background: #f0f9ff;
+  box-shadow: 0 7px 0 #7dd3fc, 0 14px 24px rgba(2, 132, 199, 0.14);
+}
+
+.gameChoiceOk {
+  background: #ecfdf5;
+  border-color: #10b981;
+  box-shadow: 0 5px 0 #059669;
+  color: #064e3b;
+}
+
+.gameChoiceBad {
+  background: #fff1f2;
+  border-color: #fb7185;
+  box-shadow: 0 3px 0 #fda4af;
+  opacity: 0.7;
+}
+
+.gameChoiceBadge {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(26px, 2.1vw, 38px);
+  height: clamp(26px, 2.1vw, 38px);
+  border-radius: 10px;
+  background: #e0f2fe;
+  border: 1.5px solid #7dd3fc;
+  color: #0369a1;
+  font-size: var(--fs-sm);
+  font-weight: 900;
+}
+
+.gameSuccessPanel {
+  padding: clamp(14px, 1.3vw, 24px) clamp(18px, 1.8vw, 30px);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 2px solid #10b981;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.18);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-choice);
+}
+
+.gameCardCenter {
+  width: 100%;
+  max-width: clamp(340px, 58vw, 960px);
+  padding: clamp(16px, 1.8vw, 32px);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1.5px solid #c3d7ee;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.09);
+  display: flex;
+  justify-content: center;
+}
+
+.gameCompleteBox {
+  width: 100%;
+  max-width: clamp(340px, 56vw, 920px);
+  padding: clamp(22px, 2.4vw, 40px);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 2px solid #6ee7b7;
+  box-shadow: 0 18px 42px rgba(16, 185, 129, 0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 1.1vh, 18px);
+}
+
+/* ==================== ALT GECE-LACİVERT CAM NAVİGASYON BAR ==================== */
+.gameBottomBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: clamp(9px, 1.05vh, 16px) clamp(14px, 1.8vw, 32px);
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 72, 0.95) 55%, rgba(15, 23, 42, 0.95) 100%);
+  border-top: 1.5px solid rgba(56, 189, 248, 0.3);
+  z-index: 30;
+}
+
+.bottomTitle {
+  font-size: var(--fs-label);
+  font-weight: 800;
+  color: #e0f2fe;
+}
+
+.bottomStarStat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+  font-weight: 800;
+  color: #fde68a;
+}
+
+.bottomSquares {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.55vw, 10px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bottomSquare,
+.bottomCapsule {
+  height: clamp(10px, 0.95vw, 16px);
+  width: clamp(18px, 1.6vw, 32px);
+  border-radius: 999px;
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.14s ease, background 0.18s ease, width 0.18s ease;
+}
+
+.bottomSquare:hover,
+.bottomCapsule:hover {
+  transform: scale(1.12);
+}
+
+.bottomSquareDone,
+.bottomCapsuleDone {
+  background: #10b981;
+  border-color: #34d399;
+}
+
+.bottomSquareActive,
+.bottomCapsuleActive {
+  width: clamp(28px, 2.5vw, 48px);
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-color: #bae6fd;
+}
+
+.arcadeBtnBlue,
+.arcadeBtnGreen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: clamp(40px, 3.3vw, 58px);
+  padding: 0 clamp(16px, 1.6vw, 30px);
+  border-radius: 999px;
+  font-size: var(--fs-btn);
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.15s ease;
+}
+
+.arcadeBtnBlue {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.35);
+}
+
+.arcadeBtnGreen {
+  background: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+}
+
+.arcadeBtnBlue:hover:not(:disabled),
+.arcadeBtnGreen:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.arcadeBtnBlue:disabled,
+.arcadeBtnGreen:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==================== KAVRAM AVI TEMA KÖPRÜSÜ ==================== */
+.kavramHost {
+  width: 100%;
+  max-width: clamp(320px, 50vw, 820px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 1.2vh, 20px);
+  --neon: #0284c7;
+  --neon-2: #0369a1;
+  --edge: #b9cde4;
+  --ink: #0f172a;
+  --muted: #475569;
+  --panel-solid: #ffffff;
+  --glow: rgba(2, 132, 199, 0.35);
+}
+
+.roundPills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roundPill {
+  height: clamp(7px, 0.65vw, 12px);
+  width: clamp(28px, 2.4vw, 48px);
+  border-radius: 999px;
+  background: #cbd9ec;
+  transition: all 0.25s ease;
+}
+
+.roundPillDone {
+  background: #10b981;
+}
+
+.roundPillActive {
+  width: clamp(40px, 3.4vw, 64px);
+  background: #0284c7;
+}
+
+.kavramDefCard {
+  width: 100%;
+  padding: clamp(12px, 1.3vw, 22px) clamp(14px, 1.5vw, 26px);
+  border-radius: 18px;
+  background: #f0f9ff;
+  border: 1.5px solid #bae6fd;
+  text-align: center;
+  font-size: var(--fs-body);
+  line-height: 1.48;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kavramSolvedCard {
+  width: 100%;
+  padding: clamp(14px, 1.5vw, 26px);
+  border-radius: 18px;
+  background: #ecfdf5;
+  border: 2px solid #10b981;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  font-size: var(--fs-choice);
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: clamp(42px, 3.4vw, 60px);
+  padding: 0 clamp(20px, 2vw, 34px);
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
+  color: #ffffff;
+  font-size: var(--fs-btn);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.32);
+}
+
+/* ==================== ANİMASYONLAR ==================== */
+@keyframes pulseRing {
+  0%, 100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.svgFlow {
+  stroke-dasharray: 8 6;
+  animation: flowDash 1.6s linear infinite;
+}
+
+.svgFloat {
+  animation: floatGentle 2.6s ease-in-out infinite;
+}
+
+.svgPulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulseRing 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svgFlow,
+  .svgFloat,
+  .svgPulse,
+  .worldAtomMarker {
+    animation: none !important;
+  }
+}

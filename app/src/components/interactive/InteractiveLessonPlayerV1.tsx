@@ -22,7 +22,15 @@ import type { BlankQuestion, MultipleChoiceQuestion } from '@/app/src/lib/quizQu
 import { TERM_LINK, termSlug, type LessonTerm } from '@/app/src/lib/interactiveLesson/types';
 import { conceptsIn, linkConcepts } from '@/app/src/lib/interactiveLesson/conceptLinks';
 import { GUIDE, narrativeParts, narrativeSpeech, praiseAt, ROBOT_NAME, stepIntro, ttsText, type NarrativePart, voiceAudioPath, voiceKey, voiceManifestPath, VOICE_BUCKET } from '@/app/src/lib/interactiveLesson/guide';
-import { lessonSound } from '@/app/src/lib/interactiveLesson/sound';
+import { lessonSound, type LessonSfx } from '@/app/src/lib/interactiveLesson/sound';
+import {
+  KavramAviStepView,
+  SliderStepView,
+  SpotErrorStepView,
+  SwipeSortStepView,
+  VaultLockStepView,
+  type GameDoneState,
+} from '@/app/src/components/interactive/InteractiveGamesV1';
 import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import { useAuth } from '@/app/src/context/AuthContext';
 import type { BlankStep, ExploreStep, FindStep, HydratedLesson, LabelStep, NarrativeStep, HydratedStep, LessonPhoto, LessonVisual, MatchStep, MultiStep, SortStep, TrueFalseStep } from '@/app/src/lib/interactiveLesson/types';
@@ -55,7 +63,7 @@ type ExploreState = { visited: string[]; pick: number | undefined };
 type FindState = { answers: { term: string | null; first?: string | null }[]; firstTry: boolean | null };
 type SelfGrade = 'dogru' | 'kismen' | 'yanlis';
 type ClassicalState = { text: string; revealed: boolean; self: SelfGrade | null };
-type StepState = PredictState | ExploreState | LabelState | FindState | MatchState | TrueFalseState | BlankState | SortState | MultiState | ChoiceState | ClassicalState;
+type StepState = PredictState | ExploreState | LabelState | FindState | MatchState | TrueFalseState | BlankState | SortState | MultiState | GameDoneState | ChoiceState | ClassicalState;
 
 const STEP_LABEL: Record<HydratedStep['kind'], string> = {
   anlatim: 'Anlatım',
@@ -67,6 +75,11 @@ const STEP_LABEL: Record<HydratedStep['kind'], string> = {
   bosluk: 'Boşlukları doldur',
   siralama: 'Sırala',
   coklu_secim: 'Doğru olanları seç',
+  kavram_avi: 'Kavram Avı',
+  hata_avcisi: 'Dedektif Atom',
+  kasa_kilidi: 'Bilgi Kasası',
+  surgu: 'Deney Sürgüsü',
+  kaydir_ayir: 'Kaydır & Ayır',
   soru: 'Soru',
   klasik: 'Konuyu anladık mı?',
 };
@@ -93,7 +106,12 @@ function isDone(step: HydratedStep, state: StepState | undefined, part?: Narrati
     case 'bosluk':
     case 'siralama':
     case 'coklu_secim':
-      return !!(state as CheckState | undefined)?.solved;
+    case 'kavram_avi':
+    case 'hata_avcisi':
+    case 'kasa_kilidi':
+    case 'surgu':
+    case 'kaydir_ayir':
+      return !!(state as { solved?: boolean } | undefined)?.solved;
     case 'soru':
       return state != null;
     case 'klasik':
@@ -104,7 +122,7 @@ function isDone(step: HydratedStep, state: StepState | undefined, part?: Narrati
 /* ---------------- Anlatıcı (Atom): konuşma + balon ---------------- */
 
 type Tone = 'ok' | 'retry' | 'info' | null;
-type Speech = { lines: string[]; mood?: RobotMood; tone?: Tone; sfx?: 'ok' | 'retry' | 'tap' | 'win' };
+type Speech = { lines: string[]; mood?: RobotMood; tone?: Tone; sfx?: LessonSfx };
 // say: Atom konuşur (ses + ruh hâli + balon rengi). Balonun İÇERİĞİ ayrıca bildirimseldir: adım, metnini
 // <Bubble> ile balona yerleştirir (portal) — kavram bağları gibi canlı öğeler balonda da çalışır.
 const SayContext = createContext<(s: Speech) => void>(() => {});
@@ -1790,7 +1808,7 @@ export default function InteractiveLessonPlayerV1({ topicId, onClose, initialLes
       return say({ lines: [step.predict.question], mood: 'think' });
     }
     if (step.kind === 'anlatim') return say({ lines: narrativeSpeech(step, part ?? 'text'), mood: part === 'mis' ? 'wow' : part === 'visual' ? 'happy' : 'normal' });
-    say({ lines: [stepIntro(step)], mood: 'think' });
+    say({ lines: [stepIntro(step)], mood: step.kind === 'hata_avcisi' || step.kind === 'kasa_kilidi' ? 'detective' : 'think' });
   }, [index, lesson, voiced, steps, say]);
 
   // Ekrandaki seslerin önceden indirilmesi (konuşma anında bekleme olmasın).
@@ -2062,6 +2080,62 @@ export default function InteractiveLessonPlayerV1({ topicId, onClose, initialLes
                     {current.step.kind === 'bul' && <FindView setAction={setStepAction} step={current.step} index={index} state={states[index] as FindState | undefined} onChange={setState(index)} />}
                     {current.step.kind === 'siralama' && <SortView setAction={setStepAction} step={current.step} seed={seed} index={index} state={states[index] as SortState | undefined} onChange={setState(index)} />}
                     {current.step.kind === 'coklu_secim' && <MultiView setAction={setStepAction} step={current.step} seed={seed} index={index} state={states[index] as MultiState | undefined} onChange={setState(index)} />}
+                    {current.step.kind === 'kavram_avi' && (
+                      <KavramAviStepView
+                        step={current.step}
+                        terms={lesson!.terms}
+                        index={index}
+                        state={states[index] as GameDoneState | undefined}
+                        onChange={setState(index)}
+                        say={say}
+                        renderBubble={(node) => <Bubble>{node}</Bubble>}
+                        renderConceptText={(text) => <ConceptText text={text} />}
+                      />
+                    )}
+                    {current.step.kind === 'hata_avcisi' && (
+                      <SpotErrorStepView
+                        step={current.step}
+                        index={index}
+                        state={states[index] as GameDoneState | undefined}
+                        onChange={setState(index)}
+                        say={say}
+                        renderBubble={(node) => <Bubble>{node}</Bubble>}
+                        renderConceptText={(text) => <ConceptText text={text} />}
+                      />
+                    )}
+                    {current.step.kind === 'kasa_kilidi' && (
+                      <VaultLockStepView
+                        step={current.step}
+                        index={index}
+                        state={states[index] as GameDoneState | undefined}
+                        onChange={setState(index)}
+                        say={say}
+                        renderBubble={(node) => <Bubble>{node}</Bubble>}
+                        renderConceptText={(text) => <ConceptText text={text} />}
+                      />
+                    )}
+                    {current.step.kind === 'surgu' && (
+                      <SliderStepView
+                        step={current.step}
+                        index={index}
+                        state={states[index] as GameDoneState | undefined}
+                        onChange={setState(index)}
+                        say={say}
+                        renderBubble={(node) => <Bubble>{node}</Bubble>}
+                        renderConceptText={(text) => <ConceptText text={text} />}
+                      />
+                    )}
+                    {current.step.kind === 'kaydir_ayir' && (
+                      <SwipeSortStepView
+                        step={current.step}
+                        index={index}
+                        state={states[index] as GameDoneState | undefined}
+                        onChange={setState(index)}
+                        say={say}
+                        renderBubble={(node) => <Bubble>{node}</Bubble>}
+                        renderConceptText={(text) => <ConceptText text={text} />}
+                      />
+                    )}
                     {current.step.kind === 'soru' && (
                       <ChoiceView
                         step={current.step}

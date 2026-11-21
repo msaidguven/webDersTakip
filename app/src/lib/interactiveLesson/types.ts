@@ -134,6 +134,58 @@ export type FindStep = {
   explanation?: string;
 };
 
+// Yeni oyunlaştırılmış pekiştirme pencereleri (temiz v1 iskeletine entegre):
+// Kavram Avı: harf çemberiyle konunun anahtar kavramını bulma (tanım terms'ten otomatik okunabilir).
+export type KavramAviStep = {
+  kind: 'kavram_avi';
+  prompt: string;
+  word: string;
+  term?: string;
+  definition?: string;
+  explanation: string;
+};
+
+// Hata Avcısı (Dedektif Atom): cümledeki bilimsel olarak yanlış tek ifadeyi bulup düzeltme.
+export type SpotErrorStep = {
+  kind: 'hata_avcisi';
+  prompt: string;
+  tokens: string[];
+  errorIndex: number;
+  correction: string;
+  hint: string;
+  explanation: string;
+};
+
+// Bilgi Kasası (Kaçış Kilidi): ipuçlarına göre 2–4 kilit kadranını çözüp kasayı açma.
+export type VaultLockStep = {
+  kind: 'kasa_kilidi';
+  prompt: string;
+  vaultTitle?: string;
+  dials: { clue: string; options: string[]; answer: number }[];
+  hint?: string;
+  explanation: string;
+};
+
+// Karşılaştırma / Deney Sürgüsü: 0 → 100 arasında iki durumun farkını etkileşimli kaydırarak keşfetme.
+export type SliderStep = {
+  kind: 'surgu';
+  prompt: string;
+  left: { label: string; icon?: IconName; text: string };
+  right: { label: string; icon?: IconName; text: string };
+  explanation: string;
+};
+
+// Kaydır & Ayır: kartları sola/sağa kaydırarak veya düğmelerle iki kategoriye ayırma.
+export type SwipeSortStep = {
+  kind: 'kaydir_ayir';
+  prompt: string;
+  leftLabel: string;
+  rightLabel: string;
+  hint: string;
+  items: { text: string; side: 'L' | 'R' }[];
+  explanation: string;
+};
+
 export type QuestionStep = { kind: 'soru'; questionId: number };
 // "Konuyu anladık mı?": havuzdaki klasik soru (questionId) ya da derste yazılmış soru + örnek cevap.
 export type ClassicalStep = { kind: 'klasik'; questionId: number } | { kind: 'klasik'; prompt: string; modelAnswer: string };
@@ -148,6 +200,11 @@ export type LessonStep =
   | MultiStep
   | LabelStep
   | FindStep
+  | KavramAviStep
+  | SpotErrorStep
+  | VaultLockStep
+  | SliderStep
+  | SwipeSortStep
   | QuestionStep
   | ClassicalStep;
 export type LessonBlock = { sectionId: number; title: string; steps: LessonStep[] };
@@ -184,6 +241,11 @@ export type HydratedStep =
   | ExploreStep
   | LabelStep
   | FindStep
+  | KavramAviStep
+  | SpotErrorStep
+  | VaultLockStep
+  | SliderStep
+  | SwipeSortStep
   | { kind: 'soru'; question: MultipleChoiceQuestion | BlankQuestion }
   | { kind: 'klasik'; question: ClassicalQuestion };
 // spares: aynı bölümün havuzunda derste kullanılmamış test soruları — bölüm sonunda yanlış yapılan

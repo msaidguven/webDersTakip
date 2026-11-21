@@ -2,9 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
 import { PDFDocument } from 'pdf-lib';
+import { launchChromium } from '@/app/src/lib/htmlToPdf';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { createClient } from '@/utils/supabase/server';
 import { logDownload } from '@/app/src/lib/downloadEvents';
@@ -382,16 +381,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const generatedDate = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   const { cover, body } = buildHtml({ ...htmlInput, generatedDate });
 
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+  let browser: Awaited<ReturnType<typeof launchChromium>> | null = null;
   try {
-    // @sparticuz/chromium 137'de defaultViewport/headless static alanları kaldırıldı
-    // (bkz. build/index.d.ts) — sadece args/executablePath sağlıyor, headless artık
-    // puppeteer-core'un kendi varsayılanı (true).
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
+    browser = await launchChromium();
 
     const page = await browser.newPage();
     // 'networkidle0' (500ms boyunca sıfır ağ isteği) sayfadaki görsellerden biri yavaş/

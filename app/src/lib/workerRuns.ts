@@ -13,9 +13,6 @@ import { QUOTA_TAG_RE } from '@/app/src/lib/geminiJsonGen';
 import { generateNextAiContentDraft } from '@/app/src/lib/aiContentDraftGen';
 import { generateNextRecapCards } from '@/app/src/lib/recapCardsGen';
 import { CONTENT_WORKER_PROFILES, type ContentWorkerId } from '@/app/src/lib/contentWorkerProfiles';
-import { createAzureEngine } from '@/app/src/lib/narration/azureTts';
-import { generateTopicNarration } from '@/app/src/lib/narration/generateTopicNarration';
-import { revalidateTopicPage } from '@/app/src/lib/topicPageRevalidation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = SupabaseClient<any, any, any>;
@@ -102,49 +99,16 @@ export async function runContentWorker(supabase: Supabase, workerId: ContentWork
   return result;
 }
 
-// "Video / Sesli Anlatım" worker'ı: her çağrıda kuyruktaki ilk konuyu (anlatımı olmayan ya da içeriği
-// değişmiş) seslendirir. Azure ücretsiz katmanı dakikada ~20 istek → ~50 cümlelik bir konu ~3-4 dk sürer;
-// süre bütçesi dolarsa konu yarıda bırakılır, sonraki çağrı üretilmiş sesleri önbellekten alıp devam eder.
-const NARRATION_WORK_BUDGET_MS = 230_000;
-
-export async function runNarrationWorker(supabase: Supabase): Promise<{ status: number; body: Record<string, unknown> }> {
-  const started = Date.now();
-  const logRun = (row: { topic_id: number | null; outcome: string; screens_made?: number; screens_reused?: number; reason?: string | null }) =>
-    supabase.from('topic_narration_worker_runs').insert(row);
-
-  const { data: next, error: nextErr } = await supabase.rpc('next_topic_for_narration');
-  if (nextErr) {
-    await logRun({ topic_id: null, outcome: 'failed', reason: `kuyruk: ${nextErr.message}` });
-    return { status: 500, body: { error: nextErr.message } };
-  }
-  const topicId = (next as { topic_id: number }[] | null)?.[0]?.topic_id;
-  if (!topicId) {
-    await logRun({ topic_id: null, outcome: 'idle' });
-    return { status: 200, body: { outcome: 'idle' } };
-  }
-
-  const key = process.env.AZURE_SPEECH_KEY;
-  const region = process.env.AZURE_SPEECH_REGION;
-  if (!key || !region) {
-    await logRun({ topic_id: topicId, outcome: 'failed', reason: 'AZURE_SPEECH_KEY / AZURE_SPEECH_REGION tanımlı değil' });
-    return { status: 500, body: { error: 'Azure yapılandırılmamış' } };
-  }
-
-  try {
-    const engine = await createAzureEngine(key, region);
-    const result = await generateTopicNarration(supabase, topicId, engine, { deadline: started + NARRATION_WORK_BUDGET_MS });
-    if (result.completed) await revalidateTopicPage(supabase, topicId);
-    await logRun({
-      topic_id: topicId,
-      outcome: result.completed ? 'completed' : 'partial',
-      screens_made: result.made,
-      screens_reused: result.reused,
-      reason: result.completed ? `${engine.voice} · ${result.screenCount} ekran · ${Math.round((result.durationSeconds ?? 0) / 60)} dk` : 'süre doldu, sonraki çalıştırmada devam',
-    });
-    return { status: 200, body: { topicId, ...result } };
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    await logRun({ topic_id: topicId, outcome: 'failed', reason: reason.slice(0, 500) });
-    return { status: 500, body: { topicId, error: reason } };
-  }
+// "Video / Sesli Anlatım" otomatik worker'ı durduruldu (kullanıcı kararı 2026-11-21):
+// Mevcut üretilmiş sesli anlatımlar yayında kalır; yeni konular için Azure TTS kotası
+// yalnızca Etkileşimli Derslere (runInteractiveVoiceStep) ayrılır.
+export async function runNarrationWorker(_supabase: Supabase): Promise<{ status: number; body: Record<string, unknown> }> {
+  void _supabase;
+  return {
+    status: 200,
+    body: {
+      outcome: 'paused',
+      reason: 'Yeni sesli anlatım üretimi durduruldu; Azure kotası etkileşimli derslere ayrıldı.',
+    },
+  };
 }

@@ -6,6 +6,8 @@ import type { LessonTerm } from './types';
 
 export type V2ThemeId = 'lab-capsule' | 'time-machine' | 'explorer-compass' | 'detective-lens';
 
+export type V2PartIconId = 'gear' | 'radar' | 'tube' | 'shield' | 'key' | 'compass' | 'lens' | 'crystal' | 'bolt' | 'leaf';
+
 export type V2StoryStep = {
   kind: 'story';
   emoji: string;
@@ -105,6 +107,22 @@ export type V2ScenarioStep = {
   rounds: V2ScenarioRound[];
 };
 
+/** Bilgi Kaçış Kilidi (Vault Lock): İpuçlarına göre 2–4 kilit kadranını doğru konuma getirip kapıyı aç. */
+export type V2VaultDial = {
+  clue: string;
+  options: string[];
+  answer: number;
+};
+
+export type V2VaultLockStep = {
+  kind: 'vault_lock';
+  say: string;
+  vaultTitle?: string;
+  dials: V2VaultDial[];
+  hint?: string;
+  feedback: string;
+};
+
 /** Veritabanı soru havuzundan gerçek soru (hydrate.ts tarafından doldurulur). */
 export type V2PoolQuestionStep = {
   kind: 'pool_question';
@@ -128,6 +146,7 @@ export type V2Step =
   | V2SwipeSortStep
   | V2SpotErrorStep
   | V2ScenarioStep
+  | V2VaultLockStep
   | V2PoolQuestionStep;
 
 export type HydratedV2Step =
@@ -143,7 +162,7 @@ export type V2Stop = {
   /** Sahne içi vurgu tonu (açık pastel hex). */
   tint: string;
   /** Bu durak tamamlanınca toplanan parça. */
-  part: { emoji: string; name: string };
+  part: { emoji: string; name: string; icon?: V2PartIconId };
   steps: V2Step[];
 };
 

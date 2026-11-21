@@ -7,7 +7,7 @@
 // upgraded = ders sonu ödülü (altın parıltı). Ad ve çizim değişirse yalnız bu dosya + guide.ts ROBOT_NAME.
 import { useId } from 'react';
 
-export type RobotMood = 'normal' | 'happy' | 'think' | 'wow' | 'oops';
+export type RobotMood = 'normal' | 'happy' | 'think' | 'wow' | 'oops' | 'celebrate' | 'detective';
 
 const INK = '#1A237E';
 const EYES: Record<RobotMood, string> = {
@@ -16,6 +16,8 @@ const EYES: Record<RobotMood, string> = {
   wow: `<circle cx="86" cy="101" r="8" fill="${INK}"/><circle cx="83.5" cy="98" r="3" fill="#fff"/><circle cx="114" cy="101" r="8" fill="${INK}"/><circle cx="111.5" cy="98" r="3" fill="#fff"/>`,
   think: `<ellipse cx="88" cy="99" rx="5" ry="6.5" fill="${INK}"/><circle cx="87" cy="96" r="2" fill="#fff"/><ellipse cx="116" cy="99" rx="5" ry="6.5" fill="${INK}"/><circle cx="115" cy="96" r="2" fill="#fff"/>`,
   oops: `<path d="M80 96l11 6-11 6" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M120 96l-11 6 11 6" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  celebrate: `<path d="M86 93l2.6 5.4 6 .8-4.3 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.3-4.2 6-.8z" fill="#FFD54F" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M114 93l2.6 5.4 6 .8-4.3 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.3-4.2 6-.8z" fill="#FFD54F" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`,
+  detective: `<ellipse cx="85" cy="102" rx="5" ry="6.5" fill="${INK}"/><circle cx="83.8" cy="99.5" r="2" fill="#fff"/><circle cx="115" cy="101" r="9.5" fill="#E0F7FA" stroke="${INK}" stroke-width="3.2"/><circle cx="115" cy="101" r="4.8" fill="${INK}"/><circle cx="113" cy="98.8" r="2.1" fill="#fff"/><path d="M122 108l11 11" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/>`,
 };
 const MOUTH: Record<RobotMood, string> = {
   normal: 'M92 114 Q100 123 108 114',
@@ -23,6 +25,8 @@ const MOUTH: Record<RobotMood, string> = {
   wow: 'M96 117 Q100 111 104 117 Q100 123 96 117',
   think: 'M94 118 H107',
   oops: 'M91 118 q4.5 -4 9 0 t9 0',
+  celebrate: 'M87 111 Q100 129 113 111',
+  detective: 'M93 116 Q100 120 107 115',
 };
 
 const STYLE = `
@@ -30,12 +34,17 @@ const STYLE = `
 @keyframes atom-bob{50%{transform:translateY(-4px)}}
 .atom-orbits{transform-box:view-box;transform-origin:100px 105px;animation:atom-spin 18s linear infinite}
 .atom-talking .atom-orbits{animation-duration:6s}
+.atom-celebrate .atom-orbits{animation-duration:3.5s}
 @keyframes atom-spin{to{transform:rotate(360deg)}}
 .atom-mouth{transform-box:fill-box;transform-origin:center}
 .atom-talking .atom-mouth{animation:atom-talk .22s ease-in-out infinite alternate}
 @keyframes atom-talk{to{transform:scaleY(1.9)}}
 .atom-happy .atom-core{animation:atom-hop .45s ease-in-out 2 alternate;transform-box:fill-box;transform-origin:bottom}
+.atom-celebrate .atom-core{animation:atom-jump .52s cubic-bezier(.22,1,.36,1) infinite alternate;transform-box:fill-box;transform-origin:bottom}
+.atom-detective .atom-core{animation:atom-scan 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes atom-hop{to{transform:translateY(-6px) scale(1.04)}}
+@keyframes atom-jump{from{transform:translateY(0) scale(1)}to{transform:translateY(-9px) scale(1.07)}}
+@keyframes atom-scan{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
 .atom-oops .atom-core{animation:atom-shake .12s linear 4 alternate;transform-box:fill-box;transform-origin:center}
 @keyframes atom-shake{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
 .atom-spark{animation:atom-twinkle 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
@@ -44,13 +53,14 @@ const STYLE = `
 `;
 
 function svg(id: string, mood: RobotMood, upgraded: boolean): string {
-  const glow = upgraded ? '#FFD54F' : '#FFAB40';
+  const showSparks = upgraded || mood === 'celebrate';
+  const glow = showSparks ? '#FFD54F' : mood === 'detective' ? '#38BDF8' : '#FFAB40';
   return `<defs>
     <radialGradient id="${id}g" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${glow}" stop-opacity="${upgraded ? 0.7 : 0.3}"/><stop offset="100%" stop-color="#FF5722" stop-opacity="0"/></radialGradient>
     <linearGradient id="${id}c" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF7043"/><stop offset="50%" stop-color="#FF5722"/><stop offset="100%" stop-color="#E64A19"/></linearGradient>
     <linearGradient id="${id}e" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00E5FF"/><stop offset="100%" stop-color="#00B0FF"/></linearGradient>
   </defs>
-  <circle cx="100" cy="105" r="${upgraded ? 86 : 75}" fill="url(#${id}g)"/>
+  <circle cx="100" cy="105" r="${showSparks ? 86 : 75}" fill="url(#${id}g)"/>
   <g class="atom-orbits">
     <ellipse cx="100" cy="105" rx="75" ry="24" fill="none" stroke="#64B5F6" stroke-width="3.5" opacity=".7" transform="rotate(-30 100 105)" stroke-dasharray="8 4"/>
     <ellipse cx="100" cy="105" rx="75" ry="24" fill="none" stroke="#4DD0E1" stroke-width="3.5" opacity=".7" transform="rotate(30 100 105)"/>
@@ -67,7 +77,7 @@ function svg(id: string, mood: RobotMood, upgraded: boolean): string {
     <path class="atom-mouth" d="${MOUTH[mood]}" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/>
   </g>
   <path d="M 32 90 A 75 24 0 0 0 148 128" fill="none" stroke="#64B5F6" stroke-width="3.5" opacity=".9" transform="rotate(-30 100 105)"/>
-  ${upgraded ? '<path class="atom-spark" d="M156 44l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#FFC531"/><path class="atom-spark" d="M42 150l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFC531" style="animation-delay:.5s"/>' : ''}`;
+  ${showSparks ? '<path class="atom-spark" d="M156 44l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#FFC531"/><path class="atom-spark" d="M42 150l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFC531" style="animation-delay:.5s"/>' : ''}`;
 }
 
 export default function RobotGuide({ mood = 'normal', talking = false, upgraded = false, className = '' }: { mood?: RobotMood; talking?: boolean; upgraded?: boolean; className?: string }) {

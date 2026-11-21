@@ -50,6 +50,8 @@ const nextConfig: NextConfig = {
     // Önizleme Chromium kullanmaz ama aynı şablon KaTeX CSS'ini çalışma anında okur.
     "/api/ogretmen/yazili/onizleme/**": ["./node_modules/katex/dist/katex.min.css"],
     "/api/ogretmen/yazili/word/**": RESVG_LINUX_X64_TRACE_INCLUDES,
+    // Firebase App Hosting'de /icons/*.png istekleri [gradeSlug]/[lessonSlug] rotasına düşmesin.
+    "/icons/**": ["./public/icons/**/*"],
   },
   images: {
     domains: [],

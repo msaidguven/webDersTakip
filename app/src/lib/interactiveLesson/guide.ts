@@ -5,6 +5,7 @@
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
 import { isHydratedV2, type HydratedLessonV2 } from './typesV2';
+import { isHydratedV3, type HydratedLessonV3 } from './typesV3';
 
 export const ROBOT_NAME = 'Atom';
 export const VOICE_BUCKET = 'topic-narration';
@@ -139,8 +140,34 @@ export function narrativeSpeech(step: NarrativeStep, part: NarrativePart): strin
   return [step.body ?? step.title];
 }
 
-// Dersin seslendirilecek bütün cümleleri (üretim betiği). Hem v1 hem v2 derslerini destekler.
-export function lessonLines(lesson: HydratedLesson | HydratedLessonV2): string[] {
+// Dersin seslendirilecek bütün cümleleri (üretim betiği). v1, v2 ve v3 derslerini destekler.
+export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | HydratedLessonV3): string[] {
+  if (isHydratedV3(lesson)) {
+    const out: string[] = [
+      ...GUIDE.praise,
+      lesson.guide?.intro ?? GUIDE.intro(lesson.topicTitle),
+      lesson.guide?.finish ?? GUIDE.finish,
+    ];
+    for (const sec of lesson.sections) {
+      for (const beat of sec.beats) {
+        out.push(beat.fact);
+        if (beat.quickCheck) {
+          out.push(beat.quickCheck.prompt, beat.quickCheck.okFeedback, beat.quickCheck.retryFeedback);
+        }
+      }
+      if (sec.game.kind === 'kavram_avi') {
+        out.push(sec.game.intro);
+        for (const r of sec.game.rounds) {
+          out.push(r.praise);
+        }
+      }
+      for (const q of sec.checkQuestions) {
+        out.push(q.question_text);
+        if (q.solution_text) out.push(q.solution_text);
+      }
+    }
+    return [...new Set(out.map(speechText).filter(Boolean))];
+  }
   if (isHydratedV2(lesson)) {
     const out: string[] = [
       ...GUIDE.praise,
@@ -158,6 +185,9 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2): string[]
             out.push(r.situation);
             for (const o of r.options) out.push(o.feedback);
           }
+        }
+        if (step.kind === 'vault_lock') {
+          for (const d of step.dials) out.push(d.clue);
         }
         if (step.kind === 'pool_question') {
           out.push(step.question.question_text);
@@ -200,6 +230,16 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2): string[]
       if (step.kind === 'bul') {
         for (const q of step.questions) out.push(q.prompt);
         for (const z of step.zones) out.push(GUIDE.findWrong(z.name));
+      }
+      if (step.kind === 'kasa_kilidi') {
+        for (const d of step.dials) out.push(d.clue);
+        if (step.hint) out.push(step.hint);
+      }
+      if (step.kind === 'hata_avcisi' || step.kind === 'kaydir_ayir') {
+        out.push(step.hint);
+      }
+      if (step.kind === 'surgu') {
+        out.push(step.left.text, step.right.text);
       }
     }
   });

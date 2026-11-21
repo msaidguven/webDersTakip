@@ -7,11 +7,12 @@ import { KavramKutulari } from '@/app/src/components/kavram-avi/KavramKutulari';
 import { useKavramOyunu } from '@/app/src/hooks/useKavramOyunu';
 import type { Kavram } from '@/app/src/lib/kavramAvi';
 import type { V2KavramAviStep } from '@/app/src/lib/interactiveLesson/typesV2';
+import type { LessonSfx } from '@/app/src/lib/interactiveLesson/sound';
 import type { RobotMood } from '../../RobotGuide';
 import s from '../v2.module.css';
 
 export type GameCallbacks = {
-  onReact: (mood: RobotMood, text: string, tone?: 'normal' | 'ok' | 'oops', sfx?: 'ok' | 'retry' | 'tap' | 'link', linkStep?: number) => void;
+  onReact: (mood: RobotMood, text: string, tone?: 'normal' | 'ok' | 'oops', sfx?: LessonSfx, linkStep?: number) => void;
   onMiss: () => void;
   onComplete: () => void;
 };

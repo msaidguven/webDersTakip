@@ -21,6 +21,11 @@ export const STEP_TEMPLATES = {
   bosluk: { name: 'Boşluk doldurma', purpose: 'Terimleri bağlam içinde kullanmak (süreç cümlesi, hesap sonucu).', blanks: [1, 4] as Range, distractors: [1, 3] as Range, textCharsMax: 280 },
   siralama: { name: 'Sıralama', purpose: 'Sırası olan bilgi: adımlar, büyüklük/küçüklük, zaman.', items: [3, 6] as Range },
   coklu_secim: { name: 'Çoklu seçim', purpose: 'Bir ölçüte uyanların hepsini bulmak.', options: [4, 6] as Range, correct: [2, 4] as Range },
+  kavram_avi: { name: 'Kavram Avı', purpose: 'Harf çemberiyle konunun anahtar kavramını bulmak.' },
+  hata_avcisi: { name: 'Hata Avcısı', purpose: 'Cümledeki tek bilimsel hatayı bulup düzeltmek.', tokens: [4, 14] as Range },
+  kasa_kilidi: { name: 'Bilgi Kasası', purpose: 'İpuçlarıyla 2-4 kilit kadranını çözüp kasayı açmak.', dials: [2, 4] as Range },
+  surgu: { name: 'Deney Sürgüsü', purpose: 'İki durum veya kavram arasındaki dönüşümü sürgüyle keşfetmek.' },
+  kaydir_ayir: { name: 'Kaydır ve Ayır', purpose: 'Örnek kartları iki kategoriye hızlıca ayırmak.', items: [3, 6] as Range },
   soru: { name: 'Test sorusu', purpose: 'Havuzdan, aynı bölümün sorusu.' },
   klasik: { name: 'Konuyu anladık mı?', purpose: 'Açık uçlu; öğrenci yazar, örnek cevapla karşılaştırır.', promptCharsMax: 250 },
 } as const;
@@ -235,6 +240,28 @@ function validateStep(out: string[], where: string, step: LessonStep, lessonTerm
       if (step.visual) validateVisual(out, where, step.visual);
       break;
     }
+    case 'kavram_avi':
+      if (!step.word.trim()) out.push(`${where}: aranan kavram boş`);
+      break;
+    case 'hata_avcisi':
+      checkRange(out, where, 'kelime bloğu', step.tokens.length, STEP_TEMPLATES.hata_avcisi.tokens);
+      if (step.errorIndex < 0 || step.errorIndex >= step.tokens.length) out.push(`${where}: geçersiz errorIndex`);
+      if (!step.correction.trim()) out.push(`${where}: düzeltme metni boş`);
+      break;
+    case 'kasa_kilidi':
+      checkRange(out, where, 'kadran', step.dials.length, STEP_TEMPLATES.kasa_kilidi.dials);
+      step.dials.forEach((d, di) => {
+        if (d.options.length < 2 || d.options.length > 4) out.push(`${where}: kadran ${di + 1} seçenek sayısı 2-4 olmalı`);
+        if (d.answer < 0 || d.answer >= d.options.length) out.push(`${where}: kadran ${di + 1} geçersiz cevap indeksi`);
+      });
+      break;
+    case 'surgu':
+      if (!step.left.label.trim() || !step.right.label.trim()) out.push(`${where}: sürgü başlıkları boş olamaz`);
+      break;
+    case 'kaydir_ayir':
+      checkRange(out, where, 'kart', step.items.length, STEP_TEMPLATES.kaydir_ayir.items);
+      if (step.items.every((it) => it.side === 'L') || step.items.every((it) => it.side === 'R')) out.push(`${where}: kartların hepsi aynı tarafta`);
+      break;
     case 'klasik':
       if ('prompt' in step) checkLen(out, where, 'soru', step.prompt, STEP_TEMPLATES.klasik.promptCharsMax);
       break;
@@ -252,7 +279,13 @@ export function validateLesson(lesson: LessonDefinition, highlightTerms?: Iterab
     const count = (kinds: LessonStep['kind'][]) => block.steps.filter((s) => kinds.includes(s.kind)).length;
     const where = `Bölüm ${bi + 1}`;
     checkRange(out, where, 'anlatım ekranı', count(['anlatim', 'kesif']), BLOCK_LIMITS.anlatim);
-    checkRange(out, where, 'pekiştirme', count(['eslestirme', 'dogru_yanlis', 'bosluk', 'siralama', 'coklu_secim', 'etiketle', 'bul']), BLOCK_LIMITS.pekistirme);
+    checkRange(
+      out,
+      where,
+      'pekiştirme',
+      count(['eslestirme', 'dogru_yanlis', 'bosluk', 'siralama', 'coklu_secim', 'etiketle', 'bul', 'kavram_avi', 'hata_avcisi', 'kasa_kilidi', 'surgu', 'kaydir_ayir']),
+      BLOCK_LIMITS.pekistirme,
+    );
     checkRange(out, where, 'test sorusu', count(['soru']), BLOCK_LIMITS.soru);
     checkRange(out, where, '"Konuyu anladık mı?"', count(['klasik']), BLOCK_LIMITS.klasik);
     block.steps.forEach((step, si) => validateStep(out, `${where}, adım ${si + 1} (${STEP_TEMPLATES[step.kind].name})`, step, lesson.terms ?? {}, knownTerms));

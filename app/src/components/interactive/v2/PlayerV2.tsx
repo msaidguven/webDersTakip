@@ -1,18 +1,19 @@
 'use client';
 
-// Etkileşimli Ders Oynatıcısı v2 — Oyunlaştırılmış, tek-ekranda-tek-bilgi, dokunsal öğrenme motoru.
+// Etkileşimli Ders Oynatıcısı v2 — Oyunlaştırılmış, tema dünyalı, dokunsal öğrenme motoru.
 // Mevcut sound.ts, RobotGuide.tsx ve Kavram Avı bileşenleriyle tam entegredir.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Baloo_2 } from 'next/font/google';
 import { Music, Volume2, VolumeX, X } from 'lucide-react';
-import { lessonSound } from '@/app/src/lib/interactiveLesson/sound';
+import { lessonSound, type LessonSfx } from '@/app/src/lib/interactiveLesson/sound';
 import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import { ttsText, voiceAudioPath, voiceKey, voiceManifestPath, VOICE_BUCKET } from '@/app/src/lib/interactiveLesson/guide';
 import type { HydratedLessonV2, HydratedV2Step } from '@/app/src/lib/interactiveLesson/typesV2';
 import RobotGuide, { type RobotMood } from '../RobotGuide';
 import { AtomDialogue } from './AtomDialogue';
+import { PartIconSvg, StarSvg, StreakFlameSvg, TrophyBadgeSvg } from './IconsV2';
 import { JourneyMap } from './JourneyMap';
-import { AtmosphereBackdrop, MAP_ATMOSPHERE, STOP_ATMOSPHERES, ThemeDeviceSvg } from './ThemesV2';
+import { AtmosphereBackdrop, getThemeWorld, ThemeDeviceSvg } from './ThemesV2';
 import { KavramAviGame } from './games/KavramAviGame';
 import { SliderGame } from './games/SliderGame';
 import { MatchGame } from './games/MatchGame';
@@ -21,34 +22,46 @@ import { HatGame } from './games/HatGame';
 import { SwipeSortGame } from './games/SwipeSortGame';
 import { SpotErrorGame } from './games/SpotErrorGame';
 import { ScenarioGame } from './games/ScenarioGame';
+import { VaultLockGame } from './games/VaultLockGame';
 import { PoolQuestionGame } from './games/PoolQuestionGame';
 import s from './v2.module.css';
 
 const display = Baloo_2({ subsets: ['latin', 'latin-ext'], weight: ['600', '700', '800'] });
 
 const GAME_CHIP_LABELS: Record<HydratedV2Step['kind'], string> = {
-  story: '✨ Hikâye',
-  kavram_avi: '🎯 Kavram Avı',
-  slider: '🎚️ Kaydır & Keşfet',
-  hat: '🏅 Rozet Tak',
-  match: '⚡ Hızlı Eşleştirme',
-  order: '🪜 Sıraya Diz',
-  swipe_sort: '👆 Kaydır & Ayır',
-  spot_error: '🔎 Hata Avcısı',
-  scenario: '🧭 Senaryo Kararı',
-  pool_question: '💬 Atom Soruyor',
+  story: 'Hikâye',
+  kavram_avi: 'Kavram Avı',
+  slider: 'Deney Sürgüsü',
+  hat: 'Rozet Tak',
+  match: 'Eşleştirme Labı',
+  order: 'Süreç Hattı',
+  swipe_sort: 'Kaydır & Ayır',
+  spot_error: 'Dedektif Atom',
+  scenario: 'Senaryo Kararı',
+  vault_lock: 'Bilgi Kasası',
+  pool_question: 'Atom Soruyor',
 };
 
-type SavedV2 = { openCount: number; stars: Record<number, number> };
+type SavedV2 = {
+  openCount: number;
+  stars: Record<number, number>;
+  totalXp?: number;
+  bestStreak?: number;
+};
 
 function loadProgress(topicId: number): SavedV2 {
   try {
     const raw = localStorage.getItem(`il_v2_${topicId}`);
-    if (!raw) return { openCount: 1, stars: {} };
+    if (!raw) return { openCount: 1, stars: {}, totalXp: 0, bestStreak: 0 };
     const parsed = JSON.parse(raw) as Partial<SavedV2>;
-    return { openCount: Math.max(1, parsed.openCount ?? 1), stars: parsed.stars ?? {} };
+    return {
+      openCount: Math.max(1, parsed.openCount ?? 1),
+      stars: parsed.stars ?? {},
+      totalXp: Math.max(0, parsed.totalXp ?? 0),
+      bestStreak: Math.max(0, parsed.bestStreak ?? 0),
+    };
   } catch {
-    return { openCount: 1, stars: {} };
+    return { openCount: 1, stars: {}, totalXp: 0, bestStreak: 0 };
   }
 }
 
@@ -67,6 +80,11 @@ function initialStepText(step: HydratedV2Step): string {
     return step.say ?? 'Gerçek sınav sorusuyla bilgini test et!';
   }
   return step.say;
+}
+
+function initialStepMood(step: HydratedV2Step): RobotMood {
+  if (step.kind === 'spot_error' || step.kind === 'vault_lock') return 'detective';
+  return 'normal';
 }
 
 function ConfettiBurst() {
@@ -97,7 +115,11 @@ type RunSession = {
   stepIdx: number;
   retryQueue: HydratedV2Step[];
   inRetryPass: boolean;
+  conqueredRetry: boolean;
   misses: number;
+  stepMissed: boolean;
+  streak: number;
+  earnedXp: number;
   completedCount: number;
   totalCount: number;
   finished: boolean;
@@ -132,6 +154,8 @@ export default function PlayerV2({
     soundOnRef.current = soundOn;
     voicedRef.current = voiced;
   });
+
+  const world = getThemeWorld(lesson.themeId);
 
   // Ses listesi (varsa Azure TTS) ve yaşam döngüsü
   useEffect(() => {
@@ -179,7 +203,7 @@ export default function PlayerV2({
       mood: RobotMood,
       text: string,
       tone: 'normal' | 'ok' | 'oops' = 'normal',
-      sfx?: 'ok' | 'retry' | 'tap' | 'link' | 'win' | 'warp',
+      sfx?: LessonSfx,
       linkStep = 0,
     ) => {
       setAtomMood(mood);
@@ -204,14 +228,18 @@ export default function PlayerV2({
         stepIdx: 0,
         retryQueue: [],
         inRetryPass: false,
+        conqueredRetry: false,
         misses: 0,
+        stepMissed: false,
+        streak: 0,
+        earnedXp: 0,
         completedCount: 0,
         totalCount: stop.steps.length,
         finished: false,
       });
       setMode('scene');
       if (first) {
-        setAtomMood('normal');
+        setAtomMood(initialStepMood(first));
         setAtomTone('normal');
         setAtomText(initialStepText(first));
         speakLine(initialStepText(first));
@@ -248,6 +276,8 @@ export default function PlayerV2({
       return {
         ...prev,
         misses: prev.misses + 1,
+        stepMissed: true,
+        streak: 0,
         retryQueue: shouldQueue ? [...prev.retryQueue, cur] : prev.retryQueue,
       };
     });
@@ -257,17 +287,30 @@ export default function PlayerV2({
     if (soundOnRef.current) lessonSound().sfx('tap');
     setSession((prev) => {
       if (!prev) return prev;
+      const curStep = prev.queue[prev.stepIdx];
+      const isInteractive = curStep && curStep.kind !== 'story';
+      const nextStreak = isInteractive ? (prev.stepMissed ? 0 : prev.streak + 1) : prev.streak;
+      // Hem ilk seferde doğru yapmayı hem tekrar geçerek öğrenmeyi ödüllendir
+      const stepXp = isInteractive ? (prev.stepMissed ? 15 : 25 + Math.min(nextStreak, 5) * 5) : 5;
+      const nextXp = prev.earnedXp + stepXp;
       const nextIdx = prev.stepIdx + 1;
       const nextDone = prev.completedCount + 1;
 
       if (nextIdx < prev.queue.length) {
         const nextStep = prev.queue[nextIdx];
-        setAtomMood('normal');
+        setAtomMood(initialStepMood(nextStep));
         setAtomTone('normal');
         setAtomText(initialStepText(nextStep));
         speakLine(initialStepText(nextStep));
         scrollRef.current?.scrollTo({ top: 0 });
-        return { ...prev, stepIdx: nextIdx, completedCount: nextDone };
+        return {
+          ...prev,
+          stepIdx: nextIdx,
+          completedCount: nextDone,
+          streak: nextStreak,
+          earnedXp: nextXp,
+          stepMissed: false,
+        };
       }
 
       // Akıllı tekrar kuyruğu: yanlış yapılan adımlar durak sonunda 1 kez daha oynanır.
@@ -275,8 +318,8 @@ export default function PlayerV2({
         const retryIntro: HydratedV2Step = {
           kind: 'story',
           emoji: '🔁',
-          badge: 'Tekrar Zamanı',
-          say: 'Harika gidiyorsun! Az önce zorlandığın adımı şimdi bir kez daha deneyip pekiştirelim.',
+          badge: 'Pekiştirme Turu',
+          say: 'Harika gidiyorsun! Az önce zorlandığın adımı şimdi bir kez daha deneyip ustalaşalım.',
         };
         const retryList = [retryIntro, ...prev.retryQueue];
         setAtomMood('wow');
@@ -290,6 +333,10 @@ export default function PlayerV2({
           stepIdx: 0,
           retryQueue: [],
           inRetryPass: true,
+          conqueredRetry: true,
+          streak: nextStreak,
+          earnedXp: nextXp,
+          stepMissed: false,
           completedCount: nextDone,
           totalCount: prev.totalCount + retryList.length,
         };
@@ -299,11 +346,15 @@ export default function PlayerV2({
       const stop = lesson.stops[prev.stopIdx];
       const earnedStars = prev.misses === 0 ? 3 : prev.misses <= 2 ? 2 : 1;
       const isLast = prev.stopIdx === lesson.stops.length - 1;
+      const retryBonus = prev.conqueredRetry ? 20 : 0;
+      const finalRunXp = nextXp + retryBonus;
 
       setProgress((old) => {
         const updated: SavedV2 = {
           openCount: Math.min(lesson.stops.length, Math.max(old.openCount, prev.stopIdx + 2)),
           stars: { ...old.stars, [prev.stopIdx]: Math.max(old.stars[prev.stopIdx] ?? 0, earnedStars) },
+          totalXp: (old.totalXp ?? 0) + finalRunXp,
+          bestStreak: Math.max(old.bestStreak ?? 0, nextStreak),
         };
         saveProgress(lesson.topicId, updated);
         if (Object.keys(updated.stars).length === lesson.stops.length) {
@@ -314,8 +365,8 @@ export default function PlayerV2({
 
       const winMsg = isLast
         ? lesson.guide?.finish ?? 'Tebrikler! Tüm parçaları toplayarak macerayı tamamladın!'
-        : `Harikasın! <b>${stop.part.name}</b> kapsüle takıldı!`;
-      setAtomMood('happy');
+        : `Harikasın! <b>${stop.part.name}</b> ${world.attachNoun} takıldı!`;
+      setAtomMood('celebrate');
       setAtomTone('ok');
       setAtomText(winMsg);
       if (soundOnRef.current) lessonSound().sfx('win');
@@ -323,9 +374,15 @@ export default function PlayerV2({
       setConfetti(true);
       window.setTimeout(() => setConfetti(false), 2600);
       scrollRef.current?.scrollTo({ top: 0 });
-      return { ...prev, completedCount: prev.totalCount, finished: true };
+      return {
+        ...prev,
+        streak: nextStreak,
+        earnedXp: finalRunXp,
+        completedCount: prev.totalCount,
+        finished: true,
+      };
     });
-  }, [lesson, speakLine]);
+  }, [lesson, speakLine, world.attachNoun]);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -359,7 +416,7 @@ export default function PlayerV2({
   };
 
   const resetProgress = () => {
-    const empty: SavedV2 = { openCount: 1, stars: {} };
+    const empty: SavedV2 = { openCount: 1, stars: {}, totalXp: 0, bestStreak: 0 };
     setProgress(empty);
     saveProgress(lesson.topicId, empty);
     if (soundOnRef.current) lessonSound().sfx('tap');
@@ -369,8 +426,8 @@ export default function PlayerV2({
   const activeStep = session && !session.finished ? session.queue[session.stepIdx] : null;
   const atmosphere =
     mode === 'scene' && session
-      ? STOP_ATMOSPHERES[session.stopIdx % STOP_ATMOSPHERES.length]
-      : MAP_ATMOSPHERE;
+      ? world.stopAtmospheres[session.stopIdx % world.stopAtmospheres.length]
+      : world.mapAtmosphere;
   const collectedCount = Object.keys(progress.stars).length;
   const progressPct = session
     ? session.finished
@@ -406,8 +463,18 @@ export default function PlayerV2({
           )}
         </div>
 
+        {mode === 'scene' && session && session.streak >= 2 && (
+          <span className={`${s.pill} ${s.streakPill}`} aria-label={`${session.streak} seri`}>
+            <StreakFlameSvg className="h-4 w-4" />
+            <span>{session.streak}x</span>
+          </span>
+        )}
+
         <span className={s.pill} aria-label={`${collectedCount}/${lesson.stops.length} parça toplandı`}>
-          ⚙️ {collectedCount}/{lesson.stops.length}
+          <PartIconSvg icon={activeStop?.part.icon ?? 'gear'} className="h-4 w-4" />
+          <span>
+            {collectedCount}/{lesson.stops.length}
+          </span>
         </span>
 
         <button
@@ -444,6 +511,7 @@ export default function PlayerV2({
             lesson={lesson}
             openCount={progress.openCount}
             stars={progress.stars}
+            totalXp={progress.totalXp ?? 0}
             onSelectStop={warpToStop}
             onLockedTap={() => soundOnRef.current && lessonSound().sfx('retry')}
             onReset={resetProgress}
@@ -452,11 +520,20 @@ export default function PlayerV2({
 
         {mode === 'scene' && session && activeStop && (
           <div className={s.sceneWrap}>
-            <div className={s.card} key={`${session.stopIdx}-${session.inRetryPass ? 'r' : 'm'}-${session.stepIdx}-${session.finished ? 'fin' : 'play'}`}>
+            <div
+              className={s.card}
+              data-game={session.finished ? 'reward' : activeStep?.kind}
+              key={`${session.stopIdx}-${session.inRetryPass ? 'r' : 'm'}-${session.stepIdx}-${session.finished ? 'fin' : 'play'}`}
+            >
               <div className={s.topTags}>
                 <span className={s.eraChip}>{activeStop.subtitle}</span>
                 {activeStep && <span className={s.gameChip}>{GAME_CHIP_LABELS[activeStep.kind]}</span>}
-                {session.finished && <span className={s.gameChip}>🏆 Durak Tamamlandı</span>}
+                {session.finished && (
+                  <span className={`${s.gameChip} inline-flex items-center gap-1`}>
+                    <TrophyBadgeSvg className="h-4 w-4" />
+                    Durak Tamamlandı
+                  </span>
+                )}
               </div>
 
               <AtomDialogue
@@ -474,10 +551,10 @@ export default function PlayerV2({
                   {activeStep.kind === 'story' && (
                     <>
                       <div className={s.stageOrb} aria-hidden="true">
-                        {activeStep.emoji}
+                        <PartIconSvg emoji={activeStep.emoji} className="h-14 w-14" />
                       </div>
                       <button type="button" onClick={handleAdvance} className={s.goBtn}>
-                        Devam →
+                        {activeStep.badge ? `${activeStep.badge} Başla →` : 'Devam →'}
                       </button>
                     </>
                   )}
@@ -505,13 +582,16 @@ export default function PlayerV2({
                   {activeStep.kind === 'scenario' && (
                     <ScenarioGame step={activeStep} onReact={react} onMiss={handleMiss} onComplete={handleAdvance} />
                   )}
+                  {activeStep.kind === 'vault_lock' && (
+                    <VaultLockGame step={activeStep} onReact={react} onMiss={handleMiss} onComplete={handleAdvance} />
+                  )}
                   {activeStep.kind === 'pool_question' && (
                     <PoolQuestionGame step={activeStep} onReact={react} onMiss={handleMiss} onComplete={handleAdvance} />
                   )}
                 </>
               )}
 
-              {/* Durak Ödül Ekranı */}
+              {/* Durak Ödül & Ustalık Ekranı */}
               {session.finished && (
                 <>
                   <div className={`${s.stageOrb} ${s.stageOrbReward}`}>
@@ -520,25 +600,39 @@ export default function PlayerV2({
                         <ThemeDeviceSvg themeId={lesson.themeId} collected={lesson.stops.length} total={lesson.stops.length} />
                       </div>
                     ) : (
-                      <span aria-hidden="true">{activeStop.part.emoji}</span>
+                      <PartIconSvg icon={activeStop.part.icon} emoji={activeStop.part.emoji} className="h-16 w-16" />
                     )}
                   </div>
 
                   <p className="text-center text-lg font-extrabold text-slate-900">
                     {session.stopIdx === lesson.stops.length - 1
-                      ? `🏅 ${lesson.badgeTitle} Rozeti Kazanıldı!`
+                      ? `${lesson.badgeTitle} Rozeti Kazanıldı!`
                       : `${activeStop.part.name} Takıldı (${collectedCount}/${lesson.stops.length})`}
                   </p>
 
                   {(() => {
                     const earned = session.misses === 0 ? 3 : session.misses <= 2 ? 2 : 1;
                     return (
-                      <div className={s.starsRow} aria-label={`${earned} yıldız`}>
-                        {'★'.repeat(earned)}
-                        {'☆'.repeat(3 - earned)}
+                      <div className="flex items-center justify-center gap-2" aria-label={`${earned} yıldız`}>
+                        {[1, 2, 3].map((n) => (
+                          <span
+                            key={n}
+                            className={n <= earned ? s.starPop : 'opacity-40'}
+                            style={{ animationDelay: `${(n - 1) * 110}ms` }}
+                          >
+                            <StarSvg filled={n <= earned} className="h-10 w-10" />
+                          </span>
+                        ))}
                       </div>
                     );
                   })()}
+
+                  {/* Ustalık özeti çubuğu */}
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <span className={s.summaryChip}>+{session.earnedXp} XP</span>
+                    {session.misses === 0 && <span className={`${s.summaryChip} ${s.summaryChipGold}`}>Hatasız Usta</span>}
+                    {session.conqueredRetry && <span className={`${s.summaryChip} ${s.summaryChipMint}`}>Pekiştirme Başarısı</span>}
+                  </div>
 
                   {session.stopIdx < lesson.stops.length - 1 && (
                     <button type="button" onClick={() => warpToStop(session.stopIdx + 1)} className={s.goBtn}>
@@ -562,7 +656,7 @@ export default function PlayerV2({
             <div className={s.portalRing} />
             <div className={`${s.portalRing} ${s.portalRing2}`} />
             <div className="w-20">
-              <RobotGuide mood="happy" />
+              <RobotGuide mood="celebrate" />
             </div>
           </div>
           <span className={s.warpEra}>{lesson.stops[warpingTo].subtitle}</span>

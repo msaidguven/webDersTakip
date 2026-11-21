@@ -963,6 +963,460 @@
   }
 }
 
+/* Parallax arka plan hareket katmanları */
+.driftSlow {
+  animation: v2Drift 14s ease-in-out infinite alternate;
+}
+
+.driftMed {
+  animation: v2Drift 9s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes v2Drift {
+  from {
+    transform: translate3d(-8px, 0, 0);
+  }
+  to {
+    transform: translate3d(10px, -6px, 0);
+  }
+}
+
+/* Oyun türüne göre farklılaşan sahne kartı kimliği */
+.card[data-game='vault_lock'] {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  border: 2px solid #cbd5e1;
+}
+
+.card[data-game='spot_error'] {
+  background: linear-gradient(180deg, #fffdf7 0%, #f8fafc 100%);
+  border: 2px solid #fde68a;
+}
+
+.card[data-game='match'] {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
+  border: 2px solid #bae6fd;
+}
+
+.card[data-game='reward'] {
+  background: linear-gradient(180deg, #fffef5 0%, #f5f3ff 100%);
+  border: 2px solid #fde047;
+}
+
+/* Üst çubuk seri ve XP rozetleri */
+.streakPill {
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  color: #c2410c;
+  border: 1.5px solid #fdba74;
+  animation: v2Pop 0.3s ease;
+}
+
+.xpPill {
+  font-size: 11px;
+  font-weight: 900;
+  color: #0f172a;
+  background: #fde047;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+/* Ödül ekranı yıldız ve ustalık özet çipleri */
+.starPop {
+  display: inline-flex;
+  animation: v2Pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.summaryChip {
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1.5px solid #7dd3fc;
+}
+
+.summaryChipGold {
+  background: #fef9c3;
+  color: #92400e;
+  border-color: #fde047;
+}
+
+.summaryChipMint {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+/* Eşleştirme Laboratuvarı: SVG enerji kabloları & bağlantı noktaları */
+.matchBoard {
+  position: relative;
+  padding: 12px 10px;
+  border-radius: 22px;
+  background: linear-gradient(160deg, #f8fafc 0%, #eef6ff 100%);
+  border: 2px solid #dbeafe;
+}
+
+.matchSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  overflow: visible;
+}
+
+.matchPort {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 99px;
+  transform: translateY(-50%);
+  background: #cbd5e1;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #94a3b8;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.matchPortRight {
+  right: 7px;
+}
+
+.matchPortLeft {
+  left: 7px;
+}
+
+.matchPortActive {
+  background: var(--pu);
+  box-shadow: 0 0 0 2px var(--pu), 0 0 10px rgba(124, 92, 255, 0.55);
+  transform: translateY(-50%) scale(1.22);
+}
+
+.matchPortDone {
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--ok);
+}
+
+/* Dedektif Atom — Kanıt Dosyası */
+.dossierWrap {
+  border-radius: 22px;
+  overflow: hidden;
+  border: 2px solid #1e293b;
+  background: #f8fafc;
+  padding: 0 0 10px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.dossierHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 14px;
+  background: linear-gradient(90deg, #0f172a, #1e3a5f);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.dossierStatus {
+  font-size: 10.5px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: rgba(251, 191, 36, 0.22);
+  color: #fde68a;
+}
+
+.dossierStatusOk {
+  background: rgba(34, 197, 94, 0.28);
+  color: #bbf7d0;
+}
+
+.dossierWrap .tokenBox {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.miniHintBtn {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #fcd34d;
+  cursor: pointer;
+}
+
+/* Bilgi Kaçış Kilidi (Vault Lock) */
+.vaultChamber {
+  border-radius: 24px;
+  padding: 14px;
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 60%, #172554 100%);
+  border: 2.5px solid #334155;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px rgba(15, 23, 42, 0.28);
+  color: #f8fafc;
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.vaultChamberOpen {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 12px 28px rgba(22, 163, 74, 0.25);
+}
+
+.vaultHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vaultTitle {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  color: #e2e8f0;
+}
+
+.vaultBadge {
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fde68a;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.vaultBadgeOpen {
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.55);
+}
+
+.vaultDialsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vaultDialSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 2px solid #334155;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.vaultDialActive {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  color: #e0f2fe;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+.vaultDialOpen {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.2);
+  color: #dcfce7;
+}
+
+.vaultDialNum {
+  font-size: 10px;
+  font-weight: 900;
+  opacity: 0.75;
+}
+
+.vaultDialVal {
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.vaultClueBox {
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.vaultClueTag {
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+}
+
+.vaultHintBtn {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fde68a;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  cursor: pointer;
+}
+
+.vaultClueText {
+  margin: 6px 0 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #f8fafc;
+}
+
+.vaultKeyBtn {
+  min-height: 46px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 800;
+  border: 2px solid #475569;
+  border-bottom: 4px solid #0f172a;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.14s, background 0.14s;
+}
+
+.vaultKeyBtn:hover {
+  border-color: #38bdf8;
+  background: #27364f;
+}
+
+.vaultKeyBtn:active {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+.vaultKeyBad {
+  border-color: #ef4444;
+  background: #450a0a;
+  color: #fecaca;
+  animation: v2Shake 0.35s;
+}
+
+.vaultOpenBanner {
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1.5px solid rgba(74, 222, 128, 0.45);
+  animation: v2Pop 0.35s ease;
+}
+
+/* Swipe Sort derinlik ve yön damgaları */
+.swipeDeckBack {
+  position: absolute;
+  inset: 10px 10px -8px;
+  border-radius: 22px;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 800;
+  color: transparent;
+  transform: scale(0.96);
+  z-index: 1;
+}
+
+.swipeStamp {
+  position: absolute;
+  top: 10px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  border: 2.5px solid currentColor;
+  pointer-events: none;
+}
+
+.swipeStampL {
+  left: 12px;
+  color: #0c8aa6;
+  background: rgba(224, 247, 255, 0.92);
+  transform: rotate(-8deg);
+}
+
+.swipeStampR {
+  right: 12px;
+  color: #c9560e;
+  background: rgba(255, 243, 224, 0.92);
+  transform: rotate(8deg);
+}
+
+/* Slider görsel dönüşüm sahnesi */
+.sliderStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+}
+
+.sliderOrbIcon {
+  font-size: 46px;
+  line-height: 1;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.sliderSparkBar {
+  flex: 1;
+  max-width: 110px;
+  height: 10px;
+  border-radius: 99px;
+  background: rgba(27, 36, 64, 0.12);
+  overflow: hidden;
+}
+
+.sliderSparkBar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #f59e0b, #0ea5e9);
+  transition: width 0.08s linear;
+}
+
+/* Süreç / Zaman Hattı ray bağlantısı */
+.orderRail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.orderConnector {
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  width: 3px;
+  height: calc(100% + 10px);
+  background: #e2e8f0;
+  border-radius: 99px;
+  z-index: 0;
+  transition: background 0.25s ease;
+}
+
+.orderConnectorFilled {
+  background: #22c55e;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .root *,
   .warpOverlay *,

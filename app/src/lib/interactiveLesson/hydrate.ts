@@ -5,9 +5,10 @@ import { getQuestionsByIds } from '@/app/src/lib/quizQuestions';
 import { getLessonDefinition, type AnyLessonDefinition } from './registry';
 import { termSlug, type HydratedLesson, type HydratedStep, type LessonTerm } from './types';
 import { isLessonV2, type HydratedLessonV2, type HydratedV2Step, type LessonDefinitionV2 } from './typesV2';
+import { isLessonV3, type HydratedLessonV3, type LessonDefinitionV3 } from './typesV3';
 import type { ClassicalQuestion, QuizQuestion, SvgPosition } from '@/app/src/lib/quizQuestionTypes';
 
-export type AnyHydratedLesson = (HydratedLesson & { version: 1 }) | HydratedLessonV2;
+export type AnyHydratedLesson = (HydratedLesson & { version: 1 }) | HydratedLessonV2 | HydratedLessonV3;
 
 // Öğrenciye yalnız sesleri tamamlanmış ders gösterilir (kullanıcı kararı 2026-11-03); ses üretimi (voice.ts)
 // sesi eksik dersi de okuyabilmeli → includeUnvoiced.
@@ -80,6 +81,82 @@ async function hydrateLessonV2(
   };
 }
 
+async function hydrateLessonV3(
+  supabase: ReturnType<typeof createServiceClient>,
+  lesson: LessonDefinitionV3,
+): Promise<{ lesson: HydratedLessonV3 } | { error: string; status: number }> {
+  const qIds = lesson.sections.flatMap((sec) => sec.checkQuestionIds);
+  const [questions, topicRes, highlightsRes] = await Promise.all([
+    getQuestionsByIds(qIds),
+    supabase.from('topics').select('title').eq('id', lesson.topicId).single(),
+    supabase
+      .from('topic_content_highlights')
+      .select('icon, title, description, topic_contents!inner(topic_id, is_published)')
+      .eq('topic_contents.topic_id', lesson.topicId)
+      .eq('topic_contents.is_published', true),
+  ]);
+  const failed = topicRes.error ?? highlightsRes.error;
+  if (failed) return { error: failed.message, status: 500 };
+
+  const terms: Record<string, LessonTerm> = {};
+  for (const h of (highlightsRes.data ?? []) as { icon: string | null; title: string; description: string }[]) {
+    terms[termSlug(h.title)] = { title: h.title, description: h.description, icon: h.icon ?? undefined };
+  }
+
+  const byId = new Map<number, QuizQuestion>(questions.map((q) => [q.id, q]));
+  const broken: number[] = [];
+
+  const sections = lesson.sections.map((sec) => {
+    const checkQuestions = sec.checkQuestionIds.flatMap((id) => {
+      const q = byId.get(id);
+      if (q?.type === 'multiple_choice' || q?.type === 'blank') return [q];
+      broken.push(id);
+      return [];
+    });
+
+    const game =
+      sec.game.kind === 'kavram_avi'
+        ? {
+            ...sec.game,
+            rounds: sec.game.rounds.map((r) => {
+              if (r.definition) return r;
+              const slug = r.highlightSlug ?? termSlug(r.word);
+              const found = terms[slug];
+              return {
+                ...r,
+                definition: found?.description ?? `${r.word} kavramını harfleri birleştirerek bul.`,
+              };
+            }),
+          }
+        : sec.game;
+
+    return {
+      sectionId: sec.sectionId,
+      tabLabel: sec.tabLabel,
+      title: sec.title,
+      accent: sec.accent,
+      beats: sec.beats,
+      game,
+      checkQuestions,
+    };
+  });
+
+  if (broken.length) return { error: `Derste kullanılamayan soru var: ${broken.join(', ')}`, status: 500 };
+
+  return {
+    lesson: {
+      version: 3,
+      topicId: lesson.topicId,
+      courseLabel: lesson.courseLabel,
+      sceneId: lesson.sceneId,
+      guide: lesson.guide,
+      topicTitle: (topicRes.data as { title: string }).title,
+      sections,
+      terms,
+    },
+  };
+}
+
 // Ders tanımı + soru adımları havuzdaki sorularla doldurulmuş hâl (admin önizleme API'si ve ses üretim betiği
 // aynı kaynağı kullanır: Atom'un seslendirilen cümleleri öğrencinin gördüğüyle birebir aynı olsun).
 export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: boolean } = {}): Promise<{ lesson: AnyHydratedLesson } | { error: string; status: number }> {
@@ -87,6 +164,7 @@ export async function hydrateLesson(topicId: number, opts: { includeUnvoiced?: b
   // Önce elle yazılmış ders (kodda), yoksa worker'ın ürettiği ve denetimden geçmiş ders (interactive_lessons).
   const lesson = getLessonDefinition(topicId) ?? (await loadGeneratedLesson(supabase, topicId, !!opts.includeUnvoiced));
   if (!lesson) return { error: 'Bu konu için etkileşimli ders henüz hazırlanmadı', status: 404 };
+  if (isLessonV3(lesson)) return hydrateLessonV3(supabase, lesson);
   if (isLessonV2(lesson)) return hydrateLessonV2(supabase, lesson);
 
   const idsOf = (kind: 'soru' | 'klasik') =>
@@ -171,6 +249,9 @@ export const interactiveLessonTag = (topicId: number) => `interactive-lesson-${t
 const DEPLOY_KEY = process.env.K_REVISION ?? process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'yerel';
 
 export function getCachedLesson(topicId: number) {
+  if (process.env.NODE_ENV === 'development') {
+    return hydrateLesson(topicId);
+  }
   return unstable_cache(
     async () => {
       const result = await hydrateLesson(topicId);

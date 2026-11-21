@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import logoIcon from '@/public/icons/icon-192.png';
 import { useAuth } from '../context/AuthContext';
 import { useProfileRole, useRealProfileRole } from '../hooks/useIsAdmin';
 import { ViewAsMenu } from './ViewAsMenu';
@@ -80,7 +81,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               {/* Logo */}
               {/* Gerçek Ders Takip logosu (favicon/PWA ikonuyla aynı), neon çerçeveli yuvarlak çipte. */}
               <div className={`w-9 h-9 sm:w-11 sm:h-11 !rounded-full p-0.5 ${r.brandChip}`} aria-label="Ders Takip anasayfa">
-                <Image src="/icons/icon-192.png" alt="" width={40} height={40} priority className="h-full w-full rounded-full" />
+                <Image src={logoIcon} alt="" width={40} height={40} priority className="h-full w-full rounded-full" />
               </div>
               
               {/* Site Adı */}
