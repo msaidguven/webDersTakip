@@ -3,6 +3,7 @@ import { requireAdmin } from '@/app/src/lib/adminAuth';
 import { createServerClient as createServiceClient } from '@/utils/supabase/server-public';
 import { HAND_WRITTEN_TOPIC_IDS, getLessonDefinition } from '@/app/src/lib/interactiveLesson/registry';
 import { isLessonV2 } from '@/app/src/lib/interactiveLesson/typesV2';
+import { isLessonV3 } from '@/app/src/lib/interactiveLesson/typesV3';
 
 // Admin anasayfası "Etkileşimli dersler" (2026-11-03): üretim durumu + kullanım; toplulaştırma
 // admin_interactive_lesson_stats RPC'sinde (bkz. supabase/migrations/interactive_lesson_progress_and_stats.sql).
@@ -75,7 +76,7 @@ export async function GET() {
       grade: info?.grade ?? '',
       lesson: info?.lesson ?? '',
       href: info?.href ?? null,
-      version: isLessonV2(def) ? 2 : 1,
+      version: isLessonV3(def) ? 3 : isLessonV2(def) ? 2 : 1,
     };
   }).sort((a, b) => b.version - a.version || b.topic_id - a.topic_id);
 

@@ -102,13 +102,13 @@ export function AdminInteractiveLessons() {
 
           {!!stats.handwritten?.length && (
             <List
-              title="Altın örnekler (elle yazılmış v2 / v1)"
+              title="Altın örnekler (elle yazılmış v3 / v2 / v1)"
               rows={stats.handwritten.map((x) => ({
                 key: x.topic_id,
                 label: x.title,
                 sub: `${x.grade} ${x.lesson}`.trim(),
-                right: x.version === 2 ? 'v2 YENİ' : 'v1',
-                highlight: x.version === 2,
+                right: x.version === 3 ? 'v3 YENİ' : x.version === 2 ? 'v2 OYUN' : 'v1',
+                highlight: x.version >= 2,
                 href: x.href,
               }))}
               empty=""

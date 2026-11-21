@@ -4,6 +4,7 @@ import type { LessonDefinitionV2 } from './typesV2';
 import type { LessonDefinitionV3 } from './typesV3';
 import { HAND_WRITTEN_LESSON_TOPIC_IDS } from './handWritten';
 import { lesson704 } from './lessons/704';
+import { lesson751 } from './lessons/751';
 import { lesson817 } from './lessons/817';
 import { lesson818 } from './lessons/818';
 import { lesson861 } from './lessons/861';
@@ -13,6 +14,7 @@ export type AnyLessonDefinition = LessonDefinition | LessonDefinitionV2 | Lesson
 
 const LESSONS: Record<number, AnyLessonDefinition> = {
   704: lesson704,
+  751: lesson751,
   817: lesson817,
   818: lesson818,
   861: lesson861,
