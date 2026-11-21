@@ -71,7 +71,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {!hideHeader && (
       <nav
         // Robotik tema (2026-10-19): metal cam çubuk + alt neon çizgi (bkz. robotic.module.css .siteBar).
-        className={`fixed top-0 left-0 right-0 z-50 h-[60px] sm:h-[72px] ${roboticFontVars} ${r.siteBar}`}
+        className={`fixed top-0 left-0 right-0 z-50 h-[3.75rem] sm:h-[4.5rem] ${roboticFontVars} ${r.siteBar}`}
       >
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
           
@@ -150,7 +150,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       )}
 
       {/* Ana İçerik */}
-      <main className={hideHeader ? '' : 'pt-[60px] sm:pt-[72px]'}>
+      <main className={hideHeader ? '' : 'pt-[3.75rem] sm:pt-[4.5rem]'}>
         {!hideHeader && <ProfilePromptBanner />}
         {!hideHeader && <MemberPromptModal />}
         {children}

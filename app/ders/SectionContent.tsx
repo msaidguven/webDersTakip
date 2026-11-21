@@ -33,11 +33,11 @@ function BulletRow({ titleHtml, bodyHtml, badge, colorIdx }: { titleHtml: string
   return (
     <div className="flex items-start gap-2.5">
       {badge != null ? (
-        <span className="mt-0.5 w-4 shrink-0 text-xs font-black text-slate-400">{badge}.</span>
+        <span className="mt-[0.18em] w-5 shrink-0 text-[length:var(--fs-xs,0.75rem)] font-black text-slate-400">{badge}.</span>
       ) : (
-        <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${DOT_COLORS[colorIdx % DOT_COLORS.length]}`} />
+        <span className={`mt-[0.62em] h-[0.4em] w-[0.4em] shrink-0 rounded-full ${DOT_COLORS[colorIdx % DOT_COLORS.length]}`} />
       )}
-      <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
+      <p className="text-[length:var(--fs-body,0.875rem)] sm:text-[length:var(--fs-body,1rem)] text-slate-700 leading-relaxed">
         {titleHtml && (
           <span className="font-black text-slate-900" dangerouslySetInnerHTML={{ __html: `${titleHtml}: ` }} />
         )}
@@ -97,8 +97,8 @@ function renderList(node: Element, keyPrefix: string, dotIdx: { current: number 
       const childBlocks = renderList(nested, `${keyPrefix}-${idx}`, dotIdx);
       blocks.push(
         <div key={`${keyPrefix}-g${idx}`} className="mt-5 first:mt-0">
-          <p className="mb-2.5 flex items-center gap-2 text-sm sm:text-base font-black text-slate-900">
-            <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_COLORS[dotIdx.current % DOT_COLORS.length]}`} />
+          <p className="mb-2.5 flex items-center gap-2 text-[length:var(--fs-body,0.875rem)] sm:text-[length:var(--fs-body,1rem)] font-black text-slate-900">
+            <span className={`h-[0.45em] w-[0.45em] shrink-0 rounded-full ${DOT_COLORS[dotIdx.current % DOT_COLORS.length]}`} />
             <span dangerouslySetInnerHTML={{ __html: headerHtml }} />
           </p>
           <div className="space-y-2.5 border-l-2 border-slate-100 pl-4">{childBlocks}</div>
@@ -155,13 +155,13 @@ function NotebookBox({ label, heading, children }: { label?: string; heading?: s
       <div className="absolute inset-y-0 left-12 hidden w-px bg-rose-200 sm:block" />
       <div className="space-y-3 px-5 py-5 sm:py-6 sm:pl-16 sm:pr-6">
         {label && (
-          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-amber-700">
+          <p className="flex items-center gap-1.5 text-[length:var(--fs-xs,0.75rem)] font-black uppercase tracking-wide text-amber-700">
             📝 {label}
           </p>
         )}
         {/* Kutu içinde yukarı/aşağı kaydırırken hangi alt başlığa ait olduğu görünsün diye
             (öğrenci h2'ye geri kaydırmak zorunda kalmasın) — 2026-09-14 kullanıcı talebi. */}
-        {heading && <p className="text-sm sm:text-base font-black text-slate-900">{heading}</p>}
+        {heading && <p className="text-[length:var(--fs-body,0.875rem)] sm:text-[length:var(--fs-body,1rem)] font-black text-slate-900">{heading}</p>}
         {children}
       </div>
     </div>
@@ -287,23 +287,23 @@ function ActivityBox({ promptNode, exampleNode, sectionId, showLabel = true }: {
     <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 shadow-sm">
       <div className="space-y-3 px-5 py-5 sm:px-6 sm:py-6">
         {showLabel && (
-          <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-violet-700">
+          <p className="flex items-center gap-1.5 text-[length:var(--fs-xs,0.75rem)] font-black uppercase tracking-wide text-violet-700">
             💭 Düşün / Hayal Et / Dene
           </p>
         )}
-        <div className="text-sm leading-relaxed text-slate-700 sm:text-base [&_strong]:font-black [&_strong]:text-violet-700">
+        <div className="text-[length:var(--fs-body,0.875rem)] leading-relaxed text-slate-700 sm:text-[length:var(--fs-body,1rem)] [&_strong]:font-black [&_strong]:text-violet-700">
           {promptNode}
         </div>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3.5 py-1.5 text-xs font-black text-violet-700 shadow-sm transition-colors hover:bg-violet-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3.5 py-1.5 text-[length:var(--fs-xs,0.75rem)] font-black text-violet-700 shadow-sm transition-colors hover:bg-violet-50"
         >
           {open ? 'Örneği Gizle' : 'Örneğe Bak'}
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
         {/* Kapalıyken de HTML'de (2026-10-24): örnek cevap arama motorunca okunsun, yalnız görünümde gizli. */}
-        <div hidden={!open} className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-sm leading-relaxed text-slate-700 [&_strong]:font-black [&_strong]:text-violet-700">
+        <div hidden={!open} className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-[length:var(--fs-sub,0.875rem)] leading-relaxed text-slate-700 [&_strong]:font-black [&_strong]:text-violet-700">
           {exampleNode}
         </div>
         <StudentNoteField sectionId={sectionId} />
@@ -319,7 +319,7 @@ function ExplanationBox({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-indigo-50 shadow-sm">
       <div className="space-y-3 px-5 py-5 sm:py-6 sm:px-6">
-        <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-indigo-600">
+        <p className="flex items-center gap-1.5 text-[length:var(--fs-xs,0.75rem)] font-black uppercase tracking-wide text-indigo-600">
           📖 Konu Anlatımı
         </p>
         {children}
@@ -445,7 +445,7 @@ export default function SectionContent({
   }, [diagramZoomed, imageZoomed]);
 
   const explanation = (
-    <div className="space-y-3 text-sm sm:text-base leading-relaxed text-slate-700 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-lg [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:text-sm [&_h3]:sm:text-base [&_h3]:font-black [&_h3]:text-indigo-700 [&_h3]:before:content-[''] [&_h3]:before:h-1.5 [&_h3]:before:w-1.5 [&_h3]:before:shrink-0 [&_h3]:before:rounded-full [&_h3]:before:bg-indigo-400 [&_strong]:font-black [&_strong]:text-indigo-700 [&_em]:italic [&_em]:text-sky-700">
+    <div className="space-y-3 text-[length:var(--fs-body,0.875rem)] sm:text-[length:var(--fs-body,1rem)] leading-relaxed text-slate-700 [&_h1]:text-[length:var(--fs-h2,1.125rem)] [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:text-[length:var(--fs-h2,1.125rem)] [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:text-[length:var(--fs-h3,0.875rem)] [&_h3]:sm:text-[length:var(--fs-h3,1rem)] [&_h3]:font-black [&_h3]:text-indigo-700 [&_h3]:before:content-[''] [&_h3]:before:h-[0.4em] [&_h3]:before:w-[0.4em] [&_h3]:before:shrink-0 [&_h3]:before:rounded-full [&_h3]:before:bg-indigo-400 [&_strong]:font-black [&_strong]:text-indigo-700 [&_em]:italic [&_em]:text-sky-700">
       {blocks ?? (mathHtml ? <div dangerouslySetInnerHTML={{ __html: mathHtml }} /> : null)}
     </div>
   );

@@ -144,6 +144,9 @@
 
   html {
     scroll-behavior: smooth;
+    /* Otomatik ekran ölçekleme: Mobil (15px) → PC (16–17px) → Dev Akıllı Tahta (21.5–30px).
+       Tailwind'in tüm rem tabanlı yazı, boşluk ve max-w-* kapsayıcıları orantılı ölçeklenir. */
+    font-size: clamp(15px, 0.92vw + 3.8px, 30px);
     @apply font-sans;
   }
 
