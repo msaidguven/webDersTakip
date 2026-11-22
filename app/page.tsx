@@ -15,7 +15,7 @@ import { getDailyQuestionSetsByGrade, getRecentlyPublishedTopicsByGrade, getThis
 // anında tazeliyor (bkz. topicPageRevalidation.ts). Günün Sorusu (haftanın 7 sorusundan) ve "YENİ"
 // rozeti tarayıcıda hesaplandığı için günlük yenileme yok; tüm sayfalar pazartesi 03:00 TR'de yenilenir
 // — bkz. app/src/lib/scheduledCacheRefresh.ts.
-export const revalidate = 604800;
+export const revalidate = 3600;
 
 type GradeRow = { id: number; name: string; order_no: number; is_active: boolean; slug: string | null };
 

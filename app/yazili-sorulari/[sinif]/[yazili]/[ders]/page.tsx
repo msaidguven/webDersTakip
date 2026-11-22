@@ -26,7 +26,7 @@ import r from '@/app/src/components/robotic/robotic.module.css';
 import y from '@/app/src/components/yazili/yazili.module.css';
 
 // Soru eklenince/yazılı yayınlanınca sayfa anında yenilenir (revalidatePath); süre üst sınır.
-export const revalidate = 604800;
+export const revalidate = 3600;
 
 interface Params {
   sinif: string;

@@ -15,7 +15,7 @@ import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
 import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
-export const revalidate = 604800;
+export const revalidate = 3600;
 
 interface Params {
   sinif: string;

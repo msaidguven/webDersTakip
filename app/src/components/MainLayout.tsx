@@ -11,7 +11,6 @@ import { ViewAsMenu } from './ViewAsMenu';
 import { useDisplayName } from '../hooks/useDisplayName';
 import { getCurrentStreak } from '../lib/dashboardStreak';
 import { NotificationBell } from './NotificationBell';
-import { AdminPageRefresh } from './AdminPageRefresh';
 import ThemeToggle from './ThemeToggle';
 import { HeaderMenu } from './HeaderMenu';
 import { LegalFooter } from './LegalFooter';
@@ -169,7 +168,6 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {!hideFooter && <LegalFooter />}
       {showTabBar && <MobileTabBar items={navItems} />}
-      <AdminPageRefresh />
     </div>
   );
 }

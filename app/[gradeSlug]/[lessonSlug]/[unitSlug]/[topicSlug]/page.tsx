@@ -27,7 +27,7 @@ import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 // 7 gün (2026-10-04, Vercel Fluid Active CPU sınırı aşıldı): içerik yayını/soru onayı ilgili sayfayı
 // zaten anında yeniler (revalidatePath); tüm sayfalar pazartesi 03:00 TR'de (yeni müfredat haftası)
 // toplu yenilenir — bkz. app/src/lib/scheduledCacheRefresh.ts.
-export const revalidate = 604800;
+export const revalidate = 3600;
 
 interface Params {
   gradeSlug: string;

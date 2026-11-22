@@ -6,7 +6,7 @@ import { getYaziliIndex, gradeHubs, YAZILI_INDEX_PATH } from '@/app/src/lib/yazi
 
 // 7 gün (2026-10-04, Vercel CPU): içerik artık haftalık yayınlanıyor; pazartesi 03:00 TR yenilemesi
 // (scheduledCacheRefresh.ts, revalidatePath layout) sitemap'i de tazeler.
-export const revalidate = 604800;
+export const revalidate = 3600;
 
 type GradeRow = { id: number; slug: string | null };
 type LessonRow = { id: number; slug: string | null };
