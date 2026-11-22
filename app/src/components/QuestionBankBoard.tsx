@@ -24,6 +24,7 @@ import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
 import { useQuestionBankViewer, type QuestionStat } from '@/app/src/hooks/useQuestionBankViewer';
 import QuestionBankOptik, { OptikRail, type OptikStatus } from '@/app/src/components/QuestionBankOptik';
+import { StudentTopicScorecard, type StudentQuestionView } from '@/app/src/components/StudentTopicScorecard';
 
 // Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
 // (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
@@ -162,9 +163,24 @@ export default function QuestionBankBoard({
   const [questions, setQuestions] = useState(initialQuestions);
   const viewer = useQuestionBankViewer(initialQuestions.map((q) => q.id));
   const studentMode = viewer.status === 'student';
-  const shownQuestions = studentMode ? questions.filter((q) => viewer.stats.has(q.id)) : questions;
+  // Öğrenci görünümünde liste varsayılan olarak kapalı (önce gelişim karnesi görünür);
+  // kullanıcı Yanlışlarım / Doğrularım / Çözdüklerim kartına basınca ilgili sorular açılır.
+  const [studentView, setStudentView] = useState<StudentQuestionView>('none');
+  const solvedQuestions = useMemo(
+    () => (studentMode ? questions.filter((q) => viewer.stats.has(q.id)) : questions),
+    [studentMode, questions, viewer.stats]
+  );
+  const shownQuestions = useMemo(() => {
+    if (!studentMode) return questions;
+    if (studentView === 'wrong') return solvedQuestions.filter((q) => viewer.stats.get(q.id)?.last_answer_correct === false);
+    if (studentView === 'correct') return solvedQuestions.filter((q) => viewer.stats.get(q.id)?.last_answer_correct !== false);
+    return solvedQuestions;
+  }, [studentMode, studentView, questions, solvedQuestions, viewer.stats]);
+  const listOpen = !studentMode || studentView !== 'none';
+  const solvedRef = useRef(solvedQuestions);
   const shownRef = useRef(shownQuestions);
   useEffect(() => {
+    solvedRef.current = solvedQuestions;
     shownRef.current = shownQuestions;
   });
   // Öğrenci paylaşım linkiyle (?soru=ID) henüz çözmediği bir soruya geldiyse.
@@ -197,10 +213,11 @@ export default function QuestionBankBoard({
     const handler = (e: Event) => {
       const questionId = (e as CustomEvent<{ questionId: number }>).detail?.questionId;
       if (questionId == null) return;
-      const found = shownRef.current.some((q) => q.id === questionId);
+      const found = solvedRef.current.some((q) => q.id === questionId);
       setLockedSharedQuestion(!found);
       if (!found) return;
-      const index = shownRef.current.findIndex((q) => q.id === questionId);
+      const index = solvedRef.current.findIndex((q) => q.id === questionId);
+      setStudentView('all');
       setFilter('all');
       setVisibleCount((prev) => Math.max(prev, index + 1));
       setFocus((prev) => ({ id: questionId, n: (prev?.n ?? 0) + 1 }));
@@ -235,19 +252,19 @@ export default function QuestionBankBoard({
 
   const matching = filter === 'all' ? shownQuestions : shownQuestions.filter((q) => q.type === filter);
   // Filtreli görünümde de onar onar (kullanıcı isteği, 2026-10-04); filtre değişince ilk 10'a döner.
-  const limit = Math.min(visibleCount, matching.length);
+  const limit = listOpen ? Math.min(visibleCount, matching.length) : 0;
   const visibleIds = new Set(matching.slice(0, limit).map((q) => q.id));
-  const hiddenCount = matching.length - visibleIds.size;
+  const hiddenCount = listOpen ? matching.length - visibleIds.size : 0;
 
   const scoreableIds = useMemo(() => new Set(questions.filter((q) => SCOREABLE_TYPES.has(q.type)).map((q) => q.id)), [questions]);
   const correctCount = Object.entries(answers).filter(([id, st]) => st === 'correct' && scoreableIds.has(Number(id))).length;
   const incorrectCount = Object.entries(answers).filter(([id, st]) => st === 'incorrect' && scoreableIds.has(Number(id))).length;
-  const studentTotals = studentMode
-    ? [...viewer.stats.values()].reduce(
-        (acc, st) => ({ correct: acc.correct + st.correct_attempts, wrong: acc.wrong + st.wrong_attempts, mastered: acc.mastered + (st.is_mastered ? 1 : 0) }),
-        { correct: 0, wrong: 0, mastered: 0 }
-      )
-    : null;
+
+  const handleSelectStudentView = (next: StudentQuestionView) => {
+    setStudentView(next);
+    setFilter('all');
+    setVisibleCount(PAGE_SIZE);
+  };
 
   const handleAnswered = useCallback((questionId: number, status: AnswerStatus) => {
     setAnswers((prev) => (questionId in prev ? prev : { ...prev, [questionId]: status }));
@@ -275,7 +292,7 @@ export default function QuestionBankBoard({
   // Optik yalnız listede görünen soruları gösterir (kullanıcı isteği, 2026-10-04): ilk 10 soru açıksa
   // 10 kutu, "Sonraki 10 soru" ile liste uzadıkça optik de uzar. Numara listedeki sırayla aynı.
   const optikItems = shownQuestions.flatMap((q, i) => (visibleIds.has(q.id) ? [{ id: q.id, number: i + 1 }] : []));
-  const optikAnswered = studentMode ? shownQuestions.length : Object.keys(answers).length;
+  const optikAnswered = studentMode ? optikItems.length : Object.keys(answers).length;
 
   const handleDeleted = useCallback((questionId: number) => {
     setQuestions((prev) => prev.filter((q) => q.id !== questionId));
@@ -294,23 +311,35 @@ export default function QuestionBankBoard({
         </p>
       )}
 
-      {studentMode && shownQuestions.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-default bg-background p-6 text-center">
-          <p className="font-semibold text-default">Bu konudan henüz soru çözmedin</p>
-          <p className="mt-1 text-sm text-muted-foreground">Testi başlat. Çözdüğün her soru burada cevabı, kaç kez çözdüğün ve doğru/yanlış sayınla görünecek.</p>
-        </div>
+      {studentMode && (
+        <StudentTopicScorecard
+          totalQuestions={questions.length}
+          stats={viewer.stats}
+          activeView={studentView}
+          onSelectView={handleSelectStudentView}
+        />
       )}
 
-      {shownQuestions.length > 0 && (
+      {listOpen && shownQuestions.length > 0 && (
         <div className="mb-4 flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            {studentMode && studentTotals ? (
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-                <span className="font-semibold text-default">{shownQuestions.length}/{questions.length} soruyu çözdün</span>
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {studentTotals.correct}</span>
-                <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400"><XCircle className="h-4 w-4" aria-hidden="true" /> {studentTotals.wrong}</span>
-                {studentTotals.mastered > 0 && <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><Award className="h-4 w-4" aria-hidden="true" /> {studentTotals.mastered} öğrenildi</span>}
-              </p>
+            {studentMode ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-default">
+                  {studentView === 'wrong'
+                    ? `Yanlış yaptığın sorular (${shownQuestions.length})`
+                    : studentView === 'correct'
+                      ? `Doğru yaptığın sorular (${shownQuestions.length})`
+                      : `Tüm çözdüğün sorular (${shownQuestions.length})`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectStudentView('none')}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-default px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-default"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" /> Gizle
+                </button>
+              </div>
             ) : correctCount + incorrectCount > 0 ? (
               <p className="flex items-center gap-3 text-muted-foreground" aria-live="polite">
                 <span>Bu sayfada:</span>
@@ -345,46 +374,48 @@ export default function QuestionBankBoard({
         </div>
       )}
 
-      <div className="flex items-start gap-3">
-      <div className="hidden w-12 shrink-0 self-stretch lg:block">
-        <OptikRail items={optikItems} statusOf={optikStatus} onJump={jumpTo} />
-      </div>
-      <ol className="flex min-w-0 flex-1 flex-col gap-3">
-        {shownQuestions.map((q, i) => {
-          const stat = studentMode ? viewer.stats.get(q.id) : undefined;
-          return (
-            <li
-              key={q.id}
-              id={`soru-${q.id}`}
-              // Gizleme inline display:none + ayrı işaretleyici class — noscript override'ı SADECE
-              // soru kartlarını hedeflesin diye (bkz. [konu]/page.tsx).
-              className={`question-bank-item scroll-mt-24 rounded-[20px] border bg-background p-4 transition-shadow sm:p-5 ${
-                focusedId === q.id ? 'border-indigo-400 ring-2 ring-indigo-500/30' : 'border-default'
-              }`}
-              style={{ display: visibleIds.has(q.id) ? undefined : 'none' }}
-            >
-              <QuestionCardHeader question={q} number={i + 1} isAdmin={isAdmin} onDeleted={handleDeleted} />
-              {stat && <QuestionStatStrip stat={stat} />}
-              {studentMode ? (
-                <QuestionAnswerKeyItem question={q} fontScale={scale} />
-              ) : (
-                <QuestionAnswerKeyItem question={q} fontScale={scale} interactive onAnswered={handleAnswered} />
-              )}
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
-                <button
-                  type="button"
-                  onClick={() => setCommentsForId(q.id)}
-                  className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
-                >
-                  <MessageCircle className="h-4 w-4" aria-hidden="true" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
-                </button>
-                <ShareQuestionButton question={q} basePath={basePath} />
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      </div>
+      {listOpen && (
+        <div className="flex items-start gap-3">
+        <div className="hidden w-12 shrink-0 self-stretch lg:block">
+          <OptikRail items={optikItems} statusOf={optikStatus} onJump={jumpTo} />
+        </div>
+        <ol className="flex min-w-0 flex-1 flex-col gap-3">
+          {shownQuestions.map((q, i) => {
+            const stat = studentMode ? viewer.stats.get(q.id) : undefined;
+            return (
+              <li
+                key={q.id}
+                id={`soru-${q.id}`}
+                // Gizleme inline display:none + ayrı işaretleyici class — noscript override'ı SADECE
+                // soru kartlarını hedeflesin diye (bkz. [konu]/page.tsx).
+                className={`question-bank-item scroll-mt-24 rounded-[20px] border bg-background p-4 transition-shadow sm:p-5 ${
+                  focusedId === q.id ? 'border-indigo-400 ring-2 ring-indigo-500/30' : 'border-default'
+                }`}
+                style={{ display: visibleIds.has(q.id) ? undefined : 'none' }}
+              >
+                <QuestionCardHeader question={q} number={i + 1} isAdmin={isAdmin} onDeleted={handleDeleted} />
+                {stat && <QuestionStatStrip stat={stat} />}
+                {studentMode ? (
+                  <QuestionAnswerKeyItem question={q} fontScale={scale} />
+                ) : (
+                  <QuestionAnswerKeyItem question={q} fontScale={scale} interactive onAnswered={handleAnswered} />
+                )}
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setCommentsForId(q.id)}
+                    className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
+                    <MessageCircle className="h-4 w-4" aria-hidden="true" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
+                  </button>
+                  <ShareQuestionButton question={q} basePath={basePath} />
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        </div>
+      )}
 
       {hiddenCount > 0 && (
         <div className="mt-4 flex flex-col items-center gap-2">
@@ -407,12 +438,14 @@ export default function QuestionBankBoard({
         </div>
       )}
 
-      <QuestionBankOptik
-        items={optikItems}
-        statusOf={optikStatus}
-        onJump={jumpTo}
-        answeredCount={optikAnswered}
-      />
+      {listOpen && (
+        <QuestionBankOptik
+          items={optikItems}
+          statusOf={optikStatus}
+          onJump={jumpTo}
+          answeredCount={optikAnswered}
+        />
+      )}
 
       {commentsForId != null && (() => {
         const commentQuestionIndex = questions.findIndex((q) => q.id === commentsForId);

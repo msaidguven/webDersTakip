@@ -271,7 +271,7 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
                     </div>
 
                     <p className={`text-xs ${r.mono} ${r.muted}`}>
-                      {lesson.unitCount} ünite · {lesson.questionCount} soru
+                      {lesson.unitCount} ünite{lesson.questionCount > 0 ? ` · ${lesson.questionCount} soru` : ''}
                     </p>
 
                     <div className="grid grid-cols-1 gap-2">

@@ -23,6 +23,13 @@ class LessonSound {
   private beat = 0;
   private playing = false;
   private current: AudioBufferSourceNode | null = null;
+  private currentBuf: AudioBuffer | null = null;
+  private voiceStartedAt = 0;
+  private voiceOffset = 0;
+  private voicePaused = false;
+  private voiceActive = false;
+  private speakingSpeechSynthesis = false;
+  private resumeWaiter: (() => void) | null = null;
   private token = 0;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
 
@@ -186,8 +193,52 @@ class LessonSound {
       u.lang = voice.lang;
       u.rate = 1.03;
       u.pitch = 1.25;
-      u.onend = u.onerror = () => resolve();
+      this.speakingSpeechSynthesis = true;
+      u.onend = u.onerror = () => {
+        this.speakingSpeechSynthesis = false;
+        resolve();
+      };
       speechSynthesis.speak(u);
+    });
+  }
+
+  private playBuffer(ctx: AudioContext, buf: AudioBuffer, my: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const startFrom = (from: number) => {
+        if (my !== this.token) return resolve();
+        if (this.voicePaused) {
+          this.voiceOffset = from;
+          this.resumeWaiter = () => startFrom(this.voiceOffset);
+          return;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(this.voice);
+        this.current = src;
+        this.currentBuf = buf;
+        this.voiceStartedAt = ctx.currentTime;
+        this.voiceOffset = from;
+        this.resumeWaiter = () => startFrom(this.voiceOffset);
+        src.onended = () => {
+          if (this.current === src) this.current = null;
+          if (my !== this.token) return resolve();
+          if (this.voicePaused) return;
+          this.currentBuf = null;
+          this.voiceOffset = 0;
+          this.resumeWaiter = null;
+          resolve();
+        };
+        try {
+          const safeOffset = Math.max(0, Math.min(from, Math.max(0, buf.duration - 0.01)));
+          src.start(0, safeOffset);
+        } catch {
+          this.current = null;
+          this.currentBuf = null;
+          this.resumeWaiter = null;
+          resolve();
+        }
+      };
+      startFrom(0);
     });
   }
 
@@ -198,6 +249,8 @@ class LessonSound {
     const ctx = this.ctx;
     if (!ctx || !items.length) return onEnd();
     void ctx.resume();
+    this.voiceActive = true;
+    this.voicePaused = false;
     this.duck(true);
     for (const item of items) {
       if (!item.url) {
@@ -208,23 +261,66 @@ class LessonSound {
       const buf = await this.load(item.url);
       if (my !== this.token) return;
       if (!buf) continue;
-      await new Promise<void>((resolve) => {
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(this.voice);
-        src.onended = () => resolve();
-        this.current = src;
-        src.start();
-      });
+      await this.playBuffer(ctx, buf, my);
       if (my !== this.token) return;
     }
     this.current = null;
+    this.currentBuf = null;
+    this.voiceActive = false;
+    this.voicePaused = false;
+    this.resumeWaiter = null;
     this.duck(false);
     onEnd();
   }
 
+  /** Aktif seslendirmeyi kaldığı yerden duraklatır. */
+  pauseVoice(): boolean {
+    if (!this.voiceActive || this.voicePaused) return false;
+    this.voicePaused = true;
+    if (this.speakingSpeechSynthesis && typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.pause();
+      this.duck(false);
+      return true;
+    }
+    const c = this.current;
+    if (c && this.ctx && this.currentBuf) {
+      const elapsed = Math.max(0, this.ctx.currentTime - this.voiceStartedAt);
+      this.voiceOffset = Math.min(this.voiceOffset + elapsed, Math.max(0, this.currentBuf.duration - 0.05));
+      this.current = null;
+      c.onended = null;
+      try {
+        c.stop();
+      } catch {}
+    }
+    this.duck(false);
+    return true;
+  }
+
+  /** Duraklatılmış seslendirmeyi kaldığı yerden devam ettirir. */
+  resumeVoice(): boolean {
+    if (!this.voiceActive || !this.voicePaused) return false;
+    this.voicePaused = false;
+    if (this.speakingSpeechSynthesis && typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.resume();
+      this.duck(true);
+      return true;
+    }
+    void this.ctx?.resume();
+    this.duck(true);
+    const fn = this.resumeWaiter;
+    this.resumeWaiter = null;
+    fn?.();
+    return true;
+  }
+
   hush() {
     this.token++;
+    this.voiceActive = false;
+    this.voicePaused = false;
+    this.voiceOffset = 0;
+    this.currentBuf = null;
+    this.resumeWaiter = null;
+    this.speakingSpeechSynthesis = false;
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
     const c = this.current;
     this.current = null;

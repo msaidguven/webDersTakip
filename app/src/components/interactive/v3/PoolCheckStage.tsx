@@ -5,9 +5,11 @@ import { useState } from 'react';
 import { CheckCircle2, Sparkles, XCircle } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
 import { QuestionSvg } from '@/app/src/components/QuizClient';
+import { GUIDE } from '@/app/src/lib/interactiveLesson/guide';
 import type { HydratedV3Question } from '@/app/src/lib/interactiveLesson/typesV3';
 import RobotGuide from '../RobotGuide';
 import type { MiniGameFeedback } from './games/MiniGameRegistry';
+import { VoiceControls, type VoiceStatus } from './VoiceControls';
 import s from './v3.module.css';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
@@ -18,12 +20,22 @@ export function PoolCheckStage({
   total,
   onFeedback,
   onSolved,
+  onSpeak,
+  canSpeak,
+  voiceStatus = 'idle',
+  onPauseVoice,
+  onResumeVoice,
 }: {
   question: HydratedV3Question;
   index: number;
   total: number;
   onFeedback: (fb: MiniGameFeedback) => void;
   onSolved: () => void;
+  onSpeak?: (text: string, force?: boolean) => void;
+  canSpeak?: (text: string) => boolean;
+  voiceStatus?: VoiceStatus;
+  onPauseVoice?: () => void;
+  onResumeVoice?: () => void;
 }) {
   const options = question.type === 'multiple_choice' ? question.choices : question.options;
   const [wrongIds, setWrongIds] = useState<Set<number>>(() => new Set());
@@ -37,7 +49,7 @@ export function PoolCheckStage({
       onSolved();
       onFeedback({
         mood: 'happy',
-        text: question.solution_text || 'Doğru bildin! Tebrikler!',
+        text: question.solution_text || GUIDE.v3PoolOkFallback,
         tone: 'ok',
         sfx: 'ok',
       });
@@ -47,7 +59,7 @@ export function PoolCheckStage({
     setWrongIds((prev) => new Set(prev).add(optId));
     onFeedback({
       mood: 'oops',
-      text: 'Bu seçenek değil, bir kez daha dikkatlice bakıp başka seçeneğe dokun!',
+      text: GUIDE.v3PoolWrong,
       tone: 'oops',
       sfx: 'retry',
     });
@@ -81,6 +93,15 @@ export function PoolCheckStage({
             )}
           </div>
         </div>
+        {onSpeak && canSpeak?.(question.question_text) && (
+          <VoiceControls
+            status={voiceStatus}
+            onPause={() => onPauseVoice?.()}
+            onResume={() => onResumeVoice?.()}
+            onReplay={() => onSpeak(question.question_text, true)}
+            replayLabel="Tekrar Dinle"
+          />
+        )}
       </div>
 
       {/* Seçenek Kartları (2 sütunlu oyun kartları — tıklar tıklamaz anında kontrol) */}

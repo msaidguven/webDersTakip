@@ -8,6 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChartColumn, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import { useTopicMastery } from '@/app/src/hooks/useTopicMastery';
 import { useMonthlyActivity } from '@/app/src/hooks/useMonthlyActivity';
 import { istanbulToday } from '@/app/src/lib/progressActivity';
@@ -36,14 +37,17 @@ function percent(part: number, whole: number): number | null {
 
 export function DersTakipCizelgesi({ grades }: { grades: PublicGrade[] }) {
   const { user, loading } = useAuth();
+  const role = useProfileRole();
+  const isTeacher = role === 'teacher';
+  const roleLoading = !!user && role === null;
 
   return (
     <>
-      {loading ? (
+      {loading || roleLoading ? (
         <div aria-busy="true" className="h-64 animate-pulse rounded-[22px] bg-surface-elevated" />
-      ) : user ? (
+      ) : user && !isTeacher ? (
         <MemberSummary />
-      ) : (
+      ) : user && isTeacher ? null : (
         <section aria-label="Online çizelge" className={`${card} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7`}>
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-extrabold text-default">Çizelgeni online doldur</h2>
@@ -114,7 +118,7 @@ function MemberSummary() {
               <Stat label="Toplam soru" value={String(summary.answered)} />
               <Stat label="Doğru" value={String(summary.correct)} />
               <Stat label="Yanlış" value={String(summary.wrong)} />
-              <Stat label="Başarı oranı" value={summary.accuracy == null ? '—' : `%${summary.accuracy}`} />
+              <Stat label="Doğruluk" value={summary.accuracy == null ? '—' : `%${summary.accuracy}`} />
               <Stat label="Aktif gün" value={String(summary.activeDays)} />
             </div>
             <MonthlyTable month={month} lessons={lessons.map((l) => ({ id: l.id, name: l.name }))} rows={rows ?? []} />
@@ -143,10 +147,10 @@ function OverallSummary({ lessons }: { lessons: LessonMastery[] }) {
       </div>
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Çözülen soru" value={String(solved)} />
-        <Stat label="Başarı oranı" value={accuracy == null ? '—' : `%${accuracy}`} />
+        <Stat label="Doğruluk" value={accuracy == null ? '—' : `%${accuracy}`} />
         <Stat label="Öğrenilen konu" value={String(learned)} />
       </div>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ul className={`grid grid-cols-1 gap-3 ${lessons.length > 1 ? 'sm:grid-cols-2' : ''}`}>
         {lessons.map((l) => (
           <li key={l.id}>
             <LessonRow lesson={l} />

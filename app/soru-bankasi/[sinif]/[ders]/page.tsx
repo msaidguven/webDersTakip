@@ -14,8 +14,7 @@ import {
   buildSoruBankasiBreadcrumbJsonLd,
 } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiLessonUnits from '@/app/src/components/SoruBankasiLessonUnits';
-import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
-import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, SoruBankasiMobileBar, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import r from '../../../src/components/robotic/robotic.module.css';
 
@@ -61,6 +60,12 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
   // listelenir; sağ sütunda sınıfın TÜM dersleri, bu ders vurgulu (bkz. SoruBankasiNavList).
   return (
     <div className={pageShellCls}>
+      <SoruBankasiMobileBar
+        backHref={gradePath}
+        backLabel={`${data.gradeName} derslerine dön`}
+        title={`${data.gradeName} ${data.lessonName}`}
+        badge={questionCount > 0 ? `${questionCount} soru` : undefined}
+      />
       <div className={pageInnerCls}>
         <script
           id="structured-data-soru-bankasi-lesson-breadcrumb"
@@ -91,16 +96,6 @@ export default async function SoruBankasiLessonPage({ params }: { params: Promis
             <BookOpen className="h-4 w-4" aria-hidden="true" /> {data.lessonName} konu anlatımları
           </Link>
         </SoruBankasiHeader>
-
-        <SoruBankasiQuickNav
-          label={`${data.gradeName} dersleri`}
-          items={(gradeData?.lessons ?? []).map((lesson) => ({
-            key: lesson.slug,
-            href: buildSoruBankasiLessonPath(data.gradeSlug, lesson.slug),
-            label: lesson.name,
-            current: lesson.slug === data.lessonSlug,
-          }))}
-        />
 
         {!data.hasQuestions && (
           <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-800 dark:text-amber-300">

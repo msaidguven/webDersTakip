@@ -7,6 +7,7 @@ import { getYaziliIndex, gradeHubs, YAZILI_INDEX_PATH } from '@/app/src/lib/yazi
 import { SoruBankasiAbout, SoruBankasiHeader, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
+import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 export const revalidate = 604800;
@@ -85,6 +86,11 @@ export default async function YaziliIndexPage() {
 
         {/* Açıklama listelerin altında (soru bankası sayfalarıyla aynı düzen): telefonda sınıf listesine ulaşmak için kaydırmak gerekmesin. */}
         <SoruBankasiAbout text="Sınıfa ve yazılıya göre 1. ve 2. dönem yazılı soruları. Sorular MEB'in konu-soru dağılım tablolarındaki konulara göre hazırlandı; her sorunun cevabı var." />
+        <OfficialSourceNotice
+          sources={['odsgm', 'tymm']}
+          description="Bu sayfadaki yazılı soruları, MEB tarafından yayımlanan ortak yazılı konu-soru dağılım tabloları referans alınarak hazırlanmıştır."
+          className="mt-4"
+        />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient, createStorageClient } from '@/utils/supabase/client';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import { getProfileStats } from '@/app/src/lib/profileStats';
 import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
@@ -56,7 +57,19 @@ const STAT_RINGS = [
   { key: 'mastery', title: 'Ustalık', description: 'Tam öğrendiğin soruların oranı' },
 ] as const;
 
-function StatRing({ value, title, description }: { value: number; title: string; description: string }) {
+function StatRing({
+  value,
+  title,
+  description,
+  sublabel,
+  note,
+}: {
+  value: number;
+  title: string;
+  description: string;
+  sublabel?: string;
+  note?: string;
+}) {
   const pct = Math.max(0, Math.min(100, value));
   return (
     <div className={`flex flex-col items-center gap-3 p-5 text-center ${r.panel}`}>
@@ -64,14 +77,18 @@ function StatRing({ value, title, description }: { value: number; title: string;
         className="relative grid h-24 w-24 place-items-center rounded-full"
         style={{ background: `conic-gradient(var(--neon) 0 ${pct}%, var(--track) 0 100%)` }}
         role="img"
-        aria-label={`${title}: %${pct}`}
+        aria-label={`${title}: %${pct}${sublabel ? ` ${sublabel}` : ''}`}
       >
         <span className="absolute inset-[7px] rounded-full" style={{ background: 'var(--panel-solid)' }} />
         <span className={`relative text-xl ${r.statValue}`}>%{pct}</span>
       </div>
       <div>
-        <p className={`text-sm font-bold uppercase text-default ${r.display}`}>{title}</p>
+        <p className={`text-sm font-bold uppercase text-default ${r.display}`}>
+          {title}
+          {sublabel && <span className="ml-1 font-sans text-xs font-medium normal-case text-muted-foreground">{sublabel}</span>}
+        </p>
         <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{description}</p>
+        {note && <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">{note}</p>}
       </div>
     </div>
   );
@@ -122,8 +139,9 @@ export default function ProfilClient() {
   const nextAfterOnboarding = safeRedirectPath(searchParams?.get('next'), '/');
 
   const email = authUser?.email;
+  const effectiveRole = useProfileRole();
 
-  const [fullName, setFullName] = useState('Öğrenci');
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -133,8 +151,6 @@ export default function ProfilClient() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
   const [comments, setComments] = useState<MyComment[] | null>(null);
-  // Admin profilini öğrenci ya da öğretmen gözüyle görebilir (anasayfadaki önizlemeyle aynı fikir).
-  const [adminView, setAdminView] = useState<'student' | 'teacher'>('student');
   // Kapsam konu bazlı (2026-10-20, kullanıcı isteği: ünite bazlı oran çok yavaş artıyordu): en az bir
   // sorusunu çözdüğün konular ÷ sınıfındaki tüm konular (sorusu henüz olmayanlar dahil). Veri İlerlemem'le
   // aynı önbellekten — ek istek yok. Sınıf seçilmemişse (mastery === null) 0.
@@ -151,7 +167,7 @@ export default function ProfilClient() {
   })();
 
   useEffect(() => {
-    setFullName((authUser?.user_metadata?.full_name as string | undefined) || 'Öğrenci');
+    setFullName((authUser?.user_metadata?.full_name as string | undefined) || authUser?.email?.split('@')[0] || '');
     setAvatarUrl((authUser?.user_metadata?.avatar_url as string | undefined) || null);
   }, [authUser]);
 
@@ -295,10 +311,15 @@ export default function ProfilClient() {
   if (!authUser) return shell(<AuthPrompt message="Profilini görmek için giriş yap." />);
 
   const initial = (fullName?.trim()?.[0] || email?.[0] || 'U').toLocaleUpperCase('tr-TR');
-  // Öğretmen aynı /profil adresinde kendi ekranını görür (TeacherProfile.tsx); rol profil yüklenince belli olur.
+  // Öğretmen aynı /profil adresinde kendi ekranını görür (TeacherProfile.tsx).
+  // Rol yüklenmeden (profile === null && effectiveRole === null) öğrenci arayüzü flash edilmez.
   const isAdmin = profile?.role === 'admin';
-  const isTeacher = profile?.role === 'teacher' || (isAdmin && adminView === 'teacher');
+  const roleResolved = profile !== null || effectiveRole !== null;
+  const isTeacher =
+    effectiveRole === 'teacher' ||
+    (effectiveRole === null && profile?.role === 'teacher');
   const teacherVerified = isAdmin || profile?.is_verified === true;
+  const displayTitle = fullName || (isTeacher ? 'Öğretmen' : 'Öğrenci');
 
   return shell(
     <>
@@ -330,7 +351,7 @@ export default function ProfilClient() {
         </div>
 
         <div className="min-w-0 flex-1 text-center sm:text-left">
-          <h1 id="profil-ad" className={`truncate text-2xl font-bold text-default sm:text-3xl ${r.display}`}>{fullName}</h1>
+          <h1 id="profil-ad" className={`truncate text-2xl font-bold text-default sm:text-3xl ${r.display}`}>{displayTitle}</h1>
           {username && <p className={`truncate text-sm font-semibold ${r.accent}`}>@{username}</p>}
           <p className="truncate text-sm text-muted-foreground">{email}</p>
           {profile && (
@@ -364,23 +385,6 @@ export default function ProfilClient() {
         </div>
       </section>
 
-      {isAdmin && (
-        <div role="group" aria-label="Profil önizlemesi" className={`flex flex-wrap items-center gap-2 p-3 ${r.panel}`}>
-          <span className="px-1 text-sm text-muted-foreground">Profili şöyle gör:</span>
-          {(['student', 'teacher'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={adminView === v}
-              onClick={() => setAdminView(v)}
-              className={`min-h-9 rounded-xl px-3.5 text-sm font-semibold ${r.item} ${adminView === v ? r.navActive : 'text-muted-foreground'}`}
-            >
-              {v === 'student' ? 'Öğrenci' : 'Öğretmen'}
-            </button>
-          ))}
-        </div>
-      )}
-
       {profile && !isTeacher && (
         <PublicProfileToggle
           slug={profile.public_slug ?? null}
@@ -393,7 +397,9 @@ export default function ProfilClient() {
         <OnboardingCard onCompleted={() => router.push(nextAfterOnboarding)} />
       )}
 
-      {isTeacher ? (
+      {!roleResolved ? (
+        <div aria-busy="true" aria-label="Profil içeriği yükleniyor" className={`h-56 animate-pulse rounded-[18px] ${r.panel}`} />
+      ) : isTeacher ? (
         <TeacherProfile isVerified={teacherVerified} emailVerified={isAdmin || !!profile?.email_verified_at} emailResult={searchParams?.get('eposta') ?? null} />
       ) : (
       /* PERFORMANS */
@@ -403,7 +409,22 @@ export default function ProfilClient() {
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {STAT_RINGS.map((ring) => (
-                <StatRing key={ring.key} value={ring.key === 'coverage' ? coverage : stats[ring.key]} title={ring.title} description={ring.description} />
+                <StatRing
+                  key={ring.key}
+                  value={ring.key === 'coverage' ? coverage : stats[ring.key]}
+                  title={ring.title}
+                  description={ring.description}
+                  sublabel={ring.key === 'accuracy' && stats.totalQuestions > 0 ? `(${stats.totalQuestions} soruda)` : undefined}
+                  note={
+                    ring.key === 'accuracy'
+                      ? stats.totalQuestions === 0
+                        ? 'Henüz soru çözülmedi'
+                        : stats.totalQuestions < 10
+                          ? 'Henüz az soru çözüldü'
+                          : undefined
+                      : undefined
+                  }
+                />
               ))}
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

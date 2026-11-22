@@ -29,11 +29,11 @@ export default function SoruBankasiBrowseSection({ questionCount, questionIds, c
   return (
     <section aria-labelledby="sorular" className="flex flex-col">
       <h2 id="sorular" className={`scroll-mt-24 text-xl font-bold tracking-tight text-default uppercase sm:text-2xl ${r.display}`}>
-        {studentMode ? 'Çözdüğün sorular' : 'Sorular ve cevap anahtarı'}
+        {studentMode ? 'Konu gelişimin' : 'Sorular ve cevap anahtarı'}
       </h2>
       <p className="mb-4 mt-1 text-sm text-muted-foreground">
         {studentMode
-          ? `Testte çözdüğün sorular cevaplarıyla burada. Kalan ${Math.max(0, questionCount - viewer.stats.size)} soru testte karşına çıkacak.`
+          ? 'Konudaki performans özetin. Aşağıdaki kartlardan yanlışlarını, doğrularını inceleyebilir ya da kalan soruları testle çözebilirsin.'
           : `${questionCount} soru. Önce kendin çöz, sonra cevabı ve açıklamayı gör.`}
       </p>
       {user && viewer.status === 'staff' && (

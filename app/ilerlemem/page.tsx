@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import { ArrowRight, Trophy, CalendarDays } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
+import { useProfileRole } from '../src/hooks/useIsAdmin';
 import { useMyProfileBasics } from '../src/hooks/useMyGradeSlug';
 import { onQuizModalClosed } from '../src/lib/panelRefreshBridge';
 import { AuthPrompt } from '../src/components/AuthPrompt';
@@ -38,6 +39,9 @@ const SHORTCUTS = [
 
 export default function IlerlememPage() {
   const { user, loading } = useAuth();
+  const role = useProfileRole();
+  const isTeacher = role === 'teacher';
+  const roleLoading = !!user && role === null;
   const profile = useMyProfileBasics();
   const { mutate } = useSWRConfig();
 
@@ -50,11 +54,11 @@ export default function IlerlememPage() {
 
   return (
     <div className={`${roboticFontVars} ${r.root}`}>
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-20 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-20 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
         <header className={`flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7 ${r.panel} ${r.hero}`}>
           <span className={r.scan} aria-hidden="true" />
           <div className="flex flex-col gap-2">
-            {user && meta && (
+            {user && !isTeacher && meta && (
               <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
                 <i className={r.led} aria-hidden="true" />
                 {meta}
@@ -63,15 +67,29 @@ export default function IlerlememPage() {
             <h1 className={`text-3xl leading-tight sm:text-4xl ${r.chrome}`}>
               İlerlemem
             </h1>
-            {user && <p className="text-base text-muted-foreground">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
+            {user && !isTeacher && <p className="text-base text-muted-foreground">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
           </div>
-          {user && <DailyGoalPicker />}
+          {user && !roleLoading && !isTeacher && <DailyGoalPicker />}
         </header>
 
-        {loading ? (
+        {loading || roleLoading ? (
           <div className="h-64 animate-pulse rounded-2xl bg-surface-elevated" />
         ) : !user ? (
           <AuthPrompt message="Son 7 gününü, serini ve hangi konularda zorlandığını görmek için giriş yap." />
+        ) : isTeacher ? (
+          <section className={`flex flex-col items-start gap-4 p-6 sm:p-8 ${r.panel}`}>
+            <p className="text-base font-bold text-default">İlerlemem sayfası öğrenciler içindir</p>
+            <p className="max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+              Öğretmen hesabınla yazılı kağıdı hazırlayabilir, açık uçlu soruları seçebilir ve ders içeriklerini inceleyebilirsin.
+            </p>
+            <Link
+              href="/ogretmen/yazili"
+              className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white ${r.btnNeon} ${r.btnText}`}
+            >
+              Öğretmen paneline git
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </section>
         ) : (
           <>
             <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">

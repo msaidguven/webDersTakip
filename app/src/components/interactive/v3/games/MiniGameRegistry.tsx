@@ -7,6 +7,7 @@ import type { ComponentType } from 'react';
 import type { LessonSfx } from '@/app/src/lib/interactiveLesson/sound';
 import type { V3KavramAviConfig, V3MiniGameConfig } from '@/app/src/lib/interactiveLesson/typesV3';
 import type { RobotMood } from '../../RobotGuide';
+import type { VoiceStatus } from '../VoiceControls';
 import { KavramAviSession } from './KavramAviSession';
 
 export type MiniGameProgress = {
@@ -34,6 +35,11 @@ export type MiniGameProps<TConfig extends V3MiniGameConfig = V3MiniGameConfig> =
   onProgress: (info: MiniGameProgress) => void;
   onFeedback: (fb: MiniGameFeedback) => void;
   onComplete: (result: MiniGameResult) => void;
+  onSpeak?: (text: string, force?: boolean) => void;
+  canSpeak?: (text: string) => boolean;
+  voiceStatus?: VoiceStatus;
+  onPauseVoice?: () => void;
+  onResumeVoice?: () => void;
 };
 
 type GameComponentMap = {
@@ -44,7 +50,17 @@ export const MINI_GAME_REGISTRY: GameComponentMap = {
   kavram_avi: KavramAviSession,
 };
 
-export function MiniGameHost({ config, onProgress, onFeedback, onComplete }: MiniGameProps) {
+export function MiniGameHost({
+  config,
+  onProgress,
+  onFeedback,
+  onComplete,
+  onSpeak,
+  canSpeak,
+  voiceStatus,
+  onPauseVoice,
+  onResumeVoice,
+}: MiniGameProps) {
   const GameComponent = MINI_GAME_REGISTRY[config.kind];
   if (!GameComponent) return null;
   return (
@@ -53,6 +69,11 @@ export function MiniGameHost({ config, onProgress, onFeedback, onComplete }: Min
       onProgress={onProgress}
       onFeedback={onFeedback}
       onComplete={onComplete}
+      onSpeak={onSpeak}
+      canSpeak={canSpeak}
+      voiceStatus={voiceStatus}
+      onPauseVoice={onPauseVoice}
+      onResumeVoice={onResumeVoice}
     />
   );
 }

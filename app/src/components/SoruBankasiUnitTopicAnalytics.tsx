@@ -113,7 +113,7 @@ export default function SoruBankasiUnitTopicAnalytics({
                       <span>
                         <span className="font-semibold text-default">{stat.solved}/{total}</span> soru çözüldü
                       </span>
-                      <span>%{Math.round((stat.correct / stat.solved) * 100)} başarı</span>
+                      <span>%{Math.round((stat.correct / stat.solved) * 100)} doğruluk</span>
                     </span>
                     <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
                       <span className={`block h-full rounded-full ${r.btnNeon}`} style={{ width: `${pct}%` }} />

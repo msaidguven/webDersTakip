@@ -20,6 +20,8 @@
 // düz sol tık preventDefault ile yakalanıp yukarıdaki akışa yönlendiriliyor.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { QUESTION_BANK_STATS_REFRESH_EVENT } from '@/app/src/hooks/useQuestionBankViewer';
+import { START_TOPIC_TEST_EVENT } from '@/app/src/lib/soruBankasiEvents';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -41,6 +43,9 @@ interface TestStatusCardProps {
   // Misafire gösterilecek özel içerik (ör. konu sayfasındaki kapak + mini test, bkz.
   // GuestTestCover). Verilmezse varsayılan üyelik çağrısı (GuestTestCta).
   guestContent?: React.ReactNode;
+  // Konu sayfasında StudentTopicScorecard zaten ilerleme/doğruluk grafiklerini gösterdiği için
+  // öğrencide tekrar eden çubuk + doğru/yanlış satırını gizler, yalnız test başlatma aksiyonu kalır.
+  compactForStudent?: boolean;
 }
 
 const COLOR_CLASSES = {
@@ -83,14 +88,16 @@ function ResultSummary({ correct, wrong, solved }: { correct: number; wrong: num
     <p className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium">
       <span className="text-emerald-600">✓ {correct} doğru</span>
       <span className="text-rose-600">✗ {wrong} yanlış</span>
-      <span className="text-muted-foreground">%{Math.round((correct / solved) * 100)} başarı</span>
+      <span className="text-muted-foreground">%{Math.round((correct / solved) * 100)} doğruluk</span>
     </p>
   );
 }
 
-export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color, guestContent }: TestStatusCardProps) {
+export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug, topicSlug, topicId, unitId, title, color, guestContent, compactForStudent = false }: TestStatusCardProps) {
+  const role = useProfileRole();
   const [status, setStatus] = useState<SoruBankasiTestStatus | null>(null);
   const classes = COLOR_CLASSES[color];
+  const hideRedundantStats = compactForStudent && role === 'student';
 
   // Ayrı test sayfaları kaldırıldı (2026-10-24) — yedek href artık kartın bulunduğu soru bankası sayfası.
   const testHref = `/soru-bankasi/${gradeSlug}/${lessonSlug}/${unitSlug}${scope === 'topic' ? `/${topicSlug}` : ''}`;
@@ -173,6 +180,16 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
     if (status.loggedIn && status.resumable) void requestTest(false);
   }, [status, requestTest]);
 
+  // Konu karnesindeki "Çözmediklerim" düğmesi bu olayı tetikler → aynı sayfa içi konu testini açar.
+  useEffect(() => {
+    if (scope !== 'topic') return;
+    const onStart = () => {
+      void requestTest(false);
+    };
+    window.addEventListener(START_TOPIC_TEST_EVENT, onStart);
+    return () => window.removeEventListener(START_TOPIC_TEST_EVENT, onStart);
+  }, [scope, requestTest]);
+
   const resumable = status?.resumable ?? null;
 
   return (
@@ -199,8 +216,12 @@ export default function TestStatusCard({ scope, gradeSlug, lessonSlug, unitSlug,
         guestContent ?? <GuestTestCta questionCount={status.poolSize} />
       ) : (
         <>
-          <SolvedProgressBar solved={status.solved} total={status.poolSize} barClass={classes.bar} />
-          <ResultSummary correct={status.correct} wrong={status.wrong} solved={status.solved} />
+          {!hideRedundantStats && (
+            <>
+              <SolvedProgressBar solved={status.solved} total={status.poolSize} barClass={classes.bar} />
+              <ResultSummary correct={status.correct} wrong={status.wrong} solved={status.solved} />
+            </>
+          )}
 
           {resumable ? (
             <a

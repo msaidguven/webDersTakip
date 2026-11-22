@@ -4,6 +4,7 @@
 // Görünüm: anasayfayla aynı "robotik kontrol paneli" teması (bkz. app/src/components/robotic).
 import type { Metadata } from 'next';
 import { TakdirTesekkurHesaplama } from '@/app/src/components/progress/TakdirTesekkurHesaplama';
+import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import { roboticFontVars } from '@/app/src/components/robotic/fonts';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
@@ -59,7 +60,7 @@ export default function TakdirTesekkurHesaplamaPage() {
     <div className={`${roboticFontVars} ${r.root}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
       <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6">
           <header className={`${card} ${r.hero} flex flex-col gap-3 p-5 sm:p-7`}>
             <span className={r.scan} aria-hidden="true" />
             <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
@@ -115,6 +116,11 @@ export default function TakdirTesekkurHesaplamaPage() {
               ))}
             </dl>
           </section>
+
+          <OfficialSourceNotice
+            sources={['mevzuat']}
+            description="Hesaplama kuralları, T.C. Millî Eğitim Bakanlığı İlköğretim ve Ortaöğretim Kurumları yönetmelikleri referans alınarak hazırlanmıştır."
+          />
         </div>
       </main>
     </div>

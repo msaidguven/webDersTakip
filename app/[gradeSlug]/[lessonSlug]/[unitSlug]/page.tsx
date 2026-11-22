@@ -184,7 +184,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
                   href: `${lessonPath}/${u.slug}`,
                   label: u.title,
                   eyebrow: `${i + 1}. ünite`,
-                  meta: sb ? `${u.topicCount} konu · ${sb.questionCount} soru` : `${u.topicCount} konu`,
+                  meta: sb && sb.questionCount > 0 ? `${u.topicCount} konu · ${sb.questionCount} soru` : `${u.topicCount} konu`,
                   imageUrl: sb?.imageUrl ?? null,
                   lessonName: data.lessonName,
                   current: u.slug === data.unitSlug,

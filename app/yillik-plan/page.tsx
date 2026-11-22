@@ -7,15 +7,16 @@ import { getCurrentCurriculumWeek } from '@/app/src/lib/routeParsing';
 import { istanbulToday } from '@/app/src/lib/progressActivity';
 import { getYillikPlan } from '@/app/src/lib/yillikPlanPage';
 import { PlanCard } from '@/app/src/components/yillikPlan/PlanCard';
+import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import { ChevronDown } from 'lucide-react';
 
 // Plan haftada bir değişir; gün içinde yenileme gerekmez.
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: 'MEB Yıllık Plan (Hafta Hafta Konular)',
+  title: 'Yıllık Plan (Hafta Hafta Konular)',
   description:
-    'Ortaokul derslerinin MEB yıllık planı: hangi konunun hangi haftada işlendiği. Her konunun anlatımına ve sorularına tek tıkla geç.',
+    'Ortaokul ve lise derslerinin haftalık yıllık planı: hangi konunun hangi haftada işlendiği. Her konunun anlatımına ve sorularına tek tıkla geç.',
   alternates: { canonical: '/yillik-plan' },
   robots: { index: true, follow: true },
 };
@@ -32,9 +33,9 @@ export default async function YillikPlanPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-12 px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
         <header className="flex flex-col gap-3">
-          <h1 className="text-3xl font-black tracking-tight text-default sm:text-5xl">MEB yıllık plan</h1>
+          <h1 className="text-3xl font-black tracking-tight text-default sm:text-5xl">Yıllık Plan</h1>
           <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
             Her sınıf ve dersin konularının hangi haftada işleneceğini gösterir. Bir konu başlığına tıklayarak anlatımına ve sorularına
             geçebilirsin.
@@ -45,6 +46,11 @@ export default async function YillikPlanPage() {
               </>
             )}
           </p>
+          <OfficialSourceNotice
+            sources={['tymm', 'mufredat']}
+            description="Bu sayfadaki haftalık konu sıralaması, MEB tarafından yayımlanan öğretim programları ve taslak çerçeve yıllık planlar referans alınarak hazırlanmıştır."
+            className="mt-1"
+          />
         </header>
 
         {grades.length === 0 ? (
@@ -61,7 +67,7 @@ export default async function YillikPlanPage() {
                 </span>
                 <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
               </summary>
-              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+              <div className={`grid grid-cols-1 items-start gap-5 ${grade.lessons.length > 1 ? 'lg:grid-cols-2' : ''}`}>
                 {grade.lessons.map((lesson) => (
                   <PlanCard key={lesson.href} lesson={lesson} currentWeek={currentWeek} />
                 ))}

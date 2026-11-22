@@ -12,6 +12,7 @@ import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { ExamCountdown } from '@/app/src/components/yazili/ExamCountdown';
+import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 export const revalidate = 604800;
@@ -87,6 +88,11 @@ export default async function YaziliHubPage({ params }: { params: Promise<Params
                 Ders seç, soruları konu ve zorluğa göre süz ya da yapay zekâ puanlı yazılı provası çöz.
               </p>
             </section>
+
+            <OfficialSourceNotice
+              sources={['odsgm', 'tymm']}
+              description="Bu sayfadaki yazılı soruları, MEB tarafından yayımlanan ortak yazılı konu-soru dağılım tabloları referans alınarak hazırlanmıştır."
+            />
           </div>
 
           {otherHubs.length > 0 && (

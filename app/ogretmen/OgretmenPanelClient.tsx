@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
+import { pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import r from '@/app/src/components/robotic/robotic.module.css';
 import { OgretmenTabs } from './OgretmenTabs';
 
 type NameOption = { id: number; name: string };
@@ -31,8 +34,11 @@ async function fetchJson<T>(url: string): Promise<{ ok: true; data: T } | { ok: 
 
 export default function OgretmenPanelClient() {
   const { user, loading: authLoading } = useAuth();
+  const role = useProfileRole();
+  const isStaff = role === 'teacher' || role === 'admin';
 
   const [forbidden, setForbidden] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
   const [grades, setGrades] = useState<NameOption[]>([]);
   const [lessons, setLessons] = useState<NameOption[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -50,11 +56,12 @@ export default function OgretmenPanelClient() {
 
   // Sınıf listesi — sadece bir kere, kullanıcı yetkiliyse yüklenir.
   useEffect(() => {
-    if (!user) return;
+    if (!user || (role !== null && !isStaff)) return;
     let cancelled = false;
     (async () => {
       const res = await fetchJson<{ grades: NameOption[] }>('/api/ogretmen/options');
       if (cancelled) return;
+      setAccessChecked(true);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) setForbidden(true);
         else setError(res.error);
@@ -63,15 +70,15 @@ export default function OgretmenPanelClient() {
       setGrades(res.data.grades);
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, role, isStaff]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isStaff) return;
     (async () => {
       const res = await fetchJson<{ lessons: NameOption[] }>('/api/ogretmen/options?mine=1');
       if (res.ok) setMyLessons(res.data.lessons);
     })();
-  }, [user]);
+  }, [user, isStaff]);
 
   function handleGradeChange(value: string) {
     setGradeId(value);
@@ -182,29 +189,39 @@ export default function OgretmenPanelClient() {
     }
   }
 
-  if (authLoading) return null;
+  const shell = (children: React.ReactNode) => (
+    <div className={pageShellCls}>
+      <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6">{children}</div>
+    </div>
+  );
+
+  if (authLoading || (user && role === null && !accessChecked)) {
+    return shell(
+      <div aria-busy="true" aria-label="Öğretmen paneli yükleniyor" className={`h-48 animate-pulse rounded-[22px] ${r.panel}`} />
+    );
+  }
 
   if (!user) {
-    return (
-      <div className="max-w-2xl mx-auto mt-16 rounded-2xl bg-surface-elevated border border-default p-8 text-center">
-        <p className="text-default font-medium mb-1">Öğretmen paneli için giriş yapmalısın</p>
-        <Link href="/login?redirectTo=/ogretmen" className="inline-block mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium">
+    return shell(
+      <div className={`mx-auto mt-10 max-w-xl p-8 text-center ${r.panel}`}>
+        <p className="text-lg font-bold text-default">Öğretmen paneli için giriş yapmalısın</p>
+        <Link href="/login?redirectTo=/ogretmen" className={`mt-5 inline-flex min-h-10 items-center rounded-xl px-5 text-sm font-bold ${r.btnNeon} ${r.btnText}`}>
           Giriş Yap
         </Link>
       </div>
     );
   }
 
-  if (forbidden) {
-    return (
-      <div className="max-w-2xl mx-auto mt-16 rounded-2xl bg-surface-elevated border border-default p-8 text-center">
-        <p className="text-default font-medium mb-1">Bu sayfa sadece öğretmen hesapları içindir</p>
-        <p className="text-muted-foreground text-sm">Öğretmen hesabıyla giriş yaptığında bu araçları kullanabilirsin.</p>
+  if (forbidden || (role !== null && !isStaff)) {
+    return shell(
+      <div className={`mx-auto mt-10 max-w-xl p-8 text-center ${r.panel}`}>
+        <p className="text-lg font-bold text-default">Bu sayfa sadece öğretmen hesapları içindir</p>
+        <p className="mt-2 text-sm text-muted-foreground">Öğretmen hesabıyla giriş yaptığında bu araçları kullanabilirsin.</p>
       </div>
     );
   }
 
-  const selectClass = 'w-full rounded-xl border border-default bg-surface p-2.5 text-sm text-default focus:border-indigo-500 outline-none disabled:opacity-50';
+  const selectClass = `w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-default outline-none disabled:opacity-50 ${r.item}`;
 
   // Sorular birden fazla konudan gelebildiği için listede konu başlığına göre grupluyoruz.
   const questionsByTopic: { topicId: number; topicTitle: string; items: ClassicalQuestion[] }[] = [];
@@ -221,122 +238,127 @@ export default function OgretmenPanelClient() {
     });
   }
 
-  return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-      <OgretmenTabs active="/ogretmen" />
-      <div>
-        <h1 className="text-2xl font-black text-default">Açık Uçlu Sorular</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sınıf ve ders seçtikten sonra istediğin kadar üniteden/konudan soru işaretleyip tek Word dosyasında indirebilirsin.</p>
-        {myLessons && myLessons.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-2">Derslerim: {myLessons.map((l) => l.name).join(', ')}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <select className={selectClass} value={gradeId} onChange={(e) => handleGradeChange(e.target.value)}>
-          <option value="">Sınıf</option>
-          {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
-        <select className={selectClass} value={lessonId} onChange={(e) => handleLessonChange(e.target.value)} disabled={!gradeId}>
-          <option value="">Ders</option>
-          {lessons.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-      </div>
-
-      {units.length > 0 && (
-        <div className="space-y-3">
-          <div className="max-h-96 overflow-y-auto rounded-xl border border-default divide-y divide-default">
-            {units.map((unit) => {
-              const unitAllSelected = unit.topics.length > 0 && unit.topics.every((t) => selectedTopicIds.has(t.id));
-              return (
-                <div key={unit.id} className="p-3">
-                  <label className="flex items-center gap-2 text-sm font-bold text-default cursor-pointer">
-                    <input type="checkbox" checked={unitAllSelected} onChange={() => toggleUnitTopics(unit)} disabled={!unit.topics.length} />
-                    {unit.title}
-                  </label>
-                  {unit.topics.length > 0 && (
-                    <div className="mt-2 ml-6 space-y-1.5">
-                      {unit.topics.map((t) => (
-                        <label key={t.id} className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                          <input type="checkbox" checked={selectedTopicIds.has(t.id)} onChange={() => toggleTopic(t.id)} />
-                          {t.title}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={handleFetchQuestions}
-            disabled={!selectedTopicIds.size || loadingQuestions}
-            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {loadingQuestions ? 'Yükleniyor...' : `Soruları Getir (${selectedTopicIds.size} konu)`}
-          </button>
+  return shell(
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className={r.label}>Öğretmen paneli</p>
+          <h1 className={`mt-1 text-2xl font-bold uppercase text-default sm:text-3xl ${r.display}`}>Açık Uçlu Sorular</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Sınıf ve ders seçtikten sonra istediğin kadar üniteden/konudan soru işaretleyip tek Word dosyasında indirebilirsin.</p>
+          {myLessons && myLessons.length > 0 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">Derslerim: {myLessons.map((l) => l.name).join(', ')}</p>
+          )}
         </div>
-      )}
+        <OgretmenTabs active="/ogretmen" />
+      </div>
 
-      {error && <p className="text-sm font-bold text-red-500">{error}</p>}
+      <section className={`space-y-4 rounded-[22px] p-5 sm:p-6 ${r.panel}`}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <select className={selectClass} value={gradeId} onChange={(e) => handleGradeChange(e.target.value)}>
+            <option value="">Sınıf seç</option>
+            {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          <select className={selectClass} value={lessonId} onChange={(e) => handleLessonChange(e.target.value)} disabled={!gradeId}>
+            <option value="">Ders seç</option>
+            {lessons.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </div>
+
+        {units.length > 0 && (
+          <div className="space-y-4">
+            <div className={`max-h-96 overflow-y-auto rounded-2xl border divide-y divide-[var(--border)] ${r.divider}`}>
+              {units.map((unit) => {
+                const unitAllSelected = unit.topics.length > 0 && unit.topics.every((t) => selectedTopicIds.has(t.id));
+                return (
+                  <div key={unit.id} className="p-3.5">
+                    <label className="flex cursor-pointer items-center gap-2.5 text-sm font-bold text-default">
+                      <input type="checkbox" checked={unitAllSelected} onChange={() => toggleUnitTopics(unit)} disabled={!unit.topics.length} />
+                      {unit.title}
+                    </label>
+                    {unit.topics.length > 0 && (
+                      <div className="ml-6 mt-2 space-y-1.5">
+                        {unit.topics.map((t) => (
+                          <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-default">
+                            <input type="checkbox" checked={selectedTopicIds.has(t.id)} onChange={() => toggleTopic(t.id)} />
+                            {t.title}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleFetchQuestions}
+              disabled={!selectedTopicIds.size || loadingQuestions}
+              className={`inline-flex min-h-11 items-center rounded-xl px-5 text-sm font-bold disabled:opacity-50 ${r.btnNeon} ${r.btnText}`}
+            >
+              {loadingQuestions ? 'Yükleniyor...' : `Soruları Getir (${selectedTopicIds.size} konu)`}
+            </button>
+          </div>
+        )}
+      </section>
+
+      {error && <p role="alert" className="text-sm font-bold text-rose-500">{error}</p>}
 
       {questions && !loadingQuestions && questions.length === 0 && (
-        <p className="text-sm text-muted-foreground">Seçtiğin konularda henüz yayında açık uçlu soru yok.</p>
+        <p className={`rounded-[22px] p-6 text-sm text-muted-foreground ${r.panel}`}>Seçtiğin konularda henüz yayında açık uçlu soru yok.</p>
       )}
 
       {questions && questions.length > 0 && (
-        <>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm font-bold text-default">
+        <section className={`space-y-5 rounded-[22px] p-5 sm:p-6 ${r.panel}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-default">
               <input type="checkbox" checked={selectedQuestionIds.size === questions.length} onChange={toggleAllQuestions} />
               Tümünü seç ({selectedQuestionIds.size}/{questions.length})
             </label>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {questionsByTopic.map((group) => (
-              <div key={group.topicId} className="space-y-2">
-                <p className="text-xs font-black text-muted-foreground uppercase">{group.topicTitle}</p>
+              <div key={group.topicId} className="space-y-2.5">
+                <p className={r.label}>{group.topicTitle}</p>
                 {group.items.map((q, idx) => (
-                  <label key={q.id} className="flex items-start gap-3 rounded-xl border border-default bg-surface p-3 text-sm cursor-pointer">
+                  <label key={q.id} className={`flex cursor-pointer items-start gap-3 rounded-2xl p-3.5 text-sm ${r.item}`}>
                     <input
                       type="checkbox"
-                      className="mt-1"
+                      className="mt-1 shrink-0"
                       checked={selectedQuestionIds.has(q.id)}
                       onChange={() => toggleSelectedQuestion(q.id)}
                     />
-                    <span className="text-default">{idx + 1}. {q.questionText}</span>
+                    <span className="min-w-0 flex-1 leading-relaxed text-default">{idx + 1}. {q.questionText}</span>
                   </label>
                 ))}
               </div>
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className={`flex flex-wrap gap-2.5 border-t pt-4 ${r.divider}`}>
             <button
               onClick={() => handleExport('questions')}
               disabled={!selectedQuestionIds.size || exporting !== null}
-              className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              className={`inline-flex min-h-11 items-center rounded-xl px-5 text-sm font-bold disabled:opacity-50 ${r.btnNeon} ${r.btnText}`}
             >
               {exporting === 'questions' ? 'Hazırlanıyor...' : 'Sadece Soruları İndir'}
             </button>
             <button
               onClick={() => handleExport('answers')}
               disabled={!selectedQuestionIds.size || exporting !== null}
-              className="rounded-xl border border-default px-4 py-2.5 text-sm font-extrabold text-default hover:bg-surface disabled:opacity-50 transition-colors"
+              className={`inline-flex min-h-11 items-center rounded-xl px-5 text-sm font-bold disabled:opacity-50 ${r.btnGhost} ${r.btnText}`}
             >
               {exporting === 'answers' ? 'Hazırlanıyor...' : 'Sadece Cevap Anahtarını İndir'}
             </button>
             <button
               onClick={() => handleExport('both')}
               disabled={!selectedQuestionIds.size || exporting !== null}
-              className="rounded-xl border border-default px-4 py-2.5 text-sm font-extrabold text-default hover:bg-surface disabled:opacity-50 transition-colors"
+              className={`inline-flex min-h-11 items-center rounded-xl px-5 text-sm font-bold disabled:opacity-50 ${r.btnGhost} ${r.btnText}`}
             >
               {exporting === 'both' ? 'Hazırlanıyor...' : 'İkisi Bir Arada İndir'}
             </button>
           </div>
-        </>
+        </section>
       )}
     </div>
   );

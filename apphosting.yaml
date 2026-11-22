@@ -1,6 +1,6 @@
 # Firebase App Hosting yapılandırması (Cloud Run + Cloud Build).
-# Depo herkese açık olduğu için ortam değişkenleri değer olarak değil,
-# Google Cloud Secret Manager referansı (secret) olarak tanımlanır.
+# Depo herkese açık olduğu için gizli sunucu anahtarları Google Cloud Secret Manager
+# referansı (secret) olarak, herkese açık istemci/bölge değişkenleri ise düz değer (value) olarak tanımlanır.
 runConfig:
   cpu: 1
   # @sparticuz/chromium (PDF indirme) ve sharp/resvg için en az 1024-2048 MiB gerekir.
@@ -10,29 +10,29 @@ runConfig:
   maxInstances: 4
 
 env:
-  # İstemciye gömülen (build + runtime) değişkenler
+  # İstemciye gömülen (build + runtime) herkese açık değişkenler
   - variable: NEXT_PUBLIC_SUPABASE_URL
-    secret: NEXT_PUBLIC_SUPABASE_URL
+    value: https://pwzbjhgrhkcdyowknmhe.supabase.co
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_SUPABASE_KEY
-    secret: NEXT_PUBLIC_SUPABASE_KEY
+    value: sb_publishable_cXSIkRvdM3hsu2ZIFjSYVQ_XRhlmng8
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    secret: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    value: BPZjDDDVbetVunbIeJZ-bBIdZpY3D8XHB7QAqFYjjDNsK-i7zypYRwQi5S-MtUN2ewC3FTmlKLluRVOLKlQETw4
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_GA_MEASUREMENT_ID
-    secret: NEXT_PUBLIC_GA_MEASUREMENT_ID
+    value: G-BE10KSSWYQ
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_ADSENSE_CLIENT_ID
-    secret: NEXT_PUBLIC_ADSENSE_CLIENT_ID
+    value: ca-pub-8561144837504825
     availability:
       - BUILD
       - RUNTIME
@@ -80,7 +80,7 @@ env:
     availability:
       - RUNTIME
   - variable: AZURE_SPEECH_REGION
-    secret: AZURE_SPEECH_REGION
+    value: northeurope
     availability:
       - RUNTIME
   - variable: RESEND_API_KEY

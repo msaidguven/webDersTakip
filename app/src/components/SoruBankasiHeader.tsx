@@ -2,9 +2,43 @@
 // ders ikonlu üst satır (konum yolu ya da eyebrow), H1, özet etiketleri, veriden türetilmiş özgün giriş metni,
 // isteğe bağlı ek içerik (kazanım, düğmeler) ve sağ alan: masaüstünde görsel ya da `aside` (ör. sınıf kutuları).
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { NeonSubjectIcon } from './robotic/NeonSubjectIcon';
 import { roboticFontVars } from './robotic/fonts';
 import r from './robotic/robotic.module.css';
+
+// Mobil uygulama üst çubuğu (< 1024px): !sticky (.root > * { position: relative } kuralını geçer).
+export function SoruBankasiMobileBar({
+  backHref,
+  backLabel,
+  title,
+  badge,
+}: {
+  backHref: string;
+  backLabel: string;
+  title: string;
+  badge?: string;
+}) {
+  return (
+    <div className={`!sticky top-[3.75rem] z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_90%,transparent)] px-4 py-2.5 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
+      <Link
+        href={backHref}
+        aria-label={backLabel}
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-transform active:scale-95 ${r.iconBtn}`}
+      >
+        <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+      </Link>
+      <span className={`min-w-0 flex-1 truncate text-sm font-bold text-default ${r.display}`}>
+        {title}
+      </span>
+      {badge && (
+        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground ${r.divider}`}>
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export interface Crumb {
   name: string;
@@ -61,7 +95,7 @@ export function SoruBankasiHeader({
             )}
           </div>
           <h1 className={`mt-2 text-[26px] leading-tight sm:mt-3 sm:text-4xl ${r.chrome}`}>{title}</h1>
-          <ul className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2" aria-label="Sayfa özeti">
+          <ul className="sb-seo-pills mt-2.5 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2" aria-label="Sayfa özeti">
             {pills.map((t) => (
               <li key={t} className={r.badge}>{t}</li>
             ))}

@@ -74,7 +74,7 @@ export default async function DersTakipCizelgesiPage() {
     <div className={`${roboticFontVars} ${r.root}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
       <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6">
           <header className={`${card} ${r.hero} flex flex-col gap-3 p-5 sm:p-7`}>
             <span className={r.scan} aria-hidden="true" />
             <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>

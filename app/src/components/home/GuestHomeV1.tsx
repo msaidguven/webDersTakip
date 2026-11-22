@@ -152,12 +152,16 @@ function QuickLessonRow({
           <span className="shrink-0 text-[11px] text-muted-foreground">{lesson.unitCount} ünite</span>
         </span>
         <span className="flex flex-wrap gap-1.5">
-          <QuickBadge href={lesson.topicCount > 0 ? lessonPath : null}>
-            {lesson.topicCount} konu anlatımı
-          </QuickBadge>
-          <QuickBadge href={lesson.questionCount > 0 && lessonPath ? `/soru-bankasi${lessonPath}` : null}>
-            {lesson.questionCount} soru
-          </QuickBadge>
+          {lesson.topicCount > 0 && (
+            <QuickBadge href={lessonPath}>
+              {lesson.topicCount} konu anlatımı
+            </QuickBadge>
+          )}
+          {lesson.questionCount > 0 && (
+            <QuickBadge href={lessonPath ? `/soru-bankasi${lessonPath}` : null}>
+              {lesson.questionCount} soru
+            </QuickBadge>
+          )}
         </span>
       </div>
     </li>
@@ -259,7 +263,7 @@ export function GuestHomeV1({
     <div
       className={`${roboticFontVars} ${r.root}`}
     >
-      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-16 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-16 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
         {/* KOKPİT (hero) — metal panel + tarama ışığı */}
         <section className={`${r.panel} ${r.hero} flex flex-col gap-8 p-6 sm:p-10`}>
           <span className={r.scan} aria-hidden="true" />
@@ -312,7 +316,7 @@ export function GuestHomeV1({
           </div>
         </section>
 
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-6">
             <section
               aria-labelledby="sinif-baslik"
@@ -356,7 +360,7 @@ export function GuestHomeV1({
                         return (
                           <li key={grade.id}>
                             <GradeMetalCard href={`/${grade.slug}`} level={grade.level} title={`${grade.level}. Sınıf`}>
-                              {lessons.length} ders · {unitCount} ünite · {questionCount.toLocaleString('tr-TR')} soru
+                              {lessons.length} ders · {unitCount} ünite{questionCount > 0 ? ` · ${questionCount.toLocaleString('tr-TR')} soru` : ''}
                             </GradeMetalCard>
                           </li>
                         );
@@ -386,7 +390,7 @@ export function GuestHomeV1({
                     label="Hızlı erişim için sınıf"
                   />
                 </div>
-                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <ul className={`grid grid-cols-1 gap-2 ${quickSection.lessons.length > 1 ? 'sm:grid-cols-2' : ''}`}>
                   {quickSection.lessons.map((lesson) => (
                     <QuickLessonRow
                       key={lesson.id}

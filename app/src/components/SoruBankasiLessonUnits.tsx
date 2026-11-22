@@ -88,7 +88,7 @@ export default function SoruBankasiLessonUnits({
                     <span>
                       <span className="font-semibold text-default">{status.solved}/{status.poolSize}</span> soru çözüldü
                     </span>
-                    <span>%{Math.round((status.correct / status.solved) * 100)} başarı</span>
+                    <span>%{Math.round((status.correct / status.solved) * 100)} doğruluk</span>
                   </span>
                   <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-elevated" aria-hidden="true">
                     <span className={`block h-full rounded-full ${r.btnNeon}`} style={{ width: `${percent}%` }} />

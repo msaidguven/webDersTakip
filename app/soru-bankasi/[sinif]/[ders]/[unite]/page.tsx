@@ -20,8 +20,7 @@ import {
 } from '@/app/src/lib/soruBankasiPageData';
 import { BookOpen } from 'lucide-react';
 import TestStatusCard from '@/app/src/components/TestStatusCard';
-import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
-import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, SoruBankasiMobileBar, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import type { SoruBankasiUnitData } from '@/app/src/lib/soruBankasiPageData';
 import SoruBankasiUnitTopicAnalytics from '@/app/src/components/SoruBankasiUnitTopicAnalytics';
@@ -72,6 +71,12 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
   // üniteleri sağ sütunda (mobilde test kartı listenin üstünde, diğer üniteler en altta).
   return (
     <div className={pageShellCls}>
+      <SoruBankasiMobileBar
+        backHref={lessonPath}
+        backLabel={`${data.lessonName} ünitelerine dön`}
+        title={data.unitTitle}
+        badge={`${totalQuestions} soru`}
+      />
       <div className={pageInnerCls}>
         <script
           id="structured-data-soru-bankasi-unit-breadcrumb"
@@ -106,16 +111,6 @@ export default async function SoruBankasiUnitPage({ params }: { params: Promise<
             <BookOpen className="h-4 w-4" aria-hidden="true" /> Ünitenin konu anlatımları
           </Link>
         </SoruBankasiHeader>
-
-        <SoruBankasiQuickNav
-          label={`${data.lessonName} üniteleri`}
-          items={lessonUnits.map((unit) => ({
-            key: unit.slug,
-            href: buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, unit.slug),
-            label: `${unit.number}. ${unit.title}`,
-            current: unit.slug === data.unitSlug,
-          }))}
-        />
 
         {/* lg:grid-rows-[auto_1fr]: uzun konu listesi iki satıra yayılırken boşluk ilk satıra
             (test kartı) değil ikinciye gitsin — yoksa sağ alttaki kart sayfanın dibine düşüyor. */}

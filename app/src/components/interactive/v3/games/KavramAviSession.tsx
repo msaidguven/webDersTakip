@@ -7,8 +7,10 @@ import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { HarfCemberi } from '@/app/src/components/kavram-avi/HarfCemberi';
 import { KavramKutulari } from '@/app/src/components/kavram-avi/KavramKutulari';
 import { useKavramOyunu } from '@/app/src/hooks/useKavramOyunu';
+import { GUIDE } from '@/app/src/lib/interactiveLesson/guide';
 import type { Kavram } from '@/app/src/lib/kavramAvi';
 import type { V3KavramAviConfig, V3KavramAviRound } from '@/app/src/lib/interactiveLesson/typesV3';
+import { VoiceControls, type VoiceStatus } from '../VoiceControls';
 import type { MiniGameProps } from './MiniGameRegistry';
 import s from '../v3.module.css';
 
@@ -19,6 +21,11 @@ function KavramRoundPlay({
   onFeedback,
   onMistake,
   onNext,
+  onSpeak,
+  canSpeak,
+  voiceStatus = 'idle',
+  onPauseVoice,
+  onResumeVoice,
 }: {
   round: V3KavramAviRound;
   roundIndex: number;
@@ -26,6 +33,11 @@ function KavramRoundPlay({
   onFeedback: MiniGameProps<V3KavramAviConfig>['onFeedback'];
   onMistake: () => void;
   onNext: () => void;
+  onSpeak?: (text: string, force?: boolean) => void;
+  canSpeak?: (text: string) => boolean;
+  voiceStatus?: VoiceStatus;
+  onPauseVoice?: () => void;
+  onResumeVoice?: () => void;
 }) {
   const kavram = useMemo<Kavram>(
     () => ({
@@ -62,10 +74,14 @@ function KavramRoundPlay({
   }, [oyun.secim.length, onFeedback]);
 
   useEffect(() => {
+    if (round.definition) onSpeak?.(round.definition);
+  }, [round.definition, onSpeak]);
+
+  useEffect(() => {
     if (oyun.aktif > prevAktif.current && !oyun.tamamlandi) {
       onFeedback({
         mood: 'happy',
-        text: 'İlk kelime tamam! Şimdi sıradaki kelimeyi çemberden birleştir.',
+        text: GUIDE.v3KavramNextWord,
         tone: 'ok',
         sfx: 'ok',
       });
@@ -78,7 +94,7 @@ function KavramRoundPlay({
     onMistake();
     onFeedback({
       mood: 'oops',
-      text: 'Olmadı! Harflerin üzerinden tekrar kaydır veya İpucu düğmesini kullan.',
+      text: GUIDE.v3KavramWrong,
       tone: 'oops',
       sfx: 'retry',
     });
@@ -88,9 +104,21 @@ function KavramRoundPlay({
     <>
       {round.definition && (
         <div className={s.kavramDefCard}>
-          <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-sky-700">
-            Tanımı Oku ve Kavramı Bul ({roundIndex + 1}/{totalRounds})
-          </span>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="block text-[11px] font-extrabold uppercase tracking-wider text-sky-700">
+              Tanımı Oku ve Kavramı Bul ({roundIndex + 1}/{totalRounds})
+            </span>
+            {onSpeak && canSpeak?.(round.definition) && (
+              <VoiceControls
+                status={voiceStatus}
+                onPause={() => onPauseVoice?.()}
+                onResume={() => onResumeVoice?.()}
+                onReplay={() => onSpeak(round.definition!, true)}
+                replayLabel="Tekrar Dinle"
+                compact
+              />
+            )}
+          </div>
           “{round.definition}”
         </div>
       )}
@@ -136,7 +164,17 @@ function KavramRoundPlay({
   );
 }
 
-export function KavramAviSession({ config, onProgress, onFeedback, onComplete }: MiniGameProps<V3KavramAviConfig>) {
+export function KavramAviSession({
+  config,
+  onProgress,
+  onFeedback,
+  onComplete,
+  onSpeak,
+  canSpeak,
+  voiceStatus,
+  onPauseVoice,
+  onResumeVoice,
+}: MiniGameProps<V3KavramAviConfig>) {
   const [roundIdx, setRoundIdx] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const total = config.rounds.length;
@@ -193,6 +231,11 @@ export function KavramAviSession({ config, onProgress, onFeedback, onComplete }:
         onFeedback={onFeedback}
         onMistake={() => setMistakes((m) => m + 1)}
         onNext={handleNext}
+        onSpeak={onSpeak}
+        canSpeak={canSpeak}
+        voiceStatus={voiceStatus}
+        onPauseVoice={onPauseVoice}
+        onResumeVoice={onResumeVoice}
       />
     </div>
   );

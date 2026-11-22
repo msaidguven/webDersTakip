@@ -13,12 +13,14 @@ import r from '@/app/src/components/robotic/robotic.module.css';
 // ==================== KİŞİSEL BİLGİLER ====================
 
 export function PersonalInfoCard({
+  isTeacher = false,
   initialFullName,
   initialUsername,
   initialNickname,
   initialUseNickname,
   onSaved,
 }: {
+  isTeacher?: boolean;
   initialFullName: string;
   initialUsername: string | null;
   initialNickname: string | null;
@@ -108,9 +110,11 @@ export function PersonalInfoCard({
           <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
             @ {initialUsername || 'Kullanıcı adı belirtilmemiş'}
           </span>
-          <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
-            🏆 Sıralamada: {initialUseNickname && initialNickname ? initialNickname : initialFullName || 'Öğrenci'}
-          </span>
+          {!isTeacher && (
+            <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
+              🏆 Sıralamada: {initialUseNickname && initialNickname ? initialNickname : initialFullName || 'Öğrenci'}
+            </span>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -141,30 +145,32 @@ export function PersonalInfoCard({
               Yorumlarında gerçek adın yerine bu görünür. Boş bırakırsan &quot;Öğrenci&quot; yazar.
             </p>
           </div>
-          <div>
-            <label htmlFor="takma-ad" className="block text-muted-foreground text-xs font-medium mb-1.5">Takma Ad</label>
-            <input
-              id="takma-ad"
-              type="text"
-              value={nick}
-              onChange={(e) => setNick(e.target.value)}
-              maxLength={24}
-              placeholder="ör. Kuantum Ayşe"
-              className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
-            />
-            <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-default">
+          {!isTeacher && (
+            <div>
+              <label htmlFor="takma-ad" className="block text-muted-foreground text-xs font-medium mb-1.5">Takma Ad</label>
               <input
-                type="checkbox"
-                checked={useNick}
-                onChange={(e) => setUseNick(e.target.checked)}
-                className="h-4 w-4 rounded border-default accent-indigo-600"
+                id="takma-ad"
+                type="text"
+                value={nick}
+                onChange={(e) => setNick(e.target.value)}
+                maxLength={24}
+                placeholder="ör. Kuantum Ayşe"
+                className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
               />
-              Haftalık sıralamada adım yerine takma adım görünsün
-            </label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Seçmezsen sıralamada ad soyadın görünür (anasayfadaki &quot;Bu haftanın en çalışkanları&quot; listesi dahil).
-            </p>
-          </div>
+              <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-default">
+                <input
+                  type="checkbox"
+                  checked={useNick}
+                  onChange={(e) => setUseNick(e.target.checked)}
+                  className="h-4 w-4 rounded border-default accent-indigo-600"
+                />
+                Haftalık sıralamada adım yerine takma adım görünsün
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Seçmezsen sıralamada ad soyadın görünür (anasayfadaki &quot;Bu haftanın en çalışkanları&quot; listesi dahil).
+              </p>
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <button
               onClick={() => { setEditing(false); setName(initialFullName); setUname(initialUsername ?? ''); setNick(initialNickname ?? ''); setUseNick(initialUseNickname); }}
@@ -200,7 +206,7 @@ function trFold(s: string) {
     .replace(/i̇/g, 'i');
 }
 
-export function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow | null }) {
+export function SchoolInfoCard({ initialProfile, isTeacher = false }: { initialProfile: ProfileRow | null; isTeacher?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
@@ -361,9 +367,11 @@ export function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow 
 
       {!editing ? (
         <div className="flex flex-wrap gap-2">
-          <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5">
-            🎓 {currentGradeName || 'Sınıf belirtilmemiş'}
-          </span>
+          {!isTeacher && (
+            <span className="px-3 py-1.5 rounded-full text-sm border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 flex items-center gap-1.5">
+              🎓 {currentGradeName || 'Sınıf belirtilmemiş'}
+            </span>
+          )}
           <span className="px-3 py-1.5 rounded-full text-sm border bg-surface text-muted-foreground border-default flex items-center gap-1.5">
             📍 {currentCityName ? `${currentCityName}${currentDistrictName ? ' / ' + currentDistrictName : ''}` : 'Şehir belirtilmemiş'}
           </span>
@@ -373,16 +381,18 @@ export function SchoolInfoCard({ initialProfile }: { initialProfile: ProfileRow 
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-muted-foreground text-xs font-medium mb-1.5">Sınıf</label>
-              <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow">
-                <option value="">Seçiniz</option>
-                {grades.map((g) => (
-                  <option key={g.id} value={g.id}>{g.label}</option>
-                ))}
-              </select>
-            </div>
+          <div className={`grid grid-cols-1 gap-3 ${isTeacher ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+            {!isTeacher && (
+              <div>
+                <label className="block text-muted-foreground text-xs font-medium mb-1.5">Sınıf</label>
+                <select value={gradeId} onChange={(e) => setGradeId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-default text-default text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow">
+                  <option value="">Seçiniz</option>
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>{g.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-muted-foreground text-xs font-medium mb-1.5">İl</label>
               <SearchCombobox

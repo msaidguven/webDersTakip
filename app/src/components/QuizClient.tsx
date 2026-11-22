@@ -1061,6 +1061,7 @@ export default function QuizClient({
   });
   const [feedback, setFeedback] = useState<Record<number, string>>({});
   const [showResult, setShowResult] = useState(resumeAllAnswered);
+  const [resultFilter, setResultFilter] = useState<'auto' | 'wrong' | 'correct' | 'all'>('auto');
   const [reloadKey, setReloadKey] = useState(0);
   const [maxIndex, setMaxIndex] = useState(initialResumeIndex);
   // Açıklama artık cevap verilir vermez otomatik gösterilmiyor — öğrenci isterse
@@ -1160,6 +1161,7 @@ export default function QuizClient({
           setCorrect({});
           setFeedback({});
           setShowResult(false);
+          setResultFilter('auto');
           // Yeni soru seti = yeni deneme: önceki oturumla ilişkiyi kes, aşağıdaki
           // session efekti yeni questions için yeni bir test_sessions açacak — ama yine
           // ancak ilk cevap verilince (hasAnsweredOnce sıfırlanıyor).
@@ -1726,93 +1728,177 @@ export default function QuizClient({
   }
 
   if (showResult && isPlayer) {
-    const percent = gradedQuestions.length ? Math.round((score / gradedQuestions.length) * 100) : 0;
-    const wrongCount = gradedQuestions.length - score;
+    const totalGraded = gradedQuestions.length;
+    const percent = totalGraded ? Math.round((score / totalGraded) * 100) : 0;
+    const wrongCount = totalGraded - score;
     const encouragement =
       percent >= 80
-        ? '🎉 Harika! Bu konuyu gerçekten kavramışsın.'
+        ? 'Harika! Bu konuyu gerçekten kavramışsın.'
         : percent >= 50
-          ? '💪 İyi gidiyorsun, biraz daha pratikle daha da iyi olacaksın.'
-          : '📖 Bu konuyu bir daha gözden geçirip tekrar denemeye ne dersin?';
+          ? 'İyi gidiyorsun, yanlışlarına bakıp tekrar denersen tam oturur.'
+          : 'Yanlış yaptığın soruları inceleyip tekrar denemeye ne dersin?';
+
+    const ringR = 44;
+    const ringC = 2 * Math.PI * ringR;
+    const correctLen = totalGraded > 0 ? (score / totalGraded) * ringC : 0;
+    const wrongLen = totalGraded > 0 ? (wrongCount / totalGraded) * ringC : 0;
+
+    // Varsayılan olarak yanlış varsa doğrudan yanlışları göster (sade, odaklı inceleme); hepsi doğruysa tümünü.
+    const activeFilter: 'wrong' | 'correct' | 'all' =
+      resultFilter === 'auto' ? (wrongCount > 0 ? 'wrong' : 'all') : resultFilter;
+
+    const indexedQuestions = questions.map((q, i) => ({ q, i, isClassical: q.type === 'classical', isCorrectQ: !!correct[q.id] }));
+    const filteredQuestions =
+      activeFilter === 'wrong'
+        ? indexedQuestions.filter((x) => !x.isClassical && !x.isCorrectQ)
+        : activeFilter === 'correct'
+          ? indexedQuestions.filter((x) => !x.isClassical && x.isCorrectQ)
+          : indexedQuestions;
+
+    const tabCls = (active: boolean) =>
+      `inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-colors ${
+        active
+          ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+          : 'border-slate-200 bg-white/80 text-slate-600 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-slate-300'
+      }`;
+
     return playerShell(
       <div
-        className="relative flex flex-1 min-h-0 flex-col items-center gap-4 overflow-y-auto px-4 py-6 text-center sm:px-8"
-        style={{ background: `linear-gradient(135deg, ${playerAccent.from}22, white 55%)` }}
+        className="relative flex min-h-0 w-full flex-1 flex-col items-center gap-5 overflow-x-hidden overflow-y-auto px-4 py-6 text-center sm:px-8"
+        style={{ background: `linear-gradient(135deg, ${playerAccent.from}18, var(--background) 55%)` }}
       >
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}>
-          <Trophy className="h-8 w-8 text-white" />
-        </div>
-        <div>
-          <p className="text-3xl sm:text-4xl font-black text-slate-800">
-            {score}/{gradedQuestions.length} <span className="text-lg sm:text-xl text-slate-400">doğru</span>
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-500">
-            %{percent} başarı · <span className="text-emerald-600">{score} doğru</span> · <span className="text-rose-500">{wrongCount} yanlış</span>
-            {classicalCount > 0 ? ` · ${classicalCount} açık uçlu` : ''}
-          </p>
-          <p className="mt-2 text-sm font-bold text-slate-700">{encouragement}</p>
-          {isAuthenticated && <p className="mt-1 text-xs font-bold text-emerald-600">✓ Sonuçların kaydedildi</p>}
-          {resultNote}
+        {/* Özet Kartı: SVG Dağılım Halkası + Sade Metrikler */}
+        <div className="flex w-full max-w-xl flex-col items-center gap-3 rounded-2xl border border-default bg-background/90 p-5 shadow-sm sm:flex-row sm:items-center sm:gap-6 sm:p-6 sm:text-left">
+          <div className="relative h-28 w-28 shrink-0" role="img" aria-label={`${totalGraded} soruda ${score} doğru (%${percent})`}>
+            <svg viewBox="0 0 108 108" className="h-full w-full -rotate-90" aria-hidden="true">
+              <circle cx="54" cy="54" r={ringR} fill="none" stroke="var(--border)" strokeWidth="9" />
+              {correctLen > 0 && (
+                <circle
+                  cx="54"
+                  cy="54"
+                  r={ringR}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="9"
+                  strokeDasharray={`${correctLen} ${ringC}`}
+                  strokeDashoffset="0"
+                />
+              )}
+              {wrongLen > 0 && (
+                <circle
+                  cx="54"
+                  cy="54"
+                  r={ringR}
+                  fill="none"
+                  stroke="#f43f5e"
+                  strokeWidth="9"
+                  strokeDasharray={`${wrongLen} ${ringC}`}
+                  strokeDashoffset={-correctLen}
+                />
+              )}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-black leading-none text-default">%{percent}</span>
+              <span className="mt-1 text-[11px] font-bold text-muted-foreground">
+                {score}/{totalGraded}
+              </span>
+            </div>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-bold sm:justify-start">
+              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {score} doğru
+              </span>
+              <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                <XCircle className="h-4 w-4" aria-hidden="true" /> {wrongCount} yanlış
+              </span>
+              {classicalCount > 0 && <span className="text-muted-foreground">{classicalCount} açık uçlu</span>}
+            </div>
+            <p className="mt-2 text-sm font-semibold leading-snug text-default">{encouragement}</p>
+            {isAuthenticated && (
+              <p className="mt-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Sonuçların kaydedildi</p>
+            )}
+            {resultNote}
+          </div>
         </div>
 
-        {/* Soruları tek tek gözden geçir — tıklayınca o soruya döner (cevabı/açıklaması açık). */}
-        <div className="grid w-full max-w-2xl gap-1.5 text-left sm:grid-cols-2">
-          {questions.map((q, i) => {
-            const isClassical = q.type === 'classical';
-            const isCorrectQ = !!correct[q.id];
-            return (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => jumpToIndex(i)}
-                className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-left transition-colors hover:bg-white"
-              >
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
-                    isClassical ? 'bg-indigo-500/15 text-indigo-500' : isCorrectQ ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-500'
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">{stripEmphasis(q.question_text)}</span>
-                {!isClassical && (isCorrectQ ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />)}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-2 pb-2">
+        {/* Ana Aksiyonlar */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
           <button
             type="button"
             onClick={retry}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-xs font-black text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-default bg-background px-5 text-xs font-black text-default shadow-sm transition-colors hover:bg-surface-elevated"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> Yeni Test Çöz
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Yeni Test Çöz
           </button>
           <button
             type="button"
             onClick={exitQuiz}
-            className="rounded-full px-5 py-2.5 text-xs font-black text-white shadow-sm"
+            className="min-h-11 rounded-full px-6 text-xs font-black text-white shadow-sm transition-opacity hover:opacity-95"
             style={{ background: `linear-gradient(135deg, ${playerAccent.from}, ${playerAccent.to})` }}
           >
             {exitLabel}
           </button>
         </div>
 
+        {/* Soruları gözden geçir — filtreli, taşmasız kompakt liste (tıklayınca o soruya döner). */}
+        <div className="flex w-full max-w-xl flex-col gap-2.5 text-left">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Soruları incele</span>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Soruları filtrele">
+              {wrongCount > 0 && (
+                <button type="button" aria-pressed={activeFilter === 'wrong'} onClick={() => setResultFilter('wrong')} className={tabCls(activeFilter === 'wrong')}>
+                  Yanlışlar <span>{wrongCount}</span>
+                </button>
+              )}
+              {score > 0 && (
+                <button type="button" aria-pressed={activeFilter === 'correct'} onClick={() => setResultFilter('correct')} className={tabCls(activeFilter === 'correct')}>
+                  Doğrular <span>{score}</span>
+                </button>
+              )}
+              <button type="button" aria-pressed={activeFilter === 'all'} onClick={() => setResultFilter('all')} className={tabCls(activeFilter === 'all')}>
+                Tümü <span>{questions.length}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid w-full grid-cols-1 gap-1.5 pb-2">
+            {filteredQuestions.map(({ q, i, isClassical, isCorrectQ }) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => jumpToIndex(i)}
+                className="flex min-w-0 w-full items-center gap-2.5 overflow-hidden rounded-xl border border-default bg-background/90 px-3 py-2.5 text-left transition-colors hover:bg-surface-elevated"
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
+                    isClassical ? 'bg-indigo-500/15 text-indigo-500' : isCorrectQ ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-500'
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-default">{stripEmphasis(q.question_text)}</span>
+                {!isClassical && (isCorrectQ ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" aria-hidden="true" />)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {!isAuthenticated && (
-          <div className="w-full max-w-sm rounded-2xl border border-indigo-200 bg-white/80 p-4">
-            <p className="text-sm font-bold text-slate-700">Bu sonuç kaydedilmedi.</p>
-            <p className="mt-1 text-xs text-slate-500">Üye olursan doğru/yanlışların, günlük serin ve tekrar zamanı gelen sorular senin için takip edilir.</p>
+          <div className="w-full max-w-xl rounded-2xl border border-indigo-200 bg-background/90 p-4 text-center dark:border-indigo-500/30">
+            <p className="text-sm font-bold text-default">Bu sonuç kaydedilmedi.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Üye olursan doğru/yanlışların, günlük serin ve tekrar zamanı gelen sorular senin için takip edilir.</p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-xs font-black text-white"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-xs font-black text-white"
               >
-                <UserPlus className="h-3.5 w-3.5" /> Ücretsiz Üye Ol
+                <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Ücretsiz Üye Ol
               </Link>
               <Link
                 href={`/login?redirectTo=${encodeURIComponent(pathname || '/')}`}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                className="inline-flex min-h-10 items-center rounded-full border border-default bg-background px-4 text-xs font-black text-default transition-colors hover:bg-surface-elevated"
               >
                 Giriş Yap
               </Link>

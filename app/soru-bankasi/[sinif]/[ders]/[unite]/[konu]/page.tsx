@@ -33,8 +33,8 @@ import SoruBankasiBrowseSection from '@/app/src/components/SoruBankasiBrowseSect
 import Link from 'next/link';
 import { BookOpen, ClipboardList } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestions';
-import { SoruBankasiQuickNav } from '@/app/src/components/SoruBankasiQuickNav';
-import { SoruBankasiAbout, SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiAbout, SoruBankasiHeader, SoruBankasiMobileBar, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { StudentTopicHeaderWrapper, TopicLearningOutcome } from '@/app/src/components/StudentTopicHeaderExtras';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import ReadingProgressBar from '@/app/src/components/ReadingProgressBar';
 import r from '../../../../../src/components/robotic/robotic.module.css';
@@ -104,6 +104,12 @@ export default async function QuestionBankPage({ params }: PageProps) {
   // görünen içeriği yalnız büyük test kartıydı.
   return (
     <div className={pageShellCls}>
+      <SoruBankasiMobileBar
+        backHref={unitPath ?? buildSoruBankasiUnitPath(sinif, ders, unite)}
+        backLabel={`${data.unitTitle} konularına dön`}
+        title={data.topicTitle}
+        badge={`${questions.length} soru`}
+      />
       <div className={pageInnerCls}>
         <script
           id="structured-data-question-bank-breadcrumb"
@@ -123,47 +129,33 @@ export default async function QuestionBankPage({ params }: PageProps) {
           <QuestionBankHighlight />
         </Suspense>
 
-        <SoruBankasiHeader
-          crumbs={[
-            { name: data.gradeName, href: buildSoruBankasiGradePath(sinif) },
-            { name: data.lessonName, href: buildSoruBankasiLessonPath(sinif, ders) },
-            { name: data.unitTitle, href: unitPath ?? buildSoruBankasiUnitPath(sinif, ders, unite) },
-          ]}
-          lessonName={data.lessonName}
-          eyebrow={`${data.gradeName} · ${data.lessonName}`}
-          title={`${data.topicTitle} Soru Bankası`}
-          pills={[`${questions.length} soru`, 'Cevap anahtarlı', 'Açıklamalı', 'Ücretsiz']}
-          imageUrl={data.heroImageUrl}
-          imageAlt={`${data.topicTitle} konu görseli`}
-        >
-          {/* Kazanım: her soru bankası sayfasını kendine özgü kılan metin (SEO). */}
-          {data.learningOutcome && (
-            <p className={`mt-4 rounded-r-xl border-l-[3px] ${r.neonBorder} bg-background px-4 py-2.5 text-sm text-muted-foreground`}>
-              <span className="font-semibold text-default">Kazanım:</span> {data.learningOutcome}
-            </p>
-          )}
-          {/* Konu anlatımı ↔ soru bankası karşılıklı iç linki (SEO kümesi). */}
-          {data.hasPublishedContent && (
-            <Link
-              href={buildTopicPath(data)}
-              className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
-            >
-              <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımını oku
-            </Link>
-          )}
-        </SoruBankasiHeader>
-
-        {unitData && unitPath && (
-          <SoruBankasiQuickNav
-            label={`${unitData.unitTitle} konuları`}
-            items={unitData.topics.map((t) => ({
-              key: t.id,
-              href: `${unitPath}/${t.slug}`,
-              label: `${t.number}. ${t.title}`,
-              current: t.id === data.topicId,
-            }))}
-          />
-        )}
+        <StudentTopicHeaderWrapper>
+          <SoruBankasiHeader
+            crumbs={[
+              { name: data.gradeName, href: buildSoruBankasiGradePath(sinif) },
+              { name: data.lessonName, href: buildSoruBankasiLessonPath(sinif, ders) },
+              { name: data.unitTitle, href: unitPath ?? buildSoruBankasiUnitPath(sinif, ders, unite) },
+            ]}
+            lessonName={data.lessonName}
+            eyebrow={`${data.gradeName} · ${data.lessonName}`}
+            title={`${data.topicTitle} Soru Bankası`}
+            pills={[`${questions.length} soru`, 'Cevap anahtarlı', 'Açıklamalı', 'Ücretsiz']}
+            imageUrl={data.heroImageUrl}
+            imageAlt={`${data.topicTitle} konu görseli`}
+          >
+            {/* Kazanım: her soru bankası sayfasını kendine özgü kılan metin (SEO). */}
+            {data.learningOutcome && <TopicLearningOutcome text={data.learningOutcome} />}
+            {/* Konu anlatımı ↔ soru bankası karşılıklı iç linki (SEO kümesi). */}
+            {data.hasPublishedContent && (
+              <Link
+                href={buildTopicPath(data)}
+                className={`mt-3.5 inline-flex min-h-10 items-center gap-2 rounded-xl ${r.panel} px-4 text-sm font-semibold text-default transition-colors ${r.itemHover} ${r.hoverAccent}`}
+              >
+                <BookOpen className="h-4 w-4" aria-hidden="true" /> Konu anlatımını oku
+              </Link>
+            )}
+          </SoruBankasiHeader>
+        </StudentTopicHeaderWrapper>
 
         {/* Mobilde sıra: test kartı → sorular → ilgili linkler; masaüstünde test kartı ve linkler sağ sütunda. */}
         <div className="mt-6 sm:mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:grid-rows-[auto_1fr] lg:gap-x-8">
@@ -178,6 +170,7 @@ export default async function QuestionBankPage({ params }: PageProps) {
               unitId={data.unitId}
               title="Kendini test et"
               color="indigo"
+              compactForStudent
               guestContent={
                 <GuestTestCover
                   gradeId={data.gradeId}
@@ -227,16 +220,18 @@ export default async function QuestionBankPage({ params }: PageProps) {
               <SoruBankasiNavList
                 id="dersin-uniteleri"
                 title={`${unitData.lessonName} üniteleri`}
-                items={(lessonData?.units ?? []).map((u) => ({
-                  key: u.slug,
-                  href: buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, u.slug),
-                  label: u.title,
-                  eyebrow: `${u.number}. ünite`,
-                  meta: `${u.topics.length} konu · ${u.questionCount} soru`,
-                  imageUrl: u.imageUrl,
-                  lessonName: data.lessonName,
-                  current: u.slug === unitData.unitSlug,
-                }))}
+                items={(lessonData?.units ?? [])
+                  .filter((u) => u.questionCount > 0)
+                  .map((u) => ({
+                    key: u.slug,
+                    href: buildSoruBankasiUnitPath(unitData.gradeSlug, unitData.lessonSlug, u.slug),
+                    label: u.title,
+                    eyebrow: `${u.number}. ünite`,
+                    meta: `${u.topics.length} konu · ${u.questionCount} soru`,
+                    imageUrl: u.imageUrl,
+                    lessonName: data.lessonName,
+                    current: u.slug === unitData.unitSlug,
+                  }))}
               />
               <SoruBankasiNavList
                 id="sinifin-dersleri"

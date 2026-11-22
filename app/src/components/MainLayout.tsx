@@ -57,10 +57,20 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isDersRoute = isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
   const isProgressRoute = pathname === '/ilerlemem' || pathname?.startsWith('/ilerlemem/');
+  const isPersonalAppRoute =
+    isProgressRoute ||
+    pathname === '/profil' ||
+    pathname?.startsWith('/profil/') ||
+    pathname === '/ogretmen' ||
+    pathname?.startsWith('/ogretmen/') ||
+    pathname === '/tekrar' ||
+    pathname?.startsWith('/sirali-test/') ||
+    pathname?.startsWith('/uye/');
   const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
-  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için, /ilerlemem ise giriş gerektiren
-  // kişisel uygulama ekranı olduğu için LegalFooter'ı buralarda gizli tutuyoruz.
-  const hideFooter = hideHeader || isDersRoute || isProgressRoute;
+  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için, girişli/kişisel uygulama ekranları
+  // (/ilerlemem, /profil, /ogretmen, /tekrar vb.) ise SEO sayfası olmadığı ve mobilde alt sekme
+  // çubuğunun üstünde kalabalık yaptığı için LegalFooter'ı buralarda gizli tutuyoruz.
+  const hideFooter = hideHeader || isDersRoute || isPersonalAppRoute;
   // Mobil alt sekme çubuğu: yalnızca header gizli veya konu okuma sayfasındayken gizlenir
   // (/ilerlemem'de footer gizli olsa da alt sekme çubuğu görünmeye devam eder).
   const showTabBar = !hideHeader && !isDersRoute;
@@ -102,8 +112,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* Sağ Menü */}
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-2 xl:gap-4">
             {/* 1024–1279px'te menü bağlantılarına yer açmak için seri gizli (İlerlemem'de görünüyor). */}
-            {/* Öğretmen soru çözmüyor: seri sayacı yalnız öğrenci/admin'de. */}
-            {isAuthenticated && streak != null && !isTeacher && (
+            {/* Öğretmen soru çözmüyor: seri sayacı yalnız öğrenci/admin'de (rol yüklenmeden öğretmene flash etmesin). */}
+            {isAuthenticated && streak != null && role !== null && !isTeacher && (
               <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
                 <span className="text-lg sm:text-xl">🔥</span>
                 <div>

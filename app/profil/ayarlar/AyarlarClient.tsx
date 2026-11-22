@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Bell, ChevronLeft, School, UserRound, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { roboticFontVars } from '@/app/src/components/robotic/fonts';
 import r from '@/app/src/components/robotic/robotic.module.css';
@@ -30,7 +31,9 @@ export default function AyarlarClient() {
   const raw = params?.get('bolum') ?? null;
   const active: SectionId = isSection(raw) ? raw : 'hesap';
   const { user, loading } = useAuth();
+  const effectiveRole = useProfileRole();
   const [profile, setProfile] = useState<ProfileRow | null | undefined>(undefined);
+  const isTeacher = effectiveRole === 'teacher' || (effectiveRole === null && profile?.role === 'teacher');
 
   useEffect(() => {
     if (!user) return;
@@ -92,13 +95,13 @@ export default function AyarlarClient() {
       </nav>
 
       <section aria-label={SECTIONS.find((x) => x.id === active)?.label} className="min-w-0">
-        {active === 'bildirimler' ? (
-          <SettingsCard isStudent={profile?.role !== 'teacher'} />
-        ) : profile === undefined ? (
+        {profile === undefined ? (
           <div aria-busy="true" aria-label="Bilgiler yükleniyor" className={`h-64 animate-pulse rounded-[18px] ${r.panel}`} />
+        ) : active === 'bildirimler' ? (
+          <SettingsCard isStudent={!isTeacher} />
         ) : active === 'hesap' ? (
           <div className="flex flex-col gap-6">
-          {profile && (
+          {profile && !isTeacher && (
             <PublicProfileToggle
               slug={profile.public_slug ?? null}
               initialOn={profile.public_profile === true}
@@ -106,6 +109,7 @@ export default function AyarlarClient() {
             />
           )}
           <PersonalInfoCard
+            isTeacher={isTeacher}
             initialFullName={profile?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? ''}
             initialUsername={profile?.username ?? null}
             initialNickname={profile?.nickname ?? null}
@@ -119,7 +123,7 @@ export default function AyarlarClient() {
           </Link>
           </div>
         ) : (
-          <SchoolInfoCard initialProfile={profile} />
+          <SchoolInfoCard initialProfile={profile} isTeacher={isTeacher} />
         )}
       </section>
     </div>

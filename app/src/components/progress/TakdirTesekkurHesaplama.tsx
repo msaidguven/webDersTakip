@@ -188,7 +188,7 @@ export function TakdirTesekkurHesaplama() {
   const oneriler = dersOnerileri(sinifSeviyesi).filter((ad) => !dersler.some((d) => d.dersAdi.toLowerCase() === ad.toLowerCase()));
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
       <section aria-labelledby="hesaplama-baslik" className="flex min-w-0 flex-col gap-6">
         <div className={`${card} flex flex-col gap-4 p-5 sm:p-7`}>
           <h2 id="hesaplama-baslik" className="text-lg font-extrabold text-default">

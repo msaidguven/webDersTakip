@@ -5,7 +5,7 @@
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
 import { isHydratedV2, type HydratedLessonV2 } from './typesV2';
-import { isHydratedV3, type HydratedLessonV3, type V3TeachBeat } from './typesV3';
+import { isHydratedV3, type HydratedLessonV3, type V3BeatVisual, type V3TeachBeat } from './typesV3';
 
 export const ROBOT_NAME = 'Atom';
 export const VOICE_BUCKET = 'topic-narration';
@@ -73,6 +73,12 @@ export const GUIDE = {
   misIntro: 'Dikkat! Sık yapılan bir yanılgı var.',
   misWrong: (wrong: string) => `Şöyle düşünmek yanlış: ${wrong}`,
   misRight: (right: string) => `Doğrusu şu: ${right}`,
+  // v3 ortak geri bildirim cümleleri (içerik adresli: tüm derslerde tek kez üretilir).
+  v3PoolWrong: 'Bu seçenek değil, bir kez daha dikkatlice bakıp başka seçeneğe dokun!',
+  v3PoolOkFallback: 'Doğru bildin! Tebrikler!',
+  v3SectionDone: 'Harika iş çıkardın! Sıradaki bölüme geçebilir veya Keşif Haritasına dönebilirsin.',
+  v3KavramWrong: 'Olmadı! Harflerin üzerinden tekrar kaydır veya İpucu düğmesini kullan.',
+  v3KavramNextWord: 'İlk kelime tamam! Şimdi sıradaki kelimeyi çemberden birleştir.',
 };
 
 export const praiseAt = (seed: number) => GUIDE.praise[Math.abs(seed) % GUIDE.praise.length];
@@ -140,8 +146,66 @@ export function narrativeSpeech(step: NarrativeStep, part: NarrativePart): strin
   return [step.body ?? step.title];
 }
 
-// v3 anlatım ekranında Atom önce başlığı, hemen ardından açıklamayı tek akışta okur.
-export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>): string {
+function endSentence(text: string): string {
+  const t = text.trim();
+  if (!t) return '';
+  return /[.!?:…]$/.test(t) ? t : `${t}.`;
+}
+
+// v3 anlatım ekranındaki yapısal görselin (başlıklar, maddeler, karşılaştırma, adımlar, kartlar, denklem)
+// doğal konuşma metni.
+export function v3VisualSpeech(visual?: V3BeatVisual, beatTitle?: string): string {
+  if (!visual) return '';
+  const norm = (s: string) => s.trim().toLocaleLowerCase('tr-TR');
+  const titleNorm = beatTitle ? norm(beatTitle) : '';
+
+  switch (visual.kind) {
+    case 'highlight': {
+      const parts: string[] = [];
+      if (visual.headline.trim() && norm(visual.headline) !== titleNorm) {
+        parts.push(endSentence(visual.headline));
+      }
+      for (const b of visual.bullets) {
+        if (b.trim()) parts.push(endSentence(b));
+      }
+      return parts.join(' ');
+    }
+    case 'compare': {
+      const sideText = (side: { title: string; points: string[] }) => {
+        const pts = side.points.map((p) => p.trim()).filter(Boolean).join(', ');
+        if (side.title.trim() && pts) return endSentence(`${side.title.trim()}: ${pts}`);
+        return endSentence(side.title || pts);
+      };
+      return [sideText(visual.left), sideText(visual.right)].filter(Boolean).join(' ');
+    }
+    case 'steps':
+      return visual.items
+        .map((it, i) => (it.trim() ? endSentence(`${i + 1}. ${it.trim()}`) : ''))
+        .filter(Boolean)
+        .join(' ');
+    case 'cards':
+      return visual.items
+        .map((c) => {
+          const t = c.title.trim();
+          const d = c.detail.trim();
+          if (t && d) return endSentence(`${t}: ${d}`);
+          return endSentence(t || d);
+        })
+        .filter(Boolean)
+        .join(' ');
+    case 'equation': {
+      const left = visual.inputs.map((inp) => inp.trim()).filter(Boolean).join(' artı ');
+      const res = visual.result.trim();
+      if (left && res) return endSentence(`${left}, eşittir ${res}`);
+      return endSentence(left || res);
+    }
+    default:
+      return '';
+  }
+}
+
+// Eski sesler için geriye dönük yedek (sadece başlık + alt metin).
+export function v3BeatTitleFactSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>): string {
   const title = beat.title.trim();
   const fact = beat.fact.trim();
   if (!title) return fact;
@@ -151,11 +215,32 @@ export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>): string 
   return `${title}${sep}${fact}`;
 }
 
+// v3 anlatım ekranında Atom önce başlığı, sonra görseldeki başlık/maddeleri, ardından alt metni tek akışta okur.
+export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>): string {
+  const title = beat.title.trim();
+  const visualText = v3VisualSpeech(beat.visual, title);
+  const fact = beat.fact.trim();
+  const parts: string[] = [];
+  if (title && !fact.toLocaleLowerCase('tr-TR').startsWith(title.toLocaleLowerCase('tr-TR'))) {
+    parts.push(endSentence(title));
+  } else if (title && visualText) {
+    parts.push(endSentence(title));
+  }
+  if (visualText) parts.push(visualText);
+  if (fact) parts.push(fact);
+  return parts.join(' ').trim();
+}
+
 // Dersin seslendirilecek bütün cümleleri (üretim betiği). v1, v2 ve v3 derslerini destekler.
 export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | HydratedLessonV3): string[] {
   if (isHydratedV3(lesson)) {
     const out: string[] = [
       ...GUIDE.praise,
+      GUIDE.v3PoolWrong,
+      GUIDE.v3PoolOkFallback,
+      GUIDE.v3SectionDone,
+      GUIDE.v3KavramWrong,
+      GUIDE.v3KavramNextWord,
       lesson.guide?.intro ?? GUIDE.intro(lesson.topicTitle),
       lesson.guide?.finish ?? GUIDE.finish,
     ];
@@ -169,6 +254,7 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | Hydrated
       if (sec.game.kind === 'kavram_avi') {
         out.push(sec.game.intro);
         for (const r of sec.game.rounds) {
+          if (r.definition) out.push(r.definition);
           out.push(r.praise);
         }
       }

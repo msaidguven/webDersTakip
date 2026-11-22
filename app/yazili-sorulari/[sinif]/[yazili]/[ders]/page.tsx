@@ -21,6 +21,7 @@ import { YaziliStudy, YAZILI_LIST_CLASS, type StudyQuestionItem } from '@/app/sr
 import { HideForTeacher, YaziliTeacherSection } from '@/app/src/components/yazili/YaziliTeacherSection';
 import { YaziliAdminEditProvider, YaziliEditButton } from '@/app/src/components/yazili/YaziliAdminEdit';
 import { YaziliPaperPickerProvider, YaziliPickButton } from '@/app/src/components/yazili/YaziliPaperPickerContext';
+import { OfficialSourceNotice } from '@/app/src/components/OfficialSourceNotice';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import y from '@/app/src/components/yazili/yazili.module.css';
 
@@ -249,6 +250,11 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
               <h2 id="yazili-hakkinda" className="text-base font-bold text-default">Bu yazılı hakkında</h2>
               <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{intro}</p>
             </section>
+
+            <OfficialSourceNotice
+              sources={['odsgm', 'tymm']}
+              description="Bu sayfadaki yazılı soruları, MEB tarafından yayımlanan ortak yazılı konu-soru dağılım tabloları referans alınarak hazırlanmıştır."
+            />
           </div>
 
           <aside className="hidden lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-4" aria-label="Yazılı gezinmesi">

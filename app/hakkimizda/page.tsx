@@ -34,6 +34,42 @@ export default function AboutPage() {
         isteyen veliler ve öğrenciler için ek kaynak arayan öğretmenler platformumuzu kullanabilir.
       </p>
 
+      <h2>Resmi Kaynaklar ve Sorumluluk Reddi</h2>
+      <p>
+        Ders Takip bağımsız bir eğitim platformudur. T.C. Millî Eğitim Bakanlığı (MEB) veya herhangi bir devlet
+        kurumuyla bağlantılı değildir, hiçbir devlet kuruluşunu temsil etmez ve resmi devlet hizmeti sunmaz.
+      </p>
+      <p>
+        Platformdaki müfredat uyumlu konu sıralamaları, haftalık yıllık planlar, yazılı konu-soru dağılımları ve
+        belge hesaplama kuralları aşağıdaki resmi kaynaklar referans alınarak hazırlanmıştır:
+      </p>
+      <ul>
+        <li>
+          <a href="https://tymm.meb.gov.tr" target="_blank" rel="noopener noreferrer">
+            tymm.meb.gov.tr
+          </a>{' '}
+          — Türkiye Yüzyılı Maarif Modeli Öğretim Programları
+        </li>
+        <li>
+          <a href="https://mufredat.meb.gov.tr" target="_blank" rel="noopener noreferrer">
+            mufredat.meb.gov.tr
+          </a>{' '}
+          — MEB Öğretim Programları
+        </li>
+        <li>
+          <a href="https://odsgm.meb.gov.tr" target="_blank" rel="noopener noreferrer">
+            odsgm.meb.gov.tr
+          </a>{' '}
+          — MEB Ölçme, Değerlendirme ve Sınav Hizmetleri Genel Müdürlüğü
+        </li>
+        <li>
+          <a href="https://mevzuat.meb.gov.tr" target="_blank" rel="noopener noreferrer">
+            mevzuat.meb.gov.tr
+          </a>{' '}
+          — MEB Mevzuat Bankası
+        </li>
+      </ul>
+
       <h2>İletişim</h2>
       <p>
         Sorularınız, görüş ve önerileriniz için <Link href="/iletisim">iletişim sayfamızdan</Link> bize ulaşabilirsiniz.
