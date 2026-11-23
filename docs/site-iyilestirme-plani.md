@@ -21,3 +21,10 @@ Aşağıdakiler ise **kapsamı büyük olduğu için ertelendi** — hangisiyle 
 
 ## Diğer notlar
 - Liderlik tablosunda takma ad (`profiles.username`) gösteriliyor ama profil sayfasından hâlâ düzenlenemiyor — bu yüzden çoğu kullanıcı şimdilik "Öğrenci" olarak görünecek. İstenirse `/profil`'e bir kullanıcı adı alanı eklenebilir.
+
+## Öğretmen özellikleri (2026-11-24)
+Öğretmen anasayfası sadeleştirildi; sıradaki yüksek değerli ve düşük bakım maliyetli öğretmen özellikleri:
+
+1. **Yazılıda tek tıkla A / B Grubu (karışık sıra) PDF/Word indirme** — `YaziliBuilder` içindeki seçili soruların sırasını karıştırarak tek tıkla A ve B grubu sınav kağıdı + cevap anahtarı üretme.
+2. **Ders anlatım sayfasında Akıllı Tahta (Sunum) Modu** — Öğretmen girişiyle konu veya test sayfasında tek tıkla kenar menülerini gizleyen, yazıyı büyüten ve örnek/soru cevaplarını kapalı getirip tıklayınca açan sınıf içi sunum modu.
+3. **Konu / test sayfasında öğretmene özel WhatsApp / veli paylaşım butonu** — Ağır bir sınıf/ödev sistemi kurmadan, tek tıkla *"Bu haftaki konumuz: [Konu]. Tekrar ve test linki: [URL]"* şeklinde hazır mesaj kopyalama / WhatsApp'ta paylaşma.
