@@ -38,6 +38,7 @@ export interface StudentToday {
   dailyGoal: number;
   weeklyActiveDays: boolean[];
   rank: { position: number; toPass: number | null } | null;
+  dueSrs: number;
   lessons: LessonProgress[];
   // Ders id → "Sıradaki 10 soru" adımı (Derslerim kartları). RPC yoksa/hata verirse boş.
   nextSteps: Map<number, LessonNextStep>;
@@ -136,6 +137,7 @@ async function loadStudentToday(
     dailyGoal,
     weeklyActiveDays,
     rank: me ? { position: me.rank, toPass: above ? above.totalQuestions - me.totalQuestions + 1 : null } : null,
+    dueSrs,
     lessons,
     nextSteps,
     openTestByLesson,

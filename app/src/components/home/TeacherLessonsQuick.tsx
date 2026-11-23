@@ -1,13 +1,11 @@
 'use client';
 
-// Öğretmen anasayfası "Derslerim" (2026-10-26 yeniden: önceki her sınıf×ders ayrı kutu düzeni 4 derste 11+14 kutuya
-// çıkıyordu, kullanıcı "dağınık" buldu). Ders sekmeleri + seçili ders için yan yana İKİ ayrı kart, her kartın tek işi
-// var (kullanıcı kuralı: iki farklı işlem aynı kartta olmasın): "Bu haftanın konuları" konuyu açar (anasayfanın
-// "Okulda bu hafta" verisi, ek istek yok), "Ünite ve konular" o sınıfın ders sayfasını açar. Liste teacher_lessons;
-// buradan düzenlenir (profildeki aynı seçici). Menüdeki "Dersler" öğretmende buraya iner (/#dersler).
+// Öğretmen anasayfası "Derslerim" (2026-11-24 sadeleştirildi): iki ayrı kart ("Bu haftanın konuları" +
+// "Ünite ve konular") yerine tek birleşik kart. Her sınıf satırında sol tarafta bu haftanın konusu (varsa),
+// sağ tarafta o sınıfın tüm ünitelerine geçiş bağlantısı bulunur. Menüdeki "Dersler" öğretmende buraya iner (/#dersler).
 import Link from 'next/link';
 import useSWR from 'swr';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { ChevronRight, Pencil, X } from 'lucide-react';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { TeacherLessonsEditor } from '@/app/src/components/teacher/TeacherLessonsEditor';
@@ -16,25 +14,6 @@ import r from '@/app/src/components/robotic/robotic.module.css';
 
 type GradeLink = { id: string; slug?: string; name: string };
 type MyLesson = { id: number; name: string; slug: string; gradeIds: Set<string> };
-
-// Öğretmen anasayfasındaki tüm listelerin ortak satırı: tek hedef, sağda ok.
-export function RowLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link href={href} className={`group flex min-h-12 items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 ${r.item}`}>
-      <span className="min-w-0">{children}</span>
-      <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground ${r.groupHoverAccent}`} aria-hidden="true" />
-    </Link>
-  );
-}
-
-export function ListCard({ title, id, children, className = '' }: { title: string; id: string; children: ReactNode; className?: string }) {
-  return (
-    <section aria-labelledby={id} className={`flex flex-col gap-3 rounded-[22px] p-5 ${r.panel} ${className}`}>
-      <h3 id={id} className={r.label}>{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 export function TeacherLessonsQuick({
   grades,
@@ -56,7 +35,6 @@ export function TeacherLessonsQuick({
         .filter((l): l is { id: number; name: string; slug: string } => l !== null)
         .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       if (!mine.length) return [];
-      // Dersin hangi sınıflarda olduğu: aktif ünitesi olan sınıflar (pasif sınıflar grades listesinde zaten yok).
       const { data: units } = await supabase.from('units').select('grade_id, lesson_id').eq('is_active', true).in('lesson_id', mine.map((l) => l.id));
       const byLesson = new Map<number, Set<string>>();
       for (const u of (units as { grade_id: number; lesson_id: number }[] | null) || []) {
@@ -71,12 +49,9 @@ export function TeacherLessonsQuick({
 
   const active = lessons?.find((l) => l.id === activeId) ?? lessons?.[0] ?? null;
   const activeGrades = active ? grades.filter((g) => g.slug && active.gradeIds.has(g.id)) : [];
-  const weekTopics = active
-    ? activeGrades.flatMap((g) => (thisWeek.byGradeId[g.id] ?? []).filter((t) => t.lessonId === active.id && t.href).map((t) => ({ topic: t, grade: g })))
-    : [];
 
   return (
-    <section id="dersler" aria-labelledby="dersler-baslik" className="flex scroll-mt-24 flex-col gap-4">
+    <section id="dersler" aria-labelledby="dersler-baslik" className="flex scroll-mt-24 flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 id="dersler-baslik" className={`text-xl font-bold text-default ${r.display}`}>Derslerim</h2>
         <button
@@ -102,11 +77,15 @@ export function TeacherLessonsQuick({
       )}
 
       {lessons === undefined ? (
-        <div aria-busy="true" aria-label="Derslerin yükleniyor" className={`h-48 animate-pulse rounded-[22px] ${r.panel}`} />
+        <div aria-busy="true" aria-label="Derslerin yükleniyor" className={`h-44 animate-pulse rounded-[22px] ${r.panel}`} />
       ) : !active ? (
         !editing && (
           <p className={`rounded-[22px] p-5 text-sm text-muted-foreground ${r.panel}`}>
-            Henüz ders seçmedin. <button type="button" onClick={() => setEditing(true)} className={`font-semibold hover:underline ${r.accent}`}>Derslerini seç</button>; bu haftanın konuları ve ders sayfaların burada toplansın.
+            Henüz ders seçmedin.{' '}
+            <button type="button" onClick={() => setEditing(true)} className={`font-semibold hover:underline ${r.accent}`}>
+              Derslerini seç
+            </button>
+            ; bu haftanın konuları ve ders sayfaların burada toplansın.
           </p>
         )
       ) : (
@@ -128,39 +107,51 @@ export function TeacherLessonsQuick({
             </div>
           )}
 
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <ListCard title={`Bu haftanın konuları · ${active.name}`} id="bu-hafta-baslik">
-              {weekTopics.length ? (
-                <ul className="flex flex-col gap-2">
-                  {weekTopics.map(({ topic, grade }) => (
-                    <li key={topic.id}>
-                      <RowLink href={topic.href!}>
-                        <span className="block text-xs font-semibold text-muted-foreground">{grade.name}</span>
-                        <span className="block font-bold text-default">{topic.title}</span>
-                      </RowLink>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">{thisWeek.week}. hafta için bu derste atanmış konu yok.</p>
-              )}
-            </ListCard>
+          <div className={`rounded-[22px] p-5 ${r.panel}`}>
+            <p className={r.label}>{active.name} · {thisWeek.week}. hafta</p>
 
-            <ListCard title="Ünite ve konular" id="unite-konular-baslik">
-              {activeGrades.length ? (
-                <ul className="flex flex-col gap-2">
-                  {activeGrades.map((g) => (
-                    <li key={g.id}>
-                      <RowLink href={`/${g.slug}/${active.slug}`}>
-                        <span className="block font-bold text-default">{g.name} {active.name}</span>
-                      </RowLink>
+            {activeGrades.length ? (
+              <ul className={`mt-3 divide-y divide-[var(--border)] ${r.divider}`}>
+                {activeGrades.map((g) => {
+                  const topics = (thisWeek.byGradeId[g.id] ?? []).filter((t) => t.lessonId === active.id && t.href);
+                  const lessonHref = `/${g.slug}/${active.slug}`;
+                  return (
+                    <li key={g.id} className="py-3.5 first:pt-1 last:pb-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{g.name}</span>
+                        <Link
+                          href={lessonHref}
+                          className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold hover:underline ${r.accent}`}
+                        >
+                          Üniteler
+                          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Link>
+                      </div>
+
+                      {topics.length > 0 ? (
+                        <ul className="mt-1.5 flex flex-col gap-1">
+                          {topics.map((t) => (
+                            <li key={t.id}>
+                              <Link
+                                href={t.href!}
+                                className="group flex items-center justify-between gap-2 rounded-lg py-1 text-sm font-semibold text-default transition-colors hover:text-[var(--accent)]"
+                              >
+                                <span className="min-w-0 leading-snug">{t.title}</span>
+                                <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground ${r.groupHoverAccent}`} aria-hidden="true" />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">Bu hafta atanmış konu yok</p>
+                      )}
                     </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">Bu dersin henüz içeriği yok.</p>
-              )}
-            </ListCard>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Bu dersin henüz içeriği yok.</p>
+            )}
           </div>
         </>
       )}

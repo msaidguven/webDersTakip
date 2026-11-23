@@ -15,16 +15,16 @@ const LEGAL_LINKS: { href: string; label: string; external?: boolean }[] = [
 export function LegalFooter() {
   return (
     <footer
-      className="py-2.5 sm:py-3 px-4 sm:px-8
+      className="py-4 sm:py-3 px-4 sm:px-8
         bg-white/80 dark:bg-surface/95
         border-t border-zinc-200 dark:border-default"
     >
-      <div className="max-w-6xl mx-auto flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 sm:gap-4 text-center">
-          <p className="text-muted-foreground text-xs sm:text-sm font-bold order-2 sm:order-1">
+      <div className="max-w-6xl mx-auto flex flex-col gap-3 sm:gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2 sm:gap-4 text-center">
+          <p className="text-muted-foreground text-xs sm:text-sm font-semibold sm:font-bold order-2 sm:order-1">
             © {new Date().getFullYear()} Ders Takip. Tüm hakları saklıdır.
           </p>
-          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 order-1 sm:order-2">
+          <nav className="flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2 sm:gap-x-4 sm:gap-y-1 order-1 sm:order-2">
             {LEGAL_LINKS.map((link) =>
               link.external ? (
                 <a
@@ -32,7 +32,7 @@ export function LegalFooter() {
                   href={link.href}
                   target="_blank"
                   rel="noopener"
-                  className="text-xs sm:text-sm font-bold text-muted-foreground hover:text-default transition-colors"
+                  className="text-xs sm:text-sm font-semibold sm:font-bold text-muted-foreground hover:text-default transition-colors py-0.5"
                 >
                   {link.label}
                 </a>
@@ -40,18 +40,18 @@ export function LegalFooter() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-xs sm:text-sm font-bold text-muted-foreground hover:text-default transition-colors"
+                  className="text-xs sm:text-sm font-semibold sm:font-bold text-muted-foreground hover:text-default transition-colors py-0.5"
                 >
                   {link.label}
                 </Link>
               )
             )}
-            <Link href="/" className="text-xs sm:text-sm font-bold text-muted-foreground hover:text-default transition-colors">
+            <Link href="/" className="text-xs sm:text-sm font-semibold sm:font-bold text-muted-foreground hover:text-default transition-colors py-0.5">
               Ana Sayfa
             </Link>
           </nav>
         </div>
-        <p className="text-center sm:text-left text-[11px] leading-relaxed text-muted-foreground/90">
+        <p className="text-center sm:text-left text-[11px] leading-relaxed text-muted-foreground/85">
           Ders Takip bağımsız bir eğitim platformudur; T.C. Millî Eğitim Bakanlığı (MEB) veya herhangi bir devlet
           kurumuyla bağlantılı değildir. Resmi müfredat kaynakları:{' '}
           <a href="https://tymm.meb.gov.tr" target="_blank" rel="noopener noreferrer" className="underline hover:text-default">

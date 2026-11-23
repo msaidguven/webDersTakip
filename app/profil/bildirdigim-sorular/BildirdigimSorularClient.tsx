@@ -702,7 +702,7 @@ export default function BildirdigimSorularClient() {
       <div
         className={
           chatMode
-            ? "fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-[60px] z-30 bg-[var(--bg)] p-2 sm:top-[72px] sm:p-4 lg:static lg:z-auto lg:bg-transparent lg:p-0"
+            ? "fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] top-14 z-30 bg-[var(--bg)] p-2 sm:top-[72px] sm:p-4 lg:static lg:z-auto lg:bg-transparent lg:p-0"
             : "contents"
         }
       >

@@ -60,6 +60,12 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
    - "praise": Kavram bulununca çıkacak 1 cümlelik pekiştirici tebrik.
 5. BÖLÜM SONU KONTROLÜ ("checkQuestionIds"):
    - O bölümün havuz listesinden tam 2 adet geçerli soru ID'si seç (her soru en fazla 1 kez kullanılsın).
+6. SESLİ OKUMA (TTS) VE YAZIM KURALLARI:
+   - Tüm başlıklar, görsel maddeleri, "fact", "quickCheck" ve oyun metinleri sesli okunacaktır.
+   - "steps.items", "highlight.bullets" ve "compare.points" öğelerinin başına ASLA madde numarası ("1.", "2.", "Adım 1:") veya madde işareti ("-", "•") koyma — oynatıcı numaraları ve madde işaretlerini otomatik ekler.
+   - "&" yerine "ve", "|" yerine virgül, "→" yerine akıcı Türkçe ifade kullan; markdown backtick (\`) kullanma.
+   - Parantez içinde gereksiz sembol tekrarı ("(=)", "(+)", "(*)", "(/)", "(:)") yapma; kart/karşılaştırma başlıklarının sonuna gereksiz ":" koyma.
+   - Birim ve kısaltmaları mümkün olduğunca açık Türkçe yaz ("Hz." yerine "Hazreti", "sn" yerine "saniye", "vb." yerine "ve benzeri", "m/s" yanında tekrar etmeden sade kullanım).
 
 ÇIKTI: YALNIZCA geçerli JSON döndür (markdown kod bloğu veya açıklama yazma):
 {
@@ -108,18 +114,26 @@ const isObj = (v: unknown): v is Raw => Boolean(v && typeof v === 'object' && !A
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const arr = (v: unknown) => (Array.isArray(v) ? v : []);
 
+const ORDINAL_NOUN_RE = /^(?:kelime|bölüm|aşama|adım|sınıf|sıra|derece|gün|yıl|yüzyıl|kat|tur|kısım|madde)\b/i;
+function cleanListItem(v: unknown, stripNumber = false): string {
+  const s = str(v).replace(/^[-•*]\s+/, '').trim();
+  if (!stripNumber) return s;
+  const m = s.match(/^\d+[.)]\s+(.*)$/);
+  return m && !ORDINAL_NOUN_RE.test(m[1]) ? m[1].trim() : s;
+}
+
 function parseVisual(v: unknown): V3BeatVisual | undefined {
   if (!isObj(v)) return undefined;
   switch (v.kind) {
     case 'highlight': {
-      const bullets = arr(v.bullets).map(str).filter(Boolean).slice(0, 4);
+      const bullets = arr(v.bullets).map((b) => cleanListItem(b, false)).filter(Boolean).slice(0, 4);
       if (!str(v.headline) || !bullets.length) return undefined;
       return { kind: 'highlight', badge: str(v.badge) || 'Ana Fikir', headline: str(v.headline), bullets };
     }
     case 'compare': {
       if (!isObj(v.left) || !isObj(v.right)) return undefined;
-      const lp = arr(v.left.points).map(str).filter(Boolean).slice(0, 4);
-      const rp = arr(v.right.points).map(str).filter(Boolean).slice(0, 4);
+      const lp = arr(v.left.points).map((p) => cleanListItem(p, false)).filter(Boolean).slice(0, 4);
+      const rp = arr(v.right.points).map((p) => cleanListItem(p, false)).filter(Boolean).slice(0, 4);
       if (!str(v.left.title) || !str(v.right.title) || !lp.length || !rp.length) return undefined;
       return {
         kind: 'compare',
@@ -128,7 +142,7 @@ function parseVisual(v: unknown): V3BeatVisual | undefined {
       };
     }
     case 'steps': {
-      const items = arr(v.items).map(str).filter(Boolean).slice(0, 5);
+      const items = arr(v.items).map((it) => cleanListItem(it, true)).filter(Boolean).slice(0, 5);
       return items.length >= 2 ? { kind: 'steps', items } : undefined;
     }
     case 'cards': {

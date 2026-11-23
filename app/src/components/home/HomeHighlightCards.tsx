@@ -11,8 +11,60 @@ import r from '../robotic/robotic.module.css';
 
 const titleCls = 'block font-medium leading-snug text-default';
 
-export function SchoolThisWeekCard({ gradeName, week, topics }: { gradeName: string; week: number; topics: ThisWeekTopicItem[] }) {
+export function SchoolThisWeekCard({
+  gradeName,
+  week,
+  topics,
+  embedded = false,
+  onTopicClick,
+}: {
+  gradeName: string;
+  week: number;
+  topics: ThisWeekTopicItem[];
+  embedded?: boolean;
+  onTopicClick?: () => void;
+}) {
   if (!topics.length) return null;
+  const list = (
+    <ul className={embedded ? 'flex flex-col gap-2' : 'mt-4 flex flex-col gap-2'}>
+      {topics.map((t) => {
+        const body = (
+          <>
+            {t.imageUrl ? (
+              // Konu görseli varsa ikon yerine o (2026-10-03, kullanıcı isteği). Ekranın üstünde değil → lazy.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={t.imageUrl} alt="" loading="lazy" decoding="async" className="h-12 w-16 shrink-0 rounded-lg bg-surface-elevated object-cover" />
+            ) : (
+              // Görselsiz konu: aynı boyutta ders renginde kutu — başlıklar hizalı kalsın.
+              <span className={`flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border ${subjectStyle(t.lessonName).tint}`} aria-hidden="true">
+                <SubjectIcon lessonName={t.lessonName} size="sm" variant="solid" />
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className={`${titleCls} text-[15px]`}>{t.title}</span>
+              <span className="text-xs text-muted-foreground">{t.lessonName}</span>
+            </span>
+            {t.href && <ChevronRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${r.accent}`} aria-hidden="true" />}
+          </>
+        );
+        const cls = `group flex items-center gap-3 rounded-xl px-3 py-2.5 active:scale-[0.99] ${r.item}`;
+        return (
+          <li key={t.id}>
+            {t.href ? (
+              <Link href={t.href} onClick={onTopicClick} className={cls}>
+                {body}
+              </Link>
+            ) : (
+              <div className={cls}>{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (embedded) return list;
+
   return (
     <section
       aria-labelledby="okulda-bu-hafta"
@@ -32,41 +84,7 @@ export function SchoolThisWeekCard({ gradeName, week, topics }: { gradeName: str
           <p className="text-xs text-muted-foreground">{gradeName} · müfredat takvimine göre</p>
         </div>
       </div>
-      <ul className="mt-4 flex flex-col gap-2">
-        {topics.map((t) => {
-          const body = (
-            <>
-              {t.imageUrl ? (
-                // Konu görseli varsa ikon yerine o (2026-10-03, kullanıcı isteği). Ekranın üstünde değil → lazy.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.imageUrl} alt="" loading="lazy" decoding="async" className="h-12 w-16 shrink-0 rounded-lg bg-surface-elevated object-cover" />
-              ) : (
-                // Görselsiz konu: aynı boyutta ders renginde kutu — başlıklar hizalı kalsın.
-                <span className={`flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border ${subjectStyle(t.lessonName).tint}`} aria-hidden="true">
-                  <SubjectIcon lessonName={t.lessonName} size="sm" variant="solid" />
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                <span className={`${titleCls} text-[15px]`}>{t.title}</span>
-                <span className="text-xs text-muted-foreground">{t.lessonName}</span>
-              </span>
-              {t.href && <ChevronRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${r.accent}`} aria-hidden="true" />}
-            </>
-          );
-          const cls = `group flex items-center gap-3 rounded-xl px-3 py-2.5 ${r.item}`;
-          return (
-            <li key={t.id}>
-              {t.href ? (
-                <Link href={t.href} className={cls}>
-                  {body}
-                </Link>
-              ) : (
-                <div className={cls}>{body}</div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {list}
     </section>
   );
 }

@@ -95,19 +95,19 @@ export function MobileTabBar({ items }: { items: NavItem[] }) {
       aria-label="Ana menü"
       className={`fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)] lg:hidden ${roboticFontVars} ${r.tabBar}`}
     >
-      <ul className="mx-auto flex max-w-lg">
+      <ul className="mx-auto flex max-w-lg px-1">
         {items.filter((item) => item.id !== 'chart').map(({ id, label, shortLabel, href, icon: Icon, active }) => (
-          <li key={id} className="flex-1">
+          <li key={id} className="flex-1 min-w-0">
             <Link
               href={href}
               aria-current={active ? 'page' : undefined}
               aria-label={shortLabel ? label : undefined}
-              className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors ${r.tabItem} ${active ? r.tabItemActive : ''}`}
+              className={`flex h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-bold transition-all active:scale-95 select-none ${r.tabItem} ${active ? r.tabItemActive : ''}`}
             >
-              <span className={`flex h-7 w-12 items-center justify-center ${r.tabPill}`}>
-                <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={active ? 2.4 : 2} />
+              <span className={`flex h-7 w-11 items-center justify-center ${r.tabPill}`}>
+                <Icon className="h-[19px] w-[19px]" aria-hidden="true" strokeWidth={active ? 2.4 : 1.9} />
               </span>
-              {shortLabel ?? label}
+              <span className="truncate max-w-full px-0.5 leading-none">{shortLabel ?? label}</span>
             </Link>
           </li>
         ))}

@@ -11,10 +11,11 @@ import { ArrowRight, ChevronRight, ListChecks } from 'lucide-react';
 import { SITE_URL } from '@/app/src/lib/site';
 import { getUnitOverviewData } from '@/app/src/lib/unitOverviewPageData';
 import { getSoruBankasiLessonData, getSoruBankasiUnitData, buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPageData';
-import { SoruBankasiHeader, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
+import { SoruBankasiHeader, SoruBankasiMobileBar, joinTr, pageInnerCls, pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import { SoruBankasiNavList } from '@/app/src/components/SoruBankasiNavList';
 import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { subjectStyle } from '@/app/src/lib/subjectStyle';
+import r from '@/app/src/components/robotic/robotic.module.css';
 
 // 2026-10-02 günlük fallback'a inmişti (Vercel aktif CPU sınırı aşılıyordu — saatlik yenileme botlar
 // dolaştıkça aynı sayfayı günde 24 kez baştan üretiyordu). İçerik/soru değişince sayfa zaten
@@ -79,6 +80,12 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
   // üniteleri + sınıfın dersleri listeleri görüyor (bulunulan yer vurgulu, bkz. SoruBankasiNavList).
   return (
     <div className={pageShellCls}>
+      <SoruBankasiMobileBar
+        backHref={lessonPath}
+        backLabel={`${data.lessonName} ünitelerine dön`}
+        title={data.unitTitle}
+        badge={`${data.topics.length} konu`}
+      />
       <div className={pageInnerCls}>
         <script
           id="structured-data-unit-breadcrumb"
@@ -101,11 +108,11 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
           imageUrl={data.coverImageUrl}
           imageAlt={`${data.unitTitle} ünitesi görseli`}
         >
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
             {firstTopic && (
               <Link
                 href={`${unitPath}/${firstTopic.slug}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#7A2634] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#5C1B27]"
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white transition-all active:scale-[0.98] sm:flex-none ${r.btnNeon} ${r.btnText}`}
               >
                 Konu anlatımına başla <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
@@ -113,7 +120,7 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
             {unitQuestionCount > 0 && (
               <Link
                 href={buildSoruBankasiUnitPath(data.gradeSlug, data.lessonSlug, data.unitSlug)}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-default bg-background px-4 text-sm font-semibold text-default transition-colors hover:border-[#7A2634]/40 hover:text-[#7A2634]"
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-all active:scale-[0.98] sm:flex-none ${r.btnGhost} ${r.btnText}`}
               >
                 <ListChecks className="h-4 w-4" aria-hidden="true" /> Ünite soru bankası
               </Link>
@@ -121,9 +128,9 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
           </div>
         </SoruBankasiHeader>
 
-        <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-x-8">
+        <div className="mt-6 grid grid-cols-1 items-start gap-6 sm:mt-10 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-x-8">
           <section aria-labelledby="konular" className="min-w-0">
-            <h2 id="konular" className="text-xl font-bold tracking-tight text-default sm:text-2xl">{data.unitTitle} ünitesinin konuları</h2>
+            <h2 id="konular" className="text-lg font-extrabold tracking-tight text-default sm:text-2xl">{data.unitTitle} ünitesinin konuları</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Bir konu seç; anlatımı oku, slaytlarla tekrar et, testle kendini dene.</p>
             {data.topics.length ? (
               <ol className="flex flex-col gap-3">
@@ -139,9 +146,9 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
                   );
                   const body = (
                     <span className="min-w-0 flex-1">
-                      <span className="text-xs font-semibold text-[#7A2634]">{i + 1}. konu</span>
-                      <span className="mt-0.5 block font-semibold leading-snug text-default transition-colors group-hover:text-[#7A2634]">{topic.title}</span>
-                      {topic.subtitle && <span className="mt-1 line-clamp-2 block text-sm text-muted-foreground">{topic.subtitle}</span>}
+                      <span className={`text-xs font-bold ${r.accent}`}>{i + 1}. konu</span>
+                      <span className={`mt-0.5 block font-bold leading-snug text-default transition-colors ${r.groupHoverAccent}`}>{topic.title}</span>
+                      {topic.subtitle && <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground sm:text-sm">{topic.subtitle}</span>}
                       <span className="mt-1.5 block text-xs font-medium text-muted-foreground">
                         {topic.hasContent ? (questions ? `Konu anlatımı · ${questions} soru` : 'Konu anlatımı') : 'Yakında'}
                       </span>
@@ -152,14 +159,14 @@ export default async function UnitOverviewPage({ params }: { params: Promise<Par
                       {topic.hasContent ? (
                         <Link
                           href={`${unitPath}/${topic.slug}`}
-                          className="group flex items-center gap-4 rounded-[20px] border border-default bg-background p-3 transition-all hover:border-[#7A2634]/40 hover:shadow-[0_10px_24px_-14px_rgba(16,16,40,0.3)] sm:p-4"
+                          className={`group flex min-h-[76px] items-center gap-3.5 rounded-[20px] p-3 transition-all active:scale-[0.99] sm:gap-4 sm:p-4 ${r.item} ${r.itemHover}`}
                         >
                           {visual}
                           {body}
-                          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                          <ChevronRight className={`h-5 w-5 shrink-0 transition-transform group-hover:translate-x-0.5 ${r.accent}`} aria-hidden="true" />
                         </Link>
                       ) : (
-                        <div className="flex items-center gap-4 rounded-[20px] border border-dashed border-default p-3 opacity-70 sm:p-4">
+                        <div className="flex items-center gap-3.5 rounded-[20px] border border-dashed border-default p-3 opacity-70 sm:gap-4 sm:p-4">
                           {visual}
                           {body}
                         </div>

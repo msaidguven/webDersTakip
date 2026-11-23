@@ -6,8 +6,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calculator, CalendarRange, LogOut, Menu, Moon, Sun, Table2, UserRound, X, type LucideIcon } from 'lucide-react';
+import { Calculator, CalendarRange, ChevronRight, LogOut, Menu, Moon, Sun, Table2, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useThemeMode } from './ThemeToggle';
+import { BottomSheet } from './ui/BottomSheet';
 import r from './robotic/robotic.module.css';
 
 const TOOLS: { href: string; label: string; Icon: LucideIcon }[] = [
@@ -56,6 +57,7 @@ export function HeaderMenu({
 
   const close = () => setOpen(false);
   const TriggerIcon = open ? X : isAuthenticated ? UserRound : Menu;
+  const isMobileSheet = typeof window !== 'undefined' && window.innerWidth < 640;
 
   return (
     <div className="relative" ref={ref}>
@@ -65,12 +67,113 @@ export function HeaderMenu({
         aria-expanded={open}
         aria-controls="header-menu"
         aria-label={isAuthenticated ? 'Hesap menüsü' : 'Menü'}
-        className={`w-9 h-9 sm:w-10 sm:h-10 ${r.iconBtn}`}
+        className={`w-10 h-10 active:scale-95 ${r.iconBtn}`}
       >
         <TriggerIcon className="h-[18px] w-[18px]" aria-hidden="true" />
       </button>
 
-      {open && (
+      {open && isMobileSheet && (
+        <BottomSheet
+          open
+          onClose={close}
+          title={isAuthenticated ? (displayName || 'Hesabım') : 'Menü'}
+          subtitle={isAuthenticated ? 'Hesap ve araçlar' : 'Ders Takip · Ücretsiz eğitim platformu'}
+        >
+          <div className="flex flex-col gap-3">
+            {isAuthenticated ? (
+              <div className={`overflow-hidden rounded-2xl border divide-y ${r.divider}`} style={{ background: 'var(--panel-solid)' }}>
+                {!isTeacher && (
+                  <Link href="/ilerlemem" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                    <span>İlerlemem</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                )}
+                <Link href="/profil" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                  <span>Profil</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </Link>
+                <Link href="/profil/ayarlar" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                  <span>Ayarlar</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </Link>
+                <Link href="/profil/bildirdigim-sorular" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                  <span>Bildirdiğim sorular</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </Link>
+                {(isTeacher || isAdmin) && (
+                  <Link href="/ogretmen/yazili" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                    <span>Öğretmen Paneli</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                )}
+                {isAdmin && (
+                  <Link href="/admin" onClick={close} className={`flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                    <span>Admin</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                <Link href="/register" onClick={close} className={`flex min-h-12 items-center justify-center rounded-xl px-4 text-center text-sm font-bold active:scale-[0.98] ${r.btnNeon} ${r.btnText}`}>
+                  Kayıt ol
+                </Link>
+                <Link href="/login" onClick={close} className={`flex min-h-12 items-center justify-center rounded-xl px-4 text-center text-sm font-bold active:scale-[0.98] ${r.btnGhost} ${r.btnText}`}>
+                  Giriş yap
+                </Link>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              role="switch"
+              aria-checked={isDark === true}
+              className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.item}`}
+            >
+              <span className="flex items-center gap-2.5">
+                {isDark ? <Moon className="h-4 w-4" aria-hidden="true" /> : <Sun className="h-4 w-4" aria-hidden="true" />}
+                Koyu tema
+              </span>
+              <span
+                aria-hidden="true"
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors ${isDark ? `${r.btnNeon} border-transparent` : 'border-[var(--edge)] bg-[var(--track)]'}`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-[22px]' : 'translate-x-1'}`} />
+              </span>
+            </button>
+
+            <div className="space-y-1.5">
+              <p className={`px-1 ${r.label}`}>Araçlar</p>
+              <div className={`overflow-hidden rounded-2xl border divide-y ${r.divider}`} style={{ background: 'var(--panel-solid)' }}>
+                {TOOLS.map(({ href, label, Icon }) => (
+                  <Link key={href} href={href} onClick={close} className={`flex min-h-12 items-center gap-3 px-4 text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}>
+                    <Icon className={`h-4 w-4 shrink-0 ${r.accent}`} aria-hidden="true" />
+                    <span className="flex-1">{label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  onSignOut();
+                }}
+                className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-bold text-rose-600 dark:text-rose-400 active:scale-[0.98] ${r.item}`}
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Çıkış yap
+              </button>
+            )}
+          </div>
+        </BottomSheet>
+      )}
+
+      {open && !isMobileSheet && (
         <div id="header-menu" className={`absolute right-0 mt-2 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden ${r.menu}`}>
           {isAuthenticated ? (
             <>

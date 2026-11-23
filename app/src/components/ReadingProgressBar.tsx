@@ -37,7 +37,7 @@ export default function ReadingProgressBar() {
   }, []);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-[60px] z-50 h-[3px] sm:top-[72px]">
+    <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-14 z-50 h-[3px] sm:top-[72px]">
       <div ref={barRef} className="h-full origin-left bg-gradient-to-r from-indigo-500 to-violet-500" style={{ transform: 'scaleX(0)' }} />
     </div>
   );

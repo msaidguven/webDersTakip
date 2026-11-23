@@ -299,8 +299,8 @@ export default function QuestionBankBoard({
   }, []);
 
   const chipCls = (active: boolean) =>
-    `inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-sm font-medium transition-colors ${
-      active ? 'border-transparent bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'border-default bg-background text-muted-foreground hover:text-default'
+    `inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-all active:scale-[0.98] ${
+      active ? 'border-transparent bg-cyan-600 text-white dark:bg-cyan-500 dark:text-slate-950' : 'border-default bg-background text-muted-foreground hover:text-default'
     }`;
 
   return (
@@ -349,7 +349,7 @@ export default function QuestionBankBoard({
             ) : (
               <p className="text-muted-foreground">Bir şık seç, cevabın anında kontrol edilsin.</p>
             )}
-            <div className="flex items-center gap-0.5 rounded-lg border border-default bg-background" role="group" aria-label="Yazı boyutu">
+            <div className="hidden sm:flex items-center gap-0.5 rounded-lg border border-default bg-background" role="group" aria-label="Yazı boyutu">
               <button type="button" onClick={() => setScale((v) => Math.max(MIN_SCALE, Math.round((v - SCALE_STEP) * 100) / 100))} disabled={scale <= MIN_SCALE} aria-label="Yazıyı küçült" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-default disabled:opacity-40">
                 <Minus className="h-4 w-4" />
               </button>

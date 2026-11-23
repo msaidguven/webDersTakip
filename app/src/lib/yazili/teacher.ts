@@ -27,11 +27,14 @@ async function teacherLessonSlugs(userId: string): Promise<Set<string>> {
 export async function listTeacherExams(access: Extract<TeacherAccess, { ok: true }>): Promise<TeacherExamItem[]> {
   const [index, mine] = await Promise.all([
     getYaziliIndex(),
-    access.role === 'teacher' ? teacherLessonSlugs(access.user.id) : Promise.resolve(null),
+    teacherLessonSlugs(access.user.id),
   ]);
+  // Öğretmen her zaman yalnız seçtiği dersleri görür; admin de ders seçtiyse (Derslerim) ona göre süzülür,
+  // hiç ders seçmemiş admin tüm yazılıları görür.
+  const filterByMine = access.role === 'teacher' || mine.size > 0;
   return index.flatMap((g) =>
     g.lessons
-      .filter((l) => !mine || mine.has(l.slug))
+      .filter((l) => !filterByMine || mine.has(l.slug))
       .flatMap((l) =>
         l.exams.map((e) => ({
           id: e.id,

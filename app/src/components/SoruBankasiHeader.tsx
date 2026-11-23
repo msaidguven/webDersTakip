@@ -20,11 +20,11 @@ export function SoruBankasiMobileBar({
   badge?: string;
 }) {
   return (
-    <div className={`!sticky top-[3.75rem] z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_90%,transparent)] px-4 py-2.5 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
+    <div className={`!sticky top-14 z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_92%,transparent)] px-4 py-2 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
       <Link
         href={backHref}
         aria-label={backLabel}
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-transform active:scale-95 ${r.iconBtn}`}
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-transform active:scale-95 ${r.iconBtn}`}
       >
         <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
       </Link>
@@ -32,7 +32,7 @@ export function SoruBankasiMobileBar({
         {title}
       </span>
       {badge && (
-        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground ${r.divider}`}>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold text-muted-foreground ${r.divider}`}>
           {badge}
         </span>
       )}

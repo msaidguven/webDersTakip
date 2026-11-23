@@ -13,7 +13,7 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Eye, FileDown, FileText, GripVertical, Image as ImageIcon, Plus, RotateCcw, ScanEye, Shuffle, X,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronLeft, ChevronRight, Eye, FileDown, FileText, GripVertical, Image as ImageIcon, Layers, Plus, RotateCcw, ScanEye, Shuffle, X,
 } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
@@ -62,6 +62,7 @@ const pickRandom = <T,>(list: readonly T[]): T => list[Math.floor(Math.random() 
 const difficultyLabel = (d: number | null) => DIFFICULTY_BAND_LABEL[difficultyBand(d)];
 
 type BuilderProps = {
+  backHref?: string;
   exam: { id: number; gradeName: string; lessonName: string; label: string; national: boolean; path: string; defaultTitle: string };
   topics: YaziliTopic[];
   // Hesaptaki kayıtlı kağıt (teacher_paper_drafts); yoksa null.
@@ -80,6 +81,7 @@ export function YaziliBuilder(props: BuilderProps) {
 }
 
 function Builder({
+  backHref,
   exam,
   topics,
   initialDraft,
@@ -111,6 +113,8 @@ function Builder({
     writeStorage(COLUMNS_KEY, n);
   };
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
+  // Mobilde adım 1 iki katmanlıdır: önce ünite/konu listesi, konu seçilince sorular (uygulama akışı).
+  const [mobileTopicPicked, setMobileTopicPicked] = useState(false);
   const [bandFilter, setBandFilter] = useState<DifficultyBand | null>(null);
   const [hideAdded, setHideAdded] = useState(false);
   const [openAnswers, setOpenAnswers] = useState<Set<number>>(new Set());
@@ -264,69 +268,218 @@ function Builder({
     { n: 3, label: 'İndir', status: 'PDF · Word', done: false },
   ];
 
-  // ── Bölümler (adımlarda kullanılır) ──
-  const poolStep = (
-    <section aria-labelledby="havuz" className="min-w-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="havuz" className={`text-lg font-bold uppercase text-default ${r.display}`}>Soru havuzu</h2>
-        <Link href={exam.path} target="_blank" className={`text-xs font-semibold hover:underline ${r.accent}`}>Herkese açık sayfa ↗</Link>
-      </div>
+  const totalPoolQuestions = useMemo(() => topics.reduce((n, t) => n + t.questions.length, 0), [topics]);
 
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Konu süzgeci">
-        <button type="button" className={chipCls(topicFilter === null)} onClick={() => setTopicFilter(null)}>
-          Tüm konular ({topics.reduce((n, t) => n + t.questions.length, 0)})
-        </button>
-        {topics.map((t) => (
-          <button key={t.id} type="button" className={chipCls(topicFilter === t.id)} onClick={() => setTopicFilter(topicFilter === t.id ? null : t.id)}>
-            {t.title} ({t.questions.length})
+  // Ünite bazlı gruplama: hem mobil ünite/konu ekranında hem masaüstü <optgroup> seçicisinde kullanılır.
+  const topicsByUnit = useMemo(() => {
+    const map = new Map<string, YaziliTopic[]>();
+    for (const t of topics) {
+      const key = t.unitTitle?.trim() || 'Konular';
+      const list = map.get(key) ?? [];
+      list.push(t);
+      map.set(key, list);
+    }
+    return [...map.entries()];
+  }, [topics]);
+
+  const selectedCountByTopic = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const t of topics) {
+      let c = 0;
+      for (const q of t.questions) if (selectedIds.has(q.id)) c++;
+      if (c > 0) map.set(t.id, c);
+    }
+    return map;
+  }, [topics, selectedIds]);
+
+  const activeTopicTitle = useMemo(() => {
+    if (topicFilter === null) return 'Tüm konular';
+    return topics.find((t) => t.id === topicFilter)?.title ?? 'Sorular';
+  }, [topics, topicFilter]);
+
+  const pickMobileTopic = (id: number | null) => {
+    setTopicFilter(id);
+    setMobileTopicPicked(true);
+    requestAnimationFrame(() => document.getElementById('yazili-adimlar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Zorluk süzgeci">
+        <span className="mr-0.5 text-[11px] font-semibold">Zorluk:</span>
+        <button type="button" aria-pressed={bandFilter === null} className={chipCls(bandFilter === null)} onClick={() => setBandFilter(null)}>Tümü</button>
+        {(Object.keys(DIFFICULTY_BAND_LABEL) as DifficultyBand[]).map((b) => (
+          <button key={b} type="button" aria-pressed={bandFilter === b} className={chipCls(bandFilter === b)} onClick={() => setBandFilter(bandFilter === b ? null : b)}>
+            {DIFFICULTY_BAND_LABEL[b]}
           </button>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5" role="group" aria-label="Zorluk süzgeci">
-          Zorluk:
-          <button type="button" aria-pressed={bandFilter === null} className={chipCls(bandFilter === null)} onClick={() => setBandFilter(null)}>Tümü</button>
-          {(Object.keys(DIFFICULTY_BAND_LABEL) as DifficultyBand[]).map((b) => (
-            <button key={b} type="button" aria-pressed={bandFilter === b} className={chipCls(bandFilter === b)} onClick={() => setBandFilter(bandFilter === b ? null : b)}>
-              {DIFFICULTY_BAND_LABEL[b]}
+      <label className="ml-auto flex cursor-pointer items-center gap-1.5 font-medium text-muted-foreground hover:text-default">
+        <input type="checkbox" checked={hideAdded} onChange={(e) => setHideAdded(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
+        Kağıttakileri gizle
+      </label>
+    </div>
+  );
+
+  const questionsList = (
+    <div className="mt-4 flex flex-col gap-5">
+      {visibleTopics.map((t) => (
+        <div key={t.id}>
+          {topicFilter === null && (
+            <div className="mb-2">
+              {t.unitTitle && <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{t.unitTitle}</p>}
+              <h3 className="text-sm font-bold text-default">
+                {t.title} <span className="font-normal text-muted-foreground">· {t.questions.length} soru</span>
+              </h3>
+            </div>
+          )}
+          <ul className="flex flex-col gap-2.5">
+            {t.questions.map((q) => (
+              <PoolCard
+                key={q.id}
+                q={q}
+                added={selectedIds.has(q.id)}
+                position={positionById.get(q.id)}
+                answerOpen={openAnswers.has(q.id)}
+                onToggle={() => toggleQuestion(q.id)}
+                onToggleAnswer={() =>
+                  setOpenAnswers((s) => {
+                    const n = new Set(s);
+                    if (n.has(q.id)) n.delete(q.id);
+                    else n.add(q.id);
+                    return n;
+                  })
+                }
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
+      {!visibleTopics.length && (
+        <p className={`rounded-2xl p-5 text-center text-sm text-muted-foreground ${r.panel}`}>
+          Bu süzgeçle gösterilecek soru kalmadı.
+        </p>
+      )}
+    </div>
+  );
+
+  // ── Bölümler (adımlarda kullanılır) ──
+  const poolStep = (
+    <section aria-labelledby="havuz" className="min-w-0">
+      <h2 id="havuz" className="sr-only">Soru havuzu</h2>
+
+      {/* MOBİL: 2 aşamalı uygulama akışı — önce Ünite ve Konular, seçilince Sorular */}
+      <div className="lg:hidden">
+        {!mobileTopicPicked ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => pickMobileTopic(null)}
+              className={`group flex min-h-14 w-full items-center justify-between gap-3 rounded-[20px] px-4 py-3 text-left ${r.panel} hover:border-[var(--neon)]`}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center ${r.chipBox}`} aria-hidden="true">
+                  <Layers className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-default">Tüm sorular</span>
+                  <span className="block text-xs text-muted-foreground">{totalPoolQuestions} soru · {topics.length} konu</span>
+                </span>
+              </span>
+              <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground ${r.groupHoverAccent}`} aria-hidden="true" />
             </button>
-          ))}
-        </span>
-        <label className="flex cursor-pointer items-center gap-1.5">
-          <input type="checkbox" checked={hideAdded} onChange={(e) => setHideAdded(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
-          Kağıttakileri gizle
-        </label>
+
+            {topicsByUnit.map(([unitTitle, unitTopics]) => (
+              <div key={unitTitle} className={`rounded-[22px] p-4 ${r.panel}`}>
+                <h3 className={r.label}>{unitTitle}</h3>
+                <ul className={`mt-2 divide-y divide-[var(--border)] ${r.divider}`}>
+                  {unitTopics.map((t) => {
+                    const picked = selectedCountByTopic.get(t.id) ?? 0;
+                    return (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => pickMobileTopic(t.id)}
+                          className="group flex min-h-12 w-full items-center justify-between gap-3 py-2.5 text-left"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold leading-snug text-default group-hover:text-[var(--neon)]">
+                              {t.title}
+                            </span>
+                            <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span>{t.questions.length} soru</span>
+                              {picked > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[color:color-mix(in_srgb,var(--neon)_14%,transparent)] px-2 py-0.5 text-[11px] font-bold text-[var(--neon)]">
+                                  <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden="true" /> {picked} seçili
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground ${r.groupHoverAccent}`} aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileTopicPicked(false)}
+                className={`inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl px-2.5 text-xs font-bold ${r.btnGhost}`}
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Konular
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-default">{activeTopicTitle}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {visibleTopics.reduce((n, t) => n + t.questions.length, 0)} soru
+                </p>
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-3 ${r.panel}`}>{filterBar}</div>
+            {questionsList}
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 flex flex-col gap-6">
-        {visibleTopics.map((t) => (
-          <div key={t.id}>
-            <h3 className="mb-2 text-sm font-bold text-default">
-              {t.title} <span className="font-normal text-muted-foreground">· {t.questions.length} soru</span>
-            </h3>
-            <ul className="flex flex-col gap-2">
-              {t.questions.map((q) => (
-                <PoolCard
-                  key={q.id}
-                  q={q}
-                  added={selectedIds.has(q.id)}
-                  position={positionById.get(q.id)}
-                  answerOpen={openAnswers.has(q.id)}
-                  onToggle={() => toggleQuestion(q.id)}
-                  onToggleAnswer={() =>
-                    setOpenAnswers((s) => {
-                      const n = new Set(s);
-                      if (n.has(q.id)) n.delete(q.id);
-                      else n.add(q.id);
-                      return n;
-                    })
-                  }
-                />
+      {/* MASAÜSTÜ: yatay kaydırmasız ünite gruplu konu seçici + zorluk çubuğu */}
+      <div className="hidden lg:block">
+        <div className={`flex flex-col gap-3 rounded-[20px] p-4 ${r.panel}`}>
+          <div className="flex items-center gap-3">
+            <label className="sr-only" htmlFor="desktop-topic-filter">Konu seç</label>
+            <select
+              id="desktop-topic-filter"
+              value={topicFilter === null ? '' : String(topicFilter)}
+              onChange={(e) => setTopicFilter(e.target.value ? Number(e.target.value) : null)}
+              className="min-w-0 flex-1 rounded-xl border border-[var(--edge)] bg-[var(--panel-solid)] px-3 py-2 text-sm font-semibold text-default outline-none focus:border-[var(--neon)]"
+            >
+              <option value="">Tüm konular ({totalPoolQuestions} soru)</option>
+              {topicsByUnit.map(([unitTitle, unitTopics]) => (
+                <optgroup key={unitTitle} label={unitTitle}>
+                  {unitTopics.map((t) => {
+                    const picked = selectedCountByTopic.get(t.id) ?? 0;
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.title} ({t.questions.length} soru{picked > 0 ? ` · ${picked} seçili` : ''})
+                      </option>
+                    );
+                  })}
+                </optgroup>
               ))}
-            </ul>
+            </select>
+            <Link href={exam.path} target="_blank" className={`shrink-0 text-xs font-semibold hover:underline ${r.accent}`}>
+              Herkese açık sayfa ↗
+            </Link>
           </div>
-        ))}
-        {!visibleTopics.length && <p className="text-sm text-muted-foreground">Bu süzgeçle gösterilecek soru kalmadı.</p>}
+          {filterBar}
+        </div>
+        {questionsList}
       </div>
     </section>
   );
@@ -456,9 +609,34 @@ function Builder({
   );
 
   return (
-    <div id="yazili-adimlar" className="mt-6 scroll-mt-[60px] sm:scroll-mt-[72px]">
-      {/* Adım çubuğu (2026-10-25): mobilde tek uzun sayfa yerine 4 adım; adımlar serbest, sıra zorunlu değil. */}
-      <nav aria-label="Yazılı hazırlama adımları" className="sticky top-[60px] z-20 -mx-4 bg-[color:var(--bg)] px-4 py-2 sm:top-[72px] sm:mx-0 sm:px-0">
+    <div id="yazili-adimlar" className="scroll-mt-[60px] sm:scroll-mt-[72px]">
+      {/* Üst başlık: mobilde "← Dersler" geri dönüşlü uygulama başlığı, masaüstünde seçili yazılı özeti */}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {backHref && (
+            <Link
+              href={backHref}
+              className={`inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl px-2.5 text-xs font-bold lg:hidden ${r.btnGhost}`}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Dersler
+            </Link>
+          )}
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold text-default lg:text-xl">
+              {exam.gradeName} {exam.lessonName}
+            </h2>
+            <p className="truncate text-xs text-muted-foreground">
+              {exam.label} · {totalPoolQuestions} soru
+            </p>
+          </div>
+        </div>
+        <Link href={exam.path} target="_blank" className={`shrink-0 text-xs font-semibold hover:underline lg:hidden ${r.accent}`}>
+          Önizle ↗
+        </Link>
+      </div>
+
+      {/* Adım çubuğu */}
+      <nav aria-label="Yazılı hazırlama adımları" className="sticky top-14 z-20 -mx-4 bg-[color:var(--bg)] px-4 py-2 sm:top-[72px] sm:mx-0 sm:px-0">
         <ol className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--edge)] bg-[var(--panel-solid)] p-1">
           {steps.map((s) => (
             <li key={s.n}>
@@ -488,7 +666,7 @@ function Builder({
         </ol>
       </nav>
 
-      <div className="mt-4 pb-28 lg:pb-24">
+      <div className="mt-3 pb-36 lg:pb-24">
         {step === 1 && poolStep}
         {step === 2 && paperStep}
         {step === 3 && downloadStep}
@@ -496,7 +674,7 @@ function Builder({
 
       {/* Alt çubuk: kağıt özeti + Geri/İleri (mobilde site sekme çubuğunun üstünde). */}
       <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 lg:bottom-4">
-        <div className={`flex items-center gap-2 rounded-2xl border border-[var(--edge)] bg-[var(--panel-solid)] p-2 shadow-lg`}>
+        <div className="flex items-center gap-2 rounded-2xl border border-[var(--edge)] bg-[var(--panel-solid)]/95 p-2 shadow-xl backdrop-blur-md">
           <button
             type="button"
             onClick={() => goTo((step - 1) as Step)}

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import SectionContent from '../SectionContent';
 import RecapCardView from './RecapCardView';
-import { TopicCompleteButton, useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
+import { useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
 import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type GradeLesson, type GradeOption, type Outcome, type TopicSection, type Unit } from '../dersHelpers';
 import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
 import AdminTopicToolsHost, { preloadAdminTopicTools, ADMIN_TOOLS_MENU, SECTION_ADMIN_TOOLS_MENU, type AdminToolRequest } from '../AdminTopicToolsHost';
@@ -45,6 +45,7 @@ import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
 import TopicSwitcher from './TopicSwitcher';
+import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
 import s from './DersClientV1.module.css';
 
 // Konu sayfasının sunucudan aldığı veri (bkz. app/[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/page.tsx).
@@ -161,6 +162,7 @@ function HeroOutcomes({ outcomes, currentWeek, totalWeeks, termStartDate, breaks
 
   const groups = useMemo(() => groupOutcomes(outcomes), [outcomes]);
   const [expanded, setExpanded] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const inWeek = groups.flatMap((g) => g.items).filter((o) => week == null || o.weekRanges.some((r) => week >= r.start && week <= r.end));
   const total = inWeek.length;
   const collapsible = total > HERO_OUTCOME_LIMIT + 1;
@@ -177,59 +179,75 @@ function HeroOutcomes({ outcomes, currentWeek, totalWeeks, termStartDate, breaks
   });
 
   return (
-    <section className={s.heroOutcomes} aria-labelledby="kazanimlar-baslik">
-      <div className={s.hoHead}>
-        <h2 id="kazanimlar-baslik" className={s.hoTitle}>Kazanımlar</h2>
-        {week != null && (
-          <div className={s.weekNav}>
-            <button type="button" className={s.roundBtn} onClick={() => setIndex((i) => i - 1)} disabled={index === 0} aria-label="Önceki hafta">
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-            <span className={s.weekLabel} aria-live="polite">
-              <span className={s.weekTitle}>
-                {week}. Hafta
-                {week === currentWeek && <span className={s.badge}>Bu hafta</span>}
+    <section className={cx(s.heroOutcomes, mobileOpen && s.heroOutcomesOpen)} aria-labelledby="kazanimlar-baslik">
+      {/* Mobilde tek satırlık açılır kazanım şeridi (DOM'da tüm metin kalır, SEO etkilenmez) */}
+      <button
+        type="button"
+        className={s.hoMobileToggle}
+        onClick={() => setMobileOpen((v) => !v)}
+        aria-expanded={mobileOpen}
+      >
+        <span>
+          Kazanımlar{total > 0 ? ` (${total})` : ''}
+          {week != null ? ` · ${week}. Hafta` : ''}
+        </span>
+        <ChevronDown size={16} className={cx(s.hoChevron, mobileOpen && s.hoChevronOpen)} aria-hidden="true" />
+      </button>
+
+      <div className={s.hoBody}>
+        <div className={s.hoHead}>
+          <h2 id="kazanimlar-baslik" className={s.hoTitle}>Kazanımlar</h2>
+          {week != null && (
+            <div className={s.weekNav}>
+              <button type="button" className={s.roundBtn} onClick={() => setIndex((i) => i - 1)} disabled={index === 0} aria-label="Önceki hafta">
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <span className={s.weekLabel} aria-live="polite">
+                <span className={s.weekTitle}>
+                  {week}. Hafta
+                  {week === currentWeek && <span className={s.badge}>Bu hafta</span>}
+                </span>
+                {dateLabel && <span className={s.weekDate}>{dateLabel}</span>}
               </span>
-              {dateLabel && <span className={s.weekDate}>{dateLabel}</span>}
-            </span>
-            <button type="button" className={s.roundBtn} onClick={() => setIndex((i) => i + 1)} disabled={index === weeks.length - 1} aria-label="Sonraki hafta">
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
+              <button type="button" className={s.roundBtn} onClick={() => setIndex((i) => i + 1)} disabled={index === weeks.length - 1} aria-label="Sonraki hafta">
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className={s.outcomeGroups}>
+          {groups.map((g) => (
+            <div key={g.key} className={s.outcomeGroup} {...hideProps(g.items.map((o) => o.key))}>
+              {g.learningOutcome && (
+                <p className={s.learningOutcome}>
+                  {g.learningOutcome.code && <><span className={s.code}>{g.learningOutcome.code}</span>{' '}</>}
+                  {g.learningOutcome.title}
+                </p>
+              )}
+              <ol className={s.outcomeList}>
+                {g.items.map((o) => (
+                  <li key={o.key} className={s.outcome} {...hideProps([o.key])}>
+                    <span className={s.outcomeTag}>{o.letter}</span>{' '}
+                    <span>{o.description}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+        {collapsibleMobile && (
+          <button type="button" className={cx(s.hoMore, collapsible ? undefined : s.hoMoreMobileOnly)} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+            {expanded ? (
+              'Daha az göster'
+            ) : (
+              <>
+                <span className={s.hoMoreD}>+{total - HERO_OUTCOME_LIMIT} kazanım daha</span>
+                <span className={s.hoMoreM}>+{total - HERO_OUTCOME_LIMIT_MOBILE} kazanım daha</span>
+              </>
+            )}
+          </button>
         )}
       </div>
-      <div className={s.outcomeGroups}>
-        {groups.map((g) => (
-          <div key={g.key} className={s.outcomeGroup} {...hideProps(g.items.map((o) => o.key))}>
-            {g.learningOutcome && (
-              <p className={s.learningOutcome}>
-                {g.learningOutcome.code && <><span className={s.code}>{g.learningOutcome.code}</span>{' '}</>}
-                {g.learningOutcome.title}
-              </p>
-            )}
-            <ol className={s.outcomeList}>
-              {g.items.map((o) => (
-                <li key={o.key} className={s.outcome} {...hideProps([o.key])}>
-                  <span className={s.outcomeTag}>{o.letter}</span>{' '}
-                  <span>{o.description}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-      </div>
-      {collapsibleMobile && (
-        <button type="button" className={cx(s.hoMore, collapsible ? undefined : s.hoMoreMobileOnly)} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-          {expanded ? (
-            'Daha az göster'
-          ) : (
-            <>
-              <span className={s.hoMoreD}>+{total - HERO_OUTCOME_LIMIT} kazanım daha</span>
-              <span className={s.hoMoreM}>+{total - HERO_OUTCOME_LIMIT_MOBILE} kazanım daha</span>
-            </>
-          )}
-        </button>
-      )}
     </section>
   );
 }
@@ -260,6 +278,8 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const isAdmin = useIsAdmin();
   const { user } = useAuth();
   const [pdfGateOpen, setPdfGateOpen] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState<'toc' | 'tools' | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
 
   const topicIndex = Math.max(0, contents.findIndex((c) => c.slug === initialData.topicSlug));
@@ -475,11 +495,13 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
 
   // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
   const tools: Tool[] = [
-    topic.hasInteractiveLesson && { key: 'interactive', label: 'Etkileşimli derse başla', hint: 'Oyunla öğren', icon: <Gamepad2 size={18} aria-hidden="true" />, onClick: () => {
-      // Tarayıcı sesi yalnız bir tıklamanın içinde açar: Bit karşılama cümlesini de okuyabilsin.
-      lessonSound().unlock();
-      setInteractiveOpen(true);
-    } },
+    topic.hasInteractiveLesson && {
+      key: 'interactive', label: 'Etkileşimli derse başla', hint: 'Oyunla öğren', icon: <Gamepad2 size={18} aria-hidden="true" />, onClick: () => {
+        // Tarayıcı sesi yalnız bir tıklamanın içinde açar: Bit karşılama cümlesini de okuyabilsin.
+        lessonSound().unlock();
+        setInteractiveOpen(true);
+      }
+    },
     hasNarration && { key: 'listen', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
     sections.length > 0 && { key: 'slides', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
     hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
@@ -732,26 +754,32 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
                       })}
                     </div>
                   </details>
-                  {/* Etkinlikler ayrı blokta (2026-10-24, kullanıcı): özet sade kalsın, metin sayfada kalsın (SEO). */}
+                  {/* Etkinlikler ayrı blokta (kapalı details — sayfa sade kalsın, metin HTML'de/SEO'da kalsın). */}
                   {sections.some((sec) => sec.activityPromptHtml) && (
-                    <section className={s.practice} aria-labelledby="alistirmalar-baslik">
-                      <h2 id="alistirmalar-baslik" className={s.practiceTitle}>Konuyu anlama alıştırmaları</h2>
-                      {sections.map((sec, i) =>
-                        sec.activityPromptHtml ? (
-                          <div key={sec.id} className={s.practiceItem}>
-                            <p className={s.practiceHead}><span className={s.num} data-no={pad2(i)} aria-hidden="true" />{sec.heading}</p>
-                            <SectionContent
-                              only="activity"
-                              html=""
-                              activityPromptHtml={sec.activityPromptHtml}
-                              activityExampleHtml={sec.activityExampleHtml}
-                              sectionId={sec.id}
-                              heading={sec.heading}
-                            />
-                          </div>
-                        ) : null
-                      )}
-                    </section>
+                    <details id="alistirmalar" className={s.detail}>
+                      <summary>
+                        Konuyu anlama alıştırmaları <ChevronDown size={18} aria-hidden="true" />
+                      </summary>
+                      <div className={s.detailBody}>
+                        <div className="py-4">
+                          {sections.map((sec, i) =>
+                            sec.activityPromptHtml ? (
+                              <div key={sec.id} className={s.practiceItem}>
+                                <p className={s.practiceHead}><span className={s.num} data-no={pad2(i)} aria-hidden="true" />{sec.heading}</p>
+                                <SectionContent
+                                  only="activity"
+                                  html=""
+                                  activityPromptHtml={sec.activityPromptHtml}
+                                  activityExampleHtml={sec.activityExampleHtml}
+                                  sectionId={sec.id}
+                                  heading={sec.heading}
+                                />
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      </div>
+                    </details>
                   )}
                 </>
               ) : sections.length > 0 ? (
@@ -794,22 +822,28 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               ) : (
                 <p className={s.pending}>Bu konunun anlatımı hazırlanıyor.</p>
               )}
-              {(sections.length > 0 || Boolean(topic.content)) && (
-                <div className={s.complete}><TopicCompleteButton topicId={topic.id} /></div>
-              )}
             </section>
 
-            {/* Özet + düşün ve yorumla */}
+            {/* Özet (kapalı details) + düşün ve yorumla */}
             {(topic.summaryHtml || topic.discussionPromptHtml) && (
               <section className={s.block} id="ozet" data-step="ozet">
-                <div className={s.blockHead}>
-                  <h2 className={s.h2}>{topic.summaryHtml ? 'Özet' : 'Düşün ve yorumla'}</h2>
-                </div>
                 <div className={s.wrapup}>
                   {topic.summaryHtml && (
-                    <div className={s.summary}>
-                      <div className={s.prose} dangerouslySetInnerHTML={{ __html: topic.summaryHtml }} />
-                    </div>
+                    <details
+                      className={s.detail}
+                      style={{ marginTop: 0 }}
+                      open={summaryOpen}
+                      onToggle={(e) => setSummaryOpen((e.currentTarget as HTMLDetailsElement).open)}
+                    >
+                      <summary>
+                        Konu özeti <ChevronDown size={18} aria-hidden="true" />
+                      </summary>
+                      <div className={s.detailBody}>
+                        <div className={cx(s.summary, s.summaryEmbedded)}>
+                          <div className={s.prose} dangerouslySetInnerHTML={{ __html: topic.summaryHtml }} />
+                        </div>
+                      </div>
+                    </details>
                   )}
                   {topic.discussionPromptHtml && (
                     <div className={s.think}>
@@ -906,6 +940,258 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
       >
         <ArrowUp size={20} aria-hidden="true" />
       </button>
+
+      {/* Mobil sabit okuma çubuğu (< 1024px): İçindekiler, Araçlar ve Önceki/Sonraki Konu başparmağın altında */}
+      <nav aria-label="Konu hızlı erişim" className={s.readerBar}>
+        {(highlights.length > 0 || sections.length > 0 || hasSummary) && (
+          <button
+            type="button"
+            className={s.readerBtn}
+            onClick={() => setMobileSheet('toc')}
+          >
+            <ListTree size={16} aria-hidden="true" />
+            <span>İçindekiler</span>
+          </button>
+        )}
+        {tools.length > 0 && (
+          <button
+            type="button"
+            className={cx(s.readerBtn, s.readerBtnAccent)}
+            onClick={() => setMobileSheet('tools')}
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            <span>Araçlar ({tools.length})</span>
+          </button>
+        )}
+        {prev && (
+          <Link href={prev.href} className={s.readerNavBtn} aria-label={`${prev.label}: ${prev.title}`} rel="prev">
+            <ChevronLeft size={16} aria-hidden="true" />
+            <span>Önceki</span>
+          </Link>
+        )}
+        {next && (
+          <Link href={next.href} className={cx(s.readerNavBtn, s.readerNavNext)} aria-label={`${next.label}: ${next.title}`} rel="next">
+            <span>Sonraki</span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </Link>
+        )}
+      </nav>
+
+      {/* Mobil İçindekiler BottomSheet — adım adım okuma haritası */}
+      <BottomSheet
+        open={mobileSheet === 'toc'}
+        onClose={() => setMobileSheet(null)}
+        title="İçindekiler"
+        subtitle={`${lessonName} · ${topic.title}`}
+        badge={`${sections.length} bölüm`}
+        icon={<ListTree size={18} />}
+        footer={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileSheet(null);
+                setSwitcherOpen(true);
+              }}
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold text-default active:scale-[0.98]"
+              style={{ background: 'var(--bg)', borderColor: 'var(--edge)' }}
+            >
+              <ListTree size={15} aria-hidden="true" />
+              Konu değiştir
+            </button>
+            {hasTest && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileSheet(null);
+                  startTest();
+                }}
+                disabled={topicTest.loading}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-white active:scale-[0.98]"
+                style={{ background: 'linear-gradient(120deg, #3B5BFD, #06B6D4)' }}
+              >
+                <ListChecks size={15} aria-hidden="true" />
+                Kavrama testi
+              </button>
+            )}
+          </div>
+        }
+      >
+        <ol className="relative flex flex-col gap-2">
+          {highlights.length > 0 && (() => {
+            const active = activeStep === 'kavramlar';
+            return (
+              <li>
+                <a
+                  href="#kavramlar"
+                  onClick={() => setMobileSheet(null)}
+                  className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
+                  style={{
+                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
+                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
+                  }}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold"
+                    style={{
+                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 12%, transparent)',
+                      color: active ? '#fff' : 'var(--neon)',
+                    }}
+                  >
+                    <Sparkles size={15} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm font-bold text-default">Anahtar kavramlar</span>
+                  {active ? (
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: 'var(--neon)' }}>
+                      Buradasın
+                    </span>
+                  ) : (
+                    <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                  )}
+                </a>
+              </li>
+            );
+          })()}
+          {sections.map((sec, i) => {
+            const slug = sectionSlugs.get(sec.id) || String(sec.id);
+            const active = activeStep === 'bolumler' && slug === activeSlug;
+            return (
+              <li key={sec.id}>
+                <a
+                  href={`#${slug}`}
+                  onClick={() => setMobileSheet(null)}
+                  className="flex min-h-[56px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
+                  style={{
+                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
+                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
+                    boxShadow: active ? '0 0 0 1px var(--neon), 0 8px 20px -10px var(--glow)' : undefined,
+                  }}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-extrabold tabular-nums"
+                    style={{
+                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 10%, transparent)',
+                      color: active ? '#fff' : 'var(--neon)',
+                    }}
+                  >
+                    {pad2(i)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[14px] leading-snug ${active ? 'font-extrabold text-default' : 'font-semibold text-default/90'}`}>
+                      {sec.heading}
+                    </span>
+                    {active && (
+                      <span className="mt-0.5 block text-[11px] font-bold" style={{ color: 'var(--neon)' }}>
+                        Şu an okuduğun bölüm
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRight size={16} className="shrink-0" style={{ color: active ? 'var(--neon)' : 'var(--muted)' }} aria-hidden="true" />
+                </a>
+              </li>
+            );
+          })}
+          {hasSummary && (() => {
+            const active = activeStep === 'ozet';
+            return (
+              <li>
+                <a
+                  href="#ozet"
+                  onClick={() => {
+                    setSummaryOpen(true);
+                    setMobileSheet(null);
+                  }}
+                  className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
+                  style={{
+                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
+                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
+                  }}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold"
+                    style={{
+                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 12%, transparent)',
+                      color: active ? '#fff' : 'var(--neon)',
+                    }}
+                  >
+                    <ListChecks size={15} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm font-bold text-default">Özet</span>
+                  {active ? (
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: 'var(--neon)' }}>
+                      Buradasın
+                    </span>
+                  ) : (
+                    <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                  )}
+                </a>
+              </li>
+            );
+          })()}
+        </ol>
+      </BottomSheet>
+
+      {/* Mobil Konu Araçları BottomSheet */}
+      <BottomSheet
+        open={mobileSheet === 'tools'}
+        onClose={() => setMobileSheet(null)}
+        title="Konu Araçları"
+        subtitle="Dinle, tekrar et, kendini dene"
+        badge={`${tools.length} araç`}
+        icon={<Sparkles size={18} />}
+      >
+        <div className="grid grid-cols-1 gap-2.5">
+          {tools.map((tool) => {
+            const content = (
+              <>
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--neon) 35%, var(--edge))',
+                    background: 'color-mix(in srgb, var(--neon) 10%, var(--panel-solid))',
+                    color: 'var(--neon)',
+                  }}
+                >
+                  {tool.icon}
+                </span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block truncate text-[15px] font-extrabold leading-tight text-default">{tool.label}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{tool.hint}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--neon)' }} aria-hidden="true" />
+              </>
+            );
+            const cls = 'flex min-h-[64px] w-full items-center gap-3.5 rounded-2xl border px-3.5 py-2.5 active:scale-[0.985] transition-all disabled:opacity-55';
+            const style = { background: 'var(--panel-solid)', borderColor: 'var(--edge)' };
+            if (tool.href) {
+              return tool.external ? (
+                <a key={tool.key} href={tool.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileSheet(null)} className={cls} style={style}>
+                  {content}
+                </a>
+              ) : (
+                <Link key={tool.key} href={tool.href} onClick={() => setMobileSheet(null)} className={cls} style={style}>
+                  {content}
+                </Link>
+              );
+            }
+            return (
+              <button
+                key={tool.key}
+                type="button"
+                disabled={tool.disabled}
+                onClick={() => {
+                  setMobileSheet(null);
+                  tool.onClick?.();
+                }}
+                className={cls}
+                style={style}
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+      </BottomSheet>
 
       {switcherOpen && (
         <TopicSwitcher

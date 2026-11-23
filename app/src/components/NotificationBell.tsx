@@ -98,7 +98,7 @@ export function NotificationBell() {
           setIsOpen((open) => !open);
         }}
         aria-label="Bildirimler"
-        className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 transition-all"
+        className="relative w-10 h-10 rounded-xl bg-surface border border-default flex items-center justify-center hover:bg-surface-elevated hover:border-default/20 active:scale-95 transition-all"
       >
         <Icon name="bell" className="text-muted-foreground" size={18} />
         {unreadCount > 0 && (
@@ -115,7 +115,7 @@ export function NotificationBell() {
           // ekranın kenarından taşırıyordu ("yanda açılıyor", kullanıcı bildirimi
           // 2026-09-03). Mobilde artık viewport'a göre sabitlenmiş, header'ın hemen
           // altında tam genişlikte bir sayfa; sm: ve üstünde eski buton-hizalı dropdown.
-          className="fixed left-3 right-3 top-[68px] z-[60] rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden
+          className="fixed left-3 right-3 top-[64px] z-[60] rounded-xl border border-zinc-200 dark:border-default bg-white dark:bg-surface shadow-lg overflow-hidden
             sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-w-[90vw]"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-default">

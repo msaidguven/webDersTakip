@@ -123,7 +123,7 @@ export default async function YaziliExamPage({ params }: { params: Promise<Param
   return (
     <div className={pageShellCls}>
       {/* Mobil uygulama üst çubuğu (< 1024px): !sticky (.root > * { position: relative } kuralını geçer) */}
-      <div className={`!sticky top-[3.75rem] z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_90%,transparent)] px-4 py-2.5 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
+      <div className={`!sticky top-14 z-30 flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--panel-solid)_90%,transparent)] px-4 py-2.5 backdrop-blur-md sm:top-[4.5rem] sm:px-6 lg:hidden ${r.divider}`}>
         <Link
           href={hubPath}
           aria-label={`${hubName} derslerine dön`}

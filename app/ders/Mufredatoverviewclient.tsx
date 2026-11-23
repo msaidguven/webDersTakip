@@ -6,6 +6,7 @@ import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { roboticFontVars } from '@/app/src/components/robotic/fonts';
 import r from '@/app/src/components/robotic/robotic.module.css';
+import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
 import { mergeWeekSpans, weekLabel, type WeekRange } from '@/app/src/lib/kazanimPlan';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -82,7 +83,6 @@ interface MufredatOverviewClientProps {
 // Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfa/İlerlemem ile aynı; bkz. robotic).
 const FRAME = `rounded-[22px] ${r.panel}`;
 const OUTLINE_BUTTON = `inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${r.btnGhost} ${r.btnText}`;
-const SELECT = `appearance-none rounded-lg py-1.5 pl-3 pr-7 text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 ${r.iconBtn} ${r.ink}`;
 
 function academicYearLabel(): string {
   const now = new Date();
@@ -125,6 +125,7 @@ export default function MufredatOverviewClient({
   // SearchParamsSync tanımı). currentWeek prop'u sunucunun hesapladığı VARSAYILAN; URL'de
   // ?hafta= varsa onu tercih ediyoruz.
   const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
+  const [mobilePicker, setMobilePicker] = useState<'grade' | 'lesson' | null>(null);
   // Konu satırı artık akordeon DEĞİL, doğrudan konu anlatımına giden bir link (kullanıcının
   // 2026-09-25 kararı: "ünite ve konular iç içe girmiş"). Eski akordeon konuya ulaşmayı iki
   // tığa çıkarıyor, üstelik üniteyle aynı kartta iki farklı tıklama davranışı oluşturuyordu.
@@ -146,23 +147,6 @@ export default function MufredatOverviewClient({
 
   const changeLessonsHref = gradeSlug ? `/${gradeSlug}` : '/';
 
-  const handleLessonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedSlug = e.target.value;
-    if (!gradeSlug || !selectedSlug || selectedSlug === lessonSlug) return;
-    router.push(`/${gradeSlug}/${selectedSlug}`);
-  };
-
-  const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedSlug = e.target.value;
-    if (!selectedSlug || selectedSlug === gradeSlug) return;
-    // Seçilen sınıfta bu ders yoksa server'ın hesapladığı targetLessonSlug (o sınıfta
-    // gerçekten var olan bir ders) kullanılır — aynı ders slug'ını körü körüne
-    // tekrarlamak "Ders bulunamadı" ölü ucuna düşürüyordu (bkz. GradeOption.lessonSlug).
-    const targetGrade = allGrades.find((g) => g.slug === selectedSlug);
-    const targetLessonSlug = targetGrade?.lessonSlug ?? lessonSlug;
-    router.push(targetLessonSlug ? `/${selectedSlug}/${targetLessonSlug}` : `/${selectedSlug}`);
-  };
-
   const showLessonDropdown = !!gradeSlug && gradeLessons.filter((l) => l.slug).length > 1;
   const showGradeDropdown = allGrades.filter((g) => g.slug).length > 1;
 
@@ -176,54 +160,44 @@ export default function MufredatOverviewClient({
       </Suspense>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-        {/* Mobil/Tablet Üst Navigasyon */}
-        <div className="flex items-center justify-between gap-3 mb-6 lg:hidden">
+        {/* Mobil/Tablet Üst Navigasyon — native BottomSheet sınıf/ders değiştiricileri */}
+        <div className="flex items-center justify-between gap-2 mb-4 lg:hidden">
           <Link
             href={changeLessonsHref}
-            className={`flex items-center gap-2 text-sm font-bold transition-colors hover:text-cyan-600 dark:hover:text-cyan-400 ${r.muted}`}
+            className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-colors active:scale-[0.98] ${r.iconBtn}`}
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Dersler</span>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {showGradeDropdown && (
-              <div className="relative">
-                <select
-                  value={gradeSlug ?? ''}
-                  onChange={handleGradeChange}
-                  aria-label="Sınıf değiştir"
-                  className={SELECT}
-                >
-                  {allGrades.filter((g) => g.slug).map((g) => (
-                    <option key={g.id} value={g.slug ?? ''}>{g.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setMobilePicker('grade')}
+                aria-haspopup="dialog"
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold active:scale-[0.98] ${r.iconBtn} ${r.ink}`}
+              >
+                <span className="truncate">{gradeName}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              </button>
             )}
             {showLessonDropdown ? (
-              <div className="relative">
-                <select
-                  value={lessonSlug ?? ''}
-                  onChange={handleLessonChange}
-                  aria-label="Ders değiştir"
-                  className={`max-w-[140px] sm:max-w-[200px] ${SELECT}`}
-                >
-                  {gradeLessons.filter((l) => l.slug).map((l) => (
-                    <option key={l.id} value={l.slug ?? ''}>
-                      {l.icon || '📘'} {l.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setMobilePicker('lesson')}
+                aria-haspopup="dialog"
+                className={`inline-flex min-h-10 max-w-[165px] items-center gap-1.5 rounded-xl px-3 text-xs font-bold active:scale-[0.98] ${r.iconBtn} ${r.ink}`}
+              >
+                <span className="truncate">{lessonIcon || '📘'} {lessonName}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              </button>
             ) : (
               <Link
                 href={changeLessonsHref}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold ${r.iconBtn}`}
+                className={`flex min-h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-bold ${r.iconBtn}`}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                <span>Dersleri Değiştir</span>
+                <span>Değiştir</span>
               </Link>
             )}
           </div>
@@ -234,8 +208,8 @@ export default function MufredatOverviewClient({
           {/* Ana İçerik */}
           <div className="min-w-0">
 
-            {/* Ders başlığı — anasayfadaki kokpit kartı: tarama ışığı, LED etiket, krom başlık. */}
-            <div className={`${FRAME} ${r.hero} mb-7 p-6 sm:p-8`}>
+            {/* Ders başlığı — anasayfadaki kokpit kartı: mobilde kompakt, masaüstünde ferah. */}
+            <div className={`${FRAME} ${r.hero} mb-5 p-4 sm:mb-7 sm:p-8`}>
               <span className={r.scan} aria-hidden="true" />
               <div className="relative flex items-center gap-5">
                 <div className={`h-16 w-16 shrink-0 text-3xl sm:h-[4.5rem] sm:w-[4.5rem] sm:text-4xl ${r.chipBox}`}>
@@ -533,6 +507,62 @@ export default function MufredatOverviewClient({
           </aside>
         </div>
       </div>
+
+      {/* Mobil Sınıf / Ders Seçici BottomSheet */}
+      <BottomSheet
+        open={mobilePicker === 'grade'}
+        onClose={() => setMobilePicker(null)}
+        title="Sınıf Değiştir"
+        subtitle="Başka bir sınıfa geç"
+      >
+        <div className="flex flex-col gap-2">
+          {allGrades.filter((g) => g.slug).map((g) => {
+            const active = g.slug === gradeSlug;
+            const targetLessonSlug = g.lessonSlug ?? lessonSlug;
+            return (
+              <Link
+                key={g.id}
+                href={targetLessonSlug ? `/${g.slug}/${targetLessonSlug}` : `/${g.slug}`}
+                onClick={() => setMobilePicker(null)}
+                className={`flex min-h-12 items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-bold active:scale-[0.99] ${active ? r.navActive : r.item}`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className="text-lg leading-none">{g.icon || '📘'}</span>
+                  <span>{g.name}</span>
+                </span>
+                {active ? <span className={`text-xs font-bold ${r.accent}`}>Seçili</span> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              </Link>
+            );
+          })}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={mobilePicker === 'lesson'}
+        onClose={() => setMobilePicker(null)}
+        title={`${gradeName} Dersleri`}
+        subtitle="Ders değiştir"
+      >
+        <div className="flex flex-col gap-2">
+          {gradeLessons.filter((l) => l.slug).map((l) => {
+            const active = l.slug === lessonSlug;
+            return (
+              <Link
+                key={l.id}
+                href={`/${gradeSlug}/${l.slug}`}
+                onClick={() => setMobilePicker(null)}
+                className={`flex min-h-12 items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-bold active:scale-[0.99] ${active ? r.navActive : r.item}`}
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-lg leading-none shrink-0">{l.icon || '📘'}</span>
+                  <span className="truncate">{l.name}</span>
+                </span>
+                {active ? <span className={`text-xs font-bold shrink-0 ${r.accent}`}>Seçili</span> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              </Link>
+            );
+          })}
+        </div>
+      </BottomSheet>
     </div>
   );
 }

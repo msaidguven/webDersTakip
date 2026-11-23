@@ -3,6 +3,7 @@
 // konuşulan metnin özeti, aynı cümle (ör. "Harika!") bütün derslerde tek dosyadır. Oynatıcı ve üretim betiği
 // cümleleri BURADAN kurar; bir cümle değişirse sesi yeniden üretilene kadar yalnız yazı görünür (ses sessizce
 // atlanır). Robotun adı yalnız burada (kullanıcı: ad sonra değişecek — değişince sesler yeniden üretilir).
+import { toSpeech } from '../narration/speech';
 import { TERM_LINK, type HydratedLesson, type HydratedStep, type LessonVisual, type NarrativeStep } from './types';
 import { isHydratedV2, type HydratedLessonV2 } from './typesV2';
 import { isHydratedV3, type HydratedLessonV3, type V3BeatVisual, type V3TeachBeat } from './typesV3';
@@ -12,22 +13,25 @@ export const VOICE_BUCKET = 'topic-narration';
 export const voiceAudioPath = (key: string) => `interactive-voice/${key}.mp3`;
 export const voiceManifestPath = (topicId: number) => `interactive-voice/topics/${topicId}.json`;
 
-// Konuşulacak düz metin: kavram bağı → görünen metin, **kalın** / <b>kalın</b> → düz, emoji yok.
+// Konuşulacak düz metin: kavram bağı → görünen metin, **kalın** / <b>kalın</b> / `kod` → düz, emoji yok.
 export function speechText(text: string): string {
   return text
     .replace(new RegExp(TERM_LINK.source, 'g'), '$1')
     .replace(/<\/?b>/gi, '')
+    .replace(/`([^`]+)`/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}★]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Seslendiriciye giden metin (ekran ve ses anahtarı speechText'te kalır): şapkalı harfler düz harfe çevrilir —
-// Azure Türkçe sesi "mekâna", "Kâbe" gibi kelimeleri yanlış okuyor (kullanıcı bildirimi 2026-11-01).
+// Seslendiriciye giden metin (ekran ve ses anahtarı speechText'te kalır):
+// - speech.ts (toSpeech) ile semboller (&, →, |, =, +, *, üsler, birimler, formüller, binlik/ondalık sayılar,
+//   büyük harfli kısaltmalar) Türkçe doğal okunuşa çevrilir.
+// - Şapkalı harfler düz harfe çevrilir — Azure Türkçe sesi "mekâna", "Kâbe" gibi kelimeleri yanlış okuyor.
 export function ttsText(text: string): string {
-  const flat: Record<string, string> = { â: 'a', Â: 'A', î: 'i', Î: 'İ', û: 'u', Û: 'U' };
-  return speechText(text).replace(/[âÂîÎûÛ]/g, (c) => flat[c]);
+  const flat: Record<string, string> = { â: 'a', Â: 'A', î: 'i', Î: 'İ', û: 'u', Û: 'U', ķ: 'k' };
+  return toSpeech(speechText(text)).replace(/[âÂîÎûÛķ]/g, (c) => flat[c]);
 }
 
 // Senkron, ortamdan bağımsız (tarayıcı + Node) 64 bit FNV-1a özeti; ses dosyasının adı. Seslendiriciye giden
@@ -152,6 +156,16 @@ function endSentence(text: string): string {
   return /[.!?:…]$/.test(t) ? t : `${t}.`;
 }
 
+const STEP_NUMBERS = ['Bir', 'İki', 'Üç', 'Dört', 'Beş'];
+// Gerçek sıra sayısı tamlaması ("1. Kelime", "2. Bölüm", "1. Derece") dışındaki gereksiz madde öneklerini temizler.
+const ORDINAL_NOUN_RE = /^(?:kelime|bölüm|aşama|adım|sınıf|sıra|derece|gün|yıl|yüzyıl|kat|tur|kısım|madde)\b/i;
+function stripStepListPrefix(text: string): string {
+  const noBullet = text.replace(/^[-•*]\s+/, '').trim();
+  const m = noBullet.match(/^\d+[.)]\s+(.*)$/);
+  if (m && !ORDINAL_NOUN_RE.test(m[1])) return m[1].trim();
+  return noBullet;
+}
+
 // v3 anlatım ekranındaki yapısal görselin (başlıklar, maddeler, karşılaştırma, adımlar, kartlar, denklem)
 // doğal konuşma metni.
 export function v3VisualSpeech(visual?: V3BeatVisual, beatTitle?: string): string {
@@ -173,20 +187,26 @@ export function v3VisualSpeech(visual?: V3BeatVisual, beatTitle?: string): strin
     case 'compare': {
       const sideText = (side: { title: string; points: string[] }) => {
         const pts = side.points.map((p) => p.trim()).filter(Boolean).join(', ');
-        if (side.title.trim() && pts) return endSentence(`${side.title.trim()}: ${pts}`);
+        if (side.title.trim() && pts) return endSentence(`${side.title.trim().replace(/:+$/, '')}: ${pts}`);
         return endSentence(side.title || pts);
       };
       return [sideText(visual.left), sideText(visual.right)].filter(Boolean).join(' ');
     }
     case 'steps':
+      // "1." noktalı yazılınca Azure Türkçe TTS "birinci, ikinci, üçüncü" okuyor — yazıyla "Bir:", "İki:", "Üç:" verilir.
       return visual.items
-        .map((it, i) => (it.trim() ? endSentence(`${i + 1}. ${it.trim()}`) : ''))
+        .map((it, i) => {
+          const clean = stripStepListPrefix(it.trim());
+          if (!clean) return '';
+          const num = STEP_NUMBERS[i] ?? String(i + 1);
+          return endSentence(`${num}: ${clean}`);
+        })
         .filter(Boolean)
         .join(' ');
     case 'cards':
       return visual.items
         .map((c) => {
-          const t = c.title.trim();
+          const t = c.title.trim().replace(/:+$/, '');
           const d = c.detail.trim();
           if (t && d) return endSentence(`${t}: ${d}`);
           return endSentence(t || d);

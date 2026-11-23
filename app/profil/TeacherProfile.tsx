@@ -4,14 +4,13 @@
 // test sayıları) yerine derslerini (teacher_lessons) ve öğretmen araçlarını görür.
 import { useState } from 'react';
 import Link from 'next/link';
-import { ClipboardList, ListChecks, Mail, MailCheck } from 'lucide-react';
+import { ClipboardList, Mail, MailCheck } from 'lucide-react';
 import { MAX_TEACHER_LESSONS, TeacherLessonsEditor } from '@/app/src/components/teacher/TeacherLessonsEditor';
 import { TeacherVerifiedBadge } from '@/app/src/components/teacher/TeacherVerifiedBadge';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 const TOOLS = [
   { href: '/ogretmen/yazili', label: 'Yazılı hazırla', Icon: ClipboardList },
-  { href: '/ogretmen', label: 'Konudan soru seç', Icon: ListChecks },
 ] as const;
 
 const EMAIL_RESULT: Record<string, { ok: boolean; text: string }> = {

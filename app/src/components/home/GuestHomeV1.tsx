@@ -6,7 +6,7 @@
 // Görünüm: robotik kontrol paneli teması (metal paneller, HUD köşebentleri, neon, krom başlık).
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Sun } from 'lucide-react';
 import type { Grade } from '@/app/src/models/homeTypes';
 import type {
   HomeGradeSection,
@@ -22,7 +22,7 @@ import type { TopStudentEntry } from '@/app/src/lib/leaderboard';
 import { AboutSite } from './AboutSite';
 import { TopStudents } from './TopStudents';
 import { SubjectIcon } from './SubjectIcon';
-import { DailyQuestionOfTheDay } from './DailyQuestionCard';
+import { DailyQuestionFullScreen, DailyQuestionOfTheDay, useDailyQuestionStatus } from './DailyQuestionCard';
 import { roboticFontVars } from '../robotic/fonts';
 import { GradeMetalCard } from '@/app/src/components/GradeMetalCard';
 import r from '../robotic/robotic.module.css';
@@ -224,6 +224,19 @@ export function GuestHomeV1({
   );
   const [weekGradeId, setWeekGradeId] = useState<string | null>(null);
   const [recentGradeId, setRecentGradeId] = useState<string | null>(null);
+  const [quickGradeId, setQuickGradeId] = useState<string | null>(null);
+  const [dailyGradeId, setDailyGradeId] = useState<string | null>(null);
+  const [dailyOpen, setDailyOpen] = useState(false);
+
+  // Mobilde tek birleşik sınıf seçici: kullanıcı bir kez sınıfını seçince dersler,
+  // bu hafta, günün sorusu ve yeni konular aynı sınıfa senkronize olur.
+  const selectUnifiedGrade = (id: string) => {
+    setQuickGradeId(id);
+    if (weekGrades.some((g) => g.id === id)) setWeekGradeId(id);
+    if (recentGrades.some((g) => g.id === id)) setRecentGradeId(id);
+    if (dailyGrades.some((g) => g.id === id)) setDailyGradeId(id);
+  };
+
   const activeWeekGrade =
     weekGrades.find((g) => g.id === weekGradeId) ?? weekGrades[0] ?? null;
   const activeRecentGrade =
@@ -235,7 +248,6 @@ export function GuestHomeV1({
   const quickGrades = grades.filter(
     (g) => (gradeSections[g.id]?.lessons ?? []).length > 0,
   );
-  const [quickGradeId, setQuickGradeId] = useState<string | null>(null);
   const activeQuickGrade =
     quickGrades.find((g) => g.id === quickGradeId) ?? quickGrades[0] ?? null;
   const quickSection = activeQuickGrade
@@ -243,12 +255,12 @@ export function GuestHomeV1({
     : undefined;
   // Günün sorusu: sınıf bazlı set; yalnızca seti olan sınıflar sekme olarak gösterilir.
   const dailyGrades = grades.filter((g) => dailyQuestionSets[g.id]);
-  const [dailyGradeId, setDailyGradeId] = useState<string | null>(null);
   const activeDailyGrade =
     dailyGrades.find((g) => g.id === dailyGradeId) ?? dailyGrades[0] ?? null;
   const dailySet = activeDailyGrade
     ? dailyQuestionSets[activeDailyGrade.id]
     : undefined;
+  const dailyStatus = useDailyQuestionStatus(dailySet ?? null);
   const recent = activeRecentGrade
     ? (recentByGrade[activeRecentGrade.id] ?? []).slice(0, RECENT_SHOW)
     : [];
@@ -263,24 +275,55 @@ export function GuestHomeV1({
     <div
       className={`${roboticFontVars} ${r.root}`}
     >
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-16 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
-        {/* KOKPİT (hero) — metal panel + tarama ışığı */}
-        <section className={`${r.panel} ${r.hero} flex flex-col gap-8 p-6 sm:p-10`}>
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 pb-12 pt-4 sm:gap-8 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8">
+        {/* KOKPİT (hero) — mobilde kompakt uygulama karşılaması + tek birleşik sınıf seçici */}
+        <section className={`${r.panel} ${r.hero} flex flex-col gap-4 p-4 sm:gap-8 sm:p-10`}>
           <span className={r.scan} aria-hidden="true" />
-          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-            <div className="flex max-w-2xl flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+            <div className="flex max-w-2xl flex-col gap-2.5 sm:gap-4">
               <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
                 <i className={r.led} aria-hidden="true" />
-                {gradeRange ? `${gradeRange} · ` : ''}MEB müfredatı
+                {gradeRange ? `${gradeRange} · ` : ''}Ücretsiz MEB müfredatı
               </span>
-              <h1 className={`text-3xl leading-[1.05] sm:text-[2.75rem] ${r.chrome}`}>
+              <h1 className={`text-[22px] font-extrabold leading-[1.12] sm:text-[2.75rem] sm:leading-[1.05] ${r.chrome}`}>
                 Konuyu öğren, soruyla pekiştir.
               </h1>
-              <p className="text-base text-muted-foreground sm:text-lg">
-                Her konunun anlatımı ve cevap anahtarlı soruları, sınıfına göre
-                tek yerde.
+              <p className="text-sm leading-relaxed text-muted-foreground sm:text-lg">
+                Her konunun anlatımı ve cevap anahtarlı soruları, sınıfına göre tek yerde.
               </p>
-              <div className="flex flex-wrap gap-3 pt-1">
+
+              {/* Mobilde tek birleşik sınıf seçici (seçilince tüm sayfa bölümleri senkronize olur) */}
+              {quickGrades.length > 0 && activeQuickGrade && (
+                <div
+                  role="tablist"
+                  aria-label="Sınıfını seç"
+                  className={`mt-1 grid gap-1.5 rounded-2xl border p-1 lg:hidden ${r.divider}`}
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(quickGrades.length, 4)}, minmax(0, 1fr))`,
+                    background: 'var(--bg)',
+                  }}
+                >
+                  {quickGrades.map((g) => {
+                    const active = g.id === activeQuickGrade.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => selectUnifiedGrade(g.id)}
+                        className={`min-h-10 rounded-xl px-2 text-xs font-extrabold transition-all active:scale-[0.98] ${active ? `${r.btnNeon} text-white` : 'text-muted-foreground'
+                          }`}
+                      >
+                        {g.level}. Sınıf
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Masaüstü CTA butonları (mobilde Header ve alt bölümlerde zaten mevcut) */}
+              <div className="hidden flex-wrap gap-3 pt-1 sm:flex">
                 <Link href="/register" className={`group ${HERO_BUTTON} ${BUTTON}`}>
                   Ücretsiz kayıt ol
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
@@ -298,7 +341,7 @@ export function GuestHomeV1({
               </div>
             </div>
 
-            <dl className="grid grid-cols-3 gap-2 md:w-auto">
+            <dl className="hidden grid-cols-3 gap-2 sm:grid md:w-auto">
               {heroStats.map((st) => (
                 <div
                   key={st.label}
@@ -316,11 +359,86 @@ export function GuestHomeV1({
           </div>
         </section>
 
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
-          <div className="flex min-w-0 flex-col gap-6">
+        {/* Mobilde seçili sınıfın dersleri — gruplu ferah liste (ilk ekranda doğrudan derse erişim) */}
+        {activeQuickGrade && quickSection && (
+          <section aria-label={`${activeQuickGrade.name} dersleri`} className="flex flex-col gap-2.5 lg:hidden">
+            <div className="flex items-center justify-between px-0.5">
+              <h2 className="text-[15px] font-extrabold text-default">
+                {activeQuickGrade.level}. Sınıf Dersleri
+              </h2>
+              <Link href={`/${activeQuickGrade.slug}`} className={`text-xs font-bold ${r.accent}`}>
+                Tümünü gör →
+              </Link>
+            </div>
+            <ul className={`overflow-hidden rounded-[20px] border divide-y ${r.divider}`} style={{ background: 'var(--panel-solid)' }}>
+              {quickSection.lessons.map((lesson) => {
+                const gradeSlug = quickSection.gradeSlug ?? activeQuickGrade.slug ?? null;
+                const lessonPath = gradeSlug && lesson.slug ? `/${gradeSlug}/${lesson.slug}` : `/${activeQuickGrade.slug}`;
+                return (
+                  <li key={lesson.id} className={r.divider}>
+                    <Link
+                      href={lessonPath}
+                      className="flex min-h-[60px] items-center gap-3 px-3.5 py-2.5 active:scale-[0.99] transition-transform"
+                    >
+                      <SubjectIcon lessonName={lesson.name} variant="solid" size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-bold leading-snug text-default">
+                          {lesson.name}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {lesson.unitCount} ünite
+                          {lesson.topicCount > 0 ? ` · ${lesson.topicCount} konu` : ''}
+                          {lesson.questionCount > 0 ? ` · ${lesson.questionCount} soru` : ''}
+                        </span>
+                      </span>
+                      <ArrowRight className={`h-4 w-4 shrink-0 ${ACCENT}`} aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* Mobilde Günün Sorusu açılır pencere kartı */}
+        {dailySet && activeDailyGrade && (
+          <button
+            type="button"
+            onClick={() => setDailyOpen(true)}
+            className={`flex w-full items-center gap-3.5 rounded-[20px] p-4 text-left active:scale-[0.985] transition-transform lg:hidden ${r.panel} ${r.hero}`}
+          >
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/25">
+              <Sun className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="text-[15px] font-extrabold leading-tight text-default">
+                  {activeDailyGrade.level}. Sınıf Günün Sorusu
+                </span>
+                {dailyStatus?.answered ? (
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                    Çözüldü
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                    Yeni
+                  </span>
+                )}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {dailyStatus?.lessonName ? `${dailyStatus.lessonName} · ` : ''}Dokun, cevabı ve başarı oranını hemen gör
+              </span>
+            </span>
+            <ArrowRight className={`h-4 w-4 shrink-0 ${ACCENT}`} aria-hidden="true" />
+          </button>
+        )}
+
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-6">
+          <div className="flex min-w-0 flex-col gap-5 lg:gap-6">
             <section
+              id="dersler"
               aria-labelledby="sinif-baslik"
-              className={`${FRAME} flex min-w-0 flex-col gap-5 p-5 sm:p-7`}
+              className={`${FRAME} hidden min-w-0 flex-col gap-5 p-5 sm:p-7 lg:flex`}
             >
               <div>
                 <h2
@@ -374,7 +492,7 @@ export function GuestHomeV1({
             {activeQuickGrade && quickSection && (
               <section
                 aria-labelledby="hizli-erisim"
-                className={`${FRAME} flex flex-col gap-4 p-5 sm:p-6`}
+                className={`${FRAME} hidden flex-col gap-4 p-5 sm:p-6 lg:flex`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3
@@ -405,7 +523,7 @@ export function GuestHomeV1({
             )}
 
             {dailySet && activeDailyGrade && (
-              <div id="gunun-sorusu-bolumu" className="scroll-mt-24">
+              <div id="gunun-sorusu-bolumu" className="hidden scroll-mt-24 lg:block">
                 <DailyQuestionOfTheDay
                   set={dailySet}
                   tabs={
@@ -503,6 +621,13 @@ export function GuestHomeV1({
           </section>
         </div>
       </main>
+      {dailySet && (
+        <DailyQuestionFullScreen
+          open={dailyOpen}
+          onClose={() => setDailyOpen(false)}
+          set={dailySet}
+        />
+      )}
     </div>
   );
 }

@@ -1,14 +1,14 @@
 // Öğretmen paneli → "Yazılı hazırla" (docs/yazili-sorulari-plani.md 4. adım). Sunucu sayfası: yetki
 // (öğretmen ya da admin; onay şartı yok) + öğretmenin branşındaki yayındaki yazılılar + seçili yazılının havuzu.
-// Kağıt kurma tamamen istemcide (YaziliBuilder); indirme /api/ogretmen/yazili/{pdf,word}.
+// Masaüstünde sol sidebar (dersler/yazılılar) + sağda kurucu; mobilde önce ders seçimi → sonra ünite/konu → sorular.
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTeacherAccess } from '@/app/src/lib/teacherAuth';
 import { listTeacherExams, loadPaperDraft, loadTeacherExam, loadTeacherPaperDefaults } from '@/app/src/lib/yazili/teacher';
 import { pageShellCls } from '@/app/src/components/SoruBankasiHeader';
 import r from '@/app/src/components/robotic/robotic.module.css';
-import { OgretmenTabs } from '../OgretmenTabs';
 import { YaziliBuilder } from './YaziliBuilder';
+import { YaziliSidebar } from './YaziliSidebar';
 
 export const metadata: Metadata = {
   title: 'Yazılı Hazırla · Öğretmen Paneli',
@@ -36,20 +36,17 @@ function Notice({ title, text, action, secondary }: { title: string; text: strin
   );
 }
 
-const formatDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
-
 export default async function OgretmenYaziliPage({ searchParams }: { searchParams: Promise<{ yazili?: string }> }) {
   const access = await getTeacherAccess();
   const requested = Number((await searchParams).yazili);
   const shell = (children: React.ReactNode) => (
     <div className={pageShellCls}>
-      <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6">{children}</div>
+      <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:px-6">{children}</div>
     </div>
   );
 
   if (!access.ok) {
     if (access.reason === 'login') {
-      // Yazılı sayfasındaki "Öğretmen misiniz?" bağlantısından gelen, giriş/kayıt sonrası aynı yazılıya döner.
       const back = encodeURIComponent(`/ogretmen/yazili${Number.isInteger(requested) && requested > 0 ? `?yazili=${requested}` : ''}`);
       return shell(
         <Notice
@@ -64,23 +61,37 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
   }
 
   const exams = (await listTeacherExams(access)).sort(
-    (a, b) => (a.examDate ?? '9999').localeCompare(b.examDate ?? '9999') || a.gradeName.localeCompare(b.gradeName, 'tr', { numeric: true })
+    (a, b) =>
+      a.gradeName.localeCompare(b.gradeName, 'tr', { numeric: true }) ||
+      a.lessonName.localeCompare(b.lessonName, 'tr') ||
+      a.label.localeCompare(b.label, 'tr')
   );
-  const selected = exams.find((e) => e.id === requested) ?? exams[0];
+
+  const hasExplicitExam = Number.isInteger(requested) && requested > 0 && exams.some((e) => e.id === requested);
+  const selected = hasExplicitExam ? exams.find((e) => e.id === requested)! : exams[0];
+
   const [loaded, profileDefaults, initialDraft] = await Promise.all([
     selected ? loadTeacherExam(access, selected.id) : null,
     loadTeacherPaperDefaults(access.user.id),
     selected ? loadPaperDraft(access.user.id, selected.id) : null,
   ]);
 
+  const sidebarExams = exams.map((e) => ({
+    id: e.id,
+    gradeName: e.gradeName,
+    lessonName: e.lessonName,
+    label: e.label,
+    questionCount: e.questionCount,
+    examDate: e.examDate,
+  }));
+
   return shell(
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={`flex flex-wrap items-center justify-between gap-3 ${hasExplicitExam ? 'hidden lg:flex' : 'flex'}`}>
         <div>
           <p className={r.label}>Öğretmen paneli</p>
           <h1 className={`mt-1 text-2xl font-bold uppercase text-default sm:text-3xl ${r.display}`}>Yazılı hazırla</h1>
         </div>
-        <OgretmenTabs active="/ogretmen/yazili" />
       </div>
 
       {!exams.length ? (
@@ -90,43 +101,43 @@ export default async function OgretmenYaziliPage({ searchParams }: { searchParam
           action={{ href: '/yazili-sorulari', label: 'Yazılı sorularına göz at' }}
         />
       ) : (
-        <>
-          <nav aria-label="Yazılı seç" className="mt-6 flex gap-2 overflow-x-auto pb-1">
-            {exams.map((e) => (
-              <Link
-                key={e.id}
-                href={`/ogretmen/yazili?yazili=${e.id}`}
-                aria-current={e.id === selected?.id ? 'page' : undefined}
-                className={`shrink-0 rounded-2xl px-4 py-3 text-left ${r.item} ${r.itemHover} ${e.id === selected?.id ? r.neonBorder : ''}`}
-              >
-                <span className="block text-sm font-bold text-default">{e.gradeName} {e.lessonName}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {e.label} · {e.questionCount} soru{e.examDate ? ` · ${formatDate(e.examDate)}` : ''}
-                </span>
-              </Link>
-            ))}
-          </nav>
+        <div className="mt-4 lg:mt-6 lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start lg:gap-6">
+          {/* Masaüstü: sabit sol sidebar */}
+          <div className="hidden lg:block">
+            <YaziliSidebar exams={sidebarExams} selectedId={selected?.id ?? null} mode="desktop" />
+          </div>
 
-          {loaded ? (
-            <YaziliBuilder
-              key={loaded.item.id}
-              exam={{
-                id: loaded.item.id,
-                gradeName: loaded.data.gradeName,
-                lessonName: loaded.data.lessonName,
-                label: loaded.data.exam.label,
-                national: loaded.data.exam.national,
-                path: loaded.data.exam.path,
-                defaultTitle: `${loaded.data.gradeName} ${loaded.data.lessonName} Dersi ${loaded.data.exam.label} Sınavı`,
-              }}
-              topics={loaded.data.topics.filter((t) => t.questions.length)}
-              initialDraft={initialDraft}
-              profileDefaults={profileDefaults}
-            />
-          ) : (
-            <Notice title="Yazılı yüklenemedi" text="Sayfayı yenileyip tekrar dene." />
+          {/* Mobil: yazılı seçilmediyse önce ders/yazılı listesi */}
+          {!hasExplicitExam && (
+            <div className="lg:hidden">
+              <YaziliSidebar exams={sidebarExams} selectedId={null} mode="mobile" />
+            </div>
           )}
-        </>
+
+          {/* Sağ ana alan: masaüstünde her zaman, mobilde ders seçilince */}
+          <div className={`min-w-0 ${hasExplicitExam ? 'block' : 'hidden lg:block'}`}>
+            {loaded ? (
+              <YaziliBuilder
+                key={loaded.item.id}
+                backHref="/ogretmen/yazili"
+                exam={{
+                  id: loaded.item.id,
+                  gradeName: loaded.data.gradeName,
+                  lessonName: loaded.data.lessonName,
+                  label: loaded.data.exam.label,
+                  national: loaded.data.exam.national,
+                  path: loaded.data.exam.path,
+                  defaultTitle: `${loaded.data.gradeName} ${loaded.data.lessonName} Dersi ${loaded.data.exam.label} Sınavı`,
+                }}
+                topics={loaded.data.topics.filter((t) => t.questions.length)}
+                initialDraft={initialDraft}
+                profileDefaults={profileDefaults}
+              />
+            ) : (
+              <Notice title="Yazılı yüklenemedi" text="Sayfayı yenileyip tekrar dene." />
+            )}
+          </div>
+        </div>
       )}
     </>
   );

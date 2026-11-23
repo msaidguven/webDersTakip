@@ -134,10 +134,9 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
   if (isAuthenticated) {
     const profile = me && me.userId === user?.id ? me : null;
     const view = !profile ? null : profile.role === 'admin' ? (viewAs === 'student' || viewAs === 'teacher' ? viewAs : 'admin') : profile.role === 'teacher' ? 'teacher' : 'student';
-    const allUpcoming = Object.values(upcomingExamsByGrade).flat();
     return (
       <div className={`${roboticFontVars} ${r.root}`}>
-        <main className="px-4 pb-16 pt-6 sm:px-8 sm:pt-10">
+        <main className="px-4 pb-8 pt-4 sm:px-8 sm:pb-16 sm:pt-10">
           <div className="mx-auto max-w-7xl">
             {view === null ? (
               <div className={`h-64 animate-pulse rounded-[22px] ${r.panel}`} aria-hidden="true" />
@@ -149,7 +148,6 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
                 isVerified={profile!.role === 'admin' || profile!.isVerified}
                 grades={resolvedGrades}
                 thisWeek={thisWeek}
-                upcomingExams={allUpcoming.length ? <UpcomingExamsCard exams={allUpcoming} className="rounded-[22px]" /> : undefined}
               />
             ) : (
             <StudentToday
@@ -160,7 +158,11 @@ export default function HomeClient({ initialGrades, stats, gradeSections, topStu
                   </div>
                 )
               }
+              dailyQuestionSet={dailyQuestionSet}
               thisWeek={hasThisWeek ? thisWeekCard : undefined}
+              thisWeekData={hasThisWeek && selectedGrade ? { gradeName: selectedGrade.name, week: thisWeek.week, topics: thisWeekTopics } : null}
+              lessons={selectedGrade ? gradeSections[selectedGrade.id]?.lessons ?? [] : []}
+              selectedGradeSlug={selectedGrade?.slug ?? null}
               upcomingExams={selectedGrade && upcomingExamsByGrade[selectedGrade.id]?.length ? <UpcomingExamsCard exams={upcomingExamsByGrade[selectedGrade.id]} className="rounded-[22px]" /> : undefined}
             />
             )}

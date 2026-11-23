@@ -54,20 +54,20 @@ export default function IlerlememPage() {
 
   return (
     <div className={`${roboticFontVars} ${r.root}`}>
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-20 pt-8 sm:gap-8 sm:px-6 sm:pt-12 lg:px-8">
-        <header className={`flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7 ${r.panel} ${r.hero}`}>
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 pb-12 pt-4 sm:gap-8 sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
+        <header className={`flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-5 sm:p-7 ${r.panel} ${r.hero}`}>
           <span className={r.scan} aria-hidden="true" />
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5 sm:gap-2">
             {user && !isTeacher && meta && (
               <span className={`inline-flex w-fit items-center gap-2 ${r.label}`}>
                 <i className={r.led} aria-hidden="true" />
                 {meta}
               </span>
             )}
-            <h1 className={`text-3xl leading-tight sm:text-4xl ${r.chrome}`}>
+            <h1 className={`text-2xl font-extrabold leading-tight sm:text-4xl ${r.chrome}`}>
               İlerlemem
             </h1>
-            {user && !isTeacher && <p className="text-base text-muted-foreground">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
+            {user && !isTeacher && <p className="text-sm text-muted-foreground sm:text-base">Nerede olduğunu gör, bir sonraki adımını seç.</p>}
           </div>
           {user && !roleLoading && !isTeacher && <DailyGoalPicker />}
         </header>

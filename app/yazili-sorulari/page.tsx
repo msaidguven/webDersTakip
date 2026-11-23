@@ -35,13 +35,27 @@ export default async function YaziliIndexPage() {
           pills={[`${allExams.length} yazılı`, `${allExams.reduce((n, e) => n + e.questionCount, 0)} soru`, 'Cevap anahtarlı', 'Ücretsiz']}
         />
 
+        {grades.length > 1 && (
+          <nav aria-label="Sınıfa hızlı geçiş" className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide lg:hidden">
+            {grades.map((g) => (
+              <a
+                key={g.slug}
+                href={`#${g.slug}`}
+                className={`inline-flex min-h-10 shrink-0 items-center rounded-xl px-3.5 text-xs font-bold active:scale-[0.98] ${r.item}`}
+              >
+                {g.name}
+              </a>
+            ))}
+          </nav>
+        )}
+
         {dated.length > 0 && (
-          <section aria-labelledby="yaklasan" className={`mt-8 p-5 sm:p-6 ${r.panel}`}>
+          <section aria-labelledby="yaklasan" className={`mt-5 p-4 sm:mt-8 sm:p-6 ${r.panel}`}>
             <h2 id="yaklasan" className={r.label}>Tarihi belli yazılılar</h2>
             <ul className="mt-3 flex flex-col gap-2">
               {dated.map((e) => (
                 <li key={e.id}>
-                  <Link href={e.path} className={`flex flex-wrap items-center gap-x-3 gap-y-1 p-3 ${r.item} ${r.itemHover}`}>
+                  <Link href={e.path} className={`flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 p-3 active:scale-[0.99] ${r.item} ${r.itemHover}`}>
                     <span className="font-semibold text-default">{e.gradeName} {e.lessonName} · {e.label}</span>
                     <ExamCountdown examDate={e.examDate!} className={`text-sm ${r.accent}`} />
                   </Link>
@@ -51,16 +65,16 @@ export default async function YaziliIndexPage() {
           </section>
         )}
 
-        <div className="mt-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 items-start gap-6 sm:mt-10 sm:gap-8 lg:grid-cols-2">
           {grades.map((g) => {
             const hubs = gradeHubs(g);
             return (
-              <section key={g.slug} id={g.slug} aria-labelledby={`sinif-${g.slug}`} className="min-w-0">
-                <h2 id={`sinif-${g.slug}`} className={`text-xl font-bold uppercase text-default sm:text-2xl ${r.display}`}>{g.name}</h2>
-                <ul className={`mt-4 grid grid-cols-1 gap-3 ${hubs.length > 1 ? 'sm:grid-cols-2' : ''}`}>
+              <section key={g.slug} id={g.slug} aria-labelledby={`sinif-${g.slug}`} className="min-w-0 scroll-mt-20">
+                <h2 id={`sinif-${g.slug}`} className={`text-lg font-extrabold uppercase text-default sm:text-2xl ${r.display}`}>{g.name}</h2>
+                <ul className={`mt-3 grid grid-cols-1 gap-3 sm:mt-4 ${hubs.length > 1 ? 'sm:grid-cols-2' : ''}`}>
                   {hubs.map((h) => (
                     <li key={h.slug} className={`flex flex-col gap-3 p-4 ${r.item}`}>
-                      <Link href={h.path} className={`flex items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
+                      <Link href={h.path} className={`flex min-h-10 items-center gap-3 font-semibold text-default ${r.hoverAccent}`}>
                         <span className={`h-9 w-9 shrink-0 text-xs ${r.chipBox}`} aria-hidden="true">{h.term}·{h.examNo}</span>
                         {h.label}
                         <span className="text-xs font-normal text-muted-foreground">{h.lessons.length} ders</span>
@@ -68,9 +82,10 @@ export default async function YaziliIndexPage() {
                       <ul className="flex flex-col gap-1.5 text-sm">
                         {h.lessons.map((l) => (
                           <li key={l.exam.id}>
-                            <Link href={l.exam.path} className={`flex items-center gap-2 text-muted-foreground ${r.hoverAccent}`}>
+                            <Link href={l.exam.path} className={`flex min-h-10 items-center gap-2.5 rounded-xl px-1.5 py-1 text-muted-foreground active:scale-[0.99] ${r.hoverAccent}`}>
                               <SubjectIcon lessonName={l.name} size="sm" variant="solid" />
-                              {l.name} <span className="text-xs">({l.exam.questionCount} soru)</span>
+                              <span className="font-medium text-default">{l.name}</span>
+                              <span className="text-xs text-muted-foreground">({l.exam.questionCount} soru)</span>
                             </Link>
                           </li>
                         ))}

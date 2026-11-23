@@ -155,11 +155,11 @@ export function PlayerFrame({
           }
         >
           <div
-            className="animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-70 blur-3xl"
+            className="hidden sm:block animate-blob-drift pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-70 blur-3xl"
             style={{ background: `radial-gradient(circle, ${accent.from}44, transparent 70%)` }}
           />
           <div
-            className="animate-blob-drift pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full opacity-70 blur-3xl"
+            className="hidden sm:block animate-blob-drift pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full opacity-70 blur-3xl"
             style={{ background: `radial-gradient(circle, ${accent.to}33, transparent 70%)`, animationDelay: '2.5s' }}
           />
           {/* İnce üst vurgu / ilerleme şeridi */}
@@ -204,7 +204,7 @@ export function FontScaleControl({
   const btn =
     'flex h-7 min-w-8 sm:h-8 sm:min-w-9 items-center justify-center gap-px rounded-md px-1.5 font-black text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed';
   return (
-    <div role="group" aria-label="Yazı boyutu" className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/95 p-0.5 shadow-sm">
+    <div role="group" aria-label="Yazı boyutu" className="hidden sm:flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/95 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => onChange(Math.max(MIN_FONT_SCALE, Math.round((fontScale - FONT_SCALE_STEP) * 100) / 100))}
@@ -235,7 +235,7 @@ export function FontScaleControl({
   );
 }
 
-const ICON_BTN = 'flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-colors bg-slate-900/60 text-white hover:bg-slate-900/80 shadow-sm';
+const ICON_BTN = 'flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-colors bg-slate-900/60 text-white hover:bg-slate-900/80 active:scale-95 shadow-sm';
 
 export function OverlayWindowButtons({
   isFullscreen,
@@ -248,7 +248,7 @@ export function OverlayWindowButtons({
 }) {
   return (
     <>
-      <button type="button" onClick={onToggleFullscreen} aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran'} className={ICON_BTN}>
+      <button type="button" onClick={onToggleFullscreen} aria-label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran'} className={`hidden sm:flex ${ICON_BTN}`}>
         {isFullscreen ? <Minimize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Maximize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
       </button>
       <button type="button" onClick={onClose} aria-label="Kapat" className={ICON_BTN}>
@@ -359,7 +359,7 @@ export function QuestionPills({
 export const PLAYER_TOP_BAR_CLASS =
   'relative z-10 flex shrink-0 flex-col gap-2 border-b border-slate-200/80 bg-white/90 px-3 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3.5';
 export const PLAYER_NAV_ROW_CLASS =
-  'relative z-10 flex shrink-0 items-center justify-between sm:justify-center gap-2 sm:gap-4 border-t border-slate-200/80 bg-white/90 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 sm:py-3';
+  'relative z-10 flex shrink-0 items-center justify-between sm:justify-center gap-2 sm:gap-4 border-t border-slate-200/80 bg-white/90 px-3 pt-2.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 sm:py-3';
 // Üst çubuktaki küçük rozetlerin (sayaç, D/Y) ortak tabanı — eskiden mobilde 9px'ti.
 export const PLAYER_BADGE_CLASS = 'rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1 text-[0.6875rem] sm:text-xs font-black shadow-sm tabular-nums';
 

@@ -4,11 +4,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
 import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
+import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
 import { isClientAdmin } from '@/app/src/lib/clientSession';
 
 export type GradeLink = { level: number; slug: string };
@@ -105,75 +106,75 @@ function LessonCardSkeleton() {
 
 function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; lesson: Lesson; units: LessonUnit[] | undefined; isLoadingUnits: boolean }) {
   return (
-    <div className="p-1.5 sm:p-3">
-                      {isLoadingUnits ? (
-                        <div className="space-y-1.5 sm:space-y-2">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="h-9 w-full animate-pulse rounded-lg bg-slate-500/10 sm:h-11 sm:rounded-xl" />
-                          ))}
-                        </div>
-                      ) : !units || units.length === 0 ? (
-                        <p className="py-3 text-center text-[10px] text-muted-foreground sm:text-sm">Bu derste henüz ünite bulunmuyor.</p>
-                      ) : (
-                        <div className="space-y-1 sm:space-y-2">
-                          {units.map((unit, unitIndex) => {
-                            const isDraftUnit = unit.isActive === false;
-                            return unit.firstTopicSlug && unit.slug ? (
-                              <Link
-                                key={unit.id}
-                                href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
-                                className={`group/unit flex items-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
-                                  isDraftUnit
-                                    ? 'border-amber-300 bg-amber-50/60 hover:border-amber-400 dark:bg-amber-500/10'
-                                    : r.item
-                                }`}
-                              >
-                                <span
-                                  className={`h-5 w-5 shrink-0 text-[9px] sm:h-7 sm:w-7 sm:text-[11px] ${
-                                    isDraftUnit ? 'flex items-center justify-center rounded-full bg-amber-500 font-black text-white' : r.chipBox
-                                  }`}
-                                >
-                                  {unitIndex + 1}
-                                </span>
-                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : r.ink}`}>
-                                  {unit.title}
-                                </span>
-                                {isDraftUnit && (
-                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700 sm:text-[9px] dark:bg-amber-500/20 dark:text-amber-300">
-                                    Taslak
-                                  </span>
-                                )}
-                                <ArrowRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/unit:translate-x-0.5 group-hover/unit:text-cyan-500 sm:block" />
-                              </Link>
-                            ) : (
-                              <div
-                                key={unit.id}
-                                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 sm:gap-2.5 sm:rounded-xl sm:px-3 sm:py-2.5 ${
-                                  isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : `${r.item} opacity-50`
-                                }`}
-                              >
-                                <span
-                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black sm:h-7 sm:w-7 sm:text-[11px] ${
-                                    isDraftUnit ? 'bg-amber-500 text-white' : 'bg-slate-500/10 text-slate-400'
-                                  }`}
-                                >
-                                  {unitIndex + 1}
-                                </span>
-                                <span className={`min-w-0 flex-1 truncate text-[11px] font-bold sm:text-sm ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
-                                  {unit.title}
-                                </span>
-                                {isDraftUnit ? (
-                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700 sm:text-[9px] dark:bg-amber-500/20 dark:text-amber-300">
-                                    Taslak
-                                  </span>
-                                ) : (
-                                  <span className="hidden shrink-0 text-[10px] text-muted-foreground sm:inline">Konu yok</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+    <div className="p-0.5 sm:p-1">
+      {isLoadingUnits ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-slate-500/10" />
+          ))}
+        </div>
+      ) : !units || units.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Bu derste henüz ünite bulunmuyor.</p>
+      ) : (
+        <div className="space-y-2">
+          {units.map((unit, unitIndex) => {
+            const isDraftUnit = unit.isActive === false;
+            return unit.firstTopicSlug && unit.slug ? (
+              <Link
+                key={unit.id}
+                href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
+                className={`group/unit flex min-h-12 items-center gap-3 rounded-2xl border px-3 py-2.5 transition-all active:scale-[0.99] ${
+                  isDraftUnit
+                    ? 'border-amber-300 bg-amber-50/60 hover:border-amber-400 dark:bg-amber-500/10'
+                    : r.item
+                }`}
+              >
+                <span
+                  className={`h-8 w-8 shrink-0 text-xs ${
+                    isDraftUnit ? 'flex items-center justify-center rounded-xl bg-amber-500 font-black text-white' : r.chipBox
+                  }`}
+                >
+                  {String(unitIndex + 1).padStart(2, '0')}
+                </span>
+                <span className={`min-w-0 flex-1 text-sm font-bold leading-snug ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : r.ink}`}>
+                  {unit.title}
+                </span>
+                {isDraftUnit && (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                    Taslak
+                  </span>
+                )}
+                <ArrowRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 ${r.accent}`} aria-hidden="true" />
+              </Link>
+            ) : (
+              <div
+                key={unit.id}
+                className={`flex min-h-12 items-center gap-3 rounded-2xl border px-3 py-2.5 ${
+                  isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : `${r.item} opacity-55`
+                }`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                    isDraftUnit ? 'bg-amber-500 text-white' : 'bg-slate-500/10 text-slate-400'
+                  }`}
+                >
+                  {String(unitIndex + 1).padStart(2, '0')}
+                </span>
+                <span className={`min-w-0 flex-1 text-sm font-bold leading-snug ${isDraftUnit ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                  {unit.title}
+                </span>
+                {isDraftUnit ? (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                    Taslak
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-xs text-muted-foreground">Yakında</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -274,15 +275,15 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
                       {lesson.unitCount} ünite{lesson.questionCount > 0 ? ` · ${lesson.questionCount} soru` : ''}
                     </p>
 
-                    <div className="grid grid-cols-1 gap-2">
-                      <Link href={lessonPath} className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-colors ${BUTTON}`}>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+                      <Link href={lessonPath} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors active:scale-[0.98] ${BUTTON}`}>
                         Konu anlatımı
                         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                       </Link>
                       {grade.slug && lesson.slug && lesson.questionCount > 0 && (
                         <Link
                           href={buildSoruBankasiLessonPath(grade.slug, lesson.slug)}
-                          className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-bold ${GHOST}`}
+                          className={`inline-flex min-h-10 items-center justify-center rounded-xl px-3.5 py-2 text-xs font-bold active:scale-[0.98] ${GHOST}`}
                         >
                           Soru bankası
                         </Link>
@@ -294,7 +295,7 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
                     type="button"
                     onClick={() => setActiveLessonId(lesson.id)}
                     aria-haspopup="dialog"
-                    className={`w-full rounded-b-[22px] border-t px-4 py-2.5 text-left text-xs font-semibold transition-colors hover:bg-cyan-500/10 ${r.mono} ${r.divider} ${r.accent}`}
+                    className={`min-h-11 w-full rounded-b-[20px] border-t px-4 py-2.5 text-left text-xs font-semibold transition-colors hover:bg-cyan-500/10 active:scale-[0.99] sm:rounded-b-[22px] ${r.mono} ${r.divider} ${r.accent}`}
                   >
                     Üniteleri göster ({lesson.unitCount})
                   </button>
@@ -304,37 +305,21 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
             })}
           </div>
 
-          {activeLesson && (
-            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={() => setActiveLessonId(null)}>
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="unite-pencere-baslik"
-                className={`${r.themeVars} flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl sm:max-w-xl sm:rounded-2xl ${r.menu}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className={`flex items-center justify-between gap-3 border-b px-5 py-4 ${r.divider}`}>
-                  <div className="min-w-0">
-                    <p className={r.label}>{grade.name}</p>
-                    <h2 id="unite-pencere-baslik" className={`truncate text-lg font-bold ${r.display} ${r.ink}`}>
-                      {activeLesson.icon} {activeLesson.name}
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLessonId(null)}
-                    aria-label="Kapat"
-                    className={`h-9 w-9 shrink-0 ${r.iconBtn}`}
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-                <div className="overflow-y-auto">
-                  <UnitPanel grade={grade} lesson={activeLesson} units={byLessonId[activeLesson.id]} isLoadingUnits={loadingLessonIds.has(activeLesson.id)} />
-                </div>
-              </div>
-            </div>
-          )}
+          <BottomSheet
+            open={!!activeLesson}
+            onClose={() => setActiveLessonId(null)}
+            title={activeLesson ? `${activeLesson.icon} ${activeLesson.name}` : ''}
+            subtitle={activeLesson ? `${grade.name} · ${activeLesson.unitCount} ünite${activeLesson.questionCount > 0 ? ` · ${activeLesson.questionCount} soru` : ''}` : undefined}
+          >
+            {activeLesson && (
+              <UnitPanel
+                grade={grade}
+                lesson={activeLesson}
+                units={byLessonId[activeLesson.id]}
+                isLoadingUnits={loadingLessonIds.has(activeLesson.id)}
+              />
+            )}
+          </BottomSheet>
 
           <div className={`${FRAME} mt-8 flex items-center justify-center gap-2.5 px-4 py-3.5 text-center sm:mt-10 sm:px-6 sm:py-4`}>
             <Sparkles className={`h-4 w-4 shrink-0 ${r.accent}`} />

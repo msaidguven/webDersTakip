@@ -65,9 +65,8 @@ export default function AdminPanel() {
       </header>
 
       {/* Sidebar - Desktop: fixed, Mobile: overlay */}
-      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-40 transition-transform duration-300 flex flex-col ${
-        sidebarOpen ? 'left-0' : '-left-64 lg:left-0'
-      }`}>
+      <aside className={`fixed lg:left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-40 transition-transform duration-300 flex flex-col ${sidebarOpen ? 'left-0' : '-left-64 lg:left-0'
+        }`}>
         <div className="hidden lg:flex p-6 shrink-0 items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shrink-0">
@@ -200,7 +199,7 @@ export default function AdminPanel() {
             <span className="font-medium truncate">Takdir Hesaplama Bildirimleri</span>
           </Link>
           <Link
-            href="/ogretmen"
+            href="/ogretmen/yazili"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <span className="text-base sm:text-lg">🎓</span>
@@ -243,11 +242,10 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base ${
-        active
+      className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base ${active
           ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-      }`}
+        }`}
     >
       <span className="text-base sm:text-lg">{icon}</span>
       <span className="font-medium truncate">{label}</span>
@@ -283,8 +281,10 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
         supabase.from('topic_contents').select('*', { count: 'exact', head: true }),
       ]);
 
-      setStats({ grades: grades||0, lessons: lessons||0, units: units||0, topics: topics||0,
-                 questions: questions||0, users: users||0, tests: tests||0, contents: contents||0 });
+      setStats({
+        grades: grades || 0, lessons: lessons || 0, units: units || 0, topics: topics || 0,
+        questions: questions || 0, users: users || 0, tests: tests || 0, contents: contents || 0
+      });
     }
 
     async function loadRecentActivity() {

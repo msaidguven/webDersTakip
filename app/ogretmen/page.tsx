@@ -1,11 +1,5 @@
-import type { Metadata } from 'next';
-import OgretmenPanelClient from './OgretmenPanelClient';
-
-export const metadata: Metadata = {
-  title: 'Öğretmen Paneli',
-  robots: { index: false, follow: false },
-};
+import { redirect } from 'next/navigation';
 
 export default function OgretmenPage() {
-  return <OgretmenPanelClient />;
+  redirect('/ogretmen/yazili');
 }

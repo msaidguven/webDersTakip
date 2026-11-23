@@ -21,10 +21,96 @@ const SYMBOL_WORDS: Record<string, string> = {
 const CELL = '[A-ZÇĞİÖŞÜ]{1,3}\\d{1,5}';
 const FORMULA_RE = /(^|\s)(=[^\s]+?)([.,;]?)(?=\s|$)/g;
 const RANGE_RE = new RegExp(`\\b(${CELL}):(${CELL})\\b`, 'g');
-// "artı (+)", "eşittir (=) işareti" — sembol zaten sözcükle söylenmiş, parantezdeki sembol okunmaz.
-const SYMBOL_IN_PARENS_RE = /\s*\(\s*[=+\-*/<>]\s*\)/g;
-// "sütun/çubuk" → "sütun ya da çubuk" (sayı/hücre bölmeleri formül içinde ele alınıyor).
+// "artı (+)", "eşittir (=) işareti", "üs alma (^)", "iki nokta üst üste (:)" — sembol zaten
+// sözcükle söylenmiş, parantezdeki sembol okunmaz.
+const SYMBOL_IN_PARENS_RE = /\s*\(\s*[=+\-*/<>^:;]\s*\)/g;
+// Birim/bölme ifadeleri WORD_SLASH_RE'den önce ele alınır (aksi halde "metre/saniye" → "metre ya da saniye" olur).
+const UNIT_SLASH_RULES: [RegExp, string][] = [
+  [/\bmetre\/saniye\s*\(\s*m\/s\s*\)/giu, 'metre bölü saniye'],
+  [/\bkilometre\/saat\s*\(\s*km\/sa?\s*\)/giu, 'kilometre bölü saat'],
+  [/\bkilometre\/saat\s*\(\s*km\/h\s*\)/giu, 'kilometre bölü saat'],
+  [/\bmetre\/saniye\b/giu, 'metre bölü saniye'],
+  [/\bkilometre\/saat\b/giu, 'kilometre bölü saat'],
+  [/(?<![\p{L}\p{N}])m\/s(?![\p{L}\p{N}])/gu, 'metre bölü saniye'],
+  [/(?<![\p{L}\p{N}])km\/(?:h|sa)(?![\p{L}\p{N}])/gu, 'kilometre bölü saat'],
+  // Ölçü birimleri (sayı ardından gelen kısa birimler)
+  [/(?<=\d\.?\s+)sn(?![\p{L}])/gu, 'saniye'],
+  [/(?<=\d\.?\s+)dk\.?(?![\p{L}])/gu, 'dakika'],
+  [/(?<=\d\s+)mL(?![\p{L}])/gu, 'mililitre'],
+  [/(?<=\d\s+)cL(?![\p{L}])/gu, 'santilitre'],
+  [/(?<=\d\s+)dL(?![\p{L}])/gu, 'desilitre'],
+  [/(?<=\d\s+)cm(?![\p{L}])/gu, 'santimetre'],
+  [/(?<=\d\s+)mm(?![\p{L}])/gu, 'milimetre'],
+  [/(?<=\d\s+)km(?![\p{L}])/gu, 'kilometre'],
+  [/(?<=\d\s+)kg(?![\p{L}])/gu, 'kilogram'],
+  [/(?<=\d\s+)mg(?![\p{L}])/gu, 'miligram'],
+  // Tek başına geçen hacim/sıvı birimleri (cL, dL, mL)
+  [/(?<![\p{L}\p{N}])mL(?![\p{L}\p{N}])/gu, 'mililitre'],
+  [/(?<![\p{L}\p{N}])cL(?![\p{L}\p{N}])/gu, 'santilitre'],
+  [/(?<![\p{L}\p{N}])dL(?![\p{L}\p{N}])/gu, 'desilitre'],
+];
+// Din dersi ve genel Türkçe kısaltmalar (Azure TTS kısaltmaları harfleyerek veya kesik okuyor).
+const ABBREV_RULES: [RegExp, string][] = [
+  [/(?<![\p{L}])Hz\.(?=\s|$)/gu, 'Hazreti'],
+  [/(?<![\p{L}])Prof\.(?=\s|$)/gu, 'Profesör'],
+  [/(?<![\p{L}])Dr\.(?=\s|$)/gu, 'Doktor'],
+  [/\(\s*s\.?\s*a\.?\s*v\.?\s*\)/giu, 'sallallahu aleyhi ve sellem'],
+  [/(?<![\p{L}])s\.a\.v\.(?=\s|$)/giu, 'sallallahu aleyhi ve sellem'],
+  [/\(\s*a\.?\s*s\.?\s*\)/giu, 'aleyhisselam'],
+  [/\(\s*r\.?\s*a\.?\s*\)/giu, 'radıyallahu anh'],
+  [/\(\s*c\.?\s*c\.?\s*\)/giu, 'celle celalühü'],
+  [/(?<![\p{L}])vb\.(?=\s|$|[),;:])/giu, 've benzeri'],
+  [/(?<![\p{L}])vd\.(?=\s|$|[),;:])/giu, 've diğerleri'],
+  [/(?<![\p{L}])örn\.(?=\s|$)/giu, 'örneğin'],
+  [/(?<![\p{L}])bkz\.(?=\s|$)/giu, 'bakınız'],
+  [/(?<![\p{L}])yy\.(?=\s|$|[),;:])/giu, 'yüzyıl'],
+  [/(?<![\p{L}])M\.?Ö\.?(?=\s+\d)/gu, 'milattan önce'],
+  [/(?<![\p{L}])M\.?S\.?(?=\s+\d)/gu, 'milattan sonra'],
+];
+// Yabancı marka, teknoloji ve bilim terimleri (Azure Türkçe sesi İngilizce/karma adları bozuk okuyor).
+const PRONUNCIATION_RULES: [RegExp, string | ((...args: string[]) => string)][] = [
+  [/\bDuckDuckGo\b/gi, 'Dak Dak Go'],
+  [/\bGarageBand\b/gi, 'Garaj Bend'],
+  [/\bmacOS\b/g, 'Mek O Es'],
+  [/\bWindows\b/gi, 'Vindovs'],
+  [/\bLinux\b/gi, 'Linuks'],
+  [/\bYandex\b/gi, 'Yandeks'],
+  [/\bWilliam\b/g, 'Vilyım'],
+  [/\bGoogle\b/gi, 'Gugıl'],
+  [/\bYouTube\b/gi, 'Yutub'],
+  [/\bWhatsApp\b/gi, 'Vatsap'],
+  [/\bPowerPoint\b/gi, 'Pavırpoynt'],
+  [/\bExcel\b/gi, 'Eksel'],
+  [/\bAudacity\b/gi, 'Odasiti'],
+  [/\bChrome\b/gi, 'Krom'],
+  [/\bfiletype:/gi, 'fayl tayp iki nokta'],
+  [/\bsite:/gi, 'site iki nokta'],
+  [/(?<![\p{L}\p{N}])\.pdf(?![\p{L}\p{N}])/giu, 'nokta pe de fe'],
+  [/(?<![\p{L}\p{N}])\.doc(?![\p{L}\p{N}])/giu, 'nokta dok'],
+  [/(?<![\p{L}\p{N}])WAV(?![\p{L}\p{N}])/gu, 'vav'],
+  [/(?<![\p{L}\p{N}])OGG(?![\p{L}\p{N}])/gu, 'og'],
+  [/(?<![\p{L}\p{N}])MP3(?![\p{L}\p{N}])/giu, 'em pe üç'],
+  [/(?<![\p{L}\p{N}])MP4(?![\p{L}\p{N}])/giu, 'em pe dört'],
+  [/(?<![\p{L}\p{N}])CD(?![\p{L}\p{N}])/gu, 'si di'],
+  [/(?<![\p{L}\p{N}])SUM(?![\p{L}\p{N}])/gu, 'sam'],
+  [/(?<![\p{L}\p{N}])rRNA(?![\p{L}\p{N}])/gu, 're R N A'],
+  [/(?<![\p{L}\p{N}])MEB(?![\p{L}\p{N}])/gu, 'Meb'],
+  [/(?<![\p{L}\p{N}])EBA(?![\p{L}\p{N}])/gu, 'Eba'],
+  [/(?<![\p{L}\p{N}])MAK(?![\p{L}\p{N}])/gu, 'Mak'],
+  [/(?<![\p{L}\p{N}])MİN(?![\p{L}\p{N}])/gu, 'Min'],
+  // "x1000" gibi çarpma ön eki
+  [/(?<![\p{L}\p{N}])[x×](\d+)(?![\p{L}\p{N}])/gu, (_m: string, d: string) => `çarpı ${turkishNumberWords(d)}`],
+];
+// "sütun/çubuk" → "sütun ya da çubuk" (sayı/hücre bölmeleri ve birimler önceden ele alınıyor).
 const WORD_SLASH_RE = /([a-zçğıöşü]{2,})\/([a-zçğıöşü]{2,})/giu;
+// Metin içi semboller: "&" → "ve", "→" ve "|" → doğal duraklama (virgül).
+const AMPERSAND_RE = /(\s)&(\s)/g;
+const ARROW_OR_PIPE_RE = /\s*[→|]\s*/g;
+// Boşluklu toplama ve çarpma ("2 000 000 + 100 000", "2 * a^2", "a * b * c").
+const SPACED_PLUS_RE = /(?<=\S)\s+\+\s+(?=\S)/g;
+const SPACED_TIMES_RE = /(?<=\S)\s+\*\s+(?=\S)/g;
+// Noktasız 5+ basamaklı büyük sayılar (ör. 44100, 345345345; 4 basamaklı yıllara dokunmaz).
+const PLAIN_BIG_NUMBER_RE = /(?<![\p{L}\p{N}.,])\d{5,}(?![\p{N}.,])/gu;
 
 // Sayı ve matematik okunuşu (2026-10-03, iki sesle de dinlenip yazıya dökülerek tespit edildi):
 // - Binlik gruplu sayılar (7 806 015 239, 300.000) yazıyla verilir — Elif grupları ayrı sayılar gibi
@@ -90,23 +176,42 @@ function spellFormula(formula: string): string {
 }
 
 export function toSpeech(display: string): string {
-  return display
+  let out = display
     .replace(SYMBOL_IN_PARENS_RE, '')
     .replace(FORMULA_RE, (_m, pre: string, formula: string, punct: string) => `${pre}${spellFormula(formula)}${punct}`)
-    .replace(RANGE_RE, '$1 iki nokta üst üste $2')
+    .replace(RANGE_RE, '$1 iki nokta üst üste $2');
+  for (const [re, rep] of ABBREV_RULES) out = out.replace(re, rep);
+  for (const [re, rep] of UNIT_SLASH_RULES) out = out.replace(re, rep);
+  for (const [re, rep] of PRONUNCIATION_RULES) {
+    out = typeof rep === 'string' ? out.replace(re, rep) : out.replace(re, rep);
+  }
+  out = out
     .replace(GROUPED_NUMBER_RE, (m: string) => turkishNumberWords(m.replace(/[ \u00a0\u202f.]/g, '')))
+    .replace(PLAIN_BIG_NUMBER_RE, (m: string) => turkishNumberWords(m))
+    // "bin iki yüz'dür" → "bin iki yüzdür" (sayı yazıya dönünce kesme işareti doğal akışı bozmasın).
+    .replace(/([\p{L}]+)'([\p{L}]+)/gu, (m: string, word: string, suf: string) =>
+      /^(?:sıfır|bir|iki|üç|dört|beş|altı|yedi|sekiz|dokuz|on|yirmi|otuz|kırk|elli|altmış|yetmiş|seksen|doksan|yüz|bin|milyon|milyar|trilyon)$/i.test(word)
+        ? `${word}${suf}`
+        : m,
+    )
     .replace(DECIMAL_RE, '$1 virgül $2')
     .replace(POWER_RE, speakPower)
     .replace(NEGATIVE_RE, '$1eksi ')
     .replace(LONE_EQUALS_RE, '$1eşittir')
+    .replace(SPACED_TIMES_RE, ' çarpı ')
+    .replace(SPACED_PLUS_RE, ' artı ')
     .replace(SINGLE_MINUS_RE, '$1 eksi $2')
     .replace(SINGLE_PLUS_RE, '$1 artı $2')
+    .replace(AMPERSAND_RE, '$1ve$2')
+    .replace(ARROW_OR_PIPE_RE, ', ');
+  return out
     .replace(WORD_SLASH_RE, '$1 ya da $2')
     .replace(PAREN_ACRONYM_RE, '')
     .replace(DIGIT_LETTER_RE, (_m, num: string, letter: string) => `${num} ${TR_LETTER_NAMES[letter] ?? letter}`)
     .replace(UPPER_WORD_RE, (w: string) => speakUpperWord(w))
     .replace(/\s{2,}/g, ' ')
     // Formül sonundaki virgül cümle noktalamasıyla çakışmasın: "kapat,." → "kapat."
-    .replace(/,\s*([.;:!?,])/g, '$1')
+    // (".pdf" gibi dosya uzantılarına dokunmamak için noktalama sonrası boşluk/son aranır).
+    .replace(/,\s*([.;:!?,])(?=\s|$)/g, '$1')
     .trim();
 }

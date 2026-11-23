@@ -11,6 +11,38 @@ export async function GET(request: NextRequest) {
   const auth = await getTeacherAccess();
   if (!auth.ok) return NextResponse.json({ error: auth.reason === 'login' ? 'Oturum gerekli' : 'Bu alan sadece öğretmenler içindir' }, { status: auth.reason === 'login' ? 401 : 403 });
 
+  if (request.nextUrl.searchParams.get('list') === '1') {
+    const [exams, draftRes] = await Promise.all([
+      listTeacherExams(auth),
+      createServiceClient()
+        .from('teacher_paper_drafts')
+        .select('exam_id, items, title, updated_at')
+        .eq('teacher_id', auth.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(10),
+    ]);
+    const examById = new Map(exams.map((e) => [e.id, e]));
+    type DraftRow = { exam_id: number; items: unknown; title: string | null; updated_at: string };
+    const drafts = ((draftRes.data as DraftRow[] | null) ?? []).flatMap((row) => {
+      const exam = examById.get(row.exam_id);
+      const itemCount = Array.isArray(row.items) ? row.items.length : 0;
+      if (!exam || itemCount === 0) return [];
+      return [{
+        examId: exam.id,
+        gradeName: exam.gradeName,
+        lessonName: exam.lessonName,
+        label: exam.label,
+        title: row.title?.trim() || `${exam.gradeName} ${exam.lessonName} · ${exam.label}`,
+        itemCount,
+        updatedAt: row.updated_at,
+      }];
+    });
+    const upcomingExams = exams
+      .filter((e): e is typeof e & { examDate: string } => Boolean(e.examDate))
+      .map((e) => ({ id: e.id, gradeName: e.gradeName, lessonName: e.lessonName, label: e.label, examDate: e.examDate }));
+    return NextResponse.json({ drafts, upcomingExams }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
+
   const examId = Number(request.nextUrl.searchParams.get('examId'));
   if (!Number.isInteger(examId) || examId <= 0) {
     return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 });

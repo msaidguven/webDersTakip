@@ -25,6 +25,26 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
+const GRADE_SEGMENT = /^\d+-sinif$/;
+
+const LEGAL_INFO_ROUTES = new Set([
+  '/gizlilik-politikasi',
+  '/hakkimizda',
+  '/iletisim',
+  '/farkli-konular',
+]);
+
+const FOOTER_EXCLUDED_ROUTES = new Set([
+  '/login',
+  '/register',
+  '/sifremi-unuttum',
+  '/sifre-yenile',
+  '/hesap-silme',
+  '/banned',
+  '/kavram-avi',
+  '/ders/alt-baslik-test',
+]);
+
 export function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, user, realUser, viewAs, supabase, signOut } = useAuth();
   const role = useProfileRole();
@@ -45,14 +65,12 @@ export function MainLayout({ children }: MainLayoutProps) {
     getCurrentStreak(supabase, user.id).then(setStreak);
   }, [user?.id, supabase]);
 
-  // Konu okuma sayfası (DersClient) artık kendi header'ını göstermiyor; global nav
-  // burada kalıyor (bkz. kullanıcının 2026-09-05 isteği). Admin paneli ise hâlâ kendi
-  // sabit header/footer çerçevesini yönetir. /ders?... rotası (query tabanlı) ve
-  // karşılık gelen /[grade]/[lesson]/[unit]/[topic] pretty-URL rotası (DersClient
-  // içeriği yüklendikten sonra history.replaceState ile bu formata geçiyor) aynı sayfa
-  // olduğu için ikisi de eşleşmeli.
+  // Konu okuma sayfası (DersClient) kendi header'ını göstermiyor; global nav burada kalıyor.
+  // Admin paneli ise hâlâ kendi sabit header/footer çerçevesini yönetir.
+  // 4 segmentli diğer rotalar (/soru-bankasi/[sinif]/[ders]/[unite], /yazili-sorulari/[sinif]/[yazili]/[ders])
+  // konu okuma sayfası olmadığı için ilk segmentin sınıf slug'ı (\d+-sinif) olması şart.
   const pathSegments = pathname?.split('/').filter(Boolean) ?? [];
-  const isTopicContentRoute = pathSegments.length === 4;
+  const isTopicContentRoute = pathSegments.length === 4 && GRADE_SEGMENT.test(pathSegments[0]);
   const isDersRoute = isTopicContentRoute;
   const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/');
   const isProgressRoute = pathname === '/ilerlemem' || pathname?.startsWith('/ilerlemem/');
@@ -65,29 +83,37 @@ export function MainLayout({ children }: MainLayoutProps) {
     pathname === '/tekrar' ||
     pathname?.startsWith('/sirali-test/') ||
     pathname?.startsWith('/uye/');
+  const isLegalInfoRoute = pathname != null && LEGAL_INFO_ROUTES.has(pathname);
+  const isFooterExcludedRoute = pathname != null && FOOTER_EXCLUDED_ROUTES.has(pathname);
   const hideHeader = pathname?.endsWith('/icerik') || isAdminRoute;
-  // Ders sayfası kendi Geri/İleri footer'ını yönettiği için, girişli/kişisel uygulama ekranları
-  // (/ilerlemem, /profil, /ogretmen, /tekrar vb.) ise SEO sayfası olmadığı ve mobilde alt sekme
-  // çubuğunun üstünde kalabalık yaptığı için LegalFooter'ı buralarda gizli tutuyoruz.
-  const hideFooter = hideHeader || isDersRoute || isPersonalAppRoute;
+  // LegalFooter:
+  // - Admin, konu okuma, kişisel uygulama, auth/sistem ve oyun sayfalarında herkese gizli.
+  // - Giriş yapmış kullanıcılarda yasal/bilgi sayfaları dışında gizli (uygulama deneyimi).
+  // - Misafir ve arama motorları için herkese açık SEO/içerik sayfalarında görünür kalır.
+  const hideFooter =
+    hideHeader ||
+    isDersRoute ||
+    isPersonalAppRoute ||
+    isFooterExcludedRoute ||
+    (isAuthenticated && !isLegalInfoRoute);
   // Mobil alt sekme çubuğu: yalnızca header gizli veya konu okuma sayfasındayken gizlenir
   // (/ilerlemem'de footer gizli olsa da alt sekme çubuğu görünmeye devam eder).
   const showTabBar = !hideHeader && !isDersRoute;
   const navItems = buildNavItems({ pathname: pathname ?? '/', isAuthenticated, isTeacher, gradeSlug });
 
   return (
-    <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
+    <div className={`min-h-screen bg-default ${showTabBar ? 'pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
       {/* Header — her zaman sabit, scroll yönüne göre gizlenmez */}
       {!hideHeader && (
       <nav
         // Robotik tema (2026-10-19): metal cam çubuk + alt neon çizgi (bkz. robotic.module.css .siteBar).
-        className={`fixed top-0 left-0 right-0 z-50 h-[3.75rem] sm:h-[4.5rem] ${roboticFontVars} ${r.siteBar}`}
+        className={`fixed top-0 left-0 right-0 z-50 h-14 sm:h-[4.5rem] ${roboticFontVars} ${r.siteBar}`}
       >
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3 sm:px-8">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3.5 sm:px-8">
           
           {/* Logo ve Site Adı + masaüstü menü */}
           <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group active:scale-[0.98] transition-transform">
               {/* Logo */}
               {/* Gerçek Ders Takip logosu (favicon/PWA ikonuyla aynı), neon çerçeveli yuvarlak çipte. */}
               <div className={`w-9 h-9 sm:w-11 sm:h-11 !rounded-full p-0.5 ${r.brandChip}`} aria-label="Ders Takip anasayfa">
@@ -97,7 +123,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               {/* Site Adı */}
               {/* 2026-10-21: giriş/tema/araçlar menüye taşındı, mobilde de site adı görünür (yalnız <340px gizli). */}
               <div className={`flex items-baseline gap-0.5 whitespace-nowrap ${r.brandText}`}>
-                <span className={`text-base sm:text-xl ${r.brandName}`}>
+                <span className={`text-[15px] sm:text-xl ${r.brandName}`}>
                   Ders Takip
                 </span>
                 <span className={`text-xs sm:text-sm ${r.brandTld}`}>
@@ -113,8 +139,8 @@ export function MainLayout({ children }: MainLayoutProps) {
             {/* 1024–1279px'te menü bağlantılarına yer açmak için seri gizli (İlerlemem'de görünüyor). */}
             {/* Öğretmen soru çözmüyor: seri sayacı yalnız öğrenci/admin'de (rol yüklenmeden öğretmene flash etmesin). */}
             {isAuthenticated && streak != null && role !== null && !isTeacher && (
-              <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
-                <span className="text-lg sm:text-xl">🔥</span>
+              <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-auto sm:py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
+                <span className="text-base sm:text-xl">🔥</span>
                 <div>
                   <span className={`text-orange-500 text-sm sm:text-base ${r.statValue}`}>{streak}</span>
                   <span className="hidden sm:inline text-muted-foreground text-sm ml-1">gün</span>
@@ -139,9 +165,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </Link>
                 <Link
                   href="/register"
-                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm whitespace-nowrap ${r.btnNeon} ${r.btnText}`}
+                  className={`inline-flex items-center justify-center h-9 sm:h-auto px-3.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap active:scale-[0.98] ${r.btnNeon} ${r.btnText}`}
                 >
-                  <span className="sm:hidden">Kayıt</span>
+                  <span className="sm:hidden">Kayıt Ol</span>
                   <span className="hidden sm:inline">Kayıt Ol</span>
                 </Link>
               </>
@@ -160,7 +186,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       )}
 
       {/* Ana İçerik */}
-      <main className={hideHeader ? '' : 'pt-[3.75rem] sm:pt-[4.5rem]'}>
+      <main className={hideHeader ? '' : 'pt-14 sm:pt-[4.5rem]'}>
         {!hideHeader && <ProfilePromptBanner />}
         {!hideHeader && <MemberPromptModal />}
         {children}

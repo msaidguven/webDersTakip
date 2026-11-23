@@ -10,7 +10,9 @@
 //  - Mobil: QuestionBankOptik — sağ altta yüzen düğme → alttan açılan sayfa (ızgara).
 // Yalnız tarayıcı davranışı; SEO içeriği değildir.
 import { useEffect, useRef, useState } from 'react';
-import { Grid3x3, X } from 'lucide-react';
+import { Grid3x3 } from 'lucide-react';
+import { BottomSheet } from './ui/BottomSheet';
+import r from './robotic/robotic.module.css';
 
 export type OptikStatus = 'correct' | 'incorrect' | 'revealed' | undefined;
 
@@ -113,9 +115,8 @@ export function OptikRail({ items, statusOf, onJump }: { items: OptikItem[]; sta
                 onClick={() => onJump(id)}
                 aria-label={`Soru ${number}, ${statusLabel(status)}`}
                 aria-current={isCenter ? 'true' : undefined}
-                className={`flex h-8 w-full items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors ${statusTone(status)} ${
-                  isCenter ? 'ring-2 ring-indigo-500' : visible && !status ? 'border-indigo-300 text-default dark:border-indigo-400/60' : ''
-                }`}
+                className={`flex h-8 w-full items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors ${statusTone(status)} ${isCenter ? 'ring-2 ring-indigo-500' : visible && !status ? 'border-indigo-300 text-default dark:border-indigo-400/60' : ''
+                  }`}
               >
                 {number}
               </button>
@@ -140,20 +141,6 @@ export default function QuestionBankOptik({
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSheetOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [sheetOpen]);
-
   if (items.length === 0) return null;
 
   return (
@@ -162,56 +149,44 @@ export default function QuestionBankOptik({
         type="button"
         onClick={() => setSheetOpen(true)}
         aria-label="Optik formu aç"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-zinc-900 px-4 text-sm font-semibold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900 lg:hidden"
+        className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-11 items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white shadow-lg active:scale-95 transition-transform lg:hidden ${r.btnNeon}`}
       >
-        <Grid3x3 className="h-4 w-4" aria-hidden="true" /> {answeredCount}/{items.length}
+        <Grid3x3 className="h-4 w-4" aria-hidden="true" />
+        <span className="tabular-nums">{answeredCount}/{items.length}</span>
       </button>
 
-      {sheetOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end bg-black/50 lg:hidden" onClick={() => setSheetOpen(false)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Optik form"
-            className="max-h-[75vh] w-full overflow-y-auto rounded-t-3xl border-t border-default bg-background p-4 pb-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-default">
-                Optik form <span className="ml-1 font-normal text-muted-foreground tabular-nums">{answeredCount}/{items.length} çözüldü</span>
-              </h2>
-              <button type="button" onClick={() => setSheetOpen(false)} aria-label="Kapat" className="-mr-1 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <ol className="grid grid-cols-6 gap-1.5">
-              {items.map(({ id, number }) => {
-                const status = statusOf(id);
-                return (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSheetOpen(false);
-                        onJump(id);
-                      }}
-                      aria-label={`Soru ${number}, ${statusLabel(status)}`}
-                      className={`flex h-10 w-full items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition-colors ${statusTone(status)}`}
-                    >
-                      {number}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" aria-hidden="true" /> Doğru</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-rose-500" aria-hidden="true" /> Yanlış</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm border border-default" aria-hidden="true" /> Çözülmedi</span>
-            </p>
-          </div>
-        </div>
-      )}
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Optik Soru Haritası"
+        subtitle={`${answeredCount}/${items.length} çözüldü`}
+      >
+        <ol className="grid grid-cols-5 gap-2">
+          {items.map(({ id, number }) => {
+            const status = statusOf(id);
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    onJump(id);
+                  }}
+                  aria-label={`Soru ${number}, ${statusLabel(status)}`}
+                  className={`flex h-11 w-full items-center justify-center rounded-xl border text-sm font-bold tabular-nums transition-all active:scale-95 ${statusTone(status)}`}
+                >
+                  {number}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" aria-hidden="true" /> Doğru</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-rose-500" aria-hidden="true" /> Yanlış</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-default" aria-hidden="true" /> Çözülmedi</span>
+        </p>
+      </BottomSheet>
     </>
   );
 }
