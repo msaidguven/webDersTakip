@@ -61,7 +61,8 @@
   z-index: 30;
 }
 
-.gameBrandBtn {
+.gameBrandBtn,
+.gameBrandStatic {
   display: inline-flex;
   align-items: center;
   gap: clamp(6px, 0.8vw, 14px);
@@ -70,9 +71,12 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f8fafc;
-  cursor: pointer;
   padding: 4px 12px 4px 6px;
   border-radius: 999px;
+}
+
+.gameBrandBtn {
+  cursor: pointer;
   transition: background 0.16s ease, border-color 0.16s ease;
 }
 
@@ -173,7 +177,7 @@
   color: #ffe4e6;
 }
 
-/* ==================== ANA SAYFA: ÖZGÜN KEŞİF HARİTASI ==================== */
+/* ==================== ANA SAYFA: BÖLÜM SEÇİM SAHNESİ (STAGE SELECT BOARD) ==================== */
 .worldRoot {
   position: relative;
   flex: 1;
@@ -190,9 +194,10 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -205,233 +210,237 @@
   z-index: 1;
 }
 
-.worldTopBanner {
+.stageBoardContainer {
   position: relative;
   z-index: 8;
-  padding: clamp(10px, 1.8vh, 24px) 12px 4px;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 14px 14px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Üst Konu & İlerleme Şeridi */
+.stageBoardHeader {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1.5px solid rgba(125, 211, 252, 0.65);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.stageBoardTitleGroup {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.worldTopicBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  color: #0369a1;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.stageBoardHeading {
+  margin: 0;
+  font-size: clamp(16px, 1.3vw + 7px, 24px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
+  color: #0f172a;
+}
+
+.stageBoardStatsGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .worldCompletionPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: clamp(5px, 0.6vh, 9px) clamp(11px, 1.2vw, 18px);
+  gap: 5px;
+  padding: 5px 11px;
   border-radius: 999px;
   background: linear-gradient(135deg, #ecfdf5 0%, #fef3c7 100%);
   border: 1.5px solid #34d399;
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.16);
   color: #065f46;
   font-size: var(--fs-sm);
   font-weight: 800;
   white-space: nowrap;
 }
 
-.worldTopicBanner {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  max-width: 100%;
-  padding: clamp(6px, 0.7vh, 11px) clamp(12px, 1.6vw, 28px);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1.5px solid rgba(14, 165, 233, 0.38);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(8px);
-  color: #0f172a;
-  font-size: var(--fs-label);
-  font-weight: 800;
-  text-align: center;
-  line-height: 1.25;
-}
-
-.worldStageWrap {
-  position: relative;
-  z-index: 10;
-  flex: 1;
-  width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-  padding: 40px 14px 32px;
-  display: flex;
-  align-items: flex-start;
-}
-
-.worldRowsStack {
-  width: 100%;
+.stageOverallChip {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 4px;
+  min-width: 132px;
 }
 
-.worldRow {
-  display: contents;
+.stageOverallTop {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.worldCurvePath {
+.stageOverallTrack {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #dbeafe;
+  overflow: hidden;
+}
+
+.stageOverallFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0ea5e9 0%, #10b981 100%);
+  transition: width 0.3s ease;
+}
+
+/* Mobil Dikey Seviye Listesi (Varsayılan < 768px) */
+.stageCardsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.stageCardSlot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  scroll-margin-top: 24px;
+}
+
+.mobileSpineLine {
+  position: absolute;
+  left: 49px;
+  top: 78px;
+  bottom: -18px;
+  width: 4px;
+  border-radius: 999px;
+  background: #93c5fd;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mobileSpineLineDone {
+  background: #10b981;
+}
+
+.desktopBridgeArrow {
   display: none;
 }
 
-.worldGrid {
+.stageAtomFloating {
+  position: absolute;
+  top: -16px;
+  left: 29px;
+  z-index: 15;
+  pointer-events: none;
+  animation: floatGentle 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.18));
+}
+
+.stageCard {
   position: relative;
-  z-index: 4;
+  z-index: 3;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.worldNodeEntry {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.worldSubtopicCol {
-  position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 14px;
-  padding: 6px 8px;
+  padding: 14px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #c8dcf2;
+  border-bottom-width: 5px;
+  border-bottom-color: #a6c4e5;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(10px);
   text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease, border-color 0.16s ease;
 }
 
-.worldSubtopicOdd {
-  flex-direction: row-reverse;
-  text-align: right;
+.stageCard:hover {
+  transform: translateY(-3px);
+  border-color: #7dd3fc;
+  border-bottom-color: #0284c7;
+  box-shadow: 0 16px 32px rgba(2, 132, 199, 0.14);
 }
 
-.worldPortalAnchor {
-  position: relative;
+.stageCard:active {
+  transform: translateY(2px);
+}
+
+.stageCardActive {
+  background: #ffffff;
+  border-color: #38bdf8;
+  border-bottom-color: #0284c7;
+  box-shadow:
+    0 16px 34px rgba(2, 132, 199, 0.16),
+    0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.stageCardDone {
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(255, 255, 255, 0.97) 100%);
+  border-color: #86efac;
+  border-bottom-color: #10b981;
+}
+
+.stageCardIdle {
+  background: rgba(255, 255, 255, 0.91);
+  border-color: #d4e3f3;
+  border-bottom-color: #b7cee6;
+}
+
+.stageEmblemWrap {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 7px;
 }
 
-.worldMobilePath {
-  display: block;
-  width: 100%;
-  height: 54px;
-  margin: -6px 0;
-  pointer-events: none;
-  z-index: 1;
-  filter: drop-shadow(0 3px 6px rgba(2, 132, 199, 0.14));
-}
-
-.worldMobilePathDone {
-  filter: drop-shadow(0 3px 6px rgba(16, 185, 129, 0.22));
-}
-
-@media (min-width: 780px), (orientation: landscape) and (max-height: 540px) {
-  .worldRoot[data-dense='true'] {
-    --tile-size: clamp(68px, 6.1vw, 124px);
-    --fs-label: clamp(12px, 0.78vw + 5.5px, 19px);
-    --fs-sm: clamp(10.5px, 0.58vw + 5px, 15px);
-  }
-
-  .worldViewport {
-    justify-content: space-between;
-  }
-
-  .worldStageWrap {
-    max-width: clamp(740px, 92vw, 1640px);
-    margin: auto;
-    padding: 46px clamp(16px, 2vw, 38px) 28px;
-    align-items: center;
-  }
-
-  .worldStageMultiRow {
-    margin-top: 0;
-    margin-bottom: 0;
-    align-items: flex-start;
-    padding-bottom: 44px;
-  }
-
-  .worldRowsStack {
-    gap: clamp(28px, 4vh, 48px);
-  }
-
-  .worldRow {
-    display: block;
-    position: relative;
-    width: 100%;
-  }
-
-  .worldCurvePath {
-    display: block;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    width: 100%;
-    height: 220px;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .worldGrid {
-    display: grid;
-    grid-template-columns: repeat(var(--row-cols, 4), minmax(0, 1fr));
-    gap: clamp(10px, 1.8vw, 32px);
-    align-items: start;
-    justify-items: center;
-  }
-
-  .worldRoot[data-dense='true'] .worldGrid {
-    gap: clamp(8px, 1.25vw, 22px);
-  }
-
-  .worldNodeEntry {
-    display: contents;
-  }
-
-  .worldSubtopicCol,
-  .worldSubtopicOdd {
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(9px, 1vh, 14px);
-    padding: 0;
-    text-align: center;
-    width: 100%;
-    margin-top: var(--station-offset, 0px);
-  }
-
-  .worldMobilePath {
-    display: none;
-  }
-}
-
-.worldAtomMarker {
-  position: absolute;
-  top: calc(var(--tile-size) * -0.56);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 14;
-  pointer-events: none;
-  animation: floatGentleCentered 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.18));
-}
-
-/* Özgün Mücevher Tonlu Dokunsal Portal Butonları */
+/* 3B Mücevher Rozet Butonu */
 .worldTile {
   position: relative;
-  width: var(--tile-size);
-  height: var(--tile-size);
-  border-radius: clamp(22px, 2.2vw, 34px);
-  border: 3px solid rgba(255, 255, 255, 0.88);
+  width: 68px;
+  height: 68px;
+  border-radius: 21px;
+  border: 3px solid rgba(255, 255, 255, 0.94);
   color: #ffffff;
   display: grid;
   place-items: center;
-  cursor: pointer;
   overflow: visible;
-  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease;
+  transition: transform 0.16s ease;
 }
 
 .worldTile::before {
@@ -439,105 +448,69 @@
   position: absolute;
   inset: 4px 6px auto 6px;
   height: 38%;
-  border-radius: 16px 16px 40% 40%;
+  border-radius: 14px 14px 40% 40%;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0) 100%);
   pointer-events: none;
 }
 
-.worldTileLarge {
-  width: var(--tile-size);
-  height: var(--tile-size);
-}
-
-.worldTile:hover {
-  transform: translateY(-4px) scale(1.04);
-}
-
-.worldTile:active {
-  transform: translateY(4px) scale(0.97);
+.stageCard:hover .worldTile {
+  transform: scale(1.05);
 }
 
 .portalSky {
   background: linear-gradient(145deg, #38bdf8 0%, #0284c7 100%);
-  box-shadow: 0 9px 0 #0369a1, 0 18px 28px rgba(2, 132, 199, 0.34);
-}
-
-.portalSky:active {
-  box-shadow: 0 4px 0 #0369a1, 0 8px 16px rgba(2, 132, 199, 0.28);
+  box-shadow: 0 6px 0 #0369a1, 0 12px 20px rgba(2, 132, 199, 0.28);
 }
 
 .portalAmber {
   background: linear-gradient(145deg, #fbbf24 0%, #d97706 100%);
-  box-shadow: 0 9px 0 #b45309, 0 18px 28px rgba(217, 119, 6, 0.32);
-}
-
-.portalAmber:active {
-  box-shadow: 0 4px 0 #b45309, 0 8px 16px rgba(217, 119, 6, 0.26);
+  box-shadow: 0 6px 0 #b45309, 0 12px 20px rgba(217, 119, 6, 0.26);
 }
 
 .portalEmerald {
   background: linear-gradient(145deg, #34d399 0%, #059669 100%);
-  box-shadow: 0 9px 0 #047857, 0 18px 28px rgba(5, 150, 105, 0.32);
-}
-
-.portalEmerald:active {
-  box-shadow: 0 4px 0 #047857, 0 8px 16px rgba(5, 150, 105, 0.26);
+  box-shadow: 0 6px 0 #047857, 0 12px 20px rgba(5, 150, 105, 0.26);
 }
 
 .portalRose {
   background: linear-gradient(145deg, #fb7185 0%, #e11d48 100%);
-  box-shadow: 0 9px 0 #be123c, 0 18px 28px rgba(225, 29, 72, 0.32);
-}
-
-.portalRose:active {
-  box-shadow: 0 4px 0 #be123c, 0 8px 16px rgba(225, 29, 72, 0.26);
+  box-shadow: 0 6px 0 #be123c, 0 12px 20px rgba(225, 29, 72, 0.26);
 }
 
 .portalViolet {
   background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 100%);
-  box-shadow: 0 9px 0 #6d28d9, 0 18px 28px rgba(124, 58, 237, 0.32);
-}
-
-.portalViolet:active {
-  box-shadow: 0 4px 0 #6d28d9, 0 8px 16px rgba(124, 58, 237, 0.26);
+  box-shadow: 0 6px 0 #6d28d9, 0 12px 20px rgba(124, 58, 237, 0.26);
 }
 
 .worldTileActive {
   box-shadow:
-    0 9px 0 #075985,
-    0 0 0 6px rgba(255, 255, 255, 0.78),
-    0 0 0 11px rgba(14, 165, 233, 0.28),
-    0 20px 34px rgba(2, 132, 199, 0.38);
+    0 6px 0 #075985,
+    0 0 0 4px rgba(56, 189, 248, 0.28),
+    0 14px 24px rgba(2, 132, 199, 0.32);
 }
 
 .worldTileDone {
   background: linear-gradient(145deg, #10b981 0%, #047857 100%);
-  box-shadow: 0 9px 0 #065f46, 0 18px 28px rgba(5, 150, 105, 0.34);
+  box-shadow: 0 6px 0 #065f46, 0 12px 20px rgba(5, 150, 105, 0.28);
 }
 
 .worldTileUntouched {
-  filter: saturate(0.72);
-  opacity: 0.9;
-}
-
-.worldTileUntouched:hover {
-  filter: saturate(1);
-  opacity: 1;
+  filter: saturate(0.86);
 }
 
 .worldTileCode {
   position: absolute;
-  top: -10px;
-  right: -10px;
-  padding: 3px 10px;
+  top: -8px;
+  right: -8px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: #0f172a;
   border: 2px solid #ffffff;
   color: #f8fafc;
-  font-size: var(--fs-sm);
+  font-size: 11px;
   font-weight: 900;
   line-height: 1.2;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
 }
 
 .worldTileIcon {
@@ -547,22 +520,53 @@
   z-index: 2;
 }
 
-.worldCardMeta {
+.levelStarsRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.levelStarIcon {
+  width: 12px;
+  height: 12px;
+}
+
+.levelStarLit {
+  color: #f59e0b;
+  fill: #fbbf24;
+}
+
+.levelStarDim {
+  color: #cbd5e1;
+  fill: #e2e8f0;
+}
+
+.stageCardBody {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: inherit;
+  align-items: stretch;
+  gap: 6px;
 }
 
-.worldSubtopicOdd .worldCardMeta {
-  align-items: flex-end;
+.stageCardTopMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.levelStepTag {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #64748b;
 }
 
 .stationStatusPill {
@@ -571,10 +575,9 @@
   gap: 4px;
   padding: 2px 9px;
   border-radius: 999px;
-  font-size: clamp(10px, 0.58vw + 4.5px, 13px);
+  font-size: 11px;
   font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: 0.01em;
+  line-height: 1.25;
   white-space: nowrap;
 }
 
@@ -586,9 +589,7 @@
 
 .stationStatusActive {
   background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-  border: 1px solid #7dd3fc;
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.28);
 }
 
 .stationStatusNext {
@@ -598,53 +599,23 @@
 }
 
 .stationStatusTodo {
-  background: rgba(241, 245, 249, 0.92);
+  background: #f1f5f9;
   border: 1px solid #cbd5e1;
   color: #64748b;
 }
 
-.worldTileLabelLarge {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 100%;
-  padding: clamp(8px, 0.75vh, 13px) clamp(12px, 1.1vw, 20px);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 2px solid #c5daf2;
-  border-bottom: 4px solid #aec9e8;
+.stageCardTitle {
   color: #0f172a;
-  font-size: var(--fs-label);
-  font-weight: 800;
-  line-height: 1.28;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(8px);
-}
-
-.worldTileLabelDone {
-  background: rgba(240, 253, 244, 0.96);
-  border-color: #86efac;
-  border-bottom-color: #34d399;
-}
-
-.worldTileLabelActive {
-  background: #ffffff;
-  border-color: #38bdf8;
-  border-bottom-color: #0284c7;
-  box-shadow: 0 10px 24px rgba(2, 132, 199, 0.16);
-}
-
-.worldTileLabelTodo {
-  background: rgba(255, 255, 255, 0.84);
-  border-color: #d6e2f0;
-  border-bottom-color: #c2d4e8;
-  color: #334155;
+  font-size: clamp(14.5px, 0.95vw + 6.5px, 20px);
+  font-weight: 850;
+  line-height: 1.32;
+  letter-spacing: -0.01em;
 }
 
 .stationProgressTrack {
   display: block;
   width: 100%;
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   background: #e0f2fe;
   overflow: hidden;
@@ -658,38 +629,183 @@
   transition: width 0.25s ease;
 }
 
-.worldTileSub {
-  font-size: var(--fs-sm);
+.stageCardSummary {
+  font-size: 12px;
   font-weight: 700;
-  color: #334155;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 3px 10px;
-  border-radius: 999px;
+  color: #475569;
   line-height: 1.3;
-  max-width: 100%;
 }
 
-@media (min-width: 780px), (orientation: landscape) and (max-height: 540px) {
-  .worldCardMeta,
-  .worldSubtopicOdd .worldCardMeta {
-    flex: initial;
-    width: 100%;
+.stageCtaBtn {
+  margin-top: 2px;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.stageCtaPrimary {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 0 #1d4ed8, 0 6px 14px rgba(37, 99, 235, 0.24);
+}
+
+.stageCtaDone {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 0 #047857;
+}
+
+.stageCtaIdle {
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  color: #0369a1;
+}
+
+/* ==================== WEB / MASAÜSTÜ YATAY OYUN SAHNESİ (>= 768px) ==================== */
+@media (min-width: 768px) {
+  .stageBoardContainer {
+    margin: auto;
+    padding: clamp(16px, 2.2vh, 28px) clamp(18px, 2.6vw, 40px);
+    gap: clamp(18px, 2.8vh, 30px);
+    max-width: min(96vw, 1380px);
+  }
+
+  .stageBoardContainer[data-cols='1'] {
+    max-width: 440px;
+  }
+
+  .stageBoardContainer[data-cols='2'] {
+    max-width: 720px;
+  }
+
+  .stageBoardContainer[data-cols='3'] {
+    max-width: 1040px;
+  }
+
+  .stageBoardContainer[data-cols='5'] {
+    max-width: min(96vw, 1520px);
+  }
+
+  .gameShell[data-fullscreen='true'] .stageBoardContainer,
+  .gameShell:fullscreen .stageBoardContainer {
+    max-width: min(95vw, 1680px);
+  }
+
+  .stageCardsGrid {
+    display: grid;
+    grid-template-columns: repeat(var(--board-cols, 4), minmax(0, 1fr));
+    gap: clamp(14px, 1.5vw, 24px);
+    align-items: stretch;
+    padding-top: 26px;
+  }
+
+  /* Tablet genişliğinde (768–1099px) 5 kart sığarken daralmasın diye 3 sütunlu dengeli ızgara */
+  @media (max-width: 1099px) {
+    .stageBoardContainer[data-cols='4'] .stageCardsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: 34px;
+    }
+    .stageBoardContainer[data-cols='5'] .stageCardsGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      row-gap: 34px;
+    }
+  }
+
+  .mobileSpineLine {
+    display: none;
+  }
+
+  @media (min-width: 1100px) {
+    .desktopBridgeArrow {
+      display: grid;
+      place-items: center;
+      position: absolute;
+      top: 50%;
+      right: calc(clamp(14px, 1.5vw, 24px) * -0.5 - 13px);
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1.5px solid #7dd3fc;
+      color: #0284c7;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    .desktopBridgeArrowDone {
+      background: #ecfdf5;
+      border-color: #34d399;
+      color: #059669;
+    }
+  }
+
+  .stageAtomFloating {
+    top: -36px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: floatGentleCentered 2.2s ease-in-out infinite;
+  }
+
+  .stageCard {
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    text-align: center;
+    padding: clamp(16px, 1.5vw, 24px) clamp(14px, 1.25vw, 20px) clamp(14px, 1.3vw, 20px);
+    border-radius: 26px;
+    gap: 14px;
+  }
+
+  .worldTile {
+    width: clamp(72px, 5.6vw, 96px);
+    height: clamp(72px, 5.6vw, 96px);
+    border-radius: 26px;
+  }
+
+  .stageCardBody {
+    flex: 1;
     align-items: center;
+    gap: 9px;
+  }
+
+  .stageCardTopMeta {
+    width: 100%;
+    justify-content: center;
     gap: 6px;
   }
 
-  .worldTileLabelLarge {
-    max-width: clamp(140px, 18vw, 300px);
+  .stageCardTitle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 2.7em;
   }
 
-  .worldRoot[data-dense='true'] .worldTileLabelLarge {
-    max-width: clamp(128px, 15.5vw, 240px);
-    padding: clamp(6px, 0.65vh, 10px) clamp(9px, 0.85vw, 15px);
+  .stageCardSummary {
+    font-size: var(--fs-sm);
   }
 
-  .worldRoot[data-dense='true'] .worldTileSub {
-    padding: 2px 8px;
+  .stageCtaBtn {
+    margin-top: auto;
+    align-self: stretch;
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 14px;
+    font-size: var(--fs-sm);
   }
 }
 
@@ -700,6 +816,22 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.playProgressRail {
+  flex: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.playProgressFill {
+  height: 100%;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, #38bdf8 0%, #10b981 100%);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .gamePlayStage {
@@ -908,137 +1040,199 @@
   max-height: 78vh;
 }
 
-/* Özgün İnci-Cam Atom Diyalog Kutusu */
-.gameDialogueBox {
+/* ==================== ANLATIM ALT ATOM ÖZET BALONU (TAM GENİŞLİK — İÇİNDE BUTON YOK) ==================== */
+.teachBottomSummary {
   width: 100%;
   max-width: var(--stage-max);
   display: flex;
   align-items: center;
-  gap: clamp(12px, 1.2vw, 22px);
-  padding: clamp(12px, 1.1vw, 20px) clamp(14px, 1.5vw, 26px);
+  gap: clamp(12px, 1.2vw, 20px);
+  padding: clamp(12px, 1.2vw, 18px) clamp(15px, 1.6vw, 24px);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1.5px solid #c3d7ee;
+  border-left: 6px solid #0284c7;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(10px);
+}
+
+.teachBottomAvatar {
+  flex: none;
+  width: clamp(44px, 4.2vw, 62px);
+}
+
+.teachBottomText {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 650;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+/* ==================== ÜST SORU KARTI (ATOM YUKARIDA + TAM GENİŞLİK METİN) ==================== */
+.mentorCard {
+  width: 100%;
+  max-width: var(--stage-max);
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(12px, 1.3vw, 20px);
+  padding: clamp(14px, 1.4vw, 22px) clamp(16px, 1.8vw, 26px);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
   border: 1.5px solid #c3d7ee;
   border-left: 6px solid #0284c7;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(10px);
 }
 
-.gameDialogueInner {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  line-height: 1.5;
-  color: #1e293b;
+.mentorAvatarDock {
+  flex: none;
+  width: clamp(46px, 4.4vw, 66px);
+  padding-top: 2px;
 }
 
-/* ==================== ATOM SESLENDİRME KONTROL BUTONLARI ==================== */
-.voiceControlGroup {
-  flex: none;
+.mentorBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mentorTopRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mentorKickerBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+/* ==================== ALT BAR SABİT MEDYA SES KONTROLÜ ==================== */
+.bottomCenterGroup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.bottomStepIndicator {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hudVoiceDock {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.voiceBtn {
+.hudVoiceMainBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 38px;
-  padding: 0 13px;
+  height: clamp(32px, 2.5vw, 42px);
+  padding: 0 clamp(12px, 1.1vw, 18px);
   border-radius: 999px;
-  font-size: 13px;
+  border: 1px solid transparent;
+  font-size: var(--fs-sm);
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  border: 1.5px solid transparent;
-  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
 }
 
-.voiceControlCompact .voiceBtn {
-  height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  gap: 5px;
-}
-
-.voiceBtn:hover {
+.hudVoiceMainBtn:hover,
+.hudVoiceReplayBtn:hover {
   transform: translateY(-1px);
 }
 
-.voiceBtn:active {
-  transform: translateY(1px) scale(0.97);
+.hudVoiceMainBtn:active,
+.hudVoiceReplayBtn:active {
+  transform: scale(0.96);
 }
 
-.voiceBtnPause {
-  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
-  border-color: #f59e0b;
-  color: #b45309;
-  box-shadow: 0 3px 0 #fcd34d, 0 6px 14px rgba(245, 158, 11, 0.18);
+.hudVoicePause {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fde68a;
 }
 
-.voiceBtnPause:hover {
-  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
-  border-color: #d97706;
+.hudVoicePause:hover {
+  background: rgba(251, 191, 36, 0.28);
+  color: #ffffff;
 }
 
-.voiceBtnResume {
-  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
-  border-color: #10b981;
-  color: #047857;
-  box-shadow: 0 3px 0 #6ee7b7, 0 6px 14px rgba(16, 185, 129, 0.2);
+.hudVoiceResume {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.55);
+  color: #a7f3d0;
 }
 
-.voiceBtnResume:hover {
-  background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
-  border-color: #059669;
+.hudVoiceResume:hover {
+  background: rgba(16, 185, 129, 0.34);
+  color: #ffffff;
 }
 
-.voiceBtnIdle {
-  background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-color: #7dd3fc;
-  color: #0369a1;
-  box-shadow: 0 3px 0 #bae6fd, 0 6px 14px rgba(2, 132, 199, 0.14);
+.hudVoiceIdle {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(125, 211, 252, 0.5);
+  color: #e0f2fe;
 }
 
-.voiceBtnIdle:hover {
-  background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
-  border-color: #38bdf8;
+.hudVoiceIdle:hover {
+  background: rgba(56, 189, 248, 0.32);
+  color: #ffffff;
 }
 
-.voiceBtnReplay {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #334155;
-  box-shadow: 0 2px 0 #e2e8f0;
+.hudVoiceReplayBtn {
+  width: clamp(32px, 2.5vw, 42px);
+  height: clamp(32px, 2.5vw, 42px);
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
 }
 
-.voiceBtnReplay:hover {
-  background: #f0f9ff;
-  border-color: #7dd3fc;
-  color: #0369a1;
+.hudVoiceReplayBtn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(125, 211, 252, 0.55);
+  color: #ffffff;
 }
 
-.voiceBtnText,
-.voiceBtnSubText {
+.hudVoiceLabel {
   display: inline;
-}
-
-@media (max-width: 639px) {
-  .voiceBtn {
-    height: 34px;
-    padding: 0 10px;
-    font-size: 12px;
-  }
-
-  .voiceBtnSubText {
-    display: none;
-  }
 }
 
 /* Anında Kontrollü Dokunsal Seçenek Kartları */
@@ -1149,6 +1343,21 @@
   color: #0369a1;
   font-size: var(--fs-sm);
   font-weight: 900;
+}
+
+.gameRetryPanel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(11px, 1vw, 16px) clamp(14px, 1.4vw, 22px);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fbbf24;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.14);
+  color: #92400e;
+  font-size: var(--fs-label);
+  font-weight: 750;
+  line-height: 1.44;
 }
 
 .gameSuccessPanel {
@@ -1574,9 +1783,10 @@
 
 /* ==================== MOBİL PORTRAIT & LANDSCAPE OYUN İNCE AYARI ==================== */
 @media (max-width: 639px) {
-  .gameBrandBtn {
+  .gameBrandBtn,
+  .gameBrandStatic {
     padding: 3px 10px 3px 4px;
-    max-width: 44vw;
+    max-width: 48vw;
   }
 
   .gameLevelPill {
@@ -1591,15 +1801,24 @@
     padding: 10px 10px 16px;
   }
 
-  .gameDialogueBox,
-  .gameQuestionHeader {
-    padding: 11px 12px;
+  .teachBottomSummary {
+    padding: 11px 13px;
     border-radius: 18px;
-    flex-wrap: wrap;
+    gap: 10px;
   }
 
-  .voiceControlGroup {
-    margin-left: auto;
+  .teachBottomAvatar {
+    width: 40px;
+  }
+
+  .mentorCard {
+    padding: 12px 13px;
+    border-radius: 18px;
+    gap: 10px;
+  }
+
+  .mentorAvatarDock {
+    width: 40px;
   }
 
   .arcadeBtnBlue,
@@ -1607,6 +1826,10 @@
     height: 38px;
     padding: 0 14px;
     gap: 5px;
+  }
+
+  .bottomResetLabel {
+    display: none;
   }
 }
 
@@ -1625,32 +1848,9 @@
     padding-bottom: 5px;
   }
 
-  .worldTopBanner {
-    padding: 6px 12px 0;
-  }
-
-  .worldStageWrap {
-    padding: 26px 20px 14px;
-  }
-
-  .worldCurvePath {
-    top: 0;
-    height: 115px;
-  }
-
-  .worldSubtopicCol,
-  .worldSubtopicOdd {
-    margin-top: calc(var(--station-offset, 0px) * 0.45);
-    gap: 6px;
-  }
-
-  .worldTileLabelLarge {
-    padding: 5px 9px;
-    border-radius: 11px;
-  }
-
-  .worldTileSub {
-    display: none;
+  .stageBoardContainer {
+    padding: 10px 18px 20px;
+    gap: 12px;
   }
 }
 
@@ -1673,7 +1873,7 @@
   .svgFlow,
   .svgFloat,
   .svgPulse,
-  .worldAtomMarker {
+  .stageAtomFloating {
     animation: none !important;
   }
 }

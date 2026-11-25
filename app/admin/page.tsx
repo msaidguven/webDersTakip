@@ -178,6 +178,13 @@ export default function AdminPanel() {
             <span className="font-medium truncate">SVG Soruları</span>
           </Link>
           <Link
+            href="/admin/geri-bildirimler"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span className="text-base sm:text-lg">💬</span>
+            <span className="font-medium truncate">Geri Bildirimler</span>
+          </Link>
+          <Link
             href="/admin/soru-bildirimleri"
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
           >
@@ -371,6 +378,10 @@ function DashboardTab({ onGoManage, onGoMembers, onGoSchools }: { onGoManage: (e
             <Link href="/admin/svg-sorulari" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left">
               <span className="text-sm">📐</span>
               <span className="text-foreground text-xs sm:text-sm font-medium truncate">SVG Soruları</span>
+            </Link>
+            <Link href="/admin/geri-bildirimler" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-accent hover:bg-accent/70 transition-all text-left">
+              <span className="text-sm">💬</span>
+              <span className="text-foreground text-xs sm:text-sm font-medium truncate">Geri Bildirimler</span>
             </Link>
             <QuickActionButton icon="👥" label="Üyeler" onClick={onGoMembers} />
             <QuickActionButton icon="🏫" label="Okullar" onClick={onGoSchools} />

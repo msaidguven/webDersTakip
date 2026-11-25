@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { Inter, JetBrains_Mono, Onest } from 'next/font/google';
 import {
   ArrowUp,
+  Bookmark,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -31,6 +32,8 @@ import {
 } from 'lucide-react';
 import SectionContent from '../SectionContent';
 import RecapCardView from './RecapCardView';
+import { LessonSelectionSaver } from './LessonSelectionSaver';
+import { fetchMySavedRefs, saveStudyItem } from '@/app/src/lib/savedStudyItems';
 import { useTopicTest, TopicTestConflictModal, TopicTestErrorModal } from '../DersClientCards';
 import { buildSectionSlugs, buildSectionImageAlt, buildTopicHref, buildTopicImageAlt, type Content, type GradeLesson, type GradeOption, type Outcome, type TopicSection, type Unit } from '../dersHelpers';
 import { formatWeekDateRangeLabel, type CurriculumBreak } from '@/app/src/lib/routeParsing';
@@ -46,6 +49,7 @@ import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
 import TopicSwitcher from './TopicSwitcher';
 import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import s from './DersClientV1.module.css';
 
 // Konu sayfasının sunucudan aldığı veri (bkz. app/[gradeSlug]/[lessonSlug]/[unitSlug]/[topicSlug]/page.tsx).
@@ -276,8 +280,12 @@ type Tool = {
 export default function DersClientV1({ initialData, gradeId, lessonId, week }: DersClientProps) {
   const router = useRouter();
   const isAdmin = useIsAdmin();
-  const { user } = useAuth();
+  const { user, supabase } = useAuth();
   const [pdfGateOpen, setPdfGateOpen] = useState(false);
+  const [saveGateOpen, setSaveGateOpen] = useState(false);
+  const [topicSaved, setTopicSaved] = useState(false);
+  const [savingTopic, setSavingTopic] = useState(false);
+  const mainContentRef = useRef<HTMLElement>(null);
   const [mobileSheet, setMobileSheet] = useState<'toc' | 'tools' | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
@@ -336,6 +344,44 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const [interactiveOpen, setInteractiveOpen] = useState(false);
   const hasNarration = !!topic?.hasNarration;
   const topicId = topic?.id;
+
+  useEffect(() => {
+    if (!user || topicId == null) return;
+    let cancelled = false;
+    fetchMySavedRefs(supabase, { topicId: Number(topicId) }).then(({ topicSaved: saved }) => {
+      if (!cancelled) setTopicSaved(saved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, topicId]);
+
+  const isTopicSaved = !!user && topicSaved;
+
+  const toggleSaveTopic = async () => {
+    if (!user) {
+      setSaveGateOpen(true);
+      return;
+    }
+    if (topicId == null || savingTopic) return;
+    const prev = topicSaved;
+    setTopicSaved(!prev);
+    setSavingTopic(true);
+    try {
+      const res = await saveStudyItem(supabase, {
+        kind: 'topic',
+        topicId: Number(topicId),
+        sectionHeading: topic?.title ?? null,
+        excerpt: topic?.subtitle ?? null,
+        toggle: true,
+      });
+      setTopicSaved(res.isSaved);
+    } catch {
+      setTopicSaved(prev);
+    } finally {
+      setSavingTopic(false);
+    }
+  };
   const openSlides = async () => {
     if (slideDeck) return setSlidesExpanded(true);
     if (topicId == null || slidesState === 'loading') return;
@@ -404,6 +450,14 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   // ---- Diğer UI durumları ----
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [heroZoomed, setHeroZoomed] = useState(false);
+  useDismissOnBack(slidesExpanded && Boolean(slideDeck), () => setSlidesExpanded(false));
+  useDismissOnBack(Boolean(topicTest.testData), topicTest.closeTest);
+  useDismissOnBack(Boolean(topicTest.error), topicTest.closeTest);
+  useDismissOnBack(switcherOpen, () => setSwitcherOpen(false));
+  useDismissOnBack(heroZoomed, () => setHeroZoomed(false));
+  useDismissOnBack(pdfGateOpen, () => setPdfGateOpen(false));
+  useDismissOnBack(saveGateOpen, () => setSaveGateOpen(false));
+  useDismissOnBack(Boolean(isAdmin && adminTool), closeAdminTool);
   useEffect(() => {
     if (!switcherOpen && !heroZoomed) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSwitcherOpen(false); setHeroZoomed(false); } };
@@ -507,6 +561,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
     unit && { key: 'discuss', label: 'Yorumlar', hint: 'Sor, tartış', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: () => scrollTo('konu-tartisma') },
     unitQuestionsHref && { key: 'bank', label: 'Ünite soruları', hint: `${unit?.test_question_count ?? 0} soru`, icon: <Library size={18} aria-hidden="true" />, href: unitQuestionsHref },
+    { key: 'save-topic', label: isTopicSaved ? 'Notlarda kayıtlı' : 'Konuyu kaydet', hint: isTopicSaved ? 'Kaldırmak için tıkla' : 'Ders notlarıma ekle', icon: <Bookmark size={18} className={isTopicSaved ? 'fill-current' : undefined} aria-hidden="true" />, onClick: () => void toggleSaveTopic(), disabled: savingTopic },
     { key: 'pdf', label: 'PDF indir', hint: 'Yazdır, sakla', icon: <Download size={18} aria-hidden="true" />, href: user ? `/api/topic-pdf/${topic.id}` : undefined, external: true, onClick: user ? undefined : () => setPdfGateOpen(true) },
     { key: 'share', label: shareCopied ? 'Kopyalandı' : 'Paylaş', hint: 'Bağlantı', icon: <Share2 size={18} aria-hidden="true" />, onClick: () => void share() },
   ].filter(Boolean) as Tool[];
@@ -661,7 +716,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
             )}
           </aside>
 
-          <main className={s.main}>
+          <main className={s.main} ref={mainContentRef}>
             {/* Kavramlar */}
             {highlights.length > 0 && (
               <section className={s.block} id="kavramlar" data-step="kavramlar">
@@ -1024,7 +1079,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               <li>
                 <a
                   href="#kavramlar"
-                  onClick={() => setMobileSheet(null)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMobileSheet(null);
+                    requestAnimationFrame(() => scrollTo('kavramlar'));
+                  }}
                   className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
                   style={{
                     background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
@@ -1059,7 +1118,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               <li key={sec.id}>
                 <a
                   href={`#${slug}`}
-                  onClick={() => setMobileSheet(null)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMobileSheet(null);
+                    requestAnimationFrame(() => scrollTo(slug));
+                  }}
                   className="flex min-h-[56px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
                   style={{
                     background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
@@ -1097,9 +1160,11 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               <li>
                 <a
                   href="#ozet"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
                     setSummaryOpen(true);
                     setMobileSheet(null);
+                    requestAnimationFrame(() => scrollTo('ozet'));
                   }}
                   className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
                   style={{
@@ -1285,6 +1350,26 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               <Link href={`/register?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg bg-sky-600 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-sky-700">Ücretsiz üye ol</Link>
               <Link href={`/login?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Zaten üyeyim, giriş yap</Link>
               <button type="button" onClick={() => setPdfGateOpen(false)} className="rounded-lg bg-slate-100 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Vazgeç</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+      <LessonSelectionSaver
+        topicId={Number(topic.id)}
+        containerRef={mainContentRef}
+        onRequireAuth={() => setSaveGateOpen(true)}
+      />
+      {saveGateOpen && createPortal(
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4" onClick={() => setSaveGateOpen(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="save-gate-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700"><Bookmark size={22} aria-hidden="true" /></div>
+            <h2 id="save-gate-title" className="text-base font-extrabold text-slate-900">Notlarına kaydetmek için giriş yap</h2>
+            <p className="mt-2 text-sm text-slate-600">Seçtiğin ders notlarını, konuları ve soruları kendi çalışma defterine kaydedip başarı kartında paylaşabilirsin.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <Link href={`/register?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-indigo-700">Ücretsiz üye ol</Link>
+              <Link href={`/login?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Zaten üyeyim, giriş yap</Link>
+              <button type="button" onClick={() => setSaveGateOpen(false)} className="rounded-lg bg-slate-100 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Vazgeç</button>
             </div>
           </div>
         </div>,

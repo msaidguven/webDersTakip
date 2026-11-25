@@ -18,6 +18,7 @@ import { clearMyProfileCache, fetchMyProfile } from '@/app/src/lib/myProfileClie
 import { TeacherLessonsEditor } from '@/app/src/components/teacher/TeacherLessonsEditor';
 import { activeExamWeek, examLabel, type ActiveExamWeek } from '@/app/src/lib/yazili/common';
 import { formatDeletionDate } from '@/app/src/lib/accountDeletion';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 const DAY_KEY = 'member-prompt-day';
@@ -170,6 +171,7 @@ export function MemberPromptModal() {
 }
 
 function PromptDialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useDismissOnBack(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);

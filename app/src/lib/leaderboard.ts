@@ -13,9 +13,18 @@ export interface LeaderboardEntry {
   /** Profilini açmış üyenin genel kimliği (/uye/<slug>); kapalı profil ve sahte kayıtlarda yok.
    *  Asıl hesap kimliği (uuid) BİLEREK dönmez (bkz. public_profile_slug.sql). */
   publicSlug?: string | null;
+  /** Profilini açmış üyenin (veya çağıranın kendisinin) profil fotoğrafı; yoksa baş harfler gösterilir. */
+  avatarUrl?: string | null;
 }
 
-type LeaderboardRow = { rank: number; display_name: string; total_questions: number; is_me: boolean; public_slug?: string | null };
+type LeaderboardRow = {
+  rank: number;
+  display_name: string;
+  total_questions: number;
+  is_me: boolean;
+  public_slug?: string | null;
+  avatar_url?: string | null;
+};
 
 // get_weekly_leaderboard (bkz. supabase/migrations/add_weekly_leaderboard_rpc.sql) SECURITY
 // DEFINER bir RPC — çağıranın kendi grade_id'sini kendisi bulur, başka kullanıcıların
@@ -42,6 +51,7 @@ export async function getWeeklyLeaderboard(
     isMe: r.is_me,
     isReal: true,
     publicSlug: r.public_slug ?? null,
+    avatarUrl: r.avatar_url ?? null,
   }));
 
   // GEÇİCİ SEED — bkz. leaderboardSeed.ts üstündeki not. Yeterli gerçek öğrenciye

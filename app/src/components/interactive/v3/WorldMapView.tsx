@@ -1,13 +1,16 @@
 'use client';
 
-// Ana Ekran: Özgün "Atom Keşif Dünyası" Haritası.
-// Konunun tüm alt konularını (sayıdan bağımsız: 2, 3, 4, 5, 6+ bölüm) dinamik kavisli enerji rotası,
-// net çalışma durumu rozetleri (Tamamlandı / Kaldığın Yer / Sıradaki / Başlanmadı),
-// toplam tamamlama sayacı ve onaylı yeniden çalışma (sıfırlama) ile gösterir.
-import { useState, type CSSProperties } from 'react';
+// Ana Ekran: "Atom Keşif Dünyası" Bölüm Seçim Sahnesi (Stage Select Board).
+// - Web / Masaüstü (>= 768px): 16:9 yatay oyun ekranına uygun, kaydırmasız tek bakışta görülen,
+//   simetrik dikey oyun seviye kartları (01 → 02 → 03 → 04 / 05). 6+ alt konuda dengeli 2 satır (3+3 / 4+4).
+// - Mobil Dikey (< 768px): Sağa-sola savrulan zikzak yerine solda düz ilerleme hattı üzerinde hizalı,
+//   ferah ve rahat kaydırılan seviye kartları.
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
+  ArrowRight,
   Check,
   CheckCircle2,
+  ChevronRight,
   Gamepad2,
   Play,
   RotateCcw,
@@ -15,56 +18,18 @@ import {
   Star,
   Trophy,
 } from 'lucide-react';
-import type { HydratedLessonV3, HydratedV3Section } from '@/app/src/lib/interactiveLesson/typesV3';
+import type { HydratedLessonV3 } from '@/app/src/lib/interactiveLesson/typesV3';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import RobotGuide from '../RobotGuide';
 import s from './v3.module.css';
 
 const ACCENT_CLASS = [s.portalSky, s.portalAmber, s.portalEmerald, s.portalRose, s.portalViolet];
 
-function getStationOffset(idxInRow: number, rowLen: number): number {
-  if (rowLen <= 1) return 18;
-  if (rowLen >= 5) {
-    return idxInRow % 2 === 0 ? 52 : 10;
-  }
-  return idxInRow % 2 === 0 ? 64 : 14;
-}
-
-type CurveSegment = { d: string; fromDone: boolean };
-
-function buildCurveSegments(
-  row: IndexedSection[],
-  offsets: number[],
-  doneSet: Set<number>,
-): CurveSegment[] {
-  const rowLen = row.length;
-  if (rowLen <= 1) return [];
-  const pts = offsets.map((off, i) => ({
-    x: ((i + 0.5) / rowLen) * 1000,
-    y: off + 48,
-  }));
-  const segments: CurveSegment[] = [];
-  for (let i = 1; i < pts.length; i++) {
-    const prev = pts[i - 1];
-    const curr = pts[i];
-    const midX = ((prev.x + curr.x) / 2).toFixed(1);
-    const d = `M ${prev.x.toFixed(1)} ${prev.y.toFixed(1)} C ${midX} ${prev.y.toFixed(1)}, ${midX} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
-    segments.push({ d, fromDone: doneSet.has(row[i - 1].sec.sectionId) });
-  }
-  return segments;
-}
-
-type IndexedSection = { sec: HydratedV3Section; globalIdx: number };
-
-function splitIntoRows(sections: HydratedV3Section[]): IndexedSection[][] {
-  const indexed: IndexedSection[] = sections.map((sec, globalIdx) => ({ sec, globalIdx }));
-  const total = indexed.length;
-  if (total <= 5) return [indexed];
-  const perRow = total <= 6 ? 3 : 4;
-  const rows: IndexedSection[][] = [];
-  for (let i = 0; i < total; i += perRow) {
-    rows.push(indexed.slice(i, i + perRow));
-  }
-  return rows;
+function getDesktopBoardCols(total: number): number {
+  if (total <= 1) return 1;
+  if (total <= 5) return total;
+  if (total === 6) return 3;
+  return 4;
 }
 
 export function WorldMapView({
@@ -89,268 +54,258 @@ export function WorldMapView({
   onResetProgress: () => void;
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
+  useDismissOnBack(confirmReset, () => setConfirmReset(false));
+  const activeCardRef = useRef<HTMLDivElement | null>(null);
 
+  const totalSections = lesson.sections.length;
   const doneSet = new Set(completedSections);
   const doneCount = lesson.sections.filter((sec) => doneSet.has(sec.sectionId)).length;
-  const rows = splitIntoRows(lesson.sections);
-  const isDense = rows.some((r) => r.length >= 5);
-  const isMultiRow = rows.length > 1;
-
-  // İlk tamamlanmamış bölüm (sıradaki önerilen durak)
+  const overallPct = totalSections > 0 ? Math.round((doneCount / totalSections) * 100) : 0;
   const firstPendingIdx = lesson.sections.findIndex((sec) => !doneSet.has(sec.sectionId));
+  const boardCols = getDesktopBoardCols(totalSections);
+
+  // Mobilde çok bölümlü derslerde aktif kartı yumuşakça görünür alana getir
+  useEffect(() => {
+    if (currentSectionIdx <= 0 || !activeCardRef.current) return;
+    if (typeof window !== 'undefined' && window.innerWidth >= 768 && totalSections <= 6) return;
+    const id = window.requestAnimationFrame(() => {
+      activeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [currentSectionIdx, totalSections]);
 
   return (
-    <div className={s.worldRoot} data-dense={isDense ? 'true' : 'false'}>
-      {/* Özgün Atmosferik Arka Plan: Sabit gökyüzü, bulutlar, yörünge halkaları & ufuk tepeleri */}
+    <div className={s.worldRoot}>
+      {/* Atmosferik Oyun Sahnesi Arka Planı */}
       <svg
         className={s.worldBackdropSvg}
-        viewBox="0 0 1440 640"
+        viewBox="0 0 1440 800"
         preserveAspectRatio="xMidYMax slice"
         aria-hidden="true"
       >
         <defs>
           <linearGradient id="hillBack" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#BFD7F2" stopOpacity="0.7" />
-            <stop offset="100%" stopColor="#A9C7EB" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="#BFD7F2" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#A9C7EB" stopOpacity="0.85" />
           </linearGradient>
           <linearGradient id="hillFront" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#9EC1E8" stopOpacity="0.78" />
-            <stop offset="100%" stopColor="#84B0E2" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#9EC1E8" stopOpacity="0.72" />
+            <stop offset="100%" stopColor="#84B0E2" stopOpacity="0.92" />
           </linearGradient>
         </defs>
-        {/* İnce bilimsel yörünge halkaları */}
-        <circle cx="220" cy="140" r="180" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="6 8" opacity="0.55" />
-        <circle cx="1220" cy="120" r="220" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="8 10" opacity="0.45" />
-        <circle cx="720" cy="290" r="340" fill="none" stroke="#93C5FD" strokeWidth="1.4" opacity="0.42" />
-        {/* Yumuşak oyun gökyüzü bulutları */}
-        <g fill="#FFFFFF" opacity="0.55">
-          <ellipse cx="560" cy="96" rx="64" ry="22" />
-          <ellipse cx="600" cy="86" rx="38" ry="18" />
-          <ellipse cx="880" cy="138" rx="72" ry="24" />
-          <ellipse cx="842" cy="128" rx="40" ry="18" />
+        <circle cx="200" cy="140" r="170" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="6 9" opacity="0.5" />
+        <circle cx="1240" cy="150" r="200" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="8 10" opacity="0.42" />
+        <g fill="#FFFFFF" opacity="0.52">
+          <ellipse cx="320" cy="105" rx="64" ry="20" />
+          <ellipse cx="360" cy="94" rx="38" ry="16" />
+          <ellipse cx="1100" cy="126" rx="70" ry="22" />
+          <ellipse cx="1062" cy="115" rx="40" ry="16" />
         </g>
-        {/* Katmanlı yumuşak ufuk siluetleri */}
         <path
-          d="M0 510 Q240 430 490 490 T990 475 T1440 445 L1440 640 L0 640 Z"
+          d="M0 660 Q280 595 560 645 T1080 625 T1440 605 L1440 800 L0 800 Z"
           fill="url(#hillBack)"
         />
         <path
-          d="M0 560 Q320 495 660 545 T1220 520 T1440 535 L1440 640 L0 640 Z"
+          d="M0 715 Q360 660 720 700 T1260 680 T1440 695 L1440 800 L0 800 Z"
           fill="url(#hillFront)"
         />
       </svg>
 
       <div className={s.worldViewport}>
-        {/* Üst Keşif Başlık Şeridi + Tamamlama Sayacı */}
-        <div className={s.worldTopBanner}>
-          <span className={s.worldTopicBanner}>
-            <Sparkles className="h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
-            <span>
-              {lesson.courseLabel} • {lesson.topicTitle}
-            </span>
-          </span>
+        <div
+          className={s.stageBoardContainer}
+          style={{ '--board-cols': boardCols } as CSSProperties}
+          data-cols={boardCols}
+        >
+          {/* Üst Kompakt Konu & İlerleme Şeridi */}
+          <div className={s.stageBoardHeader}>
+            <div className={s.stageBoardTitleGroup}>
+              <span className={s.worldTopicBanner}>
+                <Sparkles className="h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
+                <span>{lesson.courseLabel}</span>
+              </span>
+              <h1 className={s.stageBoardHeading}>{lesson.topicTitle}</h1>
+            </div>
 
-          {completionCount > 0 && (
-            <span
-              className={s.worldCompletionPill}
-              title={`Bu etkileşimli dersi toplam ${completionCount} kez tamamladın`}
-            >
-              <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
-              <span>{completionCount} kez tamamladın</span>
-            </span>
-          )}
-        </div>
+            <div className={s.stageBoardStatsGroup}>
+              {completionCount > 0 && (
+                <span
+                  className={s.worldCompletionPill}
+                  title={`Bu etkileşimli dersi toplam ${completionCount} kez tamamladın`}
+                >
+                  <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+                  <span>{completionCount}× tamamlandı</span>
+                </span>
+              )}
 
-        {/* Alt Konu İstasyonları + Dinamik Kavisli Bağlantı Yolları */}
-        <div className={`${s.worldStageWrap} ${isMultiRow ? s.worldStageMultiRow : ''}`}>
-          <div className={s.worldRowsStack}>
-            {rows.map((row, rowIdx) => {
-              const offsets = row.map((_, i) => getStationOffset(i, row.length));
-              const segments = buildCurveSegments(row, offsets, doneSet);
+              <div className={s.stageOverallChip}>
+                <div className={s.stageOverallTop}>
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden="true" />
+                  <span>
+                    {doneCount} / {totalSections} Bölüm
+                  </span>
+                </div>
+                <div className={s.stageOverallTrack} aria-hidden="true">
+                  <div
+                    className={s.stageOverallFill}
+                    style={{ width: `${Math.max(doneCount > 0 ? 12 : 0, overallPct)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bölüm Seçim Kartları (Web: Yan Yana Simetrik Seviye Kartları | Mobil: Düz Dikey Seviye Listesi) */}
+          <div className={s.stageCardsGrid}>
+            {lesson.sections.map((sec, idx) => {
+              const isDone = doneSet.has(sec.sectionId);
+              const savedStep = sectionProgress[String(sec.sectionId)] ?? 0;
+              const totalSteps = Math.max(1, sectionTotals[String(sec.sectionId)] ?? 1);
+              const isInProgress = !isDone && savedStep > 0;
+              const isCurrent = idx === currentSectionIdx;
+              const isNext = !isDone && !isInProgress && idx === firstPendingIdx;
+              const isHighlighted = isInProgress || isCurrent || isNext;
+
+              const accent = ACCENT_CLASS[idx % ACCENT_CLASS.length];
+              const codeLabel = String(idx + 1).padStart(2, '0');
+              const progressPct = Math.min(95, Math.max(14, Math.round(((savedStep + 1) / totalSteps) * 100)));
+              const earnedStars = isDone ? 3 : isInProgress ? (progressPct >= 55 ? 2 : 1) : 0;
+              const showDesktopArrow = (idx + 1) % boardCols !== 0 && idx < totalSections - 1;
+              const hasMobileNext = idx < totalSections - 1;
 
               return (
                 <div
-                  key={rowIdx}
-                  className={s.worldRow}
-                  style={{ '--row-cols': row.length } as CSSProperties}
+                  key={sec.sectionId}
+                  ref={isCurrent ? activeCardRef : undefined}
+                  className={s.stageCardSlot}
                 >
-                  {segments.length > 0 && (
-                    <svg
-                      className={s.worldCurvePath}
-                      viewBox="0 0 1000 220"
-                      preserveAspectRatio="none"
+                  {/* Mobil sol dikey bağlantı çizgisi */}
+                  {hasMobileNext && (
+                    <span
+                      className={`${s.mobileSpineLine} ${isDone ? s.mobileSpineLineDone : ''}`}
                       aria-hidden="true"
-                    >
-                      {segments.map((seg, segIdx) => (
-                        <g key={segIdx}>
-                          <path
-                            d={seg.d}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.86)"
-                            strokeWidth="12"
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d={seg.d}
-                            fill="none"
-                            stroke={seg.fromDone ? '#10B981' : '#0284C7'}
-                            strokeWidth="4"
-                            strokeLinecap="round"
-                            strokeDasharray="10 10"
-                            className={s.svgFlow}
-                          />
-                        </g>
-                      ))}
-                    </svg>
+                    />
                   )}
 
-                  <div className={s.worldGrid}>
-                    {row.map(({ sec, globalIdx }, idxInRow) => {
-                      const isDone = doneSet.has(sec.sectionId);
-                      const savedStep = sectionProgress[String(sec.sectionId)] ?? 0;
-                      const totalSteps = Math.max(1, sectionTotals[String(sec.sectionId)] ?? 1);
-                      const isInProgress = !isDone && savedStep > 0;
-                      const isCurrent = globalIdx === currentSectionIdx;
-                      const isNext = !isDone && !isInProgress && globalIdx === firstPendingIdx;
-                      const isUntouched = !isDone && !isInProgress && !isNext && !isCurrent;
+                  {/* Masaüstü kartlar arası yatay ok köprüsü */}
+                  {showDesktopArrow && (
+                    <span
+                      className={`${s.desktopBridgeArrow} ${isDone ? s.desktopBridgeArrowDone : ''}`}
+                      aria-hidden="true"
+                    >
+                      <ArrowRight className="h-4 w-4 stroke-[2.6]" />
+                    </span>
+                  )}
 
-                      const offsetTop = offsets[idxInRow];
-                      const accent = ACCENT_CLASS[globalIdx % ACCENT_CLASS.length];
-                      const isOdd = globalIdx % 2 === 1;
-                      const hasNext = globalIdx < lesson.sections.length - 1;
-                      const codeLabel = String(globalIdx + 1).padStart(2, '0');
-                      const progressPct = Math.min(95, Math.max(12, Math.round(((savedStep + 1) / totalSteps) * 100)));
+                  {/* Aktif kartın tepesinde rehber Atom */}
+                  {isCurrent && (
+                    <div className={s.stageAtomFloating} aria-hidden="true">
+                      <RobotGuide mood={isDone ? 'celebrate' : 'happy'} className="w-10 sm:w-12" />
+                    </div>
+                  )}
 
-                      return (
-                        <div key={sec.sectionId} className={s.worldNodeEntry}>
-                          <div
-                            className={`${s.worldSubtopicCol} ${isOdd ? s.worldSubtopicOdd : s.worldSubtopicEven}`}
-                            style={{ '--station-offset': `${offsetTop}px` } as CSSProperties}
-                          >
-                            <div className={s.worldPortalAnchor}>
-                              {isCurrent && (
-                                <div className={s.worldAtomMarker} aria-hidden="true">
-                                  <RobotGuide mood={isDone ? 'celebrate' : 'happy'} className="w-11 sm:w-12 xl:w-14" />
-                                </div>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={() => onSelectSection(globalIdx)}
-                                className={`${s.worldTile} ${s.worldTileLarge} ${accent} ${
-                                  isDone
-                                    ? s.worldTileDone
-                                    : isInProgress || isCurrent
-                                      ? s.worldTileActive
-                                      : isUntouched
-                                        ? s.worldTileUntouched
-                                        : ''
-                                }`}
-                              >
-                                <span className={s.worldTileCode}>{codeLabel}</span>
-                                <span className={s.worldTileIcon}>
-                                  {isDone ? (
-                                    <Check className="h-7 w-7 stroke-[3] sm:h-8 sm:w-8" aria-hidden="true" />
-                                  ) : (
-                                    <Play className="h-7 w-7 fill-current sm:h-8 sm:w-8" aria-hidden="true" />
-                                  )}
-                                </span>
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => onSelectSection(globalIdx)}
-                              className={s.worldCardMeta}
-                            >
-                              {/* Net Çalışma Durumu Rozeti */}
-                              {isDone ? (
-                                <span className={`${s.stationStatusPill} ${s.stationStatusDone}`}>
-                                  <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                  Tamamlandı
-                                </span>
-                              ) : isInProgress ? (
-                                <span className={`${s.stationStatusPill} ${s.stationStatusActive}`}>
-                                  Kaldığın Yer • {Math.min(savedStep + 1, totalSteps)}/{totalSteps}
-                                </span>
-                              ) : isNext || isCurrent ? (
-                                <span className={`${s.stationStatusPill} ${s.stationStatusNext}`}>
-                                  Sıradaki
-                                </span>
-                              ) : (
-                                <span className={`${s.stationStatusPill} ${s.stationStatusTodo}`}>
-                                  Başlanmadı
-                                </span>
-                              )}
-
-                              <span
-                                className={`${s.worldTileLabelLarge} ${
-                                  isDone
-                                    ? s.worldTileLabelDone
-                                    : isInProgress
-                                      ? s.worldTileLabelActive
-                                      : isUntouched
-                                        ? s.worldTileLabelTodo
-                                        : ''
-                                }`}
-                              >
-                                <span>{sec.title}</span>
-                                {isInProgress && (
-                                  <span className={s.stationProgressTrack} aria-hidden="true">
-                                    <span
-                                      className={s.stationProgressFill}
-                                      style={{ width: `${progressPct}%` }}
-                                    />
-                                  </span>
-                                )}
-                              </span>
-
-                              <span className={s.worldTileSub}>
-                                {sec.beats.length} sahne •{' '}
-                                <Gamepad2 className="inline h-3.5 w-3.5 text-amber-600" aria-hidden="true" /> Kavram Avı •{' '}
-                                {sec.checkQuestions.length} soru
-                              </span>
-                            </button>
-                          </div>
-
-                          {/* Dikey mobilde istasyonları birbirine bağlayan kıvrımlı oyun rotası */}
-                          {hasNext && (
-                            <svg
-                              className={`${s.worldMobilePath} ${isDone ? s.worldMobilePathDone : ''}`}
-                              viewBox="0 0 320 56"
-                              preserveAspectRatio="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d={
-                                  isOdd
-                                    ? 'M 264 2 C 264 32, 56 24, 56 54'
-                                    : 'M 56 2 C 56 32, 264 24, 264 54'
-                                }
-                                fill="none"
-                                stroke="rgba(255,255,255,0.88)"
-                                strokeWidth="12"
-                                strokeLinecap="round"
-                              />
-                              <path
-                                d={
-                                  isOdd
-                                    ? 'M 264 2 C 264 32, 56 24, 56 54'
-                                    : 'M 56 2 C 56 32, 264 24, 264 54'
-                                }
-                                fill="none"
-                                stroke={isDone ? '#10B981' : '#0284C7'}
-                                strokeWidth="4"
-                                strokeLinecap="round"
-                                strokeDasharray="9 9"
-                                className={s.svgFlow}
-                              />
-                            </svg>
+                  <button
+                    type="button"
+                    onClick={() => onSelectSection(idx)}
+                    className={`${s.stageCard} ${
+                      isDone
+                        ? s.stageCardDone
+                        : isHighlighted
+                          ? s.stageCardActive
+                          : s.stageCardIdle
+                    }`}
+                  >
+                    {/* Sol (Mobil) / Üst-Orta (Web) 3B Mücevher Rozet */}
+                    <div className={s.stageEmblemWrap}>
+                      <div
+                        className={`${s.worldTile} ${accent} ${
+                          isDone
+                            ? s.worldTileDone
+                            : isHighlighted
+                              ? s.worldTileActive
+                              : s.worldTileUntouched
+                        }`}
+                      >
+                        <span className={s.worldTileCode}>{codeLabel}</span>
+                        <span className={s.worldTileIcon}>
+                          {isDone ? (
+                            <Check className="h-6 w-6 stroke-[3] md:h-7 md:w-7" aria-hidden="true" />
+                          ) : (
+                            <Play className="h-6 w-6 translate-x-0.5 fill-current md:h-7 md:w-7" aria-hidden="true" />
                           )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        </span>
+                      </div>
+
+                      <div className={s.levelStarsRow} aria-hidden="true">
+                        {[1, 2, 3].map((starNo) => (
+                          <Star
+                            key={starNo}
+                            className={`${s.levelStarIcon} ${
+                              starNo <= earnedStars ? s.levelStarLit : s.levelStarDim
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Kart İçeriği */}
+                    <div className={s.stageCardBody}>
+                      <div className={s.stageCardTopMeta}>
+                        <span className={s.levelStepTag}>BÖLÜM {codeLabel}</span>
+
+                        {isDone ? (
+                          <span className={`${s.stationStatusPill} ${s.stationStatusDone}`}>
+                            <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            Tamamlandı
+                          </span>
+                        ) : isInProgress ? (
+                          <span className={`${s.stationStatusPill} ${s.stationStatusActive}`}>
+                            {Math.min(savedStep + 1, totalSteps)}/{totalSteps} Adım
+                          </span>
+                        ) : isNext || isCurrent ? (
+                          <span className={`${s.stationStatusPill} ${s.stationStatusNext}`}>
+                            Sıradaki
+                          </span>
+                        ) : (
+                          <span className={`${s.stationStatusPill} ${s.stationStatusTodo}`}>
+                            Hazır
+                          </span>
+                        )}
+                      </div>
+
+                      <span className={s.stageCardTitle}>{sec.title}</span>
+
+                      {isInProgress && (
+                        <span className={s.stationProgressTrack} aria-hidden="true">
+                          <span
+                            className={s.stationProgressFill}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </span>
+                      )}
+
+                      <span className={s.stageCardSummary}>
+                        {sec.beats.length} sahne •{' '}
+                        <Gamepad2 className="inline h-3.5 w-3.5 text-amber-600" aria-hidden="true" /> Kavram Avı •{' '}
+                        {sec.checkQuestions.length} soru
+                      </span>
+
+                      <span
+                        className={`${s.stageCtaBtn} ${
+                          isDone
+                            ? s.stageCtaDone
+                            : isHighlighted
+                              ? s.stageCtaPrimary
+                              : s.stageCtaIdle
+                        }`}
+                      >
+                        <span>
+                          {isDone ? 'Tekrar Oyna' : isInProgress ? 'Devam Et' : 'Başla'}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      </span>
+                    </div>
+                  </button>
                 </div>
               );
             })}

@@ -7,6 +7,7 @@ import type { SlideDeck } from '@/app/src/lib/topicSlideDeck';
 import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import { ClassroomSlideView, revealStepsLeft } from '@/app/src/components/SlideKindViews';
 import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import {
   SLIDE_ACCENTS as ACCENTS,
   NAV_BTN_CLASS,
@@ -218,6 +219,7 @@ export default function SlidePlayer({ deck, topicId, onStartTest, variant = 'ove
     };
   }, [isOverlay, onClose, goPrev, goNext, lightbox]);
 
+  useDismissOnBack(Boolean(lightbox), () => setLightbox(null));
   useEffect(() => {
     if (!lightbox) return;
     const onKeyDown = (e: KeyboardEvent) => {

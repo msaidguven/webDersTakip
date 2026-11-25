@@ -5,7 +5,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Alerts = { svgPending: number; openReports: number; studentReplies: number; autoHidden: number; failedBatches: number; awaitingReview: number; recapFiguresPending: number; recapFailed: number };
+type Alerts = {
+  svgPending: number;
+  openReports: number;
+  studentReplies: number;
+  autoHidden: number;
+  failedBatches: number;
+  awaitingReview: number;
+  recapFiguresPending: number;
+  recapFailed: number;
+  newFeedback?: number;
+  newTeacherFeedback?: number;
+};
 // href yoksa iş Claude'a söylenerek yapılır, gidilecek sayfa yok.
 type AlertItem = { href?: string; text: string };
 
@@ -27,6 +38,12 @@ export function AdminAlerts() {
 
   if (!alerts) return null;
   const items = [
+    (alerts.newFeedback ?? 0) > 0 && {
+      href: '/admin/geri-bildirimler',
+      text: alerts.newTeacherFeedback
+        ? `${alerts.newFeedback} okunmamış geri bildirim var (${alerts.newTeacherFeedback} öğretmen mesajı)`
+        : `${alerts.newFeedback} okunmamış kullanıcı geri bildirimi / iletişim mesajı var`,
+    },
     alerts.openReports > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.openReports} soru için öğrenci "hatalı soru" bildirimi var` },
     alerts.studentReplies > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.studentReplies} soru bildiriminde öğrenci sana geri yazdı` },
     alerts.autoHidden > 0 && { href: '/admin/soru-bildirimleri', text: `${alerts.autoHidden} soru 3+ "cevap yanlış" bildirimiyle otomatik gizlendi` },

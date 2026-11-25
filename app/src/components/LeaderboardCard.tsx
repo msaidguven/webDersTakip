@@ -18,6 +18,72 @@ function cx(...names: (string | false | null | undefined)[]) {
 
 // showRealMark: sadece admin için gerçek öğrencinin yanında "(G)" (sahte kayıtlardan ayırmak için).
 // Profilini açmış üyenin adı kartına (/uye/<slug>) gider; kapalı profil ve sahte kayıtlar düz metin.
+function getInitials(displayName: string): string {
+  const letters = displayName
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.match(/\p{L}|\p{N}/u)?.[0] ?? '')
+    .filter(Boolean);
+  if (letters.length === 0) return 'Ö';
+  if (letters.length === 1) return letters[0].toLocaleUpperCase('tr-TR');
+  return (letters[0] + letters[letters.length - 1]).toLocaleUpperCase('tr-TR');
+}
+
+const AVATAR_TONES = [s.tone0, s.tone1, s.tone2, s.tone3, s.tone4, s.tone5] as const;
+
+function pickAvatarTone(displayName: string): string {
+  let hash = 0;
+  for (let i = 0; i < displayName.length; i++) {
+    hash = (Math.imul(31, hash) + displayName.charCodeAt(i)) | 0;
+  }
+  return AVATAR_TONES[Math.abs(hash) % AVATAR_TONES.length];
+}
+
+function StudentAvatar({ entry, variant }: { entry: LeaderboardEntry; variant: 'podium' | 'row' | 'me' }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const url = entry.avatarUrl?.trim() || null;
+  const showImg = !!url && failedUrl !== url;
+  const initials = getInitials(entry.displayName);
+
+  const badge = (
+    <span
+      className={cx(
+        s.avatar,
+        variant === 'podium' ? s.avatarPodium : variant === 'me' ? s.meAvatar : s.avatarRow,
+        !showImg && pickAvatarTone(entry.displayName)
+      )}
+      aria-hidden="true"
+    >
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedUrl(url)}
+          className={s.avatarImg}
+        />
+      ) : (
+        initials
+      )}
+    </span>
+  );
+
+  if (!entry.publicSlug) return badge;
+  return (
+    <Link
+      href={`/uye/${entry.publicSlug}`}
+      tabIndex={-1}
+      aria-hidden="true"
+      className={s.avatarLink}
+    >
+      {badge}
+    </Link>
+  );
+}
+
 function Name({ entry, showRealMark }: { entry: LeaderboardEntry; showRealMark: boolean }) {
   const label = entry.isMe ? 'Sen' : entry.displayName;
   return (
@@ -46,7 +112,10 @@ export function Podium({ entries, showRealMark }: { entries: LeaderboardEntry[];
         e ? (
           <li key={e.rank} className={cx(s.step, PODIUM_STYLE[e.rank as 1 | 2 | 3], e.isMe && s.stepMe)}>
             {e.rank === 1 && <span className={s.crown} aria-hidden="true">👑</span>}
-            <span className={s.medal} aria-label={`${e.rank}. sıra`}>{e.rank}</span>
+            <div className={s.podiumAvatarWrap}>
+              <StudentAvatar entry={e} variant="podium" />
+              <span className={s.medalBadge} aria-label={`${e.rank}. sıra`}>{e.rank}</span>
+            </div>
             <span className={s.stepName}><Name entry={e} showRealMark={showRealMark} /></span>
             <span className={s.stepScore}>{e.totalQuestions} soru</span>
           </li>
@@ -62,6 +131,7 @@ export function Row({ entry, max, showRealMark }: { entry: LeaderboardEntry; max
   return (
     <li className={cx(s.row, r.item, entry.isMe && s.rowMe)}>
       <span className={cx(s.rank, r.chipBox)}>{entry.rank}</span>
+      <StudentAvatar entry={entry} variant="row" />
       <span className={s.rowMain}>
         <span className={s.rowName}><Name entry={entry} showRealMark={showRealMark} /></span>
         <span className={s.energy} aria-hidden="true">
@@ -117,14 +187,18 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
     return <div aria-busy="true" aria-label="Sıralama yükleniyor" className={cx('h-80 animate-pulse rounded-[18px]', r.panel)} />;
   }
 
-  const me = entries.find((e) => e.isMe);
-  const topEntries = entries.slice(0, limit);
+  const metaAvatar = (user.user_metadata?.avatar_url as string | undefined) || null;
+  const enrichedEntries = entries.map((e) =>
+    e.isMe && !e.avatarUrl && metaAvatar ? { ...e, avatarUrl: metaAvatar } : e
+  );
+  const me = enrichedEntries.find((e) => e.isMe);
+  const topEntries = enrichedEntries.slice(0, limit);
   // Bir üst sıradakini geçmek için gereken soru — eşitlikte user_id'ye göre sıralandığı için
   // (bkz. get_weekly_leaderboard) geçmek kesin olarak +1 ister.
-  const above = me && me.rank > 1 ? entries[me.rank - 2] : null;
+  const above = me && me.rank > 1 ? enrichedEntries[me.rank - 2] : null;
   const questionsToPass = above && me ? above.totalQuestions - me.totalQuestions + 1 : null;
   const showMeSeparately = !!me && !topEntries.some((e) => e.isMe);
-  const max = entries[0]?.totalQuestions ?? 0;
+  const max = enrichedEntries[0]?.totalQuestions ?? 0;
   const podium = topEntries.filter((e) => e.rank <= 3);
   const rest = topEntries.filter((e) => e.rank > 3);
 
@@ -132,10 +206,13 @@ export function LeaderboardCard({ limit = 5, showSeeAll = true }: LeaderboardCar
     <div className="flex flex-col gap-5">
       {me && (
         <section aria-label="Senin konumun" className={cx(r.panel, s.me)}>
-          <div className={s.meRank}>
-            <div className="text-center">
-              <div className={s.meRankNo}>{me.rank}</div>
-              <div className={s.meRankLbl}>SIRA</div>
+          <div className={s.meSide}>
+            <StudentAvatar entry={me} variant="me" />
+            <div className={s.meRank}>
+              <div className="text-center">
+                <div className={s.meRankNo}>{me.rank}</div>
+                <div className={s.meRankLbl}>SIRA</div>
+              </div>
             </div>
           </div>
           <div className={s.meText}>

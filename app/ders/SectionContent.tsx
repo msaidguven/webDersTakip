@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { ChevronDown } from 'lucide-react';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { renderLatexInHtml } from '@/app/src/lib/renderLatex';
@@ -431,6 +432,9 @@ export default function SectionContent({
   useEffect(() => {
     setCleanSvg(diagramSvg ? sanitizeMathSvg(diagramSvg) : null);
   }, [diagramSvg]);
+
+  useDismissOnBack(imageZoomed, () => setImageZoomed(false));
+  useDismissOnBack(diagramZoomed, () => setDiagramZoomed(false));
 
   useEffect(() => {
     if (!diagramZoomed && !imageZoomed) return;

@@ -24,6 +24,7 @@ import { SpotErrorGame } from './games/SpotErrorGame';
 import { ScenarioGame } from './games/ScenarioGame';
 import { VaultLockGame } from './games/VaultLockGame';
 import { PoolQuestionGame } from './games/PoolQuestionGame';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import s from './v2.module.css';
 
 const display = Baloo_2({ subsets: ['latin', 'latin-ext'], weight: ['600', '700', '800'] });
@@ -414,6 +415,8 @@ export default function PlayerV2({
     setSession(null);
     scrollRef.current?.scrollTo({ top: 0 });
   };
+
+  useDismissOnBack(mode === 'scene', backToMap);
 
   const resetProgress = () => {
     const empty: SavedV2 = { openCount: 1, stars: {}, totalXp: 0, bestStreak: 0 };

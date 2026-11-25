@@ -55,14 +55,18 @@ export function buildNavItems({
     // Yazılı soruları (2026-10-21): sınıf bilinse de dizin — yazılılar sınıf/ders kırılımıyla orada.
     { id: 'exams', label: 'Yazılı Soruları', shortLabel: 'Yazılı', href: '/yazili-sorulari', icon: ClipboardList, active: first === 'yazili-sorulari' },
   ];
-  // Ders takip çizelgesi (herkese açık): yalnız masaüstü header'ında; alt sekme çubuğunda yer yok.
-  items.push({
-    id: 'chart',
-    label: 'Ders Takip Çizelgesi',
-    href: '/ders-takip-cizelgesi',
-    icon: Table2,
-    active: pathname.startsWith('/ders-takip-cizelgesi'),
-  });
+  // Ders takip çizelgesi: girişli kullanıcıda sağ tarafta İlerlemem + seri + bildirim + profil/rol
+  // yer aldığı için masaüstü barını taşırıp sağdaki profil ikonunu ekran dışına itmesin diye yalnız
+  // misafir görünümünde 2xl genişlikte gösterilir (girişlide zaten sağdaki hesap/araçlar menüsündedir).
+  if (!isAuthenticated) {
+    items.push({
+      id: 'chart',
+      label: 'Ders Takip Çizelgesi',
+      href: '/ders-takip-cizelgesi',
+      icon: Table2,
+      active: pathname.startsWith('/ders-takip-cizelgesi'),
+    });
+  }
   if (isAuthenticated && !isTeacher) {
     items.push({ id: 'progress', label: 'İlerlemem', href: '/ilerlemem', icon: ChartNoAxesColumn, active: first === 'ilerlemem' });
   }

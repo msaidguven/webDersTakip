@@ -23,6 +23,7 @@ import { SchoolThisWeekCard } from './HomeHighlightCards';
 import { SubjectIcon } from './SubjectIcon';
 import { BottomSheet } from '../ui/BottomSheet';
 import { PushReminderOptIn } from './PushReminderOptIn';
+import { StudentFeedbackCard } from './StudentFeedbackCard';
 import r from '../robotic/robotic.module.css';
 
 // Bildirim izni kartı bu seriden itibaren gösterilir: ilk gün bir "izin ver" kartı kalabalık yapıyor.
@@ -430,6 +431,7 @@ export function StudentToday({
       )}
 
       {data.streak >= PUSH_OPT_IN_MIN_STREAK && <PushReminderOptIn />}
+      {(data.dailyProgress > 0 || data.streak >= 1) && <StudentFeedbackCard streak={data.streak} />}
       {player}
     </section>
   );

@@ -8,6 +8,7 @@
 // Hafif tutuldu: anasayfa bundle'ına ağır soru bileşenlerini (QuizClient) çekmiyor.
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { ArrowRight, CheckCircle2, Sun, Users, X, XCircle } from 'lucide-react';
@@ -486,6 +487,7 @@ export function DailyQuestionFullScreen({
 }) {
   const todayKey = useSyncExternalStore(noopSubscribe, istanbulDateKey, () => set.startKey);
   const item = resolveDailyQuestionItem(set, todayKey);
+  useDismissOnBack(open, onClose);
 
   useEffect(() => {
     if (!open) return;

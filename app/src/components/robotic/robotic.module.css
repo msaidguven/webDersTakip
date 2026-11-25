@@ -29,19 +29,19 @@
   font-family: var(--font-r-body), system-ui, sans-serif;
 }
 :global(.dark) .themeVars {
-  --bg: #0A0F1A;
-  --panel: linear-gradient(160deg, #141C2B 0%, #101725 60%, #0C121E 100%);
-  --panel-solid: #121A28;
-  --edge: #263248;
-  --ink: #E6EDF8;
-  --muted: #7D8AA3;
-  --neon: #22D3EE;
-  --neon-2: #7C93FF;
-  --glow: rgba(34, 211, 238, .45);
-  --track: #1C2638;
-  --grid: rgba(148, 197, 255, .05);
-  --chrome: linear-gradient(180deg, #FFFFFF 0%, #B9C6DC 45%, #FFFFFF 52%, #8FA3C4 100%);
-  --shadow: 0 1px 0 rgba(148, 197, 255, .08) inset, 0 16px 40px -18px rgba(0, 0, 0, .8);
+  --bg: #1B2230;
+  --panel: linear-gradient(160deg, #263042 0%, #212A3B 60%, #1E2636 100%);
+  --panel-solid: #242E40;
+  --edge: #38465E;
+  --ink: #ECF1F9;
+  --muted: #9BA8BF;
+  --neon: #38BDF8;
+  --neon-2: #818CF8;
+  --glow: rgba(56, 189, 248, .38);
+  --track: #2E3A4F;
+  --grid: rgba(186, 214, 255, .055);
+  --chrome: linear-gradient(180deg, #FFFFFF 0%, #CBD5E8 45%, #FFFFFF 52%, #A6B8D4 100%);
+  --shadow: 0 1px 0 rgba(186, 214, 255, .10) inset, 0 14px 34px -16px rgba(8, 13, 24, .52);
 }
 .root::before { content: ""; position: fixed; inset: 0; pointer-events: none; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
 .root > * { position: relative; }

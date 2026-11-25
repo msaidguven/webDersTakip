@@ -25,7 +25,7 @@ export async function GET() {
   if (!admin.ok) return admin.response;
   const supabase = createServiceClient();
 
-  const [svg, reports, hidden, failed, awaiting, teachers, recapFigures, recapFailed, replies] = await Promise.all([
+  const [svg, reports, hidden, failed, awaiting, teachers, recapFigures, recapFailed, replies, newFeedback, newTeacherFeedback] = await Promise.all([
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('svg_prompt', 'is', null).is('svg_content', null),
     supabase.from('question_reports').select('question_id').eq('status', 'open').limit(1000),
     supabase.from('questions').select('id', { count: 'exact', head: true }).not('auto_hidden_at', 'is', null),
@@ -45,6 +45,8 @@ export async function GET() {
       .is('recap_card->example->>figure_svg', null),
     supabase.rpc('count_recap_card_failed_topics'),
     supabase.from('question_reports').select('id', { count: 'exact', head: true }).not('awaiting_admin_at', 'is', null),
+    supabase.from('site_feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+    supabase.from('site_feedback').select('id', { count: 'exact', head: true }).eq('status', 'new').eq('role', 'teacher'),
   ]);
   if (teachers.error) return NextResponse.json({ error: teachers.error.message }, { status: 500 });
   const rows = (teachers.data as unknown as PendingRow[] | null) ?? [];
@@ -72,6 +74,8 @@ export async function GET() {
     awaitingReview: awaiting.count ?? 0,
     recapFiguresPending: recapFigures.count ?? 0,
     recapFailed: (recapFailed.data as number | null) ?? 0,
+    newFeedback: newFeedback.count ?? 0,
+    newTeacherFeedback: newTeacherFeedback.count ?? 0,
     pendingTeachers,
   });
 }

@@ -6,9 +6,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calculator, CalendarRange, ChevronRight, LogOut, Menu, Moon, Sun, Table2, UserRound, X, type LucideIcon } from 'lucide-react';
+import { Calculator, CalendarRange, ChevronRight, LogOut, Menu, MessageSquarePlus, Moon, Sun, Table2, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useThemeMode } from './ThemeToggle';
 import { BottomSheet } from './ui/BottomSheet';
+import { FeedbackSheet } from './feedback/FeedbackSheet';
 import r from './robotic/robotic.module.css';
 
 const TOOLS: { href: string; label: string; Icon: LucideIcon }[] = [
@@ -38,11 +39,26 @@ export function HeaderMenu({
     setOpenOn((prev) => ((typeof v === 'function' ? v(prev === pathname) : v) ? pathname : null));
   const ref = useRef<HTMLDivElement>(null);
   const [isDark, toggleTheme] = useThemeMode();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const [isMobileSheet, setIsMobileSheet] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const syncMq = () => setIsMobileSheet(mq.matches);
+    syncMq();
+    mq.addEventListener('change', syncMq);
+    return () => mq.removeEventListener('change', syncMq);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenOn(null);
+      const target = e.target as Element | null;
+      // BottomSheet document.body'ye portal edildiği için ref.current dışındadır;
+      // mousedown'da kapatılırsa click olayı tetiklenmeden çekmece unmount olur (tema butonu vb. çalışmaz).
+      if (target?.closest?.('[data-bottom-sheet="true"]')) return;
+      if (ref.current && (!target || !ref.current.contains(target))) setOpenOn(null);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpenOn(null);
@@ -57,7 +73,6 @@ export function HeaderMenu({
 
   const close = () => setOpen(false);
   const TriggerIcon = open ? X : isAuthenticated ? UserRound : Menu;
-  const isMobileSheet = typeof window !== 'undefined' && window.innerWidth < 640;
 
   return (
     <div className="relative" ref={ref}>
@@ -153,6 +168,18 @@ export function HeaderMenu({
                     <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </Link>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    setFeedbackOpen(true);
+                  }}
+                  className={`flex min-h-12 w-full items-center gap-3 px-4 text-left text-sm font-semibold text-default active:scale-[0.99] ${r.divider}`}
+                >
+                  <MessageSquarePlus className={`h-4 w-4 shrink-0 ${r.accent}`} aria-hidden="true" />
+                  <span className="flex-1">Görüş & Hata Bildir</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </button>
               </div>
             </div>
 
@@ -223,6 +250,17 @@ export function HeaderMenu({
                 {label}
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                setFeedbackOpen(true);
+              }}
+              className={`${r.menuItem} !flex items-center gap-2.5`}
+            >
+              <MessageSquarePlus className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Görüş & Hata Bildir
+            </button>
           </div>
 
           {isAuthenticated && (
@@ -240,6 +278,14 @@ export function HeaderMenu({
           )}
         </div>
       )}
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        variant={isTeacher ? 'teacher' : 'general'}
+        source="header_menu"
+        isAuthenticated={isAuthenticated}
+      />
     </div>
   );
 }

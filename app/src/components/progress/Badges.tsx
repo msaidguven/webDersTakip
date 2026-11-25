@@ -1,12 +1,12 @@
 'use client';
 
-// Rozetlerim (İlerlemem, yol haritası 4i). Kurallar lib/badges.ts'te; veri özet kartıyla aynı
-// SWR önbelleğinden (get_my_daily_activity) — ek istek yok.
+// Rozetler (İlerlemem ve Üye Profil Kartı için TEK ortak bileşen — bkz. GEMINI.md Kural 5).
+// Kurallar lib/badges.ts'te; mobilde 4 sütun kompakt ızgara, masaüstünde açıklamalı kartlar.
 import { useMemo } from 'react';
-import { CalendarCheck, Flame, Footprints, Trophy, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, Flame, Footprints, Lock, Trophy, type LucideIcon } from 'lucide-react';
 import { useProgressActivity } from '@/app/src/hooks/useProgressActivity';
 import { summarizeActivity } from '@/app/src/lib/progressActivity';
-import { computeBadges, type BadgeIcon } from '@/app/src/lib/badges';
+import { computeBadges, type Badge, type BadgeIcon } from '@/app/src/lib/badges';
 import r from '../robotic/robotic.module.css';
 
 const ICONS: Record<BadgeIcon, LucideIcon> = { first: Footprints, questions: Trophy, streak: Flame, days: CalendarCheck };
@@ -19,19 +19,27 @@ const EARNED: Record<BadgeIcon, string> = {
   days: 'from-emerald-400 to-teal-500 shadow-emerald-500/30',
 };
 
-export function Badges() {
-  const { data, error } = useProgressActivity();
-  const badges = useMemo(() => (data ? computeBadges(summarizeActivity(data)) : null), [data]);
+export interface BadgesListProps {
+  badges: Badge[] | null;
+  title?: string;
+  headingId?: string;
+  /** Başka bir üyenin kartında kilitli rozetlerin ham eksik sayıları gizlenir, kendi ekranında ilerleme çubuğu gösterilir. */
+  hideLockedProgress?: boolean;
+}
 
-  if (error) return null;
-
+export function BadgesList({
+  badges,
+  title = 'Rozetlerim',
+  headingId = 'rozetlerim',
+  hideLockedProgress = false,
+}: BadgesListProps) {
   const earnedCount = badges?.filter((b) => b.earned).length ?? 0;
 
   return (
-    <section aria-labelledby="rozetlerim" className="flex flex-col gap-3">
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 id="rozetlerim" className={`scroll-mt-28 text-lg font-bold tracking-tight text-default uppercase sm:text-xl ${r.display}`}>
-          Rozetlerim
+        <h2 id={headingId} className={`scroll-mt-28 text-lg font-bold tracking-tight text-default uppercase sm:text-xl ${r.display}`}>
+          {title}
         </h2>
         {badges && (
           <span className={r.badge}>
@@ -61,11 +69,19 @@ export function Badges() {
                     b.earned ? 'bg-white/25' : r.chipBox
                   }`}
                 >
-                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  {b.earned || !hideLockedProgress ? (
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-75" aria-hidden="true" />
+                  )}
                 </span>
-                <span className={`text-[11px] font-semibold leading-tight sm:text-sm ${b.earned ? 'text-white' : 'text-default'}`}>{b.title}</span>
+                <span className={`text-[11px] font-semibold leading-tight sm:text-sm ${b.earned ? 'text-white' : 'text-default'}`}>
+                  {b.title}
+                </span>
                 {b.earned ? (
                   <span className="hidden text-xs text-white/85 sm:inline">{b.description}</span>
+                ) : hideLockedProgress ? (
+                  <span className="text-[10px] leading-tight text-muted-foreground sm:text-xs">Kilitli</span>
                 ) : (
                   <>
                     <span className={`block h-1 w-full sm:h-1.5 ${r.track}`} role="img" aria-label={`İlerleme: ${b.progressLabel}`}>
@@ -81,4 +97,13 @@ export function Badges() {
       )}
     </section>
   );
+}
+
+export function Badges() {
+  const { data, error } = useProgressActivity();
+  const badges = useMemo(() => (data ? computeBadges(summarizeActivity(data)) : null), [data]);
+
+  if (error) return null;
+
+  return <BadgesList badges={badges} title="Rozetlerim" headingId="rozetlerim" />;
 }

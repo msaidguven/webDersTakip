@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Icon } from './icons';
 import { useAuth } from '../context/AuthContext';
+import { useDismissOnBack } from '../hooks/useDismissOnBack';
 
 type Notification = {
   id: number;
@@ -36,6 +37,8 @@ export function NotificationBell() {
   const { isAuthenticated, user, supabase } = useAuth();
   const [items, setItems] = React.useState<Notification[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
+  useDismissOnBack(isOpen, () => setIsOpen(false));
+  const [expandedId, setExpandedId] = React.useState<number | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   const unreadCount = items.filter((n) => !n.read_at).length;
@@ -131,12 +134,17 @@ export function NotificationBell() {
               <p className="px-4 py-6 text-sm text-muted-foreground text-center">Henüz bildirimin yok.</p>
             ) : (
               items.map((n) => {
+                const isExpanded = expandedId === n.id;
                 const content = (
                   <div className="flex items-start gap-2">
                     {!n.read_at && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-default truncate">{n.title}</p>
-                      {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                      {n.body && (
+                        <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? 'whitespace-pre-line' : 'line-clamp-2'}`}>
+                          {n.body}
+                        </p>
+                      )}
                       <p className="text-[11px] text-muted-foreground mt-1">{formatRelative(n.created_at)}</p>
                     </div>
                   </div>
@@ -160,7 +168,13 @@ export function NotificationBell() {
                         {content}
                       </Link>
                     ) : (
-                      <button onClick={() => markRead(n)} className="block min-w-0 flex-1 text-left">
+                      <button
+                        onClick={() => {
+                          markRead(n);
+                          setExpandedId((prev) => (prev === n.id ? null : n.id));
+                        }}
+                        className="block min-w-0 flex-1 text-left"
+                      >
                         {content}
                       </button>
                     )}

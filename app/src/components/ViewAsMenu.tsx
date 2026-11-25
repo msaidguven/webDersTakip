@@ -49,12 +49,12 @@ export function ViewAsMenu({ userId, viewAs }: { userId: string; viewAs: ViewAsR
         title="Siteyi hangi rolde göreceğini seç"
         className={
           active
-            ? 'inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/60 bg-amber-500/15 px-2.5 text-xs font-bold text-amber-700 sm:h-10 sm:text-sm dark:text-amber-300'
+            ? 'inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/60 bg-amber-500/15 px-2.5 text-xs font-bold text-amber-700 whitespace-nowrap sm:h-10 dark:text-amber-300'
             : `w-9 h-9 sm:w-10 sm:h-10 ${r.iconBtn}`
         }
       >
         <Eye className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-        {active && <span className="hidden sm:inline">{current}</span>}
+        {active && <span className="hidden xl:inline">{current}</span>}
       </button>
 
       {open && (

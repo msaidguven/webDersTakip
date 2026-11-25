@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Icon } from './icons';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 
 interface PanelShellProps {
   isAuthenticated: boolean;
@@ -22,6 +23,7 @@ interface PanelShellProps {
 // sayfaya özgü başlık) kalıyor.
 export function PanelShell({ isAuthenticated, userName, title, subtitle, weeklyActiveDays, children }: PanelShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useDismissOnBack(sidebarOpen, () => setSidebarOpen(false));
 
   return (
     <div className="min-h-screen bg-background bg-grid">

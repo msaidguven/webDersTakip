@@ -1,12 +1,12 @@
 'use client';
 
-// Etkileşimli Ders Oynatıcısı v3 — "Atom Keşif Dünyası" (Tek Ekran = Tek Bilgi veya Tek İşlem).
-// Ana sayfa: 4 Alt Konulu Keşif Haritası.
-// Bölüm içi her ekran SADECE 1 iş yapar:
-//   - Anlatım ekranı: Yalnızca görsel + tek bilgi (soru yok)
-//   - Hızlı Kontrol ekranı: Bir sonraki ekranda yalnızca 1 soru + anında kontrollü kartlar (cevap üstte görünmez)
-//   - Oyun ekranı: Yalnızca Kavram Avı
-//   - Bölüm Kontrolü: Her ekranda yalnızca 1 havuz sorusu (tıklar tıklamaz anında kontrol)
+// Etkileşimli Ders Oynatıcısı v3 — "Atom Keşif Dünyası".
+// Supabase'teki 52 dersin ses kaydı (v3BeatSpeech) "1) Başlık → 2) Görsel Şema → 3) Atom Özeti (fact)"
+// sırasıyla tek MP3 olarak üretildiği için anlatım ekranındaki görsel sıra sesle %100 birebir aynıdır:
+//   1. Üstte: Konu etiketi + Başlık
+//   2. Ortada: Görsel Şema / Canlı Sahne
+//   3. Altta: Tam genişlik Atom özet balonu (içinde ses butonu yok, metin sıkışmaz)
+// Ses kontrolleri (Durdur / Başlat / Dinle / Tekrar) alt lacivert oyun çubuğunun ortasında sabit durur.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Award,
   CheckCircle2,
   Home,
+  Lightbulb,
   Maximize2,
   Minimize2,
   Music,
@@ -62,6 +63,7 @@ import { DigestiveScene } from './scenes/DigestiveScene';
 import { GenericVisualScene } from './scenes/GenericVisualScene';
 import { VoiceControls, type VoiceStatus } from './VoiceControls';
 import { WorldMapView } from './WorldMapView';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import s from './v3.module.css';
 
 type ScreenMode = 'map' | 'play';
@@ -99,11 +101,9 @@ function pickInitialSectionIdx(lesson: HydratedLessonV3, prog: SavedV3Progress):
   const maxIdx = Math.max(0, lesson.sections.length - 1);
   const doneSet = new Set(prog.completedSections);
   const lastSec = lesson.sections[prog.lastSectionIdx];
-  // En son çalışılan bölüm yarım kaldıysa direkt onu işaretle
   if (lastSec && !doneSet.has(lastSec.sectionId)) {
     return Math.min(prog.lastSectionIdx, maxIdx);
   }
-  // Aksi halde ilk tamamlanmamış bölümü öner
   const firstPending = lesson.sections.findIndex((sec) => !doneSet.has(sec.sectionId));
   if (firstPending >= 0) return firstPending;
   return Math.min(prog.lastSectionIdx, maxIdx);
@@ -137,6 +137,8 @@ export default function PlayerV3({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [voiced, setVoiced] = useState<Set<string>>(() => new Set());
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('idle');
+  const [lastVoicedText, setLastVoicedText] = useState<string | null>(null);
+  const [gamePromptText, setGamePromptText] = useState<string | null>(null);
   const [atomMood, setAtomMood] = useState<RobotMood>('normal');
   const [zoomedVisual, setZoomedVisual] = useState(false);
   const talking = voiceStatus === 'playing';
@@ -194,7 +196,6 @@ export default function PlayerV3({
       saveLocalProgressV3(lesson.topicId, merged);
       setProgress(merged);
       setSectionIdx((cur) => (mode === 'map' ? pickInitialSectionIdx(lesson, merged) : cur));
-      // Yerel veri daha yeniyse uzak veriyi de güncelle
       const localTs = local.updatedAt ? Date.parse(local.updatedAt) : 0;
       const remoteTs = remote.updatedAt ? Date.parse(remote.updatedAt) : 0;
       if (localTs > remoteTs) {
@@ -264,11 +265,9 @@ export default function PlayerV3({
     setMode('map');
   }, [stopSpeech]);
 
-  // Keşif Haritasına dönüldüğünde arka planda kalan seslendirmeyi kesin olarak durdur
   useEffect(() => {
     if (mode === 'map') {
       lessonSound().hush();
-      setVoiceStatus('idle');
     }
   }, [mode]);
 
@@ -292,12 +291,11 @@ export default function PlayerV3({
     return () => document.removeEventListener('keydown', onKey);
   }, [mode, onClose, returnToMap, stopSpeech, zoomedVisual]);
 
-  const canSpeak = useCallback((text: string) => voiced.has(voiceKey(text)), [voiced]);
-
   const speakLine = useCallback((text: string, force = false) => {
-    if (!force && !soundOnRef.current) return;
     const key = voiceKey(text);
     if (!voicedRef.current.has(key)) return;
+    setLastVoicedText(text);
+    if (!force && !soundOnRef.current) return;
     if (force && !soundOnRef.current) {
       setSoundOn(true);
       soundOnRef.current = true;
@@ -307,29 +305,57 @@ export default function PlayerV3({
     void lessonSound().speak([{ url: voiceUrl(text), text: ttsText(text) }], () => setVoiceStatus('idle'));
   }, []);
 
-  const resolveBeatVoiceText = useCallback((beat: V3TeachBeat): string | null => {
+  const handleGameSpeak = useCallback(
+    (text: string, force = false) => {
+      setGamePromptText(text);
+      speakLine(text, force);
+    },
+    [speakLine],
+  );
+
+  // Anlatım ekranı ses metni: Başlık → Görsel Şema → Alt Açıklama sırasıyla (ekrandaki yukarıdan aşağıya sırayla %100 aynı)
+  const resolveBeatVoice = useCallback((beat: V3TeachBeat, set: Set<string>): string | null => {
     const full = v3BeatSpeech(beat);
-    if (voicedRef.current.has(voiceKey(full))) return full;
+    if (set.has(voiceKey(full))) return full;
     const titleFact = v3BeatTitleFactSpeech(beat);
-    if (voicedRef.current.has(voiceKey(titleFact))) return titleFact;
-    if (voicedRef.current.has(voiceKey(beat.fact))) return beat.fact;
+    if (set.has(voiceKey(titleFact))) return titleFact;
+    if (set.has(voiceKey(beat.fact))) return beat.fact;
     return null;
   }, []);
 
-  const speakBeat = useCallback(
-    (beat: V3TeachBeat, force = false) => {
-      if (!force && !soundOnRef.current) return;
-      const chosen = resolveBeatVoiceText(beat);
-      if (!chosen) return;
-      if (force && !soundOnRef.current) {
-        setSoundOn(true);
-        soundOnRef.current = true;
+  const triggerScreenAudio = useCallback(
+    (scr: PlayScreen | undefined, targetSectionIdx: number) => {
+      if (!scr) return;
+      setLastVoicedText(null);
+      if (scr.kind !== 'game') setGamePromptText(null);
+
+      if (scr.kind === 'teach') {
+        setAtomMood('normal');
+        const chosen = resolveBeatVoice(scr.beat, voicedRef.current);
+        if (chosen) speakLine(chosen);
+      } else if (scr.kind === 'quick') {
+        setAtomMood('think');
+        if (scr.beat.quickCheck) speakLine(scr.beat.quickCheck.prompt);
+      } else if (scr.kind === 'game') {
+        setAtomMood('wow');
+        if (scr.game.kind === 'kavram_avi' && !scr.game.rounds[0]?.definition) {
+          setGamePromptText(scr.game.intro);
+          speakLine(scr.game.intro);
+        }
+      } else if (scr.kind === 'check') {
+        setAtomMood('think');
+        speakLine(scr.question.question_text);
+      } else if (scr.kind === 'done') {
+        setAtomMood('celebrate');
+        if (soundOnRef.current) lessonSound().sfx('win');
+        speakLine(
+          targetSectionIdx === lesson.sections.length - 1
+            ? (lesson.guide?.finish ?? GUIDE.finish)
+            : GUIDE.v3SectionDone,
+        );
       }
-      lessonSound().unlock();
-      setVoiceStatus('playing');
-      void lessonSound().speak([{ url: voiceUrl(chosen), text: ttsText(chosen) }], () => setVoiceStatus('idle'));
     },
-    [resolveBeatVoiceText],
+    [lesson.guide?.finish, lesson.sections.length, resolveBeatVoice, speakLine],
   );
 
   const handleFeedback = useCallback(
@@ -427,26 +453,9 @@ export default function PlayerV3({
         updatedAt: new Date().toISOString(),
       }));
 
-      const scr = targetScreens[startIdx];
-      if (scr?.kind === 'teach') {
-        setAtomMood('normal');
-        speakBeat(scr.beat);
-      } else if (scr?.kind === 'quick') {
-        setAtomMood('think');
-        if (scr.beat.quickCheck) speakLine(scr.beat.quickCheck.prompt);
-      } else if (scr?.kind === 'game') {
-        setAtomMood('wow');
-        if (scr.game.kind === 'kavram_avi' && !scr.game.rounds[0]?.definition) {
-          speakLine(scr.game.intro);
-        }
-      } else if (scr?.kind === 'check') {
-        setAtomMood('think');
-        speakLine(scr.question.question_text);
-      } else {
-        setAtomMood('normal');
-      }
+      triggerScreenAudio(targetScreens[startIdx], idx);
     },
-    [commitProgress, lesson.sections, speakBeat, speakLine, stopSpeech],
+    [commitProgress, lesson.sections, stopSpeech, triggerScreenAudio],
   );
 
   const goToScreen = useCallback(
@@ -473,47 +482,15 @@ export default function PlayerV3({
         }));
       }
 
-      if (scr.kind === 'teach') {
-        setAtomMood('normal');
-        if (soundOnRef.current) lessonSound().sfx('tap');
-        speakBeat(scr.beat);
-      } else if (scr.kind === 'quick') {
-        setAtomMood('think');
-        if (soundOnRef.current) lessonSound().sfx('tap');
-        if (scr.beat.quickCheck) speakLine(scr.beat.quickCheck.prompt);
-      } else if (scr.kind === 'game') {
-        setAtomMood('wow');
-        if (soundOnRef.current) lessonSound().sfx('unlock');
-        if (scr.game.kind === 'kavram_avi' && !scr.game.rounds[0]?.definition) {
-          speakLine(scr.game.intro);
-        }
-      } else if (scr.kind === 'check') {
-        setAtomMood('think');
-        if (soundOnRef.current) lessonSound().sfx('tap');
-        speakLine(scr.question.question_text);
-      } else if (scr.kind === 'done') {
+      if (scr.kind === 'done') {
         markSectionCompleted(sectionIdx);
-        setAtomMood('celebrate');
-        if (soundOnRef.current) lessonSound().sfx('win');
-        speakLine(
-          sectionIdx === lesson.sections.length - 1
-            ? (lesson.guide?.finish ?? GUIDE.finish)
-            : GUIDE.v3SectionDone,
-        );
+      } else if (soundOnRef.current) {
+        lessonSound().sfx(scr.kind === 'game' ? 'unlock' : 'tap');
       }
+
+      triggerScreenAudio(scr, sectionIdx);
     },
-    [
-      activeSection,
-      commitProgress,
-      lesson.guide?.finish,
-      lesson.sections.length,
-      markSectionCompleted,
-      screens,
-      sectionIdx,
-      speakBeat,
-      speakLine,
-      stopSpeech,
-    ],
+    [activeSection, commitProgress, markSectionCompleted, screens, sectionIdx, stopSpeech, triggerScreenAudio],
   );
 
   const handleQuickOption = (beat: V3TeachBeat, optIdx: number) => {
@@ -569,6 +546,10 @@ export default function PlayerV3({
     else returnToMap();
   };
 
+  // Mobilde sistem Geri tuşu: önce açık bölüm içindeyse haritaya döner, büyütülmüş görsel varsa önce onu kapatır.
+  useDismissOnBack(mode === 'play', returnToMap);
+  useDismissOnBack(zoomedVisual && mode === 'play', () => setZoomedVisual(false));
+
   const toggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
@@ -598,11 +579,54 @@ export default function PlayerV3({
     }
   };
 
+  const activeScreenVoiceText = useMemo(() => {
+    if (!activeScreen) return null;
+    if (activeScreen.kind === 'teach') {
+      return resolveBeatVoice(activeScreen.beat, voiced);
+    }
+    if (activeScreen.kind === 'quick' && activeScreen.beat.quickCheck) {
+      const p = activeScreen.beat.quickCheck.prompt;
+      return voiced.has(voiceKey(p)) ? p : null;
+    }
+    if (activeScreen.kind === 'game') {
+      const candidate = gamePromptText ?? activeScreen.game.rounds[0]?.definition ?? activeScreen.game.intro;
+      return candidate && voiced.has(voiceKey(candidate)) ? candidate : null;
+    }
+    if (activeScreen.kind === 'check') {
+      const q = activeScreen.question.question_text;
+      return voiced.has(voiceKey(q)) ? q : null;
+    }
+    if (activeScreen.kind === 'done') {
+      const doneLine =
+        sectionIdx === lesson.sections.length - 1
+          ? (lesson.guide?.finish ?? GUIDE.finish)
+          : GUIDE.v3SectionDone;
+      return voiced.has(voiceKey(doneLine)) ? doneLine : null;
+    }
+    return null;
+  }, [
+    activeScreen,
+    gamePromptText,
+    lesson.guide?.finish,
+    lesson.sections.length,
+    resolveBeatVoice,
+    sectionIdx,
+    voiced,
+  ]);
+
+  const replayTargetText = activeScreenVoiceText ?? lastVoicedText;
+  const showBottomVoiceDock = Boolean(replayTargetText) || voiceStatus !== 'idle';
+
   const isNextDisabled =
     (activeScreen?.kind === 'quick' && !solvedGateSet.has(activeScreen.beat.id)) ||
     (activeScreen?.kind === 'check' && !solvedCheckIds.has(activeScreen.question.id));
 
   const doneCount = progress.completedSections.length;
+  const currentStepDisplay = activeScreen?.kind === 'done' ? playableCount : Math.min(screenIdx + 1, playableCount);
+  const stepProgressPct =
+    activeScreen?.kind === 'done'
+      ? 100
+      : Math.min(100, Math.max(10, Math.round(((screenIdx + 1) / playableCount) * 100)));
 
   return (
     <div
@@ -615,34 +639,45 @@ export default function PlayerV3({
     >
       {/* ==================== ÜST OYUN HUD ÇUBUĞU ==================== */}
       <header className={s.gameTopBar}>
-        <button
-          type="button"
-          onClick={() => {
-            if (soundOnRef.current) lessonSound().sfx('tap');
-            returnToMap();
-          }}
-          className={s.gameBrandBtn}
-          title="Keşif Haritasına Dön"
-        >
-          <span className="w-8 shrink-0">
-            <RobotGuide mood={atomMood} talking={talking} />
-          </span>
-          <span className={s.gameBrandTitle}>{lesson.topicTitle}</span>
-        </button>
+        {mode === 'play' ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (soundOnRef.current) lessonSound().sfx('tap');
+              returnToMap();
+            }}
+            className={s.gameBrandBtn}
+            title="Keşif Haritasına Dön"
+          >
+            <span className="w-8 shrink-0">
+              <RobotGuide mood={atomMood} talking={talking} />
+            </span>
+            <span className={s.gameBrandTitle}>{lesson.topicTitle}</span>
+          </button>
+        ) : (
+          <div className={s.gameBrandStatic}>
+            <span className="w-8 shrink-0">
+              <RobotGuide mood="happy" talking={talking} />
+            </span>
+            <span className={s.gameBrandTitle}>{lesson.topicTitle}</span>
+          </div>
+        )}
 
         <div className={s.gameTopRight}>
           {mode === 'play' && (
-            <span className={s.gameLevelPill}>
-              Bölüm {sectionIdx + 1} / {lesson.sections.length}
-            </span>
-          )}
+            <>
+              <span className={s.gameLevelPill}>
+                Bölüm {sectionIdx + 1}/{lesson.sections.length} • Adım {currentStepDisplay}/{playableCount}
+              </span>
 
-          <span className={s.gameStarPill} title="Tamamlanan bölümler">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
-            <span>
-              {doneCount}/{lesson.sections.length}
-            </span>
-          </span>
+              <span className={s.gameStarPill} title="Adım ilerlemesi">
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                <span>
+                  {currentStepDisplay}/{playableCount}
+                </span>
+              </span>
+            </>
+          )}
 
           <button
             type="button"
@@ -664,19 +699,20 @@ export default function PlayerV3({
             <Music className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (soundOnRef.current) lessonSound().sfx('tap');
-              if (mode === 'map') setMode('play');
-              else returnToMap();
-            }}
-            className={`${s.gameIconBtn} ${s.gameIconBlue}`}
-            aria-label={mode === 'map' ? 'Derse dön' : 'Keşif Haritası'}
-            title={mode === 'map' ? 'Derse dön' : 'Keşif Haritası'}
-          >
-            <Home className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {mode === 'play' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (soundOnRef.current) lessonSound().sfx('tap');
+                returnToMap();
+              }}
+              className={`${s.gameIconBtn} ${s.gameIconBlue}`}
+              aria-label="Keşif Haritasına dön"
+              title="Keşif Haritasına dön"
+            >
+              <Home className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
 
           <button
             type="button"
@@ -700,7 +736,7 @@ export default function PlayerV3({
         </div>
       </header>
 
-      {/* ==================== ANA KEŞİF HARİTASI veya TEK-İŞLEMLİ OYUN SAHNESİ ==================== */}
+      {/* ==================== ANA KEŞİF HARİTASI veya SENKRON OYUN SAHNESİ ==================== */}
       {mode === 'map' ? (
         <WorldMapView
           lesson={lesson}
@@ -715,6 +751,10 @@ export default function PlayerV3({
         />
       ) : (
         <div className={s.gamePlayRoot}>
+          <div className={s.playProgressRail} aria-hidden="true">
+            <div className={s.playProgressFill} style={{ width: `${stepProgressPct}%` }} />
+          </div>
+
           <div className={s.gamePlayStage}>
             <div className={s.worldClouds} aria-hidden="true">
               <div className={s.worldCloud} style={{ left: '8%', top: 36 }} />
@@ -723,7 +763,7 @@ export default function PlayerV3({
             </div>
 
             <div className={s.gamePlayInner}>
-              {/* 1) YALNIZCA ANLATIM EKRANI (TEK BİLGİ — SORU YOK) */}
+              {/* 1) ANLATIM EKRANI (Ses sırasıyla birebir aynı: 1. Başlık → 2. Görsel Şema → 3. Tam Genişlik Atom Özeti) */}
               {activeScreen?.kind === 'teach' && (
                 <div className={s.gameBeatStack}>
                   <div className="text-center">
@@ -760,33 +800,20 @@ export default function PlayerV3({
                     </div>
                   )}
 
-                  <div className={s.gameDialogueBox}>
-                    <div className="w-12 shrink-0 xl:w-16">
+                  <div className={s.teachBottomSummary}>
+                    <div className={s.teachBottomAvatar}>
                       <RobotGuide mood={atomMood} talking={talking} />
                     </div>
-                    <div className={s.gameDialogueInner}>
-                      <p className="m-0">{activeScreen.beat.fact}</p>
-                    </div>
-                    {(voiced.has(voiceKey(v3BeatSpeech(activeScreen.beat))) ||
-                      voiced.has(voiceKey(v3BeatTitleFactSpeech(activeScreen.beat))) ||
-                      voiced.has(voiceKey(activeScreen.beat.fact))) && (
-                      <VoiceControls
-                        status={voiceStatus}
-                        onPause={pauseSpeech}
-                        onResume={resumeSpeech}
-                        onReplay={() => speakBeat(activeScreen.beat, true)}
-                        replayLabel="Tekrar Dinle"
-                      />
-                    )}
+                    <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
                   </div>
                 </div>
               )}
 
-              {/* 2) AYRI HIZLI SORU EKRANI (YALNIZCA 1 SORU — ANLATIM YOK) */}
+              {/* 2) AYRI HIZLI SORU EKRANI */}
               {activeScreen?.kind === 'quick' && activeScreen.beat.quickCheck && (
                 <div className={s.gameQuestionWrap}>
-                  <div className={s.gameQuestionHeader}>
-                    <div className="w-12 shrink-0 xl:w-16">
+                  <div className={s.mentorCard}>
+                    <div className={s.mentorAvatarDock}>
                       <RobotGuide
                         mood={
                           solvedGateSet.has(activeScreen.beat.id)
@@ -797,31 +824,21 @@ export default function PlayerV3({
                         }
                       />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className="mb-1 block font-extrabold uppercase tracking-wider text-sky-700"
-                        style={{ fontSize: 'var(--fs-sm)' }}
-                      >
-                        Hızlı Kontrol • {activeScreen.beat.title}
-                      </span>
+                    <div className={s.mentorBody}>
+                      <div className={s.mentorTopRow}>
+                        <span className={s.mentorKickerBadge}>
+                          Hızlı Kontrol • {activeScreen.beat.title}
+                        </span>
+                      </div>
                       <div className={s.gameQuestionText}>{activeScreen.beat.quickCheck.prompt}</div>
                     </div>
-                    {canSpeak(activeScreen.beat.quickCheck.prompt) && (
-                      <VoiceControls
-                        status={voiceStatus}
-                        onPause={pauseSpeech}
-                        onResume={resumeSpeech}
-                        onReplay={() => speakLine(activeScreen.beat.quickCheck!.prompt, true)}
-                        replayLabel="Tekrar Dinle"
-                      />
-                    )}
                   </div>
 
                   <div className={s.gameChoiceGrid}>
                     {activeScreen.beat.quickCheck.options.map((opt, idx) => {
                       const isOpen = solvedGateSet.has(activeScreen.beat.id);
                       const isOk = isOpen && idx === activeScreen.beat.quickCheck!.answer;
-                      const isBad = quickWrongIdx === idx;
+                      const isBad = !isOpen && quickWrongIdx === idx;
                       return (
                         <button
                           key={opt}
@@ -857,6 +874,13 @@ export default function PlayerV3({
                     })}
                   </div>
 
+                  {!solvedGateSet.has(activeScreen.beat.id) && quickWrongIdx !== null && (
+                    <div className={s.gameRetryPanel}>
+                      <Lightbulb className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                      <span>{activeScreen.beat.quickCheck.retryFeedback}</span>
+                    </div>
+                  )}
+
                   {solvedGateSet.has(activeScreen.beat.id) && (
                     <div className={s.gameSuccessPanel}>
                       <div className="flex items-center justify-center gap-1.5 font-black text-emerald-900">
@@ -881,11 +905,7 @@ export default function PlayerV3({
                     onProgress={() => {}}
                     onFeedback={handleFeedback}
                     onComplete={handleGameComplete}
-                    onSpeak={speakLine}
-                    canSpeak={canSpeak}
-                    voiceStatus={voiceStatus}
-                    onPauseVoice={pauseSpeech}
-                    onResumeVoice={resumeSpeech}
+                    onSpeak={handleGameSpeak}
                   />
                 </div>
               )}
@@ -901,11 +921,6 @@ export default function PlayerV3({
                   onSolved={() =>
                     setSolvedCheckIds((prev) => new Set(prev).add(activeScreen.question.id))
                   }
-                  onSpeak={speakLine}
-                  canSpeak={canSpeak}
-                  voiceStatus={voiceStatus}
-                  onPauseVoice={pauseSpeech}
-                  onResumeVoice={resumeSpeech}
                 />
               )}
 
@@ -966,29 +981,29 @@ export default function PlayerV3({
             </div>
           </div>
 
-          {/* ALT OYUN NAVİGASYON ÇUBUĞU */}
+          {/* ALT OYUN NAVİGASYON & SABİT SES KONTROL ÇUBUĞU */}
           <footer className={s.gameBottomBar}>
             <button type="button" onClick={handleBack} className={s.arcadeBtnBlue}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span>{screenIdx === 0 ? 'Harita' : 'Geri'}</span>
             </button>
 
-            <div className={s.bottomSquares} aria-label="Bölüm ilerlemesi">
-              {screens.slice(0, playableCount).map((scr, idx) => {
-                const isActive = idx === screenIdx;
-                const isPast = idx < screenIdx || activeScreen?.kind === 'done';
-                return (
-                  <button
-                    key={scr.key}
-                    type="button"
-                    onClick={() => goToScreen(idx)}
-                    title={`Adım ${idx + 1} / ${playableCount}`}
-                    className={`${s.bottomSquare} ${
-                      isActive ? s.bottomSquareActive : isPast ? s.bottomSquareDone : ''
-                    }`}
-                  />
-                );
-              })}
+            <div className={s.bottomCenterGroup}>
+              {showBottomVoiceDock ? (
+                <VoiceControls
+                  status={voiceStatus}
+                  onPause={pauseSpeech}
+                  onResume={resumeSpeech}
+                  onReplay={() => {
+                    if (replayTargetText) speakLine(replayTargetText, true);
+                  }}
+                  replayLabel="Sesli Dinle"
+                />
+              ) : (
+                <span className={s.bottomStepIndicator}>
+                  Adım {currentStepDisplay} / {playableCount}
+                </span>
+              )}
             </div>
 
             <button
@@ -1000,10 +1015,10 @@ export default function PlayerV3({
               <span>
                 {activeScreen?.kind === 'done'
                   ? sectionIdx + 1 < lesson.sections.length
-                    ? 'Sonraki Bölüm'
-                    : 'Haritaya Dön'
+                    ? 'Sonraki'
+                    : 'Harita'
                   : activeScreen?.kind === 'game'
-                    ? 'Sorulara Geç'
+                    ? 'Sorular'
                     : 'İleri'}
               </span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

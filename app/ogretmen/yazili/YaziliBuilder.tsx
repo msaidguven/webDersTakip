@@ -13,9 +13,11 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronLeft, ChevronRight, Eye, FileDown, FileText, GripVertical, Image as ImageIcon, Layers, Plus, RotateCcw, ScanEye, Shuffle, X,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronLeft, ChevronRight, Eye, FileDown, FileText, GripVertical, Image as ImageIcon, Layers, MessageSquareHeart, Plus, RotateCcw, ScanEye, Shuffle, X,
 } from 'lucide-react';
 import MathText from '@/app/src/components/MathText';
+import { FeedbackSheet } from '@/app/src/components/feedback/FeedbackSheet';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
 import type { YaziliQuestion, YaziliTopic } from '@/app/src/lib/yazili/publicData';
 import { DIFFICULTY_BAND_LABEL, difficultyBand, type DifficultyBand } from '@/app/src/lib/yazili/papers';
@@ -31,6 +33,7 @@ type Step = 1 | 2 | 3;
 // v1 açılışta boş değerleri de kaydediyordu, profil bilgisinin gelmesini engellerdi.
 const INFO_KEY = 'dt-ogretmen-kagit-bilgi-v2';
 const COLUMNS_KEY = 'dt-ogretmen-kagit-sutun';
+const YAZILI_FEEDBACK_DISMISS_KEY = 'dt-yazili-feedback-dismissed-v1';
 
 function readStorage<T>(key: string): T | null {
   try {
@@ -121,6 +124,12 @@ function Builder({
   const [busy, setBusy] = useState<Busy>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFeedbackNudge, setShowFeedbackNudge] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const dismissFeedbackNudge = () => {
+    setShowFeedbackNudge(false);
+    writeStorage(YAZILI_FEEDBACK_DISMISS_KEY, 1);
+  };
   // Kayıtlı kağıdı olan öğretmen doğrudan Düzenle'ye, boş kağıtla gelen Soru seç'e.
   const [step, setStep] = useState<Step>(() => (draft.items.length ? 2 : 1));
 
@@ -246,6 +255,9 @@ function Builder({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      if (!readStorage<number>(YAZILI_FEEDBACK_DISMISS_KEY)) {
+        setShowFeedbackNudge(true);
+      }
     } catch {
       setError('Bağlantı hatası, tekrar dene');
     } finally {
@@ -605,6 +617,33 @@ function Builder({
         Word dosyası düzenlenebilir; içinde cevap anahtarı ayrı sayfadadır. Taslağın bu cihazda saklanır.
       </p>
       {error && <p role="alert" className="mt-2 text-sm font-semibold text-red-500">{error}</p>}
+      {showFeedbackNudge && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--neon)]/40 bg-[color-mix(in_srgb,var(--neon)_8%,var(--panel-solid))] px-3.5 py-2.5 text-xs">
+          <p className="flex items-center gap-2 text-default">
+            <MessageSquareHeart className={`h-4 w-4 shrink-0 ${r.accent}`} aria-hidden="true" />
+            <span>
+              <b>Kağıdınız indi!</b> Hazırlarken eksik gördüğünüz bir soru tarzı veya özellik oldu mu?
+            </span>
+          </p>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className={`rounded-lg px-2.5 py-1 font-bold hover:underline ${r.accent}`}
+            >
+              Görüş ilet →
+            </button>
+            <button
+              type="button"
+              onClick={dismissFeedbackNudge}
+              aria-label="Kapat"
+              className="rounded p-1 text-muted-foreground hover:text-default"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 
@@ -718,6 +757,17 @@ function Builder({
           onClose={() => setPreviewOpen(false)}
         />
       )}
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        variant="teacher"
+        source="yazili_builder"
+        isAuthenticated
+        initialCategory="yazili_tool"
+        extraContext={{ examId: exam.id, examTitle: `${exam.gradeName} ${exam.lessonName} · ${exam.label}` }}
+        onSubmitted={dismissFeedbackNudge}
+      />
     </div>
   );
 }
@@ -873,6 +923,7 @@ function PaperPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answerKey]);
 
+  useDismissOnBack(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);

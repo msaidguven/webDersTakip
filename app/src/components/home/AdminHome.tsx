@@ -6,7 +6,7 @@
 // admin'in kendi hesabıyla, değiştirilene kadar her sayfada o rolde görünüm.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BellRing, Check, GraduationCap, LayoutDashboard, Presentation, UserCheck } from 'lucide-react';
+import { BellRing, Check, GraduationCap, LayoutDashboard, MessageSquareHeart, Presentation, UserCheck } from 'lucide-react';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { AdminYaziliUsage } from './AdminYaziliUsage';
 import { AdminDownloadStats } from './AdminDownloadStats';
@@ -27,6 +27,7 @@ function daysAgo(iso: string | null): string {
 
 function AlertsSection() {
   const [teachers, setTeachers] = useState<PendingTeacher[] | null>(null);
+  const [feedbackAlert, setFeedbackAlert] = useState<{ total: number; teacher: number }>({ total: 0, teacher: 0 });
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [approved, setApproved] = useState<string | null>(null);
@@ -38,7 +39,10 @@ function AlertsSection() {
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok) setError(data?.error || 'Uyarılar yüklenemedi');
-        else setTeachers(data.pendingTeachers ?? []);
+        else {
+          setTeachers(data.pendingTeachers ?? []);
+          setFeedbackAlert({ total: data.newFeedback ?? 0, teacher: data.newTeacherFeedback ?? 0 });
+        }
       })
       .catch(() => !cancelled && setError('Uyarılar yüklenemedi'));
     return () => {
@@ -65,11 +69,13 @@ function AlertsSection() {
     setApproved(t.name);
   }
 
+  const totalAlerts = (teachers?.length ?? 0) + feedbackAlert.total;
+
   return (
     <section aria-labelledby="uyarilar" className={`flex flex-col gap-3 p-5 sm:p-7 ${card}`}>
       <h2 id="uyarilar" className="flex items-center gap-2 text-lg font-extrabold text-default">
         <BellRing className="h-5 w-5" aria-hidden="true" /> Acil uyarılar
-        {!!teachers?.length && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">{teachers.length}</span>}
+        {totalAlerts > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">{totalAlerts}</span>}
       </h2>
       {approved && (
         <p role="status" className="flex items-center gap-1.5 text-sm font-semibold text-emerald-500">
@@ -77,6 +83,32 @@ function AlertsSection() {
         </p>
       )}
       {error && <p role="alert" className="text-sm font-semibold text-red-500">{error}</p>}
+      {feedbackAlert.total > 0 && (
+        <div className={`flex flex-col gap-3 rounded-2xl p-3.5 sm:flex-row sm:items-center sm:justify-between ${r.item}`}>
+          <div className="flex items-start gap-3 text-sm">
+            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${r.chipBox}`} aria-hidden="true">
+              <MessageSquareHeart className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-bold text-default">
+                {feedbackAlert.total} okunmamış geri bildirim var
+                {feedbackAlert.teacher > 0 && (
+                  <span className="ml-1.5 rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {feedbackAlert.teacher} öğretmen
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">Öğretmen, öğrenci ve iletişim sayfası mesajlarını inceleyip yanıtlayabilirsin.</p>
+            </div>
+          </div>
+          <Link
+            href="/admin/geri-bildirimler"
+            className={`inline-flex min-h-9 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold ${r.btnNeon}`}
+          >
+            Mesajları Gör
+          </Link>
+        </div>
+      )}
       {teachers === null && !error ? (
         <div className={`h-16 animate-pulse rounded-xl ${r.item}`} aria-hidden="true" />
       ) : teachers && teachers.length > 0 ? (
@@ -115,7 +147,8 @@ function AlertsSection() {
           <p className="text-xs text-muted-foreground">Şüpheli hesaplar için Admin paneli → Üyeler.</p>
         </div>
       ) : (
-        !error && (
+        !error &&
+        feedbackAlert.total === 0 && (
           <p className="rounded-xl border border-dashed border-[var(--edge)] p-5 text-center text-sm text-muted-foreground">
             Şu an gösterilecek uyarı yok.
           </p>

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ListTree, Loader2, Pause, Play, RotateCcw, X
 import { narrationManifestPath, narrationPublicUrl } from '@/app/src/lib/narration/config';
 import { NARRATION_MANIFEST_VERSION, type NarrationManifest, type NarrationScreen } from '@/app/src/lib/narration/types';
 import { useViewportRemScale } from '@/app/src/hooks/useViewportRemScale';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import s from './NarrationPlayer.module.css';
 
@@ -278,6 +279,9 @@ export default function NarrationPlayer({ topicId, onClose }: Props) {
     clearAdvance();
     onClose();
   }, [onClose]);
+
+  useDismissOnBack(true, close);
+  useDismissOnBack(menuOpen, () => setMenuOpen(false));
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;

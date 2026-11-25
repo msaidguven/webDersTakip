@@ -7,6 +7,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 
 interface TestData {
   gradeId: number;
@@ -69,6 +70,8 @@ export function useQuizTestLauncher(onClosed?: () => void) {
     setTest(null);
     onClosed?.();
   }, [onClosed]);
+
+  useDismissOnBack(Boolean(test), close);
 
   const player = test && (
     <QuizWithAsk

@@ -109,11 +109,11 @@ export function MainLayout({ children }: MainLayoutProps) {
         // Robotik tema (2026-10-19): metal cam çubuk + alt neon çizgi (bkz. robotic.module.css .siteBar).
         className={`fixed top-0 left-0 right-0 z-50 h-14 sm:h-[4.5rem] ${roboticFontVars} ${r.siteBar}`}
       >
-        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-3.5 sm:px-8">
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between gap-2 px-3.5 sm:px-6 lg:px-5 xl:px-8">
           
           {/* Logo ve Site Adı + masaüstü menü */}
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 group active:scale-[0.98] transition-transform">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:gap-3 xl:gap-5">
+            <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-2.5 group active:scale-[0.98] transition-transform">
               {/* Logo */}
               {/* Gerçek Ders Takip logosu (favicon/PWA ikonuyla aynı), neon çerçeveli yuvarlak çipte. */}
               <div className={`w-9 h-9 sm:w-11 sm:h-11 !rounded-full p-0.5 ${r.brandChip}`} aria-label="Ders Takip anasayfa">
@@ -134,16 +134,16 @@ export function MainLayout({ children }: MainLayoutProps) {
             <DesktopNav items={navItems} />
           </div>
 
-          {/* Sağ Menü */}
-          <div className="flex items-center gap-2 sm:gap-4 lg:gap-2 xl:gap-4">
+          {/* Sağ Menü — shrink-0 ile hiçbir ekran genişliğinde sağdan kırpılmaz */}
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 lg:gap-2 xl:gap-2.5">
             {/* 1024–1279px'te menü bağlantılarına yer açmak için seri gizli (İlerlemem'de görünüyor). */}
             {/* Öğretmen soru çözmüyor: seri sayacı yalnız öğrenci/admin'de (rol yüklenmeden öğretmene flash etmesin). */}
             {isAuthenticated && streak != null && role !== null && !isTeacher && (
-              <div className={`flex lg:hidden xl:flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-auto sm:py-2 ${r.metalChip}`} title={`${streak} günlük seri`}>
-                <span className="text-base sm:text-xl">🔥</span>
-                <div>
-                  <span className={`text-orange-500 text-sm sm:text-base ${r.statValue}`}>{streak}</span>
-                  <span className="hidden sm:inline text-muted-foreground text-sm ml-1">gün</span>
+              <div className={`flex lg:hidden xl:flex items-center gap-1.5 px-2.5 sm:px-3 h-9 sm:h-10 whitespace-nowrap ${r.metalChip}`} title={`${streak} günlük seri`}>
+                <span className="text-base leading-none">🔥</span>
+                <div className="leading-none">
+                  <span className={`text-orange-500 text-sm sm:text-[15px] ${r.statValue}`}>{streak}</span>
+                  <span className="hidden sm:inline text-muted-foreground text-xs ml-1">gün</span>
                 </div>
               </div>
             )}

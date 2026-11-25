@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import QuizWithAsk from '@/app/src/components/QuizWithAsk';
 import { MAX_QUESTIONS_PER_TEST, type QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { SLIDE_ACCENTS, PLAYER_TOP_BAR_CLASS, PlayerEyebrow, OverlayWindowButtons, PlayerFrame, useFullscreen } from './QuestionPlayerParts';
 
 const CURSOR_KEY = 'guestTestCursor:v1';
@@ -55,6 +56,7 @@ type GuestTopicTestProps = {
 };
 
 export default function GuestTopicTest({ gradeId, lessonId, unitId, topicId, scopeLabel, onClose }: GuestTopicTestProps) {
+  useDismissOnBack(true, onClose);
   const [pool, setPool] = useState<QuizQuestion[] | null>(null);
   const [batch, setBatch] = useState<Batch | null>(null);
   const [error, setError] = useState<string | null>(null);

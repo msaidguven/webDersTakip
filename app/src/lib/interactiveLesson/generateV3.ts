@@ -39,9 +39,10 @@ ANAHTAR KAVRAMLAR (Kavram Avı oyun turlarında öncelikle bunları kullan):
 ${termsText}
 
 PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
-1. HER EKRANDA YALNIZCA 1 BİLGİ (Tek Odak):
+1. HER EKRANDA YALNIZCA 1 ANA ODAK VE SIFIR PAPAĞAN TEKRARI (Mayer Çoklu Ortam İlkesi):
    - Her bölüm için 3 ila 5 adet tek-bilgi ekranı ("beats") yaz.
-   - Her "fact" alanı en fazla 1-2 kısa, sade, ${src.grade} düzeyinde Türkçe cümle olsun (en fazla 35 kelime).
+   - Her "fact" alanı o adımın temel tanımını veya ilkesini veren 1-2 kısa, sade, ${src.grade} düzeyinde Türkçe cümle olsun (en fazla 28 kelime).
+   - ÇOK ÖNEMLİ: "visual" alanı ASLA "fact" cümlesini kelimesi kelimesine tekrar etmemeli veya aynı tanım cümlesini 1-2-3 diye kutulara bölüp papağan gibi yeniden yazmamalıdır! "fact" tanımı/ilkeyi söylerken "visual" bunu somut bir günlük hayat/ders örneğiyle, alt türleriyle, karşılaştırmayla veya gerçek süreç aşamalarıyla tamamlamalıdır.
    - Kitap bölümündeki tüm kritik kazanımlar (tanımlar, farklar, örnekler, dikkat edilecek noktalar) tek tek ayrı ekranlara bölünsün; hiçbir önemli bilgi atlanmasın.
 2. GEÇİŞ SORULARI (quickCheck):
    - Her bölümde en az 1, en fazla 2 anlatım adımına "quickCheck" (2 seçenekli, anında kontrollü hızlı soru) ekle.

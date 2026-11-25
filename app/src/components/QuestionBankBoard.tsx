@@ -18,18 +18,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Award, CheckCircle2, ChevronDown, MessageCircle, Minus, Plus, RotateCcw, X, XCircle } from 'lucide-react';
 import { formatQuestionContext, type QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { QuestionAnswerKeyItem, TYPE_LABELS } from '@/app/src/components/QuizClient';
-import QuestionCardHeader, { ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
+import QuestionCardHeader, { SaveQuestionButton, ShareQuestionButton } from '@/app/src/components/QuestionCardHeader';
 import UnitDiscussion from '@/app/src/components/UnitDiscussion';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
+import { useAuth } from '@/app/src/context/AuthContext';
+import { fetchMySavedRefs } from '@/app/src/lib/savedStudyItems';
 import { FOCUS_QUESTION_EVENT } from '@/app/src/lib/soruBankasiEvents';
 import { useQuestionBankViewer, type QuestionStat } from '@/app/src/hooks/useQuestionBankViewer';
 import QuestionBankOptik, { OptikRail, type OptikStatus } from '@/app/src/components/QuestionBankOptik';
 import { StudentTopicScorecard, type StudentQuestionView } from '@/app/src/components/StudentTopicScorecard';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 
 // Kapatma: X / Escape / backdrop tıklaması — bkz. QuizModal.tsx'teki aynı desen
 // (bu sayfada route değişmediği için o component'i doğrudan kullanamıyoruz, aynı
 // davranışı burada tekrar ediyoruz: body scroll kilidi + Escape dinleyici).
 function CommentsModal({ index, onClose, children }: { index: number; onClose: () => void; children: React.ReactNode }) {
+  useDismissOnBack(true, onClose);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -160,7 +164,29 @@ export default function QuestionBankBoard({
   commentCounts: Record<number, number>;
 }) {
   const isAdmin = useIsAdmin();
+  const { user, supabase } = useAuth();
   const [questions, setQuestions] = useState(initialQuestions);
+  const [savedQuestionIds, setSavedQuestionIds] = useState<Set<number>>(() => new Set());
+
+  useEffect(() => {
+    if (!user || initialQuestions.length === 0) return;
+    let cancelled = false;
+    fetchMySavedRefs(supabase, { questionIds: initialQuestions.map((q) => q.id) }).then(({ savedQuestionIds: ids }) => {
+      if (!cancelled) setSavedQuestionIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, initialQuestions]);
+
+  const handleQuestionSavedChange = useCallback((questionId: number, isSaved: boolean) => {
+    setSavedQuestionIds((prev) => {
+      const next = new Set(prev);
+      if (isSaved) next.add(questionId);
+      else next.delete(questionId);
+      return next;
+    });
+  }, []);
   const viewer = useQuestionBankViewer(initialQuestions.map((q) => q.id));
   const studentMode = viewer.status === 'student';
   // Öğrenci görünümünde liste varsayılan olarak kapalı (önce gelişim karnesi görünür);
@@ -400,7 +426,7 @@ export default function QuestionBankBoard({
                 ) : (
                   <QuestionAnswerKeyItem question={q} fontScale={scale} interactive onAnswered={handleAnswered} />
                 )}
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-default pt-3">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-default pt-3">
                   <button
                     type="button"
                     onClick={() => setCommentsForId(q.id)}
@@ -408,7 +434,14 @@ export default function QuestionBankBoard({
                   >
                     <MessageCircle className="h-4 w-4" aria-hidden="true" /> Yorumlar{commentCounts[q.id] ? ` (${commentCounts[q.id]})` : ''}
                   </button>
-                  <ShareQuestionButton question={q} basePath={basePath} />
+                  <div className="flex items-center gap-4">
+                    <SaveQuestionButton
+                      question={q}
+                      saved={!!user && savedQuestionIds.has(q.id)}
+                      onSavedChange={handleQuestionSavedChange}
+                    />
+                    <ShareQuestionButton question={q} basePath={basePath} />
+                  </div>
                 </div>
               </li>
             );

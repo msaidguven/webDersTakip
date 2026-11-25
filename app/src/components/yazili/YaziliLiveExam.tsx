@@ -16,6 +16,7 @@ import { YaziliSvg } from '@/app/src/components/yazili/YaziliSvg';
 import { CUSTOM_MAX_TOTAL, DIFFICULTY_PRESETS, initialPlan, type DifficultyPreset, type LoOption } from '@/app/src/lib/yazili/papers';
 import type { ScenarioRow } from '@/app/src/lib/yazili/publicData';
 import { useDismiss } from '@/app/src/lib/useDismiss';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import paper from '@/app/src/components/yazili/yazili.module.css';
 
@@ -427,6 +428,7 @@ function PresetPicker({ value, onChange }: { value: DifficultyPreset; onChange: 
 function ExamModal({ title, subtitle, onClose, closeDisabled = false, footer, children }: {
   title: string; subtitle: string; onClose: () => void; closeDisabled?: boolean; footer?: ReactNode; children: ReactNode;
 }) {
+  useDismissOnBack(true, onClose, { canDismiss: () => !closeDisabled });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !closeDisabled) onClose();

@@ -8,7 +8,13 @@ import Link from 'next/link';
 import { Check, CloudCheck, Eye, FileText, Loader2, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { useIsTeacherOrAdmin } from '@/app/src/components/yazili/YaziliTeacherSection';
 import MathText from '@/app/src/components/MathText';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import r from '@/app/src/components/robotic/robotic.module.css';
+
+function YaziliPickerDrawerBackGuard({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useDismissOnBack(open, onClose);
+  return null;
+}
 
 export type QuestionSummary = { id: number; text: string; topicTitle: string };
 
@@ -256,6 +262,7 @@ export function YaziliPaperPickerProvider({
       )}
 
       {/* Seçilen Sorular Çekmecesi / Modalı */}
+      <YaziliPickerDrawerBackGuard open={Boolean(enabled && drawerOpen)} onClose={() => setDrawerOpen(false)} />
       {enabled && drawerOpen && (
         <div
           role="dialog"

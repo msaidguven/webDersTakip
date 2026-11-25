@@ -8,6 +8,13 @@ import { useAuth } from '@/app/src/context/AuthContext';
 import { useProfileRole } from '@/app/src/hooks/useIsAdmin';
 import { getProfileStats } from '@/app/src/lib/profileStats';
 import { getMyComments, type MyComment } from '@/app/src/lib/myComments';
+import {
+  deleteStudyItem,
+  fetchMySavedItems,
+  setStudyItemVisibility,
+  type SavedStudyItem,
+} from '@/app/src/lib/savedStudyItems';
+import { StudyNotesCard } from '@/app/src/components/StudyNotesCard';
 import { AuthPrompt } from '@/app/src/components/AuthPrompt';
 import { safeRedirectPath } from '@/app/src/lib/safeRedirect';
 import { Settings, LogOut, Camera, Flag } from 'lucide-react';
@@ -151,6 +158,7 @@ export default function ProfilClient() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
   const [comments, setComments] = useState<MyComment[] | null>(null);
+  const [savedItems, setSavedItems] = useState<SavedStudyItem[] | null>(null);
   // Kapsam konu bazlı (2026-10-20, kullanıcı isteği: ünite bazlı oran çok yavaş artıyordu): en az bir
   // sorusunu çözdüğün konular ÷ sınıfındaki tüm konular (sorusu henüz olmayanlar dahil). Veri İlerlemem'le
   // aynı önbellekten — ek istek yok. Sınıf seçilmemişse (mastery === null) 0.
@@ -213,10 +221,33 @@ export default function ProfilClient() {
     getMyComments(supabase, authUser.id).then((result) => {
       if (!cancelled) setComments(result);
     });
+    fetchMySavedItems(supabase).then((result) => {
+      if (!cancelled) setSavedItems(result);
+    });
     return () => {
       cancelled = true;
     };
   }, [supabase, authUser]);
+
+  const handleDeleteSavedItem = async (id: number) => {
+    const prev = savedItems;
+    setSavedItems((cur) => (cur ? cur.filter((x) => x.id !== id) : cur));
+    try {
+      await deleteStudyItem(supabase, id);
+    } catch {
+      setSavedItems(prev);
+    }
+  };
+
+  const handleToggleSavedPublic = async (id: number, nextPublic: boolean) => {
+    const prev = savedItems;
+    setSavedItems((cur) => (cur ? cur.map((x) => (x.id === id ? { ...x, isPublic: nextPublic } : x)) : cur));
+    try {
+      await setStudyItemVisibility(supabase, id, nextPublic);
+    } catch {
+      setSavedItems(prev);
+    }
+  };
 
   // Eski /profil#ayarlar bağlantıları (ör. kaydedilmiş yer imleri) yeni Ayarlar sayfasına.
   useEffect(() => {
@@ -438,6 +469,17 @@ export default function ProfilClient() {
           <div aria-busy="true" aria-label="Performans yükleniyor" className={`h-56 animate-pulse rounded-[18px] ${r.panel}`} />
         )}
       </section>
+      )}
+
+      {!isTeacher && (
+        <StudyNotesCard
+          items={savedItems}
+          isOwner
+          title="Ders Notlarım ve Kaydettiklerim"
+          headingId="profil-ders-notlari"
+          onDelete={handleDeleteSavedItem}
+          onTogglePublic={handleToggleSavedPublic}
+        />
       )}
 
       <MyCommentsCard comments={comments} />

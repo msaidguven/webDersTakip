@@ -7,9 +7,10 @@
 // 4) Altta ince yardımcı bağlantılar (Yıllık plan, Ders takip çizelgesi, Yazılı soruları).
 import Link from 'next/link';
 import useSWR from 'swr';
-import { useEffect, useState } from 'react';
-import { CalendarClock, ChevronRight, FileText } from 'lucide-react';
+import { useState, useSyncExternalStore } from 'react';
+import { CalendarClock, ChevronRight, FileText, MessageSquareHeart, X } from 'lucide-react';
 import { TeacherVerifiedBadge } from '@/app/src/components/teacher/TeacherVerifiedBadge';
+import { FeedbackSheet } from '@/app/src/components/feedback/FeedbackSheet';
 import { istanbulToday } from '@/app/src/lib/progressActivity';
 import { daysUntil, formatExamDate } from '@/app/src/components/yazili/ExamCountdown';
 import r from '@/app/src/components/robotic/robotic.module.css';
@@ -51,6 +52,9 @@ const fetchTeacherSummary = async (): Promise<TeacherHomeSummary> => {
   return (await res.json()) as TeacherHomeSummary;
 };
 
+const FOUNDER_NOTE_DISMISS_KEY = 'dt-teacher-founder-note-v1';
+const noopSubscribe = () => () => {};
+
 export function TeacherHome({
   firstName,
   isVerified,
@@ -66,10 +70,30 @@ export function TeacherHome({
     revalidateOnFocus: false,
   });
 
-  const [today, setToday] = useState<string | null>(null);
-  useEffect(() => {
-    setToday(istanbulToday());
-  }, []);
+  const isClient = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const today = isClient ? istanbulToday() : null;
+  const [dismissedInSession, setDismissedInSession] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const noteDismissed =
+    !isClient ||
+    dismissedInSession ||
+    (() => {
+      try {
+        return localStorage.getItem(FOUNDER_NOTE_DISMISS_KEY) === '1';
+      } catch {
+        return false;
+      }
+    })();
+
+  const dismissNote = () => {
+    setDismissedInSession(true);
+    try {
+      localStorage.setItem(FOUNDER_NOTE_DISMISS_KEY, '1');
+    } catch {
+      /* yok say */
+    }
+  };
 
   const drafts = summary?.drafts.slice(0, 3) ?? [];
   const upcoming = today
@@ -159,13 +183,70 @@ export function TeacherHome({
 
       <TeacherLessonsQuick grades={grades} thisWeek={thisWeek} />
 
+      {!noteDismissed && (
+        <aside
+          aria-label="Kurucu notu"
+          className={`flex flex-col gap-3 rounded-[22px] p-5 sm:flex-row sm:items-center sm:justify-between ${r.panel}`}
+        >
+          <div className="flex items-start gap-3.5">
+            <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${r.chipBox}`} aria-hidden="true">
+              <MessageSquareHeart className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className={r.label}>Kurucu notu · Birlikte geliştirelim</p>
+              <p className="text-sm leading-relaxed text-default">
+                {firstName ? `Merhaba ${firstName} Hocam — ` : 'Merhaba Hocam — '}
+                Ders Takip henüz yeni ve siteyi doğrudan öğretmenlerimizin gözüyle şekillendirmek istiyorum. Yazılı aracında, kazanım uyumunda veya konu anlatımlarında{' '}
+                <span className="font-semibold">“keşke şu da olsa”</span> ya da{' '}
+                <span className="font-semibold">“burası eksik/hatalı”</span> dediğiniz ne varsa tek tıkla yazabilirsiniz; her mesajı bizzat okuyorum.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold sm:text-sm ${r.btnGhost}`}
+            >
+              Görüş / Öneri Yaz
+            </button>
+            <button
+              type="button"
+              onClick={dismissNote}
+              aria-label="Kurucu notunu gizle"
+              title="Gizle"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:text-default"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </aside>
+      )}
+
       <nav aria-label="Hızlı bağlantılar" className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-sm text-muted-foreground">
         {QUICK_LINKS.map(({ href, label }) => (
           <Link key={href} href={href} className={`font-semibold transition-colors hover:text-default hover:underline ${r.accent}`}>
             {label}
           </Link>
         ))}
+        <button
+          type="button"
+          onClick={() => setFeedbackOpen(true)}
+          className={`inline-flex items-center gap-1.5 font-semibold transition-colors hover:text-default hover:underline ${r.accent}`}
+        >
+          <MessageSquareHeart className="h-3.5 w-3.5" aria-hidden="true" />
+          Görüş / Öneri İlet
+        </button>
       </nav>
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        variant="teacher"
+        source="teacher_home"
+        isAuthenticated
+        onSubmitted={dismissNote}
+      />
     </section>
   );
 }

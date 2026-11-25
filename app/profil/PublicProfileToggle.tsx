@@ -65,7 +65,7 @@ export function PublicProfileToggle({ slug, initialOn, onChange }: { slug: strin
       {error && <p role="alert" className="text-sm font-semibold text-red-500">{error}</p>}
       {slug && (
         <Link href={`/uye/${slug}`} className={`w-fit text-sm font-semibold hover:underline ${r.accent}`}>
-          Kartımı gör →
+          Başarı kartımı gör ve paylaş →
         </Link>
       )}
     </section>

@@ -3,12 +3,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { submitAnswers, startSessionWithRetry, flushAnswerOutbox, type AnswerDetail } from '@/app/src/lib/answerSync';
 import { createPortal } from 'react-dom';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { ReportQuestionButton } from '@/app/src/components/ReportQuestionButton';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageCircle, Minus, Pencil, Play, Plus, RotateCcw, Share2, Sparkles, Trash2, Trophy, UserPlus, X, XCircle } from 'lucide-react';
 import type { QuizQuestion, MatchingQuestion, Pair } from '@/app/src/lib/quizQuestionTypes';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { fetchMySavedRefs, saveStudyItem } from '@/app/src/lib/savedStudyItems';
 import { useSessionActiveTime, useVisibleStopwatch } from '@/app/src/hooks/useVisibleStopwatch';
 import { sanitizeMathSvg } from '@/app/src/lib/sanitizeSvg';
 import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
@@ -170,6 +172,7 @@ export function QuestionSvg({ svgContent }: { svgContent: string | null }) {
   const [clean, setClean] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const [zoom, setZoom] = useState(1);
+  useDismissOnBack(zoomed, () => setZoomed(false));
 
   useEffect(() => {
     setClean(svgContent ? sanitizeMathSvg(svgContent) : null);
@@ -1077,6 +1080,8 @@ export default function QuizClient({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
+  const [savedQuestionIds, setSavedQuestionIds] = useState<Set<number>>(() => new Set());
+  const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
 
   // Giriş yapmış kullanıcının çözdüğü soruların istatistiğini tutmak için: bu soru
   // setiyle açılmış test_sessions kaydının id'si. Misafir kullanıcıda hep null kalır,
@@ -1084,6 +1089,17 @@ export default function QuizClient({
   // dolu gelir, aşağıdaki efekt bu durumda yeni bir oturum AÇMAZ (sessionQuestionsKeyRef
   // zaten bu soru setiyle eşleşecek şekilde seed'lendiği için).
   const { isAuthenticated, user, supabase } = useAuth();
+
+  useEffect(() => {
+    if (!user || questions.length === 0) return;
+    let cancelled = false;
+    fetchMySavedRefs(supabase, { questionIds: questions.map((q) => q.id) }).then(({ savedQuestionIds: ids }) => {
+      if (!cancelled) setSavedQuestionIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, questions]);
   const [sessionId, setSessionId] = useState<number | null>(resume?.sessionId ?? null);
   // Oturum artık soru seti yüklenir yüklenmez DEĞİL, kullanıcı en az 1 soruyu cevaplayınca
   // açılıyor (kullanıcının 2026-09-06 isteği: "sadece tıkladı, hiç soru çözmedi ama yarım
@@ -1434,6 +1450,41 @@ export default function QuizClient({
     return stripEmphasis(q.question_text);
   }
 
+  async function handleToggleSaveQuestion(q: QuizQuestion) {
+    if (!user || savingQuestionId === q.id) return;
+    const wasSaved = savedQuestionIds.has(q.id);
+    setSavedQuestionIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(q.id);
+      else next.add(q.id);
+      return next;
+    });
+    setSavingQuestionId(q.id);
+    try {
+      const res = await saveStudyItem(supabase, {
+        kind: 'question',
+        questionId: q.id,
+        excerpt: q.type === 'matching' ? 'Eşleştirme sorusu' : stripEmphasis(q.question_text),
+        toggle: true,
+      });
+      setSavedQuestionIds((prev) => {
+        const next = new Set(prev);
+        if (res.isSaved) next.add(q.id);
+        else next.delete(q.id);
+        return next;
+      });
+    } catch {
+      setSavedQuestionIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(q.id);
+        else next.delete(q.id);
+        return next;
+      });
+    } finally {
+      setSavingQuestionId(null);
+    }
+  }
+
   async function handleShare(q: QuizQuestion) {
     const url = questionBankPathBase
       ? `${window.location.origin}${questionBankPathBase}?soru=${q.id}`
@@ -1462,6 +1513,9 @@ export default function QuizClient({
   const playerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(playerRef);
   const [asideOpen, setAsideOpen] = useState(false);
+  useDismissOnBack(Boolean(asideOpen && renderAside), () => setAsideOpen(false));
+  useDismissOnBack(editOpen, () => setEditOpen(false));
+  useDismissOnBack(confirmDeleteOpen, () => setConfirmDeleteOpen(false), { canDismiss: () => !deleting });
   // Numara şeridi penceresi: aktif soru pencerenin dışına çıkınca otomatik kayar, ama ‹/› ile
   // elle kaydırılabilsin diye hangi index için hesaplandığı da tutuluyor (effect'te setState yok).
   const [pillWindow, setPillWindow] = useState({ start: 0, forIndex: index });
@@ -2040,6 +2094,20 @@ export default function QuizClient({
             <span>Anlamadım, sor</span>
           </button>
         )}
+        {user && (
+          <button
+            type="button"
+            onClick={() => void handleToggleSaveQuestion(current)}
+            disabled={savingQuestionId === current.id}
+            aria-label={savedQuestionIds.has(current.id) ? 'Soruyu notlarımdan çıkar' : 'Soruyu notlarıma kaydet'}
+            title={savedQuestionIds.has(current.id) ? 'Notlarımda kayıtlı (çıkarmak için tıkla)' : 'Soruyu notlarıma ve kartıma kaydet'}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
+              savedQuestionIds.has(current.id) ? 'bg-cyan-50 text-cyan-600' : 'text-slate-400 hover:bg-slate-100 hover:text-indigo-500'
+            }`}
+          >
+            <Bookmark className={`h-4 w-4 ${savedQuestionIds.has(current.id) ? 'fill-current' : ''}`} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => handleShare(current)}
@@ -2286,6 +2354,20 @@ export default function QuizClient({
           prop'lar olarak eklendi (bkz. o bileşendeki "Kontrollü mod" yorumu); SlidePlayer
           bunların hiçbirini geçmediği için kendi davranışı bire bir aynı kalıyor. */}
         <div className="mb-2 flex justify-end gap-1 sm:mb-3">
+          {user && (
+            <button
+              type="button"
+              onClick={() => void handleToggleSaveQuestion(current)}
+              disabled={savingQuestionId === current.id}
+              aria-label={savedQuestionIds.has(current.id) ? 'Soruyu notlarımdan çıkar' : 'Soruyu notlarıma kaydet'}
+              title={savedQuestionIds.has(current.id) ? 'Notlarımda kayıtlı (çıkarmak için tıkla)' : 'Soruyu notlarıma ve kartıma kaydet'}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
+                savedQuestionIds.has(current.id) ? 'text-cyan-500' : 'text-muted-foreground hover:bg-white/10 hover:text-indigo-500'
+              }`}
+            >
+              <Bookmark className={`h-3.5 w-3.5 ${savedQuestionIds.has(current.id) ? 'fill-current' : ''}`} />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleShare(current)}

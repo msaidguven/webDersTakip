@@ -10,6 +10,7 @@ import { Loader2, X } from 'lucide-react';
 import type { HydratedLesson } from '@/app/src/lib/interactiveLesson/types';
 import { isHydratedV2, type HydratedLessonV2 } from '@/app/src/lib/interactiveLesson/typesV2';
 import { isHydratedV3, type HydratedLessonV3 } from '@/app/src/lib/interactiveLesson/typesV3';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 
 const PlayerV1 = dynamic(() => import('./InteractiveLessonPlayerV1'), { ssr: false });
 const PlayerV2 = dynamic(() => import('./v2/PlayerV2'), { ssr: false });
@@ -19,6 +20,7 @@ type Props = { topicId: number; onClose: () => void };
 type LoadedLesson = (HydratedLesson & { version?: 1 }) | HydratedLessonV2 | HydratedLessonV3;
 
 export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
+  useDismissOnBack(true, onClose);
   const [lesson, setLesson] = useState<LoadedLesson | null>(null);
   const [error, setError] = useState<string | null>(null);
 

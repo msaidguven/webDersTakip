@@ -5,6 +5,7 @@
 import { useEffect, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import { roboticFontVars } from '../robotic/fonts';
 import r from '../robotic/robotic.module.css';
 
@@ -21,6 +22,7 @@ export interface BottomSheetProps {
 
 export function BottomSheet({ open, onClose, title, subtitle, badge, icon, footer, children }: BottomSheetProps) {
   const titleId = useId();
+  useDismissOnBack(open, onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -40,6 +42,7 @@ export function BottomSheet({ open, onClose, title, subtitle, badge, icon, foote
 
   return createPortal(
     <div
+      data-bottom-sheet="true"
       className={`fixed inset-0 z-[85] flex items-end justify-center sm:items-center sm:p-4 ${roboticFontVars} ${r.themeVars}`}
       role="dialog"
       aria-modal="true"

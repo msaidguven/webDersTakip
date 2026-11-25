@@ -6,11 +6,14 @@
 // buraya, tek seferde bir soru değil aynı anda 20-70 soru kartı render edildiği için (her
 // kartın kendi paylaş/silme durumu olması gerektiğinden) ayrı bir component olarak taşındı.
 import { useState } from 'react';
-import { ListChecks, MessageSquare, Minus, PenLine, Pencil, Plus, Share2, Shuffle, Trash2 } from 'lucide-react';
+import { Bookmark, ListChecks, MessageSquare, Minus, PenLine, Pencil, Plus, Share2, Shuffle, Trash2 } from 'lucide-react';
 import type { QuizQuestion } from '@/app/src/lib/quizQuestionTypes';
 import { stripEmphasis } from '@/app/src/lib/latexToPlain';
 import { TYPE_LABELS } from '@/app/src/components/QuizClient';
 import { QuizQuestionEditModal } from '@/app/src/components/admin/QuizQuestionEditModal';
+import { useAuth } from '@/app/src/context/AuthContext';
+import { saveStudyItem } from '@/app/src/lib/savedStudyItems';
+import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 
 // Öğrencinin tip etiketini okumadan da ikondan tanıyabilmesi için — "modern, çocuklar
 // sevsin" isteği (kullanıcı, 2026-09-12).
@@ -62,6 +65,57 @@ export function ShareQuestionButton({ question: q, basePath }: { question: QuizQ
   );
 }
 
+export function SaveQuestionButton({
+  question: q,
+  saved,
+  onSavedChange,
+}: {
+  question: QuizQuestion;
+  saved: boolean;
+  onSavedChange: (questionId: number, isSaved: boolean) => void;
+}) {
+  const { user, supabase } = useAuth();
+  const [busy, setBusy] = useState(false);
+
+  const handleToggle = async () => {
+    if (!user) {
+      window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      return;
+    }
+    if (busy) return;
+    const prev = saved;
+    onSavedChange(q.id, !prev);
+    setBusy(true);
+    try {
+      const res = await saveStudyItem(supabase, {
+        kind: 'question',
+        questionId: q.id,
+        excerpt: q.type === 'matching' ? 'Eşleştirme sorusu' : stripEmphasis(q.question_text),
+        toggle: true,
+      });
+      onSavedChange(q.id, res.isSaved);
+    } catch {
+      onSavedChange(q.id, prev);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleToggle()}
+      disabled={busy}
+      className={`flex items-center gap-1.5 text-xs font-bold transition-colors disabled:opacity-60 ${
+        saved ? 'text-cyan-600 dark:text-cyan-400' : 'text-muted-foreground hover:text-indigo-500'
+      }`}
+    >
+      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
+      {saved ? 'Notlarda kayıtlı' : 'Notlarıma Ekle'}
+    </button>
+  );
+}
+
 const MIN_SCALE = 1;
 const MAX_SCALE = 2.2;
 
@@ -90,6 +144,8 @@ export default function QuestionCardHeader({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  useDismissOnBack(editOpen, () => setEditOpen(false));
+  useDismissOnBack(confirmDeleteOpen, () => setConfirmDeleteOpen(false), { canDismiss: () => !deleting });
 
   const handleDelete = async () => {
     setDeleting(true);
