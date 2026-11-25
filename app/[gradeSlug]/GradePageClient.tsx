@@ -137,7 +137,7 @@ export default function GradePageClient({ gradeSlug, initialGrade = null, initia
   if (!grade) return <div className="p-8 text-center text-red-500">{error || 'Sınıf bulunamadı'}</div>;
 
   return (
-    <div className={`${roboticFontVars} ${r.root} py-8 antialiased sm:py-14`}>
+    <div className={`${roboticFontVars} ${r.root} pt-4 pb-8 antialiased sm:py-10 lg:py-12`}>
       <LessonSelector
         grade={grade}
         lessons={lessons}

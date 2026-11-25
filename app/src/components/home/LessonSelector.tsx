@@ -2,14 +2,16 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpenCheck, ChevronRight, FileText, Layers } from 'lucide-react';
 import { Grade, Lesson } from '../../models/homeTypes';
-import { buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
+import { buildSoruBankasiGradePath, buildSoruBankasiLessonPath } from '@/app/src/lib/soruBankasiPaths';
+import { subjectStyle } from '@/app/src/lib/subjectStyle';
 import r from '@/app/src/components/robotic/robotic.module.css';
 import { GradeSwitcher } from '@/app/src/components/GradeSwitcher';
 import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
+import { SubjectIcon } from '@/app/src/components/home/SubjectIcon';
 import { isClientAdmin } from '@/app/src/lib/clientSession';
 
 export type GradeLink = { level: number; slug: string };
@@ -34,15 +36,13 @@ interface LessonUnit {
   firstTopicSlug: string | null;
 }
 
-// Ünite sayfasına gitmeden, dersler sayfasındaki her dersin ünitelerini
-// paralel olarak getirir; sonuç derse özel önbelleklenir, aynı ders için
-// tekrar çağrılırsa yeniden ağ isteği yapılmaz. Birden fazla ders aynı anda
-// yüklenebildiği için yükleme durumu ders id'sine göre bir küme olarak tutulur.
+// Ünite listesini yalnızca çekmece açıldığında (veya masaüstünde buton üzerine gelindiğinde)
+// getirir; derse özel önbelleklenir, aynı ders için ikinci kez ağ isteği yapılmaz.
 function useLessonUnits() {
   const [byLessonId, setByLessonId] = useState<Record<string, LessonUnit[]>>({});
   const [loadingLessonIds, setLoadingLessonIds] = useState<Set<string>>(new Set());
 
-  const ensureLoaded = async (gradeId: string, lessonId: string) => {
+  const ensureLoaded = useCallback(async (gradeId: string, lessonId: string) => {
     if (byLessonId[lessonId] || loadingLessonIds.has(lessonId)) return;
     setLoadingLessonIds((prev) => new Set(prev).add(lessonId));
     try {
@@ -59,58 +59,61 @@ function useLessonUnits() {
         return next;
       });
     }
-  };
+  }, [byLessonId, loadingLessonIds]);
 
   return { byLessonId, loadingLessonIds, ensureLoaded };
 }
 
-// Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfayla aynı; bkz. robotic). Kök tema
-// sınıfı GradePageClient'ta.
-const FRAME = `rounded-[22px] ${r.panel}`;
-const BUTTON = `${r.btnNeon} ${r.btnText}`;
-const GHOST = `${r.btnGhost} ${r.btnText}`;
-// Sütun sayısı sabit kırılım noktalarına değil kart genişliğine bağlı: telefonda 1, tablette 2-3,
-// masaüstünde 4, akıllı tahta / dev ekranda 5-6 sütun kendiliğinden oluşur (ad kesilmesin diye ≥17rem).
-const GRID = 'grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))]';
-const CONTAINER = 'mx-auto max-w-6xl px-4 sm:px-6 2xl:max-w-[1600px]';
-
+const FRAME = `rounded-[20px] sm:rounded-[22px] ${r.panel}`;
+const CONTAINER = 'mx-auto max-w-6xl px-4 sm:px-6 2xl:max-w-[1440px]';
 
 function Breadcrumb({ grade, onBack }: { grade: Grade; onBack: () => void }) {
   return (
-    <nav aria-label="Konum" className={`mb-4 flex items-center gap-1.5 text-xs font-semibold ${r.mono} ${r.muted}`}>
-      <button onClick={onBack} className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400">
+    <nav aria-label="Konum" className={`hidden items-center gap-1.5 text-xs font-semibold sm:flex ${r.mono} ${r.muted}`}>
+      <button type="button" onClick={onBack} className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400">
         Anasayfa
       </button>
-      <span>/</span>
-      <span className={`inline-flex items-center gap-1.5 ${r.accent}`}>
-        <span className="leading-none">{grade.icon}</span>
-        {grade.name}
-      </span>
+      <span aria-hidden="true">/</span>
+      <span className={r.accent}>{grade.name}</span>
     </nav>
   );
 }
 
 function LessonCardSkeleton() {
   return (
-    <div className={`${FRAME} animate-pulse p-4 sm:p-6`}>
-      <div className="flex items-center gap-4 sm:gap-5">
-        <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-500/10 sm:h-14 sm:w-14" />
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 h-5 w-24 rounded bg-slate-500/10 sm:h-6 sm:w-32" />
-          <div className="h-3 w-32 rounded bg-slate-500/10 sm:h-4 sm:w-48" />
+    <div className={`${FRAME} animate-pulse overflow-hidden`}>
+      <div className="flex items-center gap-3.5 p-3.5 sm:p-5">
+        <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-500/15" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-4 w-32 rounded bg-slate-500/15 sm:h-5 sm:w-40" />
+          <div className="h-3 w-24 rounded bg-slate-500/10" />
         </div>
+      </div>
+      <div className={`grid grid-cols-2 border-t ${r.divider}`}>
+        <div className="h-10 bg-slate-500/5" />
+        <div className={`h-10 border-l bg-slate-500/5 ${r.divider}`} />
       </div>
     </div>
   );
 }
 
-function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; lesson: Lesson; units: LessonUnit[] | undefined; isLoadingUnits: boolean }) {
+function UnitPanel({
+  grade,
+  lesson,
+  units,
+  isLoadingUnits,
+}: {
+  grade: Grade;
+  lesson: Lesson;
+  units: LessonUnit[] | undefined;
+  isLoadingUnits: boolean;
+}) {
   return (
     <div className="p-0.5 sm:p-1">
       {isLoadingUnits ? (
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-slate-500/10" />
+            <div key={i} className="h-[52px] w-full animate-pulse rounded-2xl bg-slate-500/10" />
           ))}
         </div>
       ) : !units || units.length === 0 ? (
@@ -123,7 +126,7 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
               <Link
                 key={unit.id}
                 href={`/${grade.slug || grade.id}/${lesson.slug || lesson.id}/${unit.slug}/${unit.firstTopicSlug}`}
-                className={`group/unit flex min-h-12 items-center gap-3 rounded-2xl border px-3 py-2.5 transition-all active:scale-[0.99] ${
+                className={`group/unit flex min-h-[52px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985] ${
                   isDraftUnit
                     ? 'border-amber-300 bg-amber-50/60 hover:border-amber-400 dark:bg-amber-500/10'
                     : r.item
@@ -144,12 +147,15 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
                     Taslak
                   </span>
                 )}
-                <ArrowRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 ${r.accent}`} aria-hidden="true" />
+                <ChevronRight
+                  className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover/unit:translate-x-0.5 ${r.accent}`}
+                  aria-hidden="true"
+                />
               </Link>
             ) : (
               <div
                 key={unit.id}
-                className={`flex min-h-12 items-center gap-3 rounded-2xl border px-3 py-2.5 ${
+                className={`flex min-h-[52px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 ${
                   isDraftUnit ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-500/10' : `${r.item} opacity-55`
                 }`}
               >
@@ -181,33 +187,23 @@ function UnitPanel({ grade, lesson, units, isLoadingUnits }: { grade: Grade; les
 
 export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, error, onBack }: LessonSelectorProps) {
   const { byLessonId, loadingLessonIds, ensureLoaded } = useLessonUnits();
-  // Ünitelər ayrı bir pencerede (modal) açılır; hangi ders açık olduğunu burada tutuyoruz.
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const activeLesson = lessons.find((l) => l.id === activeLessonId) ?? null;
-  useEffect(() => {
-    if (!activeLesson) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setActiveLessonId(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [activeLesson]);
 
-  // Üniteler açılır pencere/tıklama beklemeden, sayfa açılır açılmaz her ders
-  // için paralel olarak yüklenir.
-  useEffect(() => {
-    lessons.forEach((lesson) => {
-      ensureLoaded(grade.id, lesson.id);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessons, grade.id]);
+  const openUnits = (lessonId: string) => {
+    setActiveLessonId(lessonId);
+    void ensureLoaded(grade.id, lessonId);
+  };
+
+  const totalUnits = lessons.reduce((sum, l) => sum + l.unitCount, 0);
+  const totalQuestions = lessons.reduce((sum, l) => sum + l.questionCount, 0);
 
   if (isLoading) {
     return (
       <div className={CONTAINER}>
-        <Breadcrumb grade={grade} onBack={onBack} />
-        <div className={`grid gap-3 sm:gap-4 ${GRID}`}>
-          {[1, 2, 3, 4].map((i) => (
+        <div className="mb-4 h-36 animate-pulse rounded-[20px] bg-slate-500/10 sm:mb-6 sm:h-44" />
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <LessonCardSkeleton key={i} />
           ))}
         </div>
@@ -218,34 +214,74 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
   if (error) {
     return (
       <div className={CONTAINER}>
-        <Breadcrumb grade={grade} onBack={onBack} />
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center sm:p-8">
-          <p className="mb-3 text-sm font-bold text-red-500 sm:mb-4 sm:text-base">Dersler yüklenirken bir hata oluştu</p>
-          <p className="text-sm text-muted-foreground sm:text-base">{error}</p>
+          <p className="mb-2 text-sm font-bold text-red-500 sm:text-base">Dersler yüklenirken bir hata oluştu</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
           <button
+            type="button"
             onClick={onBack}
-            className="mt-4 rounded-xl border border-default bg-surface px-5 py-2.5 text-sm font-bold text-default transition-all hover:bg-surface-elevated sm:mt-6 sm:px-6 sm:py-3 sm:text-base"
+            className="mt-4 rounded-xl border border-default bg-surface px-5 py-2.5 text-sm font-bold text-default transition-all hover:bg-surface-elevated active:scale-[0.98]"
           >
-            Geri Dön
+            Anasayfaya Dön
           </button>
         </div>
       </div>
     );
   }
 
+  const activeLessonPath = activeLesson ? `/${grade.slug || grade.id}/${activeLesson.slug || activeLesson.id}` : null;
+  const activeLessonBankPath =
+    activeLesson && grade.slug && activeLesson.slug && activeLesson.questionCount > 0
+      ? buildSoruBankasiLessonPath(grade.slug, activeLesson.slug)
+      : null;
+  const ActiveSubjectIcon = activeLesson ? subjectStyle(activeLesson.name).Icon : null;
+
   return (
     <div className={CONTAINER}>
-      <section className={`${FRAME} ${r.hero} mb-6 flex flex-col gap-5 p-5 sm:mb-8 sm:p-7`}>
+      {/* Üst Başlık & Sınıf Seçici — mobilde kompakt uygulama kartı, masaüstünde kokpit başlığı */}
+      <section className={`${FRAME} ${r.hero} mb-5 flex flex-col gap-3.5 p-4 sm:mb-7 sm:gap-5 sm:p-7`}>
         <span className={r.scan} aria-hidden="true" />
         <Breadcrumb grade={grade} onBack={onBack} />
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0">
-          <p className={`mb-2 inline-flex items-center gap-2 ${r.label}`}><span className={r.led} aria-hidden="true" /> {grade.name} dersleri</p>
-          <h1 className={`mb-1.5 text-2xl leading-tight sm:text-3xl ${r.chrome}`}>Bugün ne çalışıyorsun?</h1>
-          <p className={`max-w-md text-sm sm:text-base ${r.muted}`}>Bir ders seç, ünitesini bul, konuyu aç.</p>
-        </div>
 
-        <GradeSwitcher items={gradeLinks.map((g) => ({ level: g.level, href: `/${g.slug}`, current: g.slug === grade.slug }))} />
+        <div className="flex flex-col gap-3.5 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div className="min-w-0">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className={`inline-flex items-center gap-2 ${r.label}`}>
+                <span className={r.led} aria-hidden="true" />
+                MEB Müfredatı
+              </p>
+              {lessons.length > 0 && (
+                <span className={`text-[11px] font-semibold sm:hidden ${r.mono} ${r.muted}`}>
+                  {lessons.length} ders · {totalUnits} ünite
+                </span>
+              )}
+            </div>
+
+            <h1 className={`text-[22px] font-extrabold leading-tight sm:text-3xl ${r.chrome}`}>
+              {grade.name} Dersleri
+            </h1>
+            <p className={`mt-1 text-[13px] leading-snug sm:text-base ${r.muted}`}>
+              Dersini seç; konu anlatımı ve soru bankasıyla hemen çalış.
+            </p>
+
+            {lessons.length > 0 && (
+              <ul className="mt-3 hidden flex-wrap gap-2 sm:flex" aria-label="Sınıf özeti">
+                <li className={r.badge}>{lessons.length} ders</li>
+                <li className={r.badge}>{totalUnits} ünite</li>
+                {totalQuestions > 0 && (
+                  <li className={r.badge}>{totalQuestions.toLocaleString('tr-TR')} soru</li>
+                )}
+              </ul>
+            )}
+          </div>
+
+          <GradeSwitcher
+            items={gradeLinks.map((g) => ({
+              level: g.level,
+              href: `/${g.slug}`,
+              current: g.slug === grade.slug,
+            }))}
+          />
         </div>
       </section>
 
@@ -255,61 +291,167 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
         </div>
       ) : (
         <>
-          <div className={`grid gap-3 sm:gap-5 ${GRID}`}>
-            {lessons.map((lesson) => {
-              const lessonPath = `/${grade.slug || grade.id}/${lesson.slug || lesson.id}`;
+          <section aria-labelledby="sinif-dersleri-baslik">
+            <div className="mb-2.5 flex items-baseline justify-between px-0.5 sm:mb-4">
+              <h2 id="sinif-dersleri-baslik" className={`text-[15px] font-extrabold sm:text-lg ${r.ink}`}>
+                Dersler
+              </h2>
+              <span className={`text-xs font-medium ${r.muted}`}>
+                {totalQuestions > 0 ? `${totalQuestions.toLocaleString('tr-TR')} soru` : `${lessons.length} ders`}
+              </span>
+            </div>
 
-              return (
-                <div key={lesson.id} className={`group flex flex-col ${FRAME} ${r.itemHover} transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5`}>
-                  <div className="flex flex-col gap-3 p-4 sm:p-5">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 shrink-0 text-xl sm:h-12 sm:w-12 sm:text-2xl ${r.chipBox}`}>{lesson.icon}</div>
-                      <h3 className={`min-w-0 flex-1 text-balance text-sm font-bold leading-tight sm:text-lg ${r.display} ${r.ink}`}>
-                        <Link href={lessonPath} title={lesson.name} className="hover:underline">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {lessons.map((lesson) => {
+                const lessonPath = `/${grade.slug || grade.id}/${lesson.slug || lesson.id}`;
+                const hasQuestionBank = Boolean(grade.slug && lesson.slug && lesson.questionCount > 0);
+
+                return (
+                  <article
+                    key={lesson.id}
+                    className={`group flex flex-col ${FRAME} ${r.itemHover} transition-[border-color,box-shadow,transform] duration-200 sm:hover:-translate-y-0.5`}
+                  >
+                    {/* Ana dokunma alanı: doğrudan dersin konu anlatımı ve ünitelerine gider */}
+                    <Link
+                      href={lessonPath}
+                      className="flex flex-1 items-center gap-3.5 rounded-t-[20px] p-3.5 transition-colors active:bg-slate-500/[0.06] sm:rounded-t-[22px] sm:p-5"
+                    >
+                      <SubjectIcon lessonName={lesson.name} variant="solid" size="md" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className={`truncate text-[15px] font-extrabold leading-snug sm:text-base ${r.ink} ${r.groupHoverAccent}`}>
                           {lesson.name}
-                        </Link>
-                      </h3>
-                    </div>
+                        </h3>
+                        <p className={`mt-0.5 truncate text-xs font-medium ${r.muted}`}>
+                          {lesson.unitCount} ünite
+                          {lesson.questionCount > 0 ? ` · ${lesson.questionCount.toLocaleString('tr-TR')} soru` : ''}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        className={`h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${r.muted} ${r.groupHoverAccent}`}
+                        aria-hidden="true"
+                      />
+                    </Link>
 
-                    <p className={`text-xs ${r.mono} ${r.muted}`}>
-                      {lesson.unitCount} ünite{lesson.questionCount > 0 ? ` · ${lesson.questionCount} soru` : ''}
-                    </p>
+                    {/* İnce alt aksiyon şeridi: Üniteler çekmecesi + Soru Bankası */}
+                    <div
+                      className={`grid overflow-hidden rounded-b-[20px] border-t sm:rounded-b-[22px] ${r.divider} ${
+                        hasQuestionBank ? `grid-cols-2 divide-x ${r.divider}` : 'grid-cols-1'
+                      }`}
+                      style={{ background: 'color-mix(in srgb, var(--panel-solid) 65%, transparent)' }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openUnits(lesson.id)}
+                        onMouseEnter={() => void ensureLoaded(grade.id, lesson.id)}
+                        onFocus={() => void ensureLoaded(grade.id, lesson.id)}
+                        aria-haspopup="dialog"
+                        className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 px-3 text-xs font-bold transition-colors hover:bg-cyan-500/10 active:scale-[0.98] ${r.accent}`}
+                      >
+                        <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>Üniteler</span>
+                        <span className="opacity-70">({lesson.unitCount})</span>
+                      </button>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
-                      <Link href={lessonPath} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors active:scale-[0.98] ${BUTTON}`}>
-                        Konu anlatımı
-                        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                      </Link>
-                      {grade.slug && lesson.slug && lesson.questionCount > 0 && (
+                      {hasQuestionBank && (
                         <Link
-                          href={buildSoruBankasiLessonPath(grade.slug, lesson.slug)}
-                          className={`inline-flex min-h-10 items-center justify-center rounded-xl px-3.5 py-2 text-xs font-bold active:scale-[0.98] ${GHOST}`}
+                          href={buildSoruBankasiLessonPath(grade.slug!, lesson.slug!)}
+                          className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 px-3 text-xs font-bold transition-colors hover:bg-cyan-500/10 active:scale-[0.98] ${r.ink} ${r.hoverAccent}`}
                         >
-                          Soru bankası
+                          <BookOpenCheck className={`h-3.5 w-3.5 shrink-0 ${r.accent}`} aria-hidden="true" />
+                          <span>Soru Bankası</span>
                         </Link>
                       )}
                     </div>
-                  </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveLessonId(lesson.id)}
-                    aria-haspopup="dialog"
-                    className={`min-h-11 w-full rounded-b-[20px] border-t px-4 py-2.5 text-left text-xs font-semibold transition-colors hover:bg-cyan-500/10 active:scale-[0.99] sm:rounded-b-[22px] ${r.mono} ${r.divider} ${r.accent}`}
-                  >
-                    Üniteleri göster ({lesson.unitCount})
-                  </button>
+          {/* Hızlı geçiş bölümü: Soru Bankası ve Yazılı Soruları */}
+          <section aria-label="Hızlı geçiş" className="mt-5 sm:mt-8">
+            <div className={`grid grid-cols-1 gap-2.5 sm:gap-4 ${totalQuestions > 0 && grade.slug ? 'sm:grid-cols-2' : ''}`}>
+              {totalQuestions > 0 && grade.slug && (
+                <Link
+                  href={buildSoruBankasiGradePath(grade.slug)}
+                  className={`group flex min-h-[64px] items-center gap-3.5 rounded-[20px] p-3.5 transition-all active:scale-[0.985] sm:p-4 ${r.item} ${r.itemHover}`}
+                >
+                  <span className={`h-10 w-10 shrink-0 rounded-xl ${r.chipBox}`} aria-hidden="true">
+                    <BookOpenCheck className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-extrabold ${r.ink} ${r.groupHoverAccent}`}>
+                      {grade.name} Soru Bankası
+                    </span>
+                    <span className={`block truncate text-xs ${r.muted}`}>
+                      {totalQuestions.toLocaleString('tr-TR')} cevap anahtarlı soru ile pratik yap
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className={`h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${r.muted} ${r.groupHoverAccent}`}
+                    aria-hidden="true"
+                  />
+                </Link>
+              )}
 
-                </div>
-              );
-            })}
-          </div>
+              <Link
+                href="/yazili-sorulari"
+                className={`group flex min-h-[64px] items-center gap-3.5 rounded-[20px] p-3.5 transition-all active:scale-[0.985] sm:p-4 ${r.item} ${r.itemHover}`}
+              >
+                <span className={`h-10 w-10 shrink-0 rounded-xl ${r.chipBox}`} aria-hidden="true">
+                  <FileText className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-sm font-extrabold ${r.ink} ${r.groupHoverAccent}`}>
+                    Yazılı Soruları
+                  </span>
+                  <span className={`block truncate text-xs ${r.muted}`}>
+                    Sınavlara özel çalışma kağıtları ve örnek yazılılar
+                  </span>
+                </span>
+                <ChevronRight
+                  className={`h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${r.muted} ${r.groupHoverAccent}`}
+                  aria-hidden="true"
+                />
+              </Link>
+            </div>
+          </section>
 
+          {/* Üniteler Çekmecesi (BottomSheet) */}
           <BottomSheet
             open={!!activeLesson}
             onClose={() => setActiveLessonId(null)}
-            title={activeLesson ? `${activeLesson.icon} ${activeLesson.name}` : ''}
-            subtitle={activeLesson ? `${grade.name} · ${activeLesson.unitCount} ünite${activeLesson.questionCount > 0 ? ` · ${activeLesson.questionCount} soru` : ''}` : undefined}
+            icon={ActiveSubjectIcon ? <ActiveSubjectIcon className="h-5 w-5" strokeWidth={2} /> : undefined}
+            title={activeLesson?.name ?? ''}
+            subtitle={
+              activeLesson
+                ? `${grade.name} · ${activeLesson.unitCount} ünite${
+                    activeLesson.questionCount > 0 ? ` · ${activeLesson.questionCount.toLocaleString('tr-TR')} soru` : ''
+                  }`
+                : undefined
+            }
+            footer={
+              activeLesson && activeLessonPath ? (
+                <div className={`grid gap-2 ${activeLessonBankPath ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <Link
+                    href={activeLessonPath}
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-bold active:scale-[0.98] sm:text-sm ${r.btnNeon} ${r.btnText}`}
+                  >
+                    <span>Tüm konuları gör</span>
+                    <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </Link>
+                  {activeLessonBankPath && (
+                    <Link
+                      href={activeLessonBankPath}
+                      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-bold active:scale-[0.98] sm:text-sm ${r.btnGhost} ${r.btnText}`}
+                    >
+                      <BookOpenCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>Soru Bankası</span>
+                    </Link>
+                  )}
+                </div>
+              ) : undefined
+            }
           >
             {activeLesson && (
               <UnitPanel
@@ -320,13 +462,6 @@ export function LessonSelector({ grade, lessons, gradeLinks = [], isLoading, err
               />
             )}
           </BottomSheet>
-
-          <div className={`${FRAME} mt-8 flex items-center justify-center gap-2.5 px-4 py-3.5 text-center sm:mt-10 sm:px-6 sm:py-4`}>
-            <Sparkles className={`h-4 w-4 shrink-0 ${r.accent}`} />
-            <p className={`text-xs sm:text-sm ${r.muted}`}>
-              <span className={`font-bold ${r.ink}`}>Unutma:</span> Her gün küçük bir adım, büyük bir değişimdir!
-            </p>
-          </div>
         </>
       )}
     </div>

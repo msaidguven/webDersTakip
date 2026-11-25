@@ -684,6 +684,11 @@ export default function UyeClient({ slug }: { slug: string }) {
       <StudyNotesCard
         items={savedItems}
         isOwner={card.is_me}
+        author={{
+          displayName: card.display_name,
+          avatarUrl: showAvatarImg ? avatarUrl : null,
+          initials,
+        }}
         title={card.is_me ? 'Ders Notlarım ve Paylaşımlarım' : 'Paylaştığı Notlar ve Sorular'}
         headingId="uye-ders-notlari"
         emptyBrowseHref={browseLessonsHref}

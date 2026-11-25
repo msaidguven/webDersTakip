@@ -15,6 +15,7 @@ import ThemeToggle from './ThemeToggle';
 import { HeaderMenu } from './HeaderMenu';
 import { LegalFooter } from './LegalFooter';
 import { ProfilePromptBanner } from './ProfilePromptBanner';
+import { AndroidUpdateBanner } from './AndroidUpdateBanner';
 import { MemberPromptModal } from './MemberPromptModal';
 import { DesktopNav, MobileTabBar, buildNavItems } from './SiteNav';
 import { roboticFontVars } from './robotic/fonts';
@@ -187,6 +188,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Ana İçerik */}
       <main className={hideHeader ? '' : 'pt-14 sm:pt-[4.5rem]'}>
+        {!hideHeader && <AndroidUpdateBanner />}
         {!hideHeader && <ProfilePromptBanner />}
         {!hideHeader && <MemberPromptModal />}
         {children}

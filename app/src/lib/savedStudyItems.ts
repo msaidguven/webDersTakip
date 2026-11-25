@@ -2,6 +2,32 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type SavedItemKind = 'note' | 'topic' | 'question';
 
+export type SavedQuestionType = 'multiple_choice' | 'blank' | 'classical' | 'other';
+
+export interface SavedQuestionChoice {
+  id: number;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface SavedQuestionSrs {
+  lastAnswerCorrect: boolean;
+  lastAnswerAt: string | null;
+  nextReviewAt: string | null;
+  selectedOptionId: number | null;
+}
+
+export interface SavedQuestionPayload {
+  questionId: number;
+  questionType: SavedQuestionType;
+  questionText: string;
+  passage: string | null;
+  solutionText: string | null;
+  modelAnswer: string | null;
+  choices: SavedQuestionChoice[];
+  srs: SavedQuestionSrs | null;
+}
+
 export interface SavedStudyItem {
   id: number;
   kind: SavedItemKind;
@@ -14,7 +40,32 @@ export interface SavedStudyItem {
   href: string;
   isPublic: boolean;
   createdAt: string;
+  question: SavedQuestionPayload | null;
 }
+
+type RawChoice = {
+  id: number | string;
+  text: string;
+  is_correct: boolean;
+};
+
+type RawSrs = {
+  last_answer_correct: boolean;
+  last_answer_at: string | null;
+  next_review_at: string | null;
+  selected_option_id: number | string | null;
+};
+
+type RawQuestionPayload = {
+  question_id: number | string;
+  question_type: SavedQuestionType;
+  question_text: string;
+  passage?: string | null;
+  solution_text?: string | null;
+  model_answer?: string | null;
+  choices?: RawChoice[] | null;
+  srs?: RawSrs | null;
+};
 
 type SavedItemRow = {
   id: number;
@@ -28,7 +79,37 @@ type SavedItemRow = {
   href: string;
   is_public: boolean;
   created_at: string;
+  question_payload?: RawQuestionPayload | null;
 };
+
+function mapQuestionPayload(raw: RawQuestionPayload | null | undefined): SavedQuestionPayload | null {
+  if (!raw || !raw.question_id) return null;
+  const choices: SavedQuestionChoice[] = Array.isArray(raw.choices)
+    ? raw.choices.map((c) => ({
+        id: Number(c.id),
+        text: c.text,
+        isCorrect: Boolean(c.is_correct),
+      }))
+    : [];
+  const srs: SavedQuestionSrs | null = raw.srs
+    ? {
+        lastAnswerCorrect: Boolean(raw.srs.last_answer_correct),
+        lastAnswerAt: raw.srs.last_answer_at ?? null,
+        nextReviewAt: raw.srs.next_review_at ?? null,
+        selectedOptionId: raw.srs.selected_option_id != null ? Number(raw.srs.selected_option_id) : null,
+      }
+    : null;
+  return {
+    questionId: Number(raw.question_id),
+    questionType: raw.question_type ?? 'other',
+    questionText: raw.question_text ?? '',
+    passage: raw.passage ?? null,
+    solutionText: raw.solution_text ?? null,
+    modelAnswer: raw.model_answer ?? null,
+    choices,
+    srs,
+  };
+}
 
 function mapRows(rows: SavedItemRow[] | null | undefined): SavedStudyItem[] {
   return (rows ?? []).map((r) => ({
@@ -43,6 +124,7 @@ function mapRows(rows: SavedItemRow[] | null | undefined): SavedStudyItem[] {
     href: r.href,
     isPublic: r.is_public,
     createdAt: r.created_at,
+    question: mapQuestionPayload(r.question_payload),
   }));
 }
 
@@ -63,6 +145,43 @@ export async function fetchMySavedItems(
   const { data, error } = await supabase.rpc('get_my_saved_items');
   if (error) return [];
   return mapRows(data as SavedItemRow[] | null);
+}
+
+export interface ProfileQuestionAnswerResult {
+  recorded: boolean;
+  reason: string | null;
+  isCorrect: boolean;
+  correctOptionId: number | null;
+  nextReviewAt: string | null;
+  lastAnswerAt: string | null;
+}
+
+export async function submitProfileQuestionAnswer(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  input: { questionId: number; selectedOptionId: number }
+): Promise<ProfileQuestionAnswerResult | null> {
+  const { data, error } = await supabase.rpc('submit_profile_question_answer', {
+    p_question_id: input.questionId,
+    p_selected_option_id: input.selectedOptionId,
+  });
+  if (error || !data) return null;
+  const raw = data as {
+    recorded?: boolean;
+    reason?: string | null;
+    is_correct?: boolean;
+    correct_option_id?: number | string | null;
+    next_review_at?: string | null;
+    last_answer_at?: string | null;
+  };
+  return {
+    recorded: Boolean(raw.recorded),
+    reason: raw.reason ?? null,
+    isCorrect: Boolean(raw.is_correct),
+    correctOptionId: raw.correct_option_id != null ? Number(raw.correct_option_id) : null,
+    nextReviewAt: raw.next_review_at ?? null,
+    lastAnswerAt: raw.last_answer_at ?? null,
+  };
 }
 
 export async function saveStudyItem(

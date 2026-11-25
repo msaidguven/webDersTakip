@@ -475,6 +475,11 @@ export default function ProfilClient() {
         <StudyNotesCard
           items={savedItems}
           isOwner
+          author={{
+            displayName: displayTitle,
+            avatarUrl,
+            initials: initial,
+          }}
           title="Ders Notlarım ve Kaydettiklerim"
           headingId="profil-ders-notlari"
           onDelete={handleDeleteSavedItem}
