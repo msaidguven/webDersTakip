@@ -19,7 +19,6 @@ import {
   Minimize2,
   Music,
   Sparkles,
-  Star,
   Trophy,
   Volume2,
   VolumeX,
@@ -32,6 +31,7 @@ import {
   GUIDE,
   ttsText,
   v3BeatSpeech,
+  v3BeatSpeechLegacy,
   v3BeatTitleFactSpeech,
   voiceAudioPath,
   voiceKey,
@@ -145,6 +145,9 @@ export default function PlayerV3({
 
   const soundOnRef = useRef(soundOn);
   const voicedRef = useRef(voiced);
+  // Akıllı Niyet Takibi: Bölüm açıldığında ilk ekran sessiz başlar; kullanıcı "Dinle"ye
+  // bastığı anda oturum sesli moda geçer ve sonraki sayfalarda otomatik okumaya devam eder.
+  const autoVoiceRef = useRef(false);
   useEffect(() => {
     soundOnRef.current = soundOn;
     voicedRef.current = voiced;
@@ -248,12 +251,14 @@ export default function PlayerV3({
   }, []);
 
   const pauseSpeech = useCallback(() => {
+    autoVoiceRef.current = false;
     if (lessonSound().pauseVoice()) {
       setVoiceStatus('paused');
     }
   }, []);
 
   const resumeSpeech = useCallback(() => {
+    autoVoiceRef.current = true;
     if (lessonSound().resumeVoice()) {
       setVoiceStatus('playing');
     }
@@ -295,10 +300,13 @@ export default function PlayerV3({
     const key = voiceKey(text);
     if (!voicedRef.current.has(key)) return;
     setLastVoicedText(text);
-    if (!force && !soundOnRef.current) return;
-    if (force && !soundOnRef.current) {
-      setSoundOn(true);
-      soundOnRef.current = true;
+    if (!force && (!soundOnRef.current || !autoVoiceRef.current)) return;
+    if (force) {
+      autoVoiceRef.current = true;
+      if (!soundOnRef.current) {
+        setSoundOn(true);
+        soundOnRef.current = true;
+      }
     }
     lessonSound().unlock();
     setVoiceStatus('playing');
@@ -313,10 +321,13 @@ export default function PlayerV3({
     [speakLine],
   );
 
-  // Anlatım ekranı ses metni: Başlık → Görsel Şema → Alt Açıklama sırasıyla (ekrandaki yukarıdan aşağıya sırayla %100 aynı)
+  // Anlatım ekranı ses metni: Başlık → Görsel Şema → Alt Açıklama sırasıyla (ekrandaki yukarıdan aşağıya sırayla %100 aynı).
+  // Önce numaralı highlight (Bir, İki, Üç) aranır; mevcut eski dersler için numarasız yedek (legacy) sorunsuz çalar.
   const resolveBeatVoice = useCallback((beat: V3TeachBeat, set: Set<string>): string | null => {
     const full = v3BeatSpeech(beat);
     if (set.has(voiceKey(full))) return full;
+    const legacy = v3BeatSpeechLegacy(beat);
+    if (legacy !== full && set.has(voiceKey(legacy))) return legacy;
     const titleFact = v3BeatTitleFactSpeech(beat);
     if (set.has(voiceKey(titleFact))) return titleFact;
     if (set.has(voiceKey(beat.fact))) return beat.fact;
@@ -413,6 +424,7 @@ export default function PlayerV3({
 
   const handleResetProgress = useCallback(() => {
     stopSpeech();
+    autoVoiceRef.current = false;
     if (soundOnRef.current) lessonSound().sfx('tap');
     commitProgress((old) => resetRunProgressV3(old));
     setSectionIdx(0);
@@ -555,6 +567,7 @@ export default function PlayerV3({
     setSoundOn(next);
     soundOnRef.current = next;
     if (!next) {
+      autoVoiceRef.current = false;
       stopSpeech();
     } else {
       lessonSound().unlock();
@@ -665,18 +678,24 @@ export default function PlayerV3({
 
         <div className={s.gameTopRight}>
           {mode === 'play' && (
-            <>
-              <span className={s.gameLevelPill}>
-                Bölüm {sectionIdx + 1}/{lesson.sections.length} • Adım {currentStepDisplay}/{playableCount}
+            <span
+              className={s.gameProgressPill}
+              title={`Bölüm ${sectionIdx + 1}/${lesson.sections.length} • Adım ${currentStepDisplay}/${playableCount}`}
+            >
+              <span className={s.gameProgressPart}>
+                <span className={s.gameProgressLabel}>Bölüm</span>{' '}
+                <strong>
+                  {sectionIdx + 1}/{lesson.sections.length}
+                </strong>
               </span>
-
-              <span className={s.gameStarPill} title="Adım ilerlemesi">
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
-                <span>
+              <span className={s.gameProgressSep} aria-hidden="true" />
+              <span className={s.gameProgressStep}>
+                <span className={s.gameProgressLabel}>Adım</span>{' '}
+                <strong>
                   {currentStepDisplay}/{playableCount}
-                </span>
+                </strong>
               </span>
-            </>
+            </span>
           )}
 
           <button
@@ -765,10 +784,17 @@ export default function PlayerV3({
             <div className={s.gamePlayInner}>
               {/* 1) ANLATIM EKRANI (Ses sırasıyla birebir aynı: 1. Başlık → 2. Görsel Şema → 3. Tam Genişlik Atom Özeti) */}
               {activeScreen?.kind === 'teach' && (
-                <div className={s.gameBeatStack}>
+                <div
+                  key={activeScreen.key}
+                  className={s.gameBeatStack}
+                  data-accent={activeSection.accent}
+                >
                   <div className="text-center">
                     <span className={s.gameKickerPill}>
-                      {activeSection.tabLabel} • {activeScreen.beat.kicker}
+                      <span className={s.gameKickerDot} aria-hidden="true" />
+                      <span>
+                        {activeSection.tabLabel} • {activeScreen.beat.kicker}
+                      </span>
                     </span>
                     <h2 className={s.gameBeatHeading}>{activeScreen.beat.title}</h2>
                   </div>
@@ -796,11 +822,15 @@ export default function PlayerV3({
                     </div>
                   ) : (
                     <div className={s.gameVisualFrame}>
-                      <GenericVisualScene visual={activeScreen.beat.visual} title={activeScreen.beat.title} />
+                      <GenericVisualScene
+                        visual={activeScreen.beat.visual}
+                        title={activeScreen.beat.title}
+                        accent={activeSection.accent}
+                      />
                     </div>
                   )}
 
-                  <div className={s.teachBottomSummary}>
+                  <div className={s.teachBottomSummary} data-talking={talking ? 'true' : 'false'}>
                     <div className={s.teachBottomAvatar}>
                       <RobotGuide mood={atomMood} talking={talking} />
                     </div>
@@ -849,26 +879,24 @@ export default function PlayerV3({
                             isOk ? s.gameChoiceOk : isBad ? s.gameChoiceBad : ''
                           }`}
                         >
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <span className={s.gameChoiceBadge}>{idx === 0 ? 'A' : 'B'}</span>
-                            {isOk && (
-                              <span
-                                className="inline-flex items-center gap-1 font-extrabold text-emerald-700"
-                                style={{ fontSize: 'var(--fs-sm)' }}
-                              >
-                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Harika!
-                              </span>
-                            )}
-                            {isBad && (
-                              <span
-                                className="inline-flex items-center gap-1 font-extrabold text-rose-700"
-                                style={{ fontSize: 'var(--fs-sm)' }}
-                              >
-                                <XCircle className="h-4 w-4" aria-hidden="true" /> Tekrar dene
-                              </span>
-                            )}
-                          </div>
-                          <div>{opt}</div>
+                          <span className={s.gameChoiceBadge}>{idx === 0 ? 'A' : 'B'}</span>
+                          <span className={s.gameChoiceText}>{opt}</span>
+                          {isOk && (
+                            <span
+                              className="ml-auto inline-flex shrink-0 items-center gap-1 font-extrabold text-emerald-700"
+                              style={{ fontSize: 'var(--fs-sm)' }}
+                            >
+                              <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Harika!
+                            </span>
+                          )}
+                          {isBad && (
+                            <span
+                              className="ml-auto inline-flex shrink-0 items-center gap-1 font-extrabold text-rose-700"
+                              style={{ fontSize: 'var(--fs-sm)' }}
+                            >
+                              <XCircle className="h-4 w-4" aria-hidden="true" /> Tekrar dene
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -1057,7 +1085,11 @@ export default function PlayerV3({
               {lesson.sceneId === 'digestive-system' && activeScreen.beat.focus ? (
                 <DigestiveScene focus={activeScreen.beat.focus} />
               ) : (
-                <GenericVisualScene visual={activeScreen.beat.visual} title={activeScreen.beat.title} />
+                <GenericVisualScene
+                  visual={activeScreen.beat.visual}
+                  title={activeScreen.beat.title}
+                  accent={activeSection.accent}
+                />
               )}
             </div>
           </div>

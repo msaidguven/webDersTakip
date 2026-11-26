@@ -111,28 +111,42 @@
   }
 }
 
-.gameLevelPill {
-  padding: clamp(4px, 0.45vh, 8px) clamp(10px, 1vw, 18px);
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
-  color: #ffffff;
-  font-size: var(--fs-sm);
-  font-weight: 800;
-  white-space: nowrap;
-  box-shadow: 0 3px 12px rgba(14, 165, 233, 0.35);
-}
-
-.gameStarPill {
+.gameProgressPill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: clamp(4px, 0.45vh, 8px) clamp(10px, 0.9vw, 16px);
+  gap: clamp(6px, 0.7vw, 10px);
+  height: var(--bar-btn);
+  padding: 0 clamp(10px, 1vw, 16px);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(251, 191, 36, 0.38);
-  color: #fde68a;
+  border: 1px solid rgba(125, 211, 252, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gameProgressPart strong {
+  color: #7dd3fc;
+  font-weight: 900;
+}
+
+.gameProgressStep strong {
+  color: #fde68a;
+  font-weight: 900;
+}
+
+.gameProgressSep {
+  width: 1px;
+  height: 14px;
+  background: rgba(148, 163, 184, 0.32);
+  flex: none;
+}
+
+.gameProgressLabel {
+  color: #94a3b8;
+  font-weight: 700;
 }
 
 .gameIconBtn {
@@ -177,7 +191,7 @@
   color: #ffe4e6;
 }
 
-/* ==================== ANA SAYFA: BÖLÜM SEÇİM SAHNESİ (STAGE SELECT BOARD) ==================== */
+/* ==================== ANA SAYFA: ATOM KEŞİF MACERA HARİTASI (ADVENTURE LAB MAP) ==================== */
 .worldRoot {
   position: relative;
   flex: 1;
@@ -185,6 +199,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background:
+    radial-gradient(900px 540px at 15% 15%, rgba(14, 165, 233, 0.16), transparent 62%),
+    radial-gradient(860px 520px at 86% 82%, rgba(99, 102, 241, 0.18), transparent 64%),
+    linear-gradient(165deg, #071122 0%, #0d1b34 52%, #091529 100%);
+  color: #f8fafc;
 }
 
 .worldViewport {
@@ -210,31 +229,31 @@
   z-index: 1;
 }
 
-.stageBoardContainer {
+.adventureContainer {
   position: relative;
   z-index: 8;
   width: 100%;
-  max-width: 540px;
-  margin: 0 auto;
-  padding: 14px 14px 32px;
+  max-width: min(96vw, 1340px);
+  margin: auto;
+  padding: clamp(12px, 1.8vh, 22px) clamp(12px, 2vw, 32px) clamp(18px, 2.2vh, 28px);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: clamp(14px, 2vh, 24px);
 }
 
-/* Üst Konu & İlerleme Şeridi */
-.stageBoardHeader {
+/* Üst Koyu Cam Görev & İlerleme Şeridi */
+.adventureHeader {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px 16px;
+  padding: clamp(10px, 1.2vh, 14px) clamp(14px, 1.5vw, 22px);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1.5px solid rgba(125, 211, 252, 0.65);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(10px);
+  background: rgba(15, 29, 54, 0.78);
+  border: 1.5px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
 }
 
 .stageBoardTitleGroup {
@@ -242,334 +261,365 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 8px 12px;
 }
 
-.worldTopicBanner {
+.adventureCoursePill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 11px;
+  gap: 6px;
+  padding: 4px 12px;
   border-radius: 999px;
-  background: #e0f2fe;
-  border: 1px solid #7dd3fc;
-  color: #0369a1;
+  background: rgba(14, 165, 233, 0.16);
+  border: 1px solid rgba(125, 211, 252, 0.36);
+  color: #bae6fd;
   font-size: var(--fs-sm);
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.stageBoardHeading {
+.adventureHeading {
   margin: 0;
-  font-size: clamp(16px, 1.3vw + 7px, 24px);
+  font-size: clamp(16px, 1.35vw + 7px, 25px);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.22;
-  color: #0f172a;
+  line-height: 1.2;
+  color: #f8fafc;
 }
 
 .stageBoardStatsGroup {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-left: auto;
 }
 
-.worldCompletionPill {
+.adventureDonePill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 5px 11px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ecfdf5 0%, #fef3c7 100%);
-  border: 1.5px solid #34d399;
-  color: #065f46;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: #a7f3d0;
   font-size: var(--fs-sm);
   font-weight: 800;
   white-space: nowrap;
 }
 
-.stageOverallChip {
+.adventureOverallChip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 132px;
+  gap: 5px;
+  min-width: 136px;
 }
 
-.stageOverallTop {
+.adventureOverallTop {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
   font-size: var(--fs-sm);
   font-weight: 800;
-  color: #0f172a;
+  color: #fde68a;
 }
 
-.stageOverallTrack {
+.adventureOverallTrack {
   width: 100%;
   height: 7px;
   border-radius: 999px;
-  background: #dbeafe;
+  background: rgba(148, 163, 184, 0.22);
   overflow: hidden;
 }
 
-.stageOverallFill {
+.adventureOverallFill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #0ea5e9 0%, #10b981 100%);
+  background: linear-gradient(90deg, #38bdf8 0%, #34d399 100%);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
   transition: width 0.3s ease;
 }
 
-/* Mobil Dikey Seviye Listesi (Varsayılan < 768px) */
-.stageCardsGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-top: 8px;
-}
-
-.stageCardSlot {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  scroll-margin-top: 24px;
-}
-
-.mobileSpineLine {
-  position: absolute;
-  left: 49px;
-  top: 78px;
-  bottom: -18px;
-  width: 4px;
-  border-radius: 999px;
-  background: #93c5fd;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.mobileSpineLineDone {
-  background: #10b981;
-}
-
-.desktopBridgeArrow {
+/* ==================== PARLAYAN MACERA YOLU & İSTASYON DÜĞÜMLERİ ==================== */
+.adventureDesktopMap {
   display: none;
-}
-
-.stageAtomFloating {
-  position: absolute;
-  top: -16px;
-  left: 29px;
-  z-index: 15;
-  pointer-events: none;
-  animation: floatGentle 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.18));
-}
-
-.stageCard {
   position: relative;
-  z-index: 3;
   width: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid #c8dcf2;
-  border-bottom-width: 5px;
-  border-bottom-color: #a6c4e5;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
-  backdrop-filter: blur(10px);
-  text-align: left;
-  cursor: pointer;
-  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease, border-color 0.16s ease;
+  margin: 4px 0 14px;
 }
 
-.stageCard:hover {
-  transform: translateY(-3px);
-  border-color: #7dd3fc;
-  border-bottom-color: #0284c7;
-  box-shadow: 0 16px 32px rgba(2, 132, 199, 0.14);
+.adventureMobileMap {
+  display: block;
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
 }
 
-.stageCard:active {
-  transform: translateY(2px);
+@media (min-width: 768px) {
+  .adventureDesktopMap {
+    display: block;
+  }
+
+  .adventureMobileMap {
+    display: none;
+  }
 }
 
-.stageCardActive {
-  background: #ffffff;
-  border-color: #38bdf8;
-  border-bottom-color: #0284c7;
-  box-shadow:
-    0 16px 34px rgba(2, 132, 199, 0.16),
-    0 0 0 3px rgba(56, 189, 248, 0.18);
+.adventurePathSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.stageCardDone {
-  background: linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(255, 255, 255, 0.97) 100%);
-  border-color: #86efac;
-  border-bottom-color: #10b981;
+.adventureNodeAnchor {
+  position: absolute;
+  transform: translate(-50%, -44px);
+  z-index: 6;
 }
 
-.stageCardIdle {
-  background: rgba(255, 255, 255, 0.91);
-  border-color: #d4e3f3;
-  border-bottom-color: #b7cee6;
-}
-
-.stageEmblemWrap {
-  flex: none;
+.adventureNodeBtn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #f8fafc;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 3B Mücevher Rozet Butonu */
-.worldTile {
+.adventureNodeBtn:hover {
+  transform: translateY(-4px);
+}
+
+.adventureNodeBtn:active {
+  transform: translateY(1px);
+}
+
+.adventureAtomHover {
+  position: absolute;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: none;
+  animation: floatGentleCentered 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 8px 16px rgba(14, 165, 233, 0.38));
+}
+
+.adventureAtomHoverMobile {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: none;
+  animation: floatGentleCentered 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 6px 14px rgba(14, 165, 233, 0.38));
+}
+
+.orbWrap {
   position: relative;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+}
+
+.orbWrapMobile {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+}
+
+.orbTargetRing {
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
+  border: 3px dashed #fbbf24;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.38);
+  animation: spinOrbit 14s linear infinite;
+  pointer-events: none;
+}
+
+.orbCore,
+.orbCoreMobile {
+  position: relative;
+  border-radius: 999px;
+  border: 3.5px solid rgba(255, 255, 255, 0.92);
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.2s ease;
+}
+
+.orbCore {
+  width: 82px;
+  height: 82px;
+}
+
+.orbCoreMobile {
   width: 68px;
   height: 68px;
-  border-radius: 21px;
-  border: 3px solid rgba(255, 255, 255, 0.94);
-  color: #ffffff;
-  display: grid;
-  place-items: center;
-  overflow: visible;
-  transition: transform 0.16s ease;
 }
 
-.worldTile::before {
-  content: '';
+.adventureNodeBtn:hover .orbCore,
+.mobileOrbAnchor:hover .orbCoreMobile {
+  transform: scale(1.07);
+}
+
+.orbGloss {
   position: absolute;
-  inset: 4px 6px auto 6px;
+  inset: 4px 10px auto 10px;
   height: 38%;
-  border-radius: 14px 14px 40% 40%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 100%);
   pointer-events: none;
 }
 
-.stageCard:hover .worldTile {
-  transform: scale(1.05);
-}
-
-.portalSky {
-  background: linear-gradient(145deg, #38bdf8 0%, #0284c7 100%);
-  box-shadow: 0 6px 0 #0369a1, 0 12px 20px rgba(2, 132, 199, 0.28);
-}
-
-.portalAmber {
-  background: linear-gradient(145deg, #fbbf24 0%, #d97706 100%);
-  box-shadow: 0 6px 0 #b45309, 0 12px 20px rgba(217, 119, 6, 0.26);
-}
-
-.portalEmerald {
-  background: linear-gradient(145deg, #34d399 0%, #059669 100%);
-  box-shadow: 0 6px 0 #047857, 0 12px 20px rgba(5, 150, 105, 0.26);
-}
-
-.portalRose {
-  background: linear-gradient(145deg, #fb7185 0%, #e11d48 100%);
-  box-shadow: 0 6px 0 #be123c, 0 12px 20px rgba(225, 29, 72, 0.26);
-}
-
-.portalViolet {
-  background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 100%);
-  box-shadow: 0 6px 0 #6d28d9, 0 12px 20px rgba(124, 58, 237, 0.26);
-}
-
-.worldTileActive {
-  box-shadow:
-    0 6px 0 #075985,
-    0 0 0 4px rgba(56, 189, 248, 0.28),
-    0 14px 24px rgba(2, 132, 199, 0.32);
-}
-
-.worldTileDone {
-  background: linear-gradient(145deg, #10b981 0%, #047857 100%);
-  box-shadow: 0 6px 0 #065f46, 0 12px 20px rgba(5, 150, 105, 0.28);
-}
-
-.worldTileUntouched {
-  filter: saturate(0.86);
-}
-
-.worldTileCode {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #0f172a;
-  border: 2px solid #ffffff;
-  color: #f8fafc;
-  font-size: 11px;
-  font-weight: 900;
-  line-height: 1.2;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
-}
-
-.worldTileIcon {
-  display: grid;
-  place-items: center;
+.orbContent {
   position: relative;
   z-index: 2;
+  display: grid;
+  place-items: center;
 }
 
-.levelStarsRow {
+.orbNumber {
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+.orbNumberMobile {
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+.orbSky {
+  background: linear-gradient(145deg, #38bdf8 0%, #0284c7 100%);
+  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.22), 0 12px 28px rgba(2, 132, 199, 0.48);
+}
+
+.orbAmber {
+  background: linear-gradient(145deg, #fbbf24 0%, #ea580c 100%);
+  box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.24), 0 12px 28px rgba(234, 88, 12, 0.48);
+}
+
+.orbEmerald {
+  background: linear-gradient(145deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.22), 0 12px 28px rgba(5, 150, 105, 0.46);
+}
+
+.orbRose {
+  background: linear-gradient(145deg, #fb7185 0%, #e11d48 100%);
+  box-shadow: 0 0 0 6px rgba(251, 113, 133, 0.22), 0 12px 28px rgba(225, 29, 72, 0.46);
+}
+
+.orbViolet {
+  background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 100%);
+  box-shadow: 0 0 0 6px rgba(167, 139, 250, 0.22), 0 12px 28px rgba(124, 58, 237, 0.46);
+}
+
+.orbDone {
+  background: linear-gradient(145deg, #22d3ee 0%, #059669 100%);
+  box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.24), 0 12px 28px rgba(16, 185, 129, 0.45);
+}
+
+.orbReady {
+  background: linear-gradient(145deg, #334a6e 0%, #1d2d4a 100%);
+  border-color: rgba(148, 163, 184, 0.62);
+  box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.1), 0 10px 22px rgba(2, 6, 23, 0.45);
+}
+
+.adventureNodeBtn:hover .orbReady,
+.mobileOrbAnchor:hover .orbReady {
+  border-color: #7dd3fc;
+  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.22), 0 12px 26px rgba(14, 165, 233, 0.32);
+}
+
+.orbStarsRow {
   display: inline-flex;
   align-items: center;
-  gap: 2.5px;
-  padding: 2px 7px;
+  gap: 3px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
-.levelStarIcon {
-  width: 12px;
-  height: 12px;
+.orbStar {
+  width: 13px;
+  height: 13px;
 }
 
-.levelStarLit {
-  color: #f59e0b;
+.orbStarLit {
+  color: #fbbf24;
   fill: #fbbf24;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
 }
 
-.levelStarDim {
-  color: #cbd5e1;
-  fill: #e2e8f0;
+.orbStarDim {
+  color: rgba(148, 163, 184, 0.38);
+  fill: rgba(148, 163, 184, 0.16);
 }
 
-.stageCardBody {
-  flex: 1;
-  min-width: 0;
+/* Holografik Koyu Cam Bilgi Plakası (Masaüstü) */
+.adventureLabelPlate {
+  width: clamp(168px, 16.5vw, 224px);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.stageCardTopMeta {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(15, 29, 54, 0.86);
+  border: 1.5px solid rgba(148, 163, 184, 0.26);
+  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
-.levelStepTag {
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  color: #64748b;
+.adventureNodeBtn:hover .adventureLabelPlate {
+  border-color: rgba(125, 211, 252, 0.65);
+  background: rgba(20, 38, 70, 0.94);
 }
 
-.stationStatusPill {
+.adventurePlateActive {
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18), 0 14px 30px rgba(2, 132, 199, 0.28);
+}
+
+.adventurePlateDone {
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 12px 26px rgba(16, 185, 129, 0.2);
+}
+
+.adventurePlateStatus {
+  display: inline-flex;
+  align-items: center;
+}
+
+.plateBadgeDone,
+.plateBadgeActive,
+.plateBadgeNext,
+.plateBadgeReady {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -577,236 +627,123 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
-.stationStatusDone {
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  color: #166534;
+.plateBadgeDone {
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.48);
+  color: #6ee7b7;
 }
 
-.stationStatusActive {
-  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+.plateBadgeActive {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
   color: #ffffff;
 }
 
-.stationStatusNext {
-  background: #e0f2fe;
-  border: 1px solid #7dd3fc;
-  color: #0369a1;
+.plateBadgeNext {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  color: #ffffff;
 }
 
-.stationStatusTodo {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #64748b;
+.plateBadgeReady {
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
 }
 
-.stageCardTitle {
-  color: #0f172a;
-  font-size: clamp(14.5px, 0.95vw + 6.5px, 20px);
+.adventurePlateTitle {
+  color: #f8fafc;
+  font-size: clamp(13px, 0.85vw + 4px, 16px);
   font-weight: 850;
-  line-height: 1.32;
-  letter-spacing: -0.01em;
-}
-
-.stationProgressTrack {
-  display: block;
-  width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: #e0f2fe;
+  line-height: 1.28;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.stationProgressFill {
+.plateProgressTrack {
+  display: block;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+  overflow: hidden;
+}
+
+.plateProgressFill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%);
-  transition: width 0.25s ease;
+  background: linear-gradient(90deg, #38bdf8 0%, #fbbf24 100%);
 }
 
-.stageCardSummary {
-  font-size: 12px;
+.adventurePlateMeta {
+  font-size: 11px;
   font-weight: 700;
-  color: #475569;
-  line-height: 1.3;
+  color: #94a3b8;
+  line-height: 1.25;
 }
 
-.stageCtaBtn {
-  margin-top: 2px;
-  align-self: flex-start;
-  display: inline-flex;
+/* Mobil S-Yolu Satırları */
+.mobileRowSlot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  z-index: 6;
+}
+
+.mobileOrbAnchor {
+  position: absolute;
+  transform: translate(-50%, -40px);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 13px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
-.stageCtaPrimary {
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 3px 0 #1d4ed8, 0 6px 14px rgba(37, 99, 235, 0.24);
+.mobileInfoCard {
+  position: absolute;
+  top: 0;
+  transform: translateY(-50%);
+  width: 56%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(15, 29, 54, 0.88);
+  border: 1.5px solid rgba(148, 163, 184, 0.26);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(10px);
+  text-align: left;
+  cursor: pointer;
+  color: #f8fafc;
 }
 
-.stageCtaDone {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #ffffff;
-  box-shadow: 0 3px 0 #047857;
+.mobileInfoRight {
+  left: 41%;
 }
 
-.stageCtaIdle {
-  background: #e0f2fe;
-  border: 1px solid #7dd3fc;
-  color: #0369a1;
+.mobileInfoLeft {
+  right: 41%;
+  align-items: flex-end;
+  text-align: right;
 }
 
-/* ==================== WEB / MASAÜSTÜ YATAY OYUN SAHNESİ (>= 768px) ==================== */
-@media (min-width: 768px) {
-  .stageBoardContainer {
-    margin: auto;
-    padding: clamp(16px, 2.2vh, 28px) clamp(18px, 2.6vw, 40px);
-    gap: clamp(18px, 2.8vh, 30px);
-    max-width: min(96vw, 1380px);
-  }
-
-  .stageBoardContainer[data-cols='1'] {
-    max-width: 440px;
-  }
-
-  .stageBoardContainer[data-cols='2'] {
-    max-width: 720px;
-  }
-
-  .stageBoardContainer[data-cols='3'] {
-    max-width: 1040px;
-  }
-
-  .stageBoardContainer[data-cols='5'] {
-    max-width: min(96vw, 1520px);
-  }
-
-  .gameShell[data-fullscreen='true'] .stageBoardContainer,
-  .gameShell:fullscreen .stageBoardContainer {
-    max-width: min(95vw, 1680px);
-  }
-
-  .stageCardsGrid {
-    display: grid;
-    grid-template-columns: repeat(var(--board-cols, 4), minmax(0, 1fr));
-    gap: clamp(14px, 1.5vw, 24px);
-    align-items: stretch;
-    padding-top: 26px;
-  }
-
-  /* Tablet genişliğinde (768–1099px) 5 kart sığarken daralmasın diye 3 sütunlu dengeli ızgara */
-  @media (max-width: 1099px) {
-    .stageBoardContainer[data-cols='4'] .stageCardsGrid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      row-gap: 34px;
-    }
-    .stageBoardContainer[data-cols='5'] .stageCardsGrid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      row-gap: 34px;
-    }
-  }
-
-  .mobileSpineLine {
-    display: none;
-  }
-
-  @media (min-width: 1100px) {
-    .desktopBridgeArrow {
-      display: grid;
-      place-items: center;
-      position: absolute;
-      top: 50%;
-      right: calc(clamp(14px, 1.5vw, 24px) * -0.5 - 13px);
-      transform: translateY(-50%);
-      width: 26px;
-      height: 26px;
-      border-radius: 999px;
-      background: #ffffff;
-      border: 1.5px solid #7dd3fc;
-      color: #0284c7;
-      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
-      z-index: 6;
-      pointer-events: none;
-    }
-
-    .desktopBridgeArrowDone {
-      background: #ecfdf5;
-      border-color: #34d399;
-      color: #059669;
-    }
-  }
-
-  .stageAtomFloating {
-    top: -36px;
-    left: 50%;
-    transform: translateX(-50%);
-    animation: floatGentleCentered 2.2s ease-in-out infinite;
-  }
-
-  .stageCard {
-    height: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    text-align: center;
-    padding: clamp(16px, 1.5vw, 24px) clamp(14px, 1.25vw, 20px) clamp(14px, 1.3vw, 20px);
-    border-radius: 26px;
-    gap: 14px;
-  }
-
-  .worldTile {
-    width: clamp(72px, 5.6vw, 96px);
-    height: clamp(72px, 5.6vw, 96px);
-    border-radius: 26px;
-  }
-
-  .stageCardBody {
-    flex: 1;
-    align-items: center;
-    gap: 9px;
-  }
-
-  .stageCardTopMeta {
-    width: 100%;
-    justify-content: center;
-    gap: 6px;
-  }
-
-  .stageCardTitle {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    min-height: 2.7em;
-  }
-
-  .stageCardSummary {
-    font-size: var(--fs-sm);
-  }
-
-  .stageCtaBtn {
-    margin-top: auto;
-    align-self: stretch;
-    width: 100%;
-    padding: 9px 14px;
-    border-radius: 14px;
-    font-size: var(--fs-sm);
-  }
+.mobileInfoTitle {
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 850;
+  line-height: 1.28;
 }
 
 /* ==================== OYUN SAHNESİ (TIKLAYINCA AÇILAN İÇERİK EKRANI) ==================== */
@@ -876,20 +813,62 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 1.4vh, 22px);
+  gap: clamp(12px, 1.5vh, 22px);
+  --beat-accent: #0ea5e9;
+  --beat-accent-deep: #2563eb;
+  --beat-accent-text: #0369a1;
+  --beat-accent-border: rgba(14, 165, 233, 0.34);
+  --beat-accent-glow: rgba(14, 165, 233, 0.16);
+  animation: beatEnter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gameBeatStack[data-accent='amber'] {
+  --beat-accent: #f59e0b;
+  --beat-accent-deep: #ea580c;
+  --beat-accent-text: #b45309;
+  --beat-accent-border: rgba(245, 158, 11, 0.38);
+  --beat-accent-glow: rgba(245, 158, 11, 0.18);
+}
+
+.gameBeatStack[data-accent='emerald'] {
+  --beat-accent: #10b981;
+  --beat-accent-deep: #0d9488;
+  --beat-accent-text: #047857;
+  --beat-accent-border: rgba(16, 185, 129, 0.36);
+  --beat-accent-glow: rgba(16, 185, 129, 0.18);
+}
+
+.gameBeatStack[data-accent='rose'] {
+  --beat-accent: #f43f5e;
+  --beat-accent-deep: #db2777;
+  --beat-accent-text: #be123c;
+  --beat-accent-border: rgba(244, 63, 94, 0.34);
+  --beat-accent-glow: rgba(244, 63, 94, 0.16);
 }
 
 .gameKickerPill {
-  display: inline-block;
-  padding: clamp(4px, 0.45vh, 8px) clamp(12px, 1.2vw, 20px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: clamp(5px, 0.5vh, 8px) clamp(13px, 1.25vw, 20px);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1.5px solid rgba(14, 165, 233, 0.35);
-  color: #0369a1;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid var(--beat-accent-border);
+  color: var(--beat-accent-text);
   font-size: var(--fs-sm);
   font-weight: 800;
-  margin-bottom: 6px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  margin-bottom: 8px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.gameKickerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--beat-accent) 0%, var(--beat-accent-deep) 100%);
+  box-shadow: 0 0 0 3px var(--beat-accent-glow);
+  flex: none;
 }
 
 .gameBeatHeading {
@@ -897,22 +876,37 @@
   font-size: var(--fs-title);
   font-weight: 900;
   color: #0f172a;
-  letter-spacing: -0.02em;
-  line-height: 1.18;
+  letter-spacing: -0.025em;
+  line-height: 1.16;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .gameVisualFrame {
   position: relative;
   width: 100%;
   max-width: var(--stage-max);
-  padding: clamp(8px, 0.9vw, 16px);
-  border-radius: 24px;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
-  border: 1.5px solid #c3d7ee;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08), inset 0 1px 0 #ffffff;
+  padding: clamp(10px, 1.15vw, 20px);
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #f6faff 100%);
+  border: 1.5px solid #c5daf0;
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.09),
+    0 2px 6px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.gameVisualFrame::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--beat-accent) 0%, var(--beat-accent-deep) 100%);
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .gameVisualClickable {
@@ -1042,23 +1036,48 @@
 
 /* ==================== ANLATIM ALT ATOM ÖZET BALONU (TAM GENİŞLİK — İÇİNDE BUTON YOK) ==================== */
 .teachBottomSummary {
+  position: relative;
   width: 100%;
   max-width: var(--stage-max);
   display: flex;
   align-items: center;
-  gap: clamp(12px, 1.2vw, 20px);
-  padding: clamp(12px, 1.2vw, 18px) clamp(15px, 1.6vw, 24px);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1.5px solid #c3d7ee;
-  border-left: 6px solid #0284c7;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+  gap: clamp(12px, 1.3vw, 22px);
+  padding: clamp(13px, 1.25vw, 19px) clamp(16px, 1.7vw, 26px) clamp(13px, 1.25vw, 19px) clamp(22px, 2vw, 30px);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.96) 100%);
+  border: 1.5px solid #c5daf0;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 #ffffff;
   backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.teachBottomSummary::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--beat-accent) 0%, var(--beat-accent-deep) 100%);
+  pointer-events: none;
+}
+
+.teachBottomSummary[data-talking='true'] {
+  border-color: var(--beat-accent-border);
+  box-shadow:
+    0 14px 32px var(--beat-accent-glow),
+    inset 0 1px 0 #ffffff;
 }
 
 .teachBottomAvatar {
   flex: none;
-  width: clamp(44px, 4.2vw, 62px);
+  width: clamp(46px, 4.3vw, 64px);
+  padding: 4px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--beat-accent-glow) 0%, rgba(255, 255, 255, 0) 72%);
 }
 
 .teachBottomText {
@@ -1067,24 +1086,36 @@
   margin: 0;
   font-size: var(--fs-body);
   font-weight: 650;
-  line-height: 1.5;
+  line-height: 1.52;
   color: #1e293b;
 }
 
 /* ==================== ÜST SORU KARTI (ATOM YUKARIDA + TAM GENİŞLİK METİN) ==================== */
 .mentorCard {
+  position: relative;
   width: 100%;
   max-width: var(--stage-max);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: clamp(12px, 1.3vw, 20px);
-  padding: clamp(14px, 1.4vw, 22px) clamp(16px, 1.8vw, 26px);
+  padding: clamp(14px, 1.4vw, 22px) clamp(16px, 1.8vw, 26px) clamp(14px, 1.4vw, 22px) clamp(22px, 2vw, 30px);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1.5px solid #c3d7ee;
-  border-left: 6px solid #0284c7;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.96) 100%);
+  border: 1.5px solid #c5daf0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 #ffffff;
   backdrop-filter: blur(10px);
+}
+
+.mentorCard::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #0ea5e9 0%, #2563eb 100%);
+  pointer-events: none;
 }
 
 .mentorAvatarDock {
@@ -1292,7 +1323,10 @@
 
 .gameChoiceCard {
   width: 100%;
-  padding: clamp(14px, 1.4vw, 24px) clamp(16px, 1.6vw, 26px);
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.1vw, 16px);
+  padding: clamp(13px, 1.3vw, 22px) clamp(15px, 1.5vw, 24px);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.94);
   border: 2px solid #c5d8ee;
@@ -1300,10 +1334,15 @@
   text-align: left;
   font-size: var(--fs-choice);
   font-weight: 700;
-  line-height: 1.42;
+  line-height: 1.4;
   color: #0f172a;
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.16s ease, box-shadow 0.15s ease, background 0.16s ease;
+}
+
+.gameChoiceText {
+  flex: 1;
+  min-width: 0;
 }
 
 .gameChoiceCard:hover:not(:disabled) {
@@ -1333,11 +1372,12 @@
 }
 
 .gameChoiceBadge {
+  flex: none;
   display: inline-grid;
   place-items: center;
-  width: clamp(26px, 2.1vw, 38px);
-  height: clamp(26px, 2.1vw, 38px);
-  border-radius: 10px;
+  width: clamp(30px, 2.3vw, 40px);
+  height: clamp(30px, 2.3vw, 40px);
+  border-radius: 11px;
   background: #e0f2fe;
   border: 1.5px solid #7dd3fc;
   color: #0369a1;
@@ -1746,6 +1786,23 @@
 }
 
 /* ==================== ANİMASYONLAR ==================== */
+@keyframes spinOrbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes beatEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes pulseRing {
   0%, 100% {
     opacity: 0.9;
@@ -1789,12 +1846,13 @@
     max-width: 48vw;
   }
 
-  .gameLevelPill {
-    display: none;
+  .gameProgressPill {
+    padding: 0 9px;
+    gap: 6px;
   }
 
-  .gameStarPill {
-    padding: 4px 8px;
+  .gameProgressLabel {
+    display: none;
   }
 
   .gamePlayStage {
@@ -1802,9 +1860,16 @@
   }
 
   .teachBottomSummary {
-    padding: 11px 13px;
+    padding: 11px 13px 11px 18px;
     border-radius: 18px;
     gap: 10px;
+  }
+
+  .teachBottomSummary::before {
+    left: 7px;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
   }
 
   .teachBottomAvatar {
@@ -1812,9 +1877,16 @@
   }
 
   .mentorCard {
-    padding: 12px 13px;
+    padding: 12px 13px 12px 18px;
     border-radius: 18px;
     gap: 10px;
+  }
+
+  .mentorCard::before {
+    left: 7px;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
   }
 
   .mentorAvatarDock {
@@ -1873,7 +1945,10 @@
   .svgFlow,
   .svgFloat,
   .svgPulse,
-  .stageAtomFloating {
+  .orbTargetRing,
+  .adventureAtomHover,
+  .adventureAtomHoverMobile,
+  .gameBeatStack {
     animation: none !important;
   }
 }

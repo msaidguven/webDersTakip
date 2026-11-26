@@ -83,6 +83,8 @@ const PRONUNCIATION_RULES: [RegExp, string | ((...args: string[]) => string)][] 
   [/\bExcel\b/gi, 'Eksel'],
   [/\bAudacity\b/gi, 'Odasiti'],
   [/\bChrome\b/gi, 'Krom'],
+  [/\bFirefox\b/gi, 'Fayırfoks'],
+  [/\bEdge\b/g, 'Eç'],
   [/\bfiletype:/gi, 'fayl tayp iki nokta'],
   [/\bsite:/gi, 'site iki nokta'],
   [/(?<![\p{L}\p{N}])\.pdf(?![\p{L}\p{N}])/giu, 'nokta pe de fe'],

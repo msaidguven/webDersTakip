@@ -97,28 +97,26 @@ export function PoolCheckStage({
                 isCorrect ? s.gameChoiceOk : isWrong ? s.gameChoiceBad : ''
               }`}
             >
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className={s.gameChoiceBadge}>{LETTERS[idx] ?? idx + 1}</span>
-                {isCorrect && (
-                  <span
-                    className="inline-flex items-center gap-1 font-extrabold text-emerald-700"
-                    style={{ fontSize: 'var(--fs-sm)' }}
-                  >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Doğru!
-                  </span>
-                )}
-                {isWrong && (
-                  <span
-                    className="inline-flex items-center gap-1 font-extrabold text-rose-700"
-                    style={{ fontSize: 'var(--fs-sm)' }}
-                  >
-                    <XCircle className="h-4 w-4" aria-hidden="true" /> Eledin
-                  </span>
-                )}
-              </div>
-              <div>
+              <span className={s.gameChoiceBadge}>{LETTERS[idx] ?? idx + 1}</span>
+              <span className={s.gameChoiceText}>
                 <MathText text={opt.text} />
-              </div>
+              </span>
+              {isCorrect && (
+                <span
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 font-extrabold text-emerald-700"
+                  style={{ fontSize: 'var(--fs-sm)' }}
+                >
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Doğru!
+                </span>
+              )}
+              {isWrong && (
+                <span
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 font-extrabold text-rose-700"
+                  style={{ fontSize: 'var(--fs-sm)' }}
+                >
+                  <XCircle className="h-4 w-4" aria-hidden="true" /> Eledin
+                </span>
+              )}
             </button>
           );
         })}

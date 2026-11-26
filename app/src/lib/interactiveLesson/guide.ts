@@ -168,10 +168,15 @@ function stripStepListPrefix(text: string): string {
 
 // v3 anlatım ekranındaki yapısal görselin (başlıklar, maddeler, karşılaştırma, adımlar, kartlar, denklem)
 // doğal konuşma metni.
-export function v3VisualSpeech(visual?: V3BeatVisual, beatTitle?: string): string {
+export function v3VisualSpeech(
+  visual?: V3BeatVisual,
+  beatTitle?: string,
+  opts?: { numberHighlight?: boolean },
+): string {
   if (!visual) return '';
   const norm = (s: string) => s.trim().toLocaleLowerCase('tr-TR');
   const titleNorm = beatTitle ? norm(beatTitle) : '';
+  const numberHighlight = opts?.numberHighlight ?? true;
 
   switch (visual.kind) {
     case 'highlight': {
@@ -179,9 +184,18 @@ export function v3VisualSpeech(visual?: V3BeatVisual, beatTitle?: string): strin
       if (visual.headline.trim() && norm(visual.headline) !== titleNorm) {
         parts.push(endSentence(visual.headline));
       }
-      for (const b of visual.bullets) {
-        if (b.trim()) parts.push(endSentence(b));
-      }
+      const cleanBullets = visual.bullets
+        .map((b) => stripStepListPrefix(b.trim()))
+        .filter(Boolean);
+      const useNumbers = numberHighlight && cleanBullets.length >= 2;
+      cleanBullets.forEach((b, i) => {
+        if (useNumbers) {
+          const num = STEP_NUMBERS[i] ?? String(i + 1);
+          parts.push(endSentence(`${num}: ${b}`));
+        } else {
+          parts.push(endSentence(b));
+        }
+      });
       return parts.join(' ');
     }
     case 'compare': {
@@ -236,9 +250,12 @@ export function v3BeatTitleFactSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>)
 }
 
 // v3 anlatım ekranında Atom önce başlığı, sonra görseldeki başlık/maddeleri, ardından alt metni tek akışta okur.
-export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>): string {
+export function v3BeatSpeech(
+  beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>,
+  opts?: { numberHighlight?: boolean },
+): string {
   const title = beat.title.trim();
-  const visualText = v3VisualSpeech(beat.visual, title);
+  const visualText = v3VisualSpeech(beat.visual, title, opts);
   const fact = beat.fact.trim();
   const parts: string[] = [];
   if (title && !fact.toLocaleLowerCase('tr-TR').startsWith(title.toLocaleLowerCase('tr-TR'))) {
@@ -249,6 +266,11 @@ export function v3BeatSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'
   if (visualText) parts.push(visualText);
   if (fact) parts.push(fact);
   return parts.join(' ').trim();
+}
+
+// Eski sesler için geriye dönük yedek (highlight maddeleri numarasız üretilen mevcut MP3'ler).
+export function v3BeatSpeechLegacy(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>): string {
+  return v3BeatSpeech(beat, { numberHighlight: false });
 }
 
 // Dersin seslendirilecek bütün cümleleri (üretim betiği). v1, v2 ve v3 derslerini destekler.
