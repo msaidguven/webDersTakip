@@ -75,7 +75,7 @@ function stripDangerousSvg(svg: string): string {
 // (metin kaçışlı, yalnız <strong> + KaTeX); örnek şekli çizilmemişse örnek zaten null gelir.
 function recapCardHtml(card: RecapCardHtml): string {
   const groups = card.groups
-    .map((g) => `${g.labelHtml ? `<p class="rc-label">${g.labelHtml}</p>` : ''}<ul class="rc-list">${g.itemsHtml.map((h) => `<li>${h}</li>`).join('')}</ul>`)
+    .map((g) => `<div>${g.labelHtml ? `<p class="rc-label">${g.labelHtml}</p>` : ''}<ul class="rc-list">${g.itemsHtml.map((h) => `<li>${h}</li>`).join('')}</ul></div>`)
     .join('');
   const figure = card.example?.figureSvg?.trim().startsWith('<svg') ? `<div class="rc-figure">${stripDangerousSvg(card.example.figureSvg)}</div>` : '';
   const example = card.example
@@ -87,7 +87,6 @@ function recapCardHtml(card: RecapCardHtml): string {
     ${card.noteHtml ? `<div class="rc-box rc-note"><b>Not</b>${card.noteHtml}</div>` : ''}
     ${card.warningsHtml.map((h) => `<div class="rc-box rc-warn"><b>Dikkat</b>${h}</div>`).join('')}
     ${example}
-    ${card.tags.length ? `<p class="rc-tags">İlişkili: ${card.tags.map((x) => `<span>${escapeHtml(x)}</span>`).join('')}</p>` : ''}
   </div>`;
 }
 
@@ -114,15 +113,16 @@ function buildHtml(opts: {
   const total = sections.length;
   const pad = (n: number) => String(n).padStart(2, '0');
 
-  const sectionsHtml = sections
-    .map((s, i) => {
+  const parsedSections = sections.map((s) => ({ s, card: normalizeRecapCard(s.recap_card) }));
+
+  const sectionsHtml = parsedSections
+    .map(({ s, card }, i) => {
       const cleanSvg = s.diagram_svg?.trim().startsWith('<svg') ? stripDangerousSvg(s.diagram_svg) : null;
       // Site'deki SectionContent.tsx ile aynı ayrım: notebook_markdown VARSA body_markdown
       // "Konu Anlatımı", notebook_markdown "Defterine Not Al" olarak İKİ AYRI kutuda; yoksa
       // (eski bölümler) body_markdown tek kutuda.
       const bodyHtml = s.body_markdown ? markdownToHtml(s.body_markdown) : '';
       const notebookHtml = s.notebook_markdown ? markdownToHtml(s.notebook_markdown) : '';
-      const card = normalizeRecapCard(s.recap_card);
       const activityHtml = s.activity_prompt_markdown ? markdownToHtml(s.activity_prompt_markdown) : '';
       // Kartı olan bölüm (2026-10-24): PDF bir çalışma kâğıdı — kart + "Düşün" sorusu; uzun anlatım yalnız sitede.
       // Kartı olmayan bölümler eskisi gibi anlatımla basılır.
@@ -138,7 +138,7 @@ function buildHtml(opts: {
             <p class="box-label">Defterine not al</p>
             ${notebookHtml}
           </div>`
-        : `<div class="box explain">${bodyHtml}</div>`;
+        : `<div class="box explain">${bodyHtml}</div>${activityHtml ? `<div class="box think">${activityHtml}</div>` : ''}`;
       return `
         <section class="section">
           <div class="sec-head">
@@ -153,9 +153,9 @@ function buildHtml(opts: {
     .join('\n');
 
   // İçindekiler içerikteki bölüm başlıklarıyla aynı dilde (gradyan numara kutusu); kartlı bölümde madde sayısı.
-  const tocHtml = sections
-    .map((s, i) => {
-      const items = normalizeRecapCard(s.recap_card)?.groups.reduce((n, g) => n + g.items.length, 0);
+  const tocHtml = parsedSections
+    .map(({ s, card }, i) => {
+      const items = card?.groups.reduce((n, g) => n + g.items.length, 0);
       return `<li><span class="toc-no">${pad(i + 1)}</span><span class="toc-t">${escapeHtml(s.heading)}</span>${items ? `<span class="toc-n">${items} madde</span>` : ''}</li>`;
     })
     .join('');
@@ -228,7 +228,7 @@ h3 { margin: 3mm 0 1mm; font-size: 11.5px; font-weight: 700; color: var(--ink); 
 strong { color: var(--ink); font-weight: 700; background: linear-gradient(transparent 58%, var(--mark) 58%, var(--mark) 94%, transparent 94%); padding: 0 1px; }
 a { color: var(--accent); }
 img { max-width: 100%; }
-.box.think { background: #F7F3FF; border: 1px solid #E4D9FB; break-inside: avoid; }
+.box.think { background: #F7F3FF; border: 1px solid #E4D9FB; break-inside: avoid; page-break-inside: avoid; }
 
 /* HAP BİLGİ KARTI — sitedeki anlam renkleri: ara başlık lacivert, kavram mor-pembe, Not turuncu, Dikkat kırmızı, Örnek yeşil */
 .rc { display: grid; gap: 2mm; margin-bottom: 2.5mm; }
@@ -250,8 +250,6 @@ img { max-width: 100%; }
 .rc-figure svg { max-width: 100%; height: auto; }
 .rc-exq { margin: 0; font-weight: 600; color: var(--ink); }
 .rc-steps { margin: 1.5mm 0 0; padding-left: 5mm; }
-.rc-tags { margin: 0; font-size: 9.5px; color: var(--muted); }
-.rc-tags span { display: inline-block; margin-left: 1.5mm; padding: .4mm 2.5mm; border-radius: 999px; background: var(--soft); color: var(--accent); font-weight: 700; }
 
 </style>
 </head>

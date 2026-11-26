@@ -82,7 +82,6 @@ interface MufredatOverviewClientProps {
 
 // Görünüm: "robotik kontrol paneli" teması (2026-10-20, anasayfa/İlerlemem ile aynı; bkz. robotic).
 const FRAME = `rounded-[22px] ${r.panel}`;
-const OUTLINE_BUTTON = `inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${r.btnGhost} ${r.btnText}`;
 
 function academicYearLabel(): string {
   const now = new Date();
@@ -287,19 +286,28 @@ export default function MufredatOverviewClient({
                     className={`scroll-mt-24 ${FRAME} ${isDraftUnit ? '!border-amber-400' : ''}`}
                   >
                     {/* Ünite Başlığı — konu satırlarından AÇIKÇA baskın olmalı: daha büyük
-                        punto, versal harf aralığı ve renkli şerit. Başlık ARTIK KESİLMİYOR
-                        (eski truncate mobilde "Güneş Sistemi ..." gibi ünite adını yarıda
-                        bırakıp konu adlarını tam gösteriyordu — hiyerarşi tersine dönüyordu);
-                        "Üniteye Git" dar ekranda kendi satırına iniyor. */}
+                        punto, versal harf aralığı ve renkli şerit. Ünite sayfasına giden
+                        bağlantı doğrudan ünite başlığında (en güçlü SEO anchor text'i, sıfır
+                        buton gürültüsü); ünite soru bankası ise meta satırında tıklanabilir
+                        hafif bir rozet olarak yer alır. */}
                     <div className="px-4 py-4 sm:px-5">
-                      <div className="flex flex-wrap items-start gap-x-3 gap-y-3 sm:gap-x-4">
+                      <div className="flex items-start gap-3 sm:gap-4">
                         <span className={`h-10 w-10 shrink-0 text-base ${r.chipBox}`}>
                           {String(displayNo).padStart(2, '0')}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className={r.label}>{displayNo}. Ünite</p>
                           <h3 className={`text-lg sm:text-xl font-bold leading-snug text-balance ${r.display} ${r.ink}`}>
-                            {unit.title}
+                            {!isDraftUnit && unit.slug && gradeSlug && lessonSlug ? (
+                              <Link
+                                href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
+                                className={`transition-colors ${r.hoverAccent}`}
+                              >
+                                {unit.title}
+                              </Link>
+                            ) : (
+                              unit.title
+                            )}
                           </h3>
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             {isDraftUnit && (
@@ -310,39 +318,32 @@ export default function MufredatOverviewClient({
                             <span className={`gap-1.5 ${r.badge}`}>
                               {start != null && end != null && (
                                 <>
-                                  <Calendar className="h-3 w-3" /> Hafta {start}–{end}
+                                  <Calendar className="h-3 w-3" aria-hidden="true" /> Hafta {start}–{end}
                                   <span>·</span>
                                 </>
                               )}
                               <span className="normal-case">
-                                {(unit.questionCount ?? 0) > 0
-                                  ? `${topics.length} konu · ${unit.questionCount} soru`
-                                  : `${topics.length} konu`}
+                                {(!isDraftUnit && unit.slug && gradeSlug && lessonSlug) || !(unit.questionCount ?? 0)
+                                  ? `${topics.length} konu`
+                                  : `${topics.length} konu · ${unit.questionCount} soru`}
                               </span>
                             </span>
-                          </div>
-                        </div>
-
-                        {/* Ünitenin kendi tanıtım sayfasına (kapak görseli + konu kartları,
-                            bkz. [unitSlug]/page.tsx) ve sorusu varsa ünite soru bankasına net linkler. */}
-                        {!isDraftUnit && unit.slug && (
-                          <div className="order-last flex w-full flex-wrap items-center gap-2 sm:order-none sm:w-auto sm:shrink-0 sm:self-center">
-                            {(unit.questionCount ?? 0) > 0 && gradeSlug && lessonSlug && (
+                            {!isDraftUnit && unit.slug && gradeSlug && lessonSlug && (unit.questionCount ?? 0) > 0 && (
                               <Link
                                 href={`/soru-bankasi/${gradeSlug}/${lessonSlug}/${unit.slug}`}
-                                className={OUTLINE_BUTTON}
+                                aria-label={`${unit.title} ünitesi soru bankası (${unit.questionCount} soru)`}
+                                className={`group/sb gap-1.5 transition-colors ${r.badge} ${r.hoverAccent}`}
                               >
-                                <ListChecks className="h-3.5 w-3.5" aria-hidden="true" /> Soru Bankası
+                                <ListChecks className="h-3 w-3" aria-hidden="true" />
+                                <span className="normal-case">{unit.questionCount} soru</span>
+                                <ChevronRight
+                                  className="h-3 w-3 transition-transform group-hover/sb:translate-x-0.5"
+                                  aria-hidden="true"
+                                />
                               </Link>
                             )}
-                            <Link
-                              href={`/${gradeSlug}/${lessonSlug}/${unit.slug}`}
-                              className={OUTLINE_BUTTON}
-                            >
-                              Ünite Sayfası <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                            </Link>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
 

@@ -59,7 +59,6 @@ export function normalizeRecapCard(raw: unknown): RecapCard | null {
 export type RecapCardHtml = {
   introHtml: string | null;
   groups: { labelHtml: string | null; itemsHtml: string[] }[];
-  tags: string[];
   noteHtml: string | null;
   warningsHtml: string[];
   // figureSvg ham SVG — istemcide sanitizeMathSvg'den geçirilerek basılır (RecapFigure.tsx).
@@ -86,7 +85,6 @@ export function recapCardToHtml(card: RecapCard): RecapCardHtml {
   return {
     introHtml: card.intro ? inlineToHtml(card.intro) : null,
     groups: card.groups.map((g) => ({ labelHtml: g.label ? inlineToHtml(g.label) : null, itemsHtml: g.items.map(inlineToHtml) })),
-    tags: card.tags,
     noteHtml: card.note ? inlineToHtml(card.note) : null,
     warningsHtml: card.warnings.map(inlineToHtml),
     example:

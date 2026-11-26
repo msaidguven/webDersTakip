@@ -20,14 +20,14 @@
   font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
 
   /* Otomatik ekran ölçekleme: Telefon → PC → Dev Akıllı Tahta */
-  --fs-brand: clamp(13px, 1.1vw + 6px, 26px);
-  --fs-title: clamp(19px, 1.9vw + 8px, 42px);
-  --fs-body: clamp(14px, 1.05vw + 7px, 27px);
-  --fs-choice: clamp(13.5px, 0.95vw + 6.5px, 24px);
-  --fs-label: clamp(12.5px, 0.85vw + 6px, 22px);
-  --fs-sm: clamp(11px, 0.65vw + 5.5px, 18px);
-  --fs-btn: clamp(13px, 0.85vw + 6px, 22px);
-  --stage-max: clamp(340px, 68vw, 1340px);
+  --fs-brand: clamp(13.5px, 1.15vw + 6.5px, 28px);
+  --fs-title: clamp(20px, 2.1vw + 9px, 46px);
+  --fs-body: clamp(15px, 1.2vw + 8px, 31px);
+  --fs-choice: clamp(14.5px, 1.1vw + 7.5px, 28px);
+  --fs-label: clamp(13.5px, 1vw + 7px, 25px);
+  --fs-sm: clamp(12px, 0.8vw + 6.5px, 21px);
+  --fs-btn: clamp(14px, 0.95vw + 6.5px, 24px);
+  --stage-max: clamp(340px, 70vw, 1380px);
   --visual-h: clamp(230px, 46vh, 620px);
   --tile-size: clamp(78px, 7.2vw, 148px);
   --bar-btn: clamp(34px, 2.5vw, 52px);
@@ -35,13 +35,13 @@
 
 .gameShell[data-fullscreen='true'],
 .gameShell:fullscreen {
-  --fs-title: clamp(22px, 2.3vw + 8px, 48px);
-  --fs-body: clamp(16px, 1.3vw + 7px, 32px);
-  --fs-choice: clamp(15px, 1.15vw + 7px, 28px);
-  --fs-label: clamp(14px, 1vw + 6px, 25px);
-  --fs-sm: clamp(12px, 0.78vw + 6px, 20px);
-  --fs-btn: clamp(14px, 1vw + 6px, 24px);
-  --stage-max: clamp(420px, 76vw, 1540px);
+  --fs-title: clamp(24px, 2.5vw + 10px, 54px);
+  --fs-body: clamp(17px, 1.45vw + 8px, 36px);
+  --fs-choice: clamp(16px, 1.3vw + 8px, 32px);
+  --fs-label: clamp(15px, 1.15vw + 7px, 29px);
+  --fs-sm: clamp(13px, 0.92vw + 6.5px, 23px);
+  --fs-btn: clamp(15px, 1.1vw + 7px, 27px);
+  --stage-max: clamp(420px, 78vw, 1580px);
   --visual-h: clamp(300px, 54vh, 720px);
 }
 

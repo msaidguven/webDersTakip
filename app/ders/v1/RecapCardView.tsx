@@ -1,7 +1,7 @@
 // Hap bilgi kartı (2026-10-24 pilot): bölümün ana içeriği — sınav kitabı tarzı kısa maddeler. Renkler
 // anlam taşır, bölüme göre değişmez: ara başlık lacivert, anahtar kavram mor-pembe, Not turuncu,
 // Dikkat kırmızı, Örnek yeşil; renk tek başına anlam taşımasın diye kutularda yazılı etiket de var.
-// "İlişkili" etiketleri sitede gösterilmiyor (2026-10-24, kullanıcı); PDF'te duruyor.
+// "İlişkili" etiketleri sitede de PDF'te de gösterilmiyor (yalnızca veri katmanında tutulur).
 // HTML sunucuda üretilir (recapCardToHtml: metin kaçışlı, yalnız <strong> ve KaTeX çıktısı).
 import dynamic from 'next/dynamic';
 import type { RecapCardHtml } from '@/app/src/lib/recapCards';
