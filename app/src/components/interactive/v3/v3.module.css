@@ -1072,6 +1072,62 @@
     inset 0 1px 0 #ffffff;
 }
 
+.teachBottomSummary[data-discovered='true'] {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+  box-shadow:
+    0 14px 32px rgba(16, 185, 129, 0.16),
+    inset 0 1px 0 #ffffff;
+}
+
+.teachBottomSummary[data-discovered='true']::before {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+}
+
+.gameVisualFrame[data-discovered='true'] {
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow:
+    0 18px 42px rgba(16, 185, 129, 0.14),
+    0 2px 6px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 #ffffff;
+}
+
+.labTryHintPill,
+.labDiscoveredPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.labTryHintPill {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid var(--beat-accent-border);
+  color: var(--beat-accent-text);
+}
+
+.labDiscoveredPill {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.28);
+  animation: labPop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes labPop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .teachBottomAvatar {
   flex: none;
   width: clamp(46px, 4.3vw, 64px);
@@ -1948,7 +2004,8 @@
   .orbTargetRing,
   .adventureAtomHover,
   .adventureAtomHoverMobile,
-  .gameBeatStack {
+  .gameBeatStack,
+  .labDiscoveredPill {
     animation: none !important;
   }
 }

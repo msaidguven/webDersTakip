@@ -49,12 +49,13 @@ import {
   type SavedV3Progress,
 } from '@/app/src/lib/interactiveLesson/progressV3';
 import { lessonSound } from '@/app/src/lib/interactiveLesson/sound';
-import type {
-  HydratedLessonV3,
-  HydratedV3Question,
-  HydratedV3Section,
-  V3MiniGameConfig,
-  V3TeachBeat,
+import {
+  isInteractiveBeatVisual,
+  type HydratedLessonV3,
+  type HydratedV3Question,
+  type HydratedV3Section,
+  type V3MiniGameConfig,
+  type V3TeachBeat,
 } from '@/app/src/lib/interactiveLesson/typesV3';
 import RobotGuide, { type RobotMood } from '../RobotGuide';
 import { MiniGameHost, type MiniGameFeedback, type MiniGameResult } from './games/MiniGameRegistry';
@@ -130,6 +131,7 @@ export default function PlayerV3({
 
   const [quickWrongIdx, setQuickWrongIdx] = useState<number | null>(null);
   const [solvedCheckIds, setSolvedCheckIds] = useState<Set<number>>(() => new Set());
+  const [completedLabKeys, setCompletedLabKeys] = useState<Set<string>>(() => new Set());
   const [lastGameResult, setLastGameResult] = useState<MiniGameResult | null>(null);
 
   const [soundOn, setSoundOn] = useState(true);
@@ -380,6 +382,34 @@ export default function PlayerV3({
     [speakLine],
   );
 
+  const handleLabComplete = useCallback(
+    (screenKey: string) => {
+      setCompletedLabKeys((prev) => {
+        if (prev.has(screenKey)) return prev;
+        const next = new Set(prev);
+        next.add(screenKey);
+        return next;
+      });
+      setAtomMood('celebrate');
+      if (soundOnRef.current) {
+        lessonSound().sfx('ok');
+      }
+      speakLine(GUIDE.v3LabDone);
+    },
+    [speakLine],
+  );
+
+  const isInteractiveTeachLab =
+    activeScreen?.kind === 'teach' && isInteractiveBeatVisual(activeScreen.beat.visual);
+  const isActiveLabDone =
+    isInteractiveTeachLab && activeScreen ? completedLabKeys.has(activeScreen.key) : false;
+
+  const handleActiveLabComplete = useCallback(() => {
+    if (activeScreen?.kind === 'teach') {
+      handleLabComplete(activeScreen.key);
+    }
+  }, [activeScreen, handleLabComplete]);
+
   const markSectionCompleted = useCallback(
     (idx: number) => {
       const sec = lesson.sections[idx];
@@ -431,6 +461,7 @@ export default function PlayerV3({
     setScreenIdx(0);
     setQuickWrongIdx(null);
     setSolvedCheckIds(new Set());
+    setCompletedLabKeys(new Set());
     setLastGameResult(null);
     setZoomedVisual(false);
     setAtomMood('normal');
@@ -821,20 +852,39 @@ export default function PlayerV3({
                       <DigestiveScene focus={activeScreen.beat.focus} />
                     </div>
                   ) : (
-                    <div className={s.gameVisualFrame}>
+                    <div
+                      className={s.gameVisualFrame}
+                      data-discovered={isActiveLabDone ? 'true' : 'false'}
+                    >
                       <GenericVisualScene
                         visual={activeScreen.beat.visual}
                         title={activeScreen.beat.title}
                         accent={activeSection.accent}
+                        soundOn={soundOn}
+                        onLabComplete={isInteractiveTeachLab ? handleActiveLabComplete : undefined}
                       />
                     </div>
                   )}
 
-                  <div className={s.teachBottomSummary} data-talking={talking ? 'true' : 'false'}>
+                  <div
+                    className={s.teachBottomSummary}
+                    data-talking={talking ? 'true' : 'false'}
+                    data-discovered={isActiveLabDone ? 'true' : 'false'}
+                  >
                     <div className={s.teachBottomAvatar}>
-                      <RobotGuide mood={atomMood} talking={talking} />
+                      <RobotGuide mood={isActiveLabDone ? 'celebrate' : atomMood} talking={talking} />
                     </div>
-                    <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
+                    {isActiveLabDone ? (
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className={`${s.labDiscoveredPill} self-start`}>
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>Keşfedildi</span>
+                        </span>
+                        <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
+                      </div>
+                    ) : (
+                      <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1034,23 +1084,25 @@ export default function PlayerV3({
               )}
             </div>
 
-            <button
-              type="button"
-              disabled={isNextDisabled}
-              onClick={handleNext}
-              className={s.arcadeBtnGreen}
-            >
-              <span>
-                {activeScreen?.kind === 'done'
-                  ? sectionIdx + 1 < lesson.sections.length
-                    ? 'Sonraki'
-                    : 'Harita'
-                  : activeScreen?.kind === 'game'
-                    ? 'Sorular'
+            {activeScreen?.kind === 'game' ? (
+              <span aria-hidden="true" className="w-[84px] shrink-0 sm:w-[104px]" />
+            ) : (
+              <button
+                type="button"
+                disabled={isNextDisabled}
+                onClick={handleNext}
+                className={s.arcadeBtnGreen}
+              >
+                <span>
+                  {activeScreen?.kind === 'done'
+                    ? sectionIdx + 1 < lesson.sections.length
+                      ? 'Sonraki'
+                      : 'Harita'
                     : 'İleri'}
-              </span>
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </button>
+                </span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
           </footer>
         </div>
       )}

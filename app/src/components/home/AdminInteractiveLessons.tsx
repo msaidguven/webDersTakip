@@ -5,19 +5,20 @@
 // /api/admin/etkilesimli-ders (admin_interactive_lesson_stats RPC'si + konu linkleri).
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Gamepad2 } from 'lucide-react';
+import { ExternalLink, Gamepad2, RefreshCw } from 'lucide-react';
 import { HAND_WRITTEN_LESSON_TOPIC_IDS } from '@/app/src/lib/interactiveLesson/handWritten';
 import r from '@/app/src/components/robotic/robotic.module.css';
 
 type Usage = { opens: number; finishes: number; students: number; teachers: number; guests: number };
 type Row = { topic_id: number; title: string; grade: string; lesson: string; href?: string | null };
 type HandWrittenRow = Row & { version: number };
+type SchemaVersion = '3.1' | '3' | '2' | '1' | null;
 type Stats = {
   status: { visible: number; awaiting_voice: number; in_progress: number; given_up: number; queued: number };
   last7: { sections: number; lessons_done: number; quota_skips: number };
   usage: Record<'today' | 'd7' | 'd30' | 'all', Usage>;
   handwritten?: HandWrittenRow[];
-  recent: (Row & { status: string; voice_done: boolean; updated_at: string })[];
+  recent: (Row & { status: string; voice_done: boolean; updated_at: string; schema_version?: SchemaVersion })[];
   top: (Row & { opens: number; finishes: number })[];
 };
 
@@ -33,22 +34,53 @@ const STATUS_LABEL: Record<string, string> = { ready: 'hazır', partial: 'yarım
 export function AdminInteractiveLessons() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [requeueingId, setRequeueingId] = useState<number | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [windowKey, setWindowKey] = useState<(typeof WINDOWS)[number]['key']>('d7');
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/admin/etkilesimli-ders')
+    fetch('/api/admin/etkilesimli-ders', { cache: 'no-store' })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok) setError(data?.error || 'Etkileşimli ders raporu yüklenemedi');
-        else setStats(data);
+        else {
+          setError(null);
+          setStats(data);
+        }
       })
       .catch(() => !cancelled && setError('Etkileşimli ders raporu yüklenemedi'));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadTick]);
+
+  const handleRegenerateV31 = async (topicId: number, title: string) => {
+    if (requeueingId !== null) return;
+    setRequeueingId(topicId);
+    setNotice(null);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/etkilesimli-ders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'regenerate_v31', topicId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'v3.1 yenileme sırasına alınamadı');
+      } else {
+        setNotice(`"${title}" v3.1 ile yeniden üretim sırasına alındı (worker sonraki çalışmada üretecek).`);
+        setReloadTick((n) => n + 1);
+      }
+    } catch {
+      setError('v3.1 yenileme isteği başarısız oldu');
+    } finally {
+      setRequeueingId(null);
+    }
+  };
 
   const u = stats?.usage[windowKey];
   const st = stats?.status;
@@ -83,6 +115,7 @@ export function AdminInteractiveLessons() {
       </div>
 
       {error && <p role="alert" className="text-sm font-semibold text-red-500">{error}</p>}
+      {notice && <p role="status" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{notice}</p>}
       {!stats && !error && <div className={`h-24 animate-pulse rounded-xl ${r.item}`} aria-hidden="true" />}
 
       {stats && (
@@ -128,13 +161,21 @@ export function AdminInteractiveLessons() {
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <List
               title="Son üretilenler"
-              rows={stats.recent.map((x) => ({
-                key: x.topic_id,
-                label: x.title,
-                sub: `${x.grade} ${x.lesson}`,
-                right: x.status === 'ready' ? (x.voice_done ? 'öğrenciye açık' : 'ses bekliyor') : (STATUS_LABEL[x.status] ?? x.status),
-                href: x.href,
-              }))}
+              rows={stats.recent.map((x) => {
+                const ver = x.schema_version ?? null;
+                const canRegen = ver !== '3.1' && x.status !== 'generating' && x.status !== 'partial';
+                return {
+                  key: x.topic_id,
+                  label: x.title,
+                  sub: `${x.grade} ${x.lesson}`,
+                  versionBadge: ver ? `v${ver}` : undefined,
+                  isV31: ver === '3.1',
+                  right: x.status === 'ready' ? (x.voice_done ? 'öğrenciye açık' : 'ses bekliyor') : (STATUS_LABEL[x.status] ?? x.status),
+                  href: x.href,
+                  onRegenerate: canRegen ? () => void handleRegenerateV31(x.topic_id, x.title) : undefined,
+                  regenerating: requeueingId === x.topic_id,
+                };
+              })}
               empty="Henüz üretilen ders yok."
             />
             <List
@@ -156,7 +197,18 @@ export function AdminInteractiveLessons() {
   );
 }
 
-type ListRow = { key: number; label: string; sub: string; right: string; href?: string | null; highlight?: boolean };
+type ListRow = {
+  key: number;
+  label: string;
+  sub: string;
+  right: string;
+  href?: string | null;
+  highlight?: boolean;
+  versionBadge?: string;
+  isV31?: boolean;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+};
 
 function List({ title, rows, empty }: { title: string; rows: ListRow[]; empty: string }) {
   return (
@@ -165,15 +217,29 @@ function List({ title, rows, empty }: { title: string; rows: ListRow[]; empty: s
       {rows.length ? (
         <ol className="flex flex-col gap-1.5">
           {rows.map((row) => {
-            const inner = (
-              <>
-                <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 truncate font-semibold text-default">
-                    <span className="truncate">{row.label}</span>
-                    {row.href && <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">{row.sub}</span>
+            const leftContent = (
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 font-semibold text-default">
+                  <span className="truncate">{row.label}</span>
+                  {row.versionBadge && (
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold leading-none ${
+                        row.isV31
+                          ? 'border border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : 'border border-amber-500/35 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      {row.versionBadge}
+                    </span>
+                  )}
+                  {row.href && <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />}
                 </span>
+                <span className="block truncate text-xs text-muted-foreground">{row.sub}</span>
+              </span>
+            );
+
+            const rightContent = (
+              <span className="flex shrink-0 items-center gap-2">
                 <span
                   className={
                     row.highlight
@@ -183,17 +249,38 @@ function List({ title, rows, empty }: { title: string; rows: ListRow[]; empty: s
                 >
                   {row.right}
                 </span>
-              </>
+                {row.onRegenerate && (
+                  <button
+                    type="button"
+                    disabled={row.regenerating}
+                    onClick={row.onRegenerate}
+                    title="v3.1 mikro-laboratuvarlarla yeniden üretim sırasına al"
+                    className={`inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition disabled:opacity-50 ${r.btnGhost}`}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${row.regenerating ? 'animate-spin' : ''}`} aria-hidden="true" />
+                    <span>v3.1</span>
+                  </button>
+                )}
+              </span>
             );
+
             return (
               <li key={row.key}>
-                {row.href ? (
+                {row.href && !row.onRegenerate ? (
                   <Link href={row.href} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm transition hover:-translate-y-0.5 ${r.item}`}>
-                    {inner}
+                    {leftContent}
+                    {rightContent}
                   </Link>
                 ) : (
                   <div className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm ${r.item}`}>
-                    {inner}
+                    {row.href ? (
+                      <Link href={row.href} className="min-w-0 flex-1 transition hover:opacity-80">
+                        {leftContent}
+                      </Link>
+                    ) : (
+                      leftContent
+                    )}
+                    {rightContent}
                   </div>
                 )}
               </li>

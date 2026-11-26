@@ -83,6 +83,8 @@ export const GUIDE = {
   v3SectionDone: 'Harika iş çıkardın! Sıradaki bölüme geçebilir veya Keşif Haritasına dönebilirsin.',
   v3KavramWrong: 'Olmadı! Harflerin üzerinden tekrar kaydır veya İpucu düğmesini kullan.',
   v3KavramNextWord: 'İlk kelime tamam! Şimdi sıradaki kelimeyi çemberden birleştir.',
+  v3LabDone: 'Harika! Kendin deneyip keşfettin.',
+  v3LabHint: 'Yukarıdaki çiplere dokunup dene.',
 };
 
 export const praiseAt = (seed: number) => GUIDE.praise[Math.abs(seed) % GUIDE.praise.length];
@@ -233,6 +235,20 @@ export function v3VisualSpeech(
       if (left && res) return endSentence(`${left}, eşittir ${res}`);
       return endSentence(left || res);
     }
+    case 'filter_sandbox':
+    case 'token_builder':
+    case 'classify_tap':
+    case 'spot_highlight':
+    case 'step_reveal': {
+      const task = visual.task.trim();
+      if (!task || norm(task) === titleNorm) return '';
+      return endSentence(task);
+    }
+    case 'cause_effect_dial': {
+      const label = visual.controlLabel.trim();
+      if (!label) return '';
+      return endSentence(`${label} kademelerini değiştirip farkı incele`);
+    }
     default:
       return '';
   }
@@ -283,6 +299,7 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | Hydrated
       GUIDE.v3SectionDone,
       GUIDE.v3KavramWrong,
       GUIDE.v3KavramNextWord,
+      GUIDE.v3LabDone,
       lesson.guide?.intro ?? GUIDE.intro(lesson.topicTitle),
       lesson.guide?.finish ?? GUIDE.finish,
     ];

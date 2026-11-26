@@ -288,6 +288,7 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const mainContentRef = useRef<HTMLElement>(null);
   const [mobileSheet, setMobileSheet] = useState<'toc' | 'tools' | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [adminDraftInteractiveTopicId, setAdminDraftInteractiveTopicId] = useState<number | null>(null);
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
 
   const topicIndex = Math.max(0, contents.findIndex((c) => c.slug === initialData.topicSlug));
@@ -403,6 +404,18 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const [sectionMenuId, setSectionMenuId] = useState<string | number | null>(null);
   const [adminTool, setAdminTool] = useState<AdminToolRequest | null>(null);
   useEffect(() => { if (isAdmin) preloadAdminTopicTools(); }, [isAdmin]);
+  useEffect(() => {
+    const tid = Number(topic?.id);
+    if (!isAdmin || !tid || topic?.hasInteractiveLesson) return;
+    const controller = new AbortController();
+    fetch(`/api/interactive-lesson?topicId=${tid}&check=1`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { available?: boolean } | null) => {
+        if (d?.available) setAdminDraftInteractiveTopicId(tid);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [isAdmin, topic?.hasInteractiveLesson, topic?.id]);
   const closeAdminTool = () => {
     setAdminTool(null);
     router.refresh();
@@ -546,15 +559,22 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   if (!topic) return null;
 
   const hasSummary = !!(topic.summaryHtml || topic.discussionPromptHtml);
+  const isAdminInteractivePreview =
+    isAdmin && !topic.hasInteractiveLesson && adminDraftInteractiveTopicId === Number(topic.id);
+  const canOpenInteractive = Boolean(topic.hasInteractiveLesson || isAdminInteractivePreview);
 
   // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
   const tools: Tool[] = [
-    topic.hasInteractiveLesson && {
-      key: 'interactive', label: 'Etkileşimli derse başla', hint: 'Oyunla öğren', icon: <Gamepad2 size={18} aria-hidden="true" />, onClick: () => {
+    canOpenInteractive && {
+      key: 'interactive',
+      label: 'Etkileşimli derse başla',
+      hint: isAdminInteractivePreview ? 'Admin önizleme (sessiz)' : 'Oyunla öğren',
+      icon: <Gamepad2 size={18} aria-hidden="true" />,
+      onClick: () => {
         // Tarayıcı sesi yalnız bir tıklamanın içinde açar: Bit karşılama cümlesini de okuyabilsin.
         lessonSound().unlock();
         setInteractiveOpen(true);
-      }
+      },
     },
     hasNarration && { key: 'listen', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
     sections.length > 0 && { key: 'slides', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
@@ -1291,8 +1311,12 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         />,
         document.body
       )}
-      {interactiveOpen && topic.hasInteractiveLesson && createPortal(
-        <InteractiveLessonPlayer topicId={Number(topic.id)} onClose={() => setInteractiveOpen(false)} />,
+      {interactiveOpen && canOpenInteractive && createPortal(
+        <InteractiveLessonPlayer
+          topicId={Number(topic.id)}
+          adminPreview={isAdminInteractivePreview}
+          onClose={() => setInteractiveOpen(false)}
+        />,
         document.body
       )}
       {narrationOpen && hasNarration && createPortal(

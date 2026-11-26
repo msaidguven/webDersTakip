@@ -16,17 +16,18 @@ const PlayerV1 = dynamic(() => import('./InteractiveLessonPlayerV1'), { ssr: fal
 const PlayerV2 = dynamic(() => import('./v2/PlayerV2'), { ssr: false });
 const PlayerV3 = dynamic(() => import('./v3/PlayerV3'), { ssr: false });
 
-type Props = { topicId: number; onClose: () => void };
+type Props = { topicId: number; adminPreview?: boolean; onClose: () => void };
 type LoadedLesson = (HydratedLesson & { version?: 1 }) | HydratedLessonV2 | HydratedLessonV3;
 
-export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
+export default function InteractiveLessonPlayer({ topicId, adminPreview = false, onClose }: Props) {
   useDismissOnBack(true, onClose);
   const [lesson, setLesson] = useState<LoadedLesson | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/interactive-lesson?topicId=${topicId}`, { signal: controller.signal })
+    const qs = adminPreview ? '&preview=1' : '';
+    fetch(`/api/interactive-lesson?topicId=${topicId}${qs}`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
@@ -37,7 +38,7 @@ export default function InteractiveLessonPlayer({ topicId, onClose }: Props) {
         setError(err instanceof Error ? err.message : 'Yüklenemedi');
       });
     return () => controller.abort();
-  }, [topicId]);
+  }, [adminPreview, topicId]);
 
   if (lesson) {
     if (isHydratedV3(lesson)) {

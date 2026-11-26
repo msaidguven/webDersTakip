@@ -2,6 +2,7 @@
 //   npx tsx scripts/generate-v3-topic.ts 713
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { buildLessonV3Prompt, parseGeneratedLessonV3 } from '../app/src/lib/interactiveLesson/generateV3Core';
 
 // .env.local değişkenlerini process.env'e yükle
 for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
@@ -129,159 +130,137 @@ async function loadSource(id: number) {
 }
 
 async function main() {
-  // generateV3.ts server-only içerdiği için doğrudan prompt/parser mantığını burada temizçe kullanıyoruz
   const { src, pageUrl } = await loadSource(topicId);
   console.log(`Konu #${topicId}: ${src.grade} ${src.lesson} — "${src.title}" (${src.sections.length} bölüm)`);
 
-  const sectionsText = src.sections
-    .map((sec, idx) =>
-      [
-        `### BÖLÜM ${idx + 1} (sectionId=${sec.id}): ${sec.heading}`,
-        sec.body,
-        'Kullanılabilecek aktif havuz soru kimlikleri (checkQuestionIds için YALNIZ bunlardan 2 adet seç):',
-        ...sec.pool.map((q) => `- #${q.id}: ${q.text.replace(/\s+/g, ' ').slice(0, 220)} → doğru: ${q.answer}`),
-      ].join('\n'),
-    )
-    .join('\n\n');
+  const apiKeys = [
+    process.env.NEW_GEMINI_API_KEY_CONTENT,
+    process.env.GEMINI_API_KEY_IMAGE,
+    process.env.GEMINI_API_KEY_CONTENT,
+    process.env.GEMINI_API_KEY_QUESTIONS,
+  ].filter((k): k is string => Boolean(k));
+  const models = process.env.GEMINI_V3_MODEL
+    ? [process.env.GEMINI_V3_MODEL]
+    : ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+  if (!apiKeys.length) throw new Error('Gemini API anahtarı bulunamadı');
 
-  const termsText =
-    src.terms.map((t) => `- ${t.slug}: ${t.title} — ${t.description}`).join('\n') ||
-    '(Anahtar kavram kaydı yok — kavram tanımlarını doğrudan kitap metninden kısa ve net yaz)';
+  let usedModel = models[0];
+  let guide: ReturnType<typeof parseGeneratedLessonV3>['lesson']['guide'] | undefined;
+  const allSections: ReturnType<typeof parseGeneratedLessonV3>['lesson']['sections'] = [];
+  const SECTIONS_PER_CALL = 2;
 
-  const prompt = `Sen ortaokul öğrencileri için "Atom Keşif Dünyası" v3 oyunlaştırılmış ETKİLEŞİMLİ DERS üreten uzman bir eğitim tasarımcısısın.
-Konu: ${src.grade} ${src.lesson} · "${src.title}".
-Maskotumuzun adı "Atom".
+  for (let start = 0; start < src.sections.length; start += SECTIONS_PER_CALL) {
+    const chunkSrc = { ...src, sections: src.sections.slice(start, start + SECTIONS_PER_CALL) };
+    const chunkLabel = `Bölüm ${start + 1}-${start + chunkSrc.sections.length}/${src.sections.length}`;
+    let errorsText: string | undefined;
+    let chunkLesson: ReturnType<typeof parseGeneratedLessonV3>['lesson'] | null = null;
+    let chunkErrors: string[] = [];
 
-KAYNAK KİTAP METNİ (YALNIZ buradaki bilgileri kullan; kaynakta olmayan hiçbir bilgi/sayı/örnek uydurma, kaynakla çelişme):
-${sectionsText}
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const prompt = buildLessonV3Prompt(chunkSrc, errorsText);
+      let rawText = '';
+      let lastErr = '';
 
-ANAHTAR KAVRAMLAR (Kavram Avı oyun turlarında öncelikle bunları kullan):
-${termsText}
+      outer: for (const candidateModel of models) {
+        for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
+          const apiKey = apiKeys[kIdx];
+          console.log(`[${chunkLabel}] Gemini çağrılıyor (${candidateModel}, anahtar ${kIdx + 1}/${apiKeys.length}, deneme ${attempt}/2)...`);
+          try {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                signal: AbortSignal.timeout(120_000),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  generationConfig: { temperature: 0.35, responseMimeType: 'application/json' },
+                }),
+              },
+            );
 
-PEDAGOJİK KURALLAR:
-1. HER EKRANDA YALNIZCA 1 BİLGİ: Her bölüm için 3-4 adet tek-bilgi adımı ("beats") yaz. "fact" en fazla 1-2 kısa cümle olsun.
-2. GEÇİŞ SORULARI ("quickCheck"): Her bölümde 1-2 adıma 2 seçenekli anında kontrollü soru ekle.
-3. GÖRSEL ŞEMA ("visual" — HER adımda zorunlu):
-   - {"kind":"highlight","badge":"...","headline":"...","bullets":["...","..."]}
-   - {"kind":"compare","left":{"title":"...","points":["...","..."]},"right":{"title":"...","points":["...","..."]}}
-   - {"kind":"steps","items":["...","...","..."]}
-   - {"kind":"cards","items":[{"title":"...","detail":"..."}]}
-   - {"kind":"equation","inputs":["...","..."],"result":"..."}
-4. BÖLÜM İÇİ OYUN ("game"): Her bölümün sonunda 3 kavramlık "kavram_avi" yaz. "word" BÜYÜK HARFLE 1-2 kelime; "definition" kavramın adını geçirmeden net 1 cümle tanım; "praise" 1 cümle tebrik.
-5. BÖLÜM SONU KONTROLÜ ("checkQuestionIds"): Her bölüm için yukarıdaki havuzdan tam 2 geçerli soru ID'si seç.
+            if (res.ok) {
+              const payload = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+              rawText = payload.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() ?? '';
+              usedModel = candidateModel;
+              break outer;
+            }
 
-ÇIKTI: YALNIZCA geçerli JSON döndür:
-{
-  "guide": { "intro": "Merhaba! Ben Atom. ...", "finish": "Tebrikler! ..." },
-  "sections": [
-    {
-      "sectionId": 1234,
-      "tabLabel": "1. Kısa Bölüm Adı",
-      "title": "Tam Bölüm Başlığı",
-      "accent": "sky",
-      "beats": [
-        {
-          "id": "s1-b1",
-          "kicker": "Kategori",
-          "title": "Kısa Başlık",
-          "fact": "Tek net bilgi.",
-          "visual": { "kind": "highlight", "badge": "...", "headline": "...", "bullets": ["...", "..."] },
-          "quickCheck": { "prompt": "...", "options": ["...", "..."], "answer": 0, "okFeedback": "...", "retryFeedback": "..." }
+            lastErr = `Gemini HTTP ${res.status} (${candidateModel}): ${(await res.text()).slice(0, 220)}`;
+            if (res.status === 429) {
+              console.warn(`${candidateModel} kota dolu (429), sonraki anahtara geçiliyor...`);
+              continue;
+            }
+            if (res.status === 503) {
+              console.warn(`${candidateModel} meşgul (503), yedek modele geçiliyor...`);
+              break;
+            }
+            throw new Error(lastErr);
+          } catch (err) {
+            if (err instanceof Error && err.name === 'TimeoutError') {
+              lastErr = `${candidateModel} zaman aşımı`;
+              console.warn(`${candidateModel} zaman aşımı, yedek modele geçiliyor...`);
+              break;
+            }
+            throw err;
+          }
         }
-      ],
-      "game": {
-        "kind": "kavram_avi",
-        "title": "Bölüm 1 — Kavram Avı",
-        "intro": "3 kavramı harf çemberinden yakala!",
-        "rounds": [
-          { "word": "KAVRAM", "definition": "...", "praise": "..." }
-        ]
-      },
-      "checkQuestionIds": [1001, 1002]
+      }
+
+      if (!rawText) throw new Error(lastErr || 'Gemini yanıt vermedi');
+      const parsedJson = JSON.parse(rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim()) as unknown;
+
+      const { lesson, errors } = parseGeneratedLessonV3(parsedJson, chunkSrc);
+      chunkLesson = lesson;
+      chunkErrors = errors;
+      if (!errors.length) break;
+      console.warn(`[${chunkLabel}] Deneme ${attempt} doğrulama hataları (${errors.length}):\n- ${errors.join('\n- ')}`);
+      errorsText = errors.slice(0, 20).join('\n');
     }
-  ]
-}`;
 
-  const apiKey = process.env.GEMINI_API_KEY_QUESTIONS || process.env.GEMINI_API_KEY_CONTENT || process.env.NEW_GEMINI_API_KEY_CONTENT;
-  const model = 'gemini-3.6-flash';
-  console.log(`Gemini çağrılıyor (${model})...`);
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      signal: AbortSignal.timeout(120_000),
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.35, responseMimeType: 'application/json' },
-      }),
-    },
-  );
-
-  if (!res.ok) {
-    throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!chunkLesson || chunkErrors.length) {
+      throw new Error(`[${chunkLabel}] v3 doğrulama başarısız:\n${chunkErrors.join('\n')}`);
+    }
+    if (!guide) guide = chunkLesson.guide;
+    allSections.push(...chunkLesson.sections);
   }
 
-  const payload = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const rawText = payload.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() ?? '';
-  const parsed = JSON.parse(rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim()) as {
-    guide: { intro: string; finish: string };
-    sections: Array<{
-      sectionId: number;
-      tabLabel: string;
-      title: string;
-      accent?: string;
-      beats: unknown[];
-      game: { kind: 'kavram_avi'; title: string; intro: string; rounds: Array<{ word: string; definition: string; praise: string }> };
-      checkQuestionIds: number[];
-    }>;
+  const finalLesson = {
+    version: 3 as const,
+    topicId,
+    courseLabel: `${src.grade} ${src.lesson}`,
+    sceneId: 'generic' as const,
+    guide,
+    sections: allSections,
   };
 
-  const accents = ['sky', 'amber', 'emerald', 'rose'] as const;
-  const normalizedSections = parsed.sections.map((sec, idx) => {
-    const srcSec = src.sections.find((s) => s.id === Number(sec.sectionId)) ?? src.sections[idx];
-    const validIds = new Set(srcSec.pool.map((q) => q.id));
-    const qIds = (sec.checkQuestionIds ?? []).map(Number).filter((id) => validIds.has(id)).slice(0, 2);
-    for (const q of srcSec.pool) {
-      if (qIds.length >= 2) break;
-      if (!qIds.includes(q.id)) qIds.push(q.id);
+  const kindCounts: Record<string, number> = {};
+  for (const sec of finalLesson.sections) {
+    for (const beat of sec.beats) {
+      const k = beat.visual?.kind ?? 'none';
+      kindCounts[k] = (kindCounts[k] ?? 0) + 1;
     }
-    return {
-      sectionId: srcSec.id,
-      tabLabel: sec.tabLabel || `${idx + 1}. ${srcSec.heading.slice(0, 22)}`,
-      title: sec.title || srcSec.heading,
-      accent: accents[idx % accents.length],
-      beats: sec.beats,
-      game: {
-        ...sec.game,
-        kind: 'kavram_avi' as const,
-        rounds: (sec.game?.rounds ?? []).map((r) => ({
-          ...r,
-          word: r.word.toLocaleUpperCase('tr-TR'),
-        })),
-      },
-      checkQuestionIds: qIds,
-    };
-  });
+  }
+  console.log('Görsel dağılımı:', kindCounts);
 
   const storedLesson = {
     version: 3,
-    courseLabel: `${src.grade} ${src.lesson}`,
-    sceneId: 'generic',
-    guide: parsed.guide,
-    sections: normalizedSections,
+    schemaVersion: '3.1' as const,
+    courseLabel: finalLesson.courseLabel,
+    sceneId: finalLesson.sceneId,
+    guide: finalLesson.guide,
+    sections: finalLesson.sections,
   };
 
   const { error: upsertErr } = await supabase.from('interactive_lessons').upsert(
     {
       topic_id: topicId,
       status: 'ready',
-      voice_done: true,
-      model,
+      voice_done: false,
+      model: usedModel,
       runs: 0,
       lesson: storedLesson,
-      last_message: `v3 AI üretimi: ${normalizedSections.length} bölüm`,
+      last_message: `v3.1 AI üretimi: ${finalLesson.sections.length} bölüm`,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'topic_id' },

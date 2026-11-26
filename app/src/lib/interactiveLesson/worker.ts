@@ -189,6 +189,7 @@ async function runLessonGeneration(
     );
     const stored: StoredLessonV3 = {
       version: 3,
+      schemaVersion: '3.1',
       courseLabel: out.lesson.courseLabel,
       sceneId: 'generic',
       guide: partial?.guide ?? out.lesson.guide,
@@ -196,7 +197,7 @@ async function runLessonGeneration(
     };
     const finished = sections.length >= source.sections.length;
     const totalBeats = sections.reduce((sum, sec) => sum + sec.beats.length, 0);
-    const summary = `v3: ${sections.length}/${source.sections.length} bölüm, ${totalBeats} tek-bilgi sahnesi`;
+    const summary = `v3.1: ${sections.length}/${source.sections.length} bölüm, ${totalBeats} sahne`;
 
     await update(supabase, topicId, {
       status: finished ? 'ready' : 'partial',
