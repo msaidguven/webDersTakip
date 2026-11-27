@@ -34,7 +34,7 @@ export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerPr
     id: 'primary',
     label: 'Soru AI 1',
     model: 'gemini-3.6-flash',
-    fallbackModels: ['gemini-3.8-flash'],
+    fallbackModels: ['gemini-3.8-flash', 'gemini-3.5-flash'],
     cronMinute: 37,
     apiKeyEnvs: ['GEMINI_API_KEY_QUESTIONS'],
   },
@@ -54,7 +54,7 @@ export const QUESTION_WORKER_PROFILES: Record<QuestionWorkerId, QuestionWorkerPr
     id: 'tertiary',
     label: 'Soru AI 3',
     model: 'gemini-3.8-flash',
-    fallbackModels: ['gemini-3.6-flash'],
+    fallbackModels: ['gemini-3.6-flash', 'gemini-3.5-flash'],
     cronMinute: 51,
     apiKeyEnvs: ['GEMINI_API_KEY_CONTENT'],
     // 2026-10-31 kullanıcı kararı: yazılı v1 soruları bitene kadar önce yazılıya çalışır.

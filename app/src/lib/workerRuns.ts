@@ -79,9 +79,31 @@ export async function runContentWorker(supabase: Supabase, workerId: ContentWork
   if (logError) console.error('ai_content_draft_worker_runs log yazılamadı:', logError.message);
 
   // Yeni konu yoksa bu saat kartı eksik bir konuya hap bilgi kartı üretir (2026-10-24, saatte 1 konu; yeni
-  // konularda kart içerikle aynı çağrıda geliyor). Ayrı kayıt: kind='recap_card', topic_id başarısızlık sayımı için.
+  // konularda kart içerikle aynı çağrıda geliyor). Kartı eksik konu da yoksa boşta kalmak yerine
+  // test soru havuzuna destek olur (tertiary'nin 3.8-flash kotasıyla çakışmamak için 3.6 + 3.5-flash kullanır).
   if (result.idle) {
     const recap = await generateNextRecapCards(supabase, profile);
+    const recapIdle = !recap.ok && !recap.topicId && recap.reason === 'Kartı eksik konu yok';
+
+    if (recapIdle) {
+      const qSupportProfile = {
+        ...QUESTION_WORKER_PROFILES.primary,
+        model: 'gemini-3.6-flash',
+        fallbackModels: ['gemini-3.5-flash'],
+        apiKeyEnvs: profile.apiKeyEnvs,
+      };
+      const qStep = await runTopicBatchStep(supabase, qSupportProfile);
+      const { error: qLogError } = await supabase.from('ai_content_draft_worker_runs').insert({
+        kind: 'question_pool',
+        generated: qStep.generated,
+        reason: `Soru havuzu desteği: ${qStep.reason ?? (qStep.generated ? 'üretildi' : 'iş yok')}`,
+        topic_id: null,
+        worker: profile.id,
+      });
+      if (qLogError) console.error('Soru havuzu desteği kaydı yazılamadı:', qLogError.message);
+      return { ...result, recap: { ok: qStep.generated, topicId: undefined, reason: qStep.reason } };
+    }
+
     // Kota/aşırı yük (429/503) konunun suçu değil: 3 deneme sınırına sayılmasın diye topic_id yazılmaz.
     const transient = !recap.ok && /\b(429|503)\b/.test(recap.reason ?? '');
     const { error: recapLogError } = await supabase.from('ai_content_draft_worker_runs').insert({
