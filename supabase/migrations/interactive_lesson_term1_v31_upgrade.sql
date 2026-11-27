@@ -1,9 +1,10 @@
--- 1. Dönem v3.1 Yükseltme Filtresi (2026-11-27):
+-- 1. Dönem v3.1 Yükseltme Filtresi — Sondan Geriye Doğru Sıralama (2026-11-27):
 -- 2. dönem (start_week > 14) ve haftası atanmamış 4-5. üniteleri şimdilik bekletir.
--- Önce 1. dönem kapsamındaki eski v1 (en çok açılanlardan başlayarak) ve eski v3.0 derslerini
--- aynı anda YALNIZCA 1 ders olacak şekilde (sıfır toplu kesinti) v3.1 + öğretmen anlatımına yükseltir,
--- ardından kalan 1. dönem yeni konularını üretir.
--- 1. dönem tamamlanınca bu filtre kaldırılıp tüm konulara devam edilir.
+-- Önce 1. dönem kapsamındaki eski v1 ve eski v3.0 derslerini SONDAN GERİYE DOĞRU:
+--   * Hafta atanmışsa: 14. hafta -> 13. -> 12. -> 11. -> ... -> 1. hafta (aynı haftada önce v1, sonra v3.0)
+--   * Hafta atanmamışsa: 3. ünitenin son konusu -> sondan bir önceki -> ... -> 1. ünite
+-- aynı anda YALNIZCA 1 ders olacak şekilde (sıfır toplu kesinti) v3.1 + öğretmen anlatımına yükseltir.
+-- Ardından kalan 1. dönem yeni konularını aynı sırayla üretir.
 create or replace function public.claim_next_interactive_lesson_topic(p_exclude bigint[])
 returns bigint
 language plpgsql
@@ -29,12 +30,12 @@ begin
     return v_topic;
   end if;
 
-  -- 2) Öncelik: 1. dönem kapsamındaki (min_week <= 14 veya haftasızsa ünite <= 3)
-  -- eski v1 ve eski v3.0 derslerini tek tek v3.1'e yükselt (önce v1, sonra v3.0; en çok açılanlar önce).
+  -- 2) Öncelik: 1. dönem kapsamındaki eski v1 ve eski v3.0 derslerini sondan geriye doğru tek tek v3.1'e yükselt.
   with topic_scope as (
     select
       t.id as topic_id,
-      u.order_no as unit_order,
+      coalesce(t.order_no, 0) as topic_order,
+      coalesce(u.order_no, 0) as unit_order,
       (
         select min(w.start_week)
         from public.outcomes o
@@ -43,17 +44,10 @@ begin
       ) as min_week
     from public.topics t
     join public.units u on u.id = t.unit_id
-  ),
-  opens as (
-    select e.topic_id, count(*) as open_count
-    from public.content_view_events e
-    where e.kind = 'interactive_open' and e.role <> 'admin'
-    group by e.topic_id
   )
   select l.topic_id into v_topic
   from public.interactive_lessons l
   join topic_scope ts on ts.topic_id = l.topic_id
-  left join opens op on op.topic_id = l.topic_id
   where l.status = 'ready'
     and l.voice_done = true
     and not (l.topic_id = any (coalesce(p_exclude, '{}')))
@@ -73,10 +67,12 @@ begin
       where c2.topic_id = l.topic_id and c2.is_published and q.is_active and q.question_type_id in (1, 3)
     ) >= 4
   order by
+    (ts.min_week is not null) desc,
+    coalesce(ts.min_week, 0) desc,
+    ts.unit_order desc,
+    ts.topic_order desc,
     (coalesce(l.lesson->>'version', '1') = '1') desc,
-    coalesce(op.open_count, 0) desc,
-    coalesce(ts.min_week, 99) asc,
-    l.topic_id asc
+    l.topic_id desc
   limit 1
   for update of l skip locked;
 
@@ -86,17 +82,18 @@ begin
         lesson = null,
         runs = 1,
         voice_done = false,
-        last_message = '1. dönem otomatik v3.1 yükseltme başladı',
+        last_message = '1. dönem sondan geriye otomatik v3.1 yükseltme başladı',
         updated_at = now()
     where topic_id = v_topic;
     return v_topic;
   end if;
 
-  -- 3) Öncelik: 1. dönem kapsamındaki henüz hiç üretilmemiş konular (2. dönem ve 4-5. üniteler hariç).
+  -- 3) Öncelik: 1. dönem kapsamındaki henüz hiç üretilmemiş konular (sondan geriye doğru).
   with topic_scope as (
     select
       t.id as topic_id,
-      u.order_no as unit_order,
+      coalesce(t.order_no, 0) as topic_order,
+      coalesce(u.order_no, 0) as unit_order,
       (
         select min(w.start_week)
         from public.outcomes o
@@ -119,7 +116,12 @@ begin
       join public.topic_contents c2 on c2.id = s.topic_content_id
       where c2.topic_id = c.topic_id and c2.is_published and q.is_active and q.question_type_id in (1, 3)
     ) >= 4
-  order by coalesce(ts.min_week, 99) asc, c.topic_id asc
+  order by
+    (ts.min_week is not null) desc,
+    coalesce(ts.min_week, 0) desc,
+    ts.unit_order desc,
+    ts.topic_order desc,
+    c.topic_id desc
   limit 1;
 
   if v_topic is null then
