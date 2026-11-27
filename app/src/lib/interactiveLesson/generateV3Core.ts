@@ -171,13 +171,19 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
    - "praise": Kavram bulununca çıkacak 1 cümlelik pekiştirici tebrik.
 5. BÖLÜM SONU KONTROLÜ ("checkQuestionIds"):
    - O bölümün havuz listesinden tam 2 adet geçerli soru ID'si seç (her soru en fazla 1 kez kullanılsın).
-6. SESLİ OKUMA (TTS) VE YAZIM KURALLARI:
-   - Başlıklar, pasif görsel maddeleri, etkileşimli laboratuvarların "task" yönergesi, "fact", "quickCheck" ve oyun metinleri sesli okunacaktır.
+6. ÖĞRETMEN ANLATIMI ("narration" — HER ANLATIM ADIMINDA ZORUNLU) VE SESLİ OKUMA KURALLARI:
+   - Her anlatım adımına ekrandaki metinden AYRI bir "narration" alanı yaz; Azure TTS öğrenciye YALNIZ bu alanı okuyacaktır!
+   - "narration" öğrenciye ders anlatan sıcak ama akademik açıdan doğru bir öğretmenin doğal konuşması olmalıdır (1–3 kısa cümle, en fazla 45 kelime).
+   - Ekrandaki "title", "visual" ve "fact" metinlerini kelimesi kelimesine tekrar etme; ilişkili kavramları birleştirip akıcı Türkçe ile anlat.
+   - +, =, →, |, &, : gibi sembolleri ASLA "artı, eşittir, ok" diye okuma; anlamını doğal cümleyle açıkla:
+     * YANLIŞ: "Türk Cihan Hâkimiyeti Mefkûresi, artı, İslam Dinini Yayma Amacı, eşittir, Cihan Devleti Anlayışı."
+     * DOĞRU: "Türklerin dünyaya hâkim olma düşüncesi ile İslam dinini yayma amacı birleşerek güçlü bir cihan devleti anlayışının oluşmasını sağlamıştır."
+   - Matematik/fen formüllerinde de mekanik sembol okuma yerine işlemin mantığını doğal dille açıkla; dersin terminolojisine sadık kal, kaynakta olmayan bilgi uydurma.
+   - Etkileşimli mikro-laboratuvar adımlarında ("classify_tap", "spot_highlight", "cause_effect_dial", "step_reveal", "token_builder", "filter_sandbox") "narration" öğrenciye neyi deneyip keşfedeceğini 1–2 sıcak cümleyle yönlendirsin, doğru cevabı kopya vermesin.
    - Etkileşimli çip etiketlerinde ("filters.label", "queryToken", "tokens", "solution") gerçek teknik/operatör sözdizimi (örn. site:meb.gov.tr, filetype:pdf, "kara delik", -reklam) serbestçe kullanılabilir; bunlar sesli okunmaz.
    - "steps.items", "highlight.bullets" ve "compare.points" öğelerinin başına ASLA madde numarası ("1.", "2.", "Adım 1:") veya madde işareti ("-", "•") koyma — oynatıcı numaraları ve madde işaretlerini otomatik ekler.
-   - Sesli okunan cümlelerde "&" yerine "ve", "|" yerine virgül, "→" yerine akıcı Türkçe ifade kullan; markdown backtick (\`) kullanma.
-   - Parantez içinde gereksiz sembol tekrarı ("(=)", "(+)", "(*)", "(/)", "(:)") yapma; kart/karşılaştırma başlıklarının sonuna gereksiz ":" koyma.
-   - Birim ve kısaltmaları mümkün olduğunca açık Türkçe yaz ("Hz." yerine "Hazreti", "sn" yerine "saniye", "vb." yerine "ve benzeri", "m/s" yanında tekrar etmeden sade kullanım).
+   - "narration", "quickCheck" ve oyun metinlerinde "&" yerine "ve", "|" yerine virgül, "→" yerine akıcı Türkçe ifade kullan; markdown backtick (\`) ve parantez içi sembol tekrarı ("(=)", "(+)", "(*)", "(/)", "(:)") kullanma.
+   - Birim ve kısaltmaları açık Türkçe yaz ("Hz." yerine "Hazreti", "sn" yerine "saniye", "vb." yerine "ve benzeri").
 
 ÇIKTI: YALNIZCA geçerli JSON döndür (markdown kod bloğu veya açıklama yazma):
 {
@@ -195,7 +201,8 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
           "id": "s1-b1",
           "kicker": "Kısa Kategori",
           "title": "Kısa Başlık (≤5 kelime)",
-          "fact": "Tek net bilgi (1-2 kısa cümle).",
+          "fact": "Tek net bilgi (1-2 kısa cümle, ekranda görünür).",
+          "narration": "Öğretmenin öğrenciye sıcak ve doğal dille anlattığı 1-3 kısa cümle (sembolsüz, ekrandakini birebir tekrar etmeden).",
           "visual": { "kind": "highlight", "badge": "...", "headline": "...", "bullets": ["...", "..."] },
           "quickCheck": {
             "prompt": "Kısa soru?",
@@ -645,10 +652,16 @@ export function parseGeneratedLessonV3(
         .flatMap((b, bIdx): V3TeachBeat[] => {
           const title = str(b.title);
           const fact = str(b.fact);
+          const narration = str(b.narration) || undefined;
           const beatCtx = `Bölüm ${sIdx + 1}, adım ${bIdx + 1}`;
           if (!title || !fact) {
             errors.push(`${beatCtx}: title veya fact eksik`);
             return [];
+          }
+          if (!narration) {
+            errors.push(`${beatCtx}: narration (öğretmen seslendirme anlatımı) eksik`);
+          } else if (/[→|&]|\s[+=]\s/.test(narration)) {
+            errors.push(`${beatCtx}: narration içinde +, =, →, |, & sembolü kullanma; doğal Türkçe cümleyle anlat`);
           }
           const qcRaw = isObj(b.quickCheck) ? b.quickCheck : null;
           const options = qcRaw ? arr(qcRaw.options).map(str).filter(Boolean) : [];
@@ -675,6 +688,7 @@ export function parseGeneratedLessonV3(
               kicker: str(b.kicker) || `${bIdx + 1}. Bilgi`,
               title,
               fact,
+              ...(narration ? { narration } : {}),
               visual: parsedVisual,
               quickCheck,
             },

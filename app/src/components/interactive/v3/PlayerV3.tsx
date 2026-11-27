@@ -30,9 +30,7 @@ import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import {
   GUIDE,
   ttsText,
-  v3BeatSpeech,
-  v3BeatSpeechLegacy,
-  v3BeatTitleFactSpeech,
+  v3BeatVoiceCandidates,
   voiceAudioPath,
   voiceKey,
   voiceManifestPath,
@@ -323,16 +321,12 @@ export default function PlayerV3({
     [speakLine],
   );
 
-  // Anlatım ekranı ses metni: Başlık → Görsel Şema → Alt Açıklama sırasıyla (ekrandaki yukarıdan aşağıya sırayla %100 aynı).
-  // Önce numaralı highlight (Bir, İki, Üç) aranır; mevcut eski dersler için numarasız yedek (legacy) sorunsuz çalar.
+  // Anlatım ekranı ses metni: Önce doğal öğretmen anlatımı (`beat.narration`), yoksa yeni doğal yedek,
+  // o da yoksa yayındaki mevcut eski MP3 anahtarları (sıfır kırılım) sırayla aranır.
   const resolveBeatVoice = useCallback((beat: V3TeachBeat, set: Set<string>): string | null => {
-    const full = v3BeatSpeech(beat);
-    if (set.has(voiceKey(full))) return full;
-    const legacy = v3BeatSpeechLegacy(beat);
-    if (legacy !== full && set.has(voiceKey(legacy))) return legacy;
-    const titleFact = v3BeatTitleFactSpeech(beat);
-    if (set.has(voiceKey(titleFact))) return titleFact;
-    if (set.has(voiceKey(beat.fact))) return beat.fact;
+    for (const candidate of v3BeatVoiceCandidates(beat)) {
+      if (set.has(voiceKey(candidate))) return candidate;
+    }
     return null;
   }, []);
 

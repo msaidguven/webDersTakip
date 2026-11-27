@@ -168,17 +168,31 @@ function stripStepListPrefix(text: string): string {
   return noBullet;
 }
 
+const MATH_EXPR_RE = /^[\d\s.,+\-*/^=()xXyYzZaAbBcCnN°%²³⁴⁵⁶⁷⁸⁹]+$/;
+function isPureMathTerm(s: string): boolean {
+  const t = s.trim();
+  return Boolean(t) && t.length <= 18 && /\d/.test(t) && MATH_EXPR_RE.test(t);
+}
+
+function joinNaturalTr(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} ile ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} ve ${items[items.length - 1]}`;
+}
+
 // v3 anlatım ekranındaki yapısal görselin (başlıklar, maddeler, karşılaştırma, adımlar, kartlar, denklem)
-// doğal konuşma metni.
+// doğal konuşma metni (beat.narration yoksa güvenli yedek olarak kullanılır).
 export function v3VisualSpeech(
   visual?: V3BeatVisual,
   beatTitle?: string,
-  opts?: { numberHighlight?: boolean },
+  opts?: { numberHighlight?: boolean; legacyEquation?: boolean },
 ): string {
   if (!visual) return '';
   const norm = (s: string) => s.trim().toLocaleLowerCase('tr-TR');
   const titleNorm = beatTitle ? norm(beatTitle) : '';
   const numberHighlight = opts?.numberHighlight ?? true;
+  const legacyEquation = opts?.legacyEquation ?? false;
 
   switch (visual.kind) {
     case 'highlight': {
@@ -230,10 +244,20 @@ export function v3VisualSpeech(
         .filter(Boolean)
         .join(' ');
     case 'equation': {
-      const left = visual.inputs.map((inp) => inp.trim()).filter(Boolean).join(' artı ');
+      const inputs = visual.inputs.map((inp) => inp.trim()).filter(Boolean);
       const res = visual.result.trim();
-      if (left && res) return endSentence(`${left}, eşittir ${res}`);
-      return endSentence(left || res);
+      if (legacyEquation) {
+        const left = inputs.join(' artı ');
+        if (left && res) return endSentence(`${left}, eşittir ${res}`);
+        return endSentence(left || res);
+      }
+      if (!inputs.length) return endSentence(res);
+      if (!res) return endSentence(joinNaturalTr(inputs));
+      const allMath = inputs.every(isPureMathTerm) && isPureMathTerm(res);
+      if (allMath) {
+        return endSentence(`${joinNaturalTr(inputs)} toplandığında ${res} elde edilir`);
+      }
+      return endSentence(`${joinNaturalTr(inputs)} birleşerek ${res} sonucunu ortaya çıkarır`);
     }
     case 'filter_sandbox':
     case 'token_builder':
@@ -265,11 +289,16 @@ export function v3BeatTitleFactSpeech(beat: Pick<V3TeachBeat, 'title' | 'fact'>)
   return `${title}${sep}${fact}`;
 }
 
-// v3 anlatım ekranında Atom önce başlığı, sonra görseldeki başlık/maddeleri, ardından alt metni tek akışta okur.
+// v3 anlatım ekranında Atom'un okuyacağı metin:
+// 1) Ekrandan ayrı yazılmış öğretmen anlatımı (`beat.narration`) varsa doğrudan onu okur (en doğal, sembolsüz).
+// 2) Yoksa güvenli yedek olarak başlık + görsel şema + alt metin birleştirilir.
 export function v3BeatSpeech(
-  beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>,
-  opts?: { numberHighlight?: boolean },
+  beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual' | 'narration'>,
+  opts?: { numberHighlight?: boolean; legacyEquation?: boolean; ignoreNarration?: boolean },
 ): string {
+  const narration = !opts?.ignoreNarration ? beat.narration?.trim() : '';
+  if (narration) return narration;
+
   const title = beat.title.trim();
   const visualText = v3VisualSpeech(beat.visual, title, opts);
   const fact = beat.fact.trim();
@@ -284,9 +313,24 @@ export function v3BeatSpeech(
   return parts.join(' ').trim();
 }
 
-// Eski sesler için geriye dönük yedek (highlight maddeleri numarasız üretilen mevcut MP3'ler).
-export function v3BeatSpeechLegacy(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual'>): string {
-  return v3BeatSpeech(beat, { numberHighlight: false });
+// Eski sesler için geriye dönük yedek (highlight maddeleri numarasız ve eski "artı/eşittir" denklemle üretilen MP3'ler).
+export function v3BeatSpeechLegacy(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual' | 'narration'>): string {
+  return v3BeatSpeech(beat, { numberHighlight: false, legacyEquation: true, ignoreNarration: true });
+}
+
+// Oynatıcının mevcut üretilmiş MP3'leri bozmadan sırayla kontrol edeceği ses metni adayları.
+export function v3BeatVoiceCandidates(
+  beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual' | 'narration'>,
+): string[] {
+  const candidates = [
+    v3BeatSpeech(beat),
+    v3BeatSpeech(beat, { ignoreNarration: true, numberHighlight: true, legacyEquation: false }),
+    v3BeatSpeech(beat, { ignoreNarration: true, numberHighlight: true, legacyEquation: true }),
+    v3BeatSpeechLegacy(beat),
+    v3BeatTitleFactSpeech(beat),
+    beat.fact.trim(),
+  ].filter(Boolean);
+  return [...new Set(candidates)];
 }
 
 // Dersin seslendirilecek bütün cümleleri (üretim betiği). v1, v2 ve v3 derslerini destekler.

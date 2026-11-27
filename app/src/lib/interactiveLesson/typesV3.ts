@@ -200,8 +200,10 @@ export type V3TeachBeat = {
   kicker: string;
   /** Kısa başlık (en fazla 4-5 kelime). */
   title: string;
-  /** Tek net bilgi: 1-2 kısa cümle. */
+  /** Tek net bilgi: 1-2 kısa cümle (ekranda Atom balonunda görünür). */
   fact: string;
+  /** Azure TTS için ekrandan ayrı, 1-3 kısa cümlelik doğal öğretmen anlatımı (sembolsüz). */
+  narration?: string;
   /** Özel SVG sahneli konularda (örn. Sindirim Sistemi) canlı odak kimliği. */
   focus?: DigestiveFocusId;
   /** Genel konularda (AI üretimi dahil) bilgiyi görselleştiren yapısal kart/şema. */
