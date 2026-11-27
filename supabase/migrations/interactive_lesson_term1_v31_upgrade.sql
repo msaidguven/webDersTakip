@@ -1,10 +1,8 @@
--- 1. Dönem v3.1 Yükseltme Filtresi — Sondan Geriye Doğru Sıralama (2026-11-27):
--- 2. dönem (start_week > 14) ve haftası atanmamış 4-5. üniteleri şimdilik bekletir.
--- Önce 1. dönem kapsamındaki eski v1 ve eski v3.0 derslerini SONDAN GERİYE DOĞRU:
---   * Hafta atanmışsa: 14. hafta -> 13. -> 12. -> 11. -> ... -> 1. hafta (aynı haftada önce v1, sonra v3.0)
---   * Hafta atanmamışsa: 3. ünitenin son konusu -> sondan bir önceki -> ... -> 1. ünite
--- aynı anda YALNIZCA 1 ders olacak şekilde (sıfır toplu kesinti) v3.1 + öğretmen anlatımına yükseltir.
--- Ardından kalan 1. dönem yeni konularını aynı sırayla üretir.
+-- 1. Dönem v3.1 Yükseltme Filtresi — Bu Haftadan (10. Hafta) Geriye Doğru (2026-11-27):
+-- 10. haftadan sonraki konuları ve haftası atanmamış 4-5. üniteleri şimdilik bekletir.
+-- Önce 10. hafta -> 9. -> 8. -> ... -> 1. hafta, sonra haftasız 3. ünite son konusundan geriye doğru
+-- aynı anda YALNIZCA 1 eski dersi (sıfır toplu kesinti) v3.1 + öğretmen anlatımına yükseltir.
+-- Gelecek hafta üst sınır 11 yapıldığında önce 11. hafta biter, sonra kaldığı yerden geriye devam eder.
 create or replace function public.claim_next_interactive_lesson_topic(p_exclude bigint[])
 returns bigint
 language plpgsql
@@ -51,7 +49,7 @@ begin
   where l.status = 'ready'
     and l.voice_done = true
     and not (l.topic_id = any (coalesce(p_exclude, '{}')))
-    and ((ts.min_week is not null and ts.min_week <= 14) or (ts.min_week is null and ts.unit_order <= 3))
+    and ((ts.min_week is not null and ts.min_week <= 10) or (ts.min_week is null and ts.unit_order <= 3))
     and (
       coalesce(l.lesson->>'version', '1') = '1'
       or (l.lesson->>'version' = '3' and coalesce(l.lesson->>'schemaVersion', '') <> '3.1')
@@ -108,7 +106,7 @@ begin
   join topic_scope ts on ts.topic_id = c.topic_id
   where c.is_published
     and not (c.topic_id = any (coalesce(p_exclude, '{}')))
-    and ((ts.min_week is not null and ts.min_week <= 14) or (ts.min_week is null and ts.unit_order <= 3))
+    and ((ts.min_week is not null and ts.min_week <= 10) or (ts.min_week is null and ts.unit_order <= 3))
     and not exists (select 1 from public.interactive_lessons l where l.topic_id = c.topic_id)
     and (
       select count(*) from public.questions q
