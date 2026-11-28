@@ -9,6 +9,7 @@ import { MainLayout } from "./src/components/MainLayout";
 import { StructuredData } from "./src/components/StructuredData";
 import { PageViewTracker } from "./src/components/PageViewTracker";
 import { AcquisitionCapture } from "./src/components/AcquisitionCapture";
+import { TrafficTracker } from "./src/components/TrafficTracker";
 import { AnswerOutboxFlusher } from "./src/components/AnswerOutboxFlusher";
 import { InAppNavigationTracker } from "./src/components/InAppNavigationTracker";
 import { DemoReadOnlyNotice } from "./src/components/DemoReadOnlyNotice";
@@ -73,6 +74,7 @@ export default function RootLayout({
         <AuthProvider>
           <PageViewTracker />
           <AcquisitionCapture />
+          <TrafficTracker />
           <AnswerOutboxFlusher />
           <InAppNavigationTracker />
           <DemoReadOnlyNotice />

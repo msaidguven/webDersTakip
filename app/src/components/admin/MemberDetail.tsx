@@ -23,6 +23,7 @@ type MemberDetailData = {
     last_seen_at: string | null;
     signup_method: 'email' | 'google' | null;
     acquisition: Acquisition | null;
+    last_device_type?: Acquisition['device_type'] | null;
     checklist: ChecklistItem[];
   };
   period: { days: number; active_days: number; answered: number; correct: number; views: number; pages: number };
@@ -157,8 +158,10 @@ export default function MemberDetail({ userId, days, periodLabel, onClose }: Pro
             <dd className="break-all text-foreground">{profile.acquisition?.landing_path ?? '—'}</dd>
             <dt className="text-muted-foreground">Geldiği yer</dt>
             <dd className="text-foreground">{referrerLabel(profile.acquisition)}</dd>
-            <dt className="text-muted-foreground">Cihaz</dt>
+            <dt className="text-muted-foreground">Cihaz (kayıt)</dt>
             <dd className="text-foreground">{deviceLabel(profile.acquisition?.device_type ?? null)}</dd>
+            <dt className="text-muted-foreground">Son cihaz</dt>
+            <dd className="text-foreground">{deviceLabel(profile.last_device_type ?? null)}</dd>
             <dt className="text-muted-foreground">Kampanya</dt>
             <dd className="text-foreground">{campaignLabel(profile.acquisition)}</dd>
             <dt className="text-muted-foreground">Günlük hedef</dt>

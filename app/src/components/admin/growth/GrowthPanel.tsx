@@ -4,6 +4,7 @@
 // Özet kutuları önceki eş dönemle karşılaştırılır; çizelgeler günlük; listeler kayıt kaynağı + sınıf.
 import { useEffect, useState } from 'react';
 import { DailyBarChart, SERIES_COLORS } from './DailyBarChart';
+import { TrafficSection, type TrafficStats } from './TrafficSection';
 
 type Count = { label: string; count: number };
 type Day = {
@@ -40,6 +41,7 @@ type Growth = {
   series: Day[];
   acquisition: { with_data: number; new_in_period: number; sources: Count[]; landing_pages: Count[]; devices: Count[]; methods: Count[] };
   grades: Count[];
+  traffic?: TrafficStats;
 };
 
 const PERIODS = [
@@ -223,6 +225,8 @@ export default function GrowthPanel() {
             <Tile label={`Günün sorusu cevabı (${days} gün)`} value={t.daily_q_period} hint="Anasayfadaki günün sorusu" />
             <Tile label="…bunlardan misafir" value={t.daily_q_guest_period} hint="Giriş yapmadan cevaplayan — misafir ilgisinin tek izi" />
           </section>
+
+          {data.traffic && <TrafficSection traffic={data.traffic} days={days} />}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <CountList

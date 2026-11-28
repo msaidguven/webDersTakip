@@ -23,7 +23,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: 'Üye bulunamadı' }, { status: 404 });
 
-  // Kayıt kaynağı (bkz. lib/acquisition.ts) RPC'de değil; profil satırından ayrıca okunur.
-  const { data: origin } = await supabase.from('profiles').select('signup_method, acquisition').eq('id', id).maybeSingle();
-  return NextResponse.json({ detail: { ...data, signup_method: origin?.signup_method ?? null, acquisition: origin?.acquisition ?? null } });
+  // Kayıt kaynağı (bkz. lib/acquisition.ts) ve son cihaz RPC'de değil; profil satırından ayrıca okunur
+  // ve MemberDetail'in beklediği detail.profile içine birleştirilir.
+  const { data: origin } = await supabase
+    .from('profiles')
+    .select('signup_method, acquisition, last_device_type')
+    .eq('id', id)
+    .maybeSingle();
+  return NextResponse.json({
+    detail: {
+      ...data,
+      profile: {
+        ...(data.profile ?? {}),
+        signup_method: origin?.signup_method ?? null,
+        acquisition: origin?.acquisition ?? null,
+        last_device_type: origin?.last_device_type ?? null,
+      },
+    },
+  });
 }
