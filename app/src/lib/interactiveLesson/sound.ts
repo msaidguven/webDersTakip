@@ -242,8 +242,42 @@ class LessonSound {
     });
   }
 
+  private waitGap(ms: number, my: number): Promise<void> {
+    if (ms <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let remaining = ms;
+      const run = () => {
+        if (my !== this.token) return resolve();
+        if (this.voicePaused) {
+          this.resumeWaiter = () => run();
+          return;
+        }
+        const started = performance.now();
+        const id = setTimeout(() => {
+          if (my !== this.token) return resolve();
+          if (this.voicePaused) {
+            remaining = Math.max(0, remaining - (performance.now() - started));
+            this.resumeWaiter = () => run();
+            return;
+          }
+          this.resumeWaiter = null;
+          resolve();
+        }, remaining);
+        this.resumeWaiter = () => {
+          clearTimeout(id);
+          run();
+        };
+      };
+      run();
+    });
+  }
+
   /** Cümleleri sırayla okur (url: önceden üretilmiş ses, yoksa cihaz sesi); yeni bir speak/hush öncekini keser. */
-  async speak(items: { url: string | null; text: string }[], onEnd: () => void) {
+  async speak(
+    items: { url: string | null; text: string }[],
+    onEnd: () => void,
+    opts?: { onItemStart?: (index: number) => void; gapMs?: number },
+  ) {
     this.hush();
     const my = ++this.token;
     const ctx = this.ctx;
@@ -252,17 +286,30 @@ class LessonSound {
     this.voiceActive = true;
     this.voicePaused = false;
     this.duck(true);
-    for (const item of items) {
+    const gapMs = opts?.gapMs ?? 0;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      // Sıradaki parçayı arka planda önceden indir: geçişte sıfır gecikme.
+      const nextUrl = items[i + 1]?.url;
+      if (nextUrl) void this.load(nextUrl);
+
       if (!item.url) {
+        opts?.onItemStart?.(i);
         await this.speakText(item.text);
         if (my !== this.token) return;
-        continue;
+      } else {
+        const buf = await this.load(item.url);
+        if (my !== this.token) return;
+        if (!buf) continue;
+        opts?.onItemStart?.(i);
+        await this.playBuffer(ctx, buf, my);
+        if (my !== this.token) return;
       }
-      const buf = await this.load(item.url);
-      if (my !== this.token) return;
-      if (!buf) continue;
-      await this.playBuffer(ctx, buf, my);
-      if (my !== this.token) return;
+
+      if (i < items.length - 1 && gapMs > 0) {
+        await this.waitGap(gapMs, my);
+        if (my !== this.token) return;
+      }
     }
     this.current = null;
     this.currentBuf = null;

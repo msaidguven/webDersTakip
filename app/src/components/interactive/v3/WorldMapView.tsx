@@ -593,10 +593,10 @@ export function WorldMapView({
               type="button"
               onClick={() => setConfirmReset(true)}
               className={s.bottomResetBtn}
-              title="İlerlemeyi sıfırla ve baştan çalış"
+              title="Dersi baştan başlat ve yeniden çalış"
             >
               <RotateCcw className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className={s.bottomResetLabel}>Sıfırla</span>
+              <span className={s.bottomResetLabel}>Baştan Başla</span>
             </button>
           )}
 
@@ -620,9 +620,9 @@ export function WorldMapView({
             <div className={s.confirmIconWrap}>
               <RotateCcw className="h-6 w-6 text-amber-600" aria-hidden="true" />
             </div>
-            <h3 className={s.confirmTitle}>İlerlemeyi Sıfırla ve Yeniden Çalış</h3>
+            <h3 className={s.confirmTitle}>Dersi Baştan Başlat</h3>
             <p className={s.confirmDesc}>
-              Bu dersteki mevcut bölüm işaretlerin ve kaldığın adım temizlenecek, tüm bölümleri baştan
+              Bu dersteki mevcut bölüm işaretlerin temizlenecek ve tüm bölümleri en baştan tekrar
               çalışabileceksin.
             </p>
             {completionCount > 0 && (
@@ -651,7 +651,7 @@ export function WorldMapView({
                 className={s.confirmDangerBtn}
               >
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                Sıfırla ve Baştan Başla
+                Baştan Başla
               </button>
             </div>
           </div>

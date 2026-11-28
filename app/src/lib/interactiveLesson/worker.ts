@@ -77,10 +77,10 @@ export async function runInteractiveVoiceStep(
   return null;
 }
 
-// Tek seferlik öncelikli konu (2026-11-22): 6. Sınıf Bilişim · İletişim Teknolojileri ve Çeşitleri.
-// Konunun aktif test soru havuzu (>=4 soru) oluştuğu anda sıranın başına alınır; tamamlanınca
-// (status = 'ready' veya 3 deneme) bir daha tetiklenmez.
-const ONE_TIME_PRIORITY_TOPIC_ID = 577;
+// Tek seferlik öncelikli konu (2026-11-28): 6. Sınıf Bilişim · İnternette İleri Düzey Arama (v3.2 pilot doğrulaması).
+// Konunun aktif test soru havuzu (>=4 soru) hazırsa sıranın başına alınır; tamamlanınca
+// (status = 'ready' veya 3 deneme) bir daha tetiklenmez, ardından 11. haftadan geriye normal akış devam eder.
+const ONE_TIME_PRIORITY_TOPIC_ID = 578;
 
 async function claimOneTimePriorityInteractiveTopic(supabase: Supabase): Promise<number | null> {
   const { data: existing } = await supabase
@@ -189,7 +189,7 @@ async function runLessonGeneration(
     );
     const stored: StoredLessonV3 = {
       version: 3,
-      schemaVersion: '3.1',
+      schemaVersion: '3.2',
       courseLabel: out.lesson.courseLabel,
       sceneId: 'generic',
       guide: partial?.guide ?? out.lesson.guide,
@@ -197,7 +197,7 @@ async function runLessonGeneration(
     };
     const finished = sections.length >= source.sections.length;
     const totalBeats = sections.reduce((sum, sec) => sum + sec.beats.length, 0);
-    const summary = `v3.1: ${sections.length}/${source.sections.length} bölüm, ${totalBeats} sahne`;
+    const summary = `v3.2: ${sections.length}/${source.sections.length} bölüm, ${totalBeats} sahne`;
 
     await update(supabase, topicId, {
       status: finished ? 'ready' : 'partial',

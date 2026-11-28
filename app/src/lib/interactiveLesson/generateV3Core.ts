@@ -1,6 +1,7 @@
 import type { LessonSource } from './generate';
 import { ROBOT_NAME } from './guide';
 import {
+  expectedNarrationStepCount,
   isInteractiveBeatVisual,
   type LessonDefinitionV3,
   type V3BeatVisual,
@@ -49,7 +50,7 @@ ${termsText}
 PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
 1. HER EKRANDA YALNIZCA 1 ANA ODAK VE SIFIR PAPAĞAN TEKRARI (Mayer Çoklu Ortam İlkesi):
    - Her bölüm için 3 ila 5 adet tek-bilgi ekranı ("beats") yaz.
-   - Her "fact" alanı o adımın temel tanımını veya ilkesini veren 1-2 kısa, sade, ${src.grade} düzeyinde Türkçe cümle olsun (en fazla 28 kelime).
+   - Her "fact" alanı o adımın temel tanımını veya ilkesini veren 1-2 kısa, sade, ${src.grade} düzeyinde Türkçe cümle olsun (en fazla 28 kelime) ve içindeki 1-2 kritik anahtar kavramı **kavram** biçiminde vurgulasın.
    - ÇOK ÖNEMLİ: "visual" alanı ASLA "fact" cümlesini kelimesi kelimesine tekrar etmemeli veya aynı tanım cümlesini 1-2-3 diye kutulara bölüp papağan gibi yeniden yazmamalıdır! "fact" tanımı/ilkeyi söylerken "visual" bunu somut bir günlük hayat/ders örneğiyle, canlı mikro-laboratuvar deneyiyle, karşılaştırmayla veya gerçek süreç aşamalarıyla tamamlamalıdır.
    - Kitap bölümündeki tüm kritik kazanımlar (tanımlar, farklar, örnekler, dikkat edilecek noktalar) tek tek ayrı ekranlara bölünsün; hiçbir önemli bilgi atlanmasın.
 2. GEÇİŞ SORULARI (quickCheck):
@@ -60,6 +61,10 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
    - **ÖNCE ÖĞRET, SONRA UYGULAT:** Her bölümün **1. adımı KESİNLİKLE sade bir öğretim görseli** ("highlight", "compare", "steps", "cards" veya "equation") olmalıdır; ilk ekranda öğrenciye bilgi vermeden ASLA etkileşimli mikro-laboratuvar koyma!
    - Etkileşimli mikro-laboratuvarları ("classify_tap", "spot_highlight", "cause_effect_dial", "step_reveal", "token_builder", "filter_sandbox") yalnızca kavram öğretildikten sonraki adımlarda (2. veya sonraki adımlarda, bölüm başına 1-2 adet; farklı motorları konunun doğasına göre çeşitlendirerek) kullan.
    - Etkileşimli adımlarda alttaki "fact" cümlesi doğru cevabı doğrudan kopya vermemeli, kuralın/ilkenin mantığını pekiştirmelidir.
+   - BEDAVA CEVAP VE YÜZEYSEL ÇELDİRİCİ YASAĞI:
+     * "classify_tap" kartlarında cevabı ele veren biçimsel işaretler (ör. fiil köküne kısa çizgi "sev-", parantez içinde cevabı yazma "duygu (duy-)") veya ses benzerliğiyle şak diye çözülen etiketler ("vatandaş → Vatan Köklü") ASLA kullanma! Öğrenci kuralı zihninden uygulayarak karar vermelidir.
+     * "step_reveal" ve "quickCheck" seçeneklerinde ses/hece benzerliğiyle anında elenen komik/bariz çeldiriciler ("'su'ya '-la' gelince 'sula' mı 'sucu' mu?") YAZMA; akla yatkın, kavramı/türü/işlevi gerçekten düşündüren çeldiriciler kur.
+     * "step_reveal" içindeki tüm "nextSteps" adımları birbirinden kopuk farklı örnekler değil, "startStep" ile başlayan AYNI örneğin/sürecin birbirine bağlı aşamaları olmalıdır.
    - "filter_sandbox" kartlarında "badge" alanı cevabı ele veren ("Doğru", "Sağlıklı", "Başarısız" gibi) kelimeler yerine nesnel tür etiketi ("PDF", "WEB", "Senkron" gibi) olmalı veya boş bırakılmalıdır; kartlar kısa ve tek bakışta okunabilir (kısa "title" + 3-5 kelimelik "meta") olmalıdır.
 
    ETKİLEŞİMLİ MİKRO-LABORATUVARLAR (Öğrencinin GERÇEKTEN DÜŞÜNÜP KARAR VERDİĞİ sade ekranlar):
@@ -171,25 +176,36 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
    - "praise": Kavram bulununca çıkacak 1 cümlelik pekiştirici tebrik.
 5. BÖLÜM SONU KONTROLÜ ("checkQuestionIds"):
    - O bölümün havuz listesinden tam 2 adet geçerli soru ID'si seç (her soru en fazla 1 kez kullanılsın).
-6. ÖĞRETMEN ANLATIMI ("narration" — HER ANLATIM ADIMINDA ZORUNLU) VE SESLİ OKUMA KURALLARI:
-   - Her anlatım adımına ekrandaki metinden AYRI bir "narration" alanı yaz; Azure TTS öğrenciye YALNIZ bu alanı okuyacaktır!
-   - "narration" öğrenciye ders anlatan sıcak ama akademik açıdan doğru bir öğretmenin doğal konuşması olmalıdır (1–3 kısa cümle, en fazla 45 kelime).
-   - Ekrandaki "title", "visual" ve "fact" metinlerini kelimesi kelimesine tekrar etme; ilişkili kavramları birleştirip akıcı Türkçe ile anlat.
+6. ÖĞRETMEN ANLATIMI ("narration" VE "narrationSteps") VE SESLİ OKUMA KURALLARI:
+   - Her anlatım adımına ekrandaki metinden AYRI, sıcak "sen" diliyle konuşan, bilimsel açıdan eksiksiz bir öğretmen anlatımı yaz!
+   - ÖĞRETİM GÖRSELLERİ ("compare", "steps", "cards", "highlight", "equation") İÇİN "narrationSteps" ZORUNLUDUR:
+     * Oynatıcı kartları sesle senkron olarak parça parça açar. Bu yüzden "narrationSteps" dizisi görselin parça sayısıyla BİREBİR aynı uzunlukta olmalıdır:
+       - "compare" → tam 2 parça ([A tarafı anlatımı, B tarafı anlatımı])
+       - "equation" → tam 2 parça ([girdiler anlatımı, sonucun nasıl ortaya çıktığı])
+       - "steps" → items.length kadar parça (her adım için 1 parça)
+       - "cards" → items.length kadar parça (her kart için 1 parça)
+       - "highlight" → bullets.length kadar parça (her madde için 1 parça)
+     * Her parça 18–35 kelime (ekran toplamı 45–80 kelime, ~20–32 saniye) olmalıdır.
+     * Sadece ekrandakini okuma! Gerçek sınıf öğretmeni gibi: (1) pratik kuralı / "nasıl anlarız?" yöntemini söyle, (2) ekrandaki somut örnekleri sesli uygula/test et (ör. "yurtmak diyemiyoruz, o hâlde isim kökü; ama sevmek diyebiliyoruz, demek ki fiil kökü"), (3) gerekirse kısa bir dikkat noktası ekle.
+     * Mobilde kartlar alt alta dizilebildiği için "sol/sağ tarafta" yerine kavramın adını veya "ilk kartta / ekrandaki örneklerde" ifadesini kullan.
+     * Ayrıca geriye dönük uyumluluk için "narration" alanına da parçaların kısa birleşimini (1–2 cümle) yaz.
+   - ETKİLEŞİMLİ MİKRO-LABORATUVARLAR ("classify_tap", "spot_highlight", "cause_effect_dial", "step_reveal", "token_builder", "filter_sandbox") İÇİN:
+     * "narrationSteps" KULLANMA; yalnızca "narration" (20–35 kelime, 1–2 sıcak cümle) yaz: öğrenciye neyi deneyip keşfedeceğini yönlendir, doğru cevabı kopya verme.
+     * Etkinlik tamamlandığında "Keşfedildi" kutusundaki "fact" cümlesi de sesli okunacağı için "fact" alanını doğal, akıcı ve sembolsüz Türkçe ile yaz.
    - +, =, →, |, &, : gibi sembolleri ASLA "artı, eşittir, ok" diye okuma; anlamını doğal cümleyle açıkla:
      * YANLIŞ: "Türk Cihan Hâkimiyeti Mefkûresi, artı, İslam Dinini Yayma Amacı, eşittir, Cihan Devleti Anlayışı."
      * DOĞRU: "Türklerin dünyaya hâkim olma düşüncesi ile İslam dinini yayma amacı birleşerek güçlü bir cihan devleti anlayışının oluşmasını sağlamıştır."
    - Matematik/fen formüllerinde de mekanik sembol okuma yerine işlemin mantığını doğal dille açıkla; dersin terminolojisine sadık kal, kaynakta olmayan bilgi uydurma.
-   - Etkileşimli mikro-laboratuvar adımlarında ("classify_tap", "spot_highlight", "cause_effect_dial", "step_reveal", "token_builder", "filter_sandbox") "narration" öğrenciye neyi deneyip keşfedeceğini 1–2 sıcak cümleyle yönlendirsin, doğru cevabı kopya vermesin.
    - Etkileşimli çip etiketlerinde ("filters.label", "queryToken", "tokens", "solution") gerçek teknik/operatör sözdizimi (örn. site:meb.gov.tr, filetype:pdf, "kara delik", -reklam) serbestçe kullanılabilir; bunlar sesli okunmaz.
    - "steps.items", "highlight.bullets" ve "compare.points" öğelerinin başına ASLA madde numarası ("1.", "2.", "Adım 1:") veya madde işareti ("-", "•") koyma — oynatıcı numaraları ve madde işaretlerini otomatik ekler.
-   - "narration", "quickCheck" ve oyun metinlerinde "&" yerine "ve", "|" yerine virgül, "→" yerine akıcı Türkçe ifade kullan; markdown backtick (\`) ve parantez içi sembol tekrarı ("(=)", "(+)", "(*)", "(/)", "(:)") kullanma.
+   - "narration", "narrationSteps", "quickCheck" ve oyun metinlerinde "&" yerine "ve", "|" yerine virgül, "→" yerine akıcı Türkçe ifade kullan; markdown backtick (\`) ve parantez içi sembol tekrarı ("(=)", "(+)", "(*)", "(/)", "(:)") kullanma.
    - Birim ve kısaltmaları açık Türkçe yaz ("Hz." yerine "Hazreti", "sn" yerine "saniye", "vb." yerine "ve benzeri").
 
 ÇIKTI: YALNIZCA geçerli JSON döndür (markdown kod bloğu veya açıklama yazma):
 {
   "guide": {
-    "intro": "Merhaba! Ben ${ROBOT_NAME}. ... (1-2 cümle)",
-    "finish": "Tebrikler! ... (1-2 cümle)"
+    "intro": "Merhaba! Bugün ${src.title} konusunu işleyeceğiz. (Kısa, klişesiz, 1 cümle)",
+    "finish": "Tebrikler! ${src.title} konusunu tamamladın. (1-2 cümle)"
   },
   "sections": [
     {
@@ -202,7 +218,8 @@ PEDAGOJİK KURALLAR (ASLA İHLAL ETME):
           "kicker": "Kısa Kategori",
           "title": "Kısa Başlık (≤5 kelime)",
           "fact": "Tek net bilgi (1-2 kısa cümle, ekranda görünür).",
-          "narration": "Öğretmenin öğrenciye sıcak ve doğal dille anlattığı 1-3 kısa cümle (sembolsüz, ekrandakini birebir tekrar etmeden).",
+          "narration": "Öğretmenin kısa özet anlatımı (etkileşimli laboratuvarlarda 20-35 kelime).",
+          "narrationSteps": ["Öğretim görselinin 1. parçasını kural + örnekle anlatan 18-35 kelime.", "2. parçayı anlatan 18-35 kelime."],
           "visual": { "kind": "highlight", "badge": "...", "headline": "...", "bullets": ["...", "..."] },
           "quickCheck": {
             "prompt": "Kısa soru?",
@@ -682,6 +699,24 @@ export function parseGeneratedLessonV3(
             errors.push(`${beatCtx}: İlk ekran önce bilgi vermelidir; etkileşimli laboratuvar 2. veya sonraki adımlarda kullanılmalıdır`);
           }
 
+          const expectedSteps = expectedNarrationStepCount(parsedVisual);
+          const rawNarrationSteps = arr(b.narrationSteps).map(str).filter(Boolean);
+          let narrationSteps: string[] | undefined;
+          if (expectedSteps >= 2) {
+            if (rawNarrationSteps.length === expectedSteps) {
+              const badSym = rawNarrationSteps.some((line) => /[→|&]|\s[+=]\s/.test(line));
+              if (badSym) {
+                errors.push(`${beatCtx}: narrationSteps içinde +, =, →, |, & sembolü kullanma; doğal Türkçe cümleyle anlat`);
+              } else {
+                narrationSteps = rawNarrationSteps;
+              }
+            } else {
+              errors.push(
+                `${beatCtx}: ${parsedVisual?.kind} görseli için narrationSteps tam ${expectedSteps} parça olmalı (gelen: ${rawNarrationSteps.length})`,
+              );
+            }
+          }
+
           return [
             {
               id: str(b.id) || `s${sIdx + 1}-b${bIdx + 1}`,
@@ -689,6 +724,7 @@ export function parseGeneratedLessonV3(
               title,
               fact,
               ...(narration ? { narration } : {}),
+              ...(narrationSteps ? { narrationSteps } : {}),
               visual: parsedVisual,
               quickCheck,
             },
@@ -750,7 +786,7 @@ export function parseGeneratedLessonV3(
   return {
     lesson: {
       version: 3,
-      schemaVersion: '3.1',
+      schemaVersion: '3.2',
       topicId: src.topicId,
       courseLabel: `${src.grade} ${src.lesson}`,
       sceneId: 'generic',

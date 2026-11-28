@@ -71,7 +71,7 @@ export async function GET() {
   }
 
   const recentIds = (stats.recent ?? []).map((x) => x.topic_id);
-  const versionMap = new Map<number, '3.1' | '3' | '2' | '1' | null>();
+  const versionMap = new Map<number, '3.2' | '3.1' | '3' | '2' | '1' | null>();
   if (recentIds.length > 0) {
     const { data: lessonRows } = await supabase
       .from('interactive_lessons')
@@ -81,6 +81,8 @@ export async function GET() {
       const l = row.lesson;
       if (!l || typeof l !== 'object') {
         versionMap.set(row.topic_id, null);
+      } else if (l.version === 3 && l.schemaVersion === '3.2') {
+        versionMap.set(row.topic_id, '3.2');
       } else if (l.version === 3 && l.schemaVersion === '3.1') {
         versionMap.set(row.topic_id, '3.1');
       } else if (l.version === 3) {

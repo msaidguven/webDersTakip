@@ -89,6 +89,7 @@ export function buildPaperHtml(opts: {
   .no { font-weight: 700; min-width: 20px; }
   .qtext { flex: 1; }
   .q-em { font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+  .q-u { text-decoration: underline; text-underline-offset: 3px; }
   .pts { font-size: 9pt; font-weight: 700; white-space: nowrap; border: 1px solid #000; border-radius: 4px; padding: 0 5px; }
   .svg { margin: 6px 0; text-align: center; }
   /* Yalnız viewBox'lı SVG'de width:auto tarayıcı varsayılanına (300×150) düşüp geniş görseli küçültüyordu:

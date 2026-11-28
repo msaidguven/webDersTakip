@@ -30,6 +30,7 @@ import { trackContentEvent } from '@/app/src/lib/contentUsage';
 import {
   GUIDE,
   ttsText,
+  v3BeatNarrationSteps,
   v3BeatVoiceCandidates,
   voiceAudioPath,
   voiceKey,
@@ -68,7 +69,7 @@ import s from './v3.module.css';
 type ScreenMode = 'map' | 'play';
 
 type PlayScreen =
-  | { kind: 'teach'; key: string; beat: V3TeachBeat }
+  | { kind: 'teach'; key: string; beat: V3TeachBeat; beatIndex: number }
   | { kind: 'quick'; key: string; beat: V3TeachBeat }
   | { kind: 'game'; key: string; game: V3MiniGameConfig }
   | { kind: 'check'; key: string; question: HydratedV3Question; checkIndex: number; checkTotal: number }
@@ -76,12 +77,12 @@ type PlayScreen =
 
 function buildSectionScreens(sec: HydratedV3Section): PlayScreen[] {
   const list: PlayScreen[] = [];
-  for (const beat of sec.beats) {
-    list.push({ kind: 'teach', key: `teach-${beat.id}`, beat });
+  sec.beats.forEach((beat, beatIndex) => {
+    list.push({ kind: 'teach', key: `teach-${beat.id}`, beat, beatIndex });
     if (beat.quickCheck) {
       list.push({ kind: 'quick', key: `quick-${beat.id}`, beat });
     }
-  }
+  });
   list.push({ kind: 'game', key: `game-${sec.sectionId}`, game: sec.game });
   sec.checkQuestions.forEach((question, checkIndex) => {
     list.push({
@@ -110,6 +111,20 @@ function pickInitialSectionIdx(lesson: HydratedLessonV3, prog: SavedV3Progress):
 
 function voiceUrl(text: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${VOICE_BUCKET}/${voiceAudioPath(voiceKey(text))}`;
+}
+
+function renderFactText(text: string) {
+  if (!text.includes('**')) return text;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+      <mark key={i} className={s.teachFactMark}>
+        {part.slice(2, -2)}
+      </mark>
+    ) : (
+      part
+    ),
+  );
 }
 
 export default function PlayerV3({
@@ -141,6 +156,11 @@ export default function PlayerV3({
   const [gamePromptText, setGamePromptText] = useState<string | null>(null);
   const [atomMood, setAtomMood] = useState<RobotMood>('normal');
   const [zoomedVisual, setZoomedVisual] = useState(false);
+  const [activeNarrationStage, setActiveNarrationStage] = useState<number | null>(null);
+  const [revealedStageCount, setRevealedStageCount] = useState<number | undefined>(undefined);
+  const [summaryRevealed, setSummaryRevealed] = useState(true);
+  const [labStageRevealed, setLabStageRevealed] = useState(true);
+  const [labCtaRevealed, setLabCtaRevealed] = useState(true);
   const talking = voiceStatus === 'playing';
 
   const soundOnRef = useRef(soundOn);
@@ -248,6 +268,10 @@ export default function PlayerV3({
   const stopSpeech = useCallback(() => {
     lessonSound().hush();
     setVoiceStatus('idle');
+    setActiveNarrationStage(null);
+    setRevealedStageCount(undefined);
+    setSummaryRevealed(true);
+    setLabCtaRevealed(true);
   }, []);
 
   const pauseSpeech = useCallback(() => {
@@ -330,29 +354,262 @@ export default function PlayerV3({
     return null;
   }, []);
 
+  // Parçalı öğretmen anlatımı (`beat.narrationSteps`) varsa ve tüm parçaların sesi üretilmişse döndürür.
+  const resolveBeatNarrationSteps = useCallback((beat: V3TeachBeat, set: Set<string>): string[] | null => {
+    const steps = v3BeatNarrationSteps(beat);
+    if (steps.length < 2) return null;
+    return steps.every((line) => set.has(voiceKey(line))) ? steps : null;
+  }, []);
+
+  // Öğretim ekranı için sesli giriş cümlesi (varsa ve sesi üretilmişse):
+  // 1. Bölüm 1. Adım → ders açılış girişi (lesson.guide.intro)
+  // 2.+ Bölüm 1. Adım → bölüm başlığı girişi ("Merhaba! Bu bölümde ... öğreneceğiz.")
+  // Bölüm içi sonraki öğretim adımı → kısa konu geçişi ("Şimdi ... konusuna bakalım.")
+  const resolveBeatIntroLine = useCallback(
+    (targetSectionIdx: number, beatIndex: number, beat: V3TeachBeat, set: Set<string>): string | null => {
+      const sec = lesson.sections[targetSectionIdx];
+      if (!sec) return null;
+      let candidate: string | null = null;
+      if (beatIndex === 0) {
+        candidate =
+          targetSectionIdx === 0
+            ? GUIDE.v3FirstSectionIntro(lesson.topicTitle, beat.title)
+            : GUIDE.v3SectionIntro(beat.title);
+      } else {
+        candidate = GUIDE.v3BeatIntro(beat.title);
+      }
+      return candidate && set.has(voiceKey(candidate)) ? candidate : null;
+    },
+    [lesson.sections, lesson.topicTitle],
+  );
+
+  const speakBeatSteps = useCallback(
+    (
+      steps: string[],
+      force = false,
+      opts?: { singleIndex?: number; introLine?: string | null; summaryLine?: string | null },
+    ) => {
+      if (!steps.length) return;
+      const singleIndex = opts?.singleIndex;
+      if (singleIndex !== undefined) {
+        const line = steps[singleIndex];
+        if (!line || !voicedRef.current.has(voiceKey(line))) return;
+        setLastVoicedText(line);
+        autoVoiceRef.current = true;
+        if (!soundOnRef.current) {
+          setSoundOn(true);
+          soundOnRef.current = true;
+        }
+        lessonSound().unlock();
+        setVoiceStatus('playing');
+        setActiveNarrationStage(singleIndex);
+        setRevealedStageCount((prev) => (prev === undefined ? undefined : Math.max(prev, singleIndex + 1)));
+        void lessonSound().speak(
+          [{ url: voiceUrl(line), text: ttsText(line) }],
+          () => {
+            setVoiceStatus('idle');
+            setActiveNarrationStage(null);
+          },
+        );
+        return;
+      }
+
+      if (!steps.every((line) => voicedRef.current.has(voiceKey(line)))) return;
+      setLastVoicedText(steps[0]);
+      if (!force && (!soundOnRef.current || !autoVoiceRef.current)) {
+        // Sessiz açılışta hiçbir kartı gizleme; öğrenci özgürce okuyabilsin.
+        setActiveNarrationStage(null);
+        setRevealedStageCount(undefined);
+        setSummaryRevealed(true);
+        return;
+      }
+      if (force) {
+        autoVoiceRef.current = true;
+        if (!soundOnRef.current) {
+          setSoundOn(true);
+          soundOnRef.current = true;
+        }
+      }
+
+      const introLine =
+        opts?.introLine && voicedRef.current.has(voiceKey(opts.introLine)) ? opts.introLine : null;
+      const summaryLine =
+        opts?.summaryLine && voicedRef.current.has(voiceKey(opts.summaryLine)) ? opts.summaryLine : null;
+
+      type QueueEntry = { kind: 'intro' | 'step' | 'summary'; stageIdx?: number; text: string };
+      const queue: QueueEntry[] = [];
+      if (introLine) queue.push({ kind: 'intro', text: introLine });
+      steps.forEach((line, idx) => queue.push({ kind: 'step', stageIdx: idx, text: line }));
+      if (summaryLine) queue.push({ kind: 'summary', text: summaryLine });
+
+      lessonSound().unlock();
+      setVoiceStatus('playing');
+      setActiveNarrationStage(introLine ? null : 0);
+      setRevealedStageCount(introLine ? 0 : 1);
+      setSummaryRevealed(false);
+
+      void lessonSound().speak(
+        queue.map((q) => ({ url: voiceUrl(q.text), text: ttsText(q.text) })),
+        () => {
+          setVoiceStatus('idle');
+          setActiveNarrationStage(null);
+          setRevealedStageCount(undefined);
+          setSummaryRevealed(true);
+        },
+        {
+          gapMs: 420,
+          onItemStart: (qIdx) => {
+            const entry = queue[qIdx];
+            if (!entry) return;
+            if (entry.kind === 'intro') {
+              setActiveNarrationStage(null);
+              setRevealedStageCount(0);
+              setSummaryRevealed(false);
+            } else if (entry.kind === 'step' && entry.stageIdx !== undefined) {
+              setActiveNarrationStage(entry.stageIdx);
+              setRevealedStageCount((prev) => Math.max(prev ?? 1, entry.stageIdx! + 1));
+            } else if (entry.kind === 'summary') {
+              setActiveNarrationStage(null);
+              setRevealedStageCount(undefined);
+              setSummaryRevealed(true);
+            }
+          },
+        },
+      );
+    },
+    [],
+  );
+
+  const speakQueue = useCallback(
+    (
+      lines: string[],
+      force = false,
+      opts?: { hideLabCta?: boolean; revealLabCtaAtIndex?: number },
+    ) => {
+      const ready = lines.filter((line) => voicedRef.current.has(voiceKey(line)));
+      if (!ready.length) {
+        if (opts?.hideLabCta) setLabCtaRevealed(true);
+        return;
+      }
+      setLastVoicedText(ready[ready.length - 1]);
+      if (!force && (!soundOnRef.current || !autoVoiceRef.current)) {
+        if (opts?.hideLabCta) setLabCtaRevealed(true);
+        return;
+      }
+      if (force) {
+        autoVoiceRef.current = true;
+        if (!soundOnRef.current) {
+          setSoundOn(true);
+          soundOnRef.current = true;
+        }
+      }
+      if (opts?.hideLabCta) setLabCtaRevealed(false);
+      lessonSound().unlock();
+      setVoiceStatus('playing');
+      void lessonSound().speak(
+        ready.map((line) => ({ url: voiceUrl(line), text: ttsText(line) })),
+        () => {
+          setVoiceStatus('idle');
+          if (opts?.hideLabCta) setLabCtaRevealed(true);
+        },
+        {
+          gapMs: 360,
+          onItemStart: (idx) => {
+            if (opts?.revealLabCtaAtIndex !== undefined && idx >= opts.revealLabCtaAtIndex) {
+              setLabCtaRevealed(true);
+            }
+          },
+        },
+      );
+    },
+    [],
+  );
+
+  const resolveLabRuleLine = useCallback(
+    (beat: V3TeachBeat, set: Set<string>): string | null => {
+      const factLine = beat.fact.trim();
+      if (factLine && set.has(voiceKey(factLine))) return factLine;
+      return resolveBeatVoice(beat, set);
+    },
+    [resolveBeatVoice],
+  );
+
+  const speakLabRule = useCallback(
+    (introLine: string | null, ruleLine: string, force = false) => {
+      const base = [...(introLine ? [introLine] : []), ruleLine];
+      const hasCta = voicedRef.current.has(voiceKey(GUIDE.v3LabExamplesCta));
+      const queue = hasCta ? [...base, GUIDE.v3LabExamplesCta] : base;
+      speakQueue(queue, force, {
+        hideLabCta: true,
+        revealLabCtaAtIndex: hasCta ? base.length : undefined,
+      });
+    },
+    [speakQueue],
+  );
+
+  const handleOpenLabExamples = useCallback(() => {
+    setLabStageRevealed(true);
+    setLabCtaRevealed(true);
+    lessonSound().unlock();
+    if (soundOnRef.current) lessonSound().sfx('tap');
+    if (soundOnRef.current && autoVoiceRef.current && voicedRef.current.has(voiceKey(GUIDE.v3LabTryNow))) {
+      speakLine(GUIDE.v3LabTryNow);
+    }
+  }, [speakLine]);
+
   const triggerScreenAudio = useCallback(
     (scr: PlayScreen | undefined, targetSectionIdx: number) => {
       if (!scr) return;
       setLastVoicedText(null);
+      setActiveNarrationStage(null);
+      setRevealedStageCount(undefined);
+      setSummaryRevealed(true);
+      setLabCtaRevealed(true);
       if (scr.kind !== 'game') setGamePromptText(null);
 
       if (scr.kind === 'teach') {
         setAtomMood('normal');
-        const chosen = resolveBeatVoice(scr.beat, voicedRef.current);
-        if (chosen) speakLine(chosen);
+        const isLab = isInteractiveBeatVisual(scr.beat.visual);
+        // Laboratuvar ekranına yeniden girildiğinde bileşen 1. örnekten başladığı için
+        // eski "Keşfedildi" durumunu sıfırla; kural okunup öğrenci hazır olunca örneklere geçsin.
+        if (isLab) {
+          setCompletedLabKeys((prev) => {
+            if (!prev.has(scr.key)) return prev;
+            const next = new Set(prev);
+            next.delete(scr.key);
+            return next;
+          });
+        }
+        setLabStageRevealed(!isLab);
+        const introLine = resolveBeatIntroLine(targetSectionIdx, scr.beatIndex, scr.beat, voicedRef.current);
+        const stepLines = resolveBeatNarrationSteps(scr.beat, voicedRef.current);
+        if (stepLines) {
+          const summaryLine = scr.beat.fact.trim() || null;
+          speakBeatSteps(stepLines, false, { introLine, summaryLine });
+        } else if (isLab) {
+          const ruleLine = resolveLabRuleLine(scr.beat, voicedRef.current);
+          if (ruleLine) speakLabRule(introLine, ruleLine, false);
+        } else {
+          const chosen = resolveBeatVoice(scr.beat, voicedRef.current);
+          if (chosen) speakQueue([...(introLine ? [introLine] : []), chosen]);
+        }
       } else if (scr.kind === 'quick') {
+        setLabStageRevealed(true);
         setAtomMood('think');
         if (scr.beat.quickCheck) speakLine(scr.beat.quickCheck.prompt);
       } else if (scr.kind === 'game') {
+        setLabStageRevealed(true);
         setAtomMood('wow');
         if (scr.game.kind === 'kavram_avi' && !scr.game.rounds[0]?.definition) {
           setGamePromptText(scr.game.intro);
           speakLine(scr.game.intro);
         }
       } else if (scr.kind === 'check') {
+        setLabStageRevealed(true);
         setAtomMood('think');
         speakLine(scr.question.question_text);
       } else if (scr.kind === 'done') {
+        setLabStageRevealed(true);
         setAtomMood('celebrate');
         if (soundOnRef.current) lessonSound().sfx('win');
         speakLine(
@@ -362,7 +619,18 @@ export default function PlayerV3({
         );
       }
     },
-    [lesson.guide?.finish, lesson.sections.length, resolveBeatVoice, speakLine],
+    [
+      lesson.guide?.finish,
+      lesson.sections.length,
+      resolveBeatIntroLine,
+      resolveBeatNarrationSteps,
+      resolveBeatVoice,
+      resolveLabRuleLine,
+      speakBeatSteps,
+      speakLabRule,
+      speakLine,
+      speakQueue,
+    ],
   );
 
   const handleFeedback = useCallback(
@@ -617,9 +885,15 @@ export default function PlayerV3({
     }
   };
 
+  const activeBeatSteps = useMemo(() => {
+    if (activeScreen?.kind !== 'teach') return null;
+    return resolveBeatNarrationSteps(activeScreen.beat, voiced);
+  }, [activeScreen, resolveBeatNarrationSteps, voiced]);
+
   const activeScreenVoiceText = useMemo(() => {
     if (!activeScreen) return null;
     if (activeScreen.kind === 'teach') {
+      if (activeBeatSteps?.length) return activeBeatSteps[0];
       return resolveBeatVoice(activeScreen.beat, voiced);
     }
     if (activeScreen.kind === 'quick' && activeScreen.beat.quickCheck) {
@@ -643,6 +917,7 @@ export default function PlayerV3({
     }
     return null;
   }, [
+    activeBeatSteps,
     activeScreen,
     gamePromptText,
     lesson.guide?.finish,
@@ -653,7 +928,7 @@ export default function PlayerV3({
   ]);
 
   const replayTargetText = activeScreenVoiceText ?? lastVoicedText;
-  const showBottomVoiceDock = Boolean(replayTargetText) || voiceStatus !== 'idle';
+  const showBottomVoiceDock = Boolean(replayTargetText) || Boolean(activeBeatSteps?.length) || voiceStatus !== 'idle';
 
   const isNextDisabled =
     (activeScreen?.kind === 'quick' && !solvedGateSet.has(activeScreen.beat.id)) ||
@@ -845,9 +1120,9 @@ export default function PlayerV3({
                       </span>
                       <DigestiveScene focus={activeScreen.beat.focus} />
                     </div>
-                  ) : (
+                  ) : (activeBeatSteps && revealedStageCount === 0) || (isInteractiveTeachLab && !labStageRevealed) ? null : (
                     <div
-                      className={s.gameVisualFrame}
+                      className={`${s.gameVisualFrame} ${isInteractiveTeachLab ? s.stageRevealItem : ''}`}
                       data-discovered={isActiveLabDone ? 'true' : 'false'}
                     >
                       <GenericVisualScene
@@ -856,30 +1131,56 @@ export default function PlayerV3({
                         accent={activeSection.accent}
                         soundOn={soundOn}
                         onLabComplete={isInteractiveTeachLab ? handleActiveLabComplete : undefined}
+                        activeStage={activeBeatSteps ? activeNarrationStage : null}
+                        revealedCount={activeBeatSteps ? revealedStageCount : undefined}
+                        onSelectStage={
+                          activeBeatSteps
+                            ? (idx) => speakBeatSteps(activeBeatSteps, true, { singleIndex: idx })
+                            : undefined
+                        }
                       />
                     </div>
                   )}
 
-                  <div
-                    className={s.teachBottomSummary}
-                    data-talking={talking ? 'true' : 'false'}
-                    data-discovered={isActiveLabDone ? 'true' : 'false'}
-                  >
-                    <div className={s.teachBottomAvatar}>
-                      <RobotGuide mood={isActiveLabDone ? 'celebrate' : atomMood} talking={talking} />
-                    </div>
-                    {isActiveLabDone ? (
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className={`${s.labDiscoveredPill} self-start`}>
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                          <span>Keşfedildi</span>
-                        </span>
-                        <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
+                  {summaryRevealed && (!isInteractiveTeachLab || !labStageRevealed || isActiveLabDone) && (
+                    <div
+                      className={`${s.teachBottomSummary} ${activeBeatSteps || isActiveLabDone ? s.stageRevealItem : ''}`}
+                      data-talking={talking ? 'true' : 'false'}
+                      data-discovered={isActiveLabDone ? 'true' : 'false'}
+                    >
+                      <div className={s.teachBottomAvatar}>
+                        <RobotGuide mood={isActiveLabDone ? 'celebrate' : atomMood} talking={talking} />
                       </div>
-                    ) : (
-                      <p className={s.teachBottomText}>{activeScreen.beat.fact}</p>
-                    )}
-                  </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        {isActiveLabDone ? (
+                          <span className={`${s.labDiscoveredPill} self-start`}>
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            <span>Keşfedildi</span>
+                          </span>
+                        ) : (
+                          <span className={`${s.teachSummaryBadge} self-start`}>
+                            <Lightbulb className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
+                            <span>Aklında Kalsın</span>
+                          </span>
+                        )}
+                        <p className={s.teachBottomText}>{renderFactText(activeScreen.beat.fact)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isInteractiveTeachLab && !labStageRevealed && labCtaRevealed && (
+                    <div className="flex justify-center pt-1">
+                      <button
+                        type="button"
+                        onClick={handleOpenLabExamples}
+                        className={`${s.arcadeBtnGreen} ${s.stageRevealItem}`}
+                      >
+                        <Sparkles className="h-4 w-4" aria-hidden="true" />
+                        <span>Şimdi Örneklere Bakalım</span>
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1067,7 +1368,25 @@ export default function PlayerV3({
                   onPause={pauseSpeech}
                   onResume={resumeSpeech}
                   onReplay={() => {
-                    if (replayTargetText) speakLine(replayTargetText, true);
+                    if (activeScreen?.kind === 'teach') {
+                      const introLine = resolveBeatIntroLine(
+                        sectionIdx,
+                        activeScreen.beatIndex,
+                        activeScreen.beat,
+                        voicedRef.current,
+                      );
+                      if (activeBeatSteps?.length) {
+                        const summaryLine = activeScreen.beat.fact.trim() || null;
+                        speakBeatSteps(activeBeatSteps, true, { introLine, summaryLine });
+                      } else if (isInteractiveBeatVisual(activeScreen.beat.visual)) {
+                        const ruleLine = resolveLabRuleLine(activeScreen.beat, voicedRef.current);
+                        if (ruleLine) speakLabRule(introLine, ruleLine, true);
+                      } else if (replayTargetText) {
+                        speakQueue([...(introLine ? [introLine] : []), replayTargetText], true);
+                      }
+                    } else if (replayTargetText) {
+                      speakLine(replayTargetText, true);
+                    }
                   }}
                   replayLabel="Sesli Dinle"
                 />

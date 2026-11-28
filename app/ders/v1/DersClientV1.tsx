@@ -48,7 +48,6 @@ import { useIsAdmin } from '@/app/src/hooks/useIsAdmin';
 import { outcomeLetterAt } from '@/app/src/lib/outcomeCodes';
 import { buildSoruBankasiUnitPath } from '@/app/src/lib/soruBankasiPaths';
 import TopicSwitcher from './TopicSwitcher';
-import { BottomSheet } from '@/app/src/components/ui/BottomSheet';
 import { useDismissOnBack } from '@/app/src/hooks/useDismissOnBack';
 import s from './DersClientV1.module.css';
 
@@ -268,6 +267,8 @@ function cx(...names: (string | false | null | undefined)[]) {
 
 type Tool = {
   key: string;
+  group: 'learn' | 'utility';
+  featured?: boolean;
   label: string;
   hint: string;
   icon: React.ReactNode;
@@ -286,7 +287,9 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   const [topicSaved, setTopicSaved] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
   const mainContentRef = useRef<HTMLElement>(null);
-  const [mobileSheet, setMobileSheet] = useState<'toc' | 'tools' | null>(null);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [unitTopicsOpen, setUnitTopicsOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [adminDraftInteractiveTopicId, setAdminDraftInteractiveTopicId] = useState<number | null>(null);
   const { gradeName, lessonName, unitName, gradeSlug, lessonSlug, unitSlug, contents, gradeLessons = [], allGrades = [] } = initialData;
@@ -316,8 +319,12 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     if (u && uHref) return { label: dir === 'prev' ? 'Önceki ünite' : 'Sıradaki ünite', title: u.title, href: uHref };
     return null;
   };
-  const prev = pagerLink(contents[topicIndex - 1], unitIndex > 0 ? units[unitIndex - 1] : undefined, 'prev');
-  const next = pagerLink(contents[topicIndex + 1], unitIndex >= 0 ? units[unitIndex + 1] : undefined, 'next');
+  const prevUnitTopic = contents[topicIndex - 1];
+  const nextUnitTopic = contents[topicIndex + 1];
+  const prevUnitTopicHref = topicHref(prevUnitTopic);
+  const nextUnitTopicHref = topicHref(nextUnitTopic);
+  const prev = pagerLink(prevUnitTopic, unitIndex > 0 ? units[unitIndex - 1] : undefined, 'prev');
+  const next = pagerLink(nextUnitTopic, unitIndex >= 0 ? units[unitIndex + 1] : undefined, 'next');
   const unitQuestionsHref = unit?.test_question_count && gradeSlug && lessonSlug && unitSlug ? buildSoruBankasiUnitPath(gradeSlug, lessonSlug, unitSlug) : null;
 
   // ---- Kavrama testi ----
@@ -467,23 +474,38 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
   useDismissOnBack(Boolean(topicTest.testData), topicTest.closeTest);
   useDismissOnBack(Boolean(topicTest.error), topicTest.closeTest);
   useDismissOnBack(switcherOpen, () => setSwitcherOpen(false));
+  useDismissOnBack(unitTopicsOpen, () => setUnitTopicsOpen(false));
+  useDismissOnBack(tocOpen, () => setTocOpen(false));
+  useDismissOnBack(toolsOpen, () => setToolsOpen(false));
   useDismissOnBack(heroZoomed, () => setHeroZoomed(false));
   useDismissOnBack(pdfGateOpen, () => setPdfGateOpen(false));
   useDismissOnBack(saveGateOpen, () => setSaveGateOpen(false));
   useDismissOnBack(Boolean(isAdmin && adminTool), closeAdminTool);
   useEffect(() => {
-    if (!switcherOpen && !heroZoomed) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSwitcherOpen(false); setHeroZoomed(false); } };
+    if (!switcherOpen && !heroZoomed && !unitTopicsOpen && !tocOpen && !toolsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSwitcherOpen(false);
+        setHeroZoomed(false);
+        setUnitTopicsOpen(false);
+        setTocOpen(false);
+        setToolsOpen(false);
+      }
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [switcherOpen, heroZoomed]);
+  }, [switcherOpen, heroZoomed, unitTopicsOpen, tocOpen, toolsOpen]);
 
   const [showToTop, setShowToTop] = useState(false);
+  const [readProgress, setReadProgress] = useState(0);
   useEffect(() => {
     let frame = 0;
     const update = () => {
       frame = 0;
       setShowToTop(window.scrollY > window.innerHeight * 1.5);
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const ratio = docHeight > 0 ? Math.min(1, Math.max(0, window.scrollY / docHeight)) : 0;
+      setReadProgress(ratio);
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
     onScroll();
@@ -563,10 +585,12 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
     isAdmin && !topic.hasInteractiveLesson && adminDraftInteractiveTopicId === Number(topic.id);
   const canOpenInteractive = Boolean(topic.hasInteractiveLesson || isAdminInteractivePreview);
 
-  // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde hero altındaki şeritte.
+  // Tüm araçlar tek listede: masaüstünde Çalışma Paneli'nde, mobilde Araçlar çekmecesinde pedagojik 2 grupta.
   const tools: Tool[] = [
     canOpenInteractive && {
       key: 'interactive',
+      group: 'learn',
+      featured: true,
       label: 'Etkileşimli derse başla',
       hint: isAdminInteractivePreview ? 'Admin önizleme (sessiz)' : 'Oyunla öğren',
       icon: <Gamepad2 size={18} aria-hidden="true" />,
@@ -576,15 +600,17 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         setInteractiveOpen(true);
       },
     },
-    hasNarration && { key: 'listen', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
-    sections.length > 0 && { key: 'slides', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
-    hasTest && { key: 'test', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
-    unit && { key: 'discuss', label: 'Yorumlar', hint: 'Sor, tartış', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: () => scrollTo('konu-tartisma') },
-    unitQuestionsHref && { key: 'bank', label: 'Ünite soruları', hint: `${unit?.test_question_count ?? 0} soru`, icon: <Library size={18} aria-hidden="true" />, href: unitQuestionsHref },
-    { key: 'save-topic', label: isTopicSaved ? 'Notlarda kayıtlı' : 'Konuyu kaydet', hint: isTopicSaved ? 'Kaldırmak için tıkla' : 'Ders notlarıma ekle', icon: <Bookmark size={18} className={isTopicSaved ? 'fill-current' : undefined} aria-hidden="true" />, onClick: () => void toggleSaveTopic(), disabled: savingTopic },
-    { key: 'pdf', label: 'PDF indir', hint: 'Yazdır, sakla', icon: <Download size={18} aria-hidden="true" />, href: user ? `/api/topic-pdf/${topic.id}` : undefined, external: true, onClick: user ? undefined : () => setPdfGateOpen(true) },
-    { key: 'share', label: shareCopied ? 'Kopyalandı' : 'Paylaş', hint: 'Bağlantı', icon: <Share2 size={18} aria-hidden="true" />, onClick: () => void share() },
+    hasNarration && { key: 'listen', group: 'learn', label: 'Sesli anlatım', hint: 'Video / ses', icon: <Headphones size={18} aria-hidden="true" />, onClick: () => setNarrationOpen(true) },
+    sections.length > 0 && { key: 'slides', group: 'learn', label: 'Slaytlar', hint: slidesState === 'loading' ? 'Yükleniyor…' : slidesState === 'error' ? 'Açılamadı, tekrar dene' : slideDeck ? `${slideDeck.slides.length} slayt` : 'Tam ekran sunum', icon: <Presentation size={18} aria-hidden="true" />, onClick: () => void openSlides(), disabled: slidesState === 'loading' },
+    hasTest && { key: 'test', group: 'learn', label: 'Kavrama testi', hint: testSize ? `${testSize} soru` : 'Test', icon: <ListChecks size={18} aria-hidden="true" />, onClick: startTest, disabled: topicTest.loading },
+    unitQuestionsHref && { key: 'bank', group: 'learn', label: 'Ünite soruları', hint: `${unit?.test_question_count ?? 0} soru`, icon: <Library size={18} aria-hidden="true" />, href: unitQuestionsHref },
+    { key: 'save-topic', group: 'utility', label: isTopicSaved ? 'Notlarda kayıtlı' : 'Konuyu kaydet', hint: isTopicSaved ? 'Kaldırmak için tıkla' : 'Ders notlarıma ekle', icon: <Bookmark size={18} className={isTopicSaved ? 'fill-current' : undefined} aria-hidden="true" />, onClick: () => void toggleSaveTopic(), disabled: savingTopic },
+    unit && { key: 'discuss', group: 'utility', label: 'Yorumlar', hint: 'Sor, tartış', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: () => scrollTo('konu-tartisma') },
+    { key: 'pdf', group: 'utility', label: 'PDF indir', hint: 'Yazdır, sakla', icon: <Download size={18} aria-hidden="true" />, href: user ? `/api/topic-pdf/${topic.id}` : undefined, external: true, onClick: user ? undefined : () => setPdfGateOpen(true) },
+    { key: 'share', group: 'utility', label: shareCopied ? 'Kopyalandı' : 'Paylaş', hint: 'Bağlantı', icon: <Share2 size={18} aria-hidden="true" />, onClick: () => void share() },
   ].filter(Boolean) as Tool[];
+  const learnTools = tools.filter((t) => t.group === 'learn');
+  const utilityTools = tools.filter((t) => t.group === 'utility');
 
   const renderTool = (t: Tool) => {
     const body = (
@@ -604,36 +630,166 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         {/* Üst çubuk: konum + konu değiştir + admin */}
         <div className={s.topbar}>
           <nav className={s.crumbs} aria-label="Konum">
-            {gradeSlug && <Link href={`/${gradeSlug}`} className={s.crumbHide}>{gradeName}</Link>}
-            <ChevronRight size={14} className={cx(s.crumbSep, s.crumbHide)} aria-hidden="true" />
-            {gradeSlug && lessonSlug && <Link href={`/${gradeSlug}/${lessonSlug}`} className={s.crumbHide}>{lessonName}</Link>}
-            <ChevronRight size={14} className={cx(s.crumbSep, s.crumbHide)} aria-hidden="true" />
-            {gradeSlug && lessonSlug && unitSlug ? <Link href={`/${gradeSlug}/${lessonSlug}/${unitSlug}`}>{unitName}</Link> : <span>{unitName}</span>}
+            {gradeSlug ? (
+              <Link href={`/${gradeSlug}`} className={s.crumbGrade}>{gradeName}</Link>
+            ) : (
+              <span className={s.crumbGrade}>{gradeName}</span>
+            )}
+            <ChevronRight size={14} className={s.crumbSep} aria-hidden="true" />
+            {gradeSlug && lessonSlug ? (
+              <Link href={`/${gradeSlug}/${lessonSlug}`} className={s.crumbLesson}>{lessonName}</Link>
+            ) : (
+              <span className={s.crumbLesson}>{lessonName}</span>
+            )}
+            <ChevronRight size={14} className={cx(s.crumbSep, s.crumbUnitSep)} aria-hidden="true" />
+            {gradeSlug && lessonSlug && unitSlug ? (
+              <Link href={`/${gradeSlug}/${lessonSlug}/${unitSlug}`} className={s.crumbUnit}>{unitName}</Link>
+            ) : (
+              <span className={s.crumbUnit}>{unitName}</span>
+            )}
           </nav>
-          <button type="button" className={s.ghostBtn} onClick={() => setSwitcherOpen(true)}>
-            <ListTree size={16} aria-hidden="true" /> Konu değiştir
-          </button>
-          {isAdmin && (
-            <div className={s.menuWrap}>
-              <button type="button" className={s.adminBtn} onClick={() => setAdminMenuOpen((v) => !v)} aria-expanded={adminMenuOpen}>
-                <Sparkles size={15} aria-hidden="true" /> İçerik
-              </button>
-              {adminMenuOpen && (
-                <>
-                  <div className={s.backdrop} onClick={() => setAdminMenuOpen(false)} />
-                  <div className={s.menu} role="menu">
-                    <button type="button" className={s.menuItemStrong} onClick={() => { setAdminMenuOpen(false); setAdminTool({ panel: 'all' }); }}>Tüm Araçlar →</button>
-                    <div className={s.menuSep} />
-                    {ADMIN_TOOLS_MENU.map((item) => (
-                      <button key={item.panel} type="button" className={s.menuItem} onClick={() => { setAdminMenuOpen(false); setAdminTool({ panel: item.panel }); }}>
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+          <div className={s.topbarActions}>
+            {contents.length > 0 && (
+              <div className={s.menuWrap}>
+                <nav className={s.topicStepper} aria-label="Ünite içi konu geçişi">
+                  {prevUnitTopic && prevUnitTopicHref ? (
+                    <Link
+                      href={prevUnitTopicHref}
+                      className={s.stepperBtn}
+                      aria-label={`Önceki konu: ${prevUnitTopic.title}`}
+                      title={`Önceki konu: ${prevUnitTopic.title}`}
+                    >
+                      <ChevronLeft size={15} aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span className={cx(s.stepperBtn, s.stepperBtnDisabled)} aria-disabled="true">
+                      <ChevronLeft size={15} aria-hidden="true" />
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className={s.stepperLabel}
+                    onClick={() => setUnitTopicsOpen((v) => !v)}
+                    aria-expanded={unitTopicsOpen}
+                    aria-haspopup="menu"
+                    title="Bu ünitenin konularını gör"
+                  >
+                    <span>
+                      <span className={s.stepperWord}>Konu </span>
+                      {topicIndex + 1}/{contents.length}
+                    </span>
+                    <ChevronDown size={13} className={cx(unitTopicsOpen && s.stepperChevronOpen)} aria-hidden="true" />
+                  </button>
+                  {nextUnitTopic && nextUnitTopicHref ? (
+                    <Link
+                      href={nextUnitTopicHref}
+                      className={s.stepperBtn}
+                      aria-label={`Sonraki konu: ${nextUnitTopic.title}`}
+                      title={`Sonraki konu: ${nextUnitTopic.title}`}
+                    >
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span className={cx(s.stepperBtn, s.stepperBtnDisabled)} aria-disabled="true">
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </span>
+                  )}
+                </nav>
+                {unitTopicsOpen && (
+                  <>
+                    <div className={s.backdrop} onClick={() => setUnitTopicsOpen(false)} />
+                    <div className={s.topicPopover} role="menu" aria-label={`${unitName} konuları`}>
+                      <div className={s.topicPopoverHead}>
+                        <div className={s.topicPopoverMeta}>
+                          <span className={s.topicPopoverSub}>
+                            {gradeName} · {lessonName}
+                          </span>
+                          <div className={s.topicPopoverTitleRow}>
+                            {unitIndex >= 0 && (
+                              <span className={s.topicPopoverUnitBadge}>Ünite {unitIndex + 1}</span>
+                            )}
+                            <span className={s.topicPopoverTitle}>{unitName}</span>
+                          </div>
+                        </div>
+                        <div className={s.topicPopoverHeadRight}>
+                          <span className={s.topicPopoverCount}>{contents.length} konu</span>
+                          <button type="button" className={s.topicPopoverClose} onClick={() => setUnitTopicsOpen(false)} aria-label="Kapat">
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                      <ol className={s.topicPopoverList}>
+                        {contents.map((c, i) => {
+                          const active = c.slug === topic.slug;
+                          const href = topicHref(c);
+                          const row = (
+                            <>
+                              <span className={s.topicPopoverNo}>{pad2(i)}</span>
+                              <span className={s.topicPopoverName}>{c.title}</span>
+                              {active && <span className={s.topicPopoverDot} aria-hidden="true" />}
+                            </>
+                          );
+                          return (
+                            <li key={c.id}>
+                              {active || !href ? (
+                                <div className={cx(s.topicPopoverItem, s.topicPopoverItemActive)} aria-current="page">
+                                  {row}
+                                </div>
+                              ) : (
+                                <Link
+                                  href={href}
+                                  className={s.topicPopoverItem}
+                                  role="menuitem"
+                                  onClick={() => setUnitTopicsOpen(false)}
+                                >
+                                  {row}
+                                </Link>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      <div className={s.topicPopoverFoot}>
+                        <button
+                          type="button"
+                          className={s.topicPopoverAllBtn}
+                          onClick={() => {
+                            setUnitTopicsOpen(false);
+                            setSwitcherOpen(true);
+                          }}
+                        >
+                          <ListTree size={14} aria-hidden="true" />
+                          <span>Başka ünite veya ders seç</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {isAdmin && (
+              <div className={s.menuWrap}>
+                <button type="button" className={s.adminBtn} onClick={() => setAdminMenuOpen((v) => !v)} aria-expanded={adminMenuOpen}>
+                  <Sparkles size={14} aria-hidden="true" />
+                  <span>İçerik</span>
+                </button>
+                {adminMenuOpen && (
+                  <>
+                    <div className={s.backdrop} onClick={() => setAdminMenuOpen(false)} />
+                    <div className={s.menu} role="menu">
+                      <button type="button" className={s.menuItemStrong} onClick={() => { setAdminMenuOpen(false); setAdminTool({ panel: 'all' }); }}>Tüm Araçlar →</button>
+                      <div className={s.menuSep} />
+                      {ADMIN_TOOLS_MENU.map((item) => (
+                        <button key={item.panel} type="button" className={s.menuItem} onClick={() => { setAdminMenuOpen(false); setAdminTool({ panel: item.panel }); }}>
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* HERO */}
@@ -645,11 +801,18 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
               <span className={s.heroTag}>{gradeName}</span>{' '}
               <span className={s.heroTag}>Konu anlatımı</span>
             </div>
-            <p className={s.kicker}>
-              {unitIndex >= 0 && <><b>Ünite {pad2(unitIndex)}</b>{' '}</>}
-              <span>{unitName}</span>
-              {contents.length > 1 && <>{' '}<span className={s.kickerCount}>Konu {topicIndex + 1}/{contents.length}</span></>}
-            </p>
+            <div className={s.kickerBar}>
+              <div className={s.kickerUnit}>
+                {unitIndex >= 0 && <span className={s.kickerBadge}>Ünite {pad2(unitIndex)}</span>}
+                {gradeSlug && lessonSlug && unitSlug ? (
+                  <Link href={`/${gradeSlug}/${lessonSlug}/${unitSlug}`} className={s.kickerUnitName}>
+                    {unitName}
+                  </Link>
+                ) : (
+                  <span className={s.kickerUnitName}>{unitName}</span>
+                )}
+              </div>
+            </div>
             <h1 className={s.h1}>{topic.title}</h1>
             <div className={topic.heroImageUrl ? s.heroGrid : s.heroGridSolo}>
               <div className={s.heroMain}>
@@ -1016,267 +1179,271 @@ export default function DersClientV1({ initialData, gradeId, lessonId, week }: D
         <ArrowUp size={20} aria-hidden="true" />
       </button>
 
-      {/* Mobil sabit okuma çubuğu (< 1024px): İçindekiler, Araçlar ve Önceki/Sonraki Konu başparmağın altında */}
-      <nav aria-label="Konu hızlı erişim" className={s.readerBar}>
-        {(highlights.length > 0 || sections.length > 0 || hasSummary) && (
-          <button
-            type="button"
-            className={s.readerBtn}
-            onClick={() => setMobileSheet('toc')}
-          >
-            <ListTree size={16} aria-hidden="true" />
-            <span>İçindekiler</span>
-          </button>
-        )}
-        {tools.length > 0 && (
-          <button
-            type="button"
-            className={cx(s.readerBtn, s.readerBtnAccent)}
-            onClick={() => setMobileSheet('tools')}
-          >
-            <Sparkles size={16} aria-hidden="true" />
-            <span>Araçlar ({tools.length})</span>
-          </button>
-        )}
-        {prev && (
-          <Link href={prev.href} className={s.readerNavBtn} aria-label={`${prev.label}: ${prev.title}`} rel="prev">
-            <ChevronLeft size={16} aria-hidden="true" />
-            <span>Önceki</span>
-          </Link>
-        )}
-        {next && (
-          <Link href={next.href} className={cx(s.readerNavBtn, s.readerNavNext)} aria-label={`${next.label}: ${next.title}`} rel="next">
-            <span>Sonraki</span>
-            <ChevronRight size={16} aria-hidden="true" />
-          </Link>
-        )}
-      </nav>
+      {/* Alt popover dış tıklama katmanı — readerBar'ın backdrop-filter'ından etkilenmemesi için dışında */}
+      {(tocOpen || toolsOpen) && (
+        <div
+          className={s.tocBackdrop}
+          onClick={() => {
+            setTocOpen(false);
+            setToolsOpen(false);
+          }}
+        />
+      )}
 
-      {/* Mobil İçindekiler BottomSheet — adım adım okuma haritası */}
-      <BottomSheet
-        open={mobileSheet === 'toc'}
-        onClose={() => setMobileSheet(null)}
-        title="İçindekiler"
-        subtitle={`${lessonName} · ${topic.title}`}
-        badge={`${sections.length} bölüm`}
-        icon={<ListTree size={18} />}
-        footer={
-          <div className="flex items-center gap-2">
+      {/* Mobil sabit okuma çubuğu (< 1024px): üstte ince okuma ilerlemesi, altta tek satır dengeli erişim */}
+      <nav aria-label="Konu hızlı erişim" className={s.readerBar}>
+        <span className={s.readerProgress} aria-hidden="true">
+          <span className={s.readerProgressFill} style={{ transform: `scaleX(${readProgress})` }} />
+        </span>
+        {(highlights.length > 0 || sections.length > 0 || hasSummary) && (
+          <>
             <button
               type="button"
+              className={cx(s.readerBtn, tocOpen && s.readerBtnOpen)}
+              aria-expanded={tocOpen}
+              aria-haspopup="menu"
               onClick={() => {
-                setMobileSheet(null);
-                setSwitcherOpen(true);
+                setToolsOpen(false);
+                setTocOpen((v) => !v);
               }}
-              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold text-default active:scale-[0.98]"
-              style={{ background: 'var(--bg)', borderColor: 'var(--edge)' }}
             >
-              <ListTree size={15} aria-hidden="true" />
-              Konu değiştir
+              <ListTree size={16} aria-hidden="true" />
+              <span>İçindekiler</span>
             </button>
-            {hasTest && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileSheet(null);
-                  startTest();
-                }}
-                disabled={topicTest.loading}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-white active:scale-[0.98]"
-                style={{ background: 'linear-gradient(120deg, #3B5BFD, #06B6D4)' }}
-              >
-                <ListChecks size={15} aria-hidden="true" />
-                Kavrama testi
-              </button>
+            {tocOpen && (
+              <div className={cx(s.topicPopover, s.tocPopover)} role="menu" aria-label="İçindekiler">
+                  <div className={s.topicPopoverHead}>
+                    <span className={s.topicPopoverTitle}>İçindekiler</span>
+                    <div className={s.topicPopoverHeadRight}>
+                      {sections.length > 0 && <span className={s.topicPopoverCount}>{sections.length} bölüm</span>}
+                      <button type="button" className={s.topicPopoverClose} onClick={() => setTocOpen(false)} aria-label="Kapat">
+                        <X size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <ol className={s.topicPopoverList}>
+                    {highlights.length > 0 && (() => {
+                      const active = activeStep === 'kavramlar';
+                      return (
+                        <li>
+                          <a
+                            href="#kavramlar"
+                            role="menuitem"
+                            className={cx(s.topicPopoverItem, active && s.topicPopoverItemActive)}
+                            aria-current={active ? 'location' : undefined}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setTocOpen(false);
+                              requestAnimationFrame(() => scrollTo('kavramlar'));
+                            }}
+                          >
+                            <span className={s.topicPopoverNo} aria-hidden="true"><Sparkles size={12} /></span>
+                            <span className={s.topicPopoverName}>Anahtar kavramlar</span>
+                            {active && <span className={s.topicPopoverDot} aria-hidden="true" />}
+                          </a>
+                        </li>
+                      );
+                    })()}
+                    {sections.map((sec, i) => {
+                      const slug = sectionSlugs.get(sec.id) || String(sec.id);
+                      const active = activeStep === 'bolumler' && slug === activeSlug;
+                      return (
+                        <li key={sec.id}>
+                          <a
+                            href={`#${slug}`}
+                            role="menuitem"
+                            className={cx(s.topicPopoverItem, active && s.topicPopoverItemActive)}
+                            aria-current={active ? 'location' : undefined}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setTocOpen(false);
+                              requestAnimationFrame(() => scrollTo(slug));
+                            }}
+                          >
+                            <span className={s.topicPopoverNo}>{pad2(i)}</span>
+                            <span className={s.topicPopoverName}>{sec.heading}</span>
+                            {active && <span className={s.topicPopoverDot} aria-hidden="true" />}
+                          </a>
+                        </li>
+                      );
+                    })}
+                    {hasSummary && (() => {
+                      const active = activeStep === 'ozet';
+                      return (
+                        <li>
+                          <a
+                            href="#ozet"
+                            role="menuitem"
+                            className={cx(s.topicPopoverItem, active && s.topicPopoverItemActive)}
+                            aria-current={active ? 'location' : undefined}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSummaryOpen(true);
+                              setTocOpen(false);
+                              requestAnimationFrame(() => scrollTo('ozet'));
+                            }}
+                          >
+                            <span className={s.topicPopoverNo} aria-hidden="true"><ListChecks size={12} /></span>
+                            <span className={s.topicPopoverName}>Özet</span>
+                            {active && <span className={s.topicPopoverDot} aria-hidden="true" />}
+                          </a>
+                        </li>
+                      );
+                    })()}
+                  </ol>
+                  {hasTest && (
+                    <div className={s.topicPopoverFoot}>
+                      <button
+                        type="button"
+                        className={s.tocTestBtn}
+                        disabled={topicTest.loading}
+                        onClick={() => {
+                          setTocOpen(false);
+                          startTest();
+                        }}
+                      >
+                        <ListChecks size={15} aria-hidden="true" />
+                        <span>Kavrama testi</span>
+                        {testSize ? <span className={s.tocTestCount}>{testSize} soru</span> : null}
+                      </button>
+                    </div>
+                  )}
+                </div>
+            )}
+          </>
+        )}
+        {tools.length > 0 && (
+          <>
+            <button
+              type="button"
+              className={cx(s.readerBtn, s.readerBtnAccent, toolsOpen && s.readerBtnOpen)}
+              aria-expanded={toolsOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                setTocOpen(false);
+                setToolsOpen((v) => !v);
+              }}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+              <span>Araçlar</span>
+              <span className={s.readerBadge}>{tools.length}</span>
+            </button>
+            {toolsOpen && (
+              <div className={cx(s.topicPopover, s.toolsPopover)} role="menu" aria-label="Konu araçları">
+                <div className={s.topicPopoverHead}>
+                  <div className={s.topicPopoverMeta}>
+                    <span className={s.topicPopoverSub}>{gradeName} · {lessonName}</span>
+                    <span className={s.topicPopoverTitle}>Konu Araçları</span>
+                  </div>
+                  <div className={s.topicPopoverHeadRight}>
+                    <span className={s.topicPopoverCount}>{tools.length} araç</span>
+                    <button type="button" className={s.topicPopoverClose} onClick={() => setToolsOpen(false)} aria-label="Kapat">
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+                <div className={s.toolsPopoverBody}>
+                  {learnTools.length > 0 && (
+                    <div className={s.toolsGroup}>
+                      <p className={s.toolsGroupLabel}>Öğren ve pekiştir</p>
+                      <div className={s.toolsLearnList}>
+                        {learnTools.map((tool) => {
+                          const row = (
+                            <>
+                              <span className={cx(s.toolsPopIcon, tool.featured && s.toolsPopIconFeatured)}>{tool.icon}</span>
+                              <span className={s.toolsPopText}>
+                                <b>{tool.label}</b>
+                                <small>{tool.hint}</small>
+                              </span>
+                              <ChevronRight size={14} className={s.toolsPopChevron} aria-hidden="true" />
+                            </>
+                          );
+                          const cls = cx(s.toolsPopItem, tool.featured && s.toolsPopItemFeatured);
+                          if (tool.href) {
+                            return tool.external ? (
+                              <a key={tool.key} href={tool.href} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setToolsOpen(false)} className={cls}>{row}</a>
+                            ) : (
+                              <Link key={tool.key} href={tool.href} role="menuitem" onClick={() => setToolsOpen(false)} className={cls}>{row}</Link>
+                            );
+                          }
+                          return (
+                            <button
+                              key={tool.key}
+                              type="button"
+                              role="menuitem"
+                              disabled={tool.disabled}
+                              onClick={() => {
+                                setToolsOpen(false);
+                                tool.onClick?.();
+                              }}
+                              className={cls}
+                            >
+                              {row}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {utilityTools.length > 0 && (
+                    <div className={s.toolsGroup}>
+                      <p className={s.toolsGroupLabel}>Kaydet ve paylaş</p>
+                      <div className={s.toolsUtilityGrid}>
+                        {utilityTools.map((tool) => {
+                          const inner = (
+                            <>
+                              <span className={s.toolsUtilIcon}>{tool.icon}</span>
+                              <span className={s.toolsUtilLabel}>{tool.label}</span>
+                            </>
+                          );
+                          if (tool.href) {
+                            return tool.external ? (
+                              <a key={tool.key} href={tool.href} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setToolsOpen(false)} className={s.toolsUtilBtn}>{inner}</a>
+                            ) : (
+                              <Link key={tool.key} href={tool.href} role="menuitem" onClick={() => setToolsOpen(false)} className={s.toolsUtilBtn}>{inner}</Link>
+                            );
+                          }
+                          return (
+                            <button
+                              key={tool.key}
+                              type="button"
+                              role="menuitem"
+                              disabled={tool.disabled}
+                              onClick={() => {
+                                setToolsOpen(false);
+                                tool.onClick?.();
+                              }}
+                              className={s.toolsUtilBtn}
+                            >
+                              {inner}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        {(prev || next) && (
+          <div className={s.readerNavGroup}>
+            {prev && (
+              <Link href={prev.href} className={s.readerNavBtn} aria-label={`${prev.label}: ${prev.title}`} rel="prev">
+                <ChevronLeft size={18} aria-hidden="true" />
+                <span className={s.readerNavLabel}>Önceki</span>
+              </Link>
+            )}
+            {next && (
+              <Link href={next.href} className={cx(s.readerNavBtn, s.readerNavNext)} aria-label={`${next.label}: ${next.title}`} rel="next">
+                <span className={s.readerNavLabel}>Sonraki</span>
+                <ChevronRight size={18} aria-hidden="true" />
+              </Link>
             )}
           </div>
-        }
-      >
-        <ol className="relative flex flex-col gap-2">
-          {highlights.length > 0 && (() => {
-            const active = activeStep === 'kavramlar';
-            return (
-              <li>
-                <a
-                  href="#kavramlar"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setMobileSheet(null);
-                    requestAnimationFrame(() => scrollTo('kavramlar'));
-                  }}
-                  className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
-                  style={{
-                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
-                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
-                  }}
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold"
-                    style={{
-                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 12%, transparent)',
-                      color: active ? '#fff' : 'var(--neon)',
-                    }}
-                  >
-                    <Sparkles size={15} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-bold text-default">Anahtar kavramlar</span>
-                  {active ? (
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: 'var(--neon)' }}>
-                      Buradasın
-                    </span>
-                  ) : (
-                    <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  )}
-                </a>
-              </li>
-            );
-          })()}
-          {sections.map((sec, i) => {
-            const slug = sectionSlugs.get(sec.id) || String(sec.id);
-            const active = activeStep === 'bolumler' && slug === activeSlug;
-            return (
-              <li key={sec.id}>
-                <a
-                  href={`#${slug}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setMobileSheet(null);
-                    requestAnimationFrame(() => scrollTo(slug));
-                  }}
-                  className="flex min-h-[56px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
-                  style={{
-                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
-                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
-                    boxShadow: active ? '0 0 0 1px var(--neon), 0 8px 20px -10px var(--glow)' : undefined,
-                  }}
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-extrabold tabular-nums"
-                    style={{
-                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 10%, transparent)',
-                      color: active ? '#fff' : 'var(--neon)',
-                    }}
-                  >
-                    {pad2(i)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block text-[14px] leading-snug ${active ? 'font-extrabold text-default' : 'font-semibold text-default/90'}`}>
-                      {sec.heading}
-                    </span>
-                    {active && (
-                      <span className="mt-0.5 block text-[11px] font-bold" style={{ color: 'var(--neon)' }}>
-                        Şu an okuduğun bölüm
-                      </span>
-                    )}
-                  </span>
-                  <ChevronRight size={16} className="shrink-0" style={{ color: active ? 'var(--neon)' : 'var(--muted)' }} aria-hidden="true" />
-                </a>
-              </li>
-            );
-          })}
-          {hasSummary && (() => {
-            const active = activeStep === 'ozet';
-            return (
-              <li>
-                <a
-                  href="#ozet"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSummaryOpen(true);
-                    setMobileSheet(null);
-                    requestAnimationFrame(() => scrollTo('ozet'));
-                  }}
-                  className="flex min-h-[54px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition-all active:scale-[0.985]"
-                  style={{
-                    background: active ? 'color-mix(in srgb, var(--neon) 12%, var(--panel-solid))' : 'var(--panel-solid)',
-                    borderColor: active ? 'var(--neon)' : 'var(--edge)',
-                  }}
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold"
-                    style={{
-                      background: active ? 'linear-gradient(135deg, var(--neon-2), var(--neon))' : 'color-mix(in srgb, var(--neon) 12%, transparent)',
-                      color: active ? '#fff' : 'var(--neon)',
-                    }}
-                  >
-                    <ListChecks size={15} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-bold text-default">Özet</span>
-                  {active ? (
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: 'var(--neon)' }}>
-                      Buradasın
-                    </span>
-                  ) : (
-                    <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  )}
-                </a>
-              </li>
-            );
-          })()}
-        </ol>
-      </BottomSheet>
-
-      {/* Mobil Konu Araçları BottomSheet */}
-      <BottomSheet
-        open={mobileSheet === 'tools'}
-        onClose={() => setMobileSheet(null)}
-        title="Konu Araçları"
-        subtitle="Dinle, tekrar et, kendini dene"
-        badge={`${tools.length} araç`}
-        icon={<Sparkles size={18} />}
-      >
-        <div className="grid grid-cols-1 gap-2.5">
-          {tools.map((tool) => {
-            const content = (
-              <>
-                <span
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border"
-                  style={{
-                    borderColor: 'color-mix(in srgb, var(--neon) 35%, var(--edge))',
-                    background: 'color-mix(in srgb, var(--neon) 10%, var(--panel-solid))',
-                    color: 'var(--neon)',
-                  }}
-                >
-                  {tool.icon}
-                </span>
-                <span className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-[15px] font-extrabold leading-tight text-default">{tool.label}</span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{tool.hint}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--neon)' }} aria-hidden="true" />
-              </>
-            );
-            const cls = 'flex min-h-[64px] w-full items-center gap-3.5 rounded-2xl border px-3.5 py-2.5 active:scale-[0.985] transition-all disabled:opacity-55';
-            const style = { background: 'var(--panel-solid)', borderColor: 'var(--edge)' };
-            if (tool.href) {
-              return tool.external ? (
-                <a key={tool.key} href={tool.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileSheet(null)} className={cls} style={style}>
-                  {content}
-                </a>
-              ) : (
-                <Link key={tool.key} href={tool.href} onClick={() => setMobileSheet(null)} className={cls} style={style}>
-                  {content}
-                </Link>
-              );
-            }
-            return (
-              <button
-                key={tool.key}
-                type="button"
-                disabled={tool.disabled}
-                onClick={() => {
-                  setMobileSheet(null);
-                  tool.onClick?.();
-                }}
-                className={cls}
-                style={style}
-              >
-                {content}
-              </button>
-            );
-          })}
-        </div>
-      </BottomSheet>
+        )}
+      </nav>
 
       {switcherOpen && (
         <TopicSwitcher

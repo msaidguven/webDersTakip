@@ -25,12 +25,16 @@ function convertMath(src: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
-// Soru metinlerindeki **kalın** vurgu (bkz. topicContentV11.ts renderPlainTextMath). Düz metin
-// gereken yerlerde (Word, paylaşım metni, kısa liste satırı) işaretler silinir, sözcük kalır.
+// Soru metinlerindeki **kalın** ve __altı çizili__ vurgular (bkz. topicContentV11.ts renderPlainTextMath).
+// UNDERLINE_RE 5 alt çizgili boşluk doldurma yer tutucusuyla ("_____") çakışmaz.
 export const EMPHASIS_RE = /\*\*([^*\n]+?)\*\*/g;
+export const UNDERLINE_RE = /__(?!_)([^_\n]+?)(?<!_)__/g;
 
 export function stripEmphasis(text: string): string {
-  return text.replace(EMPHASIS_RE, '$1');
+  return text
+    .replace(EMPHASIS_RE, '$1')
+    .replace(UNDERLINE_RE, '$1')
+    .replace(/<\/?(?:u|b|strong)>/gi, '');
 }
 
 export function latexToPlain(text: string): string {

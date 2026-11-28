@@ -1450,8 +1450,9 @@
 .dark :where(.to-blue-100\/90):not(:where(.light, .light *)) { --tw-gradient-to: color-mix(in srgb, rgb(59 130 246) 18%, var(--surface)) var(--tw-gradient-to-position); }
 
 
-/* Soru metinlerindeki **vurgu** (renderPlainTextMath): kalın + altı çizili, kökü zaten kalın kartlarda da ayırt edilsin. */
+/* Soru metinlerindeki **kalın** ve __altı çizili__ vurgular (renderPlainTextMath). */
 .q-em { font-weight: 900; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.q-u { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: currentColor; }
 
 /* Soru / Slayt Oynatıcısı: Otomatik ekran ölçekleme (Mobil → PC → Dev Akıllı Tahta).
    Etkileşimli oyunlu ders (v3.module.css) ve site geneli (html clamp) ile uyumlu;

@@ -18,7 +18,7 @@ SORU YAZIM KURALLARI:
 {passage_guidance}
 - Şıklar tam cümle olabilir; her şık aynı uzunluk ve yapıda olsun, doğru cevap uzunluğuyla belli olmasın. Çeldiriciler öğrencinin gerçekten yaptığı hatalardan seçilsin (ör. bağlaç "de" ile hâl eki "-de" karışıklığı).
 - "Hangisinde yanlış kullanılmıştır" sorusunda TAM OLARAK BİR şık yanlış, diğer üçü KUSURSUZ doğru olmalı; "hangisinde doğru" sorusunda tersi. Diğer şıklarda sorulan kuralın dışında da hiçbir yazım/noktalama hatası olmamalı.
-- Numaralı yer soruları: cümlede yerleri (I), (II), (III), (IV) diye işaretle; şıklar "I", "II"... olsun.
+- Numaralı veya altı çizili sözcük soruları: Tek sözcük soruluyorsa numaralamak yerine altını çiz (__sözcük__) ve "altı çizili sözcük" diye sor. Birden fazla sözcük numaralanıyorsa her sözcüğün hem altını çiz hem numarasını yaz: __tarihi__ (I), __özgürlük__ (II), __durmadan__ (III), __bağımsızlığını__ (IV); şıklar "I", "II"... olsun. Boşluk/noktalama yeri soruluyorsa yalnız (I), (II), (III), (IV) kullan.
 - blank tipini yalnız tek bir doğru cevabı olan durumlarda kullan (ör. bir terimin adı); noktalama/yazım boşluk sorusu YAZMA (birden fazla doğru çıkabiliyor).
 - Soru cümlelerini ve paragrafları kendin, serbestçe yaz; bir cümlenin kitaptakiyle aynı çıkması sorun değil, ama kitabın örnek listelerini ya da okuma metinlerini aktarma. Cümleler {grade} öğrencisine uygun, "{unit}" temasına yakın ve kitaptaki bir hikâyeyi bilmeyi gerektirmeyen, tek başına anlaşılır olsun.
 - solution_text: doğru şıkkın neden doğru olduğunu ve en güçlü çeldiricinin neden yanlış olduğunu 1-3 cümlede kuralı adıyla açıkla. Şıklar öğrenciye karışık sırayla gösterilir: şıkka ASLA harfle ("A seçeneği", "B şıkkı") atıf yapma, şıkkı içeriğinden kısa bir alıntıyla an (ör. "'Sınıfa girdi, …' cümlesinde").
@@ -70,6 +70,6 @@ Kurallar (MUTLAKA uygula):
 - Tam 4 şık/seçenek, SADECE 1 doğru; "Hepsi doğru"/"Hiçbiri" yok.
 - blank: question_text tek cümle, içinde TAM OLARAK BİR "_____"; doğru cevap 1-3 kelime.
 - Paragraflarda ve şıklarda Türkçe tırnak/konuşma çizgisi kurallarına uy; svg_prompt her zaman null.
-- Kalın yazıyı (**…**) YALNIZ soru kökündeki olumsuz ifadede (hangisi **değildir**, **yanlıştır**, **söylenemez**) ve sorusu sorulan sözcükte ("**tatlı** sözcüğü…") kullan; şıklarda ve çözümde kullanma.
+- Kalın yazıyı (**…**) YALNIZ soru kökündeki olumsuz ifadede (hangisi **değildir**, **yanlıştır**, **söylenemez**) ve vurgulanan sözcükte, altı çizili ifadeyi (__…__) ise sorusu sorulan veya numaralanan sözcüklerde kullan; şıklarda ve çözümde kullanma.
 
 {test_question_quality_rules}

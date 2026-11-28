@@ -202,8 +202,13 @@ export type V3TeachBeat = {
   title: string;
   /** Tek net bilgi: 1-2 kısa cümle (ekranda Atom balonunda görünür). */
   fact: string;
-  /** Azure TTS için ekrandan ayrı, 1-3 kısa cümlelik doğal öğretmen anlatımı (sembolsüz). */
+  /** Azure TTS için ekrandan ayrı, doğal öğretmen anlatımı (sembolsüz). */
   narration?: string;
+  /**
+   * Öğretim görselinin her parçasına (kart/madde/adım) birebir karşılık gelen sıralı öğretmen anlatımı.
+   * Varsa oynatıcı parçaları sesle senkron olarak sırayla açar ve vurgular; yoksa `narration` tek parça çalar.
+   */
+  narrationSteps?: string[];
   /** Özel SVG sahneli konularda (örn. Sindirim Sistemi) canlı odak kimliği. */
   focus?: DigestiveFocusId;
   /** Genel konularda (AI üretimi dahil) bilgiyi görselleştiren yapısal kart/şema. */
@@ -254,8 +259,8 @@ export type V3Section = {
 
 export type LessonDefinitionV3 = {
   version: 3;
-  /** v3.1: Önce Öğret → Sonra Uygula mikro-laboratuvarlı sürüm (geriye dönük uyumlu). */
-  schemaVersion?: '3.1';
+  /** v3.1: mikro-laboratuvarlı; v3.2: ses-senkronlu parçalı öğretmen anlatımı + 2 aşamalı laboratuvar. */
+  schemaVersion?: '3.1' | '3.2';
   topicId: number;
   courseLabel: string;
   sceneId: V3SceneId;
@@ -287,6 +292,23 @@ export function isInteractiveBeatVisual(visual?: V3BeatVisual): boolean {
     visual?.kind === 'cause_effect_dial' ||
     visual?.kind === 'step_reveal'
   );
+}
+
+/** Öğretim görselinin ses-senkronlu kademeli açılım için beklediği parça sayısı (etkileşimli laboratuvarlarda 0). */
+export function expectedNarrationStepCount(visual?: V3BeatVisual): number {
+  if (!visual || isInteractiveBeatVisual(visual)) return 0;
+  switch (visual.kind) {
+    case 'compare':
+    case 'equation':
+      return 2;
+    case 'steps':
+    case 'cards':
+      return visual.items.length;
+    case 'highlight':
+      return visual.bullets.length;
+    default:
+      return 0;
+  }
 }
 
 export function isLessonV3(lesson: unknown): lesson is LessonDefinitionV3 {

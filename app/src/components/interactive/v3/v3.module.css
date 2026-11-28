@@ -849,25 +849,21 @@
 .gameKickerPill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: clamp(5px, 0.5vh, 8px) clamp(13px, 1.25vw, 20px);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1.5px solid var(--beat-accent-border);
+  gap: 6px;
+  padding: 2px 6px;
   color: var(--beat-accent-text);
-  font-size: var(--fs-sm);
+  font-size: clamp(11.5px, 0.75vw + 6px, 16px);
   font-weight: 800;
-  margin-bottom: 8px;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(8px);
+  letter-spacing: 0.01em;
+  margin-bottom: 4px;
+  opacity: 0.92;
 }
 
 .gameKickerDot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--beat-accent) 0%, var(--beat-accent-deep) 100%);
-  box-shadow: 0 0 0 3px var(--beat-accent-glow);
   flex: none;
 }
 
@@ -877,7 +873,7 @@
   font-weight: 900;
   color: #0f172a;
   letter-spacing: -0.025em;
-  line-height: 1.16;
+  line-height: 1.15;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -885,14 +881,11 @@
   position: relative;
   width: 100%;
   max-width: var(--stage-max);
-  padding: clamp(10px, 1.15vw, 20px);
-  border-radius: 26px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #f6faff 100%);
-  border: 1.5px solid #c5daf0;
-  box-shadow:
-    0 18px 40px rgba(15, 23, 42, 0.09),
-    0 2px 6px rgba(15, 23, 42, 0.04),
-    inset 0 1px 0 #ffffff;
+  padding: clamp(6px, 0.9vw, 16px);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(197, 218, 240, 0.85);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -900,13 +893,7 @@
 }
 
 .gameVisualFrame::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--beat-accent) 0%, var(--beat-accent-deep) 100%);
-  opacity: 0.85;
-  pointer-events: none;
+  display: none;
 }
 
 .gameVisualClickable {
@@ -1115,6 +1102,31 @@
   color: #ffffff;
   box-shadow: 0 3px 10px rgba(5, 150, 105, 0.28);
   animation: labPop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.teachSummaryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: clamp(10.5px, 0.7vw + 5.5px, 14px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  background: rgba(254, 243, 199, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #92400e;
+}
+
+.teachFactMark {
+  background: linear-gradient(180deg, transparent 52%, rgba(253, 224, 71, 0.45) 52%);
+  color: #0f172a;
+  font-weight: 900;
+  padding: 0 3px;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 @keyframes labPop {
@@ -1997,6 +2009,61 @@
   animation: pulseRing 2s ease-in-out infinite;
 }
 
+@keyframes stageRevealPop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stageRevealItem {
+  animation: stageRevealPop 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stageDotsBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.stageDotBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(148, 163, 184, 0.38);
+  background: rgba(255, 255, 255, 0.78);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stageDotBtn:hover {
+  border-color: rgba(14, 165, 233, 0.55);
+  color: #0369a1;
+  background: #ffffff;
+}
+
+.stageDotBtn[data-active='true'] {
+  border-color: #0284c7;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.28);
+}
+
+.stageDotBtn[data-locked='true'] {
+  opacity: 0.48;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .svgFlow,
   .svgFloat,
@@ -2005,7 +2072,8 @@
   .adventureAtomHover,
   .adventureAtomHoverMobile,
   .gameBeatStack,
-  .labDiscoveredPill {
+  .labDiscoveredPill,
+  .stageRevealItem {
     animation: none !important;
   }
 }

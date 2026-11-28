@@ -6,6 +6,7 @@ import { AdminAlerts } from '@/app/src/components/admin/AdminAlerts';
 import { createClient } from '@/utils/supabase/client';
 import { type EntityKey } from '@/app/src/components/admin/ManagementTab';
 import ManagementShell from '@/app/src/components/admin/ManagementShell';
+import LessonGradeManagerPanel from '@/app/src/components/admin/LessonGradeManagerPanel';
 import MembersTab from '@/app/src/components/admin/MembersTab';
 import SchoolsSyncPanel from '@/app/src/components/admin/SchoolsSyncPanel';
 import CodeCleanupPanel from '@/app/src/components/admin/CodeCleanupPanel';
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 // ==================== TYPES ====================
 
-type TabType = 'dashboard' | 'manage' | 'members' | 'schools' | 'code-cleanup';
+type TabType = 'dashboard' | 'lesson-grades' | 'manage' | 'members' | 'schools' | 'code-cleanup';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -82,6 +83,14 @@ export default function AdminPanel() {
 
         <nav className="px-2 sm:px-4 pb-4 space-y-1 mt-16 lg:mt-0 flex-1 overflow-y-auto">
           <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon="📊" label="Dashboard" />
+          <NavButton active={activeTab === 'lesson-grades'} onClick={() => { setActiveTab('lesson-grades'); setSidebarOpen(false); }} icon="📘" label="Ders Ata / Ekle / Sil" />
+          <Link
+            href="/admin/etkilesimli-ders-matrisi"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-left transition-all text-sm sm:text-base text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span className="text-base sm:text-lg">🧩</span>
+            <span className="font-medium truncate">Etkileşimli Ders Matrisi</span>
+          </Link>
           <NavButton active={activeTab === 'manage'} onClick={() => { setActiveTab('manage'); setSidebarOpen(false); }} icon="🛠️" label="Yönetim" />
           <NavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setSidebarOpen(false); }} icon="👥" label="Üyeler" />
           <Link
@@ -234,6 +243,7 @@ export default function AdminPanel() {
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-10 px-4 sm:px-6 lg:px-8">
         {activeTab === 'dashboard' && <AdminAlerts />}
         {activeTab === 'dashboard' && <DashboardTab onGoManage={goToManage} onGoMembers={() => setActiveTab('members')} onGoSchools={() => setActiveTab('schools')} />}
+        {activeTab === 'lesson-grades' && <LessonGradeManagerPanel />}
         {activeTab === 'manage' && <ManagementShell />}
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'schools' && <SchoolsSyncPanel />}

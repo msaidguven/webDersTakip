@@ -3,6 +3,7 @@
 // Genel Konular İçin v3 Yapısal Görsel Sahne (Gemini AI worker ile üretilen tüm derslerde kullanılır).
 // Web/masaüstünde yatay sahne oranına uygun dengeli, tek-kalan (orphan) kutusuz infografik akış;
 // mobilde dikey okunaklı, dokunsal derinlikli kartlar. Bölümün vurgu rengiyle (accent) otomatik uyumludur.
+import { useEffect, useRef } from 'react';
 import {
   ArrowLeftRight,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
   Layers,
   Plus,
   Sparkles,
+  Volume2,
 } from 'lucide-react';
 import type { V3BeatVisual } from '@/app/src/lib/interactiveLesson/typesV3';
 import { CauseEffectDialLab } from './labs/CauseEffectDialLab';
@@ -20,6 +22,7 @@ import { ACCENT_PALETTES, ITEM_JEWELS, type AccentKey } from './labs/labTheme';
 import { SpotHighlightLab } from './labs/SpotHighlightLab';
 import { StepRevealLab } from './labs/StepRevealLab';
 import { TokenBuilderLab } from './labs/TokenBuilderLab';
+import s from '../v3.module.css';
 
 export function GenericVisualScene({
   visual,
@@ -27,15 +30,71 @@ export function GenericVisualScene({
   accent = 'sky',
   soundOn = true,
   onLabComplete,
+  activeStage = null,
+  revealedCount,
+  onSelectStage,
 }: {
   visual?: V3BeatVisual;
   title: string;
   accent?: AccentKey;
   soundOn?: boolean;
   onLabComplete?: () => void;
+  /** Şu an sesli anlatılan parça indeksi (0..N-1); null ise tüm parçalar eşit netlikte. */
+  activeStage?: number | null;
+  /** Kademeli açılımda görünür parça sayısı; undefined ise tüm parçalar görünür. */
+  revealedCount?: number;
+  /** Açılmış bir parçaya dokunulduğunda o parçayı tek başına tekrar dinletir. */
+  onSelectStage?: (index: number) => void;
 }) {
   const palette = ACCENT_PALETTES[accent];
   const jewels = ITEM_JEWELS[accent];
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (activeStage === null || activeStage === undefined) return;
+    const el = containerRef.current?.querySelector<HTMLElement>(`[data-stage-index="${activeStage}"]`);
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeStage]);
+
+  const isVisible = (idx: number) => revealedCount === undefined || idx < revealedCount;
+  const stageClass = (idx: number) => {
+    const reveal = revealedCount !== undefined ? s.stageRevealItem : '';
+    const focus =
+      activeStage === null
+        ? ''
+        : activeStage === idx
+          ? 'ring-2 ring-sky-400/90 ring-offset-2 ring-offset-white/60 scale-[1.01]'
+          : 'opacity-75';
+    const clickable = onSelectStage ? 'cursor-pointer' : '';
+    return `${reveal} ${focus} ${clickable} transition-all duration-300`;
+  };
+  const stageHandlers = (idx: number) =>
+    onSelectStage
+      ? {
+          'data-stage-index': idx,
+          role: 'button' as const,
+          tabIndex: 0,
+          title: 'Bu bölümü dinlemek için dokun',
+          onClick: () => onSelectStage(idx),
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelectStage(idx);
+            }
+          },
+        }
+      : { 'data-stage-index': idx };
+  const speakingBadge = (idx: number) =>
+    activeStage === idx ? (
+      <span
+        aria-label="Anlatılıyor"
+        className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-600/90 px-2 py-0.5 text-[11px] font-extrabold text-white shadow-sm"
+      >
+        <Volume2 className="h-3 w-3 animate-pulse" aria-hidden="true" />
+      </span>
+    ) : null;
 
   if (!visual) {
     return (
@@ -92,44 +151,20 @@ export function GenericVisualScene({
           : 'grid-cols-1 sm:grid-cols-2';
 
     return (
-      <div className="flex w-full flex-col gap-3.5 p-1.5 sm:p-2.5">
-        {/* Üst Vurgu Şeridi */}
-        <div
-          className="flex flex-wrap items-center gap-2.5 rounded-2xl border px-3.5 py-2.5 sm:px-4 sm:py-3"
-          style={{
-            background: palette.headerBg,
-            borderColor: palette.headerBorder,
-          }}
-        >
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-extrabold text-white shadow-sm"
-            style={{
-              background: palette.badgeBg,
-              fontSize: 'var(--fs-sm)',
-            }}
-          >
-            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>{visual.badge}</span>
-          </span>
-          <h3
-            className="m-0 font-black tracking-tight"
-            style={{ fontSize: 'var(--fs-choice)', color: palette.titleText }}
-          >
-            {visual.headline}
-          </h3>
-        </div>
-
+      <div className="flex w-full flex-col gap-3 p-1 sm:p-2">
         {/* Dengeli Mücevher Madde Kartları */}
-        <div className={`grid w-full gap-3 ${gridClass}`}>
+        <div ref={containerRef} className={`grid w-full gap-3 ${gridClass}`}>
           {visual.bullets.map((b, i) => {
+            if (!isVisible(i)) return null;
             const jewel = jewels[i % jewels.length];
             const isFullSpan = spanLastFull && i === count - 1;
             return (
               <div
                 key={i}
-                className={`group relative flex items-center gap-3.5 overflow-hidden rounded-2xl border bg-white px-4 py-3.5 transition-transform duration-200 hover:-translate-y-0.5 sm:px-5 sm:py-4 ${
+                {...stageHandlers(i)}
+                className={`group relative flex items-center gap-3.5 overflow-hidden rounded-2xl border bg-white px-4 py-3.5 hover:-translate-y-0.5 sm:px-5 sm:py-4 ${
                   isFullSpan ? 'sm:col-span-2' : ''
-                }`}
+                } ${stageClass(i)}`}
                 style={{
                   borderColor: jewel.border,
                   background: jewel.softBg,
@@ -164,6 +199,7 @@ export function GenericVisualScene({
                 >
                   {b}
                 </span>
+                {speakingBadge(i)}
               </div>
             );
           })}
@@ -173,89 +209,115 @@ export function GenericVisualScene({
   }
 
   if (visual.kind === 'compare') {
+    const showRight = isVisible(1);
     return (
-      <div className="relative grid w-full grid-cols-1 gap-3.5 p-1.5 sm:grid-cols-2 sm:gap-5 sm:p-2">
+      <div
+        ref={containerRef}
+        className={`relative grid w-full grid-cols-1 gap-3.5 p-1.5 sm:gap-5 sm:p-2 ${
+          showRight ? 'sm:grid-cols-2' : 'sm:max-w-xl sm:mx-auto'
+        }`}
+      >
         {/* Sol Karşılaştırma Kartı */}
-        <div
-          className="flex flex-col overflow-hidden rounded-2xl border-2 border-sky-200 bg-white"
-          style={{ boxShadow: '0 5px 0 #bae6fd, 0 10px 22px rgba(2, 132, 199, 0.08)' }}
-        >
+        {isVisible(0) && (
           <div
-            className="flex items-center gap-2.5 px-4 py-3 text-white"
-            style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)' }}
+            {...stageHandlers(0)}
+            className={`flex flex-col overflow-hidden rounded-2xl border-2 border-sky-200 bg-white ${stageClass(0)}`}
+            style={{ boxShadow: '0 5px 0 #bae6fd, 0 10px 22px rgba(2, 132, 199, 0.08)' }}
           >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/20 text-xs font-black">
-              A
-            </span>
-            <h4 className="m-0 font-black tracking-tight" style={{ fontSize: 'var(--fs-choice)' }}>
-              {visual.left.title}
-            </h4>
+            <div
+              className="flex items-center gap-2.5 px-4 py-3 text-white"
+              style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)' }}
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/20 text-xs font-black">
+                A
+              </span>
+              <h4 className="m-0 font-black tracking-tight" style={{ fontSize: 'var(--fs-choice)' }}>
+                {visual.left.title}
+              </h4>
+              {activeStage === 0 && (
+                <span className="ml-auto inline-flex shrink-0 items-center rounded-full bg-white/25 p-1 text-white">
+                  <Volume2 className="h-3.5 w-3.5 animate-pulse" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+            <ul className="m-0 flex flex-1 list-none flex-col gap-2 bg-sky-50/45 p-3.5">
+              {visual.left.points.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2.5 rounded-xl border border-sky-100 bg-white px-3.5 py-2.5 font-bold leading-snug text-slate-800 shadow-sm"
+                  style={{ fontSize: 'var(--fs-label)' }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sky-500"
+                  />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="m-0 flex flex-1 list-none flex-col gap-2 bg-sky-50/45 p-3.5">
-            {visual.left.points.map((p, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2.5 rounded-xl border border-sky-100 bg-white px-3.5 py-2.5 font-bold leading-snug text-slate-800 shadow-sm"
-                style={{ fontSize: 'var(--fs-label)' }}
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sky-500"
-                />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        )}
 
         {/* Masaüstü Orta Karşılaştırma Madalyonu */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 z-10 hidden h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-slate-200 bg-white text-slate-600 shadow-md sm:grid"
-        >
-          <ArrowLeftRight className="h-4 w-4" />
-        </span>
+        {showRight && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 hidden h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-slate-200 bg-white text-slate-600 shadow-md sm:grid"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+          </span>
+        )}
 
         {/* Sağ Karşılaştırma Kartı */}
-        <div
-          className="flex flex-col overflow-hidden rounded-2xl border-2 border-amber-200 bg-white"
-          style={{ boxShadow: '0 5px 0 #fde68a, 0 10px 22px rgba(217, 119, 6, 0.08)' }}
-        >
+        {showRight && (
           <div
-            className="flex items-center gap-2.5 px-4 py-3 text-white"
-            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' }}
+            {...stageHandlers(1)}
+            className={`flex flex-col overflow-hidden rounded-2xl border-2 border-amber-200 bg-white ${stageClass(1)}`}
+            style={{ boxShadow: '0 5px 0 #fde68a, 0 10px 22px rgba(217, 119, 6, 0.08)' }}
           >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/20 text-xs font-black">
-              B
-            </span>
-            <h4 className="m-0 font-black tracking-tight" style={{ fontSize: 'var(--fs-choice)' }}>
-              {visual.right.title}
-            </h4>
+            <div
+              className="flex items-center gap-2.5 px-4 py-3 text-white"
+              style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' }}
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/20 text-xs font-black">
+                B
+              </span>
+              <h4 className="m-0 font-black tracking-tight" style={{ fontSize: 'var(--fs-choice)' }}>
+                {visual.right.title}
+              </h4>
+              {activeStage === 1 && (
+                <span className="ml-auto inline-flex shrink-0 items-center rounded-full bg-white/25 p-1 text-white">
+                  <Volume2 className="h-3.5 w-3.5 animate-pulse" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+            <ul className="m-0 flex flex-1 list-none flex-col gap-2 bg-amber-50/45 p-3.5">
+              {visual.right.points.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2.5 rounded-xl border border-amber-100 bg-white px-3.5 py-2.5 font-bold leading-snug text-slate-800 shadow-sm"
+                  style={{ fontSize: 'var(--fs-label)' }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500"
+                  />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="m-0 flex flex-1 list-none flex-col gap-2 bg-amber-50/45 p-3.5">
-            {visual.right.points.map((p, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2.5 rounded-xl border border-amber-100 bg-white px-3.5 py-2.5 font-bold leading-snug text-slate-800 shadow-sm"
-                style={{ fontSize: 'var(--fs-label)' }}
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500"
-                />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        )}
       </div>
     );
   }
 
   if (visual.kind === 'steps') {
     const horizontalOnDesktop = visual.items.length <= 4;
+    const visibleSteps = revealedCount === undefined ? visual.items.length : Math.min(revealedCount, visual.items.length);
     return (
       <div
+        ref={containerRef}
         className={`w-full p-1.5 sm:p-2.5 ${
           horizontalOnDesktop
             ? 'flex flex-col items-stretch gap-2 sm:flex-row sm:items-stretch sm:justify-center sm:gap-2'
@@ -263,6 +325,7 @@ export function GenericVisualScene({
         }`}
       >
         {visual.items.map((item, i) => {
+          if (!isVisible(i)) return null;
           const jewel = jewels[i % jewels.length];
           return (
             <div
@@ -274,7 +337,8 @@ export function GenericVisualScene({
               }
             >
               <div
-                className="relative flex h-full w-full items-center gap-3 overflow-hidden rounded-2xl border bg-white px-4 py-3.5 transition-transform duration-200 hover:-translate-y-0.5 sm:flex-col sm:items-start sm:justify-start sm:gap-2.5 sm:p-4"
+                {...stageHandlers(i)}
+                className={`relative flex h-full w-full items-center gap-3 overflow-hidden rounded-2xl border bg-white px-4 py-3.5 hover:-translate-y-0.5 sm:flex-col sm:items-start sm:justify-start sm:gap-2.5 sm:p-4 ${stageClass(i)}`}
                 style={{
                   borderColor: jewel.border,
                   background: jewel.softBg,
@@ -286,12 +350,15 @@ export function GenericVisualScene({
                   className="pointer-events-none absolute inset-x-0 top-0 h-1"
                   style={{ background: jewel.strip }}
                 />
-                <span
-                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full px-2.5 text-xs font-black text-white shadow-sm"
-                  style={{ background: jewel.badge }}
-                >
-                  {i + 1}. Adım
-                </span>
+                <div className="flex w-full items-center gap-2">
+                  <span
+                    className="inline-flex h-7 shrink-0 items-center justify-center rounded-full px-2.5 text-xs font-black text-white shadow-sm"
+                    style={{ background: jewel.badge }}
+                  >
+                    {i + 1}. Adım
+                  </span>
+                  {speakingBadge(i)}
+                </div>
                 <span
                   className="font-extrabold leading-snug text-slate-900"
                   style={{ fontSize: 'var(--fs-label)' }}
@@ -299,7 +366,7 @@ export function GenericVisualScene({
                   {item}
                 </span>
               </div>
-              {i < visual.items.length - 1 && (
+              {i < visibleSteps - 1 && (
                 <>
                   <span
                     aria-hidden="true"
@@ -329,57 +396,71 @@ export function GenericVisualScene({
   }
 
   if (visual.kind === 'equation') {
+    const showResult = isVisible(1);
     return (
-      <div className="flex w-full flex-wrap items-center justify-center gap-2.5 p-2.5 sm:gap-3.5 sm:p-4">
-        {visual.inputs.map((inp, i) => {
-          const jewel = jewels[i % jewels.length];
-          return (
-            <div key={i} className="flex items-center gap-2.5 sm:gap-3.5">
-              <span
-                className="relative overflow-hidden rounded-2xl border bg-white px-4 py-3 font-extrabold text-slate-900 sm:px-5 sm:py-3.5"
-                style={{
-                  fontSize: 'var(--fs-choice)',
-                  borderColor: jewel.border,
-                  background: jewel.softBg,
-                  boxShadow: `0 4px 0 ${jewel.border}, 0 8px 18px rgba(15, 23, 42, 0.06)`,
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 h-1"
-                  style={{ background: jewel.strip }}
-                />
-                {inp}
-              </span>
-              {i < visual.inputs.length - 1 && (
-                <span
-                  aria-hidden="true"
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white shadow-sm"
-                  style={{ background: palette.badgeBg }}
-                >
-                  <Plus className="h-4 w-4" />
-                </span>
-              )}
-            </div>
-          );
-        })}
-        <span
-          aria-hidden="true"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-md"
-        >
-          <Equal className="h-5 w-5" />
-        </span>
-        <span
-          className="inline-flex items-center gap-2 rounded-2xl border-2 border-emerald-400 px-5 py-3 font-black text-emerald-950 sm:px-6 sm:py-3.5"
-          style={{
-            fontSize: 'var(--fs-choice)',
-            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-            boxShadow: '0 4px 0 #34d399, 0 10px 22px rgba(16, 185, 129, 0.16)',
-          }}
-        >
-          <Sparkles className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-          <span>{visual.result}</span>
-        </span>
+      <div ref={containerRef} className="flex w-full flex-wrap items-center justify-center gap-2.5 p-2.5 sm:gap-3.5 sm:p-4">
+        {isVisible(0) && (
+          <div
+            {...stageHandlers(0)}
+            className={`flex flex-wrap items-center justify-center gap-2.5 rounded-2xl p-1 sm:gap-3.5 ${stageClass(0)}`}
+          >
+            {visual.inputs.map((inp, i) => {
+              const jewel = jewels[i % jewels.length];
+              return (
+                <div key={i} className="flex items-center gap-2.5 sm:gap-3.5">
+                  <span
+                    className="relative overflow-hidden rounded-2xl border bg-white px-4 py-3 font-extrabold text-slate-900 sm:px-5 sm:py-3.5"
+                    style={{
+                      fontSize: 'var(--fs-choice)',
+                      borderColor: jewel.border,
+                      background: jewel.softBg,
+                      boxShadow: `0 4px 0 ${jewel.border}, 0 8px 18px rgba(15, 23, 42, 0.06)`,
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-0 h-1"
+                      style={{ background: jewel.strip }}
+                    />
+                    {inp}
+                  </span>
+                  {i < visual.inputs.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white shadow-sm"
+                      style={{ background: palette.badgeBg }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {showResult && (
+          <>
+            <span
+              aria-hidden="true"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-md"
+            >
+              <Equal className="h-5 w-5" />
+            </span>
+            <span
+              {...stageHandlers(1)}
+              className={`inline-flex items-center gap-2 rounded-2xl border-2 border-emerald-400 px-5 py-3 font-black text-emerald-950 sm:px-6 sm:py-3.5 ${stageClass(1)}`}
+              style={{
+                fontSize: 'var(--fs-choice)',
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                boxShadow: '0 4px 0 #34d399, 0 10px 22px rgba(16, 185, 129, 0.16)',
+              }}
+            >
+              <Sparkles className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+              <span>{visual.result}</span>
+              {speakingBadge(1)}
+            </span>
+          </>
+        )}
       </div>
     );
   }
@@ -393,13 +474,15 @@ export function GenericVisualScene({
         : 'grid-cols-1 md:grid-cols-3';
 
   return (
-    <div className={`grid w-full gap-3 p-1.5 sm:p-2 ${cardGridClass}`}>
+    <div ref={containerRef} className={`grid w-full gap-3 p-1.5 sm:p-2 ${cardGridClass}`}>
       {visual.items.map((card, i) => {
+        if (!isVisible(i)) return null;
         const jewel = jewels[i % jewels.length];
         return (
           <div
             key={i}
-            className="relative flex flex-col gap-2 overflow-hidden rounded-2xl border bg-white p-4 text-left transition-transform duration-200 hover:-translate-y-0.5 sm:p-5"
+            {...stageHandlers(i)}
+            className={`relative flex flex-col gap-2 overflow-hidden rounded-2xl border bg-white p-4 text-left hover:-translate-y-0.5 sm:p-5 ${stageClass(i)}`}
             style={{
               borderColor: jewel.border,
               background: jewel.softBg,
@@ -424,6 +507,7 @@ export function GenericVisualScene({
               >
                 {card.title}
               </span>
+              {speakingBadge(i)}
             </div>
             <span
               className="font-semibold leading-snug text-slate-700"

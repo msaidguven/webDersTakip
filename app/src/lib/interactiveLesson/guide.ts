@@ -17,9 +17,10 @@ export const voiceManifestPath = (topicId: number) => `interactive-voice/topics/
 export function speechText(text: string): string {
   return text
     .replace(new RegExp(TERM_LINK.source, 'g'), '$1')
-    .replace(/<\/?b>/gi, '')
+    .replace(/<\/?(?:b|u|strong)>/gi, '')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(?!_)([^_\n]+?)(?<!_)__/g, '$1')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}★]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -84,7 +85,13 @@ export const GUIDE = {
   v3KavramWrong: 'Olmadı! Harflerin üzerinden tekrar kaydır veya İpucu düğmesini kullan.',
   v3KavramNextWord: 'İlk kelime tamam! Şimdi sıradaki kelimeyi çemberden birleştir.',
   v3LabDone: 'Harika! Kendin deneyip keşfettin.',
+  v3LabExamplesCta: 'Şimdi örneklere bakalım!',
+  v3LabTryNow: 'Şimdi sen dene!',
   v3LabHint: 'Yukarıdaki çiplere dokunup dene.',
+  v3FirstSectionIntro: (topicTitle: string, beatTitle: string) =>
+    `Merhaba! Bugün ${topicTitle} konusunu işleyeceğiz. İlk olarak ${beatTitle} ile başlayalım.`,
+  v3SectionIntro: (beatTitle: string) => `Merhaba! Bu bölümde ${beatTitle} ile başlıyoruz.`,
+  v3BeatIntro: (beatTitle: string) => `${beatTitle.trim().replace(/[.!?:…]+$/, '')}.`,
 };
 
 export const praiseAt = (seed: number) => GUIDE.praise[Math.abs(seed) % GUIDE.praise.length];
@@ -318,6 +325,15 @@ export function v3BeatSpeechLegacy(beat: Pick<V3TeachBeat, 'title' | 'fact' | 'v
   return v3BeatSpeech(beat, { numberHighlight: false, legacyEquation: true, ignoreNarration: true });
 }
 
+// Adımın ses-senkronlu kademeli anlatım parçaları (varsa ve tüm parçaları doluysa).
+export function v3BeatNarrationSteps(
+  beat: Pick<V3TeachBeat, 'narrationSteps'>,
+): string[] {
+  if (!Array.isArray(beat.narrationSteps) || beat.narrationSteps.length < 2) return [];
+  const cleaned = beat.narrationSteps.map((s) => s.trim()).filter(Boolean);
+  return cleaned.length === beat.narrationSteps.length ? cleaned : [];
+}
+
 // Oynatıcının mevcut üretilmiş MP3'leri bozmadan sırayla kontrol edeceği ses metni adayları.
 export function v3BeatVoiceCandidates(
   beat: Pick<V3TeachBeat, 'title' | 'fact' | 'visual' | 'narration'>,
@@ -344,16 +360,31 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | Hydrated
       GUIDE.v3KavramWrong,
       GUIDE.v3KavramNextWord,
       GUIDE.v3LabDone,
+      GUIDE.v3LabExamplesCta,
+      GUIDE.v3LabTryNow,
       lesson.guide?.intro ?? GUIDE.intro(lesson.topicTitle),
       lesson.guide?.finish ?? GUIDE.finish,
     ];
-    for (const sec of lesson.sections) {
-      for (const beat of sec.beats) {
-        out.push(v3BeatSpeech(beat));
+    lesson.sections.forEach((sec, secIdx) => {
+      const firstTitle = sec.beats[0]?.title ?? sec.title;
+      if (secIdx === 0) out.push(GUIDE.v3FirstSectionIntro(lesson.topicTitle, firstTitle));
+      else out.push(GUIDE.v3SectionIntro(firstTitle));
+      sec.beats.forEach((beat, beatIdx) => {
+        if (beatIdx > 0 && beat.title.trim()) {
+          out.push(GUIDE.v3BeatIntro(beat.title));
+        }
+        const steps = v3BeatNarrationSteps(beat);
+        if (steps.length) {
+          out.push(...steps);
+        } else {
+          out.push(v3BeatSpeech(beat));
+        }
+        // Hem öğretim ekranlarında (kapanış özeti) hem mikro-laboratuvarlarda ("Keşfedildi" anı) okunur.
+        if (beat.fact.trim()) out.push(beat.fact.trim());
         if (beat.quickCheck) {
           out.push(beat.quickCheck.prompt, beat.quickCheck.okFeedback, beat.quickCheck.retryFeedback);
         }
-      }
+      });
       if (sec.game.kind === 'kavram_avi') {
         out.push(sec.game.intro);
         for (const r of sec.game.rounds) {
@@ -365,7 +396,7 @@ export function lessonLines(lesson: HydratedLesson | HydratedLessonV2 | Hydrated
         out.push(q.question_text);
         if (q.solution_text) out.push(q.solution_text);
       }
-    }
+    });
     return [...new Set(out.map(speechText).filter(Boolean))];
   }
   if (isHydratedV2(lesson)) {

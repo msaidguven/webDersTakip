@@ -45,7 +45,7 @@ export function buildSvgLessonGuidance(lessonName: string): string {
 // **…** işliyor; vurgu yalnız iki yerde anlamlı, her yerde kullanılırsa etkisini kaybeder. Türkçe
 // üretim ve iki doğrulama prompt'u bu yer tutucuyu kullanmadığı için kural onlarda elle yazılı.
 export const QUESTION_EMPHASIS_RULE =
-  '- Kalın yazıyı (**…**) YALNIZ soru kökündeki olumsuz ifadede (hangisi **değildir**, **yanlıştır**, **söylenemez**) ve sorusu sorulan sözcükte ("**tatlı** sözcüğü…") kullan; şıklarda ve çözümde kullanma.';
+  '- Vurgu kuralları: (1) Kalın yazıyı (**…**) YALNIZ soru kökündeki olumsuz ifadede (hangisi **değildir**, **yanlıştır**, **söylenemez**) ve vurgulanan sözcükte kullan. (2) Altı çizili sözcükleri __sözcük__ biçiminde yaz ("Bu cümlede altı çizili sözcüğün…"); cümlede birden fazla sözcük numaralanıyorsa her birinin altını da çiz (__tarihi__ (I), __özgürlük__ (II)…) ki hangi sözcüğün numaralandığı net olsun. Şıklarda ve çözümde kullanma.';
 
 export function buildMathNotationGuidance(lessonName: string): string {
   const normalized = normalizeForMatch(lessonName);

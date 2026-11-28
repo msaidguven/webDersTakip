@@ -105,11 +105,31 @@ export async function POST(request: NextRequest) {
     lessonId?: unknown;
     gradeId?: unknown;
     newLessonName?: unknown;
+    weeklyHours?: unknown;
+    isActive?: unknown;
+    tymmPageUrl?: unknown;
   } | null;
   const gradeId = Number(body?.gradeId);
   if (!Number.isInteger(gradeId) || gradeId <= 0) {
     return NextResponse.json({ error: 'Geçersiz sınıf' }, { status: 400 });
   }
+
+  let weeklyHours: number | null | undefined = undefined;
+  if (body && Object.prototype.hasOwnProperty.call(body, 'weeklyHours')) {
+    if (body.weeklyHours === null || body.weeklyHours === '') {
+      weeklyHours = null;
+    } else {
+      const parsed = Number(body.weeklyHours);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 40) {
+        return NextResponse.json({ error: 'Haftalık saat 1-40 arasında tam sayı olmalı' }, { status: 400 });
+      }
+      weeklyHours = parsed;
+    }
+  }
+
+  const isActive = typeof body?.isActive === 'boolean' ? body.isActive : false;
+  const tymmPageUrl =
+    typeof body?.tymmPageUrl === 'string' ? body.tymmPageUrl.trim() || null : undefined;
 
   const supabase = createServiceClient();
   let lessonId: number;
@@ -156,11 +176,24 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error } = await supabase.from('lesson_grades').insert({ lesson_id: lessonId, grade_id: gradeId, is_active: false });
+  const insertRow: Record<string, unknown> = {
+    lesson_id: lessonId,
+    grade_id: gradeId,
+    is_active: isActive,
+  };
+  if (weeklyHours !== undefined) insertRow.weekly_hours = weeklyHours;
+  if (tymmPageUrl !== undefined) insertRow.tymm_page_url = tymmPageUrl;
+
+  const { error } = await supabase.from('lesson_grades').insert(insertRow);
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: 'Bu ders bu sınıfta zaten var' }, { status: 409 });
     if (error.code === '23503') return NextResponse.json({ error: 'Ders veya sınıf bulunamadı' }, { status: 404 });
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (isActive) {
+    revalidateHomepage();
+    void revalidateGradeLessonPage(supabase, gradeId, lessonId);
   }
 
   return NextResponse.json({ ok: true, lessonId });

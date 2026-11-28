@@ -105,6 +105,11 @@ const PRONUNCIATION_RULES: [RegExp, string | ((...args: string[]) => string)][] 
 ];
 // "sütun/çubuk" → "sütun ya da çubuk" (sayı/hücre bölmeleri ve birimler önceden ele alınıyor).
 const WORD_SLASH_RE = /([a-zçğıöşü]{2,})\/([a-zçğıöşü]{2,})/giu;
+// Türkçe dil bilgisi ek gösterimleri: "-da/-de" → "da ya da de", "-mak" → "mak", "sev-" → "sev".
+// Negatif sayılar (-26) ve bileşik kelimeler (e-posta) etkilenmez.
+const SUFFIX_PAIR_RE = /(?<![\p{L}\p{N}])-([a-zçğıöşü]{1,5})-?\s*\/\s*-([a-zçğıöşü]{1,5})-?(?![\p{L}\p{N}])/giu;
+const LEADING_SUFFIX_RE = /(?<![\p{L}\p{N}])-([a-zçğıöşü]{1,5})(?![\p{L}\p{N}-])/giu;
+const TRAILING_ROOT_HYPHEN_RE = /(?<![\p{L}\p{N}])([a-zçğıöşü]{2,})-(?![\p{L}\p{N}])/giu;
 // Metin içi semboller: "&" → "ve", "→" ve "|" → doğal duraklama (virgül).
 const AMPERSAND_RE = /(\s)&(\s)/g;
 const ARROW_OR_PIPE_RE = /\s*[→|]\s*/g;
@@ -138,6 +143,41 @@ function speakPower(_m: string, base: string, caret?: string, sup?: string): str
   if (exp === '2') return `${base} kare`;
   if (exp === '3') return `${base} küp`;
   return `${base} üssü ${exp.startsWith('-') ? `eksi ${exp.slice(1)}` : exp}`;
+}
+
+// Parantez içi Romen rakamları: "(I)", "(II)", "(III)", "(IV)"… (Türkçe/paragraf sorularında numaralanmış
+// sözcük ve cümleler). PAREN_ACRONYM_RE'den önce ele alınır ki "(II)", "(III)", "(IV)" kısaltma sanılıp
+// silinmesin, "(I)" da Azure TTS tarafından "ı" harfi gibi okunmasın.
+// Tek harfli "(I)", "(V)", "(X)" yalnız metinde en az 2 parantez içi Romen rakamı (veya çok harfli bir
+// Romen rakamı) varsa sayıya çevrilir; böylece "İyot (I)", "Gerilim (V)" gibi fen/kimya sembolleri bozulmaz.
+const ROMAN_WORDS: Record<string, string> = {
+  I: 'bir',
+  II: 'iki',
+  III: 'üç',
+  IV: 'dört',
+  V: 'beş',
+  VI: 'altı',
+  VII: 'yedi',
+  VIII: 'sekiz',
+  IX: 'dokuz',
+  X: 'on',
+  XI: 'on bir',
+  XII: 'on iki',
+};
+const ROMAN_PAREN_RE = /\s*\(\s*(XII|XI|IX|VIII|VII|VI|IV|III|II|X|V|I)\s*\)/g;
+const MULTI_ROMAN_PAREN_RE = /\(\s*(?:XII|XI|IX|VIII|VII|VI|IV|III|II)\s*\)/;
+
+function replaceRomanInParens(text: string): string {
+  if (!ROMAN_PAREN_RE.test(text)) return text;
+  ROMAN_PAREN_RE.lastIndex = 0;
+  // Tek harfli (I)/(V)/(X) yalnız metinde çok harfli bir Romen rakamı ((II), (III), (IV)…)
+  // da varsa sayıya çevrilir; "İyot (I)" veya "Gerilim (V) ile akım (I)" gibi fen sembolleri bozulmaz.
+  const hasSeries = MULTI_ROMAN_PAREN_RE.test(text);
+  return text.replace(ROMAN_PAREN_RE, (full, roman: string) => {
+    if (roman.length === 1 && !hasSeries) return full;
+    const word = ROMAN_WORDS[roman];
+    return word ? `, ${word},` : full;
+  });
 }
 
 // Kısaltmalar (2026-10-02, "TÜRKSAT 3A, TÜRKSAT 4B…" cümlesi yanlış okunuyordu):
@@ -206,14 +246,20 @@ export function toSpeech(display: string): string {
     .replace(SINGLE_PLUS_RE, '$1 artı $2')
     .replace(AMPERSAND_RE, '$1ve$2')
     .replace(ARROW_OR_PIPE_RE, ', ');
+  out = replaceRomanInParens(out);
   return out
+    .replace(SUFFIX_PAIR_RE, '$1 ya da $2')
+    .replace(LEADING_SUFFIX_RE, '$1')
+    .replace(TRAILING_ROOT_HYPHEN_RE, '$1')
     .replace(WORD_SLASH_RE, '$1 ya da $2')
     .replace(PAREN_ACRONYM_RE, '')
     .replace(DIGIT_LETTER_RE, (_m, num: string, letter: string) => `${num} ${TR_LETTER_NAMES[letter] ?? letter}`)
     .replace(UPPER_WORD_RE, (w: string) => speakUpperWord(w))
     .replace(/\s{2,}/g, ' ')
-    // Formül sonundaki virgül cümle noktalamasıyla çakışmasın: "kapat,." → "kapat."
-    // (".pdf" gibi dosya uzantılarına dokunmamak için noktalama sonrası boşluk/son aranır).
+    // Formül veya parantez içi Romen rakamı çevirisinden kalan kenar virgüllerini temizle:
+    // "kapat,." → "kapat.", ". , iki," → ". iki,", ", bir, Sabah" → "bir, Sabah"
+    .replace(/([.!?:])\s*,\s*/g, '$1 ')
     .replace(/,\s*([.;:!?,])(?=\s|$)/g, '$1')
+    .replace(/^,\s*/, '')
     .trim();
 }
